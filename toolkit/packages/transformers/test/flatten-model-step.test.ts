@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   compile,
   createRegistry,
-  createTransformPipeline,
   noopGenerator,
+  CSHARP_STAGE,
+  FLATTEN_MODEL_STAGE,
+  TSP_EMIT_STAGE,
   type CompilerDiagnostic,
 } from "@azure-client-engine/compiler";
 import {
@@ -133,6 +135,19 @@ const flattenedOf = (ir: IR, name: string) =>
 
 const leafPath = (path: IRId[]) => path.map((p) => p.name);
 
+/** Deep copy with every `rendering` namespace removed, to isolate what a stage added. */
+function stripRendering(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripRendering);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => key !== "rendering")
+        .map(([key, nested]) => [key, stripRendering(nested)]),
+    );
+  }
+  return value;
+}
+
 // ─── A small ARM-shaped spec reused across cases ────────────────────────
 
 /** Thing { properties -> ThingProperties { name, sku -> Sku { name, tier } }, tags } */
@@ -201,12 +216,19 @@ describe("flatten-model: models", () => {
     expect(thing.properties.find((p) => p.name === "Properties")!.wireName).toBe("properties");
   });
 
-  it("does not mutate the input IR and re-validates against the schema", () => {
-    const input = parseIR(irOf(armModels()));
-    const snapshot = structuredClone(input);
+  it("is additive: it adds rendering hints in place and changes nothing else", () => {
+    const input = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
+    const before = structuredClone(input);
     const out = flattenModelStep().run(input, { config: {}, reportDiagnostic: vi.fn() });
-    expect(input).toEqual(snapshot);
+
+    // Written in place — the catalog declares this stage `additive`, so the
+    // orchestrator hands it an IR it owns rather than paying for a copy.
+    expect(out).toBe(input);
     expect(() => parseIR(out)).not.toThrow();
+
+    // The contract that makes sharing safe: strip every `rendering` namespace and
+    // what remains must be byte-for-byte the IR the emitter produced.
+    expect(stripRendering(out)).toEqual(stripRendering(before));
   });
 
   it("intersects visibility along the path and omits it when unconstrained", () => {
@@ -354,30 +376,50 @@ describe("flatten-model: request-body projection", () => {
 });
 
 describe("flatten-model: pipeline integration", () => {
-  it.each(["injected", "registered"] as const)("runs through compile() as an %s step", async (mode) => {
-    const step = flattenModelStep();
+  it("runs through compile() as the compiler's flatten-model stage", async () => {
     const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
 
     const result = await compile(
-      {
-        entrypoint: "main.tsp",
-        ...(mode === "registered" ? { config: { pipeline: [{ use: step.name }] } } : {}),
-      },
+      { entrypoint: "main.tsp" },
       {
         emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
-        generator: noopGenerator,
+        registry: createRegistry({
+          // Fulfilment, not orchestration: the compiler's catalog already places
+          // flatten-model between emit and the generator.
+          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+          generators: { [CSHARP_STAGE]: () => noopGenerator },
+        }),
         captureIR: true,
-        ...(mode === "injected"
-          ? { transform: createTransformPipeline("flatten", [step]) }
-          : { registry: createRegistry({ transforms: { [step.name]: flattenModelStep } }) }),
       },
     );
 
     expect(result.diagnostics).toEqual([]);
     expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "flatten-model"]);
-    // The emit snapshot is untouched; the step's output carries the flattening.
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
+    // The emit snapshot is untouched; the stage's output carries the flattening.
     expect(result.snapshots?.[0]?.ir.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
-    expect(result.ir?.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length).toBeGreaterThan(0);
+    expect(
+      result.snapshots?.[1]?.ir.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("is skipped when the config turns the stage off", async () => {
+    const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
+
+    const result = await compile(
+      { entrypoint: "main.tsp", config: { pipeline: { [FLATTEN_MODEL_STAGE]: false } } },
+      {
+        emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
+        registry: createRegistry({
+          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+          generators: { [CSHARP_STAGE]: () => noopGenerator },
+        }),
+        captureIR: true,
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.ir?.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
   });
 });

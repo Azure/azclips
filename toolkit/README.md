@@ -51,27 +51,114 @@ This is the single entry point CI/pipelines should call; it wraps `npm run build
 and `dotnet build` so callers need not know the per-package commands. `npm run
 build` stays the fast inner loop for TypeScript-only work.
 
-## Transformers
+## Orchestration
 
-`packages/transformers` contains reusable IR-to-IR steps implementing the
-compiler's `TransformStep` contract. Its initial `createScaffoldTransformer()`
-is a pass-through starting point: it returns the IR unchanged and is not enabled
-in the default compile pipeline.
+The **compiler owns the workflow**. `STAGE_CATALOG` in
+`packages/compiler/src/stages.ts` declares what stages exist, in what order they
+run, and whether each runs by default:
 
-Compose it with the existing compiler API and pass `transform` to `compile()`
-through `CompileOptions`:
-
-```typescript
-import { createTransformPipeline } from "@azure-client-engine/compiler";
-import { createScaffoldTransformer } from "@azure-client-engine/transformers";
-
-const transform = createTransformPipeline("custom", [
-  createScaffoldTransformer(),
-]);
+```ts
+{ id: "tsp-emit",      kind: "emit",      default: "mandatory" }
+{ id: "flatten-model", kind: "transform", default: "on" }
+{ id: "csharp",        kind: "generate",  default: "on" }
 ```
 
-The factory can also be registered under `scaffold` with `createRegistry` for
-selection through `CompileConfig.pipeline`. This does not register it in the CLI.
+The resolved plan is a **single linear sequence**. One IR leaves the emit stage
+and flows through every enabled transform in catalog order; each generate stage
+renders the IR as it stands when its turn comes. There are no branches, so a run
+has exactly one IR and the compiler never copies it. Array position *is* the
+order.
+
+A host has exactly one orchestration verb: **flip an optional stage**. It cannot
+append, insert, or reorder.
+
+```jsonc
+// generation-time config
+{ "pipeline": { "flatten-model": false } }
+```
+
+Disabling a stage simply removes it from the sequence — there is no tree to
+reattach, so position stays intrinsic for free. Naming an unknown stage, or
+disabling a `mandatory` one, is an error rather than a silent no-op. A run with
+no generate stage is reported as a warning: it runs, but writes no files.
+
+### `requires` — dependency, not order
+
+In a linear sequence every stage already runs after every earlier one, so
+ordering carries no dependency information. A stage whose output would be
+*wrong* without an earlier stage has to say so explicitly:
+
+```ts
+{ id: "virtual-params", kind: "transform", default: "on", requires: ["flatten-model"] }
+```
+
+Disabling a required stage is an error naming both ends, which turns "I
+regenerated and the output was quietly wrong" into a config failure you see
+immediately. Each id must name an earlier, IR-producing stage.
+
+### Stage discipline (convention, not enforced)
+
+A generate stage renders whatever the IR looks like at its position, so catalog
+order carries a rule that no code checks:
+
+1. **Stages that alter existing IR go before the first generate stage**, so
+   every backend renders the same canonical IR.
+2. **Stages after the first generate stage are purely additive** — new,
+   backend-namespaced fields only — so one backend's annotations are inert to
+   another's instead of corrupting it.
+
+Language- and client-specific transforms therefore belong in group 2. This is
+upheld by review rather than by a mechanism: the catalog is the single place
+ordering is decided, and no host can insert into it.
+
+### Fulfilment, failure, and output
+
+`CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
+implementations for ids the catalog already declared. The two external stages
+(`tsp-emit`, `csharp`) need no entry — they run through the host `Runtime`.
+Per-stage settings live in `config.stageOptions`, keyed by stage id, because
+options are not orchestration.
+
+Stages run to the first failure — in a sequence, every later stage would just
+consume the broken IR.
+
+Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-flatten-model.json`).
+Generate stages take a sequence position but produce no IR, so index gaps are
+expected. Because a run mutates one IR from end to end, a sink that *retains* a
+snapshot **must** copy it: the in-memory collector does, and the CLI's filesystem
+sink serializes before its first `await`, so capture costs nothing there.
+Generated artifacts carry the `stage` that produced them, and two stages writing
+the same path is an error rather than last-writer-wins.
+
+## Transformers
+
+`packages/transformers` holds the implementations behind the compiler's
+transform stage ids. A step implements `TransformStep` and knows nothing about
+where it runs — the catalog already placed it. A run carries one IR, so
+returning it mutated in place is the expected shape; returning a replacement
+works too.
+
+`flattenModelStep()` fulfils the `flatten-model` stage: it hoists nested object
+members onto their containing model (`ModelHints.flattened`) and projects a
+request body onto its operation's parameter surface
+(`RequestBodyHints.parameters`). See [Flattening](#flattening). It is additive —
+it writes only rendering hints and leaves `IRModel.properties` exactly as
+emitted.
+
+A host registers it by id; that is fulfilment, not selection:
+
+```typescript
+import { createRegistry, FLATTEN_MODEL_STAGE } from "@azure-client-engine/compiler";
+import { flattenModelStep } from "@azure-client-engine/transformers";
+
+const registry = createRegistry({
+  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+});
+```
+
+The `ace` CLI registers exactly this. Whether the stage *runs* is the catalog's
+default (`on`) plus any `config.pipeline` toggle; per-service settings such as
+`inliningThreshold` and `noInline` arrive through `config.stageOptions`.
 The package participates in the root workspace build and test commands.
 
 ## Source identity

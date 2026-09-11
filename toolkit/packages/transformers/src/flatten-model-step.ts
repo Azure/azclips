@@ -9,10 +9,18 @@
  *   2. `project-body-params` — project a request body onto the operation's
  *                              parameter surface as `RequestBodyHints.parameters`.
  *
- * The step is **additive and pure**: `IRModel.properties` keeps wire truth, the
- * input IR is never mutated, and every decision lands under `rendering`. A
- * container property that is hoisted is marked `flatten.into = "self"` so both
- * this step and the generator can tell it should not also render on its own.
+ * The step is **additive**: it only writes rendering hints, never altering or
+ * removing anything the emitter produced. `IRModel.properties` keeps wire truth,
+ * and every decision lands under `rendering`. That is what the catalog's
+ * `effect: "additive"` declares, and it is why the orchestrator can let this
+ * stage share one IR with a sibling branch instead of copying. A container
+ * property that is hoisted is marked `flatten.into = "self"` so both this step
+ * and the generator can tell it should not also render on its own.
+ *
+ * It writes **in place**. The orchestrator owns IR lifetime — it hands each
+ * stage an object the stage may write to, and isolates a branch itself when the
+ * catalog says a stage mutates. A defensive deep copy here would silently double
+ * peak memory on a large spec.
  */
 
 import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
@@ -116,18 +124,19 @@ export function flattenModelStep(options: Record<string, unknown> = {}): Transfo
   return {
     name: STEP_NAME,
     run(ir: IR, context: TransformContext): IR {
-      // Work on a copy: steps are pure, so this can never corrupt the caller's
-      // IR or an already-captured snapshot.
-      const next = structuredClone(ir);
+      // Written in place: the catalog declares this stage `additive`, so the
+      // orchestrator has already handed us an IR we own, and no sibling branch
+      // can observe a value we change. A defensive deep copy here would double
+      // peak memory on a large spec for nothing.
       const pass: PassContext = {
-        ir: next,
+        ir,
         options: option,
         report: (severity, code, message) =>
           context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        ...indexIR(next),
+        ...indexIR(ir),
       };
       for (const subPass of SUB_PASSES) subPass.run(pass);
-      return next;
+      return ir;
     },
   };
 }

@@ -388,7 +388,100 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
   });
 });
 
+describe("ace compile: stage toggles", () => {
+  /**
+   * Orchestration is compiler-owned: the catalog places `flatten-model` between
+   * emit and the generator and turns it on by default. A config's only verb is
+   * to flip it.
+   */
+  it("runs the catalog's default stages, flattening the IR the generator consumes", async () => {
+    const outDir = join(dir, "stages-default");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    // Regression guard: an unfulfilled stage fails with `unimplemented-stage`,
+    // and nothing downstream ever sees flattening.
+    expect(err).not.toMatch(/unimplemented-stage/);
+    expect(code).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(1);
+    const ir = parseIR(JSON.parse(readFileSync(captures.sort().at(-1)!, "utf8")));
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.rendering?.parameters?.length).toBeGreaterThan(0);
+  });
+
+  it("skips a stage the config turns off", async () => {
+    const outDir = join(dir, "stages-off");
+    const configPath = join(dir, "no-flatten.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "flatten-model": false } }), "utf8");
+
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--config",
+      configPath,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures).toHaveLength(1);
+    const ir = parseIR(JSON.parse(readFileSync(captures[0]!, "utf8")));
+    expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(true);
+  });
+
+  it("rejects a config that names a stage the compiler does not declare", async () => {
+    const configPath = join(dir, "bogus-stage.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "no-such-stage": true } }), "utf8");
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      join(dir, "stages-bogus"),
+      "--config",
+      configPath,
+    ]);
+    expect(code).toBe(1);
+    expect(err).toMatch(/unknown-stage/);
+  });
+});
+
 describe("ace compile: csharp generation", () => {
+  it.runIf(generatorHostBuilt)(
+    "emits flattened body members when the flatten stage runs",
+    async () => {
+      const outDir = join(dir, "gen-flattened");
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--root-namespace",
+        "Contoso.Pets",
+        "--out-dir",
+        outDir,
+      ]);
+      expect(err).not.toMatch(/^error:/m);
+      expect(code).toBe(0);
+
+      // The end-to-end payoff: the stage's projection reaches the emitted C#.
+      const processors = walkFiles(outDir)
+        .filter((f) => f.endsWith(".cs") && f.includes("Processors"))
+        .map((f) => readFileSync(f, "utf8"));
+      expect(processors.some((source) => /get => Body\?\./.test(source))).toBe(true);
+    },
+  );
+
   it.runIf(generatorHostBuilt)(
     "generates C# files under out-dir with --generator csharp",
     async () => {

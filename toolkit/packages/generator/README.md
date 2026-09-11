@@ -182,7 +182,7 @@ LRO rendering still takes precedence when both traits are present.
 `ModelHints.Flattened` and `RequestBodyHints.Parameters` carry resolved property
 flattening — `FlattenedMember` (name, id `Path`, `Optional`, intersected
 `Visibility`) and `FlattenedParameter` (name, id `Path`, `Required`). Both are
-optional, so older captures still deserialize.
+optional, so older captures still deserialize and emit exactly as before.
 
 Because `ModelHints` now has a member the other `CommonHints` aliases lack, it is
 structurally distinct and `IRModel.Rendering` resolves to `ModelHints` instead of
@@ -190,8 +190,7 @@ collapsing onto `OperationHints`. `IREnum`, `IROperation`, and `IRParameter`
 still share the collapsed `OperationHints` class; those three remain structurally
 identical, and the shape is correct either way.
 
-Nothing in the generator reads these fields yet — populating them is transform
-work, and rendering flattened members is a later change.
+Both fields are consumed — see [Flattening](#flattening).
 
 ### Shared servers (IR 0.8.0)
 
@@ -219,6 +218,62 @@ of their containing model. Multipart processor serialization/deserialization
 is not implemented by this metadata change. The generator reports
 `ace-generator/multipart-serialization-not-supported` for these operations;
 tuple request bodies use an `object` placeholder in the emitted scaffold.
+
+## Flattening
+
+`ModelGenerator` and `ProcessorGenerator` consume the flattening a transform
+resolved (`ModelHints.Flattened` / `RequestBodyHints.Parameters`). The generator
+**never derives names or resolves collisions** — the transform already did, and
+paths are `IRId`s, so a later rename cannot invalidate them.
+
+Flattening is **additive**. The real nested properties are emitted unchanged (they
+are what serializes); each flattened member adds a `[JsonIgnore]` accessor beside
+them. Without the attribute the same value would serialize at two depths.
+
+```csharp
+[JsonIgnore]
+public long? ScaleUpPropertiesUnusedSizeTiB
+{
+    get => Properties?.AutoScaleProperties?.ScaleUpProperties?.UnusedSizeTiB;
+    set
+    {
+        Properties ??= new ElasticSanUpdateProperties();
+        Properties.AutoScaleProperties ??= new AutoScaleProperties();
+        Properties.AutoScaleProperties.ScaleUpProperties ??= new ScaleUpProperties();
+        Properties.AutoScaleProperties.ScaleUpProperties.UnusedSizeTiB = value;
+    }
+}
+```
+
+A hop is dereferenced with `?.` only when the preceding hop can be null, so a path
+that is required end-to-end reads directly and keeps the leaf's own type. Setters
+always null-coalesce intermediates: a hop the spec marks required can still arrive
+null from deserialization.
+
+Processor members from `RequestBodyHints.Parameters` are views over `Body`, so
+`CreateRequestBody()` still just returns it:
+
+```csharp
+public ElasticSan? Body { get; set; }
+public long? BaseSizeTiB { get => Body?.BaseSizeTiB; set => (Body ??= new ElasticSan()).BaseSizeTiB = value ?? default; }
+```
+
+Each delegates to the **model's** member rather than re-walking the path, so the
+model stays the single place that knows how to read and materialize the graph. The
+target is resolved *by id path*, never by name — the transform resolves body
+parameter names against the operation's own path/query/header parameters, so a
+parameter can legitimately be named differently from the member it feeds.
+
+**Narrowing caveat.** Reading through `Body?` or an optional hop always produces a
+nullable value, so an accessor over a *non-nullable* leaf is widened. Assigning it
+back has to narrow again: a reference type is null-forgiven (`value!`), and a value
+type falls back to `value ?? default` — so setting null writes `0`/`default` rather
+than throwing. Required-parameter validation (`[ArgumentInfo]`) is still deferred,
+so nothing yet rejects the unset case.
+
+An unresolvable path reports `ace-generator/unresolved-flattened-path` (or
+`…/unresolved-flattened-parameter`) and skips only that member; the nested
+properties and the rest of the type are emitted normally.
 
 ## Generation API
 
@@ -317,9 +372,8 @@ composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
 *implementations* are authored as raw code blocks via `WithRawBody`.
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
-null-tolerant. Deferred by design: model inheritance dedup / flattening /
-polymorphism / enum emission; and on the processor side, parameter **flattening**
-(the body is one model member for now), header parameters, and `[ArgumentInfo]` +
+null-tolerant. Deferred by design: model inheritance dedup / polymorphism / enum
+emission; and on the processor side, header parameters, and `[ArgumentInfo]` +
 defaults. See each stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`

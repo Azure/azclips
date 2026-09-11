@@ -31,10 +31,8 @@ namespace Ace.Generator.Generators;
 /// are handled by customization on top of the generated processor, never by the generator.
 /// </para>
 /// <para>
-/// TODO — deferred by design: parameter <em>flattening</em> (today the request body is a single
-/// model member; the flattened scalar surface arrives once the model side supports nested+flattened),
-/// header parameters, <c>[ArgumentInfo]</c> metadata + parameter defaults, and pagination
-/// (a runtime concern).
+/// TODO — deferred by design: header parameters, <c>[ArgumentInfo]</c> metadata + parameter
+/// defaults, and pagination (a runtime concern).
 /// </para>
 /// </remarks>
 internal sealed class ProcessorGenerator : IArtifactGenerator
@@ -97,7 +95,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         }
 
         IRServerDefinition[] matches = context.Ir.Servers
-            .Where(server => IdEquals(server.Id, operation.Server))
+            .Where(server => IrIds.Equal(server.Id, operation.Server))
             .Take(2)
             .ToArray();
         if (matches.Length != 1)
@@ -119,26 +117,6 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         }
 
         return matches[0].Endpoint;
-    }
-
-    private static bool IdEquals(IRId? left, IRId? right)
-    {
-        if (left is null || right is null ||
-            !string.Equals(left.Module, right.Module, StringComparison.Ordinal) ||
-            !string.Equals(left.Interface, right.Interface, StringComparison.Ordinal) ||
-            !string.Equals(left.Name, right.Name, StringComparison.Ordinal) ||
-            !left.Namespace.SequenceEqual(right.Namespace, StringComparer.Ordinal))
-        {
-            return false;
-        }
-
-        if (left.TypeArgs is null || right.TypeArgs is null)
-        {
-            return left.TypeArgs is null && right.TypeArgs is null;
-        }
-
-        return left.TypeArgs.Count == right.TypeArgs.Count &&
-            left.TypeArgs.Zip(right.TypeArgs).All(pair => IdEquals(pair.First, pair.Second));
     }
 
     /// <summary>
@@ -171,11 +149,13 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             members.Add(ParameterProperty(parameter));
         }
 
-        // A single request-body member for now (flattening — flat scalars mapped into the nested
-        // model — is deferred to the model side; today CreateRequestBody just returns this member).
+        // The request body as a single model member, plus (when the transform projected it)
+        // one flat member per `RequestBodyHints.Parameters` entry. The flat members are views
+        // over `Body`, so `CreateRequestBody()` still just returns it.
         if (operation.RequestBody is not null)
         {
             members.Add(BodyProperty(operation.RequestBody, requestType));
+            members.AddRange(FlattenedBodyProperties(context, operation, requestType));
         }
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
@@ -321,6 +301,116 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression("Body")))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    /// <summary>
+    /// Emit one flat member per projected body parameter:
+    /// <c>public T? SkuName { get =&gt; Body?.SkuName; set =&gt; (Body ??= new X()).SkuName = value; }</c>.
+    /// </summary>
+    /// <remarks>
+    /// Each member delegates to the body model's own member rather than re-walking the path,
+    /// so the model stays the single place that knows how to read and materialize the nested
+    /// graph. The target is resolved <em>by id path</em>, not by name: the transform resolves
+    /// body-parameter names against this operation's own path/query/header parameters, so a
+    /// parameter's name can legitimately differ from the model member it feeds.
+    /// </remarks>
+    private static IEnumerable<MemberDeclarationSyntax> FlattenedBodyProperties(
+        GenerationContext context,
+        IROperation operation,
+        string requestType)
+    {
+        IReadOnlyList<FlattenedParameter> projected = operation.RequestBody?.Rendering?.Parameters ?? [];
+        if (projected.Count == 0)
+        {
+            yield break;
+        }
+
+        IRModel? bodyModel = operation.RequestBody?.Type is IRTypeRefModel bodyRef
+            ? context.Ir.Models.FirstOrDefault(model => IrIds.Equal(model.Id, bodyRef.Id))
+            : null;
+        if (bodyModel is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Warning,
+                "ace-generator/unresolved-body-model",
+                $"Operation '{operation.Name}' projects flattened body parameters, but its body model " +
+                "is not in the document. The flat members are skipped; Body is still emitted.");
+            yield break;
+        }
+
+        Dictionary<string, IRProperty> properties = FlattenSupport.IndexProperties(context.Ir);
+
+        foreach (FlattenedParameter parameter in projected)
+        {
+            if (string.IsNullOrWhiteSpace(parameter.Name))
+            {
+                continue;
+            }
+
+            IRProperty[]? hops = FlattenSupport.ResolvePath(parameter.Path, properties);
+            string? target = ResolveBodyMember(bodyModel, parameter);
+            if (hops is null || target is null)
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/unresolved-flattened-parameter",
+                    $"Operation '{operation.Name}' projects body parameter '{parameter.Name}', but its path " +
+                    $"has no matching member on model '{bodyModel.Name}'. The flat member is skipped.");
+                continue;
+            }
+
+            IRProperty leaf = hops[^1];
+            // Body itself is nullable, so reading always can produce null.
+            bool optional = true;
+            string accessorType = FlattenSupport.AccessorType(leaf, optional);
+            // The model member may be non-nullable (no optional hop), so narrow on assignment.
+            bool modelMemberOptional = parameter.Path.Count > 1
+                ? bodyModel.Rendering!.Flattened!.First(m => PathEquals(m.Path, parameter.Path)).Optional
+                : leaf.Optional || leaf.Nullable;
+            string assigned = FlattenSupport.AssignedValue(leaf, !modelMemberOptional);
+
+            string docs = leaf.Docs ?? leaf.Summary
+                ?? $"Flattened access to {FlattenSupport.WirePath(hops)} on the request body.";
+
+            yield return PropertyDeclaration(ParseTypeName(accessorType), Identifier(parameter.Name.Identifier()))
+                .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                .WithAccessorList(AccessorList(List(
+                [
+                    AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithExpressionBody(ArrowExpressionClause(ParseExpression($"Body?.{target}")))
+                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                    AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                        .WithExpressionBody(ArrowExpressionClause(
+                            ParseExpression($"(Body ??= new {requestType}()).{target} = {assigned}")))
+                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                ])))
+                .WithLeadingXmlDoc(docs);
+        }
+    }
+
+    /// <summary>
+    /// The body model member a projected parameter feeds: a single-hop path is the property
+    /// itself, a longer path is the flattened accessor the model generator emitted for it.
+    /// </summary>
+    private static string? ResolveBodyMember(IRModel bodyModel, FlattenedParameter parameter)
+    {
+        if (parameter.Path is not { Count: > 0 } path)
+        {
+            return null;
+        }
+
+        if (path.Count == 1)
+        {
+            return bodyModel.Properties
+                .FirstOrDefault(property => IrIds.Equal(property.Id, path[0]))?.Name.Identifier();
+        }
+
+        return (bodyModel.Rendering?.Flattened ?? [])
+            .FirstOrDefault(member => PathEquals(member.Path, path))?.Name.Identifier();
+    }
+
+    private static bool PathEquals(IReadOnlyList<IRId>? left, IReadOnlyList<IRId>? right) =>
+        left is not null && right is not null && left.Count == right.Count &&
+        left.Zip(right).All(pair => IrIds.Equal(pair.First, pair.Second));
 
     /// <summary>
     /// The long-running-operation members: the four header-selector hook overrides plus
