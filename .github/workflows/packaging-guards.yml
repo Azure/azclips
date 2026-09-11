@@ -4,17 +4,17 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/Extensions/**'
-      - 'src/PS/**'
-      - '.github/scripts/packaging_guards.py'
-      - '.github/scripts/test_packaging_guards.py'
-      - '.github/workflows/packaging-guards.yml'
+      - "src/Extensions/**"
+      - "src/PS/**"
+      - ".github/scripts/packaging_guards.py"
+      - ".github/scripts/test_packaging_guards.py"
+      - ".github/workflows/packaging-guards.yml"
   pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened]
     paths:
-      - 'src/Extensions/**'
-      - 'src/PS/**'
+      - "src/Extensions/**"
+      - "src/PS/**"
 
 permissions:
   contents: read
@@ -36,8 +36,8 @@ jobs:
       - name: Run packaging guard tests
         run: python3 .github/scripts/test_packaging_guards.py
 
-      - name: Validate Az rollup membership
-        run: python3 .github/scripts/packaging_guards.py validate-rollup .
+      - name: Validate packaging metadata
+        run: python3 .github/scripts/packaging_guards.py validate .
 
   review-extension-changes:
     name: Review extension changes for PowerShell impact
@@ -64,10 +64,14 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           python3 .github/scripts/packaging_guards.py review-pr \
             --repository "${{ github.repository }}" \
             --pull-request "$PR_NUMBER" \
             --head-repository "$HEAD_REPOSITORY" \
-            --head-sha "$HEAD_SHA"
+            --head-sha "$HEAD_SHA" \
+            --base-repository "$BASE_REPOSITORY" \
+            --base-sha "$BASE_SHA"
