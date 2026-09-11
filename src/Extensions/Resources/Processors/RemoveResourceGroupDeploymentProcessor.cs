@@ -1,0 +1,48 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
+{
+    /// <summary>
+    /// Deletes a resource-group-scoped deployment from the deployment history
+    /// (DELETE .../resourcegroups/{rg}/providers/Microsoft.Resources/deployments/{name}).
+    /// Removing the deployment record also removes its deployment operations; it does not affect
+    /// the resources the deployment created.
+    /// </summary>
+    /// <remarks>
+    /// The operation is long-running (<c>final-state-via: location</c>): ARM answers 202 with a
+    /// Location header, that URI keeps answering 202 while the delete runs, and answers 204 when it
+    /// finishes. A deployment that does not exist is answered 204 straight away, so the polling loop
+    /// is never entered and the command silently succeeds. Either way there is no response body, so
+    /// this processor writes no output on success.
+    /// </remarks>
+    public class RemoveResourceGroupDeploymentProcessor : ResourcesProcessorBase<object, object>
+    {
+        private const string ApiVersion = "2025-04-01";
+
+        public string SubscriptionId { get; set; } = string.Empty;
+
+        public string ResourceGroupName { get; set; } = string.Empty;
+
+        public string Name { get; set; } = string.Empty;
+
+        // GetFinalUri must point at the Location URI, not the default (the original DELETE URI):
+        // once polling stops, HttpRuntime issues one last GET against the final URI, and the
+        // deployment is gone by then, so a GET on the deployment itself would 404 a successful delete.
+        protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
+        protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
+        protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+        protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
+
+        // Always waits for the delete to finish (matches `az deployment group delete`).
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+
+        protected override HttpMethod Method => HttpMethod.Delete;
+
+        protected override string CreateRequestUri() =>
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}?api-version={ApiVersion}";
+    }
+}

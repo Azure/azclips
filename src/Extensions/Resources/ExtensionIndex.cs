@@ -218,6 +218,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_removeResourceGroupDeployment_PS = new(
+            Name: "RemoveResourceGroupDeploymentProcessor",
+            InvocationName: "Remove-AzResourceGroupDeployment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
             Name: "NewResourceGroupProcessor",
@@ -461,6 +476,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_removeResourceGroupDeployment_CLI = new(
+            Name: "RemoveResourceGroupDeploymentProcessor",
+            InvocationName: "deployment group delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -474,6 +504,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzResourceGroupDeployment_Get"]  = s_getResourceGroupDeployment_PS,
             ["Get-AzResourceGroupDeployment_List"] = s_listResourceGroupDeployment_PS,
             ["Stop-AzResourceGroupDeployment"] = s_stopResourceGroupDeployment_PS,
+            ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -495,6 +526,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment group show"]     = s_getResourceGroupDeployment_CLI,
             ["deployment group list"]     = s_listResourceGroupDeployment_CLI,
             ["deployment group cancel"]   = s_stopResourceGroupDeployment_CLI,
+            ["deployment group delete"]   = s_removeResourceGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };

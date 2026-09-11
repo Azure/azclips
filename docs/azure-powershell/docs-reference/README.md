@@ -40,6 +40,7 @@ and examples.
 - [New-AzResourceGroup][17]
 - [New-AzResourceGroupDeployment][18]
 - [New-AzResourceGroupDeploymentWhatIf][19]
+- [Remove-AzResourceGroupDeployment][22]
 - [Stop-AzResourceGroupDeployment][21]
 
 <!-- updated link references -->
@@ -65,3 +66,4 @@ and examples.
 [19]: ../../../src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md
 [20]: ../../../src/PS/Resources/help/Get-AzResourceGroupDeployment.md
 [21]: ../../../src/PS/Resources/help/Stop-AzResourceGroupDeployment.md
+[22]: ../../../src/PS/Resources/help/Remove-AzResourceGroupDeployment.md
