@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Cli.Version;
 using Core.Configuration.Options;
+using Core.Extensions;
 using Xunit;
 
 namespace Cli.Tests;
@@ -120,6 +121,19 @@ public class VersionInformationProviderTests
         Assert.StartsWith("AzCli ", output);
         Assert.Contains("Runtime", output);
         Assert.Contains("Paths", output);
+    }
+
+    [Fact]
+    public void Render_Text_ShouldRejectQuery()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        var error = Assert.Throws<AzclipsErrorException>(() => dispatcher.Render(VersionOutputFormat.Text, "azCli"));
+
+        Assert.Equal(2, error.ExitCode);
+        Assert.Empty(writer.ToString());
+        Assert.Contains("not supported", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

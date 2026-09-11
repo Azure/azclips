@@ -66,6 +66,13 @@ public class JmesPathEvaluatorTests
         Assert.Contains("--query", ex.Message);
         Assert.Contains("[[[", ex.Message);
     }
+
+    [Fact]
+    public void Validate_ShouldAcceptSyntaxThatDependsOnResultType()
+    {
+        Core.Cli.Output.JmesPathEvaluator.Validate("length(@)");
+    }
+
     [Fact]
     public void FormatValue_ShouldApplyQueryBeforeRendering()
     {

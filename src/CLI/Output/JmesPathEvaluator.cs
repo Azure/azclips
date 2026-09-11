@@ -37,7 +37,7 @@ internal static class JmesPathEvaluator
         catch (Exception ex)
         {
             throw AzclipsErrorException.UsageError(
-                $"--query expression '{expression}' is not valid JMESPath: {ex.Message}",
+                $"--query expression '{expression}' could not be applied: {ex.Message}",
                 new Dictionary<string, object?>
                 {
                     ["flag"] = "--query",
@@ -48,6 +48,19 @@ internal static class JmesPathEvaluator
 
     internal static void Validate(string expression)
     {
-        _ = Transform("null", expression);
+        try
+        {
+            _ = s_jmesPath.Parse(expression);
+        }
+        catch (Exception ex)
+        {
+            throw AzclipsErrorException.UsageError(
+                $"--query expression '{expression}' is not valid JMESPath: {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["flag"] = "--query",
+                    ["expression"] = expression,
+                });
+        }
     }
 }

@@ -71,6 +71,17 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task InvalidQuery_UsesRequestedJsonErrorFormat()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "logout", "--query", "[[[");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task DebugFlag_EmitsDebugToStderr_LeavesStdoutClean()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");

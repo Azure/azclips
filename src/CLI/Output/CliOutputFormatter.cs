@@ -72,7 +72,6 @@ internal static class CliOutputFormatter
         var json = value switch
         {
             string text when query is null => text,
-            string text when IsJsonText(text) => text,
             string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
             _ => SerializeToJson(value),
         };
@@ -120,40 +119,10 @@ internal static class CliOutputFormatter
         return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
     }
 
-    private static bool IsJsonText(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(text);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
     private static bool IsScalarJsonLiteral(string json)
     {
-        var trimmed = json.Trim();
-        if (trimmed.Length == 0)
-            return false;
-
-        if (trimmed == "null" || trimmed == "true" || trimmed == "false")
-            return true;
-
-        if (trimmed.StartsWith('"') && trimmed.EndsWith('"'))
-            return true;
-
-        if (char.IsDigit(trimmed[0]) || trimmed[0] == '-' || trimmed[0] == '.')
-        {
-            return double.TryParse(trimmed, out _);
-        }
-
-        return false;
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array);
     }
 
     private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>

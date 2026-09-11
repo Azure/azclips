@@ -122,11 +122,6 @@ public class Program
                 globalArgs = GlobalArgParser.Parse(args);
             }
 
-            if (globalArgs.Query is not null)
-            {
-                JmesPathEvaluator.Validate(globalArgs.Query);
-            }
-
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
             {
                 if (globalArgs.NoCache)
@@ -143,6 +138,11 @@ public class Program
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+                if (globalArgs.Query is not null)
+                {
+                    JmesPathEvaluator.Validate(globalArgs.Query);
+                }
 
                 if (globalArgs.Version is not null)
                 {
