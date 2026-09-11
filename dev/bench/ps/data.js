@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789116262990,
+  "lastUpdate": 1789116325748,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9160,6 +9160,48 @@ window.BENCHMARK_DATA = {
             "value": 1449423.2155578302,
             "unit": "ns",
             "range": "± 46930.85217220048"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76d101926cdfd3f4b01e1d00dfac24dbe72cb1b1",
+          "message": "[CLI] add `--query` support (#866)\n\n**Related command**\n\n```shell\naz group list --query \"[].name\"\naz storage account list --query \"[].name\"\n```\n\n**Description**\n\nThis PR adds the global `--query` flag to AzClips and applies the\nJMESPath expression to the already-serialized command result before\nformat-specific rendering. That matches the classic Azure CLI workflow\nfor selecting, filtering, and projecting output fields without changing\nthe command contract or output pipeline.\n\nThe implementation is intentionally narrow and follows the existing\nglobal-flag parsing model: the query is parsed as a global argument,\nstored in `GlobalArgs`, and then evaluated by a dedicated\n`JmesPathEvaluator` before the final JSON/YAML/table/tsv rendering step.\nInvalid syntax is surfaced as a usage error with exit code 2 so behavior\nis consistent with other invalid global-flag inputs.\n\nFixes #641\nRelated #835\n\n**Testing Guide**\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"JmesPathEvaluatorTests|GlobalArgParserTests\"`\n\n**History Notes**\n\n- [CLI] `az`: add `--query` JMESPath filtering before output rendering\n- [CLI] `az`: surface invalid query syntax as a usage error with the\noffending expression\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-11T07:40:02Z",
+          "tree_id": "98306c11d9a6d6d3447d256a8a891c0c72ec3c28",
+          "url": "https://github.com/Azure/azclips/commit/76d101926cdfd3f4b01e1d00dfac24dbe72cb1b1"
+        },
+        "date": 1789116322608,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1445644.420861128,
+            "unit": "ns",
+            "range": "± 37595.95438703067"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1437047.4507568113,
+            "unit": "ns",
+            "range": "± 42467.192612224164"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1412552.3829529388,
+            "unit": "ns",
+            "range": "± 37805.11056733025"
           }
         ]
       }
