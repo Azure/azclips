@@ -118,7 +118,7 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
 | `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
 | `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Validate is required for success. |
-| `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, and failures. Created when Validate runs. |
+| `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, failures, and missing-coverage warnings. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
 Reports live under the agent's temporary directory, not the checkout or package
@@ -163,6 +163,8 @@ declarations to NuGet metadata and clears the installed manifest's requirements.
 Commands are taken from the pinned module's exports, so another
 module or a newer installed version cannot satisfy a test accidentally.
 Timeouts and import failures fail the module while other module cases continue.
+Command failures also allow remaining cases and modules to run. The final error
+lists every failed module, with individual case details in the log and report.
 Partial results survive a timeout: completed cases retain their results, the
 active case is `Interrupted`, and later cases remain `NotRun`.
 
@@ -185,10 +187,16 @@ To cover a new module, add an entry to `Modules`:
 
 Use the module's real exported command and full parameter names. Add further
 named hashtables to `Tests` for more cases; no runner or pipeline edits are needed.
-Every discovered source module must be configured, with at least one case.
-Unconfigured modules, duplicate names, unknown properties, or invalid assertions
-fail in **Validate Azure PS**, before smoke commands execute, not in the build-time
-fixture suite or matrix generation. Entries for modules absent from a particular branch are
+Every discovered source module should be configured with at least one case.
+Unconfigured modules and empty test lists emit actionable PowerShell and Azure
+Pipelines warnings without failing **Validate Azure PS**. Their exact-version
+imports still run, and configured commands for other modules execute normally.
+Warnings are recorded at the report and module levels in `smoke-tests.json`;
+a successful import with no command cases is not command coverage. Import failures
+still fail validation, even for modules without command cases.
+Duplicate names, unknown properties, or invalid assertions still fail before smoke
+commands execute, not in the build-time fixture suite or matrix generation.
+Entries for modules absent from a particular branch are
 allowed: the shared Accounts/Login entry supports the authentication-module rename,
 and Identity/MsGraph entries also cover the current main-branch package set.
 

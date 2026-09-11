@@ -116,14 +116,19 @@ function Invoke-FixtureSmoke
 {
     param([bool]$ExpectSuccess, [int]$Timeout = 30)
     $failed = $false
+    $script:smokeFailure = $null
+    $script:smokeWarnings = @()
+    $script:smokeInformation = @()
     try
     {
         & $smokeScript -SourcePsRoot (Join-Path $fixtureRoot 'source') -ConfigPath (Join-Path $fixtureRoot 'smoke.psd1') `
-            -PwshPath $pwshPath -ReportRoot (Join-Path $fixtureRoot 'reports') -TimeoutSeconds $Timeout 6>$null
+            -PwshPath $pwshPath -ReportRoot (Join-Path $fixtureRoot 'reports') -TimeoutSeconds $Timeout `
+            -WarningVariable script:smokeWarnings -InformationVariable script:smokeInformation 6>$null
     }
     catch
     {
         $failed = $true
+        $script:smokeFailure = $_.Exception.Message
     }
     Assert-Fixture ($failed -ne $ExpectSuccess) "Expected success=$ExpectSuccess, observed failure=$failed."
     $report = Get-Content -LiteralPath (Join-Path $fixtureRoot 'reports\smoke-tests.json') -Raw | ConvertFrom-Json -AsHashtable
@@ -169,13 +174,40 @@ try
 
     Reset-Fixture
     New-FixtureModule Az.New 'function Get-SmokeValue { [CmdletBinding()]param() "new-output" }'
-    $report = Invoke-FixtureSmoke $false
-    Assert-Fixture ($report.errors[0] -match 'Missing smoke-test configuration.*Az.New') 'New modules must fail with actionable missing-coverage diagnostics.'
+    $report = Invoke-FixtureSmoke $true
+    Assert-Fixture ($report.errors.Count -eq 0 -and $report.warnings.Count -eq 1) 'Missing coverage must warn without failing validation.'
+    Assert-Fixture ($report.warnings[0] -match 'Az.New should contain a smoke-test.*smoke.psd1') 'Missing coverage must identify the module and configuration to update.'
+    Assert-Fixture (($script:smokeWarnings -join "`n") -match 'Az.New should contain a smoke-test') 'Emit a PowerShell warning for missing coverage.'
+    Assert-Fixture (($script:smokeInformation -join "`n") -match '##vso\[task.logissue type=warning\]Module Az.New') 'Emit an Azure Pipelines warning annotation for missing coverage.'
+    $uncovered = $report.modules | Where-Object module -eq 'Az.New'
+    Assert-Fixture ($uncovered.importStatus -eq 'Succeeded' -and $uncovered.tests.Count -eq 0 -and $uncovered.warnings.Count -eq 1) 'Uncovered modules must still be imported without claiming command coverage.'
+    Assert-Fixture ($report.modules.Count -eq 4 -and ($report.modules | Where-Object module -eq 'Az.Probe').tests.Count -eq 3) 'Missing coverage must not prevent configured tests from running.'
     $extended = $baselineConfig.Replace("Names = @('Az.Other')", "Names = @('Az.Other', 'Az.New')")
     Set-Content (Join-Path $fixtureRoot 'smoke.psd1') $extended
     $report = Invoke-FixtureSmoke $true
     Assert-Fixture ($report.modules.Count -eq 4) 'A configuration-only addition must exercise a new module.'
+    Assert-Fixture ($report.warnings.Count -eq 0) 'Adding coverage must remove the warning.'
     Complete-Fixture 'Missing coverage and configuration-only extension'
+
+    Reset-Fixture
+    New-FixtureModule Az.New "throw 'Uncovered module import failure.'"
+    $report = Invoke-FixtureSmoke $false
+    Assert-Fixture (($report.modules | Where-Object module -eq 'Az.New').error -match 'Uncovered module import failure') 'Missing command coverage must not hide import failures.'
+    Assert-Fixture ($report.warnings.Count -eq 1 -and $report.modules.Count -eq 4) 'Retain missing-coverage warnings and continue other modules after import failures.'
+    Complete-Fixture 'Uncovered module import failure'
+
+    foreach ($config in @(
+        $baselineConfig.Replace("Tests = @(`n                @{ Name = 'other'; Command = 'Get-SmokeValue'; Mode = 'ReadOnly'; Parameters = @{}; MinimumOutputCount = 1 }`n            )", 'Tests = @()'),
+        '@{ SchemaVersion = 1; Modules = @() }'
+    ))
+    {
+        Reset-Fixture
+        Set-Content (Join-Path $fixtureRoot 'smoke.psd1') $config
+        $report = Invoke-FixtureSmoke $true
+        Assert-Fixture ($report.warnings.Count -gt 0 -and $report.modules.Count -eq 3) 'Empty command coverage must warn and retain all imports.'
+        Assert-Fixture (@($report.modules | Where-Object { $_.tests.Count -eq 0 }).Count -eq $report.warnings.Count) 'Each uncovered module must have exactly one warning.'
+    }
+    Complete-Fixture 'Empty test lists and empty coverage'
 
     foreach ($case in @(
         @{ Name = 'Unknown schema property'; From = 'SchemaVersion = 1'; To = 'SchemaVersion = 1; Typo = 1' }
@@ -183,7 +215,7 @@ try
         @{ Name = 'Duplicate module coverage'; From = "Names = @('Az.Other')"; To = "Names = @('Az.Other', 'Az.Probe')" }
         @{ Name = 'Duplicate test names'; From = "Name = 'whatif'"; To = "Name = 'output'" }
         @{ Name = 'Unknown test property'; From = "Name = 'whatif'"; To = "Name = 'whatif'; Retires = 3" }
-        @{ Name = 'Empty test list'; From = "Tests = @(`n                @{ Name = 'other'; Command = 'Get-SmokeValue'; Mode = 'ReadOnly'; Parameters = @{}; MinimumOutputCount = 1 }`n            )"; To = 'Tests = @()' }
+        @{ Name = 'Invalid test list'; From = "Tests = @(`n                @{ Name = 'other'; Command = 'Get-SmokeValue'; Mode = 'ReadOnly'; Parameters = @{}; MinimumOutputCount = 1 }`n            )"; To = 'Tests = 42' }
         @{ Name = 'WhatIf override'; From = "Name = 'whatif'; Command = 'Remove-SmokeItem'; Mode = 'WhatIf'; Parameters = @{}"; To = "Name = 'whatif'; Command = 'Remove-SmokeItem'; Mode = 'WhatIf'; Parameters = @{ WhatIf = `$false }" }
         @{ Name = 'Unsafe read-only verb'; From = "Command = 'Remove-SmokeItem'; Mode = 'WhatIf'"; To = "Command = 'Remove-SmokeItem'; Mode = 'ReadOnly'" }
         @{ Name = 'Negative output count'; From = 'MinimumOutputCount = 1'; To = 'MinimumOutputCount = -1' }
@@ -196,6 +228,20 @@ try
         Assert-Fixture ($report.modules.Count -eq 0 -and $report.errors.Count -eq 1) 'Invalid configuration must fail before any module runs.'
         Complete-Fixture $case.Name
     }
+
+    Reset-Fixture
+    New-FixtureModule Az.New 'function Get-SmokeValue { [CmdletBinding()]param() "new-output" }'
+    New-FixtureModule Az.Other 'function Get-SmokeFailure { [CmdletBinding()]param() Write-Error "Other module failure." }'
+    Set-Content (Join-Path $fixtureRoot 'smoke.psd1') $baselineConfig.Replace("Command = 'Get-SmokeValue'; Mode", "Command = 'Get-SmokeFailure'; Mode")
+    $report = Invoke-FixtureSmoke $false
+    $probe = $report.modules | Where-Object module -eq 'Az.Probe'
+    Assert-Fixture ($probe.tests[0].status -eq 'Failed' -and $probe.tests[1].status -eq 'Succeeded' -and $probe.tests[2].status -eq 'Succeeded') 'A failed command must not prevent subsequent cases in the same module.'
+    Assert-Fixture (@($report.modules | Where-Object status -eq 'Failed').Count -eq 2) 'Collect failures from multiple modules in one run.'
+    Assert-Fixture (($report.modules | Where-Object module -eq 'Az.Other').tests[0].error -match 'Other module failure') 'Retain the independent command failure from the other module.'
+    Assert-Fixture (($report.modules | Where-Object module -eq 'Az').status -eq 'Succeeded') 'Run later modules after multiple failures.'
+    Assert-Fixture ($report.warnings.Count -eq 1 -and $report.modules.Count -eq 4) 'Missing coverage must not mask or interrupt command failures.'
+    Assert-Fixture ($script:smokeFailure -match '2 module\(s\): Az.Other, Az.Probe') 'The final error must list every failed module.'
+    Complete-Fixture 'Multiple command failures with missing coverage'
 
     foreach ($case in @(
         @{ Name = 'Unexpected command error'; From = "Command = 'Get-SmokeValue'; Mode"; To = "Command = 'Get-SmokeFailure'; Mode"; Error = 'Deliberate command failure' }

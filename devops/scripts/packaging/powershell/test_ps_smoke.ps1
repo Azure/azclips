@@ -3,9 +3,10 @@
 Imports every packaged Az module and executes its configured smoke commands.
 
 .DESCRIPTION
-Uses ps_smoke_tests.psd1 for named, credential-free command cases. Every source
-module must have coverage. Each module runs in a fresh, noninteractive instance
-of the tested PowerShell, with exact-version imports for its Az dependencies.
+Uses ps_smoke_tests.psd1 for named, credential-free command cases. Missing command
+coverage produces a warning; imports still run. Each module runs in a fresh,
+noninteractive instance of the tested PowerShell, with exact-version imports
+for its Az dependencies.
 Commands are invoked through their owning module, not unqualified name lookup.
 Failures are aggregated, including import failures and bounded child timeouts.
 An optional ReportRoot receives smoke-tests.json; command output and credentials
@@ -44,14 +45,14 @@ function Read-SmokeConfiguration
     $config = Import-PowerShellDataFile -LiteralPath $ConfigPath -ErrorAction Stop
     Assert-SmokeKeys $config @('SchemaVersion', 'Modules') @('SchemaVersion', 'Modules') 'configuration'
     if ($config.SchemaVersion -isnot [int] -or $config.SchemaVersion -ne 1) { throw 'Unsupported smoke-test SchemaVersion; expected 1.' }
-    if ($config.Modules -isnot [array] -or $config.Modules.Count -eq 0) { throw 'Modules must be a nonempty array.' }
+    if ($config.Modules -isnot [array]) { throw 'Modules must be an array.' }
 
     $coverage = @{}
     foreach ($entry in $config.Modules)
     {
         Assert-SmokeKeys $entry @('Names', 'Tests') @('Names', 'Tests') 'module'
         if ($entry.Names -isnot [array] -or $entry.Names.Count -eq 0) { throw 'Module Names must be a nonempty array.' }
-        if ($entry.Tests -isnot [array] -or $entry.Tests.Count -eq 0) { throw 'Module Tests must be a nonempty array.' }
+        if ($entry.Tests -isnot [array]) { throw 'Module Tests must be an array.' }
         $testNames = @{}
         foreach ($test in $entry.Tests)
         {
@@ -146,21 +147,35 @@ $report = [ordered]@{
     completedAtUtc = $null
     modules = @()
     errors = @()
+    warnings = @()
 }
 $scratchRoot = $null
 try
 {
     $definitions = @(Get-AzModuleDefinitions -SourcePsRoot (Resolve-Path -LiteralPath $SourcePsRoot).ProviderPath)
     $coverage = Read-SmokeConfiguration
-    $missing = @($definitions | Where-Object { -not $coverage.ContainsKey($_.PackageName) } | ForEach-Object PackageName)
-    if ($missing.Count -gt 0) { throw "Missing smoke-test configuration for: $($missing -join ', '). Add entries to $ConfigPath." }
+    $coverageWarnings = @{}
+    foreach ($definition in $definitions)
+    {
+        $name = $definition.PackageName
+        if (-not $coverage.ContainsKey($name) -or $coverage[$name].Count -eq 0)
+        {
+            $message = "Module $name should contain a smoke-test. Add at least one command case to $ConfigPath. Only its import will be tested."
+            $coverageWarnings[$name] = $message
+            $report.warnings += $message
+            Write-Warning $message -WarningAction Continue
+            $pipelineMessage = $message.Replace('%', '%AZP25').Replace("`r", '%0D').Replace("`n", '%0A').Replace(']', '%5D')
+            Write-Host "##vso[task.logissue type=warning]$pipelineMessage"
+        }
+    }
     $executable = (Get-Command -Name $PwshPath -CommandType Application -ErrorAction Stop).Source
     $scratchRoot = Join-Path ([IO.Path]::GetTempPath()) "azclips-ps-smoke-$([guid]::NewGuid().ToString('N'))"
     New-Item -ItemType Directory -Path $scratchRoot -ErrorAction Stop | Out-Null
 
     foreach ($definition in $definitions)
     {
-        $tests = @($coverage[$definition.PackageName])
+        $tests = @()
+        if ($coverage.ContainsKey($definition.PackageName)) { $tests = @($coverage[$definition.PackageName]) }
         $result = [ordered]@{
             module = $definition.PackageName
             version = $definition.Version
@@ -209,6 +224,8 @@ try
             $timer.Stop()
             $result.durationMilliseconds = $timer.ElapsedMilliseconds
         }
+        $result.warnings = @()
+        if ($coverageWarnings.ContainsKey($definition.PackageName)) { $result.warnings = @($coverageWarnings[$definition.PackageName]) }
         $report.modules += $result
         Write-Host "$($result.status): $($definition.PackageName) $($definition.Version)"
         if ($result.error) { Write-Host $result.error }
@@ -243,5 +260,6 @@ finally
 
 if ($report.status -ne 'Succeeded')
 {
-    throw "PowerShell smoke tests failed for $(@($report.modules | Where-Object status -ne 'Succeeded').Count) module(s). See Validate output and smoke-tests.json when reporting is enabled."
+    $failedModules = @($report.modules | Where-Object status -ne 'Succeeded' | ForEach-Object module)
+    throw "PowerShell smoke tests failed for $($failedModules.Count) module(s): $($failedModules -join ', '). See Validate output and smoke-tests.json when reporting is enabled."
 }
