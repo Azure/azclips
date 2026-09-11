@@ -168,6 +168,10 @@ internal static class GlobalArgParser
         bool trailingHelp = false;
         for (int i = 1; i < positional.Count; i++)
         {
+            if (positional[i].StartsWith("-", StringComparison.Ordinal))
+            {
+                break;
+            }
             if (IsHelpFlag(positional[i]))
             {
                 trailingHelp = true;

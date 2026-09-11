@@ -135,6 +135,15 @@ public class GlobalArgParserTests
     }
 
     [Fact]
+    public void Parse_HelpAliasAsParameterValue_DoesNotYieldCommandHelp()
+    {
+        var result = GlobalArgParser.Parse(new[] { "group", "cmd", "--name", "h" });
+
+        Assert.Null(result.Help);
+        Assert.Equal(new[] { "group", "cmd", "--name", "h" }, result.Positional);
+    }
+
+    [Fact]
     public void Parse_HelpFlagAtArgsZeroWithTrailingTokens_DoesNotYieldHelp()
     {
         // Pre-refactor behavior: `az --help group` was NOT recognized as help (the dispatcher's
