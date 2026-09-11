@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789116188850,
+  "lastUpdate": 1789116262990,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9690,6 +9690,54 @@ window.BENCHMARK_DATA = {
             "value": 1438377.5111202635,
             "unit": "ns",
             "range": "± 47504.38302617677"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76d101926cdfd3f4b01e1d00dfac24dbe72cb1b1",
+          "message": "[CLI] add `--query` support (#866)\n\n**Related command**\n\n```shell\naz group list --query \"[].name\"\naz storage account list --query \"[].name\"\n```\n\n**Description**\n\nThis PR adds the global `--query` flag to AzClips and applies the\nJMESPath expression to the already-serialized command result before\nformat-specific rendering. That matches the classic Azure CLI workflow\nfor selecting, filtering, and projecting output fields without changing\nthe command contract or output pipeline.\n\nThe implementation is intentionally narrow and follows the existing\nglobal-flag parsing model: the query is parsed as a global argument,\nstored in `GlobalArgs`, and then evaluated by a dedicated\n`JmesPathEvaluator` before the final JSON/YAML/table/tsv rendering step.\nInvalid syntax is surfaced as a usage error with exit code 2 so behavior\nis consistent with other invalid global-flag inputs.\n\nFixes #641\nRelated #835\n\n**Testing Guide**\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"JmesPathEvaluatorTests|GlobalArgParserTests\"`\n\n**History Notes**\n\n- [CLI] `az`: add `--query` JMESPath filtering before output rendering\n- [CLI] `az`: surface invalid query syntax as a usage error with the\noffending expression\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-11T07:40:02Z",
+          "tree_id": "98306c11d9a6d6d3447d256a8a891c0c72ec3c28",
+          "url": "https://github.com/Azure/azclips/commit/76d101926cdfd3f4b01e1d00dfac24dbe72cb1b1"
+        },
+        "date": 1789116260327,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 1515163.489322382,
+            "unit": "ns",
+            "range": "± 44270.780411414315"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 1568657.1864217576,
+            "unit": "ns",
+            "range": "± 47360.11642567551"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 1487558.6304392237,
+            "unit": "ns",
+            "range": "± 47506.21445871131"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 1405440.4050813008,
+            "unit": "ns",
+            "range": "± 44460.896348528426"
           }
         ]
       }
