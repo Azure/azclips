@@ -53,6 +53,21 @@ jobs:
       exit $LASTEXITCODE
     displayName: Test PS Validation Lifecycle, Smoke Tests and Pipeline
 
+  - pwsh: |
+      & pwsh -NoProfile -File ./devops/scripts/packaging/powershell/test_ps_smoke.ps1 `
+        -CoverageOnly `
+        -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-ps-smoke-coverage')
+      exit $LASTEXITCODE
+    displayName: Validate Azure PS Smoke-Test Coverage
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish PS Smoke-Test Coverage
+    condition: always()
+    inputs:
+      targetPath: $(Agent.TempDirectory)/azclips-ps-smoke-coverage
+      artifact: Validate_PS_Smoke_Coverage
+      publishLocation: pipeline
+
   - bash: |
       set -euo pipefail
       matrix_args=()
@@ -111,12 +126,6 @@ jobs:
     parameters:
       phase: Upgrade
       display_name: Upgrade Azure PS v$(AzVersion)
-      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
-
-  - template: ../steps/ps-validation-phase.yml
-    parameters:
-      phase: SmokeCoverage
-      display_name: Validate Azure PS Smoke-Test Coverage
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
   # Run the credential-free, configured module smoke tests against the installed modules.

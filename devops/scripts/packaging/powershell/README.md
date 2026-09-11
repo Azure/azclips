@@ -6,6 +6,13 @@ and its OS prerequisites is distribution-specific.
 
 ## Pipeline phases
 
+**Validate Azure PS Smoke-Test Coverage** runs once in the
+**Generate PS Validation Matrix** job, before the distribution matrix starts.
+It invokes `test_ps_smoke.ps1 -CoverageOnly` using the hosted PowerShell without
+installing target modules or executing their commands. Missing cases report
+`SucceededWithIssues`; complete coverage reports `Succeeded`. Warnings do not
+block matrix expansion. Malformed configuration still fails.
+
 Each matrix job shows one task for each phase:
 
 | Task | Implementation |
@@ -13,15 +20,11 @@ Each matrix job shows one task for each phase:
 | Install PowerShell `<version>` | The distribution's bootstrap script |
 | Install Azure PS `v<version>` | `test_ps_installation.ps1` |
 | Upgrade Azure PS `v<version>` | Explicit placeholder; no upgrade is performed |
-| Validate Azure PS Smoke-Test Coverage | `test_ps_smoke.ps1 -CoverageOnly`; checks module coverage without importing modules or executing commands |
 | Validate Azure PS `v<version>` | `test_ps_smoke.ps1`, configured by `ps_smoke_tests.psd1` |
 | Uninstall Azure PS `v<version>` | `test_ps_uninstall.ps1` |
 
 Installation verifies version-pinned imports, exported cmdlets, and external help
-examples. SmokeCoverage checks that each module has configured smoke cases and
-reports `SucceededWithIssues` when coverage is missing, or `Succeeded` when complete.
-Coverage warnings do not skip later phases or set the canary soft-failure flag.
-Malformed configuration still fails. Validate additionally imports every module and executes its configured
+examples. Validate additionally imports every module and executes its configured
 smoke commands. Uninstall still runs after a failed Validate phase when Install
 completed successfully, including unsupported canary failures; cleanup never
 replaces the original validation failure.
@@ -108,6 +111,11 @@ registry discovery. Use `--pool` for container host overrides and `--pool-for
 
 ## Validation artifacts
 
+The pre-matrix job publishes `Validate_PS_Smoke_Coverage` once. Its
+`smoke-coverage.json` contains configured case counts for each module,
+missing-coverage warnings, and the coverage step's outcome, with no import or
+command execution results.
+
 Every matrix leg publishes its own `Validate_PS_Sim_<ValidationKey>` pipeline
 artifact, for example `Validate_PS_Sim_ubuntu_26_04_ps7_6`. `ValidationKey` is the
 generator's unique matrix key, including the unsupported suffix for canaries.
@@ -120,9 +128,8 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `inventories/` | Target-module state before/after installation and uninstall, with failure/rollback state when applicable. |
 | `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
-| `logs/` | Bootstrap, Install, Upgrade, SmokeCoverage, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
-| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result, including coverage warnings as `SucceededWithIssues`. Only Upgrade remains an explicitly skipped placeholder; SmokeCoverage and Validate must complete for success. |
-| `smoke-coverage.json` | Per-module configured case counts, missing-coverage warnings, and the coverage step's outcome. Contains no import or command execution results. |
+| `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
+| `results.json` | Per-distribution phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Validate is required for success. Coverage is reported separately in the pre-matrix artifact. |
 | `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, failures, and missing-coverage warnings. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
@@ -194,15 +201,17 @@ Use the module's real exported command and full parameter names. Add further
 named hashtables to `Tests` for more cases; no runner or pipeline edits are needed.
 Every discovered source module should be configured with at least one case.
 Unconfigured modules and empty test lists emit actionable PowerShell and Azure
-Pipelines warnings in **Validate Azure PS Smoke-Test Coverage**, marking that step
-`SucceededWithIssues` while returning exit code zero. **Validate Azure PS** then
-runs with `-SkipCoverageWarnings` so it does not repeat coverage annotations.
+Pipelines warnings once in **Validate Azure PS Smoke-Test Coverage**, marking that
+pre-matrix step `SucceededWithIssues` while returning exit code zero. Each matrix
+leg's **Validate Azure PS** then runs with `-SkipCoverageWarnings` so it does not
+repeat coverage annotations.
 Exact-version imports still run, and configured commands for other modules execute normally.
 Warnings are recorded at the report and module levels in `smoke-tests.json`;
 a successful import with no command cases is not command coverage. Import failures
 still fail validation, even for modules without command cases.
-Duplicate names, unknown properties, or invalid assertions still fail before smoke
-commands execute, not in the build-time fixture suite or matrix generation.
+Duplicate names, unknown properties, or invalid assertions fail the pre-matrix
+coverage step before smoke commands execute; the build-time fixture suite and
+matrix generator themselves do not enforce production smoke coverage.
 Entries for modules absent from a particular branch are
 allowed: the shared Accounts/Login entry supports the authentication-module rename,
 and Identity/MsGraph entries also cover the current main-branch package set.
