@@ -62,6 +62,29 @@ public class ManagementGroupDeploymentTests
         Assert.Contains("InvalidTemplate: Template is invalid.", exception.Message);
     }
 
+    [Fact]
+    public async Task Validate_SendsOnlyValidationRequest()
+    {
+        List<(HttpMethod Method, string Path)> requests = [];
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!.AbsolutePath));
+            return Json("""{"properties":{"provisioningState":"Succeeded"}}""");
+        });
+        FakeOutputHandler output = new();
+        TestManagementGroupDeploymentProcessor processor = CreateProcessor(
+            new TestManagementGroupDeploymentProcessor(),
+            pipeline,
+            output);
+
+        await processor.ProcessAsync();
+
+        (HttpMethod method, string path) = Assert.Single(requests);
+        Assert.Equal(HttpMethod.Post, method);
+        Assert.EndsWith("/validate", path);
+        Assert.Single(output.WrittenValues);
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : Microsoft.Azure.Azclips.Extensions.Deployment.Processors.DeploymentProcessorBase
     {
@@ -80,6 +103,12 @@ public class ManagementGroupDeploymentTests
                 create.Name = "test-deployment";
                 create.Location = "eastus";
                 create.TemplateObject = new { contentVersion = "1.0.0.0", resources = Array.Empty<object>() };
+                break;
+            case TestManagementGroupDeploymentProcessor validate:
+                validate.ManagementGroupId = "test-management-group";
+                validate.Name = "test-deployment";
+                validate.Location = "eastus";
+                validate.TemplateObject = new { contentVersion = "1.0.0.0", resources = Array.Empty<object>() };
                 break;
         }
 

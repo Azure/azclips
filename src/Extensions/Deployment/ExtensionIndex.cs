@@ -37,9 +37,35 @@ public class ExtensionIndex : IExtensionIndex
         },
         ParameterAliases: new Dictionary<string, string>());
 
+    private static readonly CommandMetadata s_test = new(
+        Name: nameof(TestManagementGroupDeploymentProcessor),
+        InvocationName: "Test-AzManagementGroupDeployment",
+        Aliases: [],
+        FullName: typeof(TestManagementGroupDeploymentProcessor).FullName!,
+        AssemblyName: AssemblyName,
+        ProcessorType: typeof(TestManagementGroupDeploymentProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+            ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", false, ["DeploymentName"], []),
+            ["Location"] = new("Location", "Location", typeof(string), "The location used to store deployment metadata.", true, [], []),
+            ["TemplateFile"] = new("TemplateFile", "TemplateFile", typeof(string), "A local ARM JSON or Bicep template.", false, [], []),
+            ["TemplateUri"] = new("TemplateUri", "TemplateUri", typeof(string), "The URI of an ARM template.", false, [], []),
+            ["TemplateSpecId"] = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource ID of a Template Spec.", false, [], []),
+            ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(object), "An inline ARM template object.", false, [], []),
+            ["QueryString"] = new("QueryString", "QueryString", typeof(string), "A query string used with TemplateUri.", false, [], []),
+            ["TemplateParameterFile"] = new("ParametersFile", "TemplateParameterFile", typeof(string), "A local JSON or Bicep parameters file.", false, [], []),
+            ["TemplateParameterUri"] = new("ParametersUri", "TemplateParameterUri", typeof(string), "The URI of an ARM parameters file.", false, [], []),
+            ["TemplateParameterObject"] = new("TemplateParameterObject", "TemplateParameterObject", typeof(object), "An inline template parameter object.", false, [], []),
+            ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
+            ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+        },
+        ParameterAliases: new Dictionary<string, string>());
+
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
     {
         ["New-AzManagementGroupDeployment"] = s_ps,
+        ["Test-AzManagementGroupDeployment"] = s_test,
     };
 
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = [];
