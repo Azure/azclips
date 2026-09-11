@@ -3,6 +3,7 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Core.Cli.Output;
@@ -65,12 +66,16 @@ internal static class CliOutputFormatter
         if (value is string s && query is null)
             return s;
 
+        if (value is SerializedJson serializedJson && query is null)
+            return serializedJson.Value;
+
         var type = value.GetType();
         if (query is null && (type.IsPrimitive || type == typeof(decimal)))
             return JsonSerializer.Serialize(value, type, s_jsonOptions);
 
         var json = value switch
         {
+            SerializedJson rawJson => rawJson.Value,
             string text when query is null => text,
             string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
             _ => SerializeToJson(value),

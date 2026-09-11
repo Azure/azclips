@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using System.Globalization;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Cli.Tests;
@@ -46,10 +47,8 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldApplyQueryToStructuredJsonValue_WithoutDoubleEncoding()
     {
         var json = "[{\"name\":\"rg1\"},{\"name\":\"rg2\"}]";
-        using var document = JsonDocument.Parse(json);
-
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
-            document.RootElement.Clone(), OutputFormat.Json, query: "[].name");
+            new SerializedJson(json), OutputFormat.Json, query: "[].name");
 
         Assert.Equal("[\"rg1\",\"rg2\"]", result);
     }
