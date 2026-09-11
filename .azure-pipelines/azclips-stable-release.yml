@@ -45,7 +45,7 @@ stages:
   - job: EnsureReleaseProject
     displayName: Ensure Release Project Context
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml

@@ -1,6 +1,6 @@
 variables:
-  ubuntu_pool: 'ubuntu-latest'
-  windows_pool: 'windows-latest'
+  ubuntu_pool: 'pool-ubuntu-2204'
+  windows_pool: 'pool-windows-2022'
   macos_arm64_pool: 'macOS-15-arm64'
   macos_intel_pool: 'macOS-15'
   public_project: 'public'

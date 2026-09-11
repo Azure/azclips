@@ -1,7 +1,7 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+  default: 'pool-ubuntu-2204'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -56,7 +56,7 @@ jobs:
         DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
         SkipRuntime: true
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true

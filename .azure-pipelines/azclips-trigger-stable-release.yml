@@ -43,7 +43,7 @@ stages:
   - job: EnsureReleaseProject
     displayName: Ensure Release Project Context
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
@@ -58,7 +58,7 @@ stages:
   - job: OpenStableReleasePr
     displayName: Bump CLI Version And Open Stable Release PR
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: self
       clean: true
@@ -357,7 +357,7 @@ stages:
   - job: TagMain
     displayName: Validate Version And Tag Main
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: self
       clean: true

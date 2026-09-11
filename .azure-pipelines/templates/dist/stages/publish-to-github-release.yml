@@ -1,7 +1,7 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+  default: 'pool-ubuntu-2204'
 - name: SourceProject
   type: string
   default: 'public'
@@ -43,7 +43,7 @@ stages:
   - job: PublishArtifacts
     displayName: Publish Release Assets
     pool:
-      vmImage: ${{ parameters.ubuntu_pool }}
+      name: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
       persistCredentials: true

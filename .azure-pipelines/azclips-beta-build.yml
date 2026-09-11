@@ -48,7 +48,7 @@ stages:
     - job: AddSigningTag
       displayName: Add sign-beta Build Tag
       pool:
-        vmImage: ${{ variables.ubuntu_pool }}
+        name: ${{ variables.ubuntu_pool }}
       steps:
       - checkout: none
       - bash: |

@@ -19,10 +19,10 @@ parameters:
   default: 'auto'
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+  default: 'pool-ubuntu-2204'
 - name: windows_pool
   type: string
-  default: 'windows-latest'
+  default: 'pool-windows-2022'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'

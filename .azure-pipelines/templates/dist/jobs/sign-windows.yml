@@ -1,7 +1,7 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
+  default: 'pool-windows-2022'
 - name: SourceProject
   type: string
   default: 'public'
@@ -57,7 +57,7 @@ jobs:
   - job: SignWindows
     displayName: Sign Windows Artifacts
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     timeoutInMinutes: 60
     steps:
     - checkout: self
