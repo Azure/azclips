@@ -1,2 +1,3 @@
-Groups:
-    login : Authenticate to Azure.
+# GROUPS
+login:
+Authenticate to Azure.
