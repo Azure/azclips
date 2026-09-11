@@ -141,7 +141,7 @@ public class Program
 
                 if (globalArgs.Version is not null)
                 {
-                    return DispatchVersion(globalArgs.Version, activity);
+                    return DispatchVersion(globalArgs.Version, globalArgs.Query, activity);
                 }
 
                 if (globalArgs.Help is not null)
@@ -267,11 +267,11 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, Activity? activity)
+    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity)
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format);
+            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }

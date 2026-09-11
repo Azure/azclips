@@ -41,6 +41,24 @@ public class CliOutputFormatterTests
         Assert.Equal(string.Empty, result);
     }
 
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToPreSerializedJsonString_WithoutDoubleEncoding()
+    {
+        var json = "[{\"name\":\"rg1\"},{\"name\":\"rg2\"}]";
+
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(json, OutputFormat.Json, query: "[].name");
+
+        Assert.Equal("[\"rg1\",\"rg2\"]", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToNullValue_WhenQueryIsPresent()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null, OutputFormat.Json, query: "@");
+
+        Assert.Equal("null", result);
+    }
+
     // ── Primitives ───────────────────────────────────────────────────
 
     [Theory]

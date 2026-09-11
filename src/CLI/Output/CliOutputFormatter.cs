@@ -54,50 +54,42 @@ internal static class CliOutputFormatter
         string? query = null)
     {
         if (value is null)
-            return string.Empty;
-
-        if (query is null)
         {
-            if (value is string s)
-                return s;
+            if (query is null)
+                return string.Empty;
 
-            // Primitives and decimals go through JsonSerializer so bool renders as lowercase
-            // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
-            // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
-            // formatting for numerics (period as decimal separator), so int/double/decimal
-            // render locale-independently (e.g., 3.14 not 3,14). A scalar's shape doesn't change
-            // across formats, so this branch is format-agnostic.
-            var type = value.GetType();
-            if (type.IsPrimitive || type == typeof(decimal))
-                return JsonSerializer.Serialize(value, type, s_jsonOptions);
-
-            // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
-            // bugs early. A fallback to ToString() is not useful here because it would most
-            // likely return a meaningless type name. Once models stabilise, catching and
-            // falling back gracefully may be preferable for production resilience.
-            var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
-
-            return format switch
-            {
-                OutputFormat.Table => TableFormatter.Format(json),
-                OutputFormat.Tsv => TsvFormatter.Format(json),
-                OutputFormat.Yaml => YamlFormatter.Format(json),
-                OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
-                OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
-                _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
-            };
+            var nullJson = "null";
+            return RenderFormattedJson(JmesPathEvaluator.Transform(nullJson, query), format, colorPolicyAllowsColor);
         }
 
-        var inputJson = value is string text
-            ? JsonSerializer.Serialize(text, typeof(string), s_jsonOptions)
-            : JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+        if (value is string s && query is null)
+            return s;
 
-        var filteredJson = JmesPathEvaluator.Transform(inputJson, query);
-        return RenderFormattedJson(filteredJson, format, colorPolicyAllowsColor);
+        var type = value.GetType();
+        if (query is null && (type.IsPrimitive || type == typeof(decimal)))
+            return JsonSerializer.Serialize(value, type, s_jsonOptions);
+
+        var json = value switch
+        {
+            string text when query is null => text,
+            string text when IsJsonText(text) => text,
+            string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
+            _ => SerializeToJson(value),
+        };
+
+        if (query is not null)
+        {
+            json = JmesPathEvaluator.Transform(json, query);
+        }
+
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
     }
 
     private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
     {
+        if (format is OutputFormat.Jsonc && IsScalarJsonLiteral(json))
+            return json;
+
         return format switch
         {
             OutputFormat.Table => TableFormatter.Format(json),
@@ -107,6 +99,61 @@ internal static class CliOutputFormatter
             OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
             _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
         };
+    }
+
+    private static string SerializeToJson(object value)
+    {
+        // Primitives and decimals go through JsonSerializer so bool renders as lowercase
+        // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
+        // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
+        // formatting for numerics (period as decimal separator), so int/double/decimal
+        // render locale-independently (e.g., 3.14 not 3,14). A scalar's shape doesn't change
+        // across formats, so this branch is format-agnostic.
+        var type = value.GetType();
+        if (type.IsPrimitive || type == typeof(decimal))
+            return JsonSerializer.Serialize(value, type, s_jsonOptions);
+
+        // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
+        // bugs early. A fallback to ToString() is not useful here because it would most
+        // likely return a meaningless type name. Once models stabilise, catching and
+        // falling back gracefully may be preferable for production resilience.
+        return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+    }
+
+    private static bool IsJsonText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsScalarJsonLiteral(string json)
+    {
+        var trimmed = json.Trim();
+        if (trimmed.Length == 0)
+            return false;
+
+        if (trimmed == "null" || trimmed == "true" || trimmed == "false")
+            return true;
+
+        if (trimmed.StartsWith('"') && trimmed.EndsWith('"'))
+            return true;
+
+        if (char.IsDigit(trimmed[0]) || trimmed[0] == '-' || trimmed[0] == '.')
+        {
+            return double.TryParse(trimmed, out _);
+        }
+
+        return false;
     }
 
     private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>

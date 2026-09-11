@@ -90,6 +90,19 @@ public class VersionInformationProviderTests
         Assert.Contains("\"paths\"", output);
     }
 
+    [Fact]
+    public void Render_Json_ShouldApplyQuery_WhenProvided()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        var exitCode = dispatcher.Render(VersionOutputFormat.Json, "azCli");
+
+        var output = writer.ToString();
+        Assert.Equal(0, exitCode);
+        Assert.Equal("\"" + VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath)).AzCli + "\"", output.Trim());
+    }
+
     /// <summary>
     /// Text mode (<c>az --version</c>) renders a human-readable layout led by the CLI version and the
     /// runtime/paths sections — the same information as JSON, different presentation.
