@@ -326,6 +326,27 @@ public class ManagementGroupDeploymentTests
             requestUri);
     }
 
+    [Fact]
+    public async Task Cancel_SendsPostToCancelAction()
+    {
+        HttpRequestMessage? sent = null;
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            sent = request;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        CancelAtManagementGroupScopeDeploymentsProcessor processor =
+            CreateProcessor(new CancelAtManagementGroupScopeDeploymentsProcessor(), pipeline, new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.NotNull(sent);
+        Assert.Equal(HttpMethod.Post, sent.Method);
+        Assert.EndsWith("/deployments/test-deployment/cancel", sent.RequestUri!.AbsolutePath);
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : ResourcesProcessorBase
     {

@@ -9,6 +9,7 @@ using NewManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azcli
 using TestManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestManagementGroupDeploymentProcessor_Orchestrator;
 using GetManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor;
 using ListManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor;
+using StopManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -207,6 +208,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_stopManagementGroupDeployment_PS = new(
+            Name: nameof(StopManagementGroupDeploymentProcessor),
+            InvocationName: "Stop-AzManagementGroupDeployment",
+            Aliases: [],
+            FullName: typeof(StopManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(StopManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", true, ["DeploymentName"], []),
                 ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
             },
             ParameterAliases: new Dictionary<string, string>()
@@ -492,6 +508,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["m"] = "management-group-id",
             }
         );
+        private static readonly CommandMetadata s_stopManagementGroupDeployment_CLI = new(
+            Name: nameof(StopManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg cancel",
+            Aliases: [],
+            FullName: typeof(StopManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(StopManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -554,6 +585,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Test-AzManagementGroupDeployment"] = s_testManagementGroupDeployment_PS,
             ["Get-AzManagementGroupDeployment_Get"] = s_getManagementGroupDeployment_PS,
             ["Get-AzManagementGroupDeployment_List"] = s_listManagementGroupDeployment_PS,
+            ["Stop-AzManagementGroupDeployment"] = s_stopManagementGroupDeployment_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -574,6 +606,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg validate"]    = s_testManagementGroupDeployment_CLI,
             ["deployment mg show"]        = s_getManagementGroupDeployment_CLI,
             ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
+            ["deployment mg cancel"]      = s_stopManagementGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
