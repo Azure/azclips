@@ -130,7 +130,7 @@ def build_comment(
     extension_warnings: list[str],
     version_mismatches: list[str],
     invalid_version_bumps: list[str],
-) -> str | None:
+) -> str:
     if not any(
         [
             missing_rollup_modules,
@@ -139,7 +139,15 @@ def build_comment(
             invalid_version_bumps,
         ]
     ):
-        return None
+        return "\n".join(
+            [
+                "## Packaging review",
+                "",
+                "All packaging checks passed. No warnings found.",
+                "",
+                COMMENT_MARKER,
+            ]
+        )
 
     lines = ["## Packaging review", ""]
 
@@ -356,11 +364,6 @@ def review_pull_request(
         )
     elif comment_body:
         client.request("POST", comments_path, {"body": comment_body})
-    elif existing_comment:
-        client.request(
-            "DELETE",
-            f"/repos/{repository}/issues/comments/{existing_comment['id']}",
-        )
 
     for module_name in extension_warnings:
         print(
@@ -375,6 +378,16 @@ def review_pull_request(
 
     for invalid_bump in invalid_version_bumps:
         print(f"::warning::Extension version must be a patch bump: {invalid_bump}")
+
+    if not any(
+        [
+            missing_modules,
+            extension_warnings,
+            version_mismatches,
+            invalid_version_bumps,
+        ]
+    ):
+        print("::notice::All packaging checks passed. No warnings found.")
 
     return 0
 

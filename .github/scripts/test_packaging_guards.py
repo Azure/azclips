@@ -95,7 +95,12 @@ class ExtensionWarningTests(unittest.TestCase):
         self.assertIn("0.1.0 -> 0.2.0", comment)
         self.assertNotIn("validation failed", comment)
         self.assertIn(COMMENT_MARKER, comment)
-        self.assertIsNone(build_comment([], [], [], []))
+
+    def test_comment_reports_success_when_no_warnings_are_found(self):
+        comment = build_comment([], [], [], [])
+
+        self.assertIn("All packaging checks passed", comment)
+        self.assertIn(COMMENT_MARKER, comment)
 
 
 class VersionValidationTests(unittest.TestCase):
