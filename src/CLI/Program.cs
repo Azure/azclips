@@ -134,7 +134,7 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format);
+                streams = BuildStreams(settings.LogLevel, settings.Format, globalArgs.Query);
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
@@ -217,13 +217,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor, query));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

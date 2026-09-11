@@ -47,30 +47,57 @@ internal static class CliOutputFormatter
     /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
     /// does not consult the policy itself -- callers gate it.
     /// </param>
-    internal static string FormatValue(object? value, OutputFormat format = OutputFormat.Json, bool colorPolicyAllowsColor = false)
+    internal static string FormatValue(
+        object? value,
+        OutputFormat format = OutputFormat.Json,
+        bool colorPolicyAllowsColor = false,
+        string? query = null)
     {
         if (value is null)
             return string.Empty;
 
-        if (value is string s)
-            return s;
+        if (query is null)
+        {
+            if (value is string s)
+                return s;
 
-        // Primitives and decimals go through JsonSerializer so bool renders as lowercase
-        // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
-        // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
-        // formatting for numerics (period as decimal separator), so int/double/decimal
-        // render locale-independently (e.g., 3.14 not 3,14). A scalar's shape doesn't change
-        // across formats, so this branch is format-agnostic.
-        var type = value.GetType();
-        if (type.IsPrimitive || type == typeof(decimal))
-            return JsonSerializer.Serialize(value, type, s_jsonOptions);
+            // Primitives and decimals go through JsonSerializer so bool renders as lowercase
+            // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
+            // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
+            // formatting for numerics (period as decimal separator), so int/double/decimal
+            // render locale-independently (e.g., 3.14 not 3,14). A scalar's shape doesn't change
+            // across formats, so this branch is format-agnostic.
+            var type = value.GetType();
+            if (type.IsPrimitive || type == typeof(decimal))
+                return JsonSerializer.Serialize(value, type, s_jsonOptions);
 
-        // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
-        // bugs early. A fallback to ToString() is not useful here because it would most
-        // likely return a meaningless type name. Once models stabilise, catching and
-        // falling back gracefully may be preferable for production resilience.
-        var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+            // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
+            // bugs early. A fallback to ToString() is not useful here because it would most
+            // likely return a meaningless type name. Once models stabilise, catching and
+            // falling back gracefully may be preferable for production resilience.
+            var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
 
+            return format switch
+            {
+                OutputFormat.Table => TableFormatter.Format(json),
+                OutputFormat.Tsv => TsvFormatter.Format(json),
+                OutputFormat.Yaml => YamlFormatter.Format(json),
+                OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
+                OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
+                _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
+            };
+        }
+
+        var inputJson = value is string text
+            ? JsonSerializer.Serialize(text, typeof(string), s_jsonOptions)
+            : JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+
+        var filteredJson = JmesPathEvaluator.Transform(inputJson, query);
+        return RenderFormattedJson(filteredJson, format, colorPolicyAllowsColor);
+    }
+
+    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
+    {
         return format switch
         {
             OutputFormat.Table => TableFormatter.Format(json),
