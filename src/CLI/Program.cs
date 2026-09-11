@@ -193,9 +193,8 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
-            // If the user resolved a command but omitted required arguments, surface the structured
-            // validation error first, then render the command's full help output beneath it.
-            if (invocation is not null && ex.IsUsageError && ex.Message.Contains("Required parameter", StringComparison.Ordinal))
+            // Show resolved-command help after a missing required parameter error.
+            if (invocation is not null && ex is UsageErrorException && ex.Message.Contains("Required parameter", StringComparison.Ordinal))
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
 
@@ -318,8 +317,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
-            // AzclipsErrorException catch renders it via EmitStructuredError.
+            // Render extension help; structured errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
@@ -328,10 +326,7 @@ public class Program
 
     private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
     {
-        // Usage errors surfaced after a command was already resolved (e.g. a missing required
-        // parameter) get a `--help` pointer; dispatch-time usage errors (bad global flags, no
-        // resolved command yet) do not, since there is no command path to point at.
-        var message = invocation is not null && ex.Code == "UsageError"
+        var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
             : ex.Message;
 
