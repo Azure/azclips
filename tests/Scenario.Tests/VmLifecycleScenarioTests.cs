@@ -7,9 +7,11 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// The virtual machine lifecycle: create, show, start, delete, driven through the real
-/// dispatcher/binder and ARM request pipeline. Record mode runs the CLI surface against live Azure
-/// and rewrites the recording; playback replays the committed recording on both surfaces without
-/// credentials.
+/// dispatcher/binder and ARM request pipeline. Two virtual machines are created so both delete
+/// shapes are covered: a plain delete, and one with <c>--force-deletion</c>/<c>-ForceDeletion</c>,
+/// which adds the <c>forceDeletion</c> query parameter. Record mode runs the CLI surface against
+/// live Azure and rewrites the recording; playback replays the committed recording on both
+/// surfaces without credentials.
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmLifecycleScenarioTests
@@ -18,7 +20,9 @@ public class VmLifecycleScenarioTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-vm-lifecycle-rg";
 
+    // Azure caps the Windows computer name, derived from the VM name, at 15 characters.
     private const string VmName = "lifecycle-vm";
+    private const string ForceDeleteVmName = "lifecycle-vm-2";
     private const string Location = "westus2";
     private const string Password = "PlaceholderP@ss1";
 
@@ -36,10 +40,12 @@ public class VmLifecycleScenarioTests
 
             var subscriptionId = host.LiveSubscriptionId();
             RunGroupCreate(host, subscriptionId);
-            AssertVm(RunCreate(host, subscriptionId));
-            AssertVm(RunShow(host, subscriptionId));
-            AssertActionCompleted(RunStart(host, subscriptionId));
-            AssertActionCompleted(RunDelete(host, subscriptionId));
+            AssertVm(RunCreate(host, subscriptionId, VmName, "1"), VmName);
+            AssertVm(RunShow(host, subscriptionId, VmName), VmName);
+            AssertActionCompleted(RunStart(host, subscriptionId, VmName));
+            AssertVm(RunCreate(host, subscriptionId, ForceDeleteVmName, "2"), ForceDeleteVmName);
+            AssertActionCompleted(RunDelete(host, subscriptionId, VmName));
+            AssertActionCompleted(RunForceDelete(host, subscriptionId, ForceDeleteVmName));
             recording.Save();
             return;
         }
@@ -47,22 +53,32 @@ public class VmLifecycleScenarioTests
         using (var cli = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions))
         {
             RunGroupCreate(cli, SubscriptionId);
-            AssertVm(RunCreate(cli, SubscriptionId), SubscriptionId);
-            AssertVm(RunShow(cli, SubscriptionId), SubscriptionId);
-            AssertActionCompleted(RunStart(cli, SubscriptionId));
-            AssertActionCompleted(RunDelete(cli, SubscriptionId));
+            AssertVm(RunCreate(cli, SubscriptionId, VmName, "1"), VmName, SubscriptionId);
+            AssertVm(RunShow(cli, SubscriptionId, VmName), VmName, SubscriptionId);
+            AssertActionCompleted(RunStart(cli, SubscriptionId, VmName));
+            AssertVm(RunCreate(cli, SubscriptionId, ForceDeleteVmName, "2"), ForceDeleteVmName, SubscriptionId);
+            AssertActionCompleted(RunDelete(cli, SubscriptionId, VmName));
+            AssertActionCompleted(RunForceDelete(cli, SubscriptionId, ForceDeleteVmName));
         }
 
         using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_extensions))
         {
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
-            AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId), extension: "Compute"), SubscriptionId);
-            AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId), extension: "Compute"), SubscriptionId);
+            AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, VmName, "1"), extension: "Compute"), VmName, SubscriptionId);
+            AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), VmName, SubscriptionId);
 
             // -Id exercises the orchestrator's resource-id path; it resolves to the same
             // subscription/resource group/name, so it replays the request the CLI recorded.
-            AssertActionCompleted(ps.RunPowerShell("Start-AzVM", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId) } }, extension: "Compute"));
-            AssertActionCompleted(ps.RunPowerShell("Remove-AzVM", PsVmParameters(SubscriptionId), extension: "Compute"));
+            AssertActionCompleted(ps.RunPowerShell("Start-AzVM", new Dictionary<string, object> { ["Id"] = new[] { VmId(SubscriptionId, VmName) } }, extension: "Compute"));
+
+            AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, ForceDeleteVmName, "2"), extension: "Compute"), ForceDeleteVmName, SubscriptionId);
+            AssertActionCompleted(ps.RunPowerShell("Remove-AzVM", PsVmParameters(SubscriptionId, VmName), extension: "Compute"));
+
+            // -ForceDeletion adds the forceDeletion query parameter, so this replays the
+            // force-delete request rather than the plain one above.
+            var forceDeleteParameters = PsVmParameters(SubscriptionId, ForceDeleteVmName);
+            forceDeleteParameters["ForceDeletion"] = true;
+            AssertActionCompleted(ps.RunPowerShell("Remove-AzVM", forceDeleteParameters, extension: "Compute"));
         }
     }
 
@@ -72,39 +88,46 @@ public class VmLifecycleScenarioTests
             "--name", ResourceGroupName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId, string vmName, string suffix) =>
         host.RunCli("vm", "create",
             "--subscription-id", subscriptionId,
-            "--name", VmName,
+            "--name", vmName,
             "--location", Location,
             "--resource-group", ResourceGroupName,
             "--vm-size", "Standard_D2s_v3",
             "--admin-username", "azadmin",
             "--admin-password", Password,
-            "--network-interface-name", "scenario-lifecycle-nic",
-            "--virtual-network-name", "scenario-lifecycle-vnet",
-            "--network-security-group-name", "scenario-lifecycle-nsg",
+            "--network-interface-name", $"scenario-lifecycle-nic-{suffix}",
+            "--virtual-network-name", $"scenario-lifecycle-vnet-{suffix}",
+            "--network-security-group-name", $"scenario-lifecycle-nsg-{suffix}",
             "--subnet-names", "default",
             "--subnet-address-prefixes", "10.0.0.0/24",
             "--address-prefixes", "10.0.0.0/16");
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string vmName) =>
         host.RunCli("vm", "show",
             "--subscription-id", subscriptionId,
-            "--name", VmName,
+            "--name", vmName,
             "--resource-group", ResourceGroupName);
 
-    private static IReadOnlyList<object> RunStart(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunStart(ScenarioHost host, string subscriptionId, string vmName) =>
         host.RunCli("vm", "start",
             "--subscription-id", subscriptionId,
-            "--name", VmName,
+            "--name", vmName,
             "--resource-group", ResourceGroupName);
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string vmName) =>
         host.RunCli("vm", "delete",
             "--subscription-id", subscriptionId,
-            "--name", VmName,
+            "--name", vmName,
             "--resource-group", ResourceGroupName);
+
+    private static IReadOnlyList<object> RunForceDelete(ScenarioHost host, string subscriptionId, string vmName) =>
+        host.RunCli("vm", "delete",
+            "--subscription-id", subscriptionId,
+            "--name", vmName,
+            "--resource-group", ResourceGroupName,
+            "--force-deletion", "true");
 
     private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
     {
@@ -113,42 +136,42 @@ public class VmLifecycleScenarioTests
         ["Location"] = Location,
     };
 
-    private static Dictionary<string, object> PsCreateParameters(string subscriptionId) => new()
+    private static Dictionary<string, object> PsCreateParameters(string subscriptionId, string vmName, string suffix) => new()
     {
         ["SubscriptionId"] = subscriptionId,
-        ["Name"] = VmName,
+        ["Name"] = vmName,
         ["Location"] = Location,
         ["ResourceGroupName"] = ResourceGroupName,
         ["VmSize"] = "Standard_D2s_v3",
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
-        ["NetworkInterfaceName"] = "scenario-lifecycle-nic",
-        ["VirtualNetworkName"] = "scenario-lifecycle-vnet",
-        ["NetworkSecurityGroupName"] = "scenario-lifecycle-nsg",
+        ["NetworkInterfaceName"] = $"scenario-lifecycle-nic-{suffix}",
+        ["VirtualNetworkName"] = $"scenario-lifecycle-vnet-{suffix}",
+        ["NetworkSecurityGroupName"] = $"scenario-lifecycle-nsg-{suffix}",
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
     };
 
-    private static Dictionary<string, object> PsVmParameters(string subscriptionId) => new()
+    private static Dictionary<string, object> PsVmParameters(string subscriptionId, string vmName) => new()
     {
         ["SubscriptionId"] = subscriptionId,
-        ["Name"] = VmName,
+        ["Name"] = vmName,
         ["ResourceGroupName"] = ResourceGroupName,
     };
 
-    private static string VmId(string subscriptionId) =>
-        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{VmName}";
+    private static string VmId(string subscriptionId, string vmName) =>
+        $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}";
 
-    private static void AssertVm(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    private static void AssertVm(IReadOnlyList<object> outputs, string expectedName, string? expectedSubscriptionId = null)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
-        Assert.Equal(VmName, vm.Name);
+        Assert.Equal(expectedName, vm.Name);
         Assert.Equal(Location, vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
         if (expectedSubscriptionId is not null)
         {
-            Assert.Equal(VmId(expectedSubscriptionId), vm.Id);
+            Assert.Equal(VmId(expectedSubscriptionId, expectedName), vm.Id);
         }
     }
 
