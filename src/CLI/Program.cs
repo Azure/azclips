@@ -122,6 +122,11 @@ public class Program
                 globalArgs = GlobalArgParser.Parse(args);
             }
 
+            if (globalArgs.Query is not null)
+            {
+                JmesPathEvaluator.Validate(globalArgs.Query);
+            }
+
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
             {
                 if (globalArgs.NoCache)

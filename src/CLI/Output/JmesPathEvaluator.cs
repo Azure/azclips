@@ -45,4 +45,9 @@ internal static class JmesPathEvaluator
                 });
         }
     }
+
+    internal static void Validate(string expression)
+    {
+        _ = Transform("null", expression);
+    }
 }

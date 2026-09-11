@@ -1965,6 +1965,15 @@ Copyright (c) Microsoft Corporation
 Copyright (c) 2007 James Newton-King
 Copyright (c) 1991-2024 Unicode, Inc.
 Copyright (c) 2013-2017, Alfred Klomp
+
+---------------------------------------------------------
+
+JmesPath.Net 1.1.0 - Apache-2.0
+
+Authors: Jeremie Devillard, Maxime Labelle
+Project: https://github.com/jmespath-community/csharp-jmespath
+
+---------------------------------------------------------
 Copyright (c) 2018 Nemanja Mijailovic
 Copyright 2012 the V8 project authors
 Copyright (c) 1999 Lucent Technologies

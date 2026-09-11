@@ -49,6 +49,28 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task ConfigGet_AppliesQuery_ToCommandOutput()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync(
+            "config", "get", "--key", "core.logging.level", "--query", "@");
+
+        Assert.Equal(0, exit);
+        Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
+        Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Fact]
+    public async Task Logout_InvalidQuery_FailsBeforeCommandExecution()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("logout", "--query", "[[[");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("--query expression", stderr);
+    }
+
+    [Fact]
     public async Task DebugFlag_EmitsDebugToStderr_LeavesStdoutClean()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");
