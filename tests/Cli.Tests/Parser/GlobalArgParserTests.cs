@@ -3,6 +3,7 @@
 
 using Core.Cli.Parser;
 using Core.Cli.Version;
+using Core.Abstractions;
 using Core.Extensions;
 using Xunit;
 

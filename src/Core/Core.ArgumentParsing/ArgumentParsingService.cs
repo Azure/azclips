@@ -13,7 +13,12 @@ namespace Core.ArgumentParsing
             IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
             if (validationErrors != null && validationErrors.Count > 0)
             {
-                throw AzclipsErrorException.UsageError($"Invalid arguments: {string.Join(", ", validationErrors)}");
+                var message = $"Invalid arguments: {string.Join(", ", validationErrors)}";
+                if (parameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
+                {
+                    throw AzclipsErrorException.MissingRequiredParameters(message);
+                }
+                throw AzclipsErrorException.UsageError(message);
             }
 
             // Yabo: the applying default need to work with future parameter sets.

@@ -57,8 +57,11 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
 
-    public static UsageErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new(message, details);
+    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new("UsageError", 2, message, details);
+
+    public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new(message, details, hasMissingRequiredParameters: true);
 
     /// <summary>
     /// Compatibility violation: the extension's <c>[AzclipsCompatibility]</c> declared range
@@ -87,10 +90,13 @@ public class AzclipsErrorException : Exception
         => new("RegistryInvalid", 9, message, details);
 }
 
-public sealed class UsageErrorException : AzclipsErrorException
+public class UsageErrorException : AzclipsErrorException
 {
-    public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public bool HasMissingRequiredParameters { get; }
+
+    public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null, bool hasMissingRequiredParameters = false)
         : base("UsageError", 2, message, details)
     {
+        HasMissingRequiredParameters = hasMissingRequiredParameters;
     }
 }

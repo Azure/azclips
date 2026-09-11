@@ -184,9 +184,7 @@ public class Program
         }
         catch (CommandNotFoundException ex) when (ex.Path.Count == 0)
         {
-            // Bare command group (e.g. `az vm`, no subcommand): show that group's help instead of
-            // an error — the group name alone is a valid, unambiguous request, unlike a typo'd
-            // subcommand (`az vm --list`, `az group foobar`), which still surfaces CommandNotFound below.
+            // Show group help when no subcommand was provided.
             var groupExit = DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
             activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
             return groupExit;
@@ -194,7 +192,7 @@ public class Program
         catch (AzclipsErrorException ex)
         {
             // Show resolved-command help after a missing required parameter error.
-            if (invocation is not null && ex is UsageErrorException && ex.Message.Contains("Required parameter", StringComparison.Ordinal))
+            if (invocation is not null && ex is UsageErrorException { HasMissingRequiredParameters: true })
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
 
