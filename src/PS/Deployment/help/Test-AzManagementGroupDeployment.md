@@ -49,7 +49,7 @@ Test-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Location 
 
 ### -Location
 
-{{ Fill Location Description }}
+The location where Azure stores deployment metadata.
 
 ```yaml
 Type: System.String
@@ -70,7 +70,7 @@ HelpMessage: ''
 
 ### -ManagementGroupId
 
-{{ Fill ManagementGroupId Description }}
+The management group ID at which to validate the deployment.
 
 ```yaml
 Type: System.String
@@ -91,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-{{ Fill Name Description }}
+The deployment name. Defaults to the template file name or a timestamp.
 
 ```yaml
 Type: System.String
@@ -113,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-{{ Fill Profile Description }}
+The saved AzClips profile to use.
 
 ```yaml
 Type: System.String
@@ -134,7 +134,7 @@ HelpMessage: ''
 
 ### -QueryString
 
-{{ Fill QueryString Description }}
+The query string used with `-TemplateUri`.
 
 ```yaml
 Type: System.String
@@ -155,7 +155,7 @@ HelpMessage: ''
 
 ### -TemplateFile
 
-{{ Fill TemplateFile Description }}
+The path to a local ARM JSON or Bicep template.
 
 ```yaml
 Type: System.String
@@ -176,7 +176,7 @@ HelpMessage: ''
 
 ### -TemplateObject
 
-{{ Fill TemplateObject Description }}
+An inline ARM template hashtable.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -197,7 +197,7 @@ HelpMessage: ''
 
 ### -TemplateParameterFile
 
-{{ Fill TemplateParameterFile Description }}
+The path to a local JSON or Bicep parameters file.
 
 ```yaml
 Type: System.String
@@ -218,7 +218,7 @@ HelpMessage: ''
 
 ### -TemplateParameterObject
 
-{{ Fill TemplateParameterObject Description }}
+An inline template parameters hashtable.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -239,7 +239,7 @@ HelpMessage: ''
 
 ### -TemplateParameterUri
 
-{{ Fill TemplateParameterUri Description }}
+The URI of an ARM parameters file.
 
 ```yaml
 Type: System.String
@@ -260,7 +260,7 @@ HelpMessage: ''
 
 ### -TemplateSpecId
 
-{{ Fill TemplateSpecId Description }}
+The resource ID of a Template Spec.
 
 ```yaml
 Type: System.String
@@ -281,7 +281,7 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-{{ Fill TemplateUri Description }}
+The URI of an ARM template.
 
 ```yaml
 Type: System.String
@@ -302,7 +302,7 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-{{ Fill ValidationLevel Description }}
+The validation level: `Template`, `Provider`, or `ProviderNoRbac`.
 
 ```yaml
 Type: System.String
@@ -327,10 +327,10 @@ HelpMessage: ''
 
 ### Microsoft.Azure.Azclips.Extensions.Deployment.Models.DeploymentValidateResult
 
-TODO - describe what Test-AzManagementGroupDeployment does and when to use it.
+The validation result, including deployment properties and validation errors.
 
 ## NOTES
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
+None.
