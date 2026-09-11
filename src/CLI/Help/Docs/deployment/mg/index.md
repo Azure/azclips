@@ -12,3 +12,9 @@ Description: Create management-group-scoped ARM and Bicep deployments.
 ```bash
 az deployment mg create --management-group-id myManagementGroup --location eastus --template-file ./main.bicep
 ```
+
+### Validate a management-group deployment
+
+```bash
+az deployment mg validate --management-group-id myManagementGroup --location eastus --template-file ./main.bicep
+```
