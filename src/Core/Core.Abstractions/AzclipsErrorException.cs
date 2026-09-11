@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Extensions;
+namespace Core.Abstractions;
 
 /// <summary>
 /// Base exception for structured AzClips CLI errors. Carries a symbolic <see cref="Code"/> for
@@ -56,6 +56,8 @@ public class AzclipsErrorException : Exception
 
     public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
+
+    public bool IsUsageError => Code == "UsageError";
 
     public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("UsageError", 2, message, details);

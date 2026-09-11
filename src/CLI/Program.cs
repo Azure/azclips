@@ -193,6 +193,19 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
+            // If the user resolved a command but omitted required arguments, surface the structured
+            // validation error first, then render the command's full help output beneath it.
+            if (invocation is not null && ex.IsUsageError && ex.Message.Contains("Required parameter", StringComparison.Ordinal))
+            {
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+
+                var helpPath = invocation.CommandName
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var helpExit = DispatchHelp(new HelpRequest(helpPath), isBareInvocation: false, streams, activity);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
+            }
+
             // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
             EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);

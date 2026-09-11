@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
-    <ProjectReference Include="..\Core.Extensions\Core.Extensions.csproj" />
     <ProjectReference Include="..\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
     <ProjectReference Include="..\Core.Runtime\Core.Runtime.csproj" />

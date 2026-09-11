@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Extensions;
 
 namespace Core.ArgumentParsing
 {
