@@ -12,6 +12,16 @@ public interface IProfileService
     /// <returns>All saved profiles; empty when none exist.</returns>
     Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Gets the profile keys for other services to use as default.</summary>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>List of profile keys for other services to use as default.</returns>
+    List<string> GetProfileKeysForDefault();
+
+    /// <summary>Gets the value of a profile key from the active profile, or null if it does not exist.</summary>
+    /// <param name="key">The profile key.</param>
+    /// <returns>The value of the profile key, or null if it does not exist.</returns>
+    string? GetProfileValueByKey(Profile? profile,string key);
+
     /// <summary>Gets a single profile by name.</summary>
     /// <param name="name">The profile name.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>

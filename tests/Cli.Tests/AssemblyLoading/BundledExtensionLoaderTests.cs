@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Cli;
 using Core.Configuration.Options;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -67,6 +68,47 @@ public class BundledExtensionLoaderTests
             var installed = CreateLoader().GetInstalledExtensions().ToArray();
 
             Assert.Contains(installed, x => x.Name == name && x.Version == "0.1.2");
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
+    public void GetInstalledExtensions_ShouldFallBackToAssemblyInformationalVersion_WhenNupkgAbsent()
+    {
+        // Packaged-install shape: DLL present, no .nupkg. Loader reads AssemblyInformationalVersion
+        // via MetadataLoadContext instead of returning empty. Fixes Azure/CLIPS#534.
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            var entry = Assert.Single(installed, x => x.Name == name);
+            Assert.False(string.IsNullOrEmpty(entry.Version));
+            Assert.DoesNotContain('+', entry.Version);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
+    public void GetInstalledExtensions_ShouldReturnEmptyVersion_WhenNupkgAbsentAndDllUnreadable()
+    {
+        // Neither .nupkg nor a loadable DLL — fallback returns empty (defensive posture).
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name, realDll: false);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            Assert.Contains(installed, x => x.Name == name && x.Version == string.Empty);
         }
         finally
         {
@@ -506,21 +548,9 @@ public class BundledExtensionLoaderTests
             BundledExtensionLoader.GetDefaultRoot(),
             $"Microsoft.Azure.Azclips.Extensions.{shortName}");
 
-        if (Directory.Exists(packageDir))
-        {
-            try
-            {
-                Directory.Delete(packageDir, recursive: true);
-            }
-            catch (IOException)
-            {
-                // Non-fatal: leftover files at the bin/Debug dir are harmless.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Non-fatal: same as above; transient OS locks or read-only bits.
-            }
-        }
+        // Non-fatal if it fails: leftover files at the bin/Debug dir are harmless, and the
+        // extension ALC may still hold the DLL for the process lifetime.
+        DirectoryUtils.TryDeleteDirectory(packageDir);
     }
 
     private sealed class TestConfigurationService(bool bypassExtensionCache = false) : IConfigurationService

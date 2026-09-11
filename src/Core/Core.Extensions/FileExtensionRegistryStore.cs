@@ -5,7 +5,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json;
-using Core.Abstractions;
 
 namespace Core.Extensions
 {
@@ -31,11 +30,14 @@ namespace Core.Extensions
         private DateTime? _lastObservedWriteUtc;
 
         /// <summary>
-        /// Creates a store at <paramref name="path"/>, or at the default user-scoped location if null.
+        /// Creates a store at <paramref name="path"/>. Callers resolve the path — the default DI
+        /// registration in <c>CliExtensionServiceRegistration</c> derives it from
+        /// <c>AssemblyLoadingOptions.InstalledExtensionsRoot</c> so the config knob controls it.
         /// </summary>
-        public FileExtensionRegistryStore(string? path = null)
+        public FileExtensionRegistryStore(string path)
         {
-            _path = path ?? DefaultPath();
+            ArgumentException.ThrowIfNullOrWhiteSpace(path);
+            _path = path;
         }
 
         /// <summary>
@@ -276,14 +278,6 @@ namespace Core.Extensions
             }
 
             entry.Namespaces = namespaces;
-        }
-
-        /// <summary>
-        /// Computes the default registry path: <c>~/.azclips/extensions/registry.json</c>.
-        /// </summary>
-        public static string DefaultPath()
-        {
-            return HomePaths.GetDefaultRegistryPath();
         }
     }
 }

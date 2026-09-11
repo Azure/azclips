@@ -80,8 +80,8 @@ public class ExtensionDispatcherTests
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
         var helpProvider = new ExtensionIndexHelpAdapter(
-            new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex().GetCommandTable(ClientType.CLI),
-            "Login");
+            new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandTable(ClientType.CLI),
+            "login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login"]);
@@ -99,34 +99,26 @@ public class ExtensionDispatcherTests
 
     private static ExtensionDispatcher CreateLeafDispatcher(params (string Verb, string Path, string PackageId, bool IsBuiltIn, string Version)[] leaves)
     {
+        // Post-CLIPS-622: every leaf routes through the registry; IsBuiltIn is retained for
+        // caller readability only.
         var registry = new ExtensionRegistry();
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var leaf in leaves)
         {
-            if (leaf.IsBuiltIn)
+            if (!registry.Extensions.TryGetValue(leaf.PackageId, out var entry))
             {
-                builtIns[leaf.Verb] = new BuiltInExtension(leaf.Verb, leaf.PackageId);
-            }
-            else
-            {
-                if (!registry.Extensions.TryGetValue(leaf.PackageId, out var entry))
+                entry = new ExtensionRegistryEntry
                 {
-                    entry = new ExtensionRegistryEntry
-                    {
-                        Version = leaf.Version,
-                        InstalledAt = DateTimeOffset.UtcNow,
-                    };
-                    registry.Extensions[leaf.PackageId] = entry;
-                }
-                entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
+                    Version = leaf.Version,
+                    InstalledAt = DateTimeOffset.UtcNow,
+                };
+                registry.Extensions[leaf.PackageId] = entry;
             }
+            entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
         }
 
-        var index = LeafIndex.Build(builtIns, registry);
-        // Resolver is not consulted on exact leaf hits; supply a permissive built-in-only resolver
-        // so the verb-only fallback path still works in tests that exercise it.
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         return new ExtensionDispatcher(resolver, () => index);
     }
 
@@ -176,11 +168,11 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -190,7 +182,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -200,21 +192,27 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldFallBackToVerbOnly_WhenNoLeafMatches_ButVerbIsKnown()
     {
-        // Verb is registered via the resolver (built-in seed) but no leaf with that (verb, "")
-        // path exists in the leaf index — exercises the verb-only fallback.
-        var registry = new ExtensionRegistry();
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        // Verb is known via the resolver's registry lookup but no leaf with that (verb, "") path
+        // exists in the leaf index — exercises the verb-only fallback in the dispatcher.
+        var registry = new ExtensionRegistry
         {
-            ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+            Extensions =
+            {
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
+                {
+                    Version = "0.0.0",
+                    Verb = "login",
+                },
+            },
         };
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         // Empty leaf index — forces fallback.
-        var emptyIndex = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), new ExtensionRegistry());
+        var emptyIndex = LeafIndex.Build(new ExtensionRegistry());
         var dispatcher = new ExtensionDispatcher(resolver, () => emptyIndex);
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -282,16 +280,9 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldThrowCommandNotFound_WhenResolvedVerbLandsOnCommandGroup(
         string[] args, string expectedVerb, string[] expectedPath)
     {
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
-            {
-                Leaves = new[] { "tool env", "tool resource find", "tool resource show" },
-            },
-        };
-        var registry = new ExtensionRegistry();
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
-        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+        var registry = BuildAgentRegistry(["tool env", "tool resource find", "tool resource show"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
         var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(args));
 
@@ -306,16 +297,9 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
     {
         // The group gate must not swallow a valid leaf under the same verb.
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
-            {
-                Leaves = new[] { "tool env", "tool resource find" },
-            },
-        };
-        var registry = new ExtensionRegistry();
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
-        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
         var invocation = dispatcher.Parse(["agent", "tool", "env"]);
 
@@ -325,18 +309,41 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldRouteRunnableRootVerb_WhenBuiltInHasNoChildren()
     {
-        // A built-in whose only leaf is its root (login) stays runnable — the gate must not fire.
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        // An extension whose only leaf is its root (login) stays runnable — the gate must not fire.
+        var registry = new ExtensionRegistry
         {
-            ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+            Extensions =
+            {
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
+                {
+                    Version = "0.0.0",
+                    Contributions = { new Contribution { Verb = "login", Path = "" } },
+                },
+            },
         };
-        var registry = new ExtensionRegistry();
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
-        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
         var invocation = dispatcher.Parse(["login", "--subscription-id", "abc"]);
 
         Assert.Equal("login", invocation.CommandName);
+    }
+
+    private static ExtensionRegistry BuildAgentRegistry(string[] leafPaths)
+    {
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "0.0.0",
+            Contributions = { new Contribution { Verb = "agent", Path = "" } },
+        };
+        foreach (var path in leafPaths)
+        {
+            entry.Contributions.Add(new Contribution { Verb = "agent", Path = path });
+        }
+        return new ExtensionRegistry
+        {
+            Extensions = { ["Microsoft.Azure.Azclips.Extensions.Agent"] = entry },
+        };
     }
 
     [Fact]
@@ -379,30 +386,38 @@ public class ExtensionDispatcherTests
             entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
         }
 
-        var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), leafRegistry);
-        var resolver = new ExtensionResolver(
-            new InMemoryRegistryStore(resolverRegistry),
-            new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase));
+        var index = LeafIndex.Build(leafRegistry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(resolverRegistry));
         return new ExtensionDispatcher(resolver, () => index);
     }
 
     [Fact]
-    public void Parse_ShouldRouteBuiltInLeaf_WithPositionalResidual()
+    public void Parse_ShouldRouteLeafWithSubcommandPath_WithPositionalResidual()
     {
         // Regression: `az extension remove Resources` must resolve to (extension, remove) via
-        // the built-in's seeded Leaves and surface "Resources" as a positional residual under the
-        // empty parameter key — not fall through to verb-only fallback and yield the bogus
-        // command name "extension remove Resources". See BuiltInExtensions.Map.
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        // the extension's registered (verb, path) leaves and surface "Resources" as a positional
+        // residual under the empty parameter key — not fall through to verb-only fallback and
+        // yield the bogus command name "extension remove Resources".
+        var registry = new ExtensionRegistry
         {
-            ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
+            Extensions =
             {
-                Leaves = new[] { "add", "list", "show", "remove" },
+                ["Microsoft.Azure.Azclips.Extensions.Extension"] = new ExtensionRegistryEntry
+                {
+                    Version = "0.0.0",
+                    Contributions =
+                    {
+                        new Contribution { Verb = "extension", Path = "" },
+                        new Contribution { Verb = "extension", Path = "add" },
+                        new Contribution { Verb = "extension", Path = "list" },
+                        new Contribution { Verb = "extension", Path = "show" },
+                        new Contribution { Verb = "extension", Path = "remove" },
+                    },
+                },
             },
         };
-        var registry = new ExtensionRegistry();
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
-        var index = LeafIndex.Build(builtIns, registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var index = LeafIndex.Build(registry);
         var dispatcher = new ExtensionDispatcher(resolver, () => index);
 
         var invocation = dispatcher.Parse(["extension", "remove", "Resources"]);

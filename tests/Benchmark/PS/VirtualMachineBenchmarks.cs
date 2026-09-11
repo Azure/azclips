@@ -18,6 +18,7 @@ namespace Benchmark.PS;
 public class VirtualMachineBenchmarks : PSBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";
+    private int _vmCounter = 0;
 
     [Benchmark(Description = "PS: List VM")]
     public object? ListVirtualMachines()
@@ -30,7 +31,7 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: Create VM")]
     public object? CreateVirtualMachine()
     {
-        var n = Interlocked.Increment(ref VmCounter);
+        var n = Interlocked.Increment(ref _vmCounter);
         return RunPowerShellCommand("New-AzVM",
             ("SubscriptionId", SubscriptionId),
             ("Name", $"bench-vm-{n}"),

@@ -174,9 +174,25 @@ subscription plan and usage.
 
 ### What data is used and collected?
 
-During the private preview, AI-based error recovery doesn't collect telemetry.
+AI-based error recovery emits usage telemetry as its own trace, separate from the
+telemetry for the command that failed. The trace records:
 
-If you want a local record of the model input and output for debugging or auditing, enable tracing:
+- How long recovery ran, and how long each phase took
+- How many conversation turns and tool calls occurred
+- The configured AI provider and interaction style
+- The model name and the exit code
+- A reference to the failed command's trace, so the two can be correlated
+
+It does **not** record your prompts, the error text, the model's response, or the values
+of any command parameters.
+
+To turn all of it off:
+
+```azurecli
+az config set --key telemetry.enabled --value false
+```
+
+Separately, if you want a local record of the model input and output for debugging or auditing, enable tracing:
 
 ```azurecli
 az config set --key agent.trace.enabled --value true

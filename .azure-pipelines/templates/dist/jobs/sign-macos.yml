@@ -452,7 +452,7 @@ jobs:
           MacOSArchitecture: x64
     pool:
       vmImage: ${{ parameters.windows_pool }}
-    timeoutInMinutes: 120
+    timeoutInMinutes: 60
     steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
@@ -517,7 +517,7 @@ jobs:
           MacOSVmImage: ${{ parameters.macos_intel_pool }}
     pool:
       vmImage: $(MacOSVmImage)
-    timeoutInMinutes: 90
+    timeoutInMinutes: 60
     steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2

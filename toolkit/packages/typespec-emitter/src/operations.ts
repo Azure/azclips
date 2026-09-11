@@ -29,6 +29,7 @@ import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { bodyFrom, parametersByLocation, responsesFrom } from "./http.js";
 import { semanticsFor } from "./semantics.js";
+import { accessFrom } from "./annotations.js";
 
 const VALID_HTTP_METHODS: ReadonlySet<string> = new Set([
   "GET",
@@ -79,13 +80,6 @@ function methodToOperation(
     }
     return undefined;
   }
-  if (method.access === "internal") {
-    if (!ctx.flags.internalAccessWarned) {
-      reportDiagnostic(ctx.program, { code: "internal-access-skipped", target: NoTarget });
-      ctx.flags.internalAccessWarned = true;
-    }
-    return undefined;
-  }
 
   const http = method.operation;
   const methodVerb = clampHttpMethod(http.verb);
@@ -114,6 +108,7 @@ function methodToOperation(
   }
 
   const semantics = semanticsFor(ctx, method);
+  const access = accessFrom(method.access);
 
   const op: IROperation = {
     id,
@@ -130,6 +125,8 @@ function methodToOperation(
     server,
     ...(semantics !== undefined ? { semantics } : {}),
     ...(method.doc !== undefined ? { docs: method.doc } : {}),
+    ...(method.summary !== undefined ? { summary: method.summary } : {}),
+    ...(access !== undefined ? { access } : {}),
   };
   return op;
 }

@@ -19,9 +19,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// and delegates here via <c>CreateExtendedProcessor</c>. What-if is read-only: it never
     /// creates or modifies resources.
     /// </summary>
-    public class NewResourceGroupDeploymentWhatIfProcessor : ResourcesProcessorBase<WhatIfOperationResult>
+    public class NewResourceGroupDeploymentWhatIfProcessor : ResourcesProcessorBase<DeploymentWhatIf, WhatIfOperationResult>
     {
         private const string ApiVersion = "2025-04-01";
+
+        public string SubscriptionId { get; set; } = string.Empty;
 
         public string ResourceGroupName { get; set; } = string.Empty;
 
@@ -37,28 +39,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // original POST /whatIf URI is POST-only, so the final GET is skipped (FetchFinalState=false)
         // and the last Location poll (the 200 carrying the result body) is returned and deserialized.
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
-        protected override bool FetchFinalState => false;
 
-        // What-if always waits for the LRO to complete (there is no -NoWait). SubscriptionId is
-        // resolved here so the what-if URI is built correctly.
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return SendAsyncLRO();
-        }
+        // What-if always waits for the LRO to complete (there is no -NoWait).
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Post;
 
-            string uri = $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version={ApiVersion}";
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri)
-            {
-                Content = JsonContent.Create(WhatIf, options: JsonOptions)
-            };
+        protected override string CreateRequestUri() =>
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version={ApiVersion}";
 
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
+        protected override DeploymentWhatIf? CreateRequestBody() => WhatIf;
     }
 }

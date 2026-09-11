@@ -12,7 +12,7 @@ parameters:
 jobs:
 - job: WindowsValidation
   displayName: CLI Windows Validation
-  timeoutInMinutes: 45
+  timeoutInMinutes: 30
   strategy:
     matrix:
       win_x64_lean:

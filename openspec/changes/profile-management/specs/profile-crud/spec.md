@@ -14,7 +14,7 @@ The system SHALL define a `Profile` record in `Core.Abstractions` containing: `N
 - **AND** optional fields (DefaultLocation, DefaultResourceGroup, UserPrincipalName, ClientId) SHALL be null
 
 ### Requirement: Profile name validation
-Profile names SHALL be 1–100 characters long, consisting of alphanumeric characters, hyphens (`-`), underscores (`_`), and periods (`.`). The name `"temp"` is reserved for bare login and SHALL NOT be accepted by user-facing profile creation commands.
+Profile names SHALL be 1–100 characters long, consisting of alphanumeric characters, hyphens (`-`), underscores (`_`), and periods (`.`). The name `"default"` is reserved for bare login and SHALL NOT be accepted by user-facing profile creation commands.
 
 #### Scenario: Valid profile name
 - **WHEN** a profile is saved with name "my-prod.env_01"

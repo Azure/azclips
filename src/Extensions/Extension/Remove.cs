@@ -42,15 +42,7 @@ public class RemoveExtensionProcessor : IProcessor
         var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
-        // Built-in verbs aren't in the registry; give a clear error rather than "not found".
-        if (BuiltInExtensions.IsBuiltInVerb(Name))
-        {
-            throw AzclipsErrorException.VerbConflict(
-                $"'{Name}' is a built-in verb and cannot be removed. Built-ins are part of the host.",
-                new Dictionary<string, object?> { ["verb"] = Name });
-        }
-
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var fileRegistry = store.Load();
 
         // Metadata-only install lookup for remove: enumerate package/version directories without

@@ -93,7 +93,7 @@ public static class PinHelper
             throw AzclipsErrorException.UsageError("Name is required.");
         }
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var registry = store.Load();
         var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(registry);
 

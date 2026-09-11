@@ -245,7 +245,7 @@ The diagram encodes three truths worth stating plainly:
 
 1. **All four surfaces converge on `AzclipsServiceProvider`.** There is no second wiring path.
 2. **The AI box is dashed and separate.** The solid arrows are the structured hot path; the dashed arrows are the fallback and the agent's tool-calls-back-into-`az`. The dashed boundary is a _process_ boundary.
-3. **Extensions are leaves, not core.** `Resources`, `Compute`, `Login`, `Config`, `Extension` are DLLs discovered and loaded at runtime; the core knows them only through `IExtensionIndex` and `IProcessor`.
+3. **Extensions are leaves, not core.** `Resources`, `Compute`, `Accounts`, `Config`, `Extension` are DLLs discovered and loaded at runtime; the core knows them only through `IExtensionIndex` and `IProcessor`.
 
 ### 2.1 The project map (from `azclips.slnx`)
 
@@ -253,10 +253,10 @@ The diagram encodes three truths worth stating plainly:
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `src/CLI`            | `Core.Cli`                                                                                                                                                                                                       | The `az` binary: parse args, open session, orchestrate fallback               |
 | `src/Core` (10)      | `Core.Abstractions`, `Core.ArgumentParsing`, `Core.AssemblyLoading`, `Core.Authentication`, `Core.Configuration`, `Core.DependencyInjection`, `Core.Engine`, `Core.Extensions`, `Core.Runtime`, `Core.Telemetry` | The shared spine: contracts + implementations for every cross-cutting concern |
-| `src/Extensions` (6) | `ExtensionRuntime`, `Extension`, `Resources`, `Login`, `Config`, `Compute`                                                                                                                                       | Command packages + the (de)serialization runtime they use                     |
+| `src/Extensions` (6) | `ExtensionRuntime`, `Extension`, `Resources`, `Accounts`, `Config`, `Compute`                                                                                                                                       | Command packages + the (de)serialization runtime they use                     |
 | `TUI`                | `Core.Tui`                                                                                                                                                                                                       | Interactive shell **and** agent-mode host (Hex1b terminal library)            |
 | `Agent`              | `Core.Agent` (+ `Core.Agent.Tests`)                                                                                                                                                                              | The LLM agent: `ChatAgent`, tools, renderers, daemon resolver                 |
-| `src/PS`             | `Cmdlets.Common/Compute/Config/Login/Resources`                                                                                                                                                                  | PowerShell projection of the same engine                                      |
+| `src/PS`             | `Cmdlets.Common/Compute/Config/Accounts/Resources`                                                                                                                                                                  | PowerShell projection of the same engine                                      |
 | `tests`              | `Cli.Tests`, `Cmdlets.Tests`, `Core.Extensions.Tests`, `Core.Telemetry.Tests`, `Common`, `Benchmark`, `Fixtures/*`                                                                                               | xUnit + BenchmarkDotNet + fixture extensions                                  |
 | `tools`              | `Help/*`                                                                                                                                                                                                         | Help-artifact generation tool and its tests                                   |
 
@@ -418,7 +418,7 @@ sequenceDiagram
 
 `Main` first special-cases the telemetry uploader (`Program.cs:34`) — a re-entrant `az --upload-telemetry` used by the detached flush process (see §10). Then it registers CLI providers and calls `Initialize` (`:40-53`). Completion generation gets a chance to short-circuit (`:56`), because shell tab-completion must resolve `IEngine` directly and exit before we do "real" work.
 
-`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. Help / version are classified upstream by `GlobalArgParser.Parse` (`src/CLI/Parser/GlobalArgParser.cs`) into `GlobalArgs.Help` / `GlobalArgs.Version` and dispatched directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher` — no control-flow-via-exceptions on the cold path. Bare `az` produces `Help.Path == []` **and** triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`); user-typed help (`az --help`, `az -h`, `az help`) skips the banner. `ExtensionDispatcher` resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
+`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. Help / version are classified upstream by `GlobalArgParser.Parse` (`src/CLI/Parser/GlobalArgParser.cs`) into `GlobalArgs.Help` / `GlobalArgs.Version` and dispatched directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher` — no control-flow-via-exceptions on the cold path. Bare `az` produces `Help.Path == []` **and** triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`); user-typed help (`az --help`, `az -h`, `az help`) skips the banner. `ExtensionDispatcher` resolves the verb against a **leaf index** built once by discovery over both loader tiers (Bundled + Installed); no static verb seed.
 
 ### 5.2 Open the session, resolve the profile, build the context
 
@@ -581,9 +581,9 @@ The profile _lifecycle_ is a small state machine worth internalizing, because lo
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%
 stateDiagram-v2
     [*] --> NoProfile
-    NoProfile --> Temp: az login (bare) → reserved "temp", activated
+    NoProfile --> Default: az login (bare) → reserved "default", activated
     NoProfile --> Named: az login --out-profile prod → created + activated
-    Temp --> Named: az login --out-profile prod
+    Default --> Named: az login --out-profile prod
     Named --> Active: profile set prod
     Active --> Reauth: az login --profile prod (refresh tokens)
     Reauth --> Active: overwrite + reactivate
@@ -593,7 +593,7 @@ stateDiagram-v2
     Active --> [*]: profile remove prod (also clears pointer)
 ```
 
-Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"temp"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
+Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"default"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
 
 ### 7.4 `IExtensionIndex` / `IProcessor` — the extension contract
 
@@ -615,7 +615,7 @@ Telemetry is worth a principal's attention because it is _on by default_ and tou
 
 - `TelemetryService` (`src/Core/Core.Telemetry/TelemetryService.cs`) starts a root `Activity` and per-command activities via a `System.Diagnostics` `ActivitySource` (`Program.cs:67,79`).
 - Before export, `DefaultTelemetryPropertyFilter` / `DefaultTelemetryPropertyFilterProcessor` and the activity-name equivalents strip anything not on the allow-list (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs`). The filters are _interfaces_ (`ITelemetryPropertyFilter`, `ITelemetryActivityNameFilter`) so a surface can tighten them but not loosen the core guarantee.
-- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `FileTelemetrySender.SendPendingStatic` → `DirectTelemetrySender` → `WellKnownEndpoints`.
+- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `TelemetryUpload.RunPending()` (`src/Core/Core.Telemetry/TelemetryUpload.cs`), which orchestrates `TraceUploader` → `TracerProviderExportSink` → `WellKnownEndpoints`.
 
 Opt-out is a single typed config write: `az config set --key telemetry.enabled --value false` (or `Set-AzConfig`), read back through `GetConfiguration<TelemetryOptions>()`. See §10 and the Telemetry deep-dive page for the flush sequence.
 
@@ -657,9 +657,9 @@ _Rejected:_ (a) build the full global-parameter framework first — out of scope
 _Chosen:_ delete `AuthContext`, `IAuthContextService`, `context.json`; the auth pipeline reads tenant/subscription straight off the resolved `Profile`.
 _Rejected:_ keep both — reintroduces "two ways to do the same thing" kept in sync. _Trade-off:_ `Profile?` is nullable on `ProcessorContext`; commands that need it (resource/compute) must guard and fail at point-of-use with a clear message.
 
-**D6 — Bare `az login` writes a reserved `"temp"` profile.** (`design.md` Decision 3)
-_Chosen:_ no `--out-profile` → overwrite the disposable `"temp"` profile and activate it.
-_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous temp — by design; named persistence needs `--out-profile`.
+**D6 — Bare `az login` writes a reserved `"default"` profile.** (`design.md` Decision 3)
+_Chosen:_ no `--out-profile` → overwrite the disposable `"default"` profile and activate it.
+_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous default — by design; named persistence needs `--out-profile`.
 
 **D7 — Logout targets one account by UPN, not a blanket cache clear.** (`design.md` Decision 6)
 _Chosen:_ `LogoutAsync(userPrincipalName)` removes only the matching MSAL account and clears the active pointer (`MsalAuthService.cs:29`).
@@ -787,7 +787,7 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 1. Create `src/Extensions/<Name>/Extensions.<Name>.csproj` (net10.0 inherits from `src/Directory.Build.props`); add it to `azclips.slnx`.
 2. Implement `IExtensionIndex` as the command registry and one `IProcessor` per verb.
 3. Use `ExtensionRuntime` (`src/Extensions/ExtensionRuntime/`) for ARM payload (de)serialization rather than hand-rolling `JsonConverter`s — its `Conversions/Instances/*` cover the primitive and collection cases, and `JsonConverterAttribute` lets you register custom ones.
-4. Decide built-in vs installable: built-ins are compiled into the `BuiltInExtensions.Map`; installable ones ship as packages resolved by the extension-management commands (`add`/`update`/`pin`) and the user registry.
+4. Decide packaging: extensions that must ship in every install go into `devops/scripts/packaging/config/{lean,full}_package.config`; others are installable at runtime via `az extension add`. Dispatch is uniform — no runtime tier distinction.
 5. Version deliberately: the loader supports side-by-side versions (`InstalledExtensionLoader`), and the engine caches indices per `name-version` key (`Engine.cs:84`).
 
 ### 14.3 State on disk — the reference you'll want at 2am

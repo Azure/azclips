@@ -33,13 +33,11 @@ public interface IExtensionLoader
 /// </summary>
 /// <remarks>
 /// <para>
-/// The <b>Bundled</b> tier is distinct from the <b>Core</b> tier (the compile-time seed in
-/// <see cref="Core.Extensions.BuiltInExtensions.Map"/>). Core and Bundled are orthogonal:
-/// packaging profiles (lean vs full, see <c>inject_builtin_extensions.sh</c>) can ship any
-/// subset of Core extensions, and Bundled-only extensions like <c>Resources</c> and
-/// <c>Compute</c> aren't seeded in <see cref="Core.Extensions.BuiltInExtensions.Map"/> at all.
-/// The <b>Installed</b> tier (<c>InstalledExtensionLoader</c>) covers extensions placed by
-/// <c>az extension add</c> under <c>~/.azclips/extensions/</c>.
+/// The runtime knows only two tiers: <b>Bundled</b> (this loader) and <b>Installed</b>
+/// (<c>InstalledExtensionLoader</c>, which covers extensions placed by <c>az extension add</c>
+/// under <c>~/.azclips/extensions/</c>). Dispatch is uniform across both — no Core-tier exception.
+/// The set of extensions expected to ship in every install lives in the packaging profile
+/// (<c>devops/scripts/packaging/config/lean_package.config</c>), not the runtime.
 /// </para>
 /// <para>
 /// <b>Version resolution</b> for a Bundled extension is driven by the on-disk <c>.nupkg</c>
@@ -203,7 +201,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                 // request: trust the caller and take the first assembly-name match. See Azure/CLIPS#522.
                 if (!string.IsNullOrEmpty(version))
                 {
-                    var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService);
+                    var discoveredVersion = ResolvePackageVersion(packageDir, directoryName, _loggingService);
                     if (string.IsNullOrEmpty(discoveredVersion) ||
                         !string.Equals(discoveredVersion, version, StringComparison.OrdinalIgnoreCase))
                     {
@@ -240,7 +238,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     stopwatch.Stop();
 
                     var loadedVersion = string.IsNullOrEmpty(version)
-                        ? ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService)
+                        ? ResolvePackageVersion(packageDir, directoryName, _loggingService)
                         : version;
                     _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
                     ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
@@ -293,7 +291,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
-                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
+                var discoveredVersion = ResolvePackageVersion(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
                 // Normalize to an absolute path — Location is documented as absolute.
@@ -302,7 +300,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
         }
     }
 
-    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId, ILoggingService? loggingService)
+    private static string ResolvePackageVersion(string packageDir, string packageId, ILoggingService? loggingService)
     {
         var prefix = packageId + ".";
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
@@ -312,7 +310,21 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
             .OrderByDescending(parsed => parsed)
             .ToList();
 
-        return versions.Count == 0 ? string.Empty : versions[0].ToString();
+        if (versions.Count > 0)
+        {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{versions[0]}' for '{packageId}' via .nupkg scan.");
+            return versions[0].ToString();
+        }
+
+        // Fallback when no .nupkg is present in the package directory.
+        var attributeVersion = AssemblyVersionReader.TryReadInformationalVersion(packageDir, packageId);
+        if (!string.IsNullOrEmpty(attributeVersion))
+        {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{attributeVersion}' for '{packageId}' via AssemblyInformationalVersion (no .nupkg present).");
+            return attributeVersion;
+        }
+
+        return string.Empty;
     }
 
     private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix, ILoggingService? loggingService)

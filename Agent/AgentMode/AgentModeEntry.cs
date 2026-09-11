@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Agent.AgentMode;
@@ -30,18 +33,39 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI
-        // as its error-handling fallback — so it initializes as ClientType.CLI
-        // (was TUI back when this entry lived inside Core.Tui and borrowed its shell).
+        // Runs as its own process (azclips-agent.exe), spawned by the CLI on command
+        // failure, so it initializes as ClientType.CLI. AgentTelemetryProvider replaces
+        // the default one because only it attaches a listener; without it every span
+        // in this process is null.
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
+            services.AddSingleton<ITelemetryProvider, AgentTelemetryProvider>();
+        });
         AzclipsServiceProvider.Initialize(ClientType.CLI);
 
         TraceAgentRenderer? trace = null;
         try
         {
+            // Constructing the provider builds the TracerProvider and attaches the
+            // listener every span here depends on. DI singletons are lazy, so this
+            // resolve is what triggers it. The container disposes it in the finally,
+            // which flushes the exporter.
+            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>();
+
+            // Parents to the CLI's recovery span via the traceparent on our environment
+            // block. Inside the try so it disposes before the finally tears down the
+            // TracerProvider — nothing exports after that.
+            using var session = telemetry.ActivitySource.StartActivity(
+                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
+            session?.SetTag(TelemetryTags.RecoverySessionStyle, agentOpts.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
@@ -93,18 +117,24 @@ public static class AgentModeEntry
             // idempotent — it Stops first), so this seams into the turn cleanly.
             spinner.Start("Analyzing error root cause using AI");
 
-            await using var agent = await ChatAgent.CreateAsync(
-                flavor: flavor,
-                auth: auth,
-                profileService: profileService,
-                azExePath: az,
-                approvalSink: approval,
-                renderer: renderer,
-                options: agentOpts,
-                entrypoint: entrypoint,
-                spinner: spinner,
-                failedCommand: failedCommand,
-                ct: cts.Token);
+            ChatAgent agent;
+            // Times Copilot SDK and stdio daemon startup.
+            using (AgentTracing.Source.StartActivity("Agent.Create"))
+            {
+                agent = await ChatAgent.CreateAsync(
+                    flavor: flavor,
+                    auth: auth,
+                    profileService: profileService,
+                    azExePath: az,
+                    approvalSink: approval,
+                    renderer: renderer,
+                    options: agentOpts,
+                    entrypoint: entrypoint,
+                    spinner: spinner,
+                    failedCommand: failedCommand,
+                    ct: cts.Token);
+            }
+            await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
             // outcome, ConsoleAgentRenderer drops any trailing prose the model
@@ -119,6 +149,7 @@ public static class AgentModeEntry
             var interactive = agentOpts.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
         catch (OperationCanceledException)
@@ -236,6 +267,7 @@ public static class AgentModeEntry
         CancellationToken ct,
         string initialVerb = "thinking")
     {
+        using var turn = AgentTracing.Source.StartActivity("Agent.Turn");
         var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
@@ -247,6 +279,9 @@ public static class AgentModeEntry
             if (agent.LastSendCalledClosingTool) break;
             // Errored turn: don't pile a correction on top of a failure.
             if (agent.LastError is not null) break;
+
+            using var reprompt = AgentTracing.Source.StartActivity("Agent.Reprompt");
+            reprompt?.SetTag(TelemetryTags.RecoveryReprompts, attempt + 1);
 
             WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");
             const string correction =

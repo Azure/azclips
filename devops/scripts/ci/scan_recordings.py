@@ -42,6 +42,7 @@ RULES = {
     "subscription id": re.compile(r"/subscriptions/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "tenant id": re.compile(r"/tenants/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "aad authority tenant": re.compile(r"login\.microsoftonline\.com/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
+    "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
     "client secret": re.compile(Q + "client_secret" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),

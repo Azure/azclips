@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Ace.Generator.Host — the out-of-process entry point for the C# generator.
+
+    Stage 3 of the Azure Client Engine pipeline is a plain .NET library
+    (Ace.Generator); this thin executable adapts it to the compiler's
+    `csharp-generate` tool contract: read a JSON GenerateToolRequest on stdin,
+    run CSharpClientGenerator, and stream the result back as NDJSON on stdout
+    (one `file` frame per generated file, then a terminal `result` frame). The
+    `ace` CLI's host runtime spawns this exe via `dotnet`.
+
+    Shared MSBuild settings (net10.0, nullable, implicit usings) come from the
+    package's Directory.Build.props. Kept out of the library's own compilation by
+    the `host/**` exclude in Ace.Generator.csproj.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ace.Generator.Host</RootNamespace>
+    <AssemblyName>Ace.Generator.Host</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ace.Generator.csproj" />
+  </ItemGroup>
+
+</Project>

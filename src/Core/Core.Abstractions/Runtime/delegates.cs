@@ -3,6 +3,7 @@
 
 namespace Core.Abstractions.Runtime
 {
+    using System;
     using System.Diagnostics;
     using System.Net.Http;
     using System.Threading;
@@ -35,5 +36,5 @@ namespace Core.Abstractions.Runtime
     /// <summary>
     /// Delegate for starting an activity for telemetry.
     /// </summary>
-    public delegate Activity? StartActivityDelegate(string name, ActivityKind kind = ActivityKind.Internal);
+    public delegate Activity? StartActivityDelegate(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default);
 }

@@ -19,7 +19,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "identity",
@@ -27,11 +28,12 @@
           "type": "bool",
           "required": false,
           "description": "Login using managed identity in the current environment.",
-          "aliases": [],
+          "aliases": ["i"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "object-id",
@@ -43,7 +45,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "out-profile",
@@ -79,7 +82,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "subscription-id",
@@ -87,7 +91,7 @@
           "type": "string",
           "required": false,
           "description": "Azure Subscription Id.",
-          "aliases": [],
+          "aliases": ["s", "subscription"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -99,7 +103,7 @@
           "type": "string",
           "required": false,
           "description": "Tenant ID to login to.",
-          "aliases": [],
+          "aliases": ["t", "tenant"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -127,6 +131,18 @@
           {
             "title": "Login with device code",
             "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+          },
+          {
+            "title": "Login with a managed identity",
+            "command": "az login --identity"
+          },
+          {
+            "title": "Login with a user-assigned managed identity",
+            "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111"
+          },
+          {
+            "title": "Login with a managed identity using short flags",
+            "command": "az login -i"
           }
         ],
         "powerShell": []

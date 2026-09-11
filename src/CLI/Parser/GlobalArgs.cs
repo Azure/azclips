@@ -22,7 +22,11 @@ namespace Core.Cli.Parser;
 /// decision; <c>az --help</c> is <em>not</em> bare (it explicitly asked for help).
 /// </param>
 /// <param name="Debug"><c>--debug</c> was present anywhere in the input.</param>
-/// <param name="Output">Resolved output format; defaults to <see cref="OutputFormat.Plain"/>.</param>
+/// <param name="Output">
+/// Explicit <c>--output</c> value, or <c>null</c> when not passed. <c>null</c> means the effective
+/// format comes from <c>clients.cli.output.format</c> config instead — see
+/// <c>OutputFormatPolicy.ResolveEffectiveFormat</c>.
+/// </param>
 /// <param name="NoCache">
 /// <c>--no-cache</c> was present. The caller mutates <c>AZCLIPS_NO_EXTENSION_CACHE</c>; the parser
 /// does not.
@@ -33,19 +37,25 @@ internal sealed record GlobalArgs(
     IReadOnlyList<string> Positional,
     bool IsBareInvocation,
     bool Debug,
-    OutputFormat Output,
+    OutputFormat? Output,
     bool NoCache,
     HelpRequest? Help,
     VersionRequest? Version);
 
 /// <summary>
 /// Recognized <c>--output</c> value. Unknown values raise a usage error at parse time
-/// (see <see cref="GlobalArgParser.Parse"/>).
+/// (see <see cref="GlobalArgParser.Parse"/>). <c>Json</c>/<c>Yaml</c> never colorize regardless of
+/// <c>core.output.color</c> (deterministic for scripting); <c>Jsonc</c>/<c>Yamlc</c> colorize
+/// subject to <c>core.output.color</c>'s existing gating.
 /// </summary>
-internal enum OutputFormat
+public enum OutputFormat
 {
-    Plain,
     Json,
+    Jsonc,
+    Table,
+    Tsv,
+    Yaml,
+    Yamlc,
 }
 
 /// <summary>

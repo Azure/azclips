@@ -5,6 +5,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Exporters;
@@ -58,6 +59,11 @@ public class Program
             ? Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "ci", extensionFilter ?? "ALL", productFilter ?? "ALL")
             : Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", timestamp);
 
+        // Benchmarks write telemetry to a stable staging path because their child processes cannot
+        // know artifactsPath. Clear it first so post-run collection can only pick up this run.
+        var telemetryStagingRoot = BenchmarkTelemetryArtifacts.StagingRoot(RepoLocator.GetRepoRoot());
+        DirectoryUtils.TryDeleteDirectory(telemetryStagingRoot);
+
         var config = ManualConfig.CreateEmpty()
             .AddColumnProvider(DefaultColumnProviders.Instance)
             .AddColumn(StatisticColumn.Mean)
@@ -87,6 +93,8 @@ public class Program
         // .ToArray() materializes the runs so every class executes even if an
         // earlier one fails — failures are aggregated post-hoc into the exit code.
         var summaries = benchmarkTypes.Select(t => BenchmarkRunner.Run(t, config)).ToArray();
+
+        CollectTelemetry(telemetryStagingRoot, Path.Combine(artifactsPath, "telemetry"));
 
         var failures = new List<string>();
         foreach (var s in summaries)
@@ -279,6 +287,39 @@ public class Program
         }
 
         return types.ToArray();
+    }
+
+    /// <summary>
+    /// Moves the pruned per-benchmark telemetry files into this run's artifacts folder.
+    /// </summary>
+    /// <remarks>Never throws and never contributes to the failure list.</remarks>
+    private static void CollectTelemetry(string stagingRoot, string destination)
+    {
+        try
+        {
+            var files = Directory.Exists(stagingRoot)
+                ? Directory.GetFiles(stagingRoot, "*.jsonl")
+                : Array.Empty<string>();
+
+            if (files.Length == 0)
+            {
+                Console.WriteLine("[Telemetry] No telemetry was produced by this run");
+                return;
+            }
+
+            Directory.CreateDirectory(destination);
+            foreach (var file in files)
+            {
+                File.Move(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: true);
+            }
+
+            Console.WriteLine($"[Telemetry] Collected {files.Length} file(s) into {destination}");
+            DirectoryUtils.TryDeleteDirectory(stagingRoot);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Telemetry] Collection failed, benchmarks unaffected: {ex.Message}");
+        }
     }
 
     private static string? ParseProductFilter(string[] args)

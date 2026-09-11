@@ -6,7 +6,7 @@ parameters:
 jobs:
 - job: UnitTests
   displayName: Unit Tests
-  timeoutInMinutes: 60
+  timeoutInMinutes: 30
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:

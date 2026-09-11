@@ -2,11 +2,12 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Cli.Parser;
 
 namespace Cli.Tests;
 
 /// <summary>
-/// Tests for <see cref="Core.Cli.CliOutputFormatter"/> ensuring CLI output
+/// Tests for <see cref="Core.Cli.Output.CliOutputFormatter"/> ensuring CLI output
 /// correctly renders strings, primitives, complex objects, and collections.
 /// </summary>
 // One test redirects the process-global Console.Out to capture output end-to-end.
@@ -20,14 +21,14 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_ShouldReturnString_WhenValueIsString()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world");
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue("hello world");
         Assert.Equal("hello world", result);
     }
 
     [Fact]
     public void FormatValue_ShouldReturnEmptyString_WhenValueIsEmptyString()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue("");
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue("");
         Assert.Equal("", result);
     }
 
@@ -36,21 +37,21 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_ShouldReturnEmptyString_WhenValueIsNull()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue(null);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null);
         Assert.Equal(string.Empty, result);
     }
 
     // ── Primitives ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(42)]
-    [InlineData(3.14)]
-    [InlineData(true)]
-    [InlineData('x')]
-    public void FormatValue_ShouldUseToString_WhenValueIsPrimitive(object value)
+    [InlineData(42, "42")]
+    [InlineData(3.14, "3.14")]
+    [InlineData(true, "true")]
+    [InlineData(false, "false")]
+    [InlineData('x', "\"x\"")]
+    public void FormatValue_ShouldEmitJsonLiteral_WhenValueIsPrimitive(object value, string expected)
     {
-        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", value);
-        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(value);
         Assert.Equal(expected, result);
     }
 
@@ -60,11 +61,47 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldSerializeToJson_WhenValueIsComplexObject()
     {
         var obj = new { Name = "test-rg", Location = "eastus" };
-        var result = Core.Cli.CliOutputFormatter.FormatValue(obj);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(obj);
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("test-rg", doc.RootElement.GetProperty("name").GetString());
         Assert.Equal("eastus", doc.RootElement.GetProperty("location").GetString());
+    }
+
+    // ── Format routing: table/tsv/yaml delegate to their formatters ──
+
+    [Fact]
+    public void FormatValue_ShouldRouteToTableFormatter_WhenFormatIsTable()
+    {
+        var arr = new[] { new { Name = "rg1" } };
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(arr, OutputFormat.Table);
+
+        Assert.Equal(Core.Cli.Output.TableFormatter.Format("""[{"name":"rg1"}]"""), result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToTsvFormatter_WhenFormatIsTsv()
+    {
+        var arr = new[] { new { Name = "rg1" } };
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(arr, OutputFormat.Tsv);
+
+        Assert.Equal("rg1", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToYamlFormatter_WhenFormatIsYaml()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yaml);
+
+        Assert.Equal("name: rg1", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToYamlFormatter_WhenFormatIsYamlc()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc);
+
+        Assert.Equal("name: rg1", result);
     }
 
     // ── Arrays / Collections → JSON array ────────────────────────────
@@ -73,7 +110,7 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldSerializeArray_WhenValueIsArray()
     {
         var arr = new[] { new { Name = "rg1" }, new { Name = "rg2" } };
-        var result = Core.Cli.CliOutputFormatter.FormatValue(arr);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(arr);
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
@@ -86,7 +123,7 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldSerializeList_WhenValueIsList()
     {
         var list = new List<string> { "alpha", "beta", "gamma" };
-        var result = Core.Cli.CliOutputFormatter.FormatValue(list);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(list);
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
@@ -104,7 +141,7 @@ public class CliOutputFormatterTests
             ["env"] = "prod",
             ["team"] = "platform"
         };
-        var result = Core.Cli.CliOutputFormatter.FormatValue(dict);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(dict);
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal(JsonValueKind.Object, doc.RootElement.ValueKind);
@@ -123,7 +160,7 @@ public class CliOutputFormatterTests
             Tags = new Dictionary<string, string> { ["env"] = "test" },
             Items = new[] { 1, 2, 3 }
         };
-        var result = Core.Cli.CliOutputFormatter.FormatValue(nested);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(nested);
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("rg1", doc.RootElement.GetProperty("name").GetString());
@@ -134,11 +171,10 @@ public class CliOutputFormatterTests
     // ── Decimal (non-primitive, non-string value type) ──────────────
 
     [Fact]
-    public void FormatValue_ShouldUseToString_WhenValueIsDecimal()
+    public void FormatValue_ShouldEmitJsonLiteral_WhenValueIsDecimal()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue(99.99m);
-        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", 99.99m);
-        Assert.Equal(expected, result);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(99.99m);
+        Assert.Equal("99.99", result);
     }
 
     // ── Serialization errors rethrown ──────────────────────────────
@@ -148,7 +184,7 @@ public class CliOutputFormatterTests
     {
         var unserializable = new UnserializableType();
 
-        Assert.ThrowsAny<JsonException>(() => Core.Cli.CliOutputFormatter.FormatValue(unserializable));
+        Assert.ThrowsAny<JsonException>(() => Core.Cli.Output.CliOutputFormatter.FormatValue(unserializable));
     }
 
     // ── Empty array ─────────────────────────────────────────────────
@@ -156,7 +192,7 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_ShouldSerializeEmptyArray_WhenValueIsEmptyArray()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue(Array.Empty<object>());
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(Array.Empty<object>());
         Assert.Equal("[]", result);
     }
 
@@ -172,7 +208,7 @@ public class CliOutputFormatterTests
         Console.SetOut(sw);
         try
         {
-            Console.WriteLine(Core.Cli.CliOutputFormatter.FormatValue(items));
+            Console.WriteLine(Core.Cli.Output.CliOutputFormatter.FormatValue(items));
         }
         finally
         {
@@ -194,7 +230,7 @@ public class CliOutputFormatterTests
         // JSON body. The inner quotes must render as `"` (not `\u0022`) for readable console output.
         var value = new { Content = "{\"name\":\"rg1\"}" };
 
-        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(value);
 
         Assert.DoesNotContain("\\u0022", result);
         Assert.Contains("{\\\"name\\\":\\\"rg1\\\"}", result);
@@ -205,11 +241,98 @@ public class CliOutputFormatterTests
     {
         var value = new { Name = "café-café" };
 
-        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(value);
 
         Assert.Contains("café-café", result);
         Assert.DoesNotContain("\\u00e9", result);
     }
+
+    // ── Colorize opt-in ──────────────────────────────────────────────
+
+    [Fact]
+    public void FormatValue_ShouldNotColorize_WhenColorizeParamOmitted()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" });
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldColorizeJson_WhenFormatIsJsoncAndPolicyAllowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Jsonc, colorPolicyAllowsColor: true);
+
+        Assert.Contains('\u001b', result);
+        using var doc = JsonDocument.Parse(StripAnsi(result));
+        Assert.Equal("rg1", doc.RootElement.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeJson_WhenFormatIsJsonEvenIfPolicyAllowsColor()
+    {
+        // json (no 'c') never colorizes, regardless of core.output.color -- deterministic output
+        // for scripting even if the user has core.output.color=always configured globally.
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Json, colorPolicyAllowsColor: true);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeJsonc_WhenPolicyDisallowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Jsonc, colorPolicyAllowsColor: false);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldColorizeYaml_WhenFormatIsYamlcAndPolicyAllowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: true);
+
+        Assert.Contains('\u001b', result);
+        Assert.Equal("name: rg1", StripAnsi(result));
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeYaml_WhenFormatIsYamlEvenIfPolicyAllowsColor()
+    {
+        // yaml (no 'c') never colorizes, regardless of core.output.color -- same deterministic
+        // guarantee json makes.
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yaml, colorPolicyAllowsColor: true);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeYamlc_WhenPolicyDisallowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: false);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeStrings_WhenColorizeIsTrue()
+    {
+        // Strings render as-is (not JSON), so colorize has no effect on them.
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue("hello world", OutputFormat.Jsonc, colorPolicyAllowsColor: true);
+
+        Assert.Equal("hello world", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizePrimitives_WhenColorizeIsTrue()
+    {
+        // Primitives/decimals are out of scope for colorizing (matches the primitive branch,
+        // which renders as a single bare JSON literal with little to gain from highlighting).
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(42, OutputFormat.Jsonc, colorPolicyAllowsColor: true);
+
+        Assert.Equal("42", result);
+    }
+
+    private static string StripAnsi(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, "\u001b\\[[0-9;]*m", string.Empty);
 
     /// <summary>
     /// A type that intentionally fails JSON serialization by containing a self-reference.

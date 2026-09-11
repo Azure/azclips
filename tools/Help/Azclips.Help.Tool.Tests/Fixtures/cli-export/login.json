@@ -1,0 +1,126 @@
+[
+  {
+    "command": "login",
+    "type": "group",
+    "short_summary": "Authenticate to Azure.",
+    "long_summary": ""
+  },
+  {
+    "command": "login",
+    "type": "command",
+    "short_summary": "Authenticate to Azure.",
+    "long_summary": "Authenticate to Azure and persist account context for subsequent commands.",
+    "examples": [
+      {
+        "short_summary": "Login with subscription id",
+        "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "Login with device code",
+        "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+      },
+      {
+        "short_summary": "Login with a managed identity",
+        "command": "az login --identity"
+      },
+      {
+        "short_summary": "Login with a user-assigned managed identity",
+        "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111"
+      },
+      {
+        "short_summary": "Login with a managed identity using short flags",
+        "command": "az login -i"
+      }
+    ],
+    "parameters": [
+      {
+        "name": "--client-id",
+        "required": false,
+        "short_summary": "Client ID of the user-assigned managed identity.",
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--identity",
+        "required": false,
+        "short_summary": "Login using managed identity in the current environment.",
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--object-id",
+        "required": false,
+        "short_summary": "Object ID of the user-assigned managed identity.",
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--out-profile",
+        "required": false,
+        "short_summary": "Create or overwrite a named profile with the login result (mutually exclusive with --profile).",
+        "long_summary": ""
+      },
+      {
+        "name": "--profile",
+        "required": false,
+        "short_summary": "Re-authenticate the named existing profile (mutually exclusive with --out-profile).",
+        "long_summary": ""
+      },
+      {
+        "name": "--resource-id",
+        "required": false,
+        "short_summary": "Resource ID of the user-assigned managed identity.",
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
+      },
+      {
+        "name": "--subscription-id",
+        "required": false,
+        "short_summary": "Azure Subscription Id.",
+        "long_summary": ""
+      },
+      {
+        "name": "--tenant-id",
+        "required": false,
+        "short_summary": "Tenant ID to login to.",
+        "long_summary": ""
+      },
+      {
+        "name": "--use-device-code",
+        "required": false,
+        "short_summary": "Use device code flow for authentication.",
+        "long_summary": ""
+      },
+      {
+        "name": "--debug",
+        "required": false,
+        "short_summary": "Increase logging verbosity to show all debug logs.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--help -h",
+        "required": false,
+        "short_summary": "Show help for the command or group and exit.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--no-cache",
+        "required": false,
+        "short_summary": "Bypass the extension discovery cache and reload extensions from disk.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--output -o",
+        "required": false,
+        "short_summary": "Output format.",
+        "long_summary": "",
+        "group_name": "Global Arguments",
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      }
+    ]
+  }
+]

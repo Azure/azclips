@@ -60,7 +60,7 @@ Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -OutPr
 ```
 
 > [!NOTE]
-> If you run `Connect-AzAccount` without `-OutProfile`, Azure PowerShell signs you in using the reserved `temp` profile (instead of creating a reusable named profile). This preserves compatibility with existing `Connect-AzAccount` behavior. To keep a reusable, named context, always pass `-OutProfile`.
+> If you run `Connect-AzAccount` without `-OutProfile`, Azure PowerShell signs you in using the reserved `default` profile (instead of creating a reusable named profile). This preserves compatibility with existing `Connect-AzAccount` behavior. To keep a reusable, named context, always pass `-OutProfile`.
 
 ### Profile naming rules
 
@@ -69,7 +69,7 @@ A profile name must:
 - Be 1–100 characters long.
 - Contain only letters, digits, hyphens (`-`), underscores (`_`), or periods (`.`).
 
-The name `temp` is reserved for sign-in without a named profile and can't be used as a profile name.
+The name `default` is reserved for sign-in without a named profile and can't be used as a profile name.
 
 ## List profiles
 

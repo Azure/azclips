@@ -1,0 +1,45 @@
+# Dependabot configuration
+#
+# Goal: make Dependabot pull request titles pass the repository PR title check in
+# devops/scripts/ci/check_pull_request.py, which requires every title to start with
+# "[Component Name]" (customer-facing) or "{Component Name}" (non-customer-facing).
+#
+# How this works:
+# - commit-message.prefix sets the start of the commit message and PR title. The
+#   trailing space in the prefix stops Dependabot from inserting a ":" after it, so
+#   titles read like "{Packaging} bump <dep> from x to y" and satisfy the check.
+# - open-pull-requests-limit: 0 disables version updates, preserving the current
+#   behavior of security-updates-only while still applying the prefix to those PRs.
+#   Increase this value later if you also want scheduled version-update PRs.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directories:
+      - "/toolkit"
+      - "/toolkit/packages/cli"
+      - "/toolkit/packages/compiler"
+      - "/toolkit/packages/ir"
+      - "/toolkit/packages/typespec-emitter"
+      - "/wiki"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "{Packaging} "
+
+  - package-ecosystem: "nuget"
+    directories:
+      - "/**/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "{Packaging} "
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "{DevOps} "

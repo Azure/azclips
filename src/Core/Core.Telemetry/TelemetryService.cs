@@ -34,23 +34,29 @@ public class TelemetryService : ITelemetryService
     private bool IsTelemetryEnabled() =>
         _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default)
     {
         if (!IsTelemetryEnabled()) return null;
-        return _telemetryProvider.ActivitySource.StartActivity(name, kind)?.SetTag(TelemetryTags.EventName, name);
+
+        // parentContext: default keeps the ambient Activity.Current parenting the
+        // two-argument overload gives us; only the start timestamp is being added.
+        return _telemetryProvider.ActivitySource
+            .StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime)
+            ?.SetTag(TelemetryTags.EventName, name);
     }
 
-    public Activity? StartRootActivity()
+    public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null)
     {
         // No redundant IsTelemetryEnabled() here — StartActivity below is the single gate.
-        var activity = StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server);
+        var activity = StartActivity(
+            name ?? $"{_clientType.ToString()}.Activity.Root", ActivityKind.Server, startTime);
         if (activity is null) return null;
-        activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);        
+        activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);
         activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
-        activity.SetTag(TelemetryTags.ClientType,  _clientType.ToString());
+        activity.SetTag(TelemetryTags.ClientType, _clientType.ToString());
         return activity;
     }
 

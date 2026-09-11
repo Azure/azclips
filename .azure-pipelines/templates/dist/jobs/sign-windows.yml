@@ -58,7 +58,7 @@ jobs:
     displayName: Sign Windows Artifacts
     pool:
       vmImage: ${{ parameters.windows_pool }}
-    timeoutInMinutes: 120
+    timeoutInMinutes: 60
     steps:
     - checkout: self
       clean: true
@@ -67,7 +67,7 @@ jobs:
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
-        version: '10.0.203'
+        useGlobalJson: true
     - ${{ if eq(parameters.source_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
         displayName: Download Unsigned Distribution Artifacts

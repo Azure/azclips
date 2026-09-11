@@ -11,7 +11,8 @@ public class MsalAuthService(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
     IProfileService ProfileService,
-    ManagedIdentityAuthenticator ManagedIdentityAuthenticator) : IAuthService
+    ManagedIdentityAuthenticator ManagedIdentityAuthenticator,
+    MsalClientOptions Options) : IAuthService
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
     private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
@@ -40,8 +41,7 @@ public class MsalAuthService(
         Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
 
         // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
-        var app = PublicClientApplicationBuilder.Create(ClientId)
-            .Build();
+        var app = BuildApp(tenantId: null);
 
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -102,12 +102,17 @@ public class MsalAuthService(
             ? builder.WithAuthority(AzureCloudInstance.AzurePublic, AadAuthorityAudience.AzureAdMultipleOrgs)
             : builder.WithTenantId(tenantId);
 
+        if (Options.HttpClientFactory is not null)
+        {
+            builder = builder.WithHttpClientFactory(Options.HttpClientFactory);
+        }
+
         return builder.Build();
     }
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
-        var cacheDirectory = HomePaths.GetDefaultLocalAppDataRoot();
+        var cacheDirectory = Options.CacheDirectory;
         var filename = "MSAL.cache";
         if (plaintextUnsafe)
         {

@@ -12,7 +12,7 @@ public sealed class ClientsOptions
 
 public sealed class CliClientOptions
 {
-    public OutputOptions Output { get; set; } = new() { Format = "table" };
+    public OutputOptions Output { get; set; } = new() { Format = "json" };
 }
 
 public sealed class PowerShellClientOptions
@@ -22,5 +22,5 @@ public sealed class PowerShellClientOptions
 
 public sealed class OutputOptions
 {
-    public string Format { get; set; } = "table";
+    public string Format { get; set; } = "json";
 }
