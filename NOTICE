@@ -1966,14 +1966,6 @@ Copyright (c) 2007 James Newton-King
 Copyright (c) 1991-2024 Unicode, Inc.
 Copyright (c) 2013-2017, Alfred Klomp
 
----------------------------------------------------------
-
-JmesPath.Net 1.1.0 - Apache-2.0
-
-Authors: Jeremie Devillard, Maxime Labelle
-Project: https://github.com/jmespath-community/csharp-jmespath
-
----------------------------------------------------------
 Copyright (c) 2018 Nemanja Mijailovic
 Copyright 2012 the V8 project authors
 Copyright (c) 1999 Lucent Technologies
@@ -2020,6 +2012,13 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---------------------------------------------------------
+
+---------------------------------------------------------
+
+JmesPath.Net 1.1.0 - Apache-2.0
+
+Authors: Jeremie Devillard, Maxime Labelle
+Project: https://github.com/jmespath-community/csharp-jmespath
 
 ---------------------------------------------------------
 
