@@ -99,8 +99,7 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_ShouldRouteToYamlFormatter_WhenFormatIsYamlc()
     {
-        // Yamlc coloring is tracked separately (azclips#836) -- currently identical to Yaml.
-        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: true);
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc);
 
         Assert.Equal("name: rg1", result);
     }
@@ -282,6 +281,33 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldNotColorizeJsonc_WhenPolicyDisallowsColor()
     {
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Jsonc, colorPolicyAllowsColor: false);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldColorizeYaml_WhenFormatIsYamlcAndPolicyAllowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: true);
+
+        Assert.Contains('\u001b', result);
+        Assert.Equal("name: rg1", StripAnsi(result));
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeYaml_WhenFormatIsYamlEvenIfPolicyAllowsColor()
+    {
+        // yaml (no 'c') never colorizes, regardless of core.output.color -- same deterministic
+        // guarantee json makes.
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yaml, colorPolicyAllowsColor: true);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeYamlc_WhenPolicyDisallowsColor()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: false);
 
         Assert.DoesNotContain('\u001b', result);
     }

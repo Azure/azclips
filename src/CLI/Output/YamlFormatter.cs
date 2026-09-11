@@ -14,8 +14,8 @@ namespace Core.Cli.Output;
 /// <c>json</c>/<c>table</c>/<c>tsv</c> show; serializing the raw value directly let YamlDotNet's
 /// own reflection expand types like <see cref="DateTimeOffset"/> into all their properties
 /// instead of the single ISO 8601 string <c>System.Text.Json</c> already produces for it.
-/// Backs both <c>OutputFormat.Yaml</c> and <c>OutputFormat.Yamlc</c> -- yamlc coloring is tracked
-/// separately (azclips#836); until it lands, Yamlc renders identically to Yaml.
+/// Backs both <c>OutputFormat.Yaml</c> and <c>OutputFormat.Yamlc</c> -- <c>Yamlc</c> colorizes
+/// this method's output via <see cref="YamlColorizer"/> (see <see cref="CliOutputFormatter"/>).
 /// </summary>
 internal static class YamlFormatter
 {
