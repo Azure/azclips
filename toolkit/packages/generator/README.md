@@ -192,10 +192,6 @@ identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
 
-=======
-Nothing in the generator reads these fields yet — populating them is transform
-work, and rendering flattened members is a later change.
-
 >>>>>>> 4d5939b (add flatten-model-step)
 ### Shared servers (IR 0.8.0)
 
