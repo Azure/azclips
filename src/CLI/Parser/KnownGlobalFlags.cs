@@ -63,8 +63,8 @@ public static class KnownGlobalFlags
             Name: "--output",
             Aliases: ["-o"],
             Summary: "Output format.",
-            Default: "plain",
-            Choices: "json, plain",
+            Default: "json",
+            Choices: "json, jsonc, table, tsv, yaml, yamlc",
             Action: new OutputFormatAction()),
     ];
 }

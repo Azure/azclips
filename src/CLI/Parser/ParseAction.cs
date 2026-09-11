@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Output;
 using Core.Extensions;
 
 namespace Core.Cli.Parser;
@@ -27,7 +28,7 @@ public abstract class ParseAction
 public sealed class GlobalArgsBuilder
 {
     public bool Debug { get; set; }
-    public OutputFormat Output { get; set; } = OutputFormat.Plain;
+    public OutputFormat? Output { get; set; }
     public bool NoCache { get; set; }
 }
 
@@ -51,6 +52,8 @@ internal sealed class BoolToggleAction : ParseAction
 /// </summary>
 internal sealed class OutputFormatAction : ParseAction
 {
+    private static string Choices => KnownGlobalFlags.All.First(f => f.Name == "--output").Choices!;
+
     public override int Apply(GlobalArgsBuilder builder, ReadOnlySpan<string> args, int index)
     {
         var token = args[index];
@@ -64,7 +67,7 @@ internal sealed class OutputFormatAction : ParseAction
         if (index + 1 >= args.Length)
         {
             throw AzclipsErrorException.UsageError(
-                "--output requires a value ('json' or 'plain').",
+                $"--output requires a value ({Choices}).",
                 new Dictionary<string, object?> { ["flag"] = "--output" });
         }
 
@@ -74,18 +77,13 @@ internal sealed class OutputFormatAction : ParseAction
 
     private static OutputFormat ParseValue(string value)
     {
-        if (value.Equals("json", StringComparison.OrdinalIgnoreCase))
+        if (OutputFormatPolicy.TryParse(value, out var format))
         {
-            return OutputFormat.Json;
-        }
-
-        if (value.Equals("plain", StringComparison.OrdinalIgnoreCase))
-        {
-            return OutputFormat.Plain;
+            return format;
         }
 
         throw AzclipsErrorException.UsageError(
-            $"--output value '{value}' is not recognized. Expected 'json' or 'plain'.",
+            $"--output value '{value}' is not recognized. Expected one of: {Choices}.",
             new Dictionary<string, object?>
             {
                 ["flag"] = "--output",

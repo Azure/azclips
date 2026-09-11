@@ -26,6 +26,11 @@
 - Import module manifests from `src/PS/<Module>/<Module>.psd1` during local development.
 - Use `build/Set-ModuleConfiguration.ps1` when staging modules under `artifacts/<Configuration>/PS`.
 
+## DevOps & CI/CD
+- For Azure DevOps pipeline YAML (`.azure-pipelines/`), see [.azure-pipelines/AGENTS.md](.azure-pipelines/AGENTS.md).
+- For build/packaging/signing/publishing scripts (`devops/scripts/`), see [devops/scripts/AGENTS.md](devops/scripts/AGENTS.md).
+- These scoped guides are the source of truth for pipelines and scripts; prefer them over this file for DevOps work.
+
 ## Safety
 - Do not commit secrets or local-only configuration.
 - Preserve existing public behavior unless the task explicitly changes it.

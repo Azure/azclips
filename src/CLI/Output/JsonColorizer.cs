@@ -4,7 +4,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>
 /// Applies ANSI syntax-highlighting to already-serialized JSON text for terminal display.

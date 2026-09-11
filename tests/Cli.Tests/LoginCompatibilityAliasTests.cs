@@ -71,6 +71,68 @@ public class LoginCompatibilityAliasTests
         Assert.Equal("sub-1", processor.SubscriptionId);
     }
 
+    [Theory]
+    [InlineData("s")]
+    [InlineData("subscription")]
+    public void CliBinding_SubscriptionSpellings_SetSubscriptionId(string flag)
+    {
+        // az login -s <sub> / az login --subscription <sub> written the Azure CLI v2 way.
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { [flag] = Value("sub-1") },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile());
+
+        Assert.Equal("sub-1", processor.SubscriptionId);
+    }
+
+    [Theory]
+    [InlineData("t")]
+    [InlineData("tenant")]
+    public void CliBinding_TenantSpellings_SetTenantId(string flag)
+    {
+        // az login -t <tenant> / az login --tenant <tenant> written the Azure CLI v2 way.
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { [flag] = Value("tenant-1") },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile { SubscriptionId = "profile-sub" });
+
+        Assert.Equal("tenant-1", processor.TenantId);
+    }
+
+    [Fact]
+    public void CliBinding_ClassicAliasInvocation_BindsEndToEnd()
+    {
+        // az login -i -t <tenant> --subscription <sub> mixing the v2 short/long alias spellings.
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object>
+            {
+                ["i"] = new List<List<string>> { new() },
+                ["t"] = Value("tenant-1"),
+                ["subscription"] = Value("sub-1"),
+            },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile());
+
+        Assert.True(processor.Identity);
+        Assert.Equal("tenant-1", processor.TenantId);
+        Assert.Equal("sub-1", processor.SubscriptionId);
+    }
+
     [Fact]
     public void CliMetadata_AdvertisesLegacyAliases()
     {
@@ -80,14 +142,20 @@ public class LoginCompatibilityAliasTests
     }
 
     [Fact]
-    public void CliMetadata_DoesNotAliasSubscription()
+    public void CliMetadata_AdvertisesSubscriptionAndTenantAliases()
     {
-        // Cirrus exposes only --subscription-id; no other command aliases it, so login must not
-        // either. This diverges from azure-cli's login, which defines --subscription/-s.
+        // Parity with azure-cli v2: login accepts --subscription-id -s --subscription and
+        // --tenant-id -t --tenant.
         var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
 
-        Assert.Empty(metadata.Parameters["subscription-id"].Aliases);
-        Assert.False(metadata.ParameterAliases!.ContainsKey("s"));
-        Assert.False(metadata.ParameterAliases!.ContainsKey("subscription"));
+        Assert.Contains("s", metadata.Parameters["subscription-id"].Aliases);
+        Assert.Contains("subscription", metadata.Parameters["subscription-id"].Aliases);
+        Assert.Contains("t", metadata.Parameters["tenant-id"].Aliases);
+        Assert.Contains("tenant", metadata.Parameters["tenant-id"].Aliases);
+
+        Assert.Equal("subscription-id", metadata.ParameterAliases!["s"]);
+        Assert.Equal("subscription-id", metadata.ParameterAliases!["subscription"]);
+        Assert.Equal("tenant-id", metadata.ParameterAliases!["t"]);
+        Assert.Equal("tenant-id", metadata.ParameterAliases!["tenant"]);
     }
 }
