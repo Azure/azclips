@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789088917527,
+  "lastUpdate": 1789096014149,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -3486,6 +3486,48 @@ window.BENCHMARK_DATA = {
             "value": 242985581.43,
             "unit": "ns",
             "range": "± 3512617.750176077"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac690290e81491957088546e87e460add9c1ee5e",
+          "message": "[CLI] Improve `--help` output formatting (#858)\n\n**Related command**\n`az --help`, `az <group> --help`, `az <command> --help`\n\n**Description**\nRestyles runtime `--help` output to match the Project Cirrus help spec:\n\n- Remove leading indentation from all help output so descriptions get\nthe full terminal width.\n- Section headers are uppercase and hash-prefixed (`# COMMAND`, `#\nGROUP`, `# ARGUMENTS`, `# GLOBAL ARGUMENTS`, `# EXAMPLES`, named\nargument groups like `# MANAGED IDENTITY ARGUMENTS`, and list sections\n`# GROUPS`/`# SUBGROUPS`/`# COMMANDS`). Plain text only in this PR (no\nANSI bold) — see follow-up below.\n- Stacked argument layout: each argument's name/aliases/`[Required]`\nmarker is on its own line ending with `:`, with the description on the\nnext line, and a blank line between arguments (applied to command\narguments and global arguments alike).\n- Numbered examples (`1.`, `2.`, ...).\n- Extended the same \"name: / description\" stacking to\ngroup/subgroup/command list rows (`az --help` groups list, `az <group>\n--help` subgroups/commands lists) for visual consistency, since a flat\nlist otherwise reads inconsistently next to the newly stacked arguments.\nNot explicitly called out in the Figma; judgment call, open to feedback.\n\nOnly `src/CLI/Help/RuntimeHelpRenderer.cs` changed — no parser/dispatch\nbehavior changes (that's PR 2, tracked separately).\n\nFixes Azure/CLIPS#891\nFixes Azure/CLIPS#892\nFixes Azure/CLIPS#893\nFixes Azure/CLIPS#894\nRelates to Azure/CLIPS#547\n\nFiled Azure/CLIPS#899 as a P2 follow-up to investigate real ANSI bold\nheader rendering (color-policy gating, fixture impact) — out of scope\nhere.\n\n**Testing Guide**\n```\ndotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug\n```\nAll 734 tests pass (8 pre-existing skips, unrelated). Golden fixtures\nunder `tests/Cli.Tests/Fixtures/Help/` updated to match. Manually\nspot-checked with the built CLI:\n```\ndotnet build azclips.slnx -c Debug\n.\\artifacts\\Debug\\Core.Cli\\az.exe --help\n.\\artifacts\\Debug\\Core.Cli\\az.exe vm --help\n.\\artifacts\\Debug\\Core.Cli\\az.exe login --help\n```\n\n**History Notes**\n[CLI] Help output: Remove indentation\n[CLI] Help output: Uppercase and hash-prefix section headers\n[CLI] Help output: Stack argument name and description on separate lines\n[CLI] Help output: Number examples\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n(Recreated from a branch pushed directly to Azure/azclips — the original\nattempt from my fork failed CI at pipeline job initialization, likely a\nfork-PR checkout/permissions issue. See #855, closed.)",
+          "timestamp": "2026-09-11T01:46:20Z",
+          "tree_id": "4623785996b2ad41990b2296b8a6dca4c4e32cf5",
+          "url": "https://github.com/Azure/azclips/commit/ac690290e81491957088546e87e460add9c1ee5e"
+        },
+        "date": 1789096011606,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 237382840.38,
+            "unit": "ns",
+            "range": "± 2356930.270722714"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 239252237.43,
+            "unit": "ns",
+            "range": "± 2410385.4744300083"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 238166833.96,
+            "unit": "ns",
+            "range": "± 10970456.900245393"
           }
         ]
       }
