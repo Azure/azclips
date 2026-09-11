@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/01/2026
+ms.date: 09/11/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzVM
 ---
@@ -116,7 +116,7 @@ HelpMessage: ''
 Optional parameter to force delete a VM.
 
 ```yaml
-Type: System.Boolean
+Type: System.Nullable`1[System.Boolean]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -243,6 +243,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.

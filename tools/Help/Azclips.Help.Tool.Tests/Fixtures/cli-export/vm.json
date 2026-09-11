@@ -229,7 +229,8 @@
         "name": "--force-deletion",
         "required": false,
         "short_summary": "Optional parameter to force delete virtual machines.",
-        "long_summary": ""
+        "long_summary": "",
+        "choices": "0, 1, f, false, n, no, t, true, y, yes"
       },
       {
         "name": "--ids",
