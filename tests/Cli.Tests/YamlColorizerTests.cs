@@ -64,6 +64,17 @@ public class YamlColorizerTests
     }
 
     [Fact]
+    public void Colorize_ShouldNotTreatUnicodeDigits_AsNumber()
+    {
+        // Regression: \d in .NET regex matches every Unicode decimal digit (e.g. Arabic-Indic
+        // digits), but YAML/JSON numeric syntax only permits ASCII 0-9 -- must stay StringColor.
+        var result = Core.Cli.Output.YamlColorizer.Colorize("value: \u0661\u0662\u0663");
+
+        Assert.Contains($"{StringColor}\u0661\u0662\u0663{Reset}", result);
+        Assert.DoesNotContain(NumberColor, result);
+    }
+
+    [Fact]
     public void Colorize_ShouldTreatQuotedNumericLookingString_AsString_NotNumber()
     {
         var result = Core.Cli.Output.YamlColorizer.Colorize("""version: "0.1.0" """.TrimEnd());

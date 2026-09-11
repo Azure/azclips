@@ -87,8 +87,10 @@ internal static class YamlColorizer
 
     // Strict JSON/YAML numeric grammar rather than double.TryParse -- the latter also accepts
     // .NET-only forms like "NaN"/"Infinity" and (via InvariantCulture) thousands separators like
-    // "1,000", all of which are valid plain YAML strings that must stay StringColor.
-    private static readonly Regex s_numberPattern = new(@"^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$", RegexOptions.Compiled);
+    // "1,000", all of which are valid plain YAML strings that must stay StringColor. Uses [0-9]
+    // rather than \d for the digit positions -- \d matches every Unicode decimal digit (e.g.
+    // Arabic-Indic digits), but YAML/JSON numeric syntax only permits ASCII 0-9.
+    private static readonly Regex s_numberPattern = new(@"^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$", RegexOptions.Compiled);
 
     private static bool IsPlainNumber(string value) => s_numberPattern.IsMatch(value);
 
