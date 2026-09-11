@@ -41,6 +41,7 @@
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
+    <Project Path="tests/Core.Abstractions.Tests/Core.Abstractions.Tests.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />

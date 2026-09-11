@@ -138,13 +138,17 @@ two-step flow across the TS/.NET boundary:
 #    Run from the toolkit root, or anywhere with `-w`:
 npm run schema -w @azure-client-engine/ir
 
-# 2) Generate the C# POCOs (run from this package directory).
-#    The default input is ../ir/dist/ir.schema.json; specify the output and namespace:
+# 2) Generate the C# POCOs and CLR attribute projections (run from this package
+#    directory). The default input is ../ir/dist/ir.schema.json; specify the
+#    output and namespace for the POCOs, and optionally override the CLR
+#    attribute contracts written to
+#    src/Core/Core.Abstractions/PowerShellContracts.Generated.cs:
 dotnet run --project tools\AceIrModelGen -- --out src\Model\Ir\Ir.Generated.cs --namespace Ace.Generator.Model.Ir
 ```
 
-The tool accepts `--schema <path>`, `--out <path>`, and `--namespace <ns>` to
-override the defaults, and errors with a hint if the schema artifact is missing.
+The tool accepts `--schema <path>`, `--out <path>`, `--namespace <ns>`,
+`--attributes-out <path>`, and `--attributes-namespace <ns>` to override the
+defaults, and errors with a hint if the schema artifact is missing.
 Re-run both steps whenever the IR schema changes. `src/Model/Ir/Ir.Generated.cs` is
 committed so the library builds out-of-the-box; treat it as generated output (do
 not hand-edit).

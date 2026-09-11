@@ -26,7 +26,6 @@ describe("PsModuleDialect", () => {
       prefix: "Az",
       subjectPrefix: "ElasticSan",
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -37,16 +36,13 @@ describe("IRCommandIdentity", () => {
       kind: "identity",
       id: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity" },
       name: "ElasticSanIdentity",
-      properties: [
-        {
-          name: "ResourceGroupName",
-          sourceParameters: [
-            { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
-          ],
-        },
-      ],
+      properties: [{
+        name: "ResourceGroupName",
+        sourceParameters: [
+          { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
+        ],
+      }],
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -69,7 +65,6 @@ describe("PsCommandDialect", () => {
       ],
       httpPath: { path: "/widgets/{name}", apiVersion: "2025-01-01" },
     });
-
     expect(result.success).toBe(true);
   });
 
@@ -79,7 +74,6 @@ describe("PsCommandDialect", () => {
       noun: "AzWidget",
       confirmImpact: "Critical",
     });
-
     expect(result.success).toBe(false);
   });
 
@@ -90,36 +84,27 @@ describe("PsCommandDialect", () => {
       name: "GetWidgetByIdentity",
       template: "atomic",
       server: { module: "Widgets", namespace: [], name: "server" },
-      steps: [
-        {
-          operation,
-          request: { method: "GET", path: [], query: [], headers: [] },
-          responses: [
-            { statusCodes: [{ kind: "exact", code: 200 }], isError: false },
-          ],
+      steps: [{
+        operation,
+        request: { method: "GET", path: [], query: [], headers: [] },
+        responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
+      }],
+      parameters: [{
+        name: "InputObject",
+        source: {
+          kind: "synthetic",
+          purpose: "identity",
+          type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
+          parameters: [operation],
         },
-      ],
-      parameters: [
-        {
-          name: "InputObject",
-          source: {
-            kind: "synthetic",
-            purpose: "identity",
-            type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
-            parameters: [operation],
-          },
-          type: { kind: "primitive", name: "string" },
-          required: true,
-          nullable: false,
-          dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
-        },
-      ],
+        type: { kind: "primitive", name: "string" },
+        required: true,
+        nullable: false,
+        dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
+      }],
       surface: { paginated: false },
-      dialect: {
-        ps: { verb: "Get", noun: "AzWidget", defaultParameterSet: "ByName" },
-      },
+      dialect: { ps: { verb: "Get", noun: "AzWidget", defaultParameterSet: "ByName" } },
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -139,7 +124,6 @@ describe("PsParameterDialect", () => {
         setCondition: "$PSBoundParameters.ContainsKey('SubscriptionId')",
       },
     });
-
     expect(result.success).toBe(true);
     assert(result.success);
     expect(result.data.parameterSets?.[0]?.valueFromPipeline).toBe(true);
@@ -153,7 +137,6 @@ describe("PsParameterDialect", () => {
         { set: "ByName", mandatory: false },
       ],
     });
-
     expect(result.success).toBe(false);
   });
 
@@ -165,7 +148,6 @@ describe("PsParameterDialect", () => {
         { set: "ByIdentity", mandatory: true, valueFromPipeline: true },
       ],
     });
-
     expect(result.success).toBe(true);
   });
 
@@ -173,7 +155,6 @@ describe("PsParameterDialect", () => {
     const result = PsParameterDialectSchema.safeParse({
       parameterSets: [{ mandatory: false }, { mandatory: true }],
     });
-
     expect(result.success).toBe(false);
   });
 });
@@ -189,7 +170,6 @@ describe("PowerShell synthetic parameters", () => {
         { module: "Widgets", namespace: [], name: "resourceGroupName" },
       ],
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -210,7 +190,6 @@ describe("PowerShell shared identity references", () => {
       sharedTypes: [identity, identity],
       target,
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
@@ -250,7 +229,6 @@ describe("PowerShell shared identity references", () => {
       sharedTypes: [],
       target,
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
