@@ -91,19 +91,16 @@ the command fails; `CLI.Activity.AiRecovery` is a second root covering the agent
 agent's own spans nest under it via a W3C traceparent passed on the child environment
 block.
 
-When a failed command reaches the fallback with `agent.enabled=false`, the CLI emits
-`CLI.Activity.AiRecoverySkipped` instead. This separate root includes `InstallationId`
-for distinct-installation counts and never counts as an executed `CLI.Activity.AiRecovery`.
-It records that recovery was disabled at the time of failure, including the default-off
-configuration; it does not distinguish an explicit opt-out from that default. Other
-fallback guards (unreadable configuration, non-TTY interactive sessions, recursion, and
-a missing agent executable) remain uninstrumented. With telemetry disabled, no skip
-activity is created.
+With `agent.enabled=false`, failed-command fallback instead emits a separate
+`CLI.Activity.AiRecoverySkipped` root with `InstallationId` and the same optional,
+safe command name and command trace/span links. It is not an executed recovery or
+proof of explicit opt-out (default-off is included). Other fallback guards are
+unchanged, and telemetry-disabled operation emits no skip span.
 
 | Tag                                | Span                        | Description                                     |
 |------------------------------------|-----------------------------|-------------------------------------------------|
-| `properties.command.traceId`       | recovery / skipped root     | Trace id of the command that triggered fallback |
-| `properties.command.spanId`        | recovery / skipped root     | Root span id of that command                    |
+| `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
+| `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
@@ -113,15 +110,9 @@ activity is created.
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 
-`Agent.Session` records its outcome before stopping, and stops before the telemetry
-provider is disposed. Success has `ActivityStatusCode.Ok`; cancellation returns exit
-code 130 and keeps status `Unset` (cancellation is not an error); exceptions have status
-`Error`. The CLI already records the agent process exit code on `CLI.Activity.AiRecovery`,
-so cancellation counts based on exit code 130 do not depend on the Agent outcome tag.
-
-Both CLI fallback roots use the parser-resolved command name, or only the command group
-when parsing did not resolve one. Command trace/span links are included when available.
-These additions never record raw arguments, error messages, prompts, or model output.
+`Agent.Session` records `ok` / `cancelled` / `error` before it stops and before provider
+disposal, with statuses `Ok` / `Unset` / `Error`. Cancellation still returns 130;
+CLI-side cancellation counts from `properties.recovery.exitCode` were already available.
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:
