@@ -48,7 +48,10 @@ namespace Core.ArgumentParsing
             {
                 if (value != null)
                 {
-                    var convertedValue = Convert.ChangeType(value, propertyInfo.PropertyType);
+                    // Convert.ChangeType cannot target Nullable<T>; unwrap so nullable
+                    // processor parameters (e.g. bool?) bind instead of throwing.
+                    var targetType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
+                    var convertedValue = Convert.ChangeType(value, targetType);
                     propertyInfo.SetValue(processor, convertedValue);
                 }
                 else
