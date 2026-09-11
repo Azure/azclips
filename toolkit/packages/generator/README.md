@@ -177,7 +177,6 @@ to rendered clients. Existing LRO hooks and response-body next-link selectors
 consume the new types; unsupported or ambiguous paging bindings are diagnosed.
 LRO rendering still takes precedence when both traits are present.
 
-<<<<<<< HEAD
 ### Flattening metadata (IR 0.12.0)
 
 `ModelHints.Flattened` and `RequestBodyHints.Parameters` carry resolved property
@@ -194,7 +193,10 @@ identical, and the shape is correct either way.
 Both fields are consumed — see [Flattening](#flattening).
 
 =======
->>>>>>> b52c356 (enrich pagination)
+Nothing in the generator reads these fields yet — populating them is transform
+work, and rendering flattened members is a later change.
+
+>>>>>>> 4d5939b (add flatten-model-step)
 ### Shared servers (IR 0.8.0)
 
 `IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
