@@ -21,3 +21,6 @@ Bypass the extension discovery cache and reload extensions from disk.
 
 --output -o:
 Output format.
+
+--query:
+JMESPath query string to filter/project the command result before rendering.

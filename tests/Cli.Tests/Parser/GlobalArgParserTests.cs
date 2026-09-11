@@ -316,6 +316,40 @@ public class GlobalArgParserTests
         Assert.Equal(2, ex.ExitCode);
     }
 
+    // ─── --query ─────────────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("--query", "[].name", "[].name")]
+    [InlineData("--QUERY", "[].name", "[].name")]
+    public void Parse_QueryFlag_SpaceSeparated_ResolvesExpression(string flag, string value, string expected)
+    {
+        var result = GlobalArgParser.Parse(new[] { flag, value });
+
+        Assert.Equal(expected, result.Query);
+        Assert.Empty(result.Positional);
+    }
+
+    [Theory]
+    [InlineData("--query=[].name", "[].name")]
+    [InlineData("--Query=[?contains(name, 'a')].name", "[?contains(name, 'a')].name")]
+    public void Parse_QueryFlag_EqualsForm_ResolvesExpression(string token, string expected)
+    {
+        var result = GlobalArgParser.Parse(new[] { token });
+
+        Assert.Equal(expected, result.Query);
+        Assert.Empty(result.Positional);
+    }
+
+    [Fact]
+    public void Parse_QueryFlagAtEndWithNoValue_ThrowsUsageError()
+    {
+        var ex = Assert.Throws<AzclipsErrorException>(
+            () => GlobalArgParser.Parse(new[] { "group", "--query" }));
+
+        Assert.Equal(2, ex.ExitCode);
+        Assert.Contains("--query", ex.Message);
+    }
+
     // ─── --no-cache ──────────────────────────────────────────────────────────────────
 
     [Theory]
