@@ -47,8 +47,10 @@ import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import {
   AccessKinds,
   UsageKinds,
+  VisibilityKinds,
   type IRAccess,
   type IRUsage,
+  type IRVisibility,
 } from "./primitives.js";
 import {
   CollectionPropertyHintsSchema,
@@ -64,15 +66,13 @@ import {
 // ─── Property visibility (lifecycle phases) ─────────────────────────────
 
 /**
- * Lifecycle visibility phase, mirroring TypeSpec's `TypeSpec.Lifecycle`
- * visibility class (`@visibility(Lifecycle.Read | Create | Update | Delete |
- * Query)`). ace preserves the full phase set instead of collapsing to
- * read/write-only, so downstream generators keep the source's create- vs
- * update-only distinction.
+ * Lifecycle visibility phase. Defined in `primitives.ts` (alongside the other
+ * closed sets) so `hints.ts` can reference it without an import cycle;
+ * re-exported here because this is where property visibility is consumed.
  */
-export type IRVisibility = "read" | "create" | "update" | "delete" | "query";
+export type { IRVisibility };
 
-export const IRVisibilitySchema = z.enum(["read", "create", "update", "delete", "query"]);
+export const IRVisibilitySchema = z.enum(VisibilityKinds);
 
 // ─── Shared property base ───────────────────────────────────────────────
 

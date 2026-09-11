@@ -88,6 +88,8 @@ import {
   // Reusable hint building blocks — registered so they become shared C# types
   // rather than being duplicated inline at every use site.
   FlattenHintSchema,
+  FlattenedMemberSchema,
+  FlattenedParameterSchema,
   SerializationHintSchema,
   ClientApiHintSchema,
   DocsHintSchema,
@@ -172,6 +174,8 @@ const definitions = {
   IROAuth2Scope: IROAuth2ScopeSchema,
   // Hint building blocks (shared across nodes).
   FlattenHint: FlattenHintSchema,
+  FlattenedMember: FlattenedMemberSchema,
+  FlattenedParameter: FlattenedParameterSchema,
   SerializationHint: SerializationHintSchema,
   ClientApiHint: ClientApiHintSchema,
   DocsHint: DocsHintSchema,

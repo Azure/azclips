@@ -7,7 +7,7 @@
   Single entry point for building the whole toolkit, so tools and pipelines do
   not need to know the per-package build commands:
 
-    - TypeScript packages (ir, typespec-emitter, compiler, cli) via `npm run build`.
+    - TypeScript packages (ir, typespec-emitter, compiler, transformers, cli) via `npm run build`.
     - The C# generator + its out-of-process host via `dotnet build` (the host's
       project reference pulls in the generator library).
 

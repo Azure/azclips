@@ -36,7 +36,7 @@ npm run lint:deps   # verify both lists agree; non-zero exit fails CI
 ## Building the whole toolkit
 
 `npm run build` (`tsc -b`) builds only the **TypeScript** packages (`ir`,
-`typespec-emitter`, `compiler`, `cli`). The **C# generator** under
+`typespec-emitter`, `compiler`, `transformers`, `cli`). The **C# generator** under
 `packages/generator` is a standalone .NET package and is *not* part of that build.
 
 For the full cross-toolchain build — TypeScript **and** the .NET generator +
@@ -50,6 +50,212 @@ its out-of-process host — run the toolkit build script from the toolkit root:
 This is the single entry point CI/pipelines should call; it wraps `npm run build`
 and `dotnet build` so callers need not know the per-package commands. `npm run
 build` stays the fast inner loop for TypeScript-only work.
+
+## Transformers
+
+`packages/transformers` contains reusable IR-to-IR steps implementing the
+compiler's `TransformStep` contract. Its initial `createScaffoldTransformer()`
+is a pass-through starting point: it returns the IR unchanged and is not enabled
+in the default compile pipeline.
+
+Compose it with the existing compiler API and pass `transform` to `compile()`
+through `CompileOptions`:
+
+```typescript
+import { createTransformPipeline } from "@azure-client-engine/compiler";
+import { createScaffoldTransformer } from "@azure-client-engine/transformers";
+
+const transform = createTransformPipeline("custom", [
+  createScaffoldTransformer(),
+]);
+```
+
+The factory can also be registered under `scaffold` with `createRegistry` for
+selection through `CompileConfig.pipeline`. This does not register it in the CLI.
+The package participates in the root workspace build and test commands.
+
+## Source identity
+
+Model, enum, and operation IDs use the original TypeSpec namespace in
+`IRId.namespace`, not the SDK namespace selected by `@clientNamespace`.
+Nested source namespaces are preserved; global declarations use an empty
+namespace array. Model and enum names retain their existing SDK-facing naming.
+Property IDs and type references use the same source namespaces as their
+defining models and enums, including inherited properties.
+
+Operations remain flat in `IR.operations`. Their `IRId` records the source
+`module`, TypeSpec `namespace` segments, optional containing `interface`, and
+original operation `name`. Namespace-level operations omit `interface`; SDK
+client renaming or regrouping does not change this identity. HTTP parameter IDs
+carry the same interface scope and retain their original declaration names.
+Inherited operations use their effective service interface, not the reusable
+base interface or the source of an `op is` declaration.
+
+`IROperation.name` remains the SDK-facing name. Interface identity is not a
+rendering hint, and no separate interface collection or metadata inheritance
+pass is introduced. Generators group processors using `id.interface`, not the
+last namespace segment.
+
+Source-interface identity was introduced in IR 0.7.0. Regenerate older emitted IR to obtain
+source-interface ownership; an older SDK client namespace cannot reliably be
+split into a TypeSpec namespace and interface.
+Regenerate captures emitted with SDK namespace overrides to obtain consistent
+source namespaces for models, enums, and their references as well.
+
+## Shared server definitions
+
+IR 0.8.0 stores endpoint definitions once in the root `servers` collection.
+Each entry has an `id` (`IRId`) and an `endpoint`, retaining the existing
+`literal`, `parameterized`, or `oneOf` endpoint shape.
+
+Every operation still requires `server`, but its value is now a reference to
+one of those definition IDs rather than an inline endpoint. `IRSource.server`
+also references the shared definition. The emitter creates one definition per
+emitted source, with its source module and namespace and the name `server`;
+multiple `@server` declarations remain alternatives in that definition.
+
+IR validation rejects missing server definitions and duplicate server IDs.
+Generators resolve the operation's reference before constructing its request
+URI. Regenerate older IR captures to obtain this breaking wire-format change;
+inline operation/source servers are no longer accepted.
+
+## Multipart bodies
+
+IR 0.9.0 preserves resolved `@multipartBody` definitions on request bodies and
+individual response alternatives as `multipart`. This is structural metadata,
+not an inference from a `Content-Type` header.
+
+`multipart.kind` distinguishes model and tuple forms, `contentTypes` retains all
+allowed outer media types, and `parts` preserves declaration order. Each part
+carries its MIME name, optionality, repetition, payload type and content types,
+typed part headers, and filename/content-type fields when declared. File bodies
+also identify their contents field and whether it carries text or raw bytes.
+These fields are separate from outer HTTP headers and JSON property names;
+model parts reference their corresponding payload-model property IDs.
+
+Model-based bodies retain their existing `type` reference. Multipart tuples
+omit that reference rather than substitute `any`; their body shape is fully
+described by the ordered parts. Consequently, consumers must inspect
+`multipart` as well as `type` when deciding whether a response has a body.
+The ordinary `contentType` field remains the selected/default media type.
+
+The emitter includes models/enums referenced only by parts or their metadata,
+including tuple payloads. It also recovers ordinary payload-model properties
+that TCGC's multipart-response conversion can omit. JSON serialization of a
+file model remains distinct from transporting its raw contents as a MIME part.
+
+This contract supplies downstream transformers and renderers with multipart
+definitions; it does not implement multipart encoding/decoding in generated
+processors. Generation reports a multipart-serialization warning rather than
+claiming the processor scaffold is ready to handle MIME data. MIME boundaries
+are runtime serialization details, not emitted constants. Regenerate older
+captures to obtain the multipart definitions.
+
+## Paging
+
+IR 0.11.0 carries paging at `operation.semantics.pageable`. Semantics are now
+independent fields: `pageable` and `longRunning` can coexist on the same
+operation, instead of a mutually exclusive `semantics.kind`.
+
+The emitter uses the original REST operation's compiler paging metadata,
+including operations with paging properties but no `@list`. `isList` preserves
+that distinction. `input` carries offset, page index, page size, and continuation
+token roles; `output` carries page items, next/previous/first/last links, and the
+response continuation token. Items-only lists and simultaneous link/token roles
+are retained without choosing a navigation strategy or inventing a missing
+token counterpart. Invalid paging declarations are diagnosed even without
+`@list`; ordinary non-paging operations are not diagnosed as malformed lists.
+
+Each role contains its type, optionality/nullability, complete `sourcePath`, and
+resolved HTTP `bindings`. Source segments carry declaration identities and
+original names, including HTTP envelope properties not materialized in
+`IR.models`; those IDs are provenance, not necessarily model-property references.
+Bindings distinguish body/query/header/path/cookie locations, preserve wire paths
+as arrays (so a literal dot is not a separator), identify emitted request
+parameters where available, and qualify response alternatives by status and
+media type. Body paths are relative to the actual payload, not source-only
+`@body` wrappers. A path of `[]` means the entire body. An unbound role keeps its
+source metadata and produces a diagnostic rather than an invented wire path.
+
+The separate `sdk` block preserves pageable disabling/forcing, the next-link
+HTTP verb, and parameters to reinject. SDK presentation choices do not erase
+REST paging facts. `metadataSource: "sdk"` identifies legacy forced collections
+whose items were inferred by `Legacy.markAsPageable` rather than resolved from
+standard paging declarations.
+
+This is an IR/emitter contract change, not a generated paging implementation.
+The C# IR POCOs carry the new shape. Existing processor rendering consumes the
+independent traits and response-body paths; broader pagination strategies and
+combined LRO/paging execution still require customization. Rebuild and stage
+the generator host after refreshing POCOs. Older captures must be regenerated
+or migrated.
+
+## Discriminators
+
+IR 0.10.0 uses TypeSpec's resolved discriminator definitions rather than relying
+on TCGC's narrower subtype and union normalization.
+
+For `@discriminator` models, `polymorphism.discriminator` references the
+discriminator property ID; its `wireName` is the JSON field name.
+`polymorphism.subtypes` is the resolved value-to-model dispatch map. Targets can
+be indirect descendants when an intermediate model does not declare a tag;
+`parent` still records the actual inheritance chain. Declarations with no known
+variants retain an empty map. Multiple string aliases and empty-string tags
+are preserved. The child `discriminatorValue` convenience is emitted only when
+an ancestor selects it with exactly one value; use the dispatch map for aliases.
+No unknown-value fallback policy is imposed by this metadata.
+
+`@discriminated` unions live in `discriminatedUnions`, referenced through
+`{ kind: "discriminatedUnion", id }`. Named definitions preserve shared and
+recursive unions without recursively embedding their definitions. They record
+`discriminatorPropertyName`, `envelope` (`object` or `none`), and
+`envelopePropertyName` for object envelopes.
+
+Each union's `variants` preserves declaration order. `value` is the wire tag;
+its absence denotes the unnamed default variant, distinct from an empty-string
+tag. The payload has a `type`, `nullable`, and an optional exact `literalValue`.
+An exactly-null payload omits `type` and carries `literalValue: { kind: "null" }`.
+This keeps tagged null payloads separate from an outer nullable envelope.
+Single-variant and enum-like discriminated unions are not flattened, while
+ordinary structural unions keep their existing representation.
+
+The emitter bypasses only SDK discriminator restrictions for which TypeSpec
+provides a valid definition that this IR represents; unrelated diagnostics
+remain errors. Generator code and its generated C# contract are unchanged by
+this IR/emitter change, so consuming the new union references in the C#
+generator remains unsupported.
+
+## Flattening
+
+IR 0.12.0 records property flattening as *resolved* rendering metadata, so a
+transform decides naming and collisions once and the generator does not
+re-derive them.
+
+`ModelHints.flattened` lists the members hoisted onto a model from nested object
+properties. Each entry carries the final C#-facing `name`, the `path` of
+property ids from the containing model down to the leaf (at least two entries,
+since a flattened member always crosses a nesting hop), `optional` (true when
+any hop is optional), and the `visibility` phases every hop shares. An absent
+`visibility` means unconstrained, matching `IRProperty.visibility`. The list
+belongs to the model because collision resolution considers the model's whole
+member set, and because every payload use site must agree on the result.
+
+`RequestBodyHints.parameters` projects a body onto an operation's parameter
+surface when `flatten.into` is `self`. Entries are deliberately not references
+into the body model's `flattened` table: the projection filters by HTTP binding
+and lifecycle phase, and resolves names against *that* operation's path, query,
+and header parameters, so two operations sharing a body model can legitimately
+disagree. A single-entry `path` is a top-level body property promoted as-is.
+
+`IRModel.properties` is untouched by either field. The IR keeps wire truth — the
+wire path is each hop's `wireName` — and ids are invariant under renaming
+transforms, so the paths stay correct however members are later renamed.
+
+This is metadata only: no transform populates these fields yet, and the C#
+generator does not consume them. Unlike the 0.8.0/0.9.0/0.11.0 changes, both
+fields are optional additions, so existing captures remain valid and do not need
+regeneration. Regenerate the IR JSON Schema and the C# POCOs to pick up the new
+types.
 
 ## IR JSON Schema (cross-language contract)
 
@@ -84,16 +290,7 @@ location as needed; `schema:check` guards against drift between the emitted
 artifact and the Zod source.
 
 **Fidelity caveat:** JSON Schema is a *structural* contract only. Cross-field
-refinements expressed with Zod `.superRefine` (e.g. a pageable operation must use
-either next-link *or* continuation-token fields, and a `custom` LRO polling
-strategy requires `customPollingUrlPath`) cannot be represented and are **not**
-carried across. Authoritative validation stays in the Zod emitter; generators may
-trust that any IR they receive has already been validated, and should gate on the
-`schemaVersion` field (see `IR_SCHEMA_VERSION`).
-
-**Fidelity caveat:** JSON Schema is a *structural* contract only. Cross-field
-refinements expressed with Zod `.superRefine` (e.g. a pageable operation must use
-either next-link *or* continuation-token fields, and a `custom` LRO polling
+refinements expressed with Zod `.superRefine` (e.g. a `custom` LRO polling
 strategy requires `customPollingUrlPath`) cannot be represented and are **not**
 carried across. Authoritative validation stays in the Zod emitter; generators may
 trust that any IR they receive has already been validated, and should gate on the

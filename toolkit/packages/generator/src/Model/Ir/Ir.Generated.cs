@@ -27,6 +27,21 @@ public enum FlattenHintInto
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum FlattenedMemberVisibility
+{
+    [JsonStringEnumMemberName("read")]
+    Read,
+    [JsonStringEnumMemberName("create")]
+    Create,
+    [JsonStringEnumMemberName("update")]
+    Update,
+    [JsonStringEnumMemberName("delete")]
+    Delete,
+    [JsonStringEnumMemberName("query")]
+    Query
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IRApiVersionStampLocation
 {
     [JsonStringEnumMemberName("query")]
@@ -489,6 +504,33 @@ public partial class FlattenHint
     public string? NameOverride { get; set; }
 }
 
+public partial class FlattenedMember
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRId> Path { get; set; } = [];
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("visibility")]
+    public IReadOnlyList<FlattenedMemberVisibility>? Visibility { get; set; }
+}
+
+public partial class FlattenedParameter
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRId> Path { get; set; } = [];
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
+}
+
 public partial class IRApiVersionStamp
 {
     [JsonPropertyName("value")]
@@ -804,7 +846,7 @@ public partial class IRModel
     public IRModelAccess? Access { get; set; }
 
     [JsonPropertyName("rendering")]
-    public OperationHints? Rendering { get; set; }
+    public ModelHints? Rendering { get; set; }
 }
 
 public partial class IRMultipartBody
@@ -1557,6 +1599,9 @@ public partial class ModelHints
 
     [JsonPropertyName("docs")]
     public DocsHint? Docs { get; set; }
+
+    [JsonPropertyName("flattened")]
+    public IReadOnlyList<FlattenedMember>? Flattened { get; set; }
 }
 
 public partial class ObjectPropertyHints
@@ -1596,6 +1641,9 @@ public partial class RequestBodyHints
 {
     [JsonPropertyName("flatten")]
     public FlattenHint? Flatten { get; set; }
+
+    [JsonPropertyName("parameters")]
+    public IReadOnlyList<FlattenedParameter>? Parameters { get; set; }
 }
 
 public partial class SerializationHint

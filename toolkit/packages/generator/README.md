@@ -177,6 +177,22 @@ to rendered clients. Existing LRO hooks and response-body next-link selectors
 consume the new types; unsupported or ambiguous paging bindings are diagnosed.
 LRO rendering still takes precedence when both traits are present.
 
+### Flattening metadata (IR 0.12.0)
+
+`ModelHints.Flattened` and `RequestBodyHints.Parameters` carry resolved property
+flattening — `FlattenedMember` (name, id `Path`, `Optional`, intersected
+`Visibility`) and `FlattenedParameter` (name, id `Path`, `Required`). Both are
+optional, so older captures still deserialize.
+
+Because `ModelHints` now has a member the other `CommonHints` aliases lack, it is
+structurally distinct and `IRModel.Rendering` resolves to `ModelHints` instead of
+collapsing onto `OperationHints`. `IREnum`, `IROperation`, and `IRParameter`
+still share the collapsed `OperationHints` class; those three remain structurally
+identical, and the shape is correct either way.
+
+Nothing in the generator reads these fields yet — populating them is transform
+work, and rendering flattened members is a later change.
+
 ### Shared servers (IR 0.8.0)
 
 `IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).

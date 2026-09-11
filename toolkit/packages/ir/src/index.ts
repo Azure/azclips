@@ -20,6 +20,7 @@ export {
   FormatKinds,
   AccessKinds,
   UsageKinds,
+  VisibilityKinds,
   type PrimitiveKind,
   type FormatKind,
   type IRAccess,
@@ -60,6 +61,8 @@ export {
 
 export {
   FlattenHintSchema,
+  FlattenedMemberSchema,
+  FlattenedParameterSchema,
   SerializationHintSchema,
   ClientApiHintSchema,
   DocsHintSchema,
@@ -73,6 +76,8 @@ export {
   OperationHintsSchema,
   RequestBodyHintsSchema,
   type FlattenHint,
+  type FlattenedMember,
+  type FlattenedParameter,
   type SerializationHint,
   type ClientApiHint,
   type DocsHint,
