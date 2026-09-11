@@ -251,6 +251,33 @@ public class ManagementGroupDeploymentTests
         Assert.Single(output.WrittenValues);
     }
 
+    [Fact]
+    public async Task GetAndList_UseManagementGroupScopeAndListUnwrapsPages()
+    {
+        FakeOutputHandler getOutput = new();
+        GetAtManagementGroupScopeDeploymentsProcessor get =
+            CreateProcessor(new GetAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
+                Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}""")), getOutput);
+        get.ManagementGroupId = "test-management-group";
+        get.Name = "test-deployment";
+
+        await get.ProcessAsync();
+
+        Assert.Equal("test-deployment", Assert.IsType<DeploymentExtended>(Assert.Single(getOutput.WrittenValues)).Name);
+
+        FakeOutputHandler listOutput = new();
+        ListAtManagementGroupScopeDeploymentsProcessor list =
+            CreateProcessor(new ListAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
+                Json("""{"value":[{"name":"one"},{"name":"two"}]}""")), listOutput);
+        list.ManagementGroupId = "test-management-group";
+
+        await list.ProcessAsync();
+
+        List<DeploymentExtended> deployments =
+            Assert.IsAssignableFrom<IEnumerable<DeploymentExtended>>(Assert.Single(listOutput.WrittenValues)).ToList();
+        Assert.Equal(["one", "two"], deployments.Select(deployment => deployment.Name));
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : ResourcesProcessorBase
     {

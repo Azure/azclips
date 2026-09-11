@@ -18,3 +18,9 @@ az deployment mg create --management-group-id myManagementGroup --location eastu
 ```bash
 az deployment mg validate --management-group-id myManagementGroup --location eastus --template-file ./main.bicep
 ```
+
+### List management-group deployments
+
+```bash
+az deployment mg list --management-group-id myManagementGroup
+```

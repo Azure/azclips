@@ -7,6 +7,8 @@
 using Core.Abstractions;
 using NewManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor_Orchestrator;
 using TestManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestManagementGroupDeploymentProcessor_Orchestrator;
+using GetManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor;
+using ListManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -176,6 +178,35 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterUri"] = new("ParametersUri", "TemplateParameterUri", typeof(string), "The URI of an ARM parameters file.", false, [], []),
                 ["TemplateParameterObject"] = new("TemplateParameterObject", "TemplateParameterObject", typeof(object), "An inline template parameter object.", false, [], []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getManagementGroupDeployment_PS = new(
+            Name: nameof(GetManagementGroupDeploymentProcessor),
+            InvocationName: "Get-AzManagementGroupDeployment_Get",
+            Aliases: [],
+            FullName: typeof(GetManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(GetManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", true, ["DeploymentName"], []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listManagementGroupDeployment_PS = new(
+            Name: nameof(ListManagementGroupDeploymentProcessor),
+            InvocationName: "Get-AzManagementGroupDeployment_List",
+            Aliases: [],
+            FullName: typeof(ListManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(ListManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
                 ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
             },
             ParameterAliases: new Dictionary<string, string>()
@@ -423,6 +454,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["p"] = "parameters",
             }
         );
+        private static readonly CommandMetadata s_getManagementGroupDeployment_CLI = new(
+            Name: nameof(GetManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg show",
+            Aliases: [],
+            FullName: typeof(GetManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(GetManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = new(
+            Name: nameof(ListManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg list",
+            Aliases: [],
+            FullName: typeof(ListManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(ListManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["filter"] = new("Filter", "filter", typeof(string), "Filter by provisioning state.", false, [], []),
+                ["top"] = new("Top", "top", typeof(int), "The maximum number of results per page.", false, [], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -483,6 +545,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
             ["New-AzManagementGroupDeployment"] = s_newManagementGroupDeployment_PS,
             ["Test-AzManagementGroupDeployment"] = s_testManagementGroupDeployment_PS,
+            ["Get-AzManagementGroupDeployment_Get"] = s_getManagementGroupDeployment_PS,
+            ["Get-AzManagementGroupDeployment_List"] = s_listManagementGroupDeployment_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -501,6 +565,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
             ["deployment mg create"]      = s_newManagementGroupDeployment_CLI,
             ["deployment mg validate"]    = s_testManagementGroupDeployment_CLI,
+            ["deployment mg show"]        = s_getManagementGroupDeployment_CLI,
+            ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
