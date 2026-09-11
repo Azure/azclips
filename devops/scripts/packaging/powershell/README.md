@@ -13,11 +13,15 @@ Each matrix job shows one task for each phase:
 | Install PowerShell `<version>` | The distribution's bootstrap script |
 | Install Azure PS `v<version>` | `test_ps_installation.ps1` |
 | Upgrade Azure PS `v<version>` | Explicit placeholder; no upgrade is performed |
+| Validate Azure PS Smoke-Test Coverage | `test_ps_smoke.ps1 -CoverageOnly`; checks module coverage without importing modules or executing commands |
 | Validate Azure PS `v<version>` | `test_ps_smoke.ps1`, configured by `ps_smoke_tests.psd1` |
 | Uninstall Azure PS `v<version>` | `test_ps_uninstall.ps1` |
 
 Installation verifies version-pinned imports, exported cmdlets, and external help
-examples. Validate additionally imports every module and executes its configured
+examples. SmokeCoverage checks that each module has configured smoke cases and
+reports `SucceededWithIssues` when coverage is missing, or `Succeeded` when complete.
+Coverage warnings do not skip later phases or set the canary soft-failure flag.
+Malformed configuration still fails. Validate additionally imports every module and executes its configured
 smoke commands. Uninstall still runs after a failed Validate phase when Install
 completed successfully, including unsupported canary failures; cleanup never
 replaces the original validation failure.
@@ -116,8 +120,9 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `inventories/` | Target-module state before/after installation and uninstall, with failure/rollback state when applicable. |
 | `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
-| `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
-| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Validate is required for success. |
+| `logs/` | Bootstrap, Install, Upgrade, SmokeCoverage, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
+| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result, including coverage warnings as `SucceededWithIssues`. Only Upgrade remains an explicitly skipped placeholder; SmokeCoverage and Validate must complete for success. |
+| `smoke-coverage.json` | Per-module configured case counts, missing-coverage warnings, and the coverage step's outcome. Contains no import or command execution results. |
 | `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, failures, and missing-coverage warnings. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
@@ -189,8 +194,10 @@ Use the module's real exported command and full parameter names. Add further
 named hashtables to `Tests` for more cases; no runner or pipeline edits are needed.
 Every discovered source module should be configured with at least one case.
 Unconfigured modules and empty test lists emit actionable PowerShell and Azure
-Pipelines warnings without failing **Validate Azure PS**. Their exact-version
-imports still run, and configured commands for other modules execute normally.
+Pipelines warnings in **Validate Azure PS Smoke-Test Coverage**, marking that step
+`SucceededWithIssues` while returning exit code zero. **Validate Azure PS** then
+runs with `-SkipCoverageWarnings` so it does not repeat coverage annotations.
+Exact-version imports still run, and configured commands for other modules execute normally.
 Warnings are recorded at the report and module levels in `smoke-tests.json`;
 a successful import with no command cases is not command coverage. Import failures
 still fail validation, even for modules without command cases.
@@ -232,6 +239,9 @@ For already installed target packages, the runner also works directly:
 
 Use `-ConfigPath` for an alternative data file and `-TimeoutSeconds` to override
 the per-module bound. The same runner and configuration apply to every OS/arch.
+Use `-CoverageOnly` to run just coverage validation without requiring installed
+target modules or a working `-PwshPath`. This writes `smoke-coverage.json` instead
+of `smoke-tests.json` when `-ReportRoot` is supplied.
 
 ## Bootstrap contracts
 

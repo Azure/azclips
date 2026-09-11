@@ -113,6 +113,12 @@ jobs:
       display_name: Upgrade Azure PS v$(AzVersion)
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: SmokeCoverage
+      display_name: Validate Azure PS Smoke-Test Coverage
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
   # Run the credential-free, configured module smoke tests against the installed modules.
   - template: ../steps/ps-validation-phase.yml
     parameters:

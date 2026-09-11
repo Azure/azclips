@@ -39,10 +39,22 @@ if ($Scenario)
             return
         }
         $global:LASTEXITCODE = 0
+        if ($Arguments -contains '-Phase' -and $Arguments -contains 'SmokeCoverage' -and $Scenario -ne 'coverage-missing-report')
+        {
+            $coverageRoot = Join-Path $ScratchRoot 'reports with spaces'
+            $coverageStatus = if ($Scenario -like '*coverage-warning*') { 'SucceededWithIssues' } else { 'Succeeded' }
+            @{ schemaVersion = 1; status = $coverageStatus } | ConvertTo-Json |
+                Set-Content -LiteralPath (Join-Path $coverageRoot 'smoke-coverage.json')
+            if ($coverageStatus -eq 'SucceededWithIssues')
+            {
+                Write-Host '##vso[task.logissue type=warning]Module Az.Fixture should contain a smoke-test.'
+                Write-Host '##vso[task.complete result=SucceededWithIssues;]'
+            }
+        }
         if (($Scenario -eq 'pull-fails' -and $Arguments[0] -eq 'pull') -or
             ($Scenario -eq 'run-fails' -and $Arguments[0] -eq 'run') -or
             ($Scenario -in @('bootstrap-soft-fails', 'bootstrap-hard-fails') -and $Arguments[0] -eq 'exec') -or
-            $Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'dispatcher-validate-fails') -or
+            $Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'dispatcher-validate-fails', 'coverage-hard-fails') -or
             ($Scenario -in @('validate-soft-fails', 'validate-hard-fails') -and
                 $Arguments -contains '-Phase' -and $Arguments -contains 'Validate'))
         {
@@ -61,7 +73,7 @@ if ($Scenario)
     if ($Scenario -like 'dispatcher-*')
     {
         $dispatchParameters = @{
-            Phase = 'Validate'
+            Phase = if ($Scenario -eq 'dispatcher-coverage') { 'SmokeCoverage' } else { 'Validate' }
             SourceRoot = Join-Path $ScratchRoot 'source with spaces'
             PwshPath = 'Invoke-FakePowerShell With Spaces'
         }
@@ -118,6 +130,13 @@ if ($Scenario)
     {
         $parameters.PwshPath = 'Nonexistent-ValidationFixtureCommand'
     }
+    if ($Scenario -in 'native-coverage-warning', 'coverage-missing-report', 'coverage-hard-fails')
+    {
+        $parameters.Phase = 'SmokeCoverage'
+        $parameters.ValidationMode = 'native'
+        $parameters.DistributionFamily = 'windows'
+        $parameters.PwshPath = 'Invoke-FakePowerShell'
+    }
     if ($Scenario -eq 'no-report-root') { $parameters.Remove('ReportRoot') }
     if ($Scenario -eq 'report-write-fails')
     {
@@ -135,10 +154,10 @@ if ($Scenario)
         }
     }
 
-    if ($Scenario -in @('complete-lifecycle', 'validate-hard-fails', 'validate-soft-fails'))
+    if ($Scenario -in @('complete-lifecycle', 'validate-hard-fails', 'validate-soft-fails', 'coverage-warning-lifecycle'))
     {
         $lifecycleExitCode = 0
-        foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+        foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'SmokeCoverage', 'Validate', 'Uninstall')
         {
             $parameters.Phase = $phase
             & $runner @parameters
@@ -270,11 +289,12 @@ try
     $scenarios = @(
         'bootstrap-success', 'pull-fails', 'run-fails', 'bootstrap-hard-fails',
         'bootstrap-soft-fails', 'windows-bootstrap', 'macos-bootstrap',
-        'container-Install', 'container-Upgrade', 'container-Validate', 'container-Uninstall',
+        'container-Install', 'container-Upgrade', 'container-SmokeCoverage', 'container-Validate', 'container-Uninstall',
         'native-install', 'phase-hard-fails', 'phase-soft-fails', 'missing-command',
         'complete-lifecycle', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails',
         'validate-hard-fails', 'validate-soft-fails', 'install-transcript-fails',
-        'dispatcher-validate', 'dispatcher-validate-no-report', 'dispatcher-validate-fails'
+        'dispatcher-validate', 'dispatcher-validate-no-report', 'dispatcher-validate-fails', 'dispatcher-coverage',
+        'coverage-warning-lifecycle', 'native-coverage-warning', 'coverage-missing-report', 'coverage-hard-fails'
     )
     foreach ($name in $scenarios)
     {
@@ -283,9 +303,9 @@ try
         $output = & $pwsh -NoProfile -File $PSCommandPath -Scenario $name -ScratchRoot $caseRoot 2>&1
         $exitCode = $LASTEXITCODE
         $text = ($output | ForEach-Object { "$_" }) -join "`n"
-        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails', 'native-output-fails', 'validate-hard-fails', 'dispatcher-validate-fails')) {
+        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails', 'native-output-fails', 'validate-hard-fails', 'dispatcher-validate-fails', 'coverage-hard-fails')) {
             42
-        } elseif ($name -in 'missing-command', 'report-write-fails', 'install-transcript-fails') { 1 } else { 0 }
+        } elseif ($name -in 'missing-command', 'report-write-fails', 'install-transcript-fails', 'coverage-missing-report') { 1 } else { 0 }
         Assert-Equal $expectedExit $exitCode "$name exit code`n$text"
         if ($name -like 'dispatcher-*')
         {
@@ -296,7 +316,8 @@ try
                 '-NoProfile', '-File',
                 (Join-Path $repoRoot 'devops/scripts/packaging/powershell/test_ps_smoke.ps1'),
                 '-SourcePsRoot', (Join-Path $caseRoot 'source with spaces/src/PS'),
-                '-PwshPath', 'Invoke-FakePowerShell With Spaces'
+                '-PwshPath', 'Invoke-FakePowerShell With Spaces',
+                $(if ($name -eq 'dispatcher-coverage') { '-CoverageOnly' } else { '-SkipCoverageWarnings' })
             )
             if ($name -ne 'dispatcher-validate-no-report')
             {
@@ -308,7 +329,7 @@ try
             $count++
             continue
         }
-        $isLifecycle = $name -in @('complete-lifecycle', 'validate-hard-fails', 'validate-soft-fails')
+        $isLifecycle = $name -in @('complete-lifecycle', 'validate-hard-fails', 'validate-soft-fails', 'coverage-warning-lifecycle')
         $installedValues = @([regex]::Matches($text, 'variable=PsValidationInstalled\](true|false)') |
             ForEach-Object { $_.Groups[1].Value })
         $expectedInstalledValues = if ($isLifecycle) { 'false,true,false' }
@@ -342,7 +363,7 @@ try
             Assert-Equal '7.6' $matrix.requestedPowerShellVersion 'Requested version is distinguished from the host version'
             Assert-Equal '1.2.3' $matrix.azVersion 'Report records the Azure PS version'
             $executed = @($report.phases | Where-Object { $null -ne $_.startedAtUtc })
-            Assert-Equal $(if ($isLifecycle) { 5 } else { 1 }) $executed.Count 'Only executed phases have start timestamps'
+            Assert-Equal $(if ($isLifecycle) { 6 } else { 1 }) $executed.Count 'Only executed phases have start timestamps'
             foreach ($entry in $executed)
             {
                 $phaseFailed = (-not $isLifecycle -or $entry.phase -eq 'Validate') -and
@@ -350,6 +371,7 @@ try
                 $expectedStatus = if ($phaseFailed -and $name -like '*soft-fails') { 'SucceededWithIssues' }
                     elseif ($phaseFailed) { 'Failed' }
                     elseif ($entry.phase -eq 'Upgrade') { 'Skipped' }
+                    elseif ($entry.phase -eq 'SmokeCoverage' -and $name -like '*coverage-warning*') { 'SucceededWithIssues' }
                     else { 'Succeeded' }
                 Assert-Equal $expectedStatus $entry.status "$name records the real phase status"
                 $phaseExit = if ($phaseFailed) { if ($name -like '*soft-fails') { 42 } else { $expectedExit } } else { 0 }
@@ -372,6 +394,7 @@ try
             & $completeReport -ReportRoot $reportRoot -ValidationKey $matrix.validationKey -JobStatus $jobStatus
             $completed = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
             $expectedStatus = if ($name -eq 'complete-lifecycle') { 'Succeeded' }
+                elseif ($name -eq 'coverage-warning-lifecycle') { 'SucceededWithIssues' }
                 elseif ($jobStatus -ne 'Succeeded') { $jobStatus } else { 'Incomplete' }
             Assert-Equal $expectedStatus $completed.status 'Overall result never treats missing required phases as success'
             if ($name -in 'validate-hard-fails', 'validate-soft-fails')
@@ -382,7 +405,7 @@ try
                 $completedAgain = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
                 Assert-Equal $expectedStatus $completedAgain.status 'Cleanup success cannot erase hard or soft Validate failure from the summary'
             }
-            Assert-Equal 5 @(Get-ChildItem -LiteralPath (Join-Path $reportRoot 'logs') -Filter '*.log').Count 'All phases have a log or an explicit skip explanation'
+            Assert-Equal 6 @(Get-ChildItem -LiteralPath (Join-Path $reportRoot 'logs') -Filter '*.log').Count 'All phases have a log or an explicit skip explanation'
             Assert-Equal 0 @($completed.phases | Where-Object status -eq 'NotRun').Count 'Never-started phases are explicitly skipped'
         }
 
@@ -393,6 +416,16 @@ try
             continue
         }
         $calls = @(Get-Content -LiteralPath (Join-Path $caseRoot 'calls.json') -Raw | ConvertFrom-Json)
+        if ($name -like '*coverage-warning*')
+        {
+            Assert-Contains $text 'result=SucceededWithIssues;' 'Coverage warnings mark the task succeeded with issues'
+            Assert-Equal $false ($text.Contains('variable=PsValidationSoftFailed]true')) 'Missing coverage must not skip later validation steps'
+            if ($isLifecycle)
+            {
+                Assert-Equal 'Succeeded' ($completed.phases | Where-Object phase -eq Validate).status 'Smoke execution continues after coverage warnings'
+                Assert-Equal 'Succeeded' ($completed.phases | Where-Object phase -eq Uninstall).status 'Cleanup continues after coverage warnings'
+            }
+        }
         if ($name -like '*soft-fails')
         {
             Assert-Contains $text 'variable=PsValidationSoftFailed]true' "$name marks later phases skipped"
@@ -448,7 +481,7 @@ try
         if ($name -in 'validate-hard-fails', 'validate-soft-fails')
         {
             $phaseCalls = @($calls | Where-Object { $_.Arguments -contains '-Phase' })
-            Assert-Equal 'Install,Upgrade,Validate,Uninstall' (($phaseCalls | ForEach-Object {
+            Assert-Equal 'Install,Upgrade,SmokeCoverage,Validate,Uninstall' (($phaseCalls | ForEach-Object {
                 $_.Arguments[[array]::IndexOf($_.Arguments, '-Phase') + 1]
             }) -join ',') 'Native cleanup still executes after the smoke command fails'
             Assert-Equal 'tested-pwsh' $phaseCalls[-1].Command 'Cleanup uses the same tested PowerShell'
@@ -464,7 +497,7 @@ try
         & $completeReport -ReportRoot $reportRoot -ValidationKey 'never_started' -JobStatus $jobStatus
         $report = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
         Assert-Equal $(if ($jobStatus -eq 'Succeeded') { 'Incomplete' } else { $jobStatus }) $report.status 'Collection handles jobs that never reached Bootstrap'
-        Assert-Equal 5 @($report.phases | Where-Object status -eq 'Skipped').Count 'Missing phases are not fabricated as passed'
+        Assert-Equal 6 @($report.phases | Where-Object status -eq 'Skipped').Count 'Missing phases are not fabricated as passed'
         Assert-Equal $false $report.runtimeEnvironmentCaptured 'Missing target PowerShell environment is explicit'
     }
     . (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/phase_artifacts.ps1')
@@ -482,7 +515,7 @@ try
     {
         $reportRoot = Join-Path $scratch "missing-validate-$validateStatus"
         Initialize-PSValidationReport -ReportRoot $reportRoot -Metadata @{ validationKey = 'missing_validate' }
-        foreach ($phase in 'Bootstrap', 'Install', 'Uninstall')
+        foreach ($phase in 'Bootstrap', 'Install', 'SmokeCoverage', 'Uninstall')
         {
             Set-PSValidationPhaseResult -ReportRoot $reportRoot -Phase $phase -Status Succeeded
         }
@@ -546,7 +579,7 @@ try
     $template = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/steps/ps-validation-phase.yml') -Raw
     Assert-Equal 1 ([regex]::Matches($template, '(?m)^- (pwsh|bash|task):').Count) 'Exactly one visible task per phase'
     Assert-Contains $template 'invoke_ps_validation_step.ps1' 'Template invokes the exercised phase runner'
-    foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+    foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'SmokeCoverage', 'Validate', 'Uninstall')
     {
         $condition = Get-PhaseCondition -Template $template -Phase $phase
         foreach ($jobStatus in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled')
@@ -578,7 +611,7 @@ try
         Assert-Equal ($name -eq 'install-transcript-fails') (Test-Condition $uninstallCondition $variables) 'Only an actually successful Install authorizes Uninstall, even when reporting fails'
     }
     $job = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/validate-ps-build.yml') -Raw
-    Assert-Equal 'Bootstrap,Install,Upgrade,Validate,Uninstall' (([regex]::Matches($job, '(?m)^\s+phase: (\w+)') |
+    Assert-Equal 'Bootstrap,Install,Upgrade,SmokeCoverage,Validate,Uninstall' (([regex]::Matches($job, '(?m)^\s+phase: (\w+)') |
         ForEach-Object { $_.Groups[1].Value }) -join ',') 'All phases retain their order'
     Assert-Contains $job "PsValidationInstalled: 'false'" 'A skipped Install never inherits an installed marker'
     Assert-Contains $job 'and(always(), eq(variables[''ValidationMode''], ''container''))' 'Containers are removed after failures'

@@ -33,7 +33,7 @@ function Initialize-PSValidationReport
     $resultsPath = Join-Path $ReportRoot 'results.json'
     if (-not (Test-Path -LiteralPath $resultsPath))
     {
-        $phases = @(foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+        $phases = @(foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'SmokeCoverage', 'Validate', 'Uninstall')
         {
             [ordered]@{
                 phase = $phase
@@ -89,7 +89,7 @@ function Read-PSValidationReport
     param([Parameter(Mandatory)][string]$Path)
 
     $report = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
-    $expectedPhases = 'Bootstrap,Install,Upgrade,Validate,Uninstall'
+    $expectedPhases = 'Bootstrap,Install,Upgrade,SmokeCoverage,Validate,Uninstall'
     $allowedStatuses = @('NotRun', 'Running', 'Succeeded', 'SucceededWithIssues', 'Failed', 'Skipped', 'Interrupted')
     if ($report.schemaVersion -ne 1 -or
         (($report.phases | ForEach-Object { $_.phase }) -join ',') -ne $expectedPhases -or
@@ -135,12 +135,13 @@ function Complete-PSValidationReport
                 Set-Content -LiteralPath $logPath -Encoding utf8 -ErrorAction Stop
         }
     }
-    $requiredPhases = @($report.phases | Where-Object { $_.phase -in 'Bootstrap', 'Install', 'Validate', 'Uninstall' })
+    $requiredPhases = @($report.phases | Where-Object { $_.phase -in 'Bootstrap', 'Install', 'SmokeCoverage', 'Validate', 'Uninstall' })
     $report.status = if ($JobStatus -eq 'Canceled') { 'Canceled' }
         elseif ($JobStatus -eq 'Failed' -or @($report.phases | Where-Object { $_.status -eq 'Failed' }).Count -gt 0) { 'Failed' }
-        elseif (@($report.phases | Where-Object { $_.status -eq 'SucceededWithIssues' }).Count -gt 0) { 'SucceededWithIssues' }
+        elseif (@($report.phases | Where-Object { $_.phase -ne 'SmokeCoverage' -and $_.status -eq 'SucceededWithIssues' }).Count -gt 0) { 'SucceededWithIssues' }
         elseif (@($report.phases | Where-Object { $_.status -eq 'Interrupted' }).Count -gt 0 -or
-            @($requiredPhases | Where-Object { $_.status -ne 'Succeeded' }).Count -gt 0) { 'Incomplete' }
+            @($requiredPhases | Where-Object { $_.status -notin 'Succeeded', 'SucceededWithIssues' }).Count -gt 0) { 'Incomplete' }
+        elseif (@($report.phases | Where-Object { $_.status -eq 'SucceededWithIssues' }).Count -gt 0) { 'SucceededWithIssues' }
         else { 'Succeeded' }
     $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
     $report.jobStatusAtCollection = $JobStatus

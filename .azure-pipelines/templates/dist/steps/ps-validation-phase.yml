@@ -5,6 +5,7 @@ parameters:
   - Bootstrap
   - Install
   - Upgrade
+  - SmokeCoverage
   - Validate
   - Uninstall
 - name: display_name

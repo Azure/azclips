@@ -11,6 +11,9 @@ Commands are invoked through their owning module, not unqualified name lookup.
 Failures are aggregated, including import failures and bounded child timeouts.
 An optional ReportRoot receives smoke-tests.json; command output and credentials
 are not serialized. This validates local command execution, not live Azure APIs.
+CoverageOnly checks configuration without importing modules or executing commands
+and writes smoke-coverage.json. SkipCoverageWarnings suppresses duplicate warnings
+when coverage has already been checked in a separate pipeline step.
 #>
 [CmdletBinding()]
 param(
@@ -18,6 +21,8 @@ param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'ps_smoke_tests.psd1'),
     [string]$PwshPath = 'pwsh',
     [string]$ReportRoot,
+    [switch]$CoverageOnly,
+    [switch]$SkipCoverageWarnings,
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 120
 )
 
@@ -163,10 +168,28 @@ try
             $message = "Module $name should contain a smoke-test. Add at least one command case to $ConfigPath. Only its import will be tested."
             $coverageWarnings[$name] = $message
             $report.warnings += $message
-            Write-Warning $message -WarningAction Continue
-            $pipelineMessage = $message.Replace('%', '%AZP25').Replace("`r", '%0D').Replace("`n", '%0A').Replace(']', '%5D')
-            Write-Host "##vso[task.logissue type=warning]$pipelineMessage"
+            if ($CoverageOnly -or -not $SkipCoverageWarnings)
+            {
+                Write-Warning $message -WarningAction Continue
+                $pipelineMessage = $message.Replace('%', '%AZP25').Replace("`r", '%0D').Replace("`n", '%0A').Replace(']', '%5D')
+                Write-Host "##vso[task.logissue type=warning]$pipelineMessage"
+            }
         }
+    }
+    if ($CoverageOnly)
+    {
+        $report.modules = @(foreach ($definition in $definitions)
+        {
+            $name = $definition.PackageName
+            @{
+                module = $name
+                version = $definition.Version
+                testCount = if ($coverage.ContainsKey($name)) { $coverage[$name].Count } else { 0 }
+                status = if ($coverageWarnings.ContainsKey($name)) { 'SucceededWithIssues' } else { 'Succeeded' }
+            }
+        })
+        $report.status = if ($report.warnings.Count -gt 0) { 'SucceededWithIssues' } else { 'Succeeded' }
+        return
     }
     $executable = (Get-Command -Name $PwshPath -CommandType Application -ErrorAction Stop).Source
     $scratchRoot = Join-Path ([IO.Path]::GetTempPath()) "azclips-ps-smoke-$([guid]::NewGuid().ToString('N'))"
@@ -244,17 +267,22 @@ finally
     {
         if ($ReportRoot)
         {
-            Write-AzArtifactJson -Path (Join-Path $ReportRoot 'smoke-tests.json') -Value $report
+            $reportName = if ($CoverageOnly) { 'smoke-coverage.json' } else { 'smoke-tests.json' }
+            Write-AzArtifactJson -Path (Join-Path $ReportRoot $reportName) -Value $report
         }
     }
     catch
     {
-        if ($report.status -eq 'Succeeded') { throw }
+        if ($report.status -in 'Succeeded', 'SucceededWithIssues') { throw }
         Write-Warning "Could not save smoke results; the smoke-test failure remains primary: $($_.Exception.Message)" -WarningAction Continue
     }
     finally
     {
         if ($scratchRoot -and (Test-Path -LiteralPath $scratchRoot)) { Remove-Item -LiteralPath $scratchRoot -Recurse -Force -ErrorAction Stop }
+    }
+    if ($CoverageOnly -and $report.status -eq 'SucceededWithIssues')
+    {
+        Write-Host '##vso[task.complete result=SucceededWithIssues;]'
     }
 }
 

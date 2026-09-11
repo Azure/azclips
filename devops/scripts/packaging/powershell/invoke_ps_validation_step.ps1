@@ -8,13 +8,15 @@ phases use run_ps_validation_phase.ps1 with the same toolchain and module direct
 Unsupported combinations report native command failures as SucceededWithIssues and
 set PsValidationSoftFailed so later phase tasks can be skipped, except Uninstall
 after a completed Install. PsValidationInstalled tracks that cleanup obligation.
+SmokeCoverage records missing cases as SucceededWithIssues without setting
+PsValidationSoftFailed, so command validation continues.
 ReportRoot enables per-phase transcripts and results. Containers write module
 snapshots through a separate writable bind mount; sources and packages stay read-only.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')]
+    [ValidateSet('Bootstrap', 'Install', 'Upgrade', 'SmokeCoverage', 'Validate', 'Uninstall')]
     [string]$Phase,
 
     [Parameter(Mandatory)]
@@ -180,6 +182,7 @@ function Invoke-ValidationPhase
 $failure = $null
 $reportInitialized = $false
 $transcriptStarted = $false
+$coverageStatus = $null
 try
 {
     if ($Phase -eq 'Bootstrap') { Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'false' }
@@ -211,6 +214,16 @@ try
     }
     Write-Host "=== PowerShell validation: $Phase ==="
     Invoke-ValidationPhase
+    if ($Phase -eq 'SmokeCoverage' -and $script:exitCode -eq 0 -and $ReportRoot)
+    {
+        $coverageReport = Get-Content -LiteralPath (Join-Path $ReportRoot 'smoke-coverage.json') -Raw -ErrorAction Stop |
+            ConvertFrom-Json -AsHashtable
+        if ($coverageReport.schemaVersion -ne 1 -or $coverageReport.status -notin 'Succeeded', 'SucceededWithIssues')
+        {
+            throw 'Invalid smoke coverage report.'
+        }
+        $coverageStatus = $coverageReport.status
+    }
     Write-Host "Phase '$Phase' exited with code $script:exitCode."
 }
 catch
@@ -237,11 +250,13 @@ finally
             $message = if ($failure) { $failure.Exception.Message }
                 elseif ($script:exitCode -ne 0) { "Native command exited with code $script:exitCode." }
                 elseif ($Phase -eq 'Upgrade') { 'Intentional placeholder; not implemented.' }
+                elseif ($coverageStatus -eq 'SucceededWithIssues') { 'Modules are missing smoke-test cases; see smoke-coverage.json.' }
                 else { $null }
             $status = if ($failure) { 'Failed' }
                 elseif ($script:exitCode -ne 0 -and $ContinueOnError -eq 'true') { 'SucceededWithIssues' }
                 elseif ($script:exitCode -ne 0) { 'Failed' }
                 elseif ($Phase -eq 'Upgrade') { 'Skipped' }
+                elseif ($coverageStatus) { $coverageStatus }
                 else { 'Succeeded' }
             Set-PSValidationPhaseResult -ReportRoot $ReportRoot -Phase $Phase -Status $status -ExitCode $script:exitCode -Message $message
         }

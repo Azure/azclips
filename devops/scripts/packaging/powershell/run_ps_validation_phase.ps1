@@ -3,11 +3,12 @@
 Runs one shared Azure PowerShell module validation phase.
 
 .DESCRIPTION
-Run Install, Upgrade, Validate, and Uninstall in that order using the same installed
-PowerShell executable and user account. Install requires an absolute local gallery
+Run Install, Upgrade, SmokeCoverage, Validate, and Uninstall in that order using
+the same installed PowerShell executable and user account. Install requires an absolute local gallery
 path in RepositoryRoot; the other phases do not. Upgrade is an explicit placeholder.
-Validate runs the configured module smoke tests after Install checks imports,
-exported cmdlets, and external help.
+SmokeCoverage checks configuration and reports missing cases as warnings. Validate
+runs the configured module smoke tests after Install checks imports, exported
+cmdlets, and external help.
 
 The distribution bootstrap must run separately first. For a PowerShell global-tool
 installation, put its dotnet directory on PATH and set DOTNET_ROOT in each process.
@@ -17,7 +18,7 @@ partial-install cleanup. See README.md in this directory for local and CI usage.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Install', 'Upgrade', 'Validate', 'Uninstall')]
+    [ValidateSet('Install', 'Upgrade', 'SmokeCoverage', 'Validate', 'Uninstall')]
     [string] $Phase,
 
     [string] $RepositoryRoot,
@@ -87,12 +88,13 @@ switch ($Phase) {
         Write-Host "PLACEHOLDER: the 'Upgrade' phase is not implemented yet; skipping."
     }
 
-    'Validate' {
+    { $_ -in 'SmokeCoverage', 'Validate' } {
         Invoke-ValidationScript `
             -ScriptPath (Join-Path $PSScriptRoot 'test_ps_smoke.ps1') `
             -Arguments @(
                 '-SourcePsRoot', $sourcePsRoot,
-                '-PwshPath', $PwshPath
+                '-PwshPath', $PwshPath,
+                $(if ($Phase -eq 'SmokeCoverage') { '-CoverageOnly' } else { '-SkipCoverageWarnings' })
             )
     }
 }

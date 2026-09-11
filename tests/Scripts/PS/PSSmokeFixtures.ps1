@@ -114,7 +114,7 @@ function Reset-Fixture
 
 function Invoke-FixtureSmoke
 {
-    param([bool]$ExpectSuccess, [int]$Timeout = 30)
+    param([bool]$ExpectSuccess, [int]$Timeout = 30, [switch]$SkipCoverageWarnings)
     $failed = $false
     $script:smokeFailure = $null
     $script:smokeWarnings = @()
@@ -123,6 +123,7 @@ function Invoke-FixtureSmoke
     {
         & $smokeScript -SourcePsRoot (Join-Path $fixtureRoot 'source') -ConfigPath (Join-Path $fixtureRoot 'smoke.psd1') `
             -PwshPath $pwshPath -ReportRoot (Join-Path $fixtureRoot 'reports') -TimeoutSeconds $Timeout `
+            -SkipCoverageWarnings:$SkipCoverageWarnings `
             -WarningVariable script:smokeWarnings -InformationVariable script:smokeInformation 6>$null
     }
     catch
@@ -145,10 +146,39 @@ function Complete-Fixture
     Write-Host "PASS: $Name"
 }
 
+function Invoke-FixtureCoverage
+{
+    param([string]$ExpectedStatus)
+    $output = & $pwshPath -NoProfile -File $smokeScript `
+        -SourcePsRoot (Join-Path $fixtureRoot 'source') -ConfigPath (Join-Path $fixtureRoot 'smoke.psd1') `
+        -PwshPath 'Nonexistent-CoverageFixtureExecutable' -ReportRoot (Join-Path $fixtureRoot 'reports') -CoverageOnly 2>&1
+    $exitCode = $LASTEXITCODE
+    $text = $output -join "`n"
+    Assert-Fixture ($exitCode -eq $(if ($ExpectedStatus -eq 'Failed') { 1 } else { 0 })) "Coverage exit code must agree with $ExpectedStatus. $text"
+    $coverageReport = Get-Content -LiteralPath (Join-Path $fixtureRoot 'reports\smoke-coverage.json') -Raw | ConvertFrom-Json -AsHashtable
+    Assert-Fixture ($coverageReport.status -eq $ExpectedStatus) 'Coverage report must retain success, warning, or failure.'
+    Assert-Fixture ($text.Contains('##vso[task.complete result=SucceededWithIssues;]') -eq ($ExpectedStatus -eq 'SucceededWithIssues')) 'Only missing coverage should mark the coverage task as succeeded with issues.'
+    Assert-Fixture (-not (Test-Path -LiteralPath (Join-Path $fixtureRoot 'reports\smoke-tests.json'))) 'Coverage validation must not produce execution results.'
+    return $coverageReport
+}
+
 try
 {
     New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
     $env:PSModulePath = (Join-Path $fixtureRoot 'modules') + [IO.Path]::PathSeparator + (Join-Path $PSHOME 'Modules')
+    Reset-Fixture
+    $coverageReport = Invoke-FixtureCoverage 'Succeeded'
+    Assert-Fixture ($coverageReport.modules.Count -eq 3 -and $coverageReport.warnings.Count -eq 0) 'Fully covered modules should pass without warnings.'
+    New-FixtureModule Az.New "throw 'Coverage must not import this module.'"
+    New-FixtureModule Az.Second "throw 'Coverage must not import this module either.'"
+    $coverageReport = Invoke-FixtureCoverage 'SucceededWithIssues'
+    Assert-Fixture ($coverageReport.warnings.Count -eq 2) 'Coverage must report every uncovered module without importing any module.'
+    Assert-Fixture (@($coverageReport.modules | Where-Object testCount -eq 0).Count -eq 2) 'Coverage report must identify modules without cases.'
+    Set-Content (Join-Path $fixtureRoot 'smoke.psd1') '@{ SchemaVersion = 2; Modules = @() }'
+    $coverageReport = Invoke-FixtureCoverage 'Failed'
+    Assert-Fixture ($coverageReport.errors.Count -eq 1) 'Malformed coverage configuration must remain a failure.'
+    Complete-Fixture 'Independent coverage phase outcomes without a tested executable'
+
     Reset-Fixture
     Remove-Item -LiteralPath (Join-Path $fixtureRoot 'reports') -Recurse -Force
     $report = Invoke-FixtureSmoke $true
@@ -182,6 +212,9 @@ try
     $uncovered = $report.modules | Where-Object module -eq 'Az.New'
     Assert-Fixture ($uncovered.importStatus -eq 'Succeeded' -and $uncovered.tests.Count -eq 0 -and $uncovered.warnings.Count -eq 1) 'Uncovered modules must still be imported without claiming command coverage.'
     Assert-Fixture ($report.modules.Count -eq 4 -and ($report.modules | Where-Object module -eq 'Az.Probe').tests.Count -eq 3) 'Missing coverage must not prevent configured tests from running.'
+    $report = Invoke-FixtureSmoke $true -SkipCoverageWarnings
+    Assert-Fixture ($script:smokeWarnings.Count -eq 0 -and ($script:smokeInformation -join "`n") -notmatch 'task.logissue|task.complete') 'Execution after the coverage phase must not duplicate warnings or mark the task succeeded with issues.'
+    Assert-Fixture ($report.warnings.Count -eq 1 -and $report.modules.Count -eq 4) 'Execution retains coverage metadata and imports after the separate coverage step.'
     $extended = $baselineConfig.Replace("Names = @('Az.Other')", "Names = @('Az.Other', 'Az.New')")
     Set-Content (Join-Path $fixtureRoot 'smoke.psd1') $extended
     $report = Invoke-FixtureSmoke $true
