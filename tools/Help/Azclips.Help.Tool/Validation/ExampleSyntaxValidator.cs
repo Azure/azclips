@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Cli.Help;
+using Core.Cli.Parser;
 
 namespace Azclips.Help.Tool.Validation
 {
@@ -492,7 +493,7 @@ namespace Azclips.Help.Tool.Validation
             return char.IsLetter(token[1]);
         }
 
-        /// <summary>Recognised CLI help-flag forms; kept in sync with <c>ExtensionDispatcher.s_helpFlags</c>.</summary>
+        /// <summary>Recognised CLI help-flag forms from the runtime global flag definition.</summary>
         /// <remarks>
         /// Bare <c>help</c> is intentionally excluded even though the runtime accepts <c>az help</c>
         /// at the top level — the intrinsic <c>az help</c> shape is handled upstream by
@@ -501,10 +502,11 @@ namespace Azclips.Help.Tool.Validation
         /// (e.g. <c>az agent tool help</c>).
         /// </remarks>
         private static bool IsHelpFlag(string token)
-            => token.Equals("--help", StringComparison.Ordinal)
-            || token.Equals("-h", StringComparison.Ordinal)
-            || token.Equals("-?", StringComparison.Ordinal)
-            || token.Equals("?", StringComparison.Ordinal);
+            => KnownGlobalFlags.All
+                .First(flag => flag.Name.Equals("--help", StringComparison.OrdinalIgnoreCase))
+                .Aliases
+                .Append("--help")
+                .Contains(token, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent

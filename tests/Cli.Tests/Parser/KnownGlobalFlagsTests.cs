@@ -46,4 +46,12 @@ public class KnownGlobalFlagsTests
     {
         Assert.Contains(KnownGlobalFlags.All, flag => flag.Name == expectedName);
     }
+
+    [Fact]
+    public void HelpAliases_AreDeclaredOnHelpFlag()
+    {
+        var help = Assert.Single(KnownGlobalFlags.All, flag => flag.Name == "--help");
+
+        Assert.Equal(new[] { "-h", "-help", "-?", "--?", "?", "h" }, help.Aliases);
+    }
 }

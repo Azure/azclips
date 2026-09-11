@@ -185,9 +185,13 @@ public class Program
         catch (CommandNotFoundException ex) when (ex.Path.Count == 0)
         {
             // Show group help when no subcommand was provided.
-            var groupExit = DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+            if (positional.Length != 1 || !positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
             activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
-            return groupExit;
+            return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
         }
         catch (AzclipsErrorException ex)
         {

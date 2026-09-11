@@ -28,8 +28,6 @@ internal static class GlobalArgParser
 {
     private const string HelpSubcommand = "help";
 
-    private static readonly string[] s_helpFlags = ["--help", "-h", "-help", "-?", "--?", "?", "h"];
-
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.
     /// Per-token flag recognition dispatches through <see cref="KnownGlobalFlags.All"/>; the
@@ -100,6 +98,11 @@ internal static class GlobalArgParser
 
         foreach (var flag in KnownGlobalFlags.All)
         {
+            if (flag.Action is null)
+            {
+                continue;
+            }
+
             if (flag.Name.Equals(lookup, StringComparison.OrdinalIgnoreCase))
             {
                 return flag;
@@ -225,14 +228,9 @@ internal static class GlobalArgParser
     }
 
     private static bool IsHelpFlag(string token)
-    {
-        foreach (var flag in s_helpFlags)
-        {
-            if (token.Equals(flag, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+        => KnownGlobalFlags.All
+            .First(flag => flag.Name.Equals("--help", StringComparison.OrdinalIgnoreCase))
+            .Aliases
+            .Append("--help")
+            .Contains(token, StringComparer.OrdinalIgnoreCase);
 }
