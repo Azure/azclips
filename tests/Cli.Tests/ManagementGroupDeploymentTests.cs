@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Resources.Customization;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
@@ -386,6 +387,27 @@ public class ManagementGroupDeploymentTests
         Assert.Contains("DeploymentNotActive", exception.Message);
         Assert.Equal(1, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Delete_NoWaitSendsSingleDeleteRequest()
+    {
+        HttpRequestMessage? sent = null;
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            sent = request;
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        });
+        RemoveManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor { NoWait = true }, pipeline, new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(HttpMethod.Delete, sent!.Method);
+        Assert.EndsWith("/deployments/test-deployment", sent.RequestUri!.AbsolutePath);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)

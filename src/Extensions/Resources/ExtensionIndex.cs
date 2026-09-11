@@ -10,6 +10,7 @@ using TestManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azcl
 using GetManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor;
 using ListManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor;
 using StopManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor;
+using RemoveManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Customization.RemoveManagementGroupDeploymentProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -219,6 +220,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             FullName: typeof(StopManagementGroupDeploymentProcessor).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(StopManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", true, ["DeploymentName"], []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = new(
+            Name: nameof(RemoveManagementGroupDeploymentProcessor),
+            InvocationName: "Remove-AzManagementGroupDeployment",
+            Aliases: [],
+            FullName: typeof(RemoveManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(RemoveManagementGroupDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
@@ -527,6 +543,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["n"] = "name",
             }
         );
+        private static readonly CommandMetadata s_removeManagementGroupDeployment_CLI = new(
+            Name: nameof(RemoveManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg delete",
+            Aliases: [],
+            FullName: typeof(RemoveManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(RemoveManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
+                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return after ARM accepts the delete request.", false, [], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -590,6 +622,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzManagementGroupDeployment_Get"] = s_getManagementGroupDeployment_PS,
             ["Get-AzManagementGroupDeployment_List"] = s_listManagementGroupDeployment_PS,
             ["Stop-AzManagementGroupDeployment"] = s_stopManagementGroupDeployment_PS,
+            ["Remove-AzManagementGroupDeployment"] = s_removeManagementGroupDeployment_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -611,6 +644,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg show"]        = s_getManagementGroupDeployment_CLI,
             ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
             ["deployment mg cancel"]      = s_stopManagementGroupDeployment_CLI,
+            ["deployment mg delete"]      = s_removeManagementGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
