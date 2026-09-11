@@ -41,6 +41,8 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.RecoveryReprompts,
         TelemetryTags.AgentModel,
         TelemetryTags.ProcessName,
+        TelemetryTags.RecoveryOutcome,
+        TelemetryTags.RecoverySkipReason,
     };
 
     [Theory]

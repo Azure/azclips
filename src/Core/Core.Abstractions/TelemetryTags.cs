@@ -47,4 +47,8 @@ public static class TelemetryTags
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
+    /// <summary>ok, cancelled, or error — the terminal Agent.Session outcome.</summary>
+    public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
+    /// <summary>Why recovery did not run, on CLI.Activity.AiRecoverySkipped.</summary>
+    public const string RecoverySkipReason = PropertyTagPrefix + "recovery.skipReason";
 }

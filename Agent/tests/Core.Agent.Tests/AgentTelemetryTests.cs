@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Agent.AgentMode;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
 using OpenTelemetry;
@@ -103,6 +104,149 @@ public class AgentTelemetryProviderTests
         // to be enforced by not building a listener at all.
         using var activity = AgentTracing.Source.StartActivity("Agent.Session");
         Assert.Null(activity);
+    }
+
+    [Theory]
+    [InlineData("ok", 0, ActivityStatusCode.Ok)]
+    [InlineData("cancelled", 130, ActivityStatusCode.Unset)]
+    [InlineData("error", 1, ActivityStatusCode.Error)]
+    public async Task RunSessionAsync_ExportsTerminalOutcome_BeforeDisposingServices(
+        string expectedOutcome, int expectedExitCode, ActivityStatusCode expectedStatus)
+    {
+        const string sensitiveText = "test-only private error detail";
+        var order = new List<string>();
+        var sender = new SnapshotSender(order);
+        var provider = new AgentTelemetryProvider(
+            [
+                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
+                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
+            ],
+            sender, new StubConfiguration(telemetryEnabled: true));
+        bool sessionWasActive = false;
+        int disposeCalls = 0;
+
+        try
+        {
+            var exitCode = await AgentModeEntry.RunSessionAsync(
+                () => provider,
+                async session =>
+                {
+                    sessionWasActive = session is not null &&
+                        ReferenceEquals(session, Activity.Current) &&
+                        session.Duration == TimeSpan.Zero && sender.Exported.Count == 0;
+                    order.Add("agent-ran");
+                    await Task.Yield();
+                    if (expectedExitCode == 130) throw new OperationCanceledException(sensitiveText);
+                    if (expectedExitCode == 1) throw new InvalidOperationException(sensitiveText);
+                },
+                () =>
+                {
+                    disposeCalls++;
+                    order.Add("services-disposing");
+                    provider.TracerProvider.Dispose();
+                });
+
+            Assert.Equal(expectedExitCode, exitCode);
+            Assert.True(sessionWasActive);
+            Assert.Equal(1, disposeCalls);
+            Assert.Equal(new[] { "agent-ran", "session-exported", "services-disposing" }, order);
+            var exported = Assert.Single(sender.Exported);
+            Assert.Equal("Agent.Session", exported.Name);
+            Assert.Equal(expectedOutcome, exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
+            Assert.Equal(expectedStatus, exported.Status);
+            Assert.Equal("azclips-agent", exported.Tags.GetValueOrDefault(TelemetryTags.ProcessName));
+            Assert.Null(exported.StatusDescription);
+            Assert.Empty(exported.Events);
+            Assert.DoesNotContain(exported.Tags.Values,
+                value => value is string text && text.Contains(sensitiveText, StringComparison.Ordinal));
+        }
+        finally
+        {
+            provider.TracerProvider.Dispose();
+            provider.ActivitySource.Dispose();
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(130)]
+    [InlineData(1)]
+    public async Task RunSessionAsync_PreservesExitCode_WithoutTelemetry(int expectedExitCode)
+    {
+        var sender = new SnapshotSender([]);
+        var provider = new AgentTelemetryProvider(
+            [], sender, new StubConfiguration(telemetryEnabled: false));
+        using var source = provider.ActivitySource;
+        bool receivedNullSession = false;
+        bool disposed = false;
+
+        var exitCode = await AgentModeEntry.RunSessionAsync(
+            () => provider,
+            session =>
+            {
+                receivedNullSession = session is null;
+                return expectedExitCode switch
+                {
+                    130 => Task.FromCanceled(new CancellationToken(canceled: true)),
+                    1 => Task.FromException(new InvalidOperationException("test-only failure")),
+                    _ => Task.CompletedTask,
+                };
+            },
+            () => disposed = true);
+
+        Assert.Equal(expectedExitCode, exitCode);
+        Assert.True(receivedNullSession);
+        Assert.True(disposed);
+        Assert.Empty(sender.Exported);
+    }
+
+    [Fact]
+    public async Task RunSessionAsync_DisposesServices_WhenTelemetryResolutionFails()
+    {
+        bool agentRan = false;
+        bool disposed = false;
+
+        var exitCode = await AgentModeEntry.RunSessionAsync(
+            () => throw new InvalidOperationException("test-only provider failure"),
+            _ =>
+            {
+                agentRan = true;
+                return Task.CompletedTask;
+            },
+            () => disposed = true);
+
+        Assert.Equal(1, exitCode);
+        Assert.False(agentRan);
+        Assert.True(disposed);
+    }
+
+    private sealed record SessionSnapshot(
+        string Name, ActivityStatusCode Status, string? StatusDescription,
+        Dictionary<string, object?> Tags, ActivityEvent[] Events);
+
+    private sealed class SnapshotSender(List<string> order) : ITelemetrySender
+    {
+        public List<SessionSnapshot> Exported { get; } = [];
+
+        public void ConfigureExporter(TracerProviderBuilder builder) =>
+            builder.AddProcessor(new SimpleActivityExportProcessor(new SnapshotExporter(this, order)));
+
+        private sealed class SnapshotExporter(SnapshotSender sender, List<string> order) : BaseExporter<Activity>
+        {
+            public override ExportResult Export(in Batch<Activity> batch)
+            {
+                foreach (var activity in batch)
+                {
+                    // Snapshot at export: inspecting the mutable Activity later could hide late tagging.
+                    sender.Exported.Add(new SessionSnapshot(
+                        activity.OperationName, activity.Status, activity.StatusDescription,
+                        activity.TagObjects.ToDictionary(tag => tag.Key, tag => tag.Value),
+                        activity.Events.ToArray()));
+                    order.Add("session-exported");
+                }
+                return ExportResult.Success;
+            }
+        }
     }
 
     private sealed class NoopSender : ITelemetrySender

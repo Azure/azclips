@@ -45,21 +45,17 @@ public static class AgentModeEntry
         AzclipsServiceProvider.Initialize(ClientType.CLI);
 
         TraceAgentRenderer? trace = null;
-        try
+        return await RunSessionAsync(
+            () => AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>(),
+            RunAgentAsync,
+            () =>
+            {
+                trace?.Dispose();
+                AzclipsServiceProvider.Dispose();
+            });
+
+        async Task RunAgentAsync(Activity? session)
         {
-            // Constructing the provider builds the TracerProvider and attaches the
-            // listener every span here depends on. DI singletons are lazy, so this
-            // resolve is what triggers it. The container disposes it in the finally,
-            // which flushes the exporter.
-            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>();
-
-            // Parents to the CLI's recovery span via the traceparent on our environment
-            // block. Inside the try so it disposes before the finally tears down the
-            // TracerProvider — nothing exports after that.
-            using var session = telemetry.ActivitySource.StartActivity(
-                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
-            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
-
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
@@ -145,22 +141,46 @@ public static class AgentModeEntry
             var interactive = agentOpts.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+        }
+    }
+
+    internal static async Task<int> RunSessionAsync(
+        Func<ITelemetryProvider> getTelemetry,
+        Func<Activity?, Task> runAgent,
+        Action disposeServices)
+    {
+        Activity? session = null;
+        try
+        {
+            // Resolving the lazy provider attaches the listener before the session starts.
+            var telemetry = getTelemetry();
+            session = telemetry.ActivitySource.StartActivity(
+                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+
+            await runAgent(session);
+            session?.SetTag(TelemetryTags.RecoveryOutcome, "ok");
             session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
         catch (OperationCanceledException)
         {
+            // Cancellation is not an error; ActivityStatusCode has no Cancelled member.
+            session?.SetTag(TelemetryTags.RecoveryOutcome, "cancelled");
             return 130;
         }
         catch (Exception ex)
         {
+            session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
+            session?.SetStatus(ActivityStatusCode.Error);
             WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
             return 1;
         }
         finally
         {
-            trace?.Dispose();
-            AzclipsServiceProvider.Dispose();
+            // Export terminal tags before service disposal tears down the TracerProvider.
+            session?.Dispose();
+            disposeServices();
         }
     }
 
