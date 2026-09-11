@@ -2,6 +2,9 @@ parameters:
 - name: windows_pool
   type: string
   default: 'pool-windows-2022'
+- name: windows_arm64_pool
+  type: string
+  default: 'pool-windows-arm64-2022'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -20,23 +23,27 @@ jobs:
         BuildProfile: lean
         DistributionArtifact: Distribution_Windows_Lean
         SkipRuntime: false
+        PoolName: ${{ parameters.windows_pool }}
       win_arm64_lean:
         Rid: win-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Windows_Arm64_Lean
-        SkipRuntime: true
+        SkipRuntime: false
+        PoolName: ${{ parameters.windows_arm64_pool }}
       win_x64_full:
         Rid: win-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Windows_Full
         SkipRuntime: false
+        PoolName: ${{ parameters.windows_pool }}
       win_arm64_full:
         Rid: win-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Windows_Arm64_Full
-        SkipRuntime: true
+        SkipRuntime: false
+        PoolName: ${{ parameters.windows_arm64_pool }}
   pool:
-    name: ${{ parameters.windows_pool }}
+    name: $(PoolName)
   steps:
   - checkout: self
     clean: true

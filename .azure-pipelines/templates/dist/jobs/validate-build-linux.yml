@@ -2,6 +2,9 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'pool-ubuntu-2204'
+- name: ubuntu_arm64_pool
+  type: string
+  default: 'pool-ubuntu-latest-arm64'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -20,43 +23,51 @@ jobs:
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Lean
         SkipRuntime: false
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_arm64_lean:
         Rid: linux-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Arm64_Lean
-        SkipRuntime: true
+        SkipRuntime: false
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_x64_full:
         Rid: linux-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Full
         SkipRuntime: false
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_arm64_full:
         Rid: linux-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Arm64_Full
-        SkipRuntime: true
+        SkipRuntime: false
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_musl_x64_lean:
         Rid: linux-musl-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Musl_X64_Lean
         SkipRuntime: true
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_musl_arm64_lean:
         Rid: linux-musl-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
         SkipRuntime: true
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_musl_x64_full:
         Rid: linux-musl-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Musl_X64_Full
         SkipRuntime: true
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_musl_arm64_full:
         Rid: linux-musl-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
         SkipRuntime: true
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
   pool:
-    name: ${{ parameters.ubuntu_pool }}
+    name: $(PoolName)
   steps:
   - checkout: self
     clean: true
@@ -91,7 +102,7 @@ jobs:
         alpine:3.22 \
         sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME=false bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
     displayName: Validate CLI Linux musl Tarball in Alpine
-    condition: and(succeeded(), eq(variables['Rid'], 'linux-musl-x64'))
+    condition: and(succeeded(), or(eq(variables['Rid'], 'linux-musl-x64'), eq(variables['Rid'], 'linux-musl-arm64')))
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Linux Sim
