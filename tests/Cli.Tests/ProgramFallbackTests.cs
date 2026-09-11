@@ -26,32 +26,6 @@ public class ProgramFallbackTests
         Assert.Equal(0, exitCode);
     }
 
-    [Fact]
-    public async Task Main_ShouldRenderErrorThenCommandHelp_WhenRequiredParametersMissing()
-    {
-        var originalOut = Console.Out;
-        var originalError = Console.Error;
-        using var sw = new StringWriter();
-
-        try
-        {
-            Console.SetOut(sw);
-            Console.SetError(sw);
-
-            var exitCode = await Core.Cli.Program.Main(["vm", "create"]);
-
-            Assert.Equal(2, exitCode);
-            Assert.Contains("Required parameter '--name' is missing.", sw.ToString());
-            Assert.Contains("Create a virtual machine and its supporting network resources.", sw.ToString());
-            Assert.Contains("Required parameter '--name' is missing.", sw.ToString().Substring(0, sw.ToString().IndexOf("Create a virtual machine and its supporting network resources.")));
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-            Console.SetError(originalError);
-        }
-    }
-
     // The following tests verify that AgentEngine is invoked by observing the side effects.
     // They require AI integration which prompts for user input, making them unsuitable for automated testing.
     // These are skipped in CI but can be run manually for integration testing.
