@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789088915452,
+  "lastUpdate": 1789088919515,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -5942,6 +5942,42 @@ window.BENCHMARK_DATA = {
             "value": 357171433.46,
             "unit": "ns",
             "range": "± 12647808.079700578"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc8608b5df69c880662db08a6eb2c8b846af552d",
+          "message": "[CLI] Colorize `yamlc` output (#852)\n\n{CLI} Colorize `yamlc` output (azclips#836)\n\nCloses #836.\n\nNew YamlColorizer (src/CLI/Output/YamlColorizer.cs) implements real\nyamlc\ncoloring, mirroring JsonColorizer's approach: walks already-serialized\nYAML with YamlDotNet's low-level Scanner/Token API (Key/Value markers +\nScalar tokens) instead of regex, wrapping key/string/number/literal\nscalars in ANSI codes while copying structural characters and\nwhitespace through unchanged.\n\n- Mapping keys (scalar immediately following a Key token) colorize as\n  KeyColor (cyan), matching JSON keys.\n- Value scalars (following a Value token, or bare block-sequence items\n  which have neither marker) are colored by inferred type: true/false/\n  null/empty -> LiteralColor (magenta), plain numeric text ->\n  NumberColor (yellow), everything else (including quoted scalars,\n  which are always strings regardless of content) -> StringColor\n  (green).\n- CliOutputFormatter now colorizes Yamlc the same way it already does\n  Jsonc: only when colorPolicyAllowsColor is true; Yaml (no 'c') never\n  colorizes, matching Json's existing guarantee.\n- Removed the now-stale \"yamlc coloring not yet implemented\" notes from\n  config.md and test doc comments.\n\nTesting:\n\n- New YamlColorizerTests (keys/strings/numbers/literals/sequence items/\n  quoted-numeric-string-stays-a-string/structural-character/nested-\n  indentation/ANSI-round-trip).\n- Updated CliOutputFormatterTests' Yamlc routing test and added\n  colorize/no-colorize coverage mirroring the existing Jsonc tests.\n- Full suite green: 748 passed, 0 failed, 8 skipped.\n- Manually verified against the built az.exe (cmd.exe redirection, per\n  the PowerShell-stderr-stripping gotcha noted in repo memory):\n  `--output` yamlc colorizes keys/values correctly with FORCE_COLOR=1,\n  stays plain in auto+redirected mode.\n\n**History Notes**\n\n[CLI] `--output` yamlc now colorizes YAML output (previously rendered\nidentically to `yaml`)\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-11T10:40:49+10:00",
+          "tree_id": "56f9dde9dc547dc2f285e16df71cc7de167ebd66",
+          "url": "https://github.com/Azure/azclips/commit/bc8608b5df69c880662db08a6eb2c8b846af552d"
+        },
+        "date": 1789088919408,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 382549853.72,
+            "unit": "ns",
+            "range": "± 9281487.637037922"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 371258189.9,
+            "unit": "ns",
+            "range": "± 11882704.129312836"
           }
         ]
       }
