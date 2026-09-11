@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Extensions;
 
 namespace Core.ArgumentParsing
 {
@@ -13,7 +14,7 @@ namespace Core.ArgumentParsing
             IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
             if (validationErrors != null && validationErrors.Count > 0)
             {
-                throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
+                throw AzclipsErrorException.UsageError($"Invalid arguments: {string.Join(", ", validationErrors)}");
             }
 
             // Yabo: the applying default need to work with future parameter sets.

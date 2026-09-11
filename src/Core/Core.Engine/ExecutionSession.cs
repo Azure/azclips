@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading.Channels;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Extensions;
 using Core.Runtime;
 
 namespace Core.Engine;
@@ -234,6 +235,12 @@ internal class ExecutionSession : ISession
         try
         {
             processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases, Profile);
+        }
+        catch (AzclipsErrorException)
+        {
+            // Structured error (e.g. a missing required argument): let it propagate as-is so the
+            // host renders it directly instead of falling through to AI-fallback recovery.
+            throw;
         }
         catch (Exception ex)
         {

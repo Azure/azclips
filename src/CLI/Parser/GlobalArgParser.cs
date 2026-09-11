@@ -28,7 +28,7 @@ internal static class GlobalArgParser
 {
     private const string HelpSubcommand = "help";
 
-    private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
+    private static readonly string[] s_helpFlags = ["--help", "-h", "-help", "-?", "--?", "?", "h"];
 
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.

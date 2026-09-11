@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
+using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Output;
 using Core.Cli.Parser;
@@ -104,6 +105,7 @@ public class Program
         var errorFormat = OutputFormat.Table;
         var errorColorAllowed = false;
         var positional = args;
+        CommandInvocation? invocation = null;
 
         try
         {
@@ -151,7 +153,6 @@ public class Program
             }
 
 
-            CommandInvocation invocation;
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
@@ -181,11 +182,20 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
+        catch (CommandNotFoundException ex) when (ex.Path.Count == 0)
+        {
+            // Bare command group (e.g. `az vm`, no subcommand): show that group's help instead of
+            // an error — the group name alone is a valid, unambiguous request, unlike a typo'd
+            // subcommand (`az vm --list`, `az group foobar`), which still surfaces CommandNotFound below.
+            var groupExit = DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+            activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
+            return groupExit;
+        }
         catch (AzclipsErrorException ex)
         {
             // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed);
+            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -303,8 +313,15 @@ public class Program
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor)
+    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
     {
+        // Usage errors surfaced after a command was already resolved (e.g. a missing required
+        // parameter) get a `--help` pointer; dispatch-time usage errors (bad global flags, no
+        // resolved command yet) do not, since there is no command path to point at.
+        var message = invocation is not null && ex.Code == "UsageError"
+            ? $"{ex.Message} (az {invocation.CommandName} --help)"
+            : ex.Message;
+
         if (format is OutputFormat.Json or OutputFormat.Jsonc)
         {
             var payload = new
@@ -312,7 +329,7 @@ public class Program
                 error = new
                 {
                     code = ex.Code,
-                    message = ex.Message,
+                    message,
                     details = ex.Details,
                 },
             };
@@ -325,7 +342,7 @@ public class Program
         }
         else
         {
-            ConsoleSink.Error($"[{ex.Code}] {ex.Message}");
+            ConsoleSink.Error($"[{ex.Code}] {message}");
         }
     }
 
