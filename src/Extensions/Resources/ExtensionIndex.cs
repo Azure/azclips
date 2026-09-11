@@ -6,7 +6,6 @@
 
 using Core.Abstractions;
 using NewManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Deployment.Customization.NewManagementGroupDeploymentProcessor;
-using NewManagementGroupDeploymentWhatIfProcessor = Microsoft.Azure.Azclips.Extensions.Deployment.Customization.NewManagementGroupDeploymentWhatIfProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -225,30 +224,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newManagementGroupDeploymentWhatIf_CLI = new(
-            Name: nameof(NewManagementGroupDeploymentWhatIfProcessor),
-            InvocationName: "deployment mg what-if",
-            Aliases: [],
-            FullName: typeof(NewManagementGroupDeploymentWhatIfProcessor).FullName!,
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Deployment",
-            ProcessorType: typeof(NewManagementGroupDeploymentWhatIfProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
-                ["name"] = new("Name", "name", typeof(string), "The deployment name.", false, ["n"], []),
-                ["location"] = new("Location", "location", typeof(string), "The location used to store deployment metadata.", true, ["l"], []),
-                ["template-file"] = new("TemplateFile", "template-file", typeof(string), "A local ARM JSON or Bicep template.", false, ["f"], []),
-                ["template-uri"] = new("TemplateUri", "template-uri", typeof(string), "The URI of an ARM template.", false, ["u"], []),
-                ["template-spec"] = new("TemplateSpecId", "template-spec", typeof(string), "The resource ID of a Template Spec.", false, ["s"], []),
-                ["query-string"] = new("QueryString", "query-string", typeof(string), "A query string used with template-uri.", false, [], []),
-                ["parameters"] = new("Parameter", "parameters", typeof(string[]), "Parameter files, JSON, or KEY=VALUE overrides.", false, ["p"], []),
-                ["mode"] = new("ModeInput", "mode", typeof(string), "Incremental or Complete.", false, [], ["Incremental", "Complete"]),
-                ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
-                ["result-format"] = new("ResultFormatInput", "result-format", typeof(string), "FullResourcePayloads or ResourceIdOnly.", false, [], ["FullResourcePayloads", "ResourceIdOnly"]),
-                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -320,7 +295,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
             ["deployment mg create"]      = s_newManagementGroupDeployment_CLI,
-            ["deployment mg what-if"]     = s_newManagementGroupDeploymentWhatIf_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };

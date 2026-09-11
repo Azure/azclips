@@ -20,5 +20,5 @@
                          '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Deployment/Microsoft.Azure.Azclips.Extensions.Deployment.dll'
     NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Deployment.dll')
     FunctionsToExport = @()
-    CmdletsToExport = 'New-AzManagementGroupDeployment', 'New-AzManagementGroupDeploymentWhatIf'
+    CmdletsToExport = 'New-AzManagementGroupDeployment'
 }
