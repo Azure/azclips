@@ -10,9 +10,6 @@
  *   bumps will pick them up later):
  *
  *   - Examples (`@opExample`): IR has no `IRExample` node.
- *   - Open enums: TCGC's `isFixed: false` enums lose their open-ness in IR.
- *     A one-shot `open-enum-as-closed` info diagnostic is emitted on the
- *     first such enum.
  *   - Primitive constraints (`@minLength`, `@pattern`, etc.): dropped
  *     silently; the transformer layer (or a future IR bump) is the right
  *     home for these.
@@ -139,7 +136,7 @@ export const $lib = createTypeSpecLibrary({
     "open-enum-as-closed": {
       severity: "warning",
       messages: {
-        default: paramMessage`Open enum '${"enum"}' is emitted as closed; IR has no open-enum variant.`,
+        default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
       },
     },
     "ir-validation-failed": {

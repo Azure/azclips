@@ -12,7 +12,7 @@ public sealed class CSharpClientGeneratorTests
     {
         return new IRDocument
         {
-            SchemaVersion = "0.6.0",
+            SchemaVersion = "0.7.0",
             Models = (models ?? [])
                 .Select(name => new IRModel
                 {

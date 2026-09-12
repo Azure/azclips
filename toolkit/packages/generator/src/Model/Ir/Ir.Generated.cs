@@ -531,6 +531,9 @@ public partial class IREnum
     [JsonPropertyName("valueType")]
     public IREnumValueType ValueType { get; set; }
 
+    [JsonPropertyName("isFixed")]
+    public bool IsFixed { get; set; }
+
     [JsonPropertyName("members")]
     public IReadOnlyList<IREnumMember> Members { get; set; } = [];
 
