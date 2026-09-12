@@ -138,28 +138,37 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
         var members = new List<MemberDeclarationSyntax>();
 
-        // Members mirror the API parameter surface exactly (subscriptionId inline, no special-casing).
+        // Members mirror the API parameter surface exactly (subscriptionId inline, no special-casing),
+        // minus anything the base already owns: a server parameter and a path parameter of the same
+        // name are the same value, and redeclaring it here would hide the base's member.
+        var inherited = new HashSet<string>(ServerSupport.Inputs(context.Ir), StringComparer.Ordinal);
+
         foreach (IRParameter parameter in operation.PathParameters)
         {
+            if (inherited.Contains(parameter.Name.Identifier())) continue;
             members.Add(ParameterProperty(parameter));
         }
 
         foreach (IRParameter parameter in operation.QueryParameters)
         {
+            if (inherited.Contains(parameter.Name.Identifier())) continue;
             members.Add(ParameterProperty(parameter));
         }
 
         // The request body as a single model member, plus (when the transform projected it)
         // one flat member per `RequestBodyHints.Parameters` entry. The flat members are views
-        // over `Body`, so `CreateRequestBody()` still just returns it.
+        // over `Body`, so `CreateRequestBody()` still just returns it. Materialize them first:
+        // whether any resolved decides whether `Body` can leave the public surface.
         if (operation.RequestBody is not null)
         {
-            members.Add(BodyProperty(operation.RequestBody, requestType));
-            members.AddRange(FlattenedBodyProperties(context, operation, requestType));
+            List<MemberDeclarationSyntax> flatBody = [.. FlattenedBodyProperties(context, operation, requestType)];
+            members.Add(BodyProperty(operation.RequestBody, requestType, hidden: flatBody.Count > 0));
+            members.AddRange(flatBody);
         }
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
         members.Add(MethodProperty(operation));
+        members.AddRange(EndpointOverride(server, ServerSupport.Dominant(context.Ir)));
         members.Add(CreateRequestUriMethod(operation, server));
         if (operation.RequestBody is not null)
         {
@@ -258,12 +267,27 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
     }
 
-    private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body, string requestType)
+    /// <summary>
+    /// The body member: <c>public TRequest? Body { get; set; }</c>, or <c>internal</c> when flat
+    /// members cover it.
+    /// </summary>
+    /// <remarks>
+    /// Once the body is projected onto flat members, those <em>are</em> the parameter surface, and
+    /// a public <c>Body</c> would duplicate every one of them. Making it internal is what removes
+    /// the duplicate rather than merely hiding it: argument binding and help both reflect over
+    /// public instance properties only. It stays reachable from <c>CreateRequestBody()</c> and from
+    /// a customization subclass in the same assembly.
+    /// <para>
+    /// When no flat member resolved, <c>Body</c> stays public — otherwise the operation would have
+    /// no way to send a payload at all.
+    /// </para>
+    /// </remarks>
+    private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body, string requestType, bool hidden)
     {
         // Nullable so CreateRequestBody() (which returns TRequest?) can hand it back directly.
         string type = requestType + "?";
         return PropertyDeclaration(ParseTypeName(type), Identifier("Body"))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .AddModifiers(Token(hidden ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors())
             .WithLeadingXmlDoc(body.Docs ?? body.Summary);
     }
@@ -512,7 +536,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// <summary>Compose the request URI text: <c>{host}{path}?{query}</c>, with member interpolations.</summary>
     private static string BuildUri(IROperation operation, IRServer server)
     {
-        string host = ResolveHost(server);
+        // The endpoint always comes from the base's seam, whether the spec pinned it or left holes
+        // for the caller — the base owns both shapes, so the URI never bakes a host in.
+        string host = "{" + ServerSupport.EndpointMember + "}";
 
         string path = operation.PathTemplate ?? string.Empty;
         foreach (IRParameter parameter in operation.PathParameters)
@@ -535,24 +561,26 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return host + path + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
     }
 
-    /// <summary>Resolve a server to a host string, substituting parameter defaults into a template.</summary>
-    private static string ResolveHost(IRServer server) => server switch
+    /// <summary>
+    /// Override the base's endpoint when this operation's server resolves somewhere else, so a
+    /// document spanning several planes (management + a data plane, say) still generates correctly.
+    /// Returns nothing in the common case, where the base's endpoint already matches.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> EndpointOverride(
+        IRServer server,
+        ServerSupport.ResolvedEndpoint? baseEndpoint)
     {
-        IRServerLiteral literal => literal.Url,
-        IRServerParameterized parameterized => ResolveTemplate(parameterized),
-        _ => string.Empty,
-    };
-
-    private static string ResolveTemplate(IRServerParameterized server)
-    {
-        string url = server.Template;
-        foreach (IRServerParameter parameter in server.Parameters)
+        ServerSupport.ResolvedEndpoint? endpoint = ServerSupport.Resolve(server);
+        if (endpoint is null || string.Equals(endpoint.Text, baseEndpoint?.Text, StringComparison.Ordinal))
         {
-            string value = (parameter.DefaultValue as IRLiteralValueString)?.Value ?? "{" + parameter.Name.Identifier() + "}";
-            url = url.Replace("{" + parameter.WireName + "}", value);
+            yield break;
         }
 
-        return url;
+        yield return PropertyDeclaration(ParseTypeName("string"), Identifier(ServerSupport.EndpointMember))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(endpoint.Expression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+            .WithLeadingXmlDoc("This operation's server, which differs from the extension's default endpoint.");
     }
 
     private static string HttpMethodExpression(IROperationMethod method) => method switch

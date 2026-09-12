@@ -64,6 +64,32 @@ internal static class FlattenSupport
         return hops;
     }
 
+    /// <summary>
+    /// True when a property was hoisted into its container (<c>flatten.into == "self"</c>), so it
+    /// renders through its flattened members rather than as a member of its own.
+    /// </summary>
+    /// <remarks>
+    /// Only object-typed properties carry the hint. Flattening is all-or-nothing per container —
+    /// once the transform commits, every one of the target's members is hoisted — so hiding the
+    /// container costs no access.
+    /// </remarks>
+    public static bool IsHoisted(IRProperty property) =>
+        property is IRPropertyObject { Rendering.Flatten.Into: FlattenHintInto.Self };
+
+    /// <summary>
+    /// True when a flattened member can never be written by a caller, because no hop along its
+    /// path is visible in a create or update phase.
+    /// </summary>
+    /// <remarks>
+    /// An absent <see cref="FlattenedMember.Visibility"/> means "unconstrained" (every phase), not
+    /// "none" — matching <c>IRProperty.visibility</c> — so only an explicit, write-free set makes a
+    /// member read-only.
+    /// </remarks>
+    public static bool IsReadOnly(FlattenedMember member) =>
+        member.Visibility is { Count: > 0 } phases &&
+        !phases.Contains(FlattenedMemberVisibility.Create) &&
+        !phases.Contains(FlattenedMemberVisibility.Update);
+
     /// <summary>The leaf's own C# type, carrying its own declared nullability.</summary>
     public static string DeclaredType(IRProperty leaf) =>
         IrTypeMapper.ToCSharp(leaf) + (IsNullable(leaf) ? "?" : "");

@@ -338,11 +338,33 @@ disagree. A single-entry `path` is a top-level body property promoted as-is.
 wire path is each hop's `wireName` — and ids are invariant under renaming
 transforms, so the paths stay correct however members are later renamed.
 
-This is metadata only: no transform populates these fields yet, and the C#
-generator does not consume them. Unlike the 0.8.0/0.9.0/0.11.0 changes, both
-fields are optional additions, so existing captures remain valid and do not need
-regeneration. Regenerate the IR JSON Schema and the C# POCOs to pick up the new
-types.
+`flattenModelStep` populates both fields, and the C# generator consumes them —
+see [Flattening](../packages/generator/README.md#flattening) for the emitted
+shape. Unlike the 0.8.0/0.9.0/0.11.0 changes, both fields are optional additions,
+so existing captures remain valid and do not need regeneration. Regenerate the IR
+JSON Schema and the C# POCOs to pick up the new types.
+
+### Visibility of what was flattened through
+
+Flattening would otherwise *double* a surface rather than reshape it: the
+container and every member hoisted out of it would both be public. Two existing
+IR fields resolve that, and the generator reads both:
+
+- **The container leaves the public surface.** A property the transform hoisted
+  carries `flatten.into = "self"`, and the generator emits it `internal` with
+  `[JsonInclude]` — it is still what serializes, and System.Text.Json skips a
+  non-public member without being told otherwise. Hoisting is all-or-nothing per
+  container, so nothing becomes unreachable. The container's *type* stays public;
+  only the member is hidden, matching what AutoRest PowerShell does.
+- **A read-only member gets no setter.** When `FlattenedMember.visibility` names
+  no create or update phase, the member is server-owned, so only a getter is
+  emitted. Deserialization is unaffected: it fills the nested properties, never
+  the `[JsonIgnore]` accessor — which is why this needs none of AutoRest's
+  explicit-interface machinery.
+
+Body parameters need no equivalent rule: `projectBodyParameters` already filters
+by lifecycle phase, so a read-only member never reaches an operation's parameter
+surface.
 
 ## IR JSON Schema (cross-language contract)
 

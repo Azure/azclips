@@ -54,6 +54,24 @@ public sealed class ServerReferenceTests
         Assert.Contains($"CreateRequestUri() => $\"{uri}\";", files.Files.Source(result, className));
     }
 
+    /// <summary>
+    /// Assert a processor's endpoint seam: <c>null</c> means it matches the base's default and so
+    /// says nothing, otherwise it must override with exactly this endpoint.
+    /// </summary>
+    private static void AssertEndpoint(
+        GenerationResult result, GeneratedFileCollector files, string className, string? endpoint)
+    {
+        string source = files.Files.Source(result, className);
+        if (endpoint is null)
+        {
+            Assert.DoesNotContain("override string Endpoint", source);
+        }
+        else
+        {
+            Assert.Contains($"override string Endpoint => \"{endpoint}\";", source);
+        }
+    }
+
     private static void AssertInvalid(GenerationResult result, string code)
     {
         Assert.False(result.Success);
@@ -93,10 +111,20 @@ public sealed class ServerReferenceTests
 
         Assert.True(result.Success);
         Assert.Empty(result.Diagnostics);
-        AssertUri(result, files, "GetFirstProcessor", "https://first.example.com/widgets");
-        AssertUri(result, files, "GetSecondProcessor", "https://second.example.com/widgets");
-        AssertUri(result, files, "ListFirstProcessor", "https://first.example.com/widgets");
-        AssertUri(result, files, "CrossSourceProcessor", "https://second.example.com/widgets");
+        // The endpoint is no longer baked into each URI — every processor interpolates the base's
+        // seam, and only one whose server disagrees with the base default overrides it.
+        AssertUri(result, files, "GetFirstProcessor", "{Endpoint}/widgets");
+        AssertUri(result, files, "GetSecondProcessor", "{Endpoint}/widgets");
+        AssertUri(result, files, "ListFirstProcessor", "{Endpoint}/widgets");
+        AssertUri(result, files, "CrossSourceProcessor", "{Endpoint}/widgets");
+
+        Assert.Contains(
+            "virtual string Endpoint => \"https://first.example.com\";",
+            files.Files.Source(result, "ProcessorBase"));
+        AssertEndpoint(result, files, "GetFirstProcessor", null);
+        AssertEndpoint(result, files, "ListFirstProcessor", null);
+        AssertEndpoint(result, files, "GetSecondProcessor", "https://second.example.com");
+        AssertEndpoint(result, files, "CrossSourceProcessor", "https://second.example.com");
         Assert.Equal(2, ir.Servers.Count);
     }
 
@@ -160,8 +188,18 @@ public sealed class ServerReferenceTests
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
 
         Assert.True(result.Success);
+        // Defaults are spec truth and get substituted; `account` has none, so it stays a hole the
+        // base fills from a public input rather than a value the generator invents.
+        string @base = files.Files.Source(result, "ProcessorBase");
+        Assert.Contains("protected virtual string Endpoint => $\"https://{AccountName}.example.com/api\";", @base);
+        Assert.Contains("public string AccountName { get; set; } = string.Empty;", @base);
+
+        // The URI interpolates the seam, and the processor does not redeclare the inherited input.
         AssertUri(result, files, "GetProcessor",
-            "https://{AccountName}.example.com/api/accounts/{AccountName}/widgets/{WidgetName}?api-version=2026-01-01&$top={PageSize}");
+            "{Endpoint}/accounts/{AccountName}/widgets/{WidgetName}?api-version=2026-01-01&$top={PageSize}");
+        string processor = files.Files.Source(result, "GetProcessor");
+        Assert.DoesNotContain("public string AccountName", processor);
+        Assert.Contains("public string WidgetName", processor);
     }
 
     [Fact]
@@ -176,7 +214,7 @@ public sealed class ServerReferenceTests
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
 
         Assert.True(result.Success);
-        AssertUri(result, files, "GetProcessor", "https://first.example.com/widgets");
+        AssertUri(result, files, "GetProcessor", "{Endpoint}/widgets");
     }
 
     [Theory]

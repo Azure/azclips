@@ -17,8 +17,10 @@
   Runs from the toolkit root regardless of the caller's working directory.
 
 .PARAMETER Configuration
-  .NET build configuration (Debug or Release). Default: Debug. The CLI resolves
-  the generator host from bin/<Configuration>/net10.0 (Release preferred).
+  .NET build configuration (Debug or Release). Default: Debug. This script
+  publishes the generator host to packages/cli/generator-host, which is the only
+  place the CLI looks — it is deliberately build-config-agnostic, so a plain
+  `dotnet build` updates packages/generator/bin but NOT what the CLI runs.
 
 .PARAMETER SkipTypeScript
   Skip the TypeScript build.

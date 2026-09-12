@@ -203,6 +203,29 @@ by its source's default. Missing or ambiguous references report error diagnostic
 and skip the affected processor. Literal URLs and parameterized template/default
 substitution are unchanged; choosing a `oneOf` host remains unsupported.
 
+A resolved endpoint is **not** baked into each URI. `ProcessorBase` exposes it as
+an `Endpoint` member derived from the IR, and every generated
+`CreateRequestUri()` interpolates `{Endpoint}`. One override therefore redirects
+the whole extension — a sovereign cloud, a test host, a profile-resolved plane —
+without regenerating. A processor whose own server resolves elsewhere emits
+`protected override string Endpoint => …;`, so a document spanning several planes
+still generates correctly.
+
+Nothing is invented. The generator has no built-in host:
+
+| IR server | emitted on the base |
+|---|---|
+| endpoint pinned (literal, or a template whose parameters all have defaults) | `protected virtual string Endpoint => "https://…";` |
+| template with a parameter the spec gives **no** default (`https://{vaultName}.vault.azure.net`) | `protected virtual string Endpoint => $"https://{VaultName}…";` plus `public string VaultName { get; set; } = string.Empty;` |
+| no usable server at all | `public string Endpoint { get; set; } = string.Empty;` |
+
+An undefaulted server parameter is something only the caller can supply, so it
+becomes a **public** input on the base — which is also what puts it in front of
+argument binding and help. Because it lives on the base, a processor whose own
+path/query parameter shares that name does not redeclare it: a server parameter
+and a path parameter of the same name are the same value, and redeclaring would
+hide the inherited member.
+
 ### Multipart metadata (IR 0.9.0)
 
 `IRRequestBody.Multipart` and `IRResponse.Multipart` preserve model/tuple body
@@ -226,9 +249,25 @@ resolved (`ModelHints.Flattened` / `RequestBodyHints.Parameters`). The generator
 **never derives names or resolves collisions** — the transform already did, and
 paths are `IRId`s, so a later rename cannot invalidate them.
 
-Flattening is **additive**. The real nested properties are emitted unchanged (they
-are what serializes); each flattened member adds a `[JsonIgnore]` accessor beside
-them. Without the attribute the same value would serialize at two depths.
+Flattening **reshapes the surface rather than doubling it**. The real nested
+properties still carry the wire shape, but a container the transform hoisted
+(`flatten.into == "self"`) leaves the public surface — otherwise it and every
+member hoisted out of it would both be public:
+
+```csharp
+[JsonPropertyName("properties")]
+[JsonInclude]
+internal ElasticSanProperties Properties { get; set; }
+```
+
+`[JsonInclude]` is what keeps it serializing: System.Text.Json skips a non-public
+member without it (verified for `internal` and `private`, both directions). The
+container's *type* stays public — only the member is hidden, matching AutoRest
+PowerShell. Hoisting is all-or-nothing per container, so nothing becomes
+unreachable.
+
+Each flattened member then adds a `[JsonIgnore]` accessor. Without the attribute
+the same value would serialize at two depths.
 
 ```csharp
 [JsonIgnore]
@@ -250,13 +289,30 @@ that is required end-to-end reads directly and keeps the leaf's own type. Setter
 always null-coalesce intermediates: a hop the spec marks required can still arrive
 null from deserialization.
 
-Processor members from `RequestBodyHints.Parameters` are views over `Body`, so
-`CreateRequestBody()` still just returns it:
+A member whose `FlattenedMember.Visibility` names no create or update phase is
+server-owned, so it is emitted **read-only**:
 
 ```csharp
-public ElasticSan? Body { get; set; }
+[JsonIgnore]
+public ProvisioningStates? ProvisioningState { get => Properties.ProvisioningState; }
+```
+
+Deserialization still fills it, because it writes the nested property rather than
+this accessor — which is why this needs none of AutoRest's `IXInternal`
+explicit-interface machinery.
+
+Processor members from `RequestBodyHints.Parameters` are views over `Body`, so
+`CreateRequestBody()` still just returns it. `Body` goes `internal` once flat
+members cover it: argument binding and help both reflect over *public* instance
+properties, so this is what removes the duplicate rather than merely hiding it.
+
+```csharp
+internal ElasticSan? Body { get; set; }
 public long? BaseSizeTiB { get => Body?.BaseSizeTiB; set => (Body ??= new ElasticSan()).BaseSizeTiB = value ?? default; }
 ```
+
+If no flat member resolves (an unresolvable path warns and skips), `Body` stays
+public — otherwise the operation would have no way to send a payload at all.
 
 Each delegates to the **model's** member rather than re-walking the path, so the
 model stays the single place that knows how to read and materialize the graph. The
@@ -345,7 +401,7 @@ group and emit `{Verb}Processor`; the generator never infers a group from the
 namespace tail. The public surface mirrors the API parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
-seams — `Method`, `CreateRequestUri()` (resolved host + path template with
+seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with
 `{wireName}` rewritten to the C# member + `api-version`/query string), and (body
 ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
 `TRequest` is the body model (or `object` for no-body ops); `TResponse` the
@@ -360,10 +416,17 @@ customization on top of the generated (`partial`) processor, never by the genera
 
 **`ProcessorBaseGenerator`** emits the runtime base processors derive from — a
 non-generic marker `ProcessorBase : IProcessor` plus
-`ProcessorBase<TRequest, TResponse>` (fine-grained request seams — `Method`,
-`CreateRequestUri`, `CreateRequestBody`, `CreateRequestHeaders` — assembled by
+`ProcessorBase<TRequest, TResponse>` (fine-grained request seams — `Endpoint`,
+`Method`, `CreateRequestUri`, `CreateRequestBody`, `CreateRequestHeaders` —
+assembled by
 `CreateRequestMessage`, and the standard `ProcessAsync` pipeline with
-`BeforeProcessAsync` / `BeforeWriteOutputAsyncAndReturn` hooks). The
+`BeforeProcessAsync` / `BeforeWriteOutputAsyncAndReturn` hooks). It also owns
+`DefaultJsonOptions`, which every request body and response is (de)serialized
+with until `ProcessorContext` carries its own: camelCase, case-insensitive
+reads, and `DefaultIgnoreCondition = WhenWritingNull`. That last one is a
+*correctness* setting, not a size one — without it an unset property goes on the
+wire as an explicit `null`, which a PATCH reads as "clear this field". `AfterInit()`
+is the seam to replace it. The
 long-running-operation machinery lives in the runtime library; the base only
 delegates (`SendAsync`/`SendAsyncLRO` → `HttpRuntime`). It's "template-like" (only
 the package namespace varies), but built in the **house style**: signatures —

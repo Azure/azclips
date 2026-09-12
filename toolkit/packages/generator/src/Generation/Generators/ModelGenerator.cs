@@ -114,6 +114,12 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// Emit one property: <c>[JsonPropertyName("wire")] public T? Name { get; set; }</c>,
     /// preceded by its XML <c>&lt;summary&gt;</c> doc.
     /// </summary>
+    /// <remarks>
+    /// A property the transform hoisted (<c>flatten.into == "self"</c>) leaves the public surface:
+    /// its members already render as flattened accessors, so keeping it public would duplicate
+    /// every one of them. It stays on the type because it is still what serializes — hence
+    /// <c>[JsonInclude]</c>, without which System.Text.Json skips a non-public member.
+    /// </remarks>
     private PropertyDeclarationSyntax EmitProperty(IRProperty property)
     {
         // Reuse the string mapper, then parse into a TypeSyntax; wrap in NullableType
@@ -128,9 +134,19 @@ internal sealed class ModelGenerator : IArtifactGenerator
             .AddArgumentListArguments(
                 AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(property.WireName))));
 
-        return PropertyDeclaration(type, Identifier(property.Name.Identifier()))
-            .AddModifiers(Token(SyntaxKind.PublicKeyword))
-            .AddAttributeLists(AttributeList(SingletonSeparatedList(jsonName)))
+        bool hoisted = FlattenSupport.IsHoisted(property);
+
+        PropertyDeclarationSyntax declaration = PropertyDeclaration(type, Identifier(property.Name.Identifier()))
+            .AddModifiers(Token(hoisted ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword))
+            .AddAttributeLists(AttributeList(SingletonSeparatedList(jsonName)));
+
+        if (hoisted)
+        {
+            declaration = declaration.AddAttributeLists(
+                AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonInclude")))));
+        }
+
+        return declaration
             .WithAccessorList(AccessorList(List(
             [
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
@@ -177,22 +193,32 @@ internal sealed class ModelGenerator : IArtifactGenerator
             string accessorType = FlattenSupport.AccessorType(leaf, member.Optional);
             string docs = leaf.Docs ?? leaf.Summary ?? $"Flattened access to {FlattenSupport.WirePath(hops)}.";
 
+            // A member no hop exposes for create or update is server-owned, so it gets no setter:
+            // offering one would only invite writes the service discards. Deserialization is
+            // unaffected — it fills the nested properties, never this [JsonIgnore] accessor — which
+            // is why this needs none of AutoRest's explicit-interface machinery.
+            var accessors = new List<AccessorDeclarationSyntax>
+            {
+                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(FlattenSupport.GetterChain(hops))))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+            };
+
+            if (!FlattenSupport.IsReadOnly(member))
+            {
+                accessors.Add(AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                    .WithBody(Block(List<StatementSyntax>(
+                    [
+                        .. FlattenSupport
+                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional))
+                            .Select(statement => ParseStatement(statement)),
+                    ]))));
+            }
+
             yield return PropertyDeclaration(ParseTypeName(accessorType), Identifier(member.Name.Identifier()))
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddAttributeLists(AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonIgnore")))))
-                .WithAccessorList(AccessorList(List(
-                [
-                    AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                        .WithExpressionBody(ArrowExpressionClause(ParseExpression(FlattenSupport.GetterChain(hops))))
-                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
-                    AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                        .WithBody(Block(List<StatementSyntax>(
-                        [
-                            .. FlattenSupport
-                                .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional))
-                                .Select(statement => ParseStatement(statement)),
-                        ]))),
-                ])))
+                .WithAccessorList(AccessorList(List<AccessorDeclarationSyntax>(accessors)))
                 .WithLeadingXmlDoc(docs);
         }
     }
