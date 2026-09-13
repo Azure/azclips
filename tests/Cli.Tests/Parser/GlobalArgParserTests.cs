@@ -134,6 +134,20 @@ public class GlobalArgParserTests
         Assert.Equal(new[] { "group", "cmd" }, result.Help!.Path);
     }
 
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-help")]
+    [InlineData("-?")]
+    [InlineData("--?")]
+    public void Parse_HelpFlagAfterCommandOption_YieldsCommandHelpPath(string helpToken)
+    {
+        var result = GlobalArgParser.Parse(new[] { "group", "list", "--subscription-id", "abc", helpToken });
+
+        Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "group", "list" }, result.Help!.Path);
+    }
+
     [Fact]
     public void Parse_HelpAliasAsParameterValue_DoesNotYieldCommandHelp()
     {
