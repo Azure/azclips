@@ -187,14 +187,12 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
-        catch (CommandNotFoundException ex) when (ex.Path.Count == 0)
+        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        catch (CommandNotFoundException ex) when (ex.Path.Count == 0
+            && positional.Length == 1
+            && positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase))
         {
             // Show group help when no subcommand was provided.
-            if (positional.Length != 1 || !positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase))
-            {
-                throw;
-            }
-
             activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
             return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
         }
@@ -207,7 +205,7 @@ public class Program
 
                 var helpPath = invocation.CommandName
                     .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                var helpExit = DispatchHelp(new HelpRequest(helpPath), isBareInvocation: false, streams, activity);
+                DispatchHelp(new HelpRequest(helpPath), isBareInvocation: false, streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }

@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Cli.Version;
-using Core.Extensions;
 
 namespace Core.Cli.Parser;
 
