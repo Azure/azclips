@@ -19,6 +19,6 @@ internal static class StartupHook
             return File.Exists(candidate) ? context.LoadFromAssemblyPath(candidate) : null;
         };
 
-        Core.Recording.RecordingHook.TryRegister();
+        Tests.Recording.RecordingHook.TryRegister();
     }
 }

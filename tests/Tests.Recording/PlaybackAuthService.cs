@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Answers token requests during playback, where no request reaches Azure and no real

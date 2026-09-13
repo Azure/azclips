@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Utilities;
 
 namespace Scenario.Tests;

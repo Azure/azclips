@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Resolves the record/playback mode from <c>AZURE_TEST_MODE</c>, mirroring the Azure PowerShell

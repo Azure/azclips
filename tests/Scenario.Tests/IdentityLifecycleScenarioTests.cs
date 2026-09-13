@@ -1,7 +1,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;

@@ -6,7 +6,7 @@ using System.Text;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 public enum RecorderMode
 {

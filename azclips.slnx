@@ -40,11 +40,11 @@
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
-    <Project Path="tests/Core.Recording/Core.Recording.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
     <Project Path="tests/Extensions.MsGraph.Tests/Extensions.MsGraph.Tests.csproj" />
+    <Project Path="tests/Tests.Recording/Tests.Recording.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>

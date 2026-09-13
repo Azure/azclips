@@ -115,7 +115,7 @@ command, chaining values the way a user would (see `Scripts/vm-create.ps1` and `
 PowerShell module surface works the same way: `Scripts/vm-create-module.ps1` imports the built
 modules and drives the real cmdlets, with the subscription resolving from the active profile.
 
-The product carries no test code. The recording assembly lives under `tests/Core.Recording` and
+The product carries no test code. The recording assembly lives under `tests/Tests.Recording` and
 the runtime injects it into every spawned az or pwsh process through `DOTNET_STARTUP_HOOKS`; with
 `AZCLIPS_TEST_RECORDING` set, the hook registers the record playback interceptor as the http
 pipeline's terminate handler, the seam the product reserves for mocking. `AZCLIPS_HOME` points

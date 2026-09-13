@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Lets a real az.exe or ps module process take part in record/playback scenario tests without
