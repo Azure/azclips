@@ -55,6 +55,20 @@ public class StreamRoutingIntegrationTests
             "config", "get", "--key", "core.logging.level", "--query", "@");
 
         Assert.Equal(0, exit);
+        // A --query narrowing a result to a scalar now uses clients.cli.output.simpleFormat
+        // (default tsv) rather than the complex-result default (json) -- plain text, no quotes.
+        // Source is "environment" because RunCliAsync pins AZCLIPS_LOG_LEVEL for determinism.
+        Assert.Equal("core.logging.level = warn [environment]", stdout.Trim());
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Fact]
+    public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync(
+            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "@");
+
+        Assert.Equal(0, exit);
         Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
         Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
         Assert.DoesNotContain("ERROR:", stderr);

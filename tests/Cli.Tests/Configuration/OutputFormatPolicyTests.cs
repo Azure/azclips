@@ -61,4 +61,34 @@ public class OutputFormatPolicyTests
 
         Assert.Equal(OutputFormat.Json, effective);
     }
+
+    [Fact]
+    public void ResolveEffectiveSimpleFormat_ShouldPreferFlagOverride_WhenGiven()
+    {
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "yaml" } } };
+
+        var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, OutputFormat.Json);
+
+        Assert.Equal(OutputFormat.Json, effective);
+    }
+
+    [Fact]
+    public void ResolveEffectiveSimpleFormat_ShouldFallBackToConfig_WhenFlagNotGiven()
+    {
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "yaml" } } };
+
+        var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, flagOverride: null);
+
+        Assert.Equal(OutputFormat.Yaml, effective);
+    }
+
+    [Fact]
+    public void ResolveEffectiveSimpleFormat_ShouldFallBackToTsv_WhenConfigValueIsInvalid()
+    {
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "not-a-format" } } };
+
+        var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, flagOverride: null);
+
+        Assert.Equal(OutputFormat.Tsv, effective);
+    }
 }

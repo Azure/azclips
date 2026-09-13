@@ -15,6 +15,18 @@ internal static class OutputFormatPolicy
     public static OutputFormat ResolveEffectiveFormat(ClientsOptions options, OutputFormat? flagOverride)
         => flagOverride ?? (TryParse(options.Cli.Output.Format, out var configured) ? configured : OutputFormat.Json);
 
+    public static OutputFormat ResolveEffectiveSimpleFormat(IConfigurationService configurationService, OutputFormat? flagOverride)
+        => ResolveEffectiveSimpleFormat(configurationService.GetConfiguration<ClientsOptions>(), flagOverride);
+
+    /// <summary>
+    /// Same precedence as <see cref="ResolveEffectiveFormat(ClientsOptions, OutputFormat?)"/> but reads
+    /// <c>clients.cli.output.simpleFormat</c> -- the default applied to scalar (string/number/bool/null)
+    /// results, e.g. after a <c>--query</c> that narrows a complex result to a single field. An explicit
+    /// <c>--output</c> flag still wins over both this and the complex-result default.
+    /// </summary>
+    public static OutputFormat ResolveEffectiveSimpleFormat(ClientsOptions options, OutputFormat? flagOverride)
+        => flagOverride ?? (TryParse(options.Cli.Output.SimpleFormat, out var configured) ? configured : OutputFormat.Tsv);
+
     /// <summary>
     /// Shared string-&gt;<see cref="OutputFormat"/> parser used by both the <c>--output</c> flag
     /// (<see cref="Parser.ParseAction"/>, which throws a usage error on failure) and

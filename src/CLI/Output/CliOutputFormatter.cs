@@ -54,40 +54,84 @@ internal static class CliOutputFormatter
         bool colorPolicyAllowsColor = false,
         string? query = null)
     {
-        if (value is null)
-        {
-            if (query is null)
-                return string.Empty;
+        if (TryFormatWithoutRendering(value, query, out var raw))
+            return raw;
 
-            var nullJson = "null";
-            return RenderFormattedJson(JmesPathEvaluator.Transform(nullJson, query), format, colorPolicyAllowsColor);
+        var json = ComputeJson(value, query);
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
+    }
+
+    /// <summary>
+    /// Like <see cref="FormatValue(object?, OutputFormat, bool, string?)"/>, but picks between two
+    /// format defaults based on the final (post-query) result shape: <paramref name="simpleFormat"/>
+    /// for a scalar (string/number/bool/null), <paramref name="complexFormat"/> for an object/array.
+    /// Used only for command results -- errors and <c>az version</c> always use a single fixed format.
+    /// </summary>
+    internal static string FormatValue(
+        object? value,
+        OutputFormat complexFormat,
+        OutputFormat simpleFormat,
+        bool colorPolicyAllowsColor,
+        string? query)
+    {
+        if (TryFormatWithoutRendering(value, query, out var raw))
+            return raw;
+
+        var json = ComputeJson(value, query);
+        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor);
+    }
+
+    /// <summary>
+    /// Handles the cases that bypass format-specific rendering entirely and always print the raw
+    /// value verbatim: <c>null</c>, a bare string, an already-serialized <see cref="SerializedJson"/>,
+    /// or a primitive/decimal -- but only when there's no <paramref name="query"/> to apply first.
+    /// </summary>
+    private static bool TryFormatWithoutRendering(object? value, string? query, out string result)
+    {
+        if (query is null)
+        {
+            switch (value)
+            {
+                case null:
+                    result = string.Empty;
+                    return true;
+                case string s:
+                    result = s;
+                    return true;
+                case SerializedJson serializedJson:
+                    result = serializedJson.Value;
+                    return true;
+            }
+
+            var type = value.GetType();
+            if (type.IsPrimitive || type == typeof(decimal))
+            {
+                result = JsonSerializer.Serialize(value, type, s_jsonOptions);
+                return true;
+            }
         }
 
-        if (value is string s && query is null)
-            return s;
+        result = string.Empty;
+        return false;
+    }
 
-        if (value is SerializedJson serializedJson && query is null)
-            return serializedJson.Value;
-
-        var type = value.GetType();
-        if (query is null && (type.IsPrimitive || type == typeof(decimal)))
-            return JsonSerializer.Serialize(value, type, s_jsonOptions);
-
+    private static string ComputeJson(object? value, string? query)
+    {
         var json = value switch
         {
+            null => "null",
             SerializedJson rawJson => rawJson.Value,
-            string text when query is null => text,
             string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
             _ => SerializeToJson(value),
         };
 
-        if (query is not null)
-        {
-            json = JmesPathEvaluator.Transform(json, query);
-        }
-
-        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
+        return query is null ? json : JmesPathEvaluator.Transform(json, query);
     }
+
+    /// <summary>Scalar (string/number/bool/null) results use <paramref name="simpleFormat"/>; object/array results use <paramref name="complexFormat"/>.</summary>
+    internal static OutputFormat SelectFormat(string json, OutputFormat complexFormat, OutputFormat simpleFormat) =>
+        IsScalarJsonLiteral(json) ? simpleFormat : complexFormat;
+
 
     private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
     {

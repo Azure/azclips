@@ -23,4 +23,6 @@ public sealed class PowerShellClientOptions
 public sealed class OutputOptions
 {
     public string Format { get; set; } = "json";
+
+    public string SimpleFormat { get; set; } = "tsv";
 }

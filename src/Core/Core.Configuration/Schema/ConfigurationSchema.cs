@@ -31,6 +31,7 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "completion.enabled", Description = "Enable or disable az shell tab-completion. On by default; set false to disable suggestions even when the completion script is already sourced.", DefaultValue = "true", ValueType = typeof(bool) },
         new() { Key = "extensions.resources.arm.apiVersionOverride", Description = "Override ARM API version.", ValueType = typeof(string) },
         new() { Key = "clients.cli.output.format", Description = "Default CLI output format.", DefaultValue = "json", ValueType = typeof(string), AllowedValues = ["json", "jsonc", "table", "tsv", "yaml", "yamlc"] },
+        new() { Key = "clients.cli.output.simpleFormat", Description = "Default CLI output format for scalar (string/number/bool/null) results, e.g. after a --query that narrows to a single field. Falls back to clients.cli.output.format for object/array results.", DefaultValue = "tsv", ValueType = typeof(string), AllowedValues = ["json", "jsonc", "table", "tsv", "yaml", "yamlc"] },
         new() { Key = "clients.powershell.output.format", Description = "Default PowerShell output format.", DefaultValue = "object", ValueType = typeof(string), AllowedValues = ["object", "json", "table"] },
         new() { Key = "defaults.group", Description = "Default resource group for commands that support it.", ValueType = typeof(string) },
         new() { Key = "defaults.location", Description = "Default location for commands that support it.", ValueType = typeof(string) },
