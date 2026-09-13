@@ -188,24 +188,18 @@ public class Program
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
         // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
-        catch (CommandNotFoundException ex) when (ex.Path.Count == 0
-            && positional.Length == 1
-            && positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase))
+        catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
-            // Show group help when no subcommand was provided.
             activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
             return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
         }
         catch (AzclipsErrorException ex)
         {
-            // Show resolved-command help after a missing required parameter error.
-            if (invocation is not null && ex is UsageErrorException { HasMissingRequiredParameters: true })
+            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation))
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
 
-                var helpPath = invocation.CommandName
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                DispatchHelp(new HelpRequest(helpPath), isBareInvocation: false, streams, activity);
+                DispatchHelp(ErrorHelpPolicy.CommandHelpRequest(invocation), isBareInvocation: false, streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
