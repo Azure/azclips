@@ -29,6 +29,7 @@ namespace Azclips.Help.Tool.Validation
             "--help", "-h",
             "--debug",
             "--output",
+            "--query",
         };
 
         // Matches a bash/sh fenced code block. Captures the body for line-by-line scanning.

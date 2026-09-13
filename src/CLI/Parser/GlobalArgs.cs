@@ -13,9 +13,10 @@ namespace Core.Cli.Parser;
 /// </summary>
 /// <param name="Positional">
 /// The original <c>args</c> minus any recognized global flags (<c>--debug</c>, <c>--output</c>,
-/// <c>--no-cache</c>) and their values. Passed to <see cref="ExtensionDispatcher.Parse"/> for
-/// normal command dispatch. Help / version tokens are left in place so downstream error handling
-/// can still surface them if the caller ignores <see cref="Help"/> / <see cref="Version"/>.
+/// <c>--no-cache</c>, <c>--query</c>) and their values. Passed to <see
+/// cref="ExtensionDispatcher.Parse"/> for normal command dispatch. Help / version tokens are
+/// left in place so downstream error handling can still surface them if the caller ignores <see
+/// cref="Help"/> / <see cref="Version"/>.
 /// </param>
 /// <param name="IsBareInvocation">
 /// <c>args.Length == 0</c> at entry to <c>Program.Main</c>. Used only for the welcome-banner
@@ -31,6 +32,11 @@ namespace Core.Cli.Parser;
 /// <c>--no-cache</c> was present. The caller mutates <c>AZCLIPS_NO_EXTENSION_CACHE</c>; the parser
 /// does not.
 /// </param>
+/// <param name="Query">
+/// Explicit <c>--query</c> JMESPath expression, or <c>null</c> when not passed. Applied to the
+/// command result before format-specific rendering -- see <c>JmesPathEvaluator</c>. Not applied
+/// to error output.
+/// </param>
 /// <param name="Help">Non-null when a help request was recognized. See <see cref="HelpRequest"/>.</param>
 /// <param name="Version">Non-null when a version request was recognized. See <see cref="VersionRequest"/>.</param>
 internal sealed record GlobalArgs(
@@ -39,6 +45,7 @@ internal sealed record GlobalArgs(
     bool Debug,
     OutputFormat? Output,
     bool NoCache,
+    string? Query,
     HelpRequest? Help,
     VersionRequest? Version);
 

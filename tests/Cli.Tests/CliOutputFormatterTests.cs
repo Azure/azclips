@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using System.Globalization;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Cli.Tests;
@@ -39,6 +41,54 @@ public class CliOutputFormatterTests
     {
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null);
         Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToStructuredJsonValue_WithoutDoubleEncoding()
+    {
+        var json = "[{\"name\":\"rg1\"},{\"name\":\"rg2\"}]";
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new SerializedJson(json), OutputFormat.Json, query: "[].name");
+
+        Assert.Equal("[\"rg1\",\"rg2\"]", result);
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("42")]
+    public void FormatValue_ShouldPreserveOrdinaryStringType_WhenQueryIsApplied(string value)
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json, query: "@");
+
+        Assert.Equal(JsonSerializer.Serialize(value), result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRecognizeJsonNumber_IndependentOfCurrentCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+            using var document = JsonDocument.Parse("1.5");
+
+            var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+                document.RootElement.Clone(), OutputFormat.Jsonc, colorPolicyAllowsColor: true, query: "@");
+
+            Assert.Equal("1.5", result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToNullValue_WhenQueryIsPresent()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null, OutputFormat.Json, query: "@");
+
+        Assert.Equal("null", result);
     }
 
     // ── Primitives ───────────────────────────────────────────────────

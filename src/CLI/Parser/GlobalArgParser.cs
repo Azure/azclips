@@ -50,6 +50,7 @@ internal static class GlobalArgParser
                 Debug: false,
                 Output: null,
                 NoCache: false,
+                Query: null,
                 Help: new HelpRequest(Array.Empty<string>()),
                 Version: null);
         }
@@ -81,6 +82,7 @@ internal static class GlobalArgParser
             Debug: builder.Debug,
             Output: builder.Output,
             NoCache: builder.NoCache,
+            Query: builder.Query,
             Help: help,
             Version: version);
     }
@@ -168,13 +170,14 @@ internal static class GlobalArgParser
         bool trailingHelp = false;
         for (int i = 1; i < positional.Count; i++)
         {
-            if (positional[i].StartsWith("-", StringComparison.Ordinal))
-            {
-                break;
-            }
             if (IsHelpFlag(positional[i]))
             {
                 trailingHelp = true;
+                break;
+            }
+            // Stop at the first parameter flag so its value can't be read as a help token.
+            if (positional[i].StartsWith("-", StringComparison.Ordinal))
+            {
                 break;
             }
         }

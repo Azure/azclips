@@ -1,10 +1,8 @@
 /**
  * SdkEnumType → IREnum.
  *
- * Two flavours land here:
- *   - Closed enums (`isFixed: true`): the natural mapping.
- *   - Open enums (`isFixed: false`): IR doesn't model open enums; we
- *     emit them as closed and warn once with `open-enum-as-closed`.
+ * Both closed enums (`isFixed: true`) and extensible enums (`isFixed: false`)
+ * preserve their TCGC semantics in IR.
  *
  * Union-as-enum: TCGC turns string-literal unions into `SdkEnumType` with
  * `isUnionAsEnum: true`. They show up here exactly like any other enum.
@@ -56,6 +54,7 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     id,
     name: id.name,
     valueType: valueTypeOf(e),
+    isFixed: e.isFixed,
     members,
     // Library-shared enums are attributed to their owning library module
     // (carried on id.module), not the spec's source id. See IREnum.source.

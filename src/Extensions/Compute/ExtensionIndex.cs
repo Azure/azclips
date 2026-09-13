@@ -133,6 +133,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["RuleDestinationPortRanges"]      = new("RuleDestinationPortRanges", "RuleDestinationPortRanges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleDestinationAddressPrefixes"] = new("RuleDestinationAddressPrefixes", "RuleDestinationAddressPrefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -366,6 +367,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["rule-destination-port-ranges"]     = new("RuleDestinationPortRanges", "rule-destination-port-ranges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

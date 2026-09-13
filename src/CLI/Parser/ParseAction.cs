@@ -31,6 +31,7 @@ public sealed class GlobalArgsBuilder
     public bool Debug { get; set; }
     public OutputFormat? Output { get; set; }
     public bool NoCache { get; set; }
+    public string? Query { get; set; }
 }
 
 /// <summary>Sets a bool field on the builder unconditionally. Used for <c>--debug</c>, <c>--no-cache</c>.</summary>
@@ -90,5 +91,37 @@ internal sealed class OutputFormatAction : ParseAction
                 ["flag"] = "--output",
                 ["value"] = value,
             });
+    }
+}
+
+/// <summary>
+/// Handles <c>--query</c>: accepts both <c>--query &lt;expression&gt;</c> (two tokens) and
+/// <c>--query=&lt;expression&gt;</c> (single token, split on the first <c>=</c> only -- JMESPath
+/// expressions can themselves contain <c>=</c>, e.g. <c>[?a=='b']</c>). The raw expression string
+/// is stored as-is; syntax validation happens at query-evaluation time (see
+/// <c>JmesPathEvaluator</c>), not here -- unlike <c>--output</c>, there's no fixed choice set to
+/// validate against at parse time.
+/// </summary>
+internal sealed class QueryAction : ParseAction
+{
+    public override int Apply(GlobalArgsBuilder builder, ReadOnlySpan<string> args, int index)
+    {
+        var token = args[index];
+        var eq = token.IndexOf('=');
+        if (eq >= 0)
+        {
+            builder.Query = token[(eq + 1)..];
+            return 1;
+        }
+
+        if (index + 1 >= args.Length)
+        {
+            throw AzclipsErrorException.UsageError(
+                "--query requires a value.",
+                new Dictionary<string, object?> { ["flag"] = "--query" });
+        }
+
+        builder.Query = args[index + 1];
+        return 2;
     }
 }

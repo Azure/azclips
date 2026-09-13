@@ -26,6 +26,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public List<string> RuleDestinationPortRanges { get; set; } = [];
     public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
     public List<string> RuleAccesses { get; set; } = [];
+    public bool AcceleratedNetworking { get; set; }
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
@@ -72,6 +73,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.ResourceGroupName = ResourceGroupName;
             p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
             p.NetworkSecurityGroupId = nsg.Id!;
+            p.AcceleratedNetworking = AcceleratedNetworking;
         });
         return await nicProcessor.SendAsync();
     }

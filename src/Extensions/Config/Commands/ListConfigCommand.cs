@@ -26,7 +26,7 @@ public sealed class ListConfigCommand : ConfigCommandBase
 
         if (Json)
         {
-            await WriteOutput(Serialize(entries), CancellationToken).ConfigureAwait(false);
+            await WriteOutput(SerializeAsJsonValue(entries), CancellationToken).ConfigureAwait(false);
             return;
         }
 

@@ -136,14 +136,19 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format);
+                streams = BuildStreams(settings.LogLevel, settings.Format, globalArgs.Query);
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
+                if (globalArgs.Query is not null)
+                {
+                    JmesPathEvaluator.Validate(globalArgs.Query);
+                }
+
                 if (globalArgs.Version is not null)
                 {
-                    return DispatchVersion(globalArgs.Version, activity);
+                    return DispatchVersion(globalArgs.Version, globalArgs.Query, activity);
                 }
 
                 if (globalArgs.Help is not null)
@@ -241,13 +246,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor, query));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
@@ -291,11 +296,11 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, Activity? activity)
+    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity)
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format);
+            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }

@@ -136,7 +136,7 @@ namespace Azclips.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldAllowDocumentedGlobalFlags()
         {
-            var content = Fence("az group list --subscription-id 00000000-0000-0000-0000-000000000000 --help --debug --output json");
+            var content = Fence("az group list --subscription-id 00000000-0000-0000-0000-000000000000 --help --debug --output json --query [].name");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 

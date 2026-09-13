@@ -66,5 +66,12 @@ public static class KnownGlobalFlags
             Default: "json",
             Choices: "json, jsonc, table, tsv, yaml, yamlc",
             Action: new OutputFormatAction()),
+        new KnownGlobalFlag(
+            Name: "--query",
+            Aliases: Array.Empty<string>(),
+            Summary: "JMESPath query string to filter/project the command result before rendering.",
+            Default: null,
+            Choices: null,
+            Action: new QueryAction()),
     ];
 }

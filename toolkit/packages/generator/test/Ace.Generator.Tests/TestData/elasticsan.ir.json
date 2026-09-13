@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.6.0",
+  "schemaVersion": "0.7.0",
   "sources": [
     {
       "id": "Microsoft",
@@ -6859,6 +6859,7 @@
       },
       "name": "VolumeCreateOption",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "None",
@@ -6902,6 +6903,7 @@
       },
       "name": "ProvisioningStates",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Invalid",
@@ -6968,6 +6970,7 @@
       },
       "name": "OperationalStatus",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Invalid",
@@ -7023,6 +7026,7 @@
       },
       "name": "createdByType",
       "valueType": "string",
+      "isFixed": true,
       "members": [
         {
           "name": "User",
@@ -7065,6 +7069,7 @@
       },
       "name": "ResourceProvisioningState",
       "valueType": "string",
+      "isFixed": true,
       "members": [
         {
           "name": "Succeeded",
@@ -7100,6 +7105,7 @@
       },
       "name": "Origin",
       "valueType": "string",
+      "isFixed": true,
       "members": [
         {
           "name": "user",
@@ -7136,6 +7142,7 @@
       },
       "name": "ActionType",
       "valueType": "string",
+      "isFixed": true,
       "members": [
         {
           "name": "Internal",
@@ -7161,6 +7168,7 @@
       },
       "name": "SkuName",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Premium_LRS",
@@ -7194,6 +7202,7 @@
       },
       "name": "SkuTier",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Premium",
@@ -7222,6 +7231,7 @@
       },
       "name": "PrivateEndpointServiceConnectionStatus",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Pending",
@@ -7261,6 +7271,7 @@
       },
       "name": "PublicNetworkAccess",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Enabled",
@@ -7292,6 +7303,7 @@
       },
       "name": "AutoScalePolicyEnforcement",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "None",
@@ -7327,6 +7339,7 @@
       },
       "name": "x-ms-delete-snapshots",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "true",
@@ -7353,6 +7366,7 @@
       },
       "name": "x-ms-force-delete",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "true",
@@ -7379,6 +7393,7 @@
       },
       "name": "DeleteType",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "permanent",
@@ -7401,6 +7416,7 @@
       },
       "name": "x-ms-access-soft-deleted-resources",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "true",
@@ -7427,6 +7443,7 @@
       },
       "name": "IdentityType",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "None",
@@ -7462,6 +7479,7 @@
       },
       "name": "StorageTargetType",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Iscsi",
@@ -7493,6 +7511,7 @@
       },
       "name": "EncryptionType",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "EncryptionAtRestWithPlatformKey",
@@ -7526,6 +7545,7 @@
       },
       "name": "Action",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Allow",
@@ -7553,6 +7573,7 @@
       },
       "name": "PolicyState",
       "valueType": "string",
+      "isFixed": false,
       "members": [
         {
           "name": "Enabled",

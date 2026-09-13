@@ -3,6 +3,7 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Core.Cli.Output;
@@ -47,14 +48,65 @@ internal static class CliOutputFormatter
     /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
     /// does not consult the policy itself -- callers gate it.
     /// </param>
-    internal static string FormatValue(object? value, OutputFormat format = OutputFormat.Json, bool colorPolicyAllowsColor = false)
+    internal static string FormatValue(
+        object? value,
+        OutputFormat format = OutputFormat.Json,
+        bool colorPolicyAllowsColor = false,
+        string? query = null)
     {
         if (value is null)
-            return string.Empty;
+        {
+            if (query is null)
+                return string.Empty;
 
-        if (value is string s)
+            var nullJson = "null";
+            return RenderFormattedJson(JmesPathEvaluator.Transform(nullJson, query), format, colorPolicyAllowsColor);
+        }
+
+        if (value is string s && query is null)
             return s;
 
+        if (value is SerializedJson serializedJson && query is null)
+            return serializedJson.Value;
+
+        var type = value.GetType();
+        if (query is null && (type.IsPrimitive || type == typeof(decimal)))
+            return JsonSerializer.Serialize(value, type, s_jsonOptions);
+
+        var json = value switch
+        {
+            SerializedJson rawJson => rawJson.Value,
+            string text when query is null => text,
+            string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
+            _ => SerializeToJson(value),
+        };
+
+        if (query is not null)
+        {
+            json = JmesPathEvaluator.Transform(json, query);
+        }
+
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
+    }
+
+    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
+    {
+        if (format is OutputFormat.Jsonc && IsScalarJsonLiteral(json))
+            return json;
+
+        return format switch
+        {
+            OutputFormat.Table => TableFormatter.Format(json),
+            OutputFormat.Tsv => TsvFormatter.Format(json),
+            OutputFormat.Yaml => YamlFormatter.Format(json),
+            OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
+            OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
+            _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
+        };
+    }
+
+    private static string SerializeToJson(object value)
+    {
         // Primitives and decimals go through JsonSerializer so bool renders as lowercase
         // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
         // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
@@ -69,17 +121,13 @@ internal static class CliOutputFormatter
         // bugs early. A fallback to ToString() is not useful here because it would most
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
-        var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+        return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+    }
 
-        return format switch
-        {
-            OutputFormat.Table => TableFormatter.Format(json),
-            OutputFormat.Tsv => TsvFormatter.Format(json),
-            OutputFormat.Yaml => YamlFormatter.Format(json),
-            OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
-            OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
-            _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
-        };
+    private static bool IsScalarJsonLiteral(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array);
     }
 
     private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>
