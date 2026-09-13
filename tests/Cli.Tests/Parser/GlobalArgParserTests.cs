@@ -42,7 +42,6 @@ public class GlobalArgParserTests
     [InlineData("-?")]
     [InlineData("--?")]
     [InlineData("?")]
-    [InlineData("h")]
     [InlineData("help")]
     [InlineData("--HELP")]
     public void Parse_TopLevelHelpToken_YieldsRootHelp_WithoutBareFlag(string token)
@@ -90,7 +89,6 @@ public class GlobalArgParserTests
     [InlineData("-h")]
     [InlineData("--help")]
     [InlineData("-help")]
-    [InlineData("h")]
     public void Parse_HelpSubcommandSkipsHelpTokensInsteadOfTreatingThemAsPath(string helpToken)
     {
         // Pre-refactor `StripHelpFlags` removed all help tokens (`?`, `-?`, `-h`, `--help`) from the
@@ -116,7 +114,6 @@ public class GlobalArgParserTests
     [InlineData("-help")]
     [InlineData("-?")]
     [InlineData("--?")]
-    [InlineData("h")]
     public void Parse_TrailingHelpFlagAliasOnGroup_YieldsGroupHelpPath(string helpToken)
     {
         var result = GlobalArgParser.Parse(new[] { "group", helpToken });

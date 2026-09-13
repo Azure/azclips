@@ -99,7 +99,7 @@
         "group_name": "Global Arguments"
       },
       {
-        "name": "--help -h -help -? --? ? h",
+        "name": "--help -h -help -? --? ?",
         "required": false,
         "short_summary": "Show help for the command or group and exit.",
         "long_summary": "",
