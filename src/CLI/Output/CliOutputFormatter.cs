@@ -168,10 +168,16 @@ internal static class CliOutputFormatter
         return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
     }
 
+    /// <summary>
+    /// Classifies by the first non-whitespace character rather than parsing the whole document --
+    /// valid JSON only starts with <c>{</c>/<c>[</c> for an object/array, so this is enough to tell
+    /// scalar from complex without an extra O(n) parse on every result (the format-specific
+    /// renderers below do their own parse only when they actually need the DOM).
+    /// </summary>
     private static bool IsScalarJsonLiteral(string json)
     {
-        using var document = JsonDocument.Parse(json);
-        return document.RootElement.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array);
+        var trimmed = json.AsSpan().TrimStart();
+        return trimmed.IsEmpty || trimmed[0] is not ('{' or '[');
     }
 
     private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>

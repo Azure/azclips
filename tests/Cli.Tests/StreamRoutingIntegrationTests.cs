@@ -124,35 +124,47 @@ public class StreamRoutingIntegrationTests
 
     private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
     {
-        var psi = new ProcessStartInfo
+        // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
+        // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
+        // assertions. Fresh temp directory per invocation so parallel test runs never collide.
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
+        try
         {
-            FileName = ResolveCliBinary(),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        // Pin AZCLIPS_LOG_LEVEL=warn so ambient developer/CI env doesn't shift the effective level
-        // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
-        // `args > env` precedence means the flag still wins over this pin.
-        psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
-        foreach (var a in args)
-        {
-            psi.ArgumentList.Add(a);
-        }
+            var psi = new ProcessStartInfo
+            {
+                FileName = ResolveCliBinary(),
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            // Pin AZCLIPS_LOG_LEVEL=warn so ambient developer/CI env doesn't shift the effective level
+            // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
+            // `args > env` precedence means the flag still wins over this pin.
+            psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
+            psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+            foreach (var a in args)
+            {
+                psi.ArgumentList.Add(a);
+            }
 
-        using var proc = new Process { StartInfo = psi };
-        proc.Start();
-        // Drain stdout/stderr concurrently via ReadToEndAsync so we deterministically capture
-        // trailing lines. Event-based capture (OutputDataReceived) can race the process exit
-        // and drop the last few lines under CI scheduling. Same pattern as
-        // tests/Benchmark/Startup/StartupBenchmarkBase.RunToExit.
-        var stdoutTask = proc.StandardOutput.ReadToEndAsync();
-        var stderrTask = proc.StandardError.ReadToEndAsync();
-        await proc.WaitForExitAsync();
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-        return (proc.ExitCode, stdout, stderr);
+            using var proc = new Process { StartInfo = psi };
+            proc.Start();
+            // Drain stdout/stderr concurrently via ReadToEndAsync so we deterministically capture
+            // trailing lines. Event-based capture (OutputDataReceived) can race the process exit
+            // and drop the last few lines under CI scheduling. Same pattern as
+            // tests/Benchmark/Startup/StartupBenchmarkBase.RunToExit.
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+            return (proc.ExitCode, stdout, stderr);
+        }
+        finally
+        {
+            Directory.Delete(homeDirectory, recursive: true);
+        }
     }
 
     private static string ResolveCliBinary()
