@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
+using Core.Cli.Parser;
 using Xunit;
 
 namespace Cli.Tests.Help;
@@ -54,16 +55,15 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
-        Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: false));
+        Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), errorStreamIsHumanReadable: true));
     }
 
     [Fact]
-    public void ShouldShowCommandHelp_IsFalse_WhenStderrIsRedirected()
+    public void ShouldShowCommandHelp_IsFalse_WhenErrorStreamIsNotHumanReadable()
     {
-        // Piped consumers need the structured error to stay parseable, so the help page is skipped.
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
-        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: true));
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), errorStreamIsHumanReadable: false));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.UsageError("Unrecognized arguments for 'version': foo");
 
-        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: false));
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), errorStreamIsHumanReadable: true));
     }
 
     [Fact]
@@ -79,7 +79,37 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
-        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation: null, stderrIsRedirected: false));
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation: null, errorStreamIsHumanReadable: true));
+    }
+
+    [Fact]
+    public void IsHumanReadableErrorStream_IsTrue_ForInteractiveStderrWithoutExplicitFormat()
+    {
+        Assert.True(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat: null));
+    }
+
+    [Fact]
+    public void IsHumanReadableErrorStream_IsFalse_WhenStderrIsRedirected()
+    {
+        Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: true, requestedFormat: null));
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Json)]
+    [InlineData(OutputFormat.Jsonc)]
+    public void IsHumanReadableErrorStream_IsFalse_WhenStructuredFormatWasRequested(OutputFormat requestedFormat)
+    {
+        // An explicit --output json means the error payload must stay parseable even at a terminal.
+        Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat));
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Table)]
+    [InlineData(OutputFormat.Tsv)]
+    [InlineData(OutputFormat.Yaml)]
+    public void IsHumanReadableErrorStream_IsTrue_ForPlainTextFormats(OutputFormat requestedFormat)
+    {
+        Assert.True(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat));
     }
 
     [Fact]

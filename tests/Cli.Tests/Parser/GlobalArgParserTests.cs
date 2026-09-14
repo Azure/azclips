@@ -319,7 +319,7 @@ public class GlobalArgParserTests
     {
         // Q1 decision: strict enum. Pre-refactor silently treated unknown values as "not json"
         // (== plain). The parser now surfaces the typo instead of hiding it.
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "--output", "xml" }));
 
         Assert.Equal(2, ex.ExitCode);
@@ -330,7 +330,7 @@ public class GlobalArgParserTests
     [Fact]
     public void Parse_OutputEqualsUnknownValue_ThrowsUsageError()
     {
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "--output=xml" }));
 
         Assert.Equal(2, ex.ExitCode);
@@ -341,7 +341,7 @@ public class GlobalArgParserTests
     {
         // `plain` was retired: it used to double as both the unspecified default and a real
         // value, which is exactly the conflation this change resolves. No longer valid.
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "--output", "plain" }));
 
         Assert.Equal(2, ex.ExitCode);
@@ -352,7 +352,7 @@ public class GlobalArgParserTests
     {
         // Pre-refactor: silently left in args (no strip, no error). Q1 direction: raise, same as
         // an unknown value — both are user typos.
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "group", "--output" }));
 
         Assert.Equal(2, ex.ExitCode);
@@ -385,7 +385,7 @@ public class GlobalArgParserTests
     [Fact]
     public void Parse_QueryFlagAtEndWithNoValue_ThrowsUsageError()
     {
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "group", "--query" }));
 
         Assert.Equal(2, ex.ExitCode);

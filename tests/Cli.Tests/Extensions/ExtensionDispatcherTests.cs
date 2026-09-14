@@ -68,7 +68,7 @@ public class ExtensionDispatcherTests
         // `az version` / `az --version` are dispatched by GlobalArgParser before the dispatcher runs.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([verbToken, trailing]));
 
         Assert.Equal("UsageError", exception.Code);
         Assert.Equal(2, exception.ExitCode);

@@ -104,6 +104,7 @@ public class Program
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var errorFormat = OutputFormat.Table;
         var errorColorAllowed = false;
+        var errorHelpAllowed = false;
         var positional = args;
         CommandInvocation? invocation = null;
 
@@ -139,6 +140,7 @@ public class Program
                 streams = BuildStreams(settings.LogLevel, settings.Format, globalArgs.Query);
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -206,7 +208,7 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
-            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, Console.IsErrorRedirected))
+            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);

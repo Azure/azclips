@@ -57,8 +57,8 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
 
-    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new("UsageError", 2, message, details);
+    public static UsageErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new(message, details);
 
     public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new(message, details, hasMissingRequiredParameters: true);

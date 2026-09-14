@@ -129,7 +129,7 @@ public class VersionInformationProviderTests
         using var writer = new StringWriter();
         var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
 
-        var error = Assert.Throws<AzclipsErrorException>(() => dispatcher.Render(VersionOutputFormat.Text, "azCli"));
+        var error = Assert.Throws<UsageErrorException>(() => dispatcher.Render(VersionOutputFormat.Text, "azCli"));
 
         Assert.Equal(2, error.ExitCode);
         Assert.Empty(writer.ToString());

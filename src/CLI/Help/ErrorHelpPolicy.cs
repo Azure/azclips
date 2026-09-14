@@ -24,20 +24,27 @@ internal static class ErrorHelpPolicy
         && positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// True when the error stream belongs to a human: stderr is a terminal and the caller did not
+    /// ask for a machine-readable error format. Rendering a help page anywhere else would corrupt
+    /// the structured error already written to that stream.
+    /// </summary>
+    /// <param name="requestedFormat">
+    /// <c>GlobalArgs.Output</c>, which is null unless --output was passed explicitly, so the
+    /// configured default format alone does not suppress help for interactive users.
+    /// </param>
+    internal static bool IsHumanReadableErrorStream(bool stderrIsRedirected, OutputFormat? requestedFormat)
+        => !stderrIsRedirected
+        && requestedFormat is not (OutputFormat.Json or OutputFormat.Jsonc);
+
+    /// <summary>
     /// True when a resolved command failed only because required parameters were missing,
     /// so its help page is worth rendering beneath the error.
     /// </summary>
-    /// <param name="stderrIsRedirected">
-    /// Pass <see cref="Console.IsErrorRedirected"/>. When stderr is piped the help page is
-    /// suppressed so the structured error stays parseable; the message keeps the --help pointer.
-    /// Taken as a parameter rather than read here so the rule stays unit-testable, matching
-    /// <c>ColorPolicy.ShouldEmitColor</c>.
-    /// </param>
     internal static bool ShouldShowCommandHelp(
         AzclipsErrorException ex,
         [NotNullWhen(true)] CommandInvocation? invocation,
-        bool stderrIsRedirected)
-        => !stderrIsRedirected
+        bool errorStreamIsHumanReadable)
+        => errorStreamIsHumanReadable
         && invocation is not null
         && ex is UsageErrorException { HasMissingRequiredParameters: true };
 

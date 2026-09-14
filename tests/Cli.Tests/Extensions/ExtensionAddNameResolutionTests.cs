@@ -33,7 +33,7 @@ public class ExtensionAddNameResolutionTests
     {
         var hints = HintsWith(("vm", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => AddExtensionProcessor.ResolvePackageId("vm", hints));
 
         Assert.Equal("UsageError", ex.Code);
@@ -46,7 +46,7 @@ public class ExtensionAddNameResolutionTests
     {
         var hints = HintsWith(("vm", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => AddExtensionProcessor.ResolvePackageId("VM", hints));
 
         Assert.Equal("UsageError", ex.Code);
