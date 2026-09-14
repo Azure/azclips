@@ -184,6 +184,30 @@ public class CliOutputFormatterTests
         Assert.Equal(2, doc.RootElement.GetArrayLength());
     }
 
+    // ── Access-token JSON contract (CLI field names) ────────────────
+
+    [Fact]
+    public void FormatValue_AccessTokenResult_UsesCliJsonFieldNames()
+    {
+        var token = new Core.Abstractions.AccessTokenResult
+        {
+            Token = "the-raw-token",
+            ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
+            ExpiresOnUnixTime = 1_700_000_000,
+            TenantId = "tid",
+        };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue(token);
+
+        using var doc = JsonDocument.Parse(result);
+        // Azure CLI's `az account get-access-token` contract exposes `accessToken` and `expires_on`;
+        // the camel-case policy must not turn these into `token` / `expiresOnUnixTime`.
+        Assert.Equal("the-raw-token", doc.RootElement.GetProperty("accessToken").GetString());
+        Assert.Equal(1_700_000_000, doc.RootElement.GetProperty("expires_on").GetInt64());
+        Assert.False(doc.RootElement.TryGetProperty("token", out _));
+        Assert.Equal("Bearer", doc.RootElement.GetProperty("tokenType").GetString());
+    }
+
     // ── Relaxed escaping: raw JSON strings stay human-readable ──────
 
     [Fact]

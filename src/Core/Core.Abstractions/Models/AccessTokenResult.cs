@@ -17,6 +17,7 @@ public record AccessTokenResult
     public const string RedactedPlaceholder = "<redacted - rerun with --plaintext to reveal>";
 
     /// <summary>The access token. On CLI this is redacted unless <c>--plaintext</c> is passed.</summary>
+    [JsonPropertyName("accessToken")]
     public required string Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
@@ -48,6 +49,7 @@ public record AccessTokenResult
 public record SecureAccessTokenResult
 {
     /// <summary>The access token, protected as a <see cref="SecureString"/>.</summary>
+    [JsonPropertyName("accessToken")]
     public required SecureString Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
