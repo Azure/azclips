@@ -128,6 +128,9 @@ public class StreamRoutingIntegrationTests
         // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
         // assertions. Fresh temp directory per invocation so parallel test runs never collide.
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
+        // Telemetry off so Program.cs's detached --upload-telemetry child has nothing to read/write
+        // under this home -- avoids racing our cleanup below rather than just tolerating the race.
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
         try
         {
             var psi = new ProcessStartInfo
