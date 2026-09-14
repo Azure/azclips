@@ -69,20 +69,20 @@ function Set-LineVersion {
         $originalBytes[0] -eq 0xEF -and
         $originalBytes[1] -eq 0xBB -and
         $originalBytes[2] -eq 0xBF
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.AddRange([string[]](Get-Content -Path $Path))
-    for ($index = 0; $index -lt $lines.Count; $index++) {
-        if ($lines[$index] -match $Pattern) {
-            $lines[$index] = [regex]::Replace($lines[$index], $Pattern, $Replacement)
-            if ($DryRun) {
-                Write-Host "Dry run: would update $Path"
-            }
-            else {
-                $content = ($lines -join "`n") + "`n"
-                [System.IO.File]::WriteAllText($Path, $content, [System.Text.UTF8Encoding]::new($hasUtf8Bom))
-            }
+    $content = [System.IO.File]::ReadAllText($Path)
+    $linePattern = [regex]::new($Pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    if ($linePattern.IsMatch($content)) {
+        $updatedContent = $linePattern.Replace($content, $Replacement, 1)
+        if ($updatedContent -ceq $content) {
             return
         }
+        if ($DryRun) {
+            Write-Host "Dry run: would update $Path"
+        }
+        else {
+            [System.IO.File]::WriteAllText($Path, $updatedContent, [System.Text.UTF8Encoding]::new($hasUtf8Bom))
+        }
+        return
     }
 
     throw "$Description was not found in $Path"
@@ -253,11 +253,11 @@ foreach ($moduleName in $changedModules) {
     $targetVersion = $targetVersions[$moduleName]
 
     Set-LineVersion -Path $projectPath `
-        -Pattern '(<Version>)\s*[0-9]+\.[0-9]+\.[0-9]+\s*(</Version>)' `
+        -Pattern '(<Version>)[^\S\r\n]*[0-9]+\.[0-9]+\.[0-9]+[^\S\r\n]*(</Version>)' `
         -Replacement "`${1}$targetVersion`${2}" `
         -Description 'Version'
     Set-LineVersion -Path $moduleManifestPath `
-        -Pattern "(?<prefix>^\s*ModuleVersion\s*=\s*)'[^']+'(?<suffix>.*)$" `
+        -Pattern "(?<prefix>^[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$" `
         -Replacement "`${prefix}'$targetVersion'`${suffix}" `
         -Description 'ModuleVersion'
     Set-LineVersion -Path $rollupManifestPath `
