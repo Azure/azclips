@@ -137,6 +137,14 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         modified_project = version_only_project.replace(
             "    </PropertyGroup>", '        <Target Name="RunCode" />\n    </PropertyGroup>'
         )
+        dependency_project = version_only_project.replace(
+            "    </PropertyGroup>",
+            "    </PropertyGroup>\n    <ItemGroup>\n        <PackageReference Include=\"Example\">\n"
+            "            <Version>0.1.0</Version>\n        </PackageReference>\n    </ItemGroup>",
+        )
+        modified_dependency_project = dependency_project.replace(
+            "            <Version>0.1.0</Version>", "            <Version>0.1.1</Version>"
+        )
 
         self.assertEqual(
             find_policy_violations(
@@ -166,6 +174,15 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
         self.assertEqual(len(added_project_violations), 1)
         self.assertIn("may not add or delete project files", added_project_violations[0])
+
+        violations = find_policy_violations(
+            ["src/CLI/Core.Cli.csproj"],
+            lambda _: dependency_project,
+            lambda _: modified_dependency_project,
+            stable_release=True,
+        )
+        self.assertEqual(len(violations), 1)
+        self.assertIn("project version properties", violations[0])
 
         deleted_version_project = base_project.replace("        <Version>0.1.0</Version>\n", "")
         violations = find_policy_violations(

@@ -79,6 +79,27 @@ def get_project_versions(content: str) -> dict[str, tuple[tuple, ...]]:
     return {name: tuple(sorted(property_values)) for name, property_values in values.items()}
 
 
+def get_project_structure_without_versions(content: str) -> tuple:
+    root = ET.fromstring(content.removeprefix("\ufeff"))
+
+    def get_structure(element: ET.Element) -> tuple:
+        element_name = element.tag.rsplit("}", 1)[-1]
+        children = []
+        for child in element:
+            child_name = child.tag.rsplit("}", 1)[-1]
+            if element_name == "PropertyGroup" and child_name in VERSION_PROPERTIES:
+                continue
+            children.append(get_structure(child))
+        return (
+            element.tag,
+            tuple(sorted(element.attrib.items())),
+            (element.text or "").strip(),
+            tuple(children),
+        )
+
+    return get_structure(root)
+
+
 def find_policy_violations(
     changed_files: list[str],
     read_base_file: Callable[[str], str | None],
@@ -125,6 +146,13 @@ def has_only_project_version_line_changes(base_content: str, head_content: str) 
     head_versions = get_project_versions(head_content)
 
     if any(len(head_versions.get(name, ())) < len(records) for name, records in base_versions.items()):
+        return False
+    for name, records in base_versions.items():
+        base_contexts = sorted(record[:2] for record in records)
+        head_contexts = [record[:2] for record in head_versions.get(name, ())]
+        if any(base_contexts.count(context) > head_contexts.count(context) for context in set(base_contexts)):
+            return False
+    if get_project_structure_without_versions(base_content) != get_project_structure_without_versions(head_content):
         return False
 
     def is_direct_version_line(line: str, versions: dict[str, tuple[tuple, ...]]) -> bool:
