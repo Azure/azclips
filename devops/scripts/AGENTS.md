@@ -61,6 +61,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 ## Editing Rules for Agents
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).
+- Preserve encoding, line endings, and final-newline state when publishing scripts make version-only file updates.
 - Preserve env-var override points and script-relative path resolution.
 - Keep RID/output-root names aligned with `.azure-pipelines/templates/dist/variables/packaging.yml`.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.

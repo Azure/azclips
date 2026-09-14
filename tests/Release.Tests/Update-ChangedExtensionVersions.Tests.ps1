@@ -108,6 +108,21 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw $projectPath | Should -Match '<Version>0\.1\.1</Version>'
     }
 
+    It 'preserves a project without a final newline while updating its version' {
+        $root = New-TestRepository
+        $projectPath = Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj'
+        $projectContent = (Get-Content -Raw $projectPath).TrimEnd("`r", "`n")
+        [System.IO.File]::WriteAllText($projectPath, $projectContent, [System.Text.UTF8Encoding]::new($false))
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension without project final newline'
+
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
+
+        Get-Content -Raw $projectPath | Should -Match '<Version>0\.1\.1</Version>'
+        [System.IO.File]::ReadAllText($projectPath).EndsWith("`n") | Should -BeFalse
+    }
+
     It 'skips updates when no stable tag exists' {
         $root = New-TestRepository
         Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
@@ -254,7 +269,8 @@ Describe 'Update-ChangedExtensionVersions' {
     It 'preserves the initial version of a new rollup extension' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
-        Write-TestFile -Root $root -RelativePath 'src/Extensions/Identity/Extensions.Identity.csproj' -Content @'
+        $identityProjectPath = 'src/Extensions/Identity/Extensions.Identity.csproj'
+        Write-TestFile -Root $root -RelativePath $identityProjectPath -Content @'
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Version>0.1.0</Version>
@@ -279,6 +295,7 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/Extensions/Identity/Extensions.Identity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/Identity/Identity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Identity/Identity\.psd1'; ModuleVersion = '0\.1\.0'"
+        @(git -C $root diff --name-only -- $identityProjectPath) | Should -BeNullOrEmpty
     }
 }
 
