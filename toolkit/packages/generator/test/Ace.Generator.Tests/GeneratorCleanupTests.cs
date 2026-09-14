@@ -15,7 +15,7 @@ public sealed class GeneratorCleanupTests
 {
     private static IRDocument Ir() => new()
     {
-        SchemaVersion = "0.6.0",
+        SchemaVersion = "0.7.0",
         Models = [new IRModel { Name = "Widget", Source = "T", Id = new IRId { Module = "T", Name = "Widget" } }],
         Operations = [new IROperation { Name = "get" }],
     };

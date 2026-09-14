@@ -29,12 +29,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             {
                 throw new ArgumentException("Specify either a profile name or --active, not both.");
             }
-            if (!Active && !hasName)
-            {
-                throw new ArgumentException("A profile name is required, or use --active to show the active profile.");
-            }
-
-            Profile profile = Active
+            Profile profile = Active || !hasName
                 ? await profileService.GetActiveProfileAsync()
                     ?? throw new InvalidOperationException("No active profile is set.")
                 : await profileService.GetProfileAsync(Name)

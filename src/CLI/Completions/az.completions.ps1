@@ -233,9 +233,17 @@ foreach ($_cmd in @('az', 'az.exe')) {
     }
 }
 
-# Override TabExpansion2 so PSReadLine's MenuComplete works for az
-# including the empty-word case (e.g. "az " + Tab).
-# For non-az commands, delegates to the default implementation.
+if (-not $script:_azTabExpansion2Installed) {
+    $script:_azPrevTabExpansion2 = if (Get-Command TabExpansion2 -CommandType Function -ErrorAction SilentlyContinue) {
+        $Function:global:TabExpansion2
+    } else {
+        $null
+    }
+    $script:_azTabExpansion2Installed = $true
+}
+
+# Wrap TabExpansion2 for path-qualified az.exe completions, then delegate all fallback
+# cases to the user's previous TabExpansion2 implementation when one existed.
 function global:TabExpansion2 {
     [CmdletBinding(DefaultParameterSetName = 'ScriptInputSet')]
     [OutputType([System.Management.Automation.CommandCompletion])]
@@ -266,12 +274,10 @@ function global:TabExpansion2 {
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
         if ($line -match '^\s*((\S*[\\/])?(az(\.exe)?))(\s|$)') {
-            $azCmd = $Matches[1]   # e.g. "artifacts\...\az.exe" or "az"
+            $azCmd = $Matches[1]
 
-            # Resolve the actual exe path from what the user typed
             $resolvedExe = $null
             if ($azCmd -match '[\\/]') {
-                # Path-qualified: resolve directly, ensure .exe suffix for invocability
                 foreach ($candidate in $azCmd, "$azCmd.exe") {
                     if (Test-Path $candidate) {
                         $resolvedExe = (Resolve-Path $candidate).Path
@@ -282,20 +288,13 @@ function global:TabExpansion2 {
                     }
                 }
             } else {
-                # Bare command: resolve via PATH (same binary the shell would execute)
                 $cmd = Get-Command $azCmd -ErrorAction SilentlyContinue
                 if ($cmd) { $resolvedExe = $cmd.Source }
             }
-            if (-not $resolvedExe) {
-                # Can't find the binary → fall through to default
-            }
-            # Check cached detection for this exe
-            elseif ($global:_azCompletionsCache.notAzclips.ContainsKey($resolvedExe)) {
-                # Already determined not azclips for this specific exe → fall through
-            } else {
+
+            if ($resolvedExe -and -not $global:_azCompletionsCache.notAzclips.ContainsKey($resolvedExe)) {
                 $results = @(_azGetCompletions -exePath $resolvedExe -inputText $line -cursorPos $cursor)
                 if ($global:_azCompletionsCache.isAzclips -eq $true -and $results.Count -gt 0) {
-                    # Confirmed azclips with results — return them
                     $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
                     $lastSpace = $textUpToCursor.LastIndexOf(' ')
                     $replIndex = $lastSpace + 1
@@ -305,11 +304,13 @@ function global:TabExpansion2 {
                     foreach ($r in $results) { $completionResultMatches.Add($r) }
                     return [System.Management.Automation.CommandCompletion]::new($completionResultMatches, 0, $replIndex, $replLength)
                 }
-                # isAzclips is $false after query → not azclips, fall through
             }
         }
 
-        # Default: delegate to built-in completion
+        if ($script:_azPrevTabExpansion2) {
+            return & $script:_azPrevTabExpansion2 @PSBoundParameters
+        }
+
         if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($inputScript, $cursorColumn, $options)
         } else {
@@ -318,7 +319,4 @@ function global:TabExpansion2 {
     }
 }
 
-# Bind Tab to MenuComplete for dropdown-style display
-Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-
-Write-Host "az tab completion registered (dynamic). Press Tab after 'az ' to see suggestions." -ForegroundColor Green
+Write-Host "az argument completion registered (dynamic)." -ForegroundColor Green

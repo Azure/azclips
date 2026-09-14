@@ -22,6 +22,13 @@
     ],
     "parameters": [
       {
+        "name": "--accelerated-networking",
+        "required": false,
+        "short_summary": "Whether the network interface enables accelerated networking. Off unless set.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
         "name": "--address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for the virtual network.",
@@ -204,8 +211,15 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -276,8 +290,15 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -342,8 +363,15 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -414,8 +442,104 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      }
+    ]
+  },
+  {
+    "command": "vm start",
+    "type": "command",
+    "short_summary": "Start a stopped virtual machine.",
+    "long_summary": "Power on a stopped or deallocated virtual machine. Target a single VM with \u0060--name\u0060 and \u0060--resource-group\u0060, or pass one or more full resource IDs to \u0060--ids\u0060 to start several VMs in one invocation. When \u0060--ids\u0060 is used it supplies the subscription, resource group, and VM name for each target, so \u0060--name\u0060, \u0060--resource-group\u0060, and \u0060--subscription-id\u0060 are ignored. The command waits for the long-running start operation to finish and returns no output on success.",
+    "examples": [
+      {
+        "short_summary": "Start a virtual machine",
+        "command": "az vm start --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "Start using shell variables",
+        "command": "az vm start --name $vmName --resource-group $rg --subscription-id $subId"
+      },
+      {
+        "short_summary": "Start several virtual machines by resource ID",
+        "command": "az vm start --ids /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myothervm"
+      }
+    ],
+    "parameters": [
+      {
+        "name": "--ids",
+        "required": false,
+        "short_summary": "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--name",
+        "required": false,
+        "short_summary": "The name of the virtual machine.",
+        "long_summary": ""
+      },
+      {
+        "name": "--profile",
+        "required": false,
+        "short_summary": "Use the named profile for this command (overrides the active profile).",
+        "long_summary": ""
+      },
+      {
+        "name": "--resource-group",
+        "required": false,
+        "short_summary": "The resource group name.",
+        "long_summary": ""
+      },
+      {
+        "name": "--subscription-id",
+        "required": false,
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--debug",
+        "required": false,
+        "short_summary": "Increase logging verbosity to show all debug logs.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--help -h",
+        "required": false,
+        "short_summary": "Show help for the command or group and exit.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--no-cache",
+        "required": false,
+        "short_summary": "Bypass the extension discovery cache and reload extensions from disk.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
+      },
+      {
+        "name": "--output -o",
+        "required": false,
+        "short_summary": "Output format.",
+        "long_summary": "",
+        "group_name": "Global Arguments",
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   }

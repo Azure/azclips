@@ -17,7 +17,7 @@ public sealed class HostRunnerTests
 {
     private static IRDocument Ir() => new()
     {
-        SchemaVersion = "0.6.0",
+        SchemaVersion = "0.7.0",
         Models =
         [
             new IRModel { Name = "Widget", Source = "Test", Id = new IRId { Module = "Test", Name = "Widget" } },

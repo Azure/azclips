@@ -63,7 +63,6 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
                         '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Core/Core.Recording.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll'
 

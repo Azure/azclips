@@ -6,9 +6,11 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Help;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
+using Core.Configuration.Options;
 using Core.Extensions;
 using Core.Runtime;
 using Core.Telemetry;
@@ -37,7 +39,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -75,7 +77,6 @@ public class Program
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            Core.Recording.RecordingHook.TryRegister();
             AzclipsServiceProvider.Initialize(_clientType);
         }
 
@@ -99,7 +100,8 @@ public class Program
         Activity? activity = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-        var outputJson = false;
+        var errorFormat = OutputFormat.Table;
+        var errorColorAllowed = false;
         var positional = args;
 
         try
@@ -128,15 +130,22 @@ public class Program
                 }
 
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
-                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-                streams = BuildStreams(effectiveLogLevel);
-                outputJson = globalArgs.Output == OutputFormat.Json;
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(settings.Color);
+                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
+                errorFormat = settings.Format;
+                errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+                if (globalArgs.Query is not null)
+                {
+                    JmesPathEvaluator.Validate(globalArgs.Query);
+                }
 
                 if (globalArgs.Version is not null)
                 {
-                    return DispatchVersion(globalArgs.Version, activity);
+                    return DispatchVersion(globalArgs.Version, globalArgs.Query, activity);
                 }
 
                 if (globalArgs.Help is not null)
@@ -180,7 +189,7 @@ public class Program
         {
             // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, outputJson);
+            EmitStructuredError(ex, errorFormat, errorColorAllowed);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -212,12 +221,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
+        var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
@@ -261,11 +271,11 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, Activity? activity)
+    private static int DispatchVersion(VersionRequest version, string? query, Activity? activity)
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format);
+            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }
@@ -297,9 +307,9 @@ public class Program
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
+    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor)
     {
-        if (outputJson)
+        if (format is OutputFormat.Json or OutputFormat.Jsonc)
         {
             var payload = new
             {
@@ -310,11 +320,12 @@ public class Program
                     details = ex.Details,
                 },
             };
-            Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-            }));
+            });
+            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
         }
         else
         {

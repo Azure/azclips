@@ -6,7 +6,7 @@ using Core.Configuration.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
 
@@ -27,7 +27,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Compute",
         typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly,
         "vm",
-        ["", "create", "create-basic", "show", "list", "delete"]);
+        ["", "create", "create-basic", "show", "list", "start", "delete"]);
 
     public static readonly ExtensionUnderTest Identity = new(
         "Identity",

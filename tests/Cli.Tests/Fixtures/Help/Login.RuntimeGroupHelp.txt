@@ -1,11 +1,23 @@
-Group
-    az login : Authenticate to Azure.
+# GROUP
+az login:
+Authenticate to Azure.
 
-Commands:
-    login : Authenticate to Azure.
+# COMMANDS
+login:
+Authenticate to Azure.
 
-Global Arguments
-    --debug : Increase logging verbosity to show all debug logs.
-    --help -h : Show help for the command or group and exit.
-    --no-cache : Bypass the extension discovery cache and reload extensions from disk.
-    --output -o : Output format.
+# GLOBAL ARGUMENTS
+--debug:
+Increase logging verbosity to show all debug logs.
+
+--help -h:
+Show help for the command or group and exit.
+
+--no-cache:
+Bypass the extension discovery cache and reload extensions from disk.
+
+--output -o:
+Output format.
+
+--query:
+JMESPath query string to filter/project the command result before rendering.

@@ -13,19 +13,29 @@ namespace Core.Cli.Parser;
 /// </summary>
 /// <param name="Positional">
 /// The original <c>args</c> minus any recognized global flags (<c>--debug</c>, <c>--output</c>,
-/// <c>--no-cache</c>) and their values. Passed to <see cref="ExtensionDispatcher.Parse"/> for
-/// normal command dispatch. Help / version tokens are left in place so downstream error handling
-/// can still surface them if the caller ignores <see cref="Help"/> / <see cref="Version"/>.
+/// <c>--no-cache</c>, <c>--query</c>) and their values. Passed to <see
+/// cref="ExtensionDispatcher.Parse"/> for normal command dispatch. Help / version tokens are
+/// left in place so downstream error handling can still surface them if the caller ignores <see
+/// cref="Help"/> / <see cref="Version"/>.
 /// </param>
 /// <param name="IsBareInvocation">
 /// <c>args.Length == 0</c> at entry to <c>Program.Main</c>. Used only for the welcome-banner
 /// decision; <c>az --help</c> is <em>not</em> bare (it explicitly asked for help).
 /// </param>
 /// <param name="Debug"><c>--debug</c> was present anywhere in the input.</param>
-/// <param name="Output">Resolved output format; defaults to <see cref="OutputFormat.Plain"/>.</param>
+/// <param name="Output">
+/// Explicit <c>--output</c> value, or <c>null</c> when not passed. <c>null</c> means the effective
+/// format comes from <c>clients.cli.output.format</c> config instead — see
+/// <c>OutputFormatPolicy.ResolveEffectiveFormat</c>.
+/// </param>
 /// <param name="NoCache">
 /// <c>--no-cache</c> was present. The caller mutates <c>AZCLIPS_NO_EXTENSION_CACHE</c>; the parser
 /// does not.
+/// </param>
+/// <param name="Query">
+/// Explicit <c>--query</c> JMESPath expression, or <c>null</c> when not passed. Applied to the
+/// command result before format-specific rendering -- see <c>JmesPathEvaluator</c>. Not applied
+/// to error output.
 /// </param>
 /// <param name="Help">Non-null when a help request was recognized. See <see cref="HelpRequest"/>.</param>
 /// <param name="Version">Non-null when a version request was recognized. See <see cref="VersionRequest"/>.</param>
@@ -33,19 +43,26 @@ internal sealed record GlobalArgs(
     IReadOnlyList<string> Positional,
     bool IsBareInvocation,
     bool Debug,
-    OutputFormat Output,
+    OutputFormat? Output,
     bool NoCache,
+    string? Query,
     HelpRequest? Help,
     VersionRequest? Version);
 
 /// <summary>
 /// Recognized <c>--output</c> value. Unknown values raise a usage error at parse time
-/// (see <see cref="GlobalArgParser.Parse"/>).
+/// (see <see cref="GlobalArgParser.Parse"/>). <c>Json</c>/<c>Yaml</c> never colorize regardless of
+/// <c>core.output.color</c> (deterministic for scripting); <c>Jsonc</c>/<c>Yamlc</c> colorize
+/// subject to <c>core.output.color</c>'s existing gating.
 /// </summary>
 public enum OutputFormat
 {
-    Plain,
     Json,
+    Jsonc,
+    Table,
+    Tsv,
+    Yaml,
+    Yamlc,
 }
 
 /// <summary>

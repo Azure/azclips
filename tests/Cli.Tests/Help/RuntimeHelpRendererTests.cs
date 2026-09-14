@@ -78,11 +78,12 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderGroup(group, terminalWidth: null));
 
-        Assert.Contains("Subgroups:", actual);
-        Assert.Contains("role : Manage role assignments.", actual);
-        Assert.Contains("tag", actual); // empty summary still listed
-        Assert.Contains("Commands:", actual);
-        Assert.Contains("create", actual);
+        Assert.Contains("# SUBGROUPS", actual);
+        Assert.Contains("role:\nManage role assignments.", actual);
+        Assert.Contains("tag", actual);
+        Assert.DoesNotContain("tag:", actual); // empty summary must not get a trailing colon
+        Assert.Contains("# COMMANDS", actual);
+        Assert.Contains("create:\nCreate a resource group.", actual);
     }
 
     [Fact]
@@ -97,7 +98,7 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderGroup(group, terminalWidth: null));
 
-        Assert.DoesNotContain("Subgroups:", actual);
+        Assert.DoesNotContain("# SUBGROUPS", actual);
     }
 
     [Fact]
@@ -120,10 +121,10 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        Assert.Contains("Arguments\n    --name", actual);
-        Assert.Contains("Authentication Arguments\n    --admin-username", actual);
+        Assert.Contains("# ARGUMENTS\n--name", actual);
+        Assert.Contains("# AUTHENTICATION ARGUMENTS\n--admin-username", actual);
         Assert.Contains("--admin-password", actual);
-        Assert.Contains("Network Arguments\n    --vnet-name", actual);
+        Assert.Contains("# NETWORK ARGUMENTS\n--vnet-name", actual);
     }
 
     [Fact]
@@ -145,10 +146,10 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        var auth = actual.IndexOf("Authentication Arguments", StringComparison.Ordinal);
-        var net = actual.IndexOf("Network Arguments", StringComparison.Ordinal);
-        var storage = actual.IndexOf("Storage Arguments", StringComparison.Ordinal);
-        var global = actual.IndexOf("Global Arguments", StringComparison.Ordinal);
+        var auth = actual.IndexOf("# AUTHENTICATION ARGUMENTS", StringComparison.Ordinal);
+        var net = actual.IndexOf("# NETWORK ARGUMENTS", StringComparison.Ordinal);
+        var storage = actual.IndexOf("# STORAGE ARGUMENTS", StringComparison.Ordinal);
+        var global = actual.IndexOf("# GLOBAL ARGUMENTS", StringComparison.Ordinal);
 
         Assert.True(auth > 0 && net > auth && storage > net && global > storage,
             $"Expected Auth < Net < Storage < Global, got Auth={auth} Net={net} Storage={storage} Global={global}");
@@ -171,11 +172,11 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        Assert.Contains("Arguments\n    --verbose", actual);
-        // No extra headers between "Arguments" and "Global Arguments" when nothing is grouped.
-        var argsBlockEnd = actual.IndexOf("\nGlobal Arguments", StringComparison.Ordinal);
+        Assert.Contains("# ARGUMENTS\n--verbose", actual);
+        // No extra headers between "# ARGUMENTS" and "# GLOBAL ARGUMENTS" when nothing is grouped.
+        var argsBlockEnd = actual.IndexOf("\n# GLOBAL ARGUMENTS", StringComparison.Ordinal);
         var argsBlock = actual[..argsBlockEnd];
-        Assert.DoesNotContain("Arguments\n\n", argsBlock);
+        Assert.DoesNotContain("# ARGUMENTS\n\n", argsBlock);
     }
 
     [Fact]
@@ -195,10 +196,10 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        // The default "Arguments" header must not fire when there are no ungrouped params.
-        // Uses \n\nArguments\n to avoid matching the "Authentication Arguments" / "Global Arguments" tails.
-        Assert.DoesNotContain("\n\nArguments\n", actual);
-        Assert.Contains("Authentication Arguments\n    --admin-username", actual);
+        // The default "# ARGUMENTS" header must not fire when there are no ungrouped params.
+        // "# ARGUMENTS" is not a substring of "# AUTHENTICATION ARGUMENTS" / "# GLOBAL ARGUMENTS", so an exact check is sufficient.
+        Assert.DoesNotContain("# ARGUMENTS", actual);
+        Assert.Contains("# AUTHENTICATION ARGUMENTS\n--admin-username", actual);
     }
 
     [Fact]
@@ -218,7 +219,7 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        Assert.Contains("    --resource-group [Required] : The resource group name.\n        Values from: az group list.", actual);
+        Assert.Contains("--resource-group [Required]:\nThe resource group name.\nValues from: az group list.", actual);
     }
 
     [Fact]
@@ -239,6 +240,27 @@ public class RuntimeHelpRendererTests
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
         Assert.DoesNotContain("Values from:", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldNumberExamples_InOrderWithBlankLineSeparation()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples:
+            [
+                new RuntimeHelpExample("First example", "az vm create --name vm1"),
+                new RuntimeHelpExample("Second example", "az vm create --name vm2"),
+            ],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("1. First example\naz vm create --name vm1\n\n2. Second example\naz vm create --name vm2", actual);
     }
 
     private static string LoadFixture(string fileName)

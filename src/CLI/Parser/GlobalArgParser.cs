@@ -50,8 +50,9 @@ internal static class GlobalArgParser
                 Positional: Array.Empty<string>(),
                 IsBareInvocation: true,
                 Debug: false,
-                Output: OutputFormat.Plain,
+                Output: null,
                 NoCache: false,
+                Query: null,
                 Help: new HelpRequest(Array.Empty<string>()),
                 Version: null);
         }
@@ -83,6 +84,7 @@ internal static class GlobalArgParser
             Debug: builder.Debug,
             Output: builder.Output,
             NoCache: builder.NoCache,
+            Query: builder.Query,
             Help: help,
             Version: version);
     }

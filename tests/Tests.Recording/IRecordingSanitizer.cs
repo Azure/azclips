@@ -3,7 +3,7 @@
 
 using System.Text.RegularExpressions;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Rewrites one class of secret out of a recorded value (URI, header value, or body). Applied at

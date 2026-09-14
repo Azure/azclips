@@ -27,7 +27,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
-    <ProjectReference Include="..\Core\Core.Recording\Core.Recording.csproj" />
     <ProjectReference Include="..\Core\Core.Extensions\Core.Extensions.csproj" />
   </ItemGroup>
 
@@ -58,6 +57,8 @@
     <PackageReference Include="OpenTelemetry" Version="1.15.3" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageReference Include="NuGet.Packaging" Version="7.3.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="JmesPath.Net" Version="1.1.0" />
   </ItemGroup>
 
 </Project>
