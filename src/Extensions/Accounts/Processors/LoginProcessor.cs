@@ -421,7 +421,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
                 var subscriptions = await subscriptionService.ListSubscriptionsAsync(accessToken);
                 var enabled = subscriptions.Where(s => s.IsEnabled).ToList();
-                var candidates = enabled.Count > 0 ? enabled : subscriptions.ToList();
+                IReadOnlyList<SubscriptionInfo> candidates = enabled.Count > 0 ? enabled : subscriptions;
                 var defaultSubscription = candidates.FirstOrDefault();
 
                 if (defaultSubscription is null)
