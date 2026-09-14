@@ -127,6 +127,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run PR file policy tests
+        working-directory: devops/scripts/ci
+        run: python3 -m unittest test_check_pull_request_changes.py -v
 
       - name: Install Pester 5+
         shell: pwsh

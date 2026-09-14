@@ -27,10 +27,8 @@ stages:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
-      persistCredentials: false
+      persistCredentials: true
       fetchDepth: 0
-    - bash: python3 devops/scripts/ci/test_check_pull_request_changes.py
-      displayName: Test PR file policy checks
     - bash: |
         set -euo pipefail
 
@@ -107,6 +105,22 @@ stages:
         if token:
             headers['Authorization'] = f'Bearer {token}'
 
+        def remove_checkout_credentials():
+            result = subprocess.run(
+                ['git', 'config', '--local', '--name-only', '--get-regexp', r'^http\..*\.extraheader$'],
+                capture_output=True,
+                check=False,
+                text=True
+            )
+            if result.returncode not in (0, 1):
+                print('Failed to inspect persisted checkout credentials.', file=sys.stderr)
+                sys.exit(1)
+            for key in result.stdout.splitlines():
+                subprocess.run(
+                    ['git', 'config', '--local', '--unset-all', key],
+                    check=True
+                )
+
         def get_error_body(error):
             try:
                 return error.read().decode('utf-8', errors='replace').strip()
@@ -135,7 +149,7 @@ stages:
             )
             if error.code in (403, 404):
                 print(
-                    'Ensure the repository is public and GitHub API access is available from the build agent.',
+                    'Ensure checkout uses persistCredentials: true and the GitHub service connection can read pull request metadata for this repository.',
                     file=sys.stderr
                 )
             if error_message:
@@ -144,6 +158,10 @@ stages:
         except urllib.error.URLError as error:
             print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
             sys.exit(1)
+
+        remove_checkout_credentials()
+        headers.pop('Authorization', None)
+        token = ''
 
         title = pull_request.get('title') or ''
         body = pull_request.get('body') or ''
@@ -163,8 +181,23 @@ stages:
         print(f'Check pull request title and history notes: #{pr_number}')
         print(title)
 
+        trusted_title_checker_path = os.path.join(
+            os.environ.get('AGENT_TEMPDIRECTORY', '/tmp'),
+            'check_pull_request.py'
+        )
+        trusted_title_checker = subprocess.run(
+            ['git', 'show', f'{base_sha}:devops/scripts/ci/check_pull_request.py'],
+            capture_output=True,
+            check=False
+        )
+        if trusted_title_checker.returncode != 0:
+            print('The trusted PR title checker is missing from the base commit.', file=sys.stderr)
+            sys.exit(1)
+        with open(trusted_title_checker_path, 'wb') as checker_file:
+            checker_file.write(trusted_title_checker.stdout)
+
         subprocess.run(
-            ['python3', 'devops/scripts/ci/check_pull_request.py', title],
+            ['python3', trusted_title_checker_path, title],
             input=body,
             text=True,
             check=True
