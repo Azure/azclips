@@ -148,10 +148,11 @@ public class GlobalArgParserTests
     [Fact]
     public void Parse_HelpAliasAsParameterValue_DoesNotYieldCommandHelp()
     {
-        var result = GlobalArgParser.Parse(new[] { "group", "cmd", "--name", "h" });
+        // `?` is a declared bare alias, so this only passes while the post-flag guard holds.
+        var result = GlobalArgParser.Parse(new[] { "group", "cmd", "--name", "?" });
 
         Assert.Null(result.Help);
-        Assert.Equal(new[] { "group", "cmd", "--name", "h" }, result.Positional);
+        Assert.Equal(new[] { "group", "cmd", "--name", "?" }, result.Positional);
     }
 
     [Fact]

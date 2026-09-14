@@ -510,8 +510,8 @@ namespace Azclips.Help.Tool.Validation
                 .Contains(token, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Mirrors <c>GlobalArgParser</c>: dashed aliases count anywhere, bare aliases (<c>h</c>,
-        /// <c>?</c>) only before the first flag so they are not mistaken for that flag's value.
+        /// Mirrors <c>GlobalArgParser</c>: dashed aliases count anywhere, the bare alias <c>?</c>
+        /// only before the first flag so it is not mistaken for that flag's value.
         /// </summary>
         private static bool ContainsHelpInvocation(IReadOnlyList<string> tokens, int start)
         {

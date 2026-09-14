@@ -173,7 +173,7 @@ internal static class GlobalArgParser
         {
             var token = positional[i];
             var dashed = token.StartsWith("-", StringComparison.Ordinal);
-            // Bare aliases (`h`, `?`) only count before the first flag, so they can't be read as its value.
+            // The bare alias `?` only counts before the first flag, so it can't be read as its value.
             if (IsHelpFlag(token) && (dashed || !seenParameterFlag))
             {
                 trailingHelp = true;
