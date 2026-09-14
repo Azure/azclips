@@ -41,7 +41,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
         // What-if always waits for the LRO to complete (there is no -NoWait).
-        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO(fetchFinalState: false);
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 
         protected override HttpMethod Method => HttpMethod.Post;
 

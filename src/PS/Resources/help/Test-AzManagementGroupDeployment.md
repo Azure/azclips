@@ -1,9 +1,9 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Deployment.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
-Module Name: Deployment
+Module Name: Resources
 ms.date: 09/11/2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzManagementGroupDeployment
@@ -325,7 +325,7 @@ HelpMessage: ''
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Deployment.Models.DeploymentValidateResult
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult
 
 The validation result, including deployment properties and validation errors.
 

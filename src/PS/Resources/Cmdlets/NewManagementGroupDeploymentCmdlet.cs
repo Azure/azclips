@@ -7,11 +7,11 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Deployment;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsDiagnostic.Test, "AzManagementGroupDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Deployment.Models.DeploymentValidateResult")]
-public class TestManagementGroupDeploymentCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.New, "AzManagementGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
+public class NewManagementGroupDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams _streams = null!;
@@ -21,40 +21,46 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
     public string ManagementGroupId { get; set; } = "";
 
     [Alias("DeploymentName")]
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? Name { get; set; }
 
     [Parameter(Mandatory = true)]
     public string Location { get; set; } = "";
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? TemplateFile { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? TemplateUri { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? TemplateSpecId { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public Hashtable? TemplateObject { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? QueryString { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? TemplateParameterFile { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? TemplateParameterUri { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public Hashtable? TemplateParameterObject { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
 
-    [Parameter]
+    [Parameter(Mandatory = false)]
+    public string? DeploymentDebugLogLevel { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public Hashtable? Tag { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -65,10 +71,15 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        if (!ShouldProcess($"deployment '{Name ?? "(generated)"}' at management group '{ManagementGroupId}'", "Create"))
+        {
+            return;
+        }
+
         Dictionary<string, object> parameters = new()
         {
-            [nameof(ManagementGroupId)] = ManagementGroupId,
-            [nameof(Location)] = Location,
+            ["ManagementGroupId"] = ManagementGroupId,
+            ["Location"] = Location,
         };
         AddIfBound(parameters, nameof(Name), Name);
         AddIfBound(parameters, nameof(TemplateFile), TemplateFile);
@@ -80,13 +91,15 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
         AddIfBound(parameters, nameof(TemplateParameterUri), TemplateParameterUri);
         AddIfBound(parameters, nameof(TemplateParameterObject), TemplateParameterObject);
         AddIfBound(parameters, nameof(ValidationLevel), ValidationLevel);
+        AddIfBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);
+        AddIfBound(parameters, nameof(Tag), Tag);
         AddIfBound(parameters, nameof(Profile), Profile);
 
         ITelemetryService telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetry.StartRootActivity();
         CommandInvocation invocation = new(
-            "Deployment",
-            "Test-AzManagementGroupDeployment",
+            "Resources",
+            "New-AzManagementGroupDeployment",
             parameters,
             false,
             MyInvocation.MyCommand.ModuleName,

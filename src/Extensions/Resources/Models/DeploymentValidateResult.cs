@@ -3,7 +3,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 /// <summary>Information returned from deployment validation.</summary>
 public partial class DeploymentValidateResult

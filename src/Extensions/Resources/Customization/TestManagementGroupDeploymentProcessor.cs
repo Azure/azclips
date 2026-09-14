@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Deployment.Models;
-using Microsoft.Azure.Azclips.Extensions.Deployment.Processors;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Customization;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class TestManagementGroupDeploymentProcessor
     : ValidateAtManagementGroupScopeDeploymentsProcessor, IManagementGroupDeploymentInput

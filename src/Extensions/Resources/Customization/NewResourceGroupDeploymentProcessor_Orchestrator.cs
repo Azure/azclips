@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
-using DeploymentModel = Microsoft.Azure.Azclips.Extensions.Resources.Models.Deployment;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
@@ -21,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// <see cref="NewResourceGroupDeploymentProcessor"/> via <c>CreateExtendedProcessor</c>.
     /// </para>
     /// </summary>
-    public class NewResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<DeploymentModel, DeploymentExtended>
+    public class NewResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentExtended>
     {
         public string SubscriptionId { get; set; } = string.Empty;
 
