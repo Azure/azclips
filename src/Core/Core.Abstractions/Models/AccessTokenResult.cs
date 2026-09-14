@@ -21,6 +21,7 @@ public record AccessTokenResult
     public required string Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
+    [JsonPropertyName("expiresOn")]
     [JsonConverter(typeof(AzureCliExpiresOnConverter))]
     public required DateTimeOffset ExpiresOn { get; init; }
 
@@ -29,12 +30,17 @@ public record AccessTokenResult
     public required long ExpiresOnUnixTime { get; init; }
 
     /// <summary>The tenant (directory) ID the token was acquired for.</summary>
+    [JsonPropertyName("tenant")]
     public required string TenantId { get; init; }
 
     /// <summary>The subscription ID associated with the request, if any.</summary>
+    [JsonPropertyName("subscription")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SubscriptionId { get; init; }
 
     /// <summary>The user principal name of the signed-in identity, if any (null for managed identity).</summary>
+    [JsonPropertyName("userId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
@@ -54,6 +60,7 @@ public record SecureAccessTokenResult
     public required SecureString Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
+    [JsonPropertyName("expiresOn")]
     [JsonConverter(typeof(AzureCliExpiresOnConverter))]
     public required DateTimeOffset ExpiresOn { get; init; }
 
@@ -62,12 +69,17 @@ public record SecureAccessTokenResult
     public required long ExpiresOnUnixTime { get; init; }
 
     /// <summary>The tenant (directory) ID the token was acquired for.</summary>
+    [JsonPropertyName("tenant")]
     public required string TenantId { get; init; }
 
     /// <summary>The subscription ID associated with the request, if any.</summary>
+    [JsonPropertyName("subscription")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SubscriptionId { get; init; }
 
     /// <summary>The user principal name of the signed-in identity, if any (null for managed identity).</summary>
+    [JsonPropertyName("userId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>

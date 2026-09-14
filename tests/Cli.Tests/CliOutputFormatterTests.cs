@@ -337,17 +337,45 @@ public class CliOutputFormatterTests
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
             ExpiresOnUnixTime = 1_700_000_000,
             TenantId = "tid",
+            // SubscriptionId and UserId left null on purpose to assert they are omitted.
         };
 
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(token);
 
         using var doc = JsonDocument.Parse(result);
-        // Azure CLI's `az account get-access-token` contract exposes `accessToken` and `expires_on`;
-        // the camel-case policy must not turn these into `token` / `expiresOnUnixTime`.
+        // Classic `az account get-access-token` exposes accessToken, expires_on, tenant, tokenType;
+        // the camel-case policy must not turn these into token / expiresOnUnixTime / tenantId.
         Assert.Equal("the-raw-token", doc.RootElement.GetProperty("accessToken").GetString());
         Assert.Equal(1_700_000_000, doc.RootElement.GetProperty("expires_on").GetInt64());
-        Assert.False(doc.RootElement.TryGetProperty("token", out _));
+        Assert.Equal("tid", doc.RootElement.GetProperty("tenant").GetString());
         Assert.Equal("Bearer", doc.RootElement.GetProperty("tokenType").GetString());
+        Assert.False(doc.RootElement.TryGetProperty("token", out _));
+        Assert.False(doc.RootElement.TryGetProperty("tenantId", out _));
+        Assert.False(doc.RootElement.TryGetProperty("subscriptionId", out _));
+        // Nullable subscription/userId are omitted when unset (classic az omits `subscription`).
+        Assert.False(doc.RootElement.TryGetProperty("subscription", out _));
+        Assert.False(doc.RootElement.TryGetProperty("userId", out _));
+    }
+
+    [Fact]
+    public void FormatValue_AccessTokenResult_EmitsSubscriptionAndUserId_WhenPresent()
+    {
+        var token = new Core.Abstractions.AccessTokenResult
+        {
+            Token = "the-raw-token",
+            ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
+            ExpiresOnUnixTime = 1_700_000_000,
+            TenantId = "tid",
+            SubscriptionId = "sub-1",
+            UserId = "user@contoso.com",
+        };
+
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(token);
+
+        using var doc = JsonDocument.Parse(result);
+        Assert.Equal("sub-1", doc.RootElement.GetProperty("subscription").GetString());
+        Assert.Equal("user@contoso.com", doc.RootElement.GetProperty("userId").GetString());
+        Assert.False(doc.RootElement.TryGetProperty("subscriptionId", out _));
     }
 
     [Fact]
