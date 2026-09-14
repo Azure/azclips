@@ -33,8 +33,8 @@ public static class TokenScopeResolver
     /// <exception cref="ArgumentException">More than one target input was supplied, or a supplied value was invalid.</exception>
     public static string[] Resolve(string? resource, string? resourceTypeName, IReadOnlyList<string>? scopes)
     {
-        bool hasResource = !string.IsNullOrWhiteSpace(resource);
-        bool hasResourceType = !string.IsNullOrWhiteSpace(resourceTypeName);
+        bool hasResource = resource is not null;
+        bool hasResourceType = resourceTypeName is not null;
         bool hasScopes = scopes is { Count: > 0 };
 
         int provided = (hasResource ? 1 : 0) + (hasResourceType ? 1 : 0) + (hasScopes ? 1 : 0);
@@ -60,6 +60,11 @@ public static class TokenScopeResolver
 
         if (hasResourceType)
         {
+            if (string.IsNullOrWhiteSpace(resourceTypeName))
+            {
+                throw new ArgumentException("Resource type must not be empty.", nameof(resourceTypeName));
+            }
+
             if (!WellKnownResourceTypes.TryResolve(resourceTypeName, out var resolvedResource))
             {
                 throw new ArgumentException(
@@ -71,7 +76,11 @@ public static class TokenScopeResolver
 
         if (hasResource)
         {
-            return [ToDefaultScope(resource!.Trim())];
+            if (string.IsNullOrWhiteSpace(resource))
+            {
+                throw new ArgumentException("Resource must not be empty.", nameof(resource));
+            }
+            return [ToDefaultScope(resource.Trim())];
         }
 
         // No target specified: default to ARM (parity with Azure CLI / Az PowerShell).

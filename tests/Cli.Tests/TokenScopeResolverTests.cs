@@ -78,4 +78,24 @@ public class TokenScopeResolverTests
         Assert.Throws<ArgumentException>(() =>
             TokenScopeResolver.Resolve(null, null, ["  "]));
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Resolve_EmptyResource_ThrowsInsteadOfDefaultingToArm(string resource)
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            TokenScopeResolver.Resolve(resource, null, null));
+        Assert.Contains("Resource must not be empty", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Resolve_EmptyResourceType_ThrowsInsteadOfDefaultingToArm(string resourceType)
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            TokenScopeResolver.Resolve(null, resourceType, null));
+        Assert.Contains("Resource type must not be empty", ex.Message, StringComparison.Ordinal);
+    }
 }
