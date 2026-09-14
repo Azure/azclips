@@ -138,9 +138,11 @@ foreach ($moduleName in $changedModules) {
     $rollupModulePath = "../$moduleName/$moduleName.psd1"
 
     if (-not (Test-Path -Path $projectPath -PathType Leaf) -or
-        -not (Test-Path -Path $moduleManifestPath -PathType Leaf) -or
-        $rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
+        -not (Test-Path -Path $moduleManifestPath -PathType Leaf)) {
         continue
+    }
+    if ($rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
+        throw "Az rollup dependency was not found for packageable extension $moduleName`: $rollupModulePath"
     }
     if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
         throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"

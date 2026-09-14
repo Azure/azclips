@@ -144,6 +144,31 @@ Describe 'Update-ChangedExtensionVersions' {
             Should -Throw '*PowerShell changelog was not found for rollup extension Accounts*'
     }
 
+    It 'rejects a packageable extension missing its Az rollup dependency' {
+        $root = New-TestRepository
+        $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
+        (Get-Content -Raw $rollupPath).Replace(
+            "    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
+            ''
+        ) | Set-Content -NoNewline $rollupPath
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add --all
+        git -C $root commit --quiet -m 'remove rollup entry and change Accounts extension'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*Az rollup dependency was not found for packageable extension Accounts*'
+    }
+
+    It 'skips a changed extension project without a PowerShell child module' {
+        $root = New-TestRepository
+        Write-TestFile -Root $root -RelativePath 'src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj' -Content '<Project Sdk="Microsoft.NET.Sdk" />'
+        Write-TestFile -Root $root -RelativePath 'src/Extensions/ExtensionRuntime/Runtime.cs' -Content 'class Runtime { }'
+        git -C $root add .
+        git -C $root commit --quiet -m 'change non-packageable extension runtime'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } | Should -Not -Throw
+    }
+
     It 'preserves the initial version of a new rollup extension' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD

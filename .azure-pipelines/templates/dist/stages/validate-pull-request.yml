@@ -154,9 +154,10 @@ stages:
         base_sha = base.get('sha') or ''
         head_sha = head.get('sha') or ''
         head_ref = head.get('ref') or ''
+        pull_request_author = (pull_request.get('user') or {}).get('login') or ''
 
-        if not all([base_repository, head_repository, base_sha, head_sha, head_ref]):
-            print('Pull request metadata is missing base/head repository, SHA, or branch information.', file=sys.stderr)
+        if not all([base_repository, head_repository, base_sha, head_sha, head_ref, pull_request_author]):
+            print('Pull request metadata is missing base/head repository, SHA, branch, or author information.', file=sys.stderr)
             sys.exit(1)
 
         print(f'Check pull request title and history notes: #{pr_number}')
@@ -180,11 +181,19 @@ stages:
             check=False
         )
         if trusted_checker.returncode != 0:
-            print(
-                'Base commit does not contain the PR file policy checker; '
-                'skipping enforcement during its bootstrap PR.'
+            is_bootstrap_pr = (
+                pr_number == '878'
+                and base_sha == '4a955c8aa520f6744e8bc285a2f6de526736dd50'
+                and base_repository.casefold() == 'azure/azclips'
+                and head_repository.casefold() == 'azure/azclips'
+                and pull_request_author.casefold() == 'naga-nandyala'
             )
-            sys.exit(0)
+            if not is_bootstrap_pr:
+                print('The trusted PR file policy checker is missing from the base commit.', file=sys.stderr)
+                sys.exit(1)
+            print('Using the checked-out policy checker for its restricted bootstrap PR.')
+            with open('devops/scripts/ci/check_pull_request_changes.py', 'rb') as checker_file:
+                trusted_checker.stdout = checker_file.read()
 
         with open(trusted_checker_path, 'wb') as checker_file:
             checker_file.write(trusted_checker.stdout)
@@ -199,6 +208,7 @@ stages:
                 '--head-repository', head_repository,
                 '--head-ref', head_ref,
                 '--pull-request-title', title,
+                '--pull-request-author', pull_request_author,
             ],
             check=True
         )

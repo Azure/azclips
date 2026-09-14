@@ -9,8 +9,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 STABLE_RELEASE_BRANCH_PREFIX = "release/trigger-stable-release-"
+STABLE_RELEASE_PR_AUTHOR = "x-engineering-agent[bot]"
 STABLE_RELEASE_TITLE_PATTERN = re.compile(
     r"^\{DevOps\} Trigger stable release (?P<version>\d+\.\d+\.\d+)$"
+)
+STABLE_RELEASE_ALLOWED_PATH_PATTERN = re.compile(
+    r"^(?:CHANGELOG\.md|src/CLI/Core\.Cli\.csproj|"
+    r"src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|"
+    r"src/PS/[^/]+/(?:ChangeLog\.md|[^/]+\.psd1))$"
 )
 VERSION_PROPERTIES = {
     "AssemblyVersion",
@@ -28,10 +34,12 @@ def is_stable_release_pull_request(
     base_repository: str,
     head_ref: str,
     pull_request_title: str,
+    pull_request_author: str,
 ) -> bool:
     title_match = STABLE_RELEASE_TITLE_PATTERN.fullmatch(pull_request_title)
     return (
         head_repository.casefold() == base_repository.casefold()
+        and pull_request_author.casefold() == STABLE_RELEASE_PR_AUTHOR.casefold()
         and title_match is not None
         and head_ref == f"{STABLE_RELEASE_BRANCH_PREFIX}{title_match.group('version')}"
     )
@@ -57,9 +65,16 @@ def find_policy_violations(
     changed_files: list[str],
     read_base_file: Callable[[str], str | None],
     read_head_file: Callable[[str], str | None],
+    stable_release: bool = False,
 ) -> list[str]:
     violations = []
-    if "CHANGELOG.md" in changed_files:
+    if stable_release:
+        for file_path in changed_files:
+            if not STABLE_RELEASE_ALLOWED_PATH_PATTERN.fullmatch(file_path):
+                violations.append(
+                    f"{file_path}: generated stable-release PRs may only change release metadata."
+                )
+    elif "CHANGELOG.md" in changed_files:
         violations.append(
             "CHANGELOG.md must not be edited manually; stable-release automation owns it."
         )
@@ -68,6 +83,15 @@ def find_policy_violations(
         base_content = read_base_file(file_path)
         head_content = read_head_file(file_path)
         if base_content is None or head_content is None:
+            continue
+
+        if stable_release:
+            base_structure = get_project_structure_without_versions(base_content)
+            head_structure = get_project_structure_without_versions(head_content)
+            if base_structure != head_structure:
+                violations.append(
+                    f"{file_path}: generated stable-release PRs may only change project version properties."
+                )
             continue
 
         base_versions = get_project_versions(base_content)
@@ -80,6 +104,24 @@ def find_policy_violations(
                 )
 
     return violations
+
+
+def get_project_structure_without_versions(content: str) -> tuple:
+    root = ET.fromstring(content)
+
+    def canonicalize(element: ET.Element, parent_name: str = "") -> tuple:
+        name = element.tag.rsplit("}", 1)[-1]
+        text = (element.text or "").strip()
+        if parent_name == "PropertyGroup" and name in VERSION_PROPERTIES:
+            text = "<release-version>"
+        return (
+            name,
+            tuple(sorted(element.attrib.items())),
+            text,
+            tuple(canonicalize(child, name) for child in element),
+        )
+
+    return canonicalize(root)
 
 
 def run_git(repo_root: Path, arguments: list[str]) -> str:
@@ -115,6 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--head-repository", required=True)
     parser.add_argument("--head-ref", required=True)
     parser.add_argument("--pull-request-title", required=True)
+    parser.add_argument("--pull-request-author", required=True)
     return parser.parse_args()
 
 
@@ -122,14 +165,13 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
 
-    if is_stable_release_pull_request(
+    stable_release = is_stable_release_pull_request(
         args.head_repository,
         args.base_repository,
         args.head_ref,
         args.pull_request_title,
-    ):
-        print("Stable-release pull request detected; file policy checks are exempt.")
-        return 0
+        args.pull_request_author,
+    )
 
     changed_files = run_git(
         repo_root,
@@ -139,6 +181,7 @@ def main() -> int:
         changed_files,
         lambda path: read_file_at_ref(repo_root, args.base_sha, path),
         lambda path: read_file_at_ref(repo_root, args.head_sha, path),
+        stable_release=stable_release,
     )
 
     for violation in violations:

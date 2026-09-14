@@ -25,7 +25,7 @@ guide in the same PR so it stays accurate.
 ## Template Layout (`templates/`)
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
-- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions and blocks manual root changelog or project-version edits except on same-repository stable-release PRs with the generated title and matching branch version.
+- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
 - `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`.
 - `templates/dist/steps/` — small reusable steps (`get-github-pat-token.yml`, `validate-release-project.yml`).
 
