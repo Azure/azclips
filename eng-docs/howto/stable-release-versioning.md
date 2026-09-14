@@ -14,7 +14,7 @@ functional code and non-version project metadata.
 | --- | --- | --- |
 | Product code, tests, and documentation | Yes | Normal build and test checks apply. |
 | Non-version `.csproj` properties, references, or build settings | Yes | The release policy permits the change. |
-| Direct project version properties | No | The PR policy fails. |
+| Direct version properties in an existing `.csproj` | No | The PR policy fails. A new project may declare its initial versions. |
 | A nested dependency version, such as `PackageReference/Version` | Yes | It is not treated as the project's release version. |
 | Add or delete a `.csproj` | Yes | The release policy permits it in a contributor PR. New packageable extensions must include complete packaging metadata. |
 | Rename a `.csproj` | No | The PR policy fails to prevent version-policy bypasses. |
@@ -71,14 +71,16 @@ Assume the CLI is `0.1.2`, Compute is `0.1.0`, and the pipeline detects a change
 
 Compute uses its own patch sequence; it does not become `0.1.3` just because the CLI does.
 
-A packageable extension requires a matching project, module manifest, module changelog, and active
-`Az` rollup dependency. Missing or inconsistent metadata fails the pipeline.
+A matching extension project and module manifest identify a packageable extension. For each
+identified extension, a missing module changelog, missing `Az` rollup dependency, missing project
+version, or inconsistent unchanged-version metadata fails the pipeline.
 
 ## Generated release PR checks
 
-CI permits only generated changelogs, matching module manifests, and version-only project changes.
-Any formatting, EOF-only, non-version, added-property, rename, add, or delete change in a generated
-`.csproj` fails validation.
+CI allowlists release changelogs, module manifests, the CLI project, and matching extension projects.
+An existing `.csproj` may change only direct version-property lines while preserving property names,
+property counts, and all non-version structure and content. Project renames, additions, deletions,
+and formatting or EOF-only changes outside direct version-property lines fail validation.
 
 ## After the release PR merges
 
