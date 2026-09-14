@@ -1,3 +1,57 @@
+## v0.1.3 - 2026-09-14 20:33 UTC
+
+#### Autocompletion
+- Preserve PowerShell tab completion customizations (#860)
+
+#### Cirrus Codegen
+- Preserve enum extensibility in IR (#828)
+
+#### CLI
+- Add separate default output format for simple results (#869)
+- Add `--query` support (#866)
+- Help output: Remove indentation (#858)
+- Help output: Uppercase and hash-prefix section headers (#858)
+- Help output: Stack argument name and description on separate lines (#858)
+- Help output: Number examples (#858)
+- `--output` yamlc now colorizes YAML output (previously rendered identically to `yaml`) (#852)
+- `az login`: Also accept `-s` and `--subscription` for `--subscription-id` and `-t` and `--tenant` for `--tenant-id` and `-i` for `--identity` (#548)
+- [BREAKING CHANGE] `--output` no longer accepts `plain`; use `json` for scripting or `jsonc` for colorized JSON. `--output` now supports `table`, `tsv`, `yaml`, and `yamlc` for real (previously accepted but silently rendered as JSON), and its default (and `clients.cli.output.format`'s default) changed from `table` to `json` (#848)
+- `core.output.color`: JSON command output is now colorized per configured mode (`always`/`auto`/`never`) (#841)
+- `az extension`: Rename the bundled Login extension to Accounts (#804)
+
+#### Compute
+- Add an accelerated networking parameter to vm create (#814)
+- `az vm start`, `Start-AzVM`: Support start vm commands (#823)
+
+#### Config
+- `az config set`/`az config get`/`az config delete`: Accept the configuration key (and value for `set`) as positional arguments in addition to `--key`/`--value` (#824)
+
+#### Identity
+- `Az.ManagedServiceIdentity`: Add Get/New/Update/Remove-AzUserAssignedIdentity (#801)
+- `az identity`: Add cli support for create, list, show, update, delete (#780)
+
+#### Login
+- `Connect-AzAccount`: Add `MSI`, `ManagedIdentity` and `ManagedService` aliases for `-Identity`, and `AccountId` for `-ClientId` (#806)
+- `az login`: Add the `-i` alias for `--identity` (#806)
+- [BREAKING CHANGE] `az login`: Remove the `--subscription` and `-s` aliases, use `--subscription-id` (#806)
+
+#### MsGraph
+- Move ApplyGraphScope into a Customization partial (#793)
+
+#### NonSquash
+- Update extension interface, add default pagination (#777)
+
+#### PowerShell
+- Include Az.MsGraph in rollup (#856)
+- `Connect-AzAccount`: Add parameter aliases so -SubscriptionId also accepts -Subscription and -TenantId also accepts -Tenant and -UseDeviceCode also accepts -DeviceCode and -DeviceAuth and -Device and -UseDeviceAuthentication and -Identity also accepts -ManagedService (existing -MSI and -ManagedIdentity aliases are retained) (#548)
+- `Az.Accounts`: Rename the `Az.Login` module to `Az.Accounts` (#804)
+
+#### Profile
+- `az profile show`: Support default active selection (#825)
+
+#### Az.MsGraph 0.1.1
+* Refactored Microsoft Graph command customization and extension integration.
+
 ## v0.1.2 - 2026-08-31 23:07 UTC
 
 #### Help
