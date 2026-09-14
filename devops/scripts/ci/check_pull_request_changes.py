@@ -10,9 +10,7 @@ from pathlib import Path
 
 STABLE_RELEASE_BRANCH_PREFIX = "release/trigger-stable-release-"
 STABLE_RELEASE_PR_AUTHOR = "x-engineering-agent[bot]"
-STABLE_RELEASE_TITLE_PATTERN = re.compile(
-    r"^\{DevOps\} Trigger stable release (?P<version>\d+\.\d+\.\d+)$"
-)
+STABLE_RELEASE_TITLE_PATTERN = re.compile(r"^\{DevOps\} Trigger stable release (?P<version>\d+\.\d+\.\d+)$")
 STABLE_RELEASE_ALLOWED_PATH_PATTERN = re.compile(
     r"^(?:CHANGELOG\.md|src/CLI/Core\.Cli\.csproj|"
     r"src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|"
@@ -55,10 +53,7 @@ def get_project_versions(content: str) -> dict[str, tuple[str, ...]]:
             property_name = element.tag.rsplit("}", 1)[-1]
             if property_name in VERSION_PROPERTIES:
                 values.setdefault(property_name, []).append((element.text or "").strip())
-    return {
-        name: tuple(sorted(property_values))
-        for name, property_values in values.items()
-    }
+    return {name: tuple(sorted(property_values)) for name, property_values in values.items()}
 
 
 def find_policy_violations(
@@ -71,22 +66,16 @@ def find_policy_violations(
     if stable_release:
         for file_path in changed_files:
             if not STABLE_RELEASE_ALLOWED_PATH_PATTERN.fullmatch(file_path):
-                violations.append(
-                    f"{file_path}: generated stable-release PRs may only change release metadata."
-                )
+                violations.append(f"{file_path}: generated stable-release PRs may only change release metadata.")
     elif "CHANGELOG.md" in changed_files:
-        violations.append(
-            "CHANGELOG.md must not be edited manually; stable-release automation owns it."
-        )
+        violations.append("CHANGELOG.md must not be edited manually; stable-release automation owns it.")
 
     for file_path in sorted(path for path in changed_files if path.endswith(".csproj")):
         base_content = read_base_file(file_path)
         head_content = read_head_file(file_path)
         if base_content is None or head_content is None:
             if stable_release:
-                violations.append(
-                    f"{file_path}: generated stable-release PRs may not add or delete project files."
-                )
+                violations.append(f"{file_path}: generated stable-release PRs may not add or delete project files.")
             continue
 
         if stable_release:
@@ -119,10 +108,7 @@ def get_project_structure_without_versions(content: str) -> tuple:
         children = (
             child
             for child in element
-            if not (
-                name == "PropertyGroup"
-                and child.tag.rsplit("}", 1)[-1] in VERSION_PROPERTIES
-            )
+            if not (name == "PropertyGroup" and child.tag.rsplit("}", 1)[-1] in VERSION_PROPERTIES)
         )
         return (
             name,
@@ -158,9 +144,16 @@ def read_file_at_ref(repo_root: Path, ref: str, file_path: str) -> str | None:
     return result.stdout
 
 
+def get_default_repo_root() -> Path:
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / ".git").exists():
+            return candidate
+    return Path.cwd()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repo-root", default=Path(__file__).resolve().parents[3])
+    parser.add_argument("--repo-root", default=get_default_repo_root())
     parser.add_argument("--base-sha", required=True)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--base-repository", required=True)
