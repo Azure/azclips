@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Decides whether an outgoing request corresponds to a recorded one during playback.

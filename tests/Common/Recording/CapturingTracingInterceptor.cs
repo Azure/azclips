@@ -4,7 +4,7 @@
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-using Core.Recording;
+using Tests.Recording;
 
 namespace Tests.Common.Recording;
 

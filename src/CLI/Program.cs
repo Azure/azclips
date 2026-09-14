@@ -40,7 +40,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json);
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -78,7 +78,6 @@ public class Program
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            Core.Recording.RecordingHook.TryRegister();
             AzclipsServiceProvider.Initialize(_clientType);
         }
 
@@ -137,7 +136,7 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, globalArgs.Query);
+                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
@@ -250,13 +249,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, string? query = null)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor, query));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

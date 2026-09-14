@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Ties a scenario's mode, recording file, and interceptors together. Playback loads the committed

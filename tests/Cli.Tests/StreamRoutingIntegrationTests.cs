@@ -55,6 +55,20 @@ public class StreamRoutingIntegrationTests
             "config", "get", "--key", "core.logging.level", "--query", "@");
 
         Assert.Equal(0, exit);
+        // A --query narrowing a result to a scalar now uses clients.cli.output.simpleFormat
+        // (default tsv) rather than the complex-result default (json) -- plain text, no quotes.
+        // Source is "environment" because RunCliAsync pins AZCLIPS_LOG_LEVEL for determinism.
+        Assert.Equal("core.logging.level = warn [environment]", stdout.Trim());
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Fact]
+    public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync(
+            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "@");
+
+        Assert.Equal(0, exit);
         Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
         Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
         Assert.DoesNotContain("ERROR:", stderr);
@@ -167,7 +181,62 @@ public class StreamRoutingIntegrationTests
         Assert.DoesNotContain("# ARGUMENTS", stderr);
     }
 
+    [Fact]
+    public async Task ConfigSet_SimpleFormat_ChangesQueryScalarRendering_EndToEnd()
+    {
+        // Exercises the real path -- az config set writes JSON, ConfigurationService binds it into
+        // ClientsOptions, OutputFormatPolicy resolves it -- not just the in-memory unit tests, which
+        // construct ClientsOptions/CliOutputOptions directly and never touch config persistence.
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        try
+        {
+            var (setExit, _, setStderr) = await RunCliInHomeAsync(
+                homeDirectory,
+                "config", "set", "--key", "clients.cli.output.simpleFormat", "--value", "json", "--force");
+            Assert.Equal(0, setExit);
+            Assert.DoesNotContain("ERROR:", setStderr);
+
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(
+                homeDirectory,
+                "config", "get", "--key", "core.logging.level", "--query", "@");
+
+            Assert.Equal(0, exit);
+            Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
+            Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+            Assert.DoesNotContain("ERROR:", stderr);
+        }
+        finally
+        {
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
     private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+    {
+        // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
+        // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
+        // assertions. Fresh temp directory per invocation so parallel test runs never collide.
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
+        // Telemetry off so Program.cs's detached --upload-telemetry child has nothing to read/write
+        // under this home -- avoids racing our cleanup below rather than just tolerating the race.
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        try
+        {
+            return await RunCliInHomeAsync(homeDirectory, args);
+        }
+        finally
+        {
+            // Best-effort: Program.cs's SpawnTelemetryUploader detaches an --upload-telemetry
+            // child that inherits AZCLIPS_HOME and may still be reading/writing the trace
+            // directory here, so an immediate recursive delete can race it (esp. on Windows,
+            // where an open handle turns this into a flaky IOException, not a real failure).
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -181,6 +250,7 @@ public class StreamRoutingIntegrationTests
         // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
         // `args > env` precedence means the flag still wins over this pin.
         psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
+        psi.Environment["AZCLIPS_HOME"] = homeDirectory;
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Immutable snapshot of an HTTP request as it left the runtime pipeline, taken at the

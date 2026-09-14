@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
-using Core.Recording;
+using Tests.Recording;
 
 namespace Scenario.Tests;
 
