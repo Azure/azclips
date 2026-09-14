@@ -21,12 +21,19 @@ namespace Core.ArgumentParsing
             profileService.GetProfileKeysForDefault().ForEach(key =>
             {
                 // Apply default property when not in args and in processor
-                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {})
+                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {} property)
                 {
                     // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
                     // along with parsed args
                     if (profileService.GetProfileValueByKey(profile, key) is not {} value)
                     {
+                        // Commands that create the profile (login) must run before one exists and resolve
+                        // the value themselves, so a missing profile value is not an error for them.
+                        if (property.IsDefined(typeof(OptionalProfileDefaultAttribute), inherit: true))
+                        {
+                            return;
+                        }
+
                         throw new ArgumentException($"Missing required argument '{key}' and no value found in profile.");
                     }
                     parsedArgs[key] = value;

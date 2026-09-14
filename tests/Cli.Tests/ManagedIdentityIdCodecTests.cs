@@ -32,6 +32,31 @@ public sealed class ManagedIdentityIdCodecTests
         Assert.Null(parsedValue);
     }
 
+    [Fact]
+    public void FormatThenParse_ShouldIgnoreTheRecordedId_ForSystemAssigned()
+    {
+        // the id identifies the signed-in identity but must not be handed to the credential,
+        // which selects the system-assigned identity itself
+        const string clientId = "33333333-3333-3333-3333-333333333333";
+        var combined = ManagedIdentityIdCodec.Format(ManagedIdentityIdType.SystemAssigned, clientId);
+        Assert.Equal($"MSI@{clientId}", combined);
+
+        var (parsedType, parsedValue) = ManagedIdentityIdCodec.Parse(combined);
+
+        Assert.Equal(ManagedIdentityIdType.SystemAssigned, parsedType);
+        Assert.Null(parsedValue);
+    }
+
+    [Fact]
+    public void FormatManagedIdentityId_FromLoginRequest_ShouldRecordTheSystemAssignedId()
+    {
+        const string clientId = "44444444-4444-4444-4444-444444444444";
+
+        var combined = ManagedIdentityIdCodec.Format(new LoginRequest(), clientId);
+
+        Assert.Equal($"MSI@{clientId}", combined);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

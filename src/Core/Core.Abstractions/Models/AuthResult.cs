@@ -51,6 +51,12 @@ public record AuthResult
     public string? UserPrincipalName;
 
     /// <summary>
+    /// The client (application) id of the authenticated identity, when the token exposes it.
+    /// Populated for managed identity logins, where the identity is not represented by a user account.
+    /// </summary>
+    public string? ClientId;
+
+    /// <summary>
     /// The correlation ID used for the authentication request.
     /// Null for credential types that do not provide a correlation ID (e.g., MI/SP).
     /// </summary>
