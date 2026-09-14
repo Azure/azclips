@@ -35,10 +35,12 @@ if ($secure.Token -is [System.Security.SecureString]) {
 
 Section 'Plaintext opt-in via -AsPlainText'
 $plain = Get-AzAccessToken -AsPlainText
-if ($plain.Token -is [string] -and "$($plain.Token)" -match '^ey') {
-    Write-Host "OK: raw token returned as a plain string when -AsPlainText is passed." -ForegroundColor Green
+# OAuth access tokens are opaque: a valid token need not be a JWT or start with "ey"
+# (e.g. tokens for personal Microsoft accounts). Only assert a non-empty string was returned.
+if ($plain.Token -is [string] -and -not [string]::IsNullOrEmpty($plain.Token)) {
+    Write-Host "OK: raw token returned as a non-empty plain string when -AsPlainText is passed." -ForegroundColor Green
 } else {
-    throw "-AsPlainText did not return a plain JWT string."
+    throw "-AsPlainText did not return a non-empty plain string."
 }
 
 Section 'Get-AzAccessToken -ResourceTypeName MSGraph (well-known type shortcut)'
