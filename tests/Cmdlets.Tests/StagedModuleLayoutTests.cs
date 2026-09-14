@@ -35,8 +35,9 @@ public class StagedModuleLayoutTests
 
         foreach (var manifest in manifests)
         {
-            Assert.DoesNotContain("artifacts/Debug", File.ReadAllText(manifest), StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("artifacts/Release", File.ReadAllText(manifest), StringComparison.OrdinalIgnoreCase);
+            var content = File.ReadAllText(manifest).Replace('\\', '/');
+            Assert.DoesNotContain("artifacts/Debug", content, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("artifacts/Release", content, StringComparison.OrdinalIgnoreCase);
         }
     }
 

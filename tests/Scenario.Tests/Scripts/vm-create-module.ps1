@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 # The build stages every module as a self-contained folder under artifacts/<Configuration>/PS;
-# the runner points at the configuration it was built with, Debug is the dev default.
+# the runner points at the configuration it was built with; Debug is the dev default.
 $modules = if ($env:AZCLIPS_PS_MODULES) { $env:AZCLIPS_PS_MODULES } else { './artifacts/Debug/PS' }
 Import-Module (Join-Path $modules 'Accounts/Accounts.psd1')
 Import-Module (Join-Path $modules 'Resources/Resources.psd1')
