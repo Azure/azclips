@@ -268,8 +268,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 throw new ArgumentException(
                     $"Invalid subscription id '{SubscriptionId}'. Provide the subscription's id (a GUID, e.g., 00000000-0000-0000-0000-000000000000) with '{Flag(nameof(SubscriptionId))}', not its display name.");
             }
-
-
         }
 
         /// <summary>
