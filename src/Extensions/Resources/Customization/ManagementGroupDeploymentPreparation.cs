@@ -6,9 +6,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Customization;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public interface IManagementGroupDeploymentInput
 {

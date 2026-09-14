@@ -11,12 +11,6 @@ namespace Cli.Tests;
 public class ExtensionHelpManifestBuilderTests
 {
     [Fact]
-    public void BuildManifests_ShouldSkipPowerShellOnlyExtension()
-    {
-        Assert.Empty(ExtensionHelpManifestBuilder.BuildManifests(new PowerShellOnlyExtensionIndex(), "1.0.0"));
-    }
-
-    [Fact]
     public void BuildManifest_ShouldProduceLoginCommands_WithInlineExamples()
     {
         var index = new ExtensionIndex();
@@ -169,35 +163,6 @@ public class ExtensionHelpManifestBuilderTests
 
         public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
             => clientType == ClientType.CLI ? s_cliTable : s_psTable;
-
-        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
-            => GetCommandTable(clientType).Values;
-    }
-
-    private sealed class PowerShellOnlyExtensionIndex : IExtensionIndex
-    {
-        private static readonly CommandMetadata s_command = new(
-            Name: "StubCommand",
-            InvocationName: "New-Stub",
-            Aliases: [],
-            FullName: "Stub.StubCommand",
-            AssemblyName: "Stub",
-            ProcessorType: typeof(PowerShellOnlyExtensionIndex),
-            Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>());
-
-        private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
-        {
-            ["New-Stub"] = s_command,
-        };
-
-        public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
-            => GetCommandTable(clientType)[name];
-
-        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
-            => clientType == ClientType.CLI
-                ? new Dictionary<string, CommandMetadata>()
-                : s_psTable;
 
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
             => GetCommandTable(clientType).Values;

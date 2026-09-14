@@ -5,8 +5,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Abstractions;
-using NewManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Deployment.Customization.NewManagementGroupDeploymentProcessor;
-using TestManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Deployment.Customization.TestManagementGroupDeploymentProcessor;
+using NewManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor;
+using TestManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestManagementGroupDeploymentProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -124,6 +124,58 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["RollbackOnError"]   = new("RollbackOnError", "RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RollbackToDeploymentName"] = new("RollbackToDeploymentName", "RollbackToDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_newManagementGroupDeployment_PS = new(
+            Name: nameof(NewManagementGroupDeploymentProcessor),
+            InvocationName: "New-AzManagementGroupDeployment",
+            Aliases: [],
+            FullName: typeof(NewManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(NewManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", false, ["DeploymentName"], []),
+                ["Location"] = new("Location", "Location", typeof(string), "The location used to store deployment metadata.", true, [], []),
+                ["TemplateFile"] = new("TemplateFile", "TemplateFile", typeof(string), "A local ARM JSON or Bicep template.", false, [], []),
+                ["TemplateUri"] = new("TemplateUri", "TemplateUri", typeof(string), "The URI of an ARM template.", false, [], []),
+                ["TemplateSpecId"] = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource ID of a Template Spec.", false, [], []),
+                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(object), "An inline ARM template object.", false, [], []),
+                ["QueryString"] = new("QueryString", "QueryString", typeof(string), "A query string used with TemplateUri.", false, [], []),
+                ["TemplateParameterFile"] = new("ParametersFile", "TemplateParameterFile", typeof(string), "A local JSON or Bicep parameters file.", false, [], []),
+                ["TemplateParameterUri"] = new("ParametersUri", "TemplateParameterUri", typeof(string), "The URI of an ARM parameters file.", false, [], []),
+                ["TemplateParameterObject"] = new("TemplateParameterObject", "TemplateParameterObject", typeof(object), "An inline template parameter object.", false, [], []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
+                ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), "None, RequestContent, ResponseContent, or All.", false, [], ["None", "RequestContent", "ResponseContent", "All"]),
+                ["Tag"] = new("Tag", "Tag", typeof(object), "Deployment tags.", false, [], []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_testManagementGroupDeployment_PS = new(
+            Name: nameof(TestManagementGroupDeploymentProcessor),
+            InvocationName: "Test-AzManagementGroupDeployment",
+            Aliases: [],
+            FullName: typeof(TestManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(TestManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
+                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", false, ["DeploymentName"], []),
+                ["Location"] = new("Location", "Location", typeof(string), "The location used to store deployment metadata.", true, [], []),
+                ["TemplateFile"] = new("TemplateFile", "TemplateFile", typeof(string), "A local ARM JSON or Bicep template.", false, [], []),
+                ["TemplateUri"] = new("TemplateUri", "TemplateUri", typeof(string), "The URI of an ARM template.", false, [], []),
+                ["TemplateSpecId"] = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource ID of a Template Spec.", false, [], []),
+                ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(object), "An inline ARM template object.", false, [], []),
+                ["QueryString"] = new("QueryString", "QueryString", typeof(string), "A query string used with TemplateUri.", false, [], []),
+                ["TemplateParameterFile"] = new("ParametersFile", "TemplateParameterFile", typeof(string), "A local JSON or Bicep parameters file.", false, [], []),
+                ["TemplateParameterUri"] = new("ParametersUri", "TemplateParameterUri", typeof(string), "The URI of an ARM parameters file.", false, [], []),
+                ["TemplateParameterObject"] = new("TemplateParameterObject", "TemplateParameterObject", typeof(object), "An inline template parameter object.", false, [], []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile.", false, [], []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -311,7 +363,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             InvocationName: "deployment mg create",
             Aliases: [],
             FullName: typeof(NewManagementGroupDeploymentProcessor).FullName!,
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Deployment",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(NewManagementGroupDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -335,7 +387,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             InvocationName: "deployment mg validate",
             Aliases: [],
             FullName: typeof(TestManagementGroupDeploymentProcessor).FullName!,
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Deployment",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(TestManagementGroupDeploymentProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -410,13 +462,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
+            ["New-AzManagementGroupDeployment"] = s_newManagementGroupDeployment_PS,
+            ["Test-AzManagementGroupDeployment"] = s_testManagementGroupDeployment_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
         // (verb, path) tuple via Core.Extensions.LeafIndex. Resources contributes both the
-        // "group" verb (resource group CRUD) and the "deployment" verb (resource-group-scoped
-        // ARM/Bicep deployments).
+        // "group" verb (resource group CRUD) and the "deployment" verb (ARM/Bicep deployments).
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["group create"]              = s_newResourceGroup_CLI,

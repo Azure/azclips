@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Models;
 /// <summary>Azure Key Vault parameter reference.</summary>
 public partial class KeyVaultParameterReference
 {

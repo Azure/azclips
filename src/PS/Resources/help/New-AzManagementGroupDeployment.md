@@ -1,9 +1,9 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Deployment.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
-Module Name: Deployment
+Module Name: Resources
 ms.date: 09/08/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzManagementGroupDeployment
@@ -419,7 +419,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Deployment.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 The completed management-group deployment.
 

@@ -28,7 +28,7 @@ public static class HttpRuntime
         return response;
     }
 
-    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri, bool fetchFinalState = true)
+    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri)
     {
         HttpRequestMessage request = await getRequest();
         try
@@ -133,7 +133,7 @@ public static class HttpRuntime
                 }
                 // we are done polling, do a request on final target?
                 // create a new request with the final uri
-                if (fetchFinalState && !string.IsNullOrEmpty(_finalUri))
+                if (!string.IsNullOrEmpty(_finalUri))
                 {
                     // drop the old response
                     response?.Dispose();
