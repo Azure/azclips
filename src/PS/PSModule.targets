@@ -1,0 +1,67 @@
+<Project>
+
+  <!--
+    Stages src/PS/<Module> into artifacts/<Configuration>/PS/<Module> as a self-contained,
+    importable module with the same shape release packaging produces:
+
+      <Module>/<Module>.psd1
+      <Module>/bin/Microsoft.Azure.Azclips.Cmdlets.<Module>.dll
+      <Module>/Core/*.dll
+      <Module>/Extensions/Microsoft.Azure.Azclips.Extensions.<Module>.dll
+      <Module>/en-US/*.xml  (once help artifacts have been generated)
+
+    The committed manifests reference those payloads by module-relative paths, so the staged
+    folder imports under any build configuration without any manifest rewriting.
+  -->
+
+  <PropertyGroup>
+    <PSModuleName Condition="'$(PSModuleName)' == ''">$([System.IO.Path]::GetFileName('$(MSBuildProjectDirectory)'))</PSModuleName>
+    <PSModuleExtensionName>Microsoft.Azure.Azclips.Extensions.$(PSModuleName)</PSModuleExtensionName>
+    <PSModuleStagingDir>$(RepoArtifacts)$(Configuration)/PS/$(PSModuleName)/</PSModuleStagingDir>
+  </PropertyGroup>
+
+  <!--
+    A staged module carries the whole Core assembly set plus its own extension, so those
+    projects have to be built before staging copies them. ReferenceOutputAssembly=false keeps
+    these ordering-only dependencies; projects already referenced for compilation are removed
+    so ProjectReference stays free of duplicates.
+  -->
+  <ItemGroup>
+    <PSModuleStagingPrerequisite Include="$(RepoSrc)Core/*/Core.*.csproj" />
+    <PSModuleStagingPrerequisite Include="$(RepoSrc)Extensions/$(PSModuleName)/Extensions.$(PSModuleName).csproj" />
+    <PSModuleCompileReference Include="@(ProjectReference->'%(Filename)')" />
+    <PSModuleStagingPrerequisite Remove="@(PSModuleCompileReference)" MatchOnMetadata="Filename" />
+    <ProjectReference Include="@(PSModuleStagingPrerequisite)" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <Target Name="StagePSModule" AfterTargets="Build">
+    <ItemGroup>
+      <PSModuleManifest Include="$(MSBuildProjectDirectory)/$(PSModuleName).psd1" />
+      <PSModuleHelpFile Include="$(MSBuildProjectDirectory)/en-US/**/*" />
+      <PSModuleCoreAssembly Include="$(RepoArtifacts)$(Configuration)/Core/*.dll" />
+      <PSModuleExtensionAssembly Include="$(RepoArtifacts)$(Configuration)/$(PSModuleExtensionName)/$(PSModuleExtensionName).dll" />
+    </ItemGroup>
+
+    <Error Condition="'@(PSModuleManifest)' == ''"
+           Text="No module manifest found at $(MSBuildProjectDirectory)/$(PSModuleName).psd1; the staged module would not be importable." />
+    <Error Condition="'@(PSModuleCoreAssembly)' == ''"
+           Text="No Core assemblies found under $(RepoArtifacts)$(Configuration)/Core; the staged $(PSModuleName) module would not be importable." />
+
+    <Copy SourceFiles="@(PSModuleManifest)" DestinationFolder="$(PSModuleStagingDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PSModuleStagingDir)bin" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PSModuleCoreAssembly)" DestinationFolder="$(PSModuleStagingDir)Core" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PSModuleExtensionAssembly)" DestinationFolder="$(PSModuleStagingDir)Extensions" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PSModuleHelpFile)"
+          DestinationFiles="@(PSModuleHelpFile->'$(PSModuleStagingDir)en-US/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    Az is a manifest-only rollup with no cmdlet assembly of its own. It is staged with Accounts,
+    the module every other module requires, so the staged tree always contains the rollup too.
+  -->
+  <Target Name="StagePSRollupModule" AfterTargets="Build" Condition="'$(PSModuleName)' == 'Accounts'">
+    <Copy SourceFiles="$(RepoSrc)PS/Az/Az.psd1" DestinationFolder="$(RepoArtifacts)$(Configuration)/PS/Az" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -80,7 +80,6 @@ The `build/` folder holds PowerShell tooling that wraps `dotnet build` with Powe
 | `build.ps1` | Orchestrates `dotnet build azclips.slnx`, fixes up `.psd1` module manifests, and (with `-GenerateHelpArtifacts`) runs the help pipeline |
 | `Install-BuildDependencies.ps1` | Idempotently installs `Microsoft.PowerShell.PlatyPS` **1.0.1** (CurrentUser scope) — the only build-time PS dependency |
 | `New-PSHelpMarkdown.ps1` | Scaffolds `src/PS/<Module>/help/<Cmdlet>.md` for every cmdlet via PlatyPS and post-processes its <code v-pre>{{ Fill in … }}</code> placeholders |
-| `Set-ModuleConfiguration.ps1` | Rewrites `.psd1` manifests to point at the correct `artifacts/<Configuration>/…` paths |
 
 `build.ps1 -GenerateHelpArtifacts` is the help entrypoint: it first calls `Install-BuildDependencies.ps1` to guarantee PlatyPS 1.0.1 is present, then runs the help validation tool and publishes help artifacts, propagating the tool's exit code so CI fails on invalid help (`build/build.ps1:256-274`). PlatyPS is pinned to 1.0.1 because the scripts contain targeted work-arounds for that version's quirks — e.g. `New-PSHelpMarkdown.ps1` forces `en-US` locale and repairs unfenced example blocks emitted by schema `2024-05-01` (`build/New-PSHelpMarkdown.ps1:23,38,51`).
 

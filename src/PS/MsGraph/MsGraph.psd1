@@ -41,18 +41,18 @@ RequiredModules = @(
 )
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
-                        '../../../artifacts/Debug/Core/Core.Engine.dll',
-                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
-                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
-                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.MsGraph/Microsoft.Azure.Azclips.Extensions.MsGraph.dll'
+RequiredAssemblies = 'Core/Core.Abstractions.dll',
+                        'Core/Core.Telemetry.dll',
+                        'Core/Core.Runtime.dll',
+                        'Core/Core.Engine.dll',
+                        'Core/Core.AssemblyLoading.dll',
+                        'Core/Core.ArgumentParsing.dll',
+                        'Core/Core.DependencyInjection.dll',
+                        'Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
+                        'Extensions/Microsoft.Azure.Azclips.Extensions.MsGraph.dll'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll')
+NestedModules = @('bin/Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()

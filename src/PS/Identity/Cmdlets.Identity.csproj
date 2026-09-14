@@ -30,5 +30,8 @@
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
     </ItemGroup>
-</Project>
 
+    <!-- Stages this module into artifacts/<Configuration>/PS/<Module> as an importable, self-contained folder. -->
+    <Import Project="$(MSBuildThisFileDirectory)..\PSModule.targets" />
+
+</Project>

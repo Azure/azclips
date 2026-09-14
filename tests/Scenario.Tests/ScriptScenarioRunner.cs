@@ -44,7 +44,7 @@ internal static class ScriptScenarioRunner
             var psi = new ProcessStartInfo
             {
                 FileName = shell,
-                // scripts import PS modules by repo-relative paths
+                // scripts refer to repo-relative paths
                 WorkingDirectory = repoRoot,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -59,6 +59,7 @@ internal static class ScriptScenarioRunner
             psi.Environment["AZCLIPS_HOME"] = home.Replace('\\', '/');
             psi.Environment[RecordingHook.RecordingPathVariable] = recordingCopy.Replace('\\', '/');
             psi.Environment["AZCLIPS_TEST_AZ"] = ResolveCliBinary(repoRoot).Replace('\\', '/');
+            psi.Environment["AZCLIPS_PS_MODULES"] = ResolvePsModuleRoot(repoRoot).Replace('\\', '/');
             // The product has no test awareness; the runtime injects the recording assembly
             // into every spawned az and pwsh process.
             psi.Environment["DOTNET_STARTUP_HOOKS"] = typeof(RecordingHook).Assembly.Location;
@@ -133,6 +134,17 @@ internal static class ScriptScenarioRunner
             }
             """);
         File.WriteAllText(Path.Combine(home, "active-profile"), "playback");
+    }
+
+    // The build stages each PS module as a self-contained folder under
+    // artifacts/<Configuration>/PS, so scripts import the staged module of the same
+    // configuration the tests were built with instead of the source tree.
+    private static string ResolvePsModuleRoot(string repoRoot)
+    {
+        var moduleRoot = Path.Combine(repoRoot, "artifacts", BuildConfiguration, "PS");
+        return Directory.Exists(moduleRoot)
+            ? moduleRoot
+            : throw new InvalidOperationException($"Staged PS modules not found: {moduleRoot}. Run `dotnet build azclips.slnx` first.");
     }
 
     private static string ResolveCliBinary(string repoRoot)

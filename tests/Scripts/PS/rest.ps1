@@ -4,10 +4,10 @@
 # Universal REST passthrough - PowerShell
 # Equivalent of: Invoke-AzRestMethod -Method GET -Uri <url>
 #
-# Prereq: import Accounts + Resources modules, then Connect-AzAccount.
+# Prereq: build the solution, import the staged Accounts + Resources modules, then Connect-AzAccount.
 
-Import-Module ../../../src/PS/Accounts/Accounts.psd1
-Import-Module ../../../src/PS/Resources/Resources.psd1
+Import-Module ../../../artifacts/Debug/PS/Accounts/Accounts.psd1
+Import-Module ../../../artifacts/Debug/PS/Resources/Resources.psd1
 
 # Happy path: relative ARM path. {subscriptionId} is substituted from the auth context,
 # the ARM endpoint is prepended, and the request is authenticated automatically.

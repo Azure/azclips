@@ -14,11 +14,10 @@ function Invoke-AzclipsBuild
         [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Configuration
     )
 
+    # The build stages each PS module as a self-contained folder under
+    # artifacts/<Configuration>/PS, so no manifest rewriting is needed afterwards.
     dotnet build "$PSScriptRoot/../azclips.slnx" --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)." }
-
-    # Update .psd1 module manifests to reference the correct artifact paths.
-    & "$PSScriptRoot/Set-ModuleConfiguration.ps1" -Configuration $Configuration
 }
 
 function Invoke-HelpValidationTool

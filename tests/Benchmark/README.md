@@ -9,11 +9,9 @@ Performance benchmarking for Azclips CLI/PowerShell engine, comparing execution 
 Benchmarks execute the **Release** build artifacts (CLI host, extensions, and PowerShell module DLLs), so build in Release first:
 
 ```bash
-# Build the solution in Release (produces artifacts/Release/...)
+# Build the solution in Release (also stages the PS modules the PS benchmarks import
+# into artifacts/Release/PS/)
 dotnet build azclips.slnx -c Release
-
-# Stage PS module manifests into artifacts/Release/PS/ (required for PS benchmarks)
-./build/Set-ModuleConfiguration.ps1 -c Release
 ```
 
 ### Run Benchmarks
