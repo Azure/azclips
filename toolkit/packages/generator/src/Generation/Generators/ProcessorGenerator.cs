@@ -94,21 +94,18 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             return null;
         }
 
-        IRServerDefinition[] matches = context.Ir.Servers
-            .Where(server => IrIds.Equal(server.Id, operation.Server))
-            .Take(2)
-            .ToArray();
-        if (matches.Length != 1)
+        IRServerDefinition? match = context.Index.Server(operation.Server);
+        if (match is null || context.Index.IsServerAmbiguous(operation.Server))
         {
             context.Report(
                 Model.DiagnosticSeverity.Error,
-                matches.Length == 0 ? "ace-generator/unknown-server-reference" : "ace-generator/ambiguous-server-reference",
+                match is null ? "ace-generator/unknown-server-reference" : "ace-generator/ambiguous-server-reference",
                 $"Operation '{operation.Name}' references server '{operation.Server.Module}:{operation.Server.Name}', " +
-                (matches.Length == 0 ? "but no matching definition exists." : "but multiple matching definitions exist."));
+                (match is null ? "but no matching definition exists." : "but multiple matching definitions exist."));
             return null;
         }
 
-        if (matches[0].Endpoint is null)
+        if (match.Endpoint is null)
         {
             context.Report(
                 Model.DiagnosticSeverity.Error,
@@ -116,7 +113,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 $"The server definition referenced by operation '{operation.Name}' is missing its required endpoint.");
         }
 
-        return matches[0].Endpoint;
+        return match.Endpoint;
     }
 
     /// <summary>
@@ -361,8 +358,6 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             yield break;
         }
 
-        Dictionary<string, IRProperty> properties = FlattenSupport.IndexProperties(context.Ir);
-
         foreach (FlattenedParameter parameter in projected)
         {
             if (string.IsNullOrWhiteSpace(parameter.Name))
@@ -370,7 +365,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 continue;
             }
 
-            IRProperty[]? hops = FlattenSupport.ResolvePath(parameter.Path, properties);
+            IRProperty[]? hops = FlattenSupport.ResolvePath(parameter.Path, context.Index);
             string? target = ResolveBodyMember(bodyModel, parameter);
             if (hops is null || target is null)
             {

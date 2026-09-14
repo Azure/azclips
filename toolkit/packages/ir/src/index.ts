@@ -11,6 +11,7 @@ export { IR_SCHEMA_VERSION } from "./version.js";
 export {
   IRIdSchema,
   serializeId,
+  idKey,
   idEquals,
   type IRId,
 } from "./id.js";
@@ -192,3 +193,8 @@ export {
   emptyIR,
   type IR,
 } from "./ir.js";
+
+export {
+  indexIR,
+  type IRIndex,
+} from "./lookup.js";

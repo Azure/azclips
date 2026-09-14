@@ -39,7 +39,10 @@ export const IRIdSchema: z.ZodType<IRId> = z.lazy(() =>
 );
 
 /**
- * Canonical string form, suitable for display and equality comparison.
+ * Canonical string form, suitable for display. **Not** a lookup key: namespace
+ * segments are joined with `.`, so `["A","B"]` and `["A.B"]` render identically
+ * even though {@link idEquals} distinguishes them. Use {@link idKey} to index.
+ *
  * NOT safe to use as a filesystem path; the `<`, `>`, `,`, `[`, `]`
  * characters appear for template instantiations and module brackets.
  * An interface scope uses `::` to distinguish it from a namespace segment.
@@ -52,6 +55,34 @@ export function serializeId(id: IRId): string {
       ? "<" + id.typeArgs.map(serializeId).join(", ") + ">"
       : "";
   return `[${id.module}] ${path}${args}`;
+}
+
+/**
+ * Key for identity-based lookup tables.
+ *
+ * Deliberately separate from {@link serializeId}, which is for display and joins
+ * namespace segments with `.` — so `["A","B"]` and `["A.B"]` collapse to the same
+ * string even though {@link idEquals} treats them as different ids. A lookup key
+ * has to agree with `idEquals` exactly, so this encodes the structure instead of
+ * flattening it: two ids share a key if and only if `idEquals` is true.
+ */
+export function idKey(id: IRId): string {
+  return JSON.stringify(idTuple(id));
+}
+
+/** Canonical array form: structural, so `JSON.stringify` of it is injective. */
+type IdTuple = [string, string[], string | null, string, IdTuple[] | null];
+
+function idTuple(id: IRId): IdTuple {
+  return [
+    id.module,
+    id.namespace,
+    // `interface` is `.min(1)`, so null is unambiguously "absent".
+    id.interface ?? null,
+    id.name,
+    // An absent `typeArgs` is not the same id as an empty one, matching `idEquals`.
+    id.typeArgs === undefined ? null : id.typeArgs.map(idTuple),
+  ];
 }
 
 /**

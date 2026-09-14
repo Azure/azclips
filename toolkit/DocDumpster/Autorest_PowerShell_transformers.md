@@ -492,3 +492,157 @@ those are two different metadata fields.
   capability. Such write-only members retain their original requiredness.
   This decision uses command-type and mutability metadata, not just the HTTP
   method or the member's schema-level required flag.
+
+## `create-commands-v2.ts`
+
+Analysis of `C:\workspace\autorest.powershell\powershell\plugins\create-commands-v2.ts`.
+Line references in this section refer to that source file unless stated
+otherwise.
+
+Invents the cmdlet surface. It reads `model.operationGroups` and writes
+`model.commands.operations`, a dictionary keyed by insertion index where each
+entry is one PowerShell parameter set: a verb, a subject, a variant suffix, and
+its own cloned parameter list. One REST operation normally yields several
+entries. Nothing is removed from the operation groups — commands are an
+additional projection beside them.
+
+This is the stage `plugin-create-inline-properties.ts` consumes: the `Expanded`
+commands emitted here carry `dropBodyParameter`, which that later pass turns
+into virtual parameters.
+
+`createCommandsV2()` (line 732) builds `ModelState<PwshModel>`, runs
+`new Inferrer(state).init()` then `createCommands()`, and writes
+`code-model-v4-createcommands-v2.yaml` with artifact type `code-model-v4`.
+
+- **Resolve configuration and the service name** (lines 29-38, 122-163)
+
+  Reads `azure`, `verb-mapping`, `prefix`, `service-name`, `subject-prefix`, and
+  `support-json-input` (defaulting to `true` under `azure`, `false` otherwise),
+  then writes `serviceName`, `subjectPrefix`, `prefix`, and `isAzure` back onto
+  the model and state.
+
+  `titleToAzureServiceName()` strips `Client`, `Azure`, `Microsoft`, `APIs`,
+  `API`, `REST`, and non-leading `Management`, then removes a trailing
+  `ServiceResourceProvider`, `ResourceProvider`, `DataPlane`, or `Data`. Its
+  `// UNUSED: Moved to plugin-tweak-model.ts` comment is stale — `init()` calls
+  it. The `(?=.*)` in the regex matches unconditionally and has no effect.
+
+- **Classify an operation group and synthesize Update from GET+PUT**
+  (lines 164-262, 264-281)
+
+  Each group is scanned once, bucketing operations by HTTP method into
+  `getOperations`, `putOperation`, and `patchOperation`, while emitting the
+  ordinary variants for every operation.
+
+  Under `azure` with identity transformation enabled, a PATCH whose body carries
+  a writable `identity.type` property is *skipped* from ordinary generation, and
+  such a PUT is tagged `CommandType.ManagedIdentityNew`.
+
+  `supportsGetPut()` then decides whether a GET can feed a PUT: the GET must
+  have no query parameter other than `apiVersion`, the PUT must have exactly one
+  request with a body schema, and *every* GET response schema must be that same
+  schema object. Combined with a path match between the two, this produces an
+  `Update` command built from the **PUT's** parameters but the **GET's** inferred
+  name, with the GET recorded as a pre-operation — `CommandType.GetPut`, or
+  `ManagedIdentityUpdate` when identity is involved.
+
+  A managed-identity PATCH that cannot be combined is a hard **error**: the pass
+  throws unless the operation id appears in
+  `disable-transform-identity-type-for-operation`, pointing at the
+  managed-identity best-practices document.
+
+- **Infer verb and subject from the operation id** (lines 283-362, 364-394, 701-730)
+
+  The group name is deconstructed, sequential duplicates removed, its last word
+  singularized, and PascalCased. An entry in `verb-mapping` short-circuits
+  everything; otherwise `inferCommand()` walks the deconstructed method name
+  (the literal word `all` is dropped first):
+
+  - one word — that word is the action, the group is the subject;
+  - two words — whichever is a known verb becomes the action, else the first is
+    taken as the action with a warning;
+  - three or more — split on `or` (yielding two commands), else on the first of
+    `with`, `at`, `by`, `for`, `in`, `of` (the tail becomes the variant suffix),
+    else locate a verb.
+
+  `filterSpecialWords()` suppresses the `in` split when preceded by `sign`, so
+  `signIn` survives. When the located verb is neither first nor last, the subject
+  is built from `operation.slice(i, i)` (line ~355) — always empty, so the
+  subject collapses to the group name alone. `slice(0, i)` appears to be
+  intended.
+
+  `createCommandVariant()` maps the action through `verb-mapping`, falling back
+  to `Invoke`; when it falls back and the action is not `post`, the action is
+  prepended to the subject. Every subject word is singularized and sequential
+  duplicates removed. `alias` is always emitted empty.
+
+- **Emit the parameter-set variants for one operation** (lines 561-595, 637-697)
+
+  Parameters are split into constants (`constantValue` or `fromHost`) and the
+  rest. The body is the first request parameter not marked
+  `modelerfour:synthesized`. A `Update` verb on a PUT is rewritten to `Set`;
+  the presence of pre-operations forces both action and verb to `Update`.
+
+  With `support-json-input` — and only when the command is neither `GetPut` nor
+  `ManagedIdentityUpdate` — two further commands are added,
+  `…ViaJsonString` and `…ViaJsonFilePath`. Each drops the real body parameter,
+  adds a synthesized required string parameter, and re-adds a body parameter
+  carrying the schema. Both push the *same* `IParameter` instance, so the two
+  commands share one object.
+
+- **ViaIdentity variants walk the resource path outward** (lines 596-636)
+
+  Skipped entirely under `disable-via-identity`. Path parameters are filtered
+  against `reservedPathParam`, which holds `'SubscriptionId'` and
+  `'resourceGroupName'` — inconsistent casing against the
+  `language.default.name` values it is compared with, so one of the two will not
+  match on a given spec.
+
+  With `enable-parent-pipeline-input` off (it defaults to `isAzure`), a single
+  `ViaIdentity` variant is emitted when path parameters remain and the action is
+  not `list`. With it on, the path is walked from the innermost segment outward,
+  producing `ViaIdentity` for the resource itself and `ViaIdentity{Resource}` for
+  each ancestor, with the remaining inner names kept as parameters. Resource
+  names come from `getResourceNameFromPath()`; the walk stops at the first
+  segment whose name cannot be derived.
+
+- **Attach the body and emit the `Expanded` companion** (lines 396-450)
+
+  `addVariant()` first rewrites `operation.language.default.description`,
+  replacing a leading "create or update"/"creates"/"updates" phrase with the
+  variant's action. This mutates the shared operation object, so the result
+  depends on how many variants have already been generated from it.
+
+  A body parameter is appended as an `IParameter` marked `isBodyParameter`. When
+  the body schema is an object, dictionary, or `any`, a second command named
+  `{vname}Expanded` is registered with `dropBodyParameter = true` and a
+  `{bodyParameterName}Body` parameter — the hand-off to
+  `plugin-create-inline-properties.ts`.
+
+- **Register the command, trim and de-duplicate its name** (lines 452-559)
+
+  Names longer than 64 characters are rebuilt from deconstructed words until the
+  result exceeds 60. The loop assigns before testing, so the kept value is the
+  first that *exceeds* 60 rather than the last under it; and when no prefix
+  exceeds 60 it ends at `slice(0, length - 1)`, silently dropping the final word.
+
+  Uniqueness is enforced on `{verb}-{subject}-{vname}`: on collision, trailing
+  digits are stripped and an incrementing counter appended.
+
+  Pre-operations force `commandName` and `language.default.name` to `Update` and
+  prepend them to `callGraph`. `operationType` — later consumed for
+  `x-ms-mutability` — is `Create` for a PUT whose action is create (or update via
+  the `Set` verb), `Update` for a PATCH or PUT whose action is update, otherwise
+  `Other`.
+
+  Every parameter is cloned per command (excluding `schema` and `origin`) so
+  later passes can mutate one command's copy without affecting another. The clone
+  PascalCases `language.default.name`, keeps the original under `httpParameter`,
+  and sets `name` to the serialized name. `operationId` is deliberately written
+  as an empty string.
+
+- **Dead code** (lines 56-68, 112-126)
+
+  `fn()`/`combinations()` compute all subsequences and are never called.
+  `commonParameters` is assigned in `init()` — `['subscriptionId']` under
+  `azure`, with `resourceGroupName` commented out — and never read.

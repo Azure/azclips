@@ -16,7 +16,7 @@ import { IROperationSchema, type IROperation } from "./operation.js";
 import { IRSourceSchema, type IRSource } from "./source.js";
 import { IRServerDefinitionSchema, type IRServerDefinition } from "./server.js";
 import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discriminated-union.js";
-import { idEquals, serializeId, type IRId } from "./id.js";
+import { idKey, serializeId, type IRId } from "./id.js";
 
 export type IR = {
   schemaVersion: string;
@@ -40,17 +40,22 @@ export const IRSchema: z.ZodType<IR> = z
   })
   .strict()
   .superRefine((ir, ctx) => {
+    // Keyed rather than pairwise: `idKey` agrees with `idEquals`, so this is one
+    // pass instead of the quadratic scan a `some()` over earlier entries needs.
+    const defined = new Set<string>();
     ir.servers.forEach((server, index) => {
-      if (ir.servers.slice(0, index).some((previous) => idEquals(previous.id, server.id))) {
+      const key = idKey(server.id);
+      if (defined.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Duplicate server definition ${serializeId(server.id)}`,
           path: ["servers", index, "id"],
         });
       }
+      defined.add(key);
     });
     const checkReference = (id: IRId, path: (string | number)[]): void => {
-      if (!ir.servers.some((server) => idEquals(server.id, id))) {
+      if (!defined.has(idKey(id))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Server reference ${serializeId(id)} has no definition in IR.servers`,

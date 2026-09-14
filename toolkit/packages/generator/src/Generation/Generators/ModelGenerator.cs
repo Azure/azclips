@@ -31,8 +31,6 @@ internal sealed class ModelGenerator : IArtifactGenerator
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
         string ns = context.Options.RootNamespace + ".Models";
-        Dictionary<string, IRProperty> properties = FlattenSupport.IndexProperties(context.Ir);
-
         foreach (IRModel model in context.Ir.Models)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -47,7 +45,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
             }
 
             string typeName = model.Name.Identifier();
-            yield return new GeneratedFile($"Models/{typeName}.cs", Emit(context, ns, typeName, model, properties), typeName);
+            yield return new GeneratedFile($"Models/{typeName}.cs", Emit(context, ns, typeName, model), typeName);
         }
     }
 
@@ -77,14 +75,13 @@ internal sealed class ModelGenerator : IArtifactGenerator
         GenerationContext context,
         string @namespace,
         string className,
-        IRModel model,
-        IReadOnlyDictionary<string, IRProperty> properties)
+        IRModel model)
     {
         // Build the class: `public partial class <Name> { <props> }`, with an XML
         // <summary> doc attached last so it lands on the declaration's first token.
         ClassDeclarationSyntax cls = ClassDeclaration(className)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers([.. model.Properties.Select(EmitProperty), .. EmitFlattened(context, model, properties)])
+            .AddMembers([.. model.Properties.Select(EmitProperty), .. EmitFlattened(context, model)])
             .WithLeadingXmlDoc(model.Docs ?? model.Summary);
 
         // Wrap it in usings + a file-scoped namespace, then let Roslyn format it.
@@ -167,8 +164,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// </remarks>
     private static IEnumerable<PropertyDeclarationSyntax> EmitFlattened(
         GenerationContext context,
-        IRModel model,
-        IReadOnlyDictionary<string, IRProperty> properties)
+        IRModel model)
     {
         foreach (FlattenedMember member in model.Rendering?.Flattened ?? [])
         {
@@ -177,7 +173,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 continue;
             }
 
-            IRProperty[]? hops = FlattenSupport.ResolvePath(member.Path, properties);
+            IRProperty[]? hops = FlattenSupport.ResolvePath(member.Path, context.Index);
             if (hops is null)
             {
                 context.Report(

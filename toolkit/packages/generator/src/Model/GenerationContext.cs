@@ -12,6 +12,7 @@ namespace Ace.Generator.Model;
 internal sealed class GenerationContext
 {
     private readonly List<GeneratorDiagnostic> _diagnostics;
+    private readonly Lazy<Generators.IrIndex> _index;
 
     internal GenerationContext(
         IRDocument ir,
@@ -23,10 +24,17 @@ internal sealed class GenerationContext
         Options = options;
         _diagnostics = diagnostics;
         CancellationToken = cancellationToken;
+        _index = new Lazy<Generators.IrIndex>(() => new Generators.IrIndex(ir));
     }
 
     /// <summary>The IR document being generated from.</summary>
     public IRDocument Ir { get; }
+
+    /// <summary>
+    /// Identity lookup over <see cref="Ir"/>, built once per run. Generation never mutates the
+    /// IR, so the snapshot stays valid for the whole run.
+    /// </summary>
+    public Generators.IrIndex Index => _index.Value;
 
     /// <summary>Host-resolved generation options.</summary>
     public GeneratorOptions Options { get; }
