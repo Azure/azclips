@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789360244417,
+  "lastUpdate": 1789360248762,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -7352,6 +7352,48 @@ window.BENCHMARK_DATA = {
             "value": 324250081.67,
             "unit": "ns",
             "range": "± 8259495.319294893"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cf38c454cfc035a80c68dcb4b627be31f268f46c",
+          "message": "[CLI] Add separate default output format for simple results (#869)\n\nAdds a second CLI output-format config key so a `--query` result that\nnarrows a complex value down to a scalar (string/number/bool/null) gets\nits own sensible default, instead of inheriting whatever\n`clients.cli.output.format` (default `json`) is set to.\n\n## What changed\n\n- New config key `clients.cli.output.simpleFormat` (default `tsv`), same\nallowed values as `clients.cli.output.format`.\n- `CliOutputFormatter` now picks between the two defaults based on the\n*final* result shape (after any `--query` transform), via a new\n`SelectFormat`/`FormatValue` overload -- object/array results are\nunaffected and keep using `clients.cli.output.format`.\n- An explicit `--output`/`-o` flag still overrides both, unchanged.\n- Only the successful command-result path is affected -- error rendering\nand `az version`/`az --version` are untouched.\n\n## Example\n\n```\n$ az group show --name myrg --query location\neastus          # was \"eastus\" (quoted JSON) before this change\n```\n\n## Testing\n\n- Added: `ConfigurationSchemaTests`, `OutputFormatPolicyTests`,\n`CliOutputFormatterTests` (new overload + `SelectFormat` shape matrix),\n`StreamRoutingIntegrationTests` (e2e against the built binary).\n- Updated one existing e2e assertion that encoded the pre-#835 behavior\nthis PR intentionally changes, plus added a companion test proving\n`--output` still overrides it.\n- Full `Cli.Tests` suite: 793 passed, 0 failed, 8 skipped (pre-existing,\nunrelated).\n\n## History Notes\n\n[CLI] Scalar `--query` results now default to `tsv`\n(`clients.cli.output.simpleFormat`) instead of\n`clients.cli.output.format`; override either with `--output`.\n\nCloses #835\nRelated to #632",
+          "timestamp": "2026-09-14T13:00:09+10:00",
+          "tree_id": "0281d2e3b78be31528de1ca46660d761cd8c057f",
+          "url": "https://github.com/Azure/azclips/commit/cf38c454cfc035a80c68dcb4b627be31f268f46c"
+        },
+        "date": 1789360248669,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 297006268.73,
+            "unit": "ns",
+            "range": "± 5706779.4134258"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 299793060.74,
+            "unit": "ns",
+            "range": "± 6751311.367901918"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 297927080.33,
+            "unit": "ns",
+            "range": "± 6851885.649689928"
           }
         ]
       }
