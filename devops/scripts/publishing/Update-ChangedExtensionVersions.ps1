@@ -50,6 +50,12 @@ function Get-NextPatchVersion {
     "$($match.Groups['major'].Value).$($match.Groups['minor'].Value).$nextPatch"
 }
 
+function Get-ModuleDependencyPattern {
+    param([string] $ModuleName)
+
+    "(?m)^(?<prefix>[^\S\r\n]*@\{[^\S\r\n]*ModuleName[^\S\r\n]*=[^\S\r\n]*'$([regex]::Escape($ModuleName))';[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$"
+}
+
 function Set-LineVersion {
     param(
         [string] $Path,
@@ -133,7 +139,9 @@ $changedModules = @(
 )
 
 $rollupContent = Get-Content -Path $rollupManifestPath -Raw
+$rollupData = Import-PowerShellDataFile -Path $rollupManifestPath
 $packageableModules = New-Object System.Collections.Generic.List[string]
+$moduleMetadata = @{}
 Get-ChildItem -Path (Join-Path $RepoRoot 'src/Extensions') -Directory | ForEach-Object {
     $moduleName = $_.Name
     $projectPath = Join-Path $_.FullName "Extensions.$moduleName.csproj"
@@ -145,30 +153,70 @@ Get-ChildItem -Path (Join-Path $RepoRoot 'src/Extensions') -Directory | ForEach-
 
     $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
     $rollupModulePath = "../$moduleName/$moduleName.psd1"
-    if ($rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
+    $rollupDependencyPattern = Get-ModuleDependencyPattern -ModuleName $rollupModulePath
+    $requiredModules = @(@($rollupData.RequiredModules) | Where-Object {
+        $_ -is [hashtable] -and $_.ModuleName -eq $rollupModulePath
+    })
+    if ($requiredModules.Count -ne 1 -or $rollupContent -notmatch $rollupDependencyPattern) {
         throw "Az rollup dependency was not found for packageable extension $moduleName`: $rollupModulePath"
     }
     if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
         throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"
     }
-    if ([string]::IsNullOrWhiteSpace((Get-ProjectVersion -Content (Get-Content -Path $projectPath -Raw)))) {
+    $projectVersion = Get-ProjectVersion -Content (Get-Content -Path $projectPath -Raw)
+    if ([string]::IsNullOrWhiteSpace($projectVersion)) {
         throw "Version was not found in src/Extensions/$moduleName/Extensions.$moduleName.csproj"
     }
     $packageableModules.Add($moduleName)
+    $moduleMetadata[$moduleName] = @{
+        ManifestData = Import-PowerShellDataFile -Path $moduleManifestPath
+        ProjectVersion = $projectVersion
+        RollupDependency = $requiredModules[0]
+    }
 }
 
-$updatedModules = New-Object System.Collections.Generic.List[string]
-foreach ($moduleName in $changedModules) {
-    $projectRelativePath = "src/Extensions/$moduleName/Extensions.$moduleName.csproj"
-    $projectPath = Join-Path $RepoRoot $projectRelativePath
-    $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
-    $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
-    $rollupModulePath = "../$moduleName/$moduleName.psd1"
+$changedModuleSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$changedModules | ForEach-Object { [void]$changedModuleSet.Add($_) }
+do {
+    $dependencyAdded = $false
+    foreach ($moduleName in $packageableModules) {
+        if ($changedModuleSet.Contains($moduleName)) {
+            continue
+        }
+        $dependencyNames = @($moduleMetadata[$moduleName].ManifestData['RequiredModules'] |
+            Where-Object { $_ -and $_.ModuleName } |
+            ForEach-Object {
+            [System.IO.Path]::GetFileNameWithoutExtension([string]$_.ModuleName)
+        })
+        if (@($dependencyNames | Where-Object { $changedModuleSet.Contains($_) }).Count -gt 0) {
+            $dependencyAdded = $changedModuleSet.Add($moduleName) -or $dependencyAdded
+        }
+    }
+} while ($dependencyAdded)
+$changedModules = @($changedModuleSet | Sort-Object)
 
+if (-not $isFirstRelease) {
+    foreach ($moduleName in $packageableModules) {
+        if ($changedModuleSet.Contains($moduleName)) {
+            continue
+        }
+        $metadata = $moduleMetadata[$moduleName]
+        if ([string]$metadata.ManifestData.ModuleVersion -ne $metadata.ProjectVersion -or
+            [string]$metadata.RollupDependency.ModuleVersion -ne $metadata.ProjectVersion) {
+            throw "Version metadata is not aligned for packageable extension $moduleName."
+        }
+    }
+}
+
+$baseVersions = @{}
+$targetVersions = @{}
+$newExtensions = @{}
+foreach ($moduleName in $changedModules) {
     if ($moduleName -notin $packageableModules) {
         continue
     }
-
+    $projectRelativePath = "src/Extensions/$moduleName/Extensions.$moduleName.csproj"
+    $projectPath = Join-Path $RepoRoot $projectRelativePath
     $baseProjectContent = if ($isFirstRelease) {
         $null
     }
@@ -179,17 +227,30 @@ foreach ($moduleName in $changedModules) {
     if ($isNewExtension) {
         $baseProjectContent = Get-Content -Path $projectPath -Raw
     }
-
     $baseVersion = Get-ProjectVersion -Content $baseProjectContent
     if ([string]::IsNullOrWhiteSpace($baseVersion)) {
         throw "Version was not found in $projectRelativePath"
     }
-    $targetVersion = if ($isNewExtension) {
-        $baseVersion
+    $baseVersions[$moduleName] = $baseVersion
+    $targetVersions[$moduleName] = if ($isNewExtension) { $baseVersion } else { Get-NextPatchVersion $baseVersion }
+    $newExtensions[$moduleName] = $isNewExtension
+}
+
+$updatedModules = New-Object System.Collections.Generic.List[string]
+foreach ($moduleName in $changedModules) {
+    $projectRelativePath = "src/Extensions/$moduleName/Extensions.$moduleName.csproj"
+    $projectPath = Join-Path $RepoRoot $projectRelativePath
+    $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
+    $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
+    $rollupModulePath = "../$moduleName/$moduleName.psd1"
+    $rollupDependencyPattern = Get-ModuleDependencyPattern -ModuleName $rollupModulePath
+
+    if ($moduleName -notin $packageableModules) {
+        continue
     }
-    else {
-        Get-NextPatchVersion -Version $baseVersion
-    }
+
+    $baseVersion = $baseVersions[$moduleName]
+    $targetVersion = $targetVersions[$moduleName]
 
     Set-LineVersion -Path $projectPath `
         -Pattern '(<Version>)\s*[0-9]+\.[0-9]+\.[0-9]+\s*(</Version>)' `
@@ -200,12 +261,43 @@ foreach ($moduleName in $changedModules) {
         -Replacement "`${prefix}'$targetVersion'`${suffix}" `
         -Description 'ModuleVersion'
     Set-LineVersion -Path $rollupManifestPath `
-        -Pattern "(?<prefix>ModuleName\s*=\s*'$([regex]::Escape($rollupModulePath))';\s*ModuleVersion\s*=\s*)'[^']+'(?<suffix>.*)" `
+        -Pattern $rollupDependencyPattern `
         -Replacement "`${prefix}'$targetVersion'`${suffix}" `
         -Description "Az.$moduleName rollup dependency"
 
-    $versionSummary = if ($isNewExtension) { "$targetVersion (new)" } else { "$baseVersion -> $targetVersion" }
+    $versionSummary = if ($newExtensions[$moduleName]) { "$targetVersion (new)" } else { "$baseVersion -> $targetVersion" }
     $updatedModules.Add("${moduleName}: $versionSummary")
+}
+
+foreach ($moduleName in $changedModules) {
+    if ($moduleName -notin $packageableModules) {
+        continue
+    }
+    $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
+    $dependencies = @($moduleMetadata[$moduleName].ManifestData['RequiredModules'] |
+        Where-Object { $_ -and $_.ModuleName })
+    foreach ($dependency in $dependencies) {
+        $dependencyName = [System.IO.Path]::GetFileNameWithoutExtension([string]$dependency.ModuleName)
+        if (-not $targetVersions.ContainsKey($dependencyName)) {
+            continue
+        }
+        Set-LineVersion -Path $moduleManifestPath `
+            -Pattern (Get-ModuleDependencyPattern -ModuleName ([string]$dependency.ModuleName)) `
+            -Replacement "`${prefix}'$($targetVersions[$dependencyName])'`${suffix}" `
+            -Description "$moduleName dependency on $dependencyName"
+    }
+}
+
+foreach ($moduleName in $packageableModules) {
+    $projectVersion = Get-ProjectVersion -Content (Get-Content -Path (Join-Path $RepoRoot "src/Extensions/$moduleName/Extensions.$moduleName.csproj") -Raw)
+    $manifestVersion = [string](Import-PowerShellDataFile -Path (Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1")).ModuleVersion
+    $updatedRollupData = Import-PowerShellDataFile -Path $rollupManifestPath
+    $rollupVersion = [string](@($updatedRollupData.RequiredModules) |
+        Where-Object { $_.ModuleName -eq "../$moduleName/$moduleName.psd1" } |
+        Select-Object -ExpandProperty ModuleVersion -First 1)
+    if ($projectVersion -ne $manifestVersion -or $projectVersion -ne $rollupVersion) {
+        throw "Version metadata is not aligned for packageable extension $moduleName."
+    }
 }
 
 if ($isFirstRelease) {

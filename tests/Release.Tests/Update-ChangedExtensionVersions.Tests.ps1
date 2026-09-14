@@ -35,7 +35,7 @@ BeforeAll {
 '@
         Write-TestFile -Root $root -RelativePath 'src/Extensions/Compute/Processor.cs' -Content 'class ComputeProcessor { }'
         Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/Accounts.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
-        Write-TestFile -Root $root -RelativePath 'src/PS/Compute/Compute.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Compute/Compute.psd1' -Content "@{`nModuleVersion = '0.1.0'`nRequiredModules = @(`n    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }`n)`n}`n"
         Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/ChangeLog.md' -Content "## Upcoming Release`n"
         Write-TestFile -Root $root -RelativePath 'src/PS/Compute/ChangeLog.md' -Content "## Upcoming Release`n"
         Write-TestFile -Root $root -RelativePath 'src/PS/Az/Az.psd1' -Content @'
@@ -58,7 +58,7 @@ RequiredModules = @(
 }
 
 Describe 'Update-ChangedExtensionVersions' {
-    It 'patch-bumps only extensions with code changes and aligns PowerShell metadata' {
+    It 'patch-bumps changed extensions and transitive dependents while aligning metadata' {
         $root = New-TestRepository
         Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
         git -C $root add .
@@ -69,8 +69,9 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Match '<Version>0\.1\.1</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') | Should -Match "ModuleVersion = '0\.1\.1'"
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
-        Get-Content -Raw (Join-Path $root 'src/Extensions/Compute/Extensions.Compute.csproj') | Should -Match '<Version>0\.1\.0</Version>'
-        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.0'"
+        Get-Content -Raw (Join-Path $root 'src/Extensions/Compute/Extensions.Compute.csproj') | Should -Match '<Version>0\.1\.1</Version>'
+        Get-Content -Raw (Join-Path $root 'src/PS/Compute/Compute.psd1') | Should -Match "ModuleName = 'Accounts'; ModuleVersion = '0\.1\.1'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.1'"
     }
 
     It 'does not double-bump an extension already set to the expected patch version' {
@@ -208,6 +209,36 @@ Describe 'Update-ChangedExtensionVersions' {
 
         { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
             Should -Throw '*Az rollup dependency was not found for packageable extension Accounts*'
+    }
+
+    It 'rejects a commented-out Az rollup dependency' {
+        $root = New-TestRepository
+        $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
+        (Get-Content -Raw $rollupPath).Replace(
+            "    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
+            "    # @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n"
+        ) | Set-Content -NoNewline $rollupPath
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add --all
+        git -C $root commit --quiet -m 'comment out rollup entry and change Accounts extension'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*Az rollup dependency was not found for packageable extension Accounts*'
+        Get-Content -Raw $rollupPath | Should -Match "# @\{ ModuleName = '../Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.0' \}"
+    }
+
+    It 'rejects an Az-only rollup version mismatch' {
+        $root = New-TestRepository
+        $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
+        (Get-Content -Raw $rollupPath).Replace(
+            "ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0'",
+            "ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.2.0'"
+        ) | Set-Content -NoNewline $rollupPath
+        git -C $root add --all
+        git -C $root commit --quiet -m 'change only the Accounts rollup version'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*Version metadata is not aligned for packageable extension Accounts*'
     }
 
     It 'skips a changed extension project without a PowerShell child module' {
