@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789352721157,
+  "lastUpdate": 1789352778380,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10114,6 +10114,54 @@ window.BENCHMARK_DATA = {
             "value": 2251361.455867603,
             "unit": "ns",
             "range": "± 100161.99857752933"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd0a13955084f22de2b2eb5390324fb9ab21276f",
+          "message": "{Tests} Add the PS module surface to script scenarios (#794)\n\nCompletes the script scenario coverage from\n[#784](https://github.com/Azure/azclips/pull/784): the vm create\nscenario now also runs as a PowerShell module script. Real\n`Import-Module` on the built manifests, real cmdlet parameter binding\nincluding the jagged `SubnetAddressPrefixes` array, the resource group's\nsubscription resolving from the active profile, and the typed output of\n`New-AzResourceGroup` feeding `New-AzVM`. Same committed recording,\nreplayed end to end without credentials, all fifteen entries consumed.\n\n\nAlso found on the way: the exported `New-AzVM` requires `SubscriptionId`\nwhile `New-AzResourceGroup` resolves it from the profile, and a\nnon-interactive shell hangs on PowerShell's parameter prompt for it. The\nscript passes it explicitly; **this inconsistency is worth its own\nissue.**\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-14T10:54:50+10:00",
+          "tree_id": "4c79af229ae62664808139d3f347785a38559b0f",
+          "url": "https://github.com/Azure/azclips/commit/bd0a13955084f22de2b2eb5390324fb9ab21276f"
+        },
+        "date": 1789352774913,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2639793.4627254508,
+            "unit": "ns",
+            "range": "± 106244.4095807603"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2613131.401589857,
+            "unit": "ns",
+            "range": "± 103248.83946967302"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2537616.924352019,
+            "unit": "ns",
+            "range": "± 124216.91903153462"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2349229.1060362174,
+            "unit": "ns",
+            "range": "± 110522.47368556648"
           }
         ]
       }
