@@ -10,7 +10,7 @@ Authenticate to Azure.
 --debug:
 Increase logging verbosity to show all debug logs.
 
---help -h:
+--help -h -help -? --?:
 Show help for the command or group and exit.
 
 --no-cache:

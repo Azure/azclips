@@ -123,6 +123,65 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task BareGroup_RendersGroupHelpToStdout()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("vm");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("# GROUP", stdout);
+        Assert.Contains("az vm:", stdout);
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-help")]
+    [InlineData("-?")]
+    [InlineData("--?")]
+    public async Task GroupHelpAlias_RendersGroupHelpToStdout(string helpToken)
+    {
+        var (exit, stdout, _) = await RunCliAsync("vm", helpToken);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("az vm:", stdout);
+    }
+
+    [Fact]
+    public async Task GroupWithUnknownFlag_KeepsCommandNotFound_AndRendersNoHelp()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("vm", "--list");
+
+        Assert.Equal(4, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("CommandNotFound", stderr);
+    }
+
+    [Fact]
+    public async Task MissingRequiredParameters_EmitsParseableError_WhenStderrIsRedirected()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "vm", "create");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        // stderr is redirected here, so the help page is suppressed and the error stays machine-readable.
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        var error = document.RootElement.GetProperty("error");
+        Assert.Equal("UsageError", error.GetProperty("code").GetString());
+        Assert.Contains("az vm create --help", error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task MissingRequiredParameters_DoesNotRenderHelpDocument_WhenRedirected()
+    {
+        var (_, stdout, stderr) = await RunCliAsync("vm", "create");
+
+        Assert.Empty(stdout);
+        Assert.DoesNotContain("# COMMAND", stderr);
+        Assert.DoesNotContain("# ARGUMENTS", stderr);
+    }
+
+    [Fact]
     public async Task ConfigSet_SimpleFormat_ChangesQueryScalarRendering_EndToEnd()
     {
         // Exercises the real path -- az config set writes JSON, ConfigurationService binds it into

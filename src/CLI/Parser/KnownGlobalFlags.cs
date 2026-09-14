@@ -47,7 +47,7 @@ public static class KnownGlobalFlags
             Action: new BoolToggleAction(static b => b.Debug = true)),
         new KnownGlobalFlag(
             Name: "--help",
-            Aliases: ["-h"],
+            Aliases: ["-h", "-help", "-?", "--?"],
             Summary: "Show help for the command or group and exit.",
             Default: null,
             Choices: null,

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Extensions;
@@ -59,7 +60,7 @@ public class JmesPathEvaluatorTests
     [Fact]
     public void Transform_ShouldThrowUsageError_ForInvalidSyntax()
     {
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => Core.Cli.Output.JmesPathEvaluator.Transform("""{"a":1}""", "[[["));
 
         Assert.Equal(2, ex.ExitCode);

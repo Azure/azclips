@@ -66,6 +66,29 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldFire_WhenExampleIsABareGroup()
+        {
+            // `az group` renders group help at runtime, but an example must invoke a command.
+            var content = Fence("az group");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.CLI_L1_UnknownCommand &&
+                e.Message.Contains("is a command group", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldStillFire_WhenGroupIsFollowedByUnknownSubcommand()
+        {
+            var content = Fence("az group nope");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.CLI_L1_UnknownCommand);
+        }
+
+        [Fact]
         public void Validate_ShouldPass_WhenRootCommandResolvesToEmptyKey()
         {
             // az login (no subcommand) → key "" in login's CLI table.
@@ -511,12 +534,12 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Theory]
-        [InlineData("az group create ?")]
         [InlineData("az group create -?")]
-        public void Validate_ShouldNotFireL4_OnBareQuestionMarkHelpInvocations(string invocation)
+        [InlineData("az group create --?")]
+        public void Validate_ShouldNotFireL4_OnQuestionMarkHelpInvocations(string invocation)
         {
-            // Parity with ExtensionDispatcher.s_helpFlags: `?` and `-?` are accepted as help
-            // flags anywhere in the arg list, so required-flag policing must not apply.
+            // Parity with KnownGlobalFlags: the `?` aliases are accepted as help flags anywhere in
+            // the arg list, so required-flag policing must not apply.
             var content = Fence(invocation);
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
