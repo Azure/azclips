@@ -48,7 +48,12 @@ namespace Core.ArgumentParsing
             {
                 if (value != null)
                 {
-                    var convertedValue = Convert.ChangeType(value, propertyInfo.PropertyType);
+                    // Values already assignable to the target type (e.g. a string[] for a collection
+                    // parameter such as --scope/-Scope) must be assigned directly: Convert.ChangeType
+                    // only handles IConvertible scalars and throws for arrays and other collections.
+                    var convertedValue = propertyInfo.PropertyType.IsInstanceOfType(value)
+                        ? value
+                        : Convert.ChangeType(value, propertyInfo.PropertyType);
                     propertyInfo.SetValue(processor, convertedValue);
                 }
                 else
