@@ -30,7 +30,7 @@ $secure = Get-AzAccessToken
 if ($secure.Token -is [System.Security.SecureString]) {
     Write-Host "OK: token is a SecureString by default (not a plain JWT)." -ForegroundColor Green
 } else {
-    Write-Host "UNEXPECTED: token is not a SecureString: $($secure.Token.GetType().FullName)" -ForegroundColor Red
+    throw "Secure-by-default contract broken: token is not a SecureString: $($secure.Token.GetType().FullName)"
 }
 
 Section 'Plaintext opt-in via -AsPlainText'
@@ -38,7 +38,7 @@ $plain = Get-AzAccessToken -AsPlainText
 if ($plain.Token -is [string] -and "$($plain.Token)" -match '^ey') {
     Write-Host "OK: raw token returned as a plain string when -AsPlainText is passed." -ForegroundColor Green
 } else {
-    Write-Host "UNEXPECTED: -AsPlainText did not return a plain JWT string." -ForegroundColor Red
+    throw "-AsPlainText did not return a plain JWT string."
 }
 
 Section 'Get-AzAccessToken -ResourceTypeName MSGraph (well-known type shortcut)'
@@ -54,20 +54,24 @@ Section 'Get-AzAccessToken -Scope (v2.0 multi-scope list)'
 Get-AzAccessToken -Scope 'https://graph.microsoft.com/.default' | Select-Object TenantId, ExpiresOn | Format-List | Out-Host
 
 Section 'Negative: -ResourceUrl and -Scope together should be rejected (mutually exclusive)'
+$rejected = $false
 try {
     Get-AzAccessToken -ResourceUrl 'https://vault.azure.net' -Scope 'https://graph.microsoft.com/.default' -ErrorAction Stop | Out-Null
-    Write-Host "UNEXPECTED: command succeeded with conflicting target inputs." -ForegroundColor Red
 } catch {
+    $rejected = $true
     Write-Host "OK: rejected as expected -" $_.Exception.Message
 }
+if (-not $rejected) { throw "Command succeeded with conflicting target inputs (-ResourceUrl and -Scope should be mutually exclusive)." }
 
 Section 'Negative: unknown -ResourceTypeName should be rejected'
+$rejected = $false
 try {
     Get-AzAccessToken -ResourceTypeName 'not-a-real-type' -ErrorAction Stop | Out-Null
-    Write-Host "UNEXPECTED: command succeeded with an unknown resource type." -ForegroundColor Red
 } catch {
+    $rejected = $true
     Write-Host "OK: rejected as expected -" $_.Exception.Message
 }
+if (-not $rejected) { throw "Command succeeded with an unknown resource type." }
 
 Write-Host ""
 Write-Host "All Get-AzAccessToken smoke checks completed." -ForegroundColor Green
