@@ -41,7 +41,6 @@ public class GlobalArgParserTests
     [InlineData("-help")]
     [InlineData("-?")]
     [InlineData("--?")]
-    [InlineData("?")]
     [InlineData("help")]
     [InlineData("--HELP")]
     public void Parse_TopLevelHelpToken_YieldsRootHelp_WithoutBareFlag(string token)
@@ -83,7 +82,6 @@ public class GlobalArgParserTests
     }
 
     [Theory]
-    [InlineData("?")]
     [InlineData("-?")]
     [InlineData("--?")]
     [InlineData("-h")]
@@ -91,9 +89,9 @@ public class GlobalArgParserTests
     [InlineData("-help")]
     public void Parse_HelpSubcommandSkipsHelpTokensInsteadOfTreatingThemAsPath(string helpToken)
     {
-        // Pre-refactor `StripHelpFlags` removed all help tokens (`?`, `-?`, `-h`, `--help`) from the
-        // tail of an `az help ...` subcommand invocation. `az help group ?` must yield group help
-        // for "group", not a bogus command-help request for "group ?".
+        // Pre-refactor `StripHelpFlags` removed all help tokens from the tail of an `az help ...`
+        // subcommand invocation. `az help group -?` must yield group help for "group", not a bogus
+        // command-help request for "group -?".
         var result = GlobalArgParser.Parse(new[] { "help", "group", helpToken });
 
         Assert.NotNull(result.Help);
@@ -143,16 +141,6 @@ public class GlobalArgParserTests
 
         Assert.NotNull(result.Help);
         Assert.Equal(new[] { "group", "list" }, result.Help!.Path);
-    }
-
-    [Fact]
-    public void Parse_HelpAliasAsParameterValue_DoesNotYieldCommandHelp()
-    {
-        // `?` is a declared bare alias, so this only passes while the post-flag guard holds.
-        var result = GlobalArgParser.Parse(new[] { "group", "cmd", "--name", "?" });
-
-        Assert.Null(result.Help);
-        Assert.Equal(new[] { "group", "cmd", "--name", "?" }, result.Positional);
     }
 
     [Fact]

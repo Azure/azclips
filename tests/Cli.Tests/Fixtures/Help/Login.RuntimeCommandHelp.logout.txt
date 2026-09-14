@@ -13,7 +13,7 @@ az logout
 --debug:
 Increase logging verbosity to show all debug logs.
 
---help -h -help -? --? ?:
+--help -h -help -? --?:
 Show help for the command or group and exit.
 
 --no-cache:

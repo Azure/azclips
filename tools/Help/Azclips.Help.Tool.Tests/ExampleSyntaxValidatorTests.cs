@@ -511,12 +511,12 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Theory]
-        [InlineData("az group create ?")]
         [InlineData("az group create -?")]
-        public void Validate_ShouldNotFireL4_OnBareQuestionMarkHelpInvocations(string invocation)
+        [InlineData("az group create --?")]
+        public void Validate_ShouldNotFireL4_OnQuestionMarkHelpInvocations(string invocation)
         {
-            // Parity with ExtensionDispatcher.s_helpFlags: `?` and `-?` are accepted as help
-            // flags anywhere in the arg list, so required-flag policing must not apply.
+            // Parity with KnownGlobalFlags: the `?` aliases are accepted as help flags anywhere in
+            // the arg list, so required-flag policing must not apply.
             var content = Fence(invocation);
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());

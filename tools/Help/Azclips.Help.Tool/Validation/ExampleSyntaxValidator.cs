@@ -147,7 +147,7 @@ namespace Azclips.Help.Tool.Validation
 
             // Help-flag invocations are intercepted by the runtime help renderer
             // regardless of whether the path resolves to a routed command.
-            if (ContainsHelpInvocation(tokens, 2))
+            if (tokens.Skip(2).Any(IsHelpFlag))
             {
                 return;
             }
@@ -508,30 +508,6 @@ namespace Azclips.Help.Tool.Validation
                 .Aliases
                 .Append("--help")
                 .Contains(token, StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// Mirrors <c>GlobalArgParser</c>: dashed aliases count anywhere, the bare alias <c>?</c>
-        /// only before the first flag so it is not mistaken for that flag's value.
-        /// </summary>
-        private static bool ContainsHelpInvocation(IReadOnlyList<string> tokens, int start)
-        {
-            var seenFlag = false;
-            for (var i = start; i < tokens.Count; i++)
-            {
-                var token = tokens[i];
-                var dashed = token.StartsWith('-');
-                if (IsHelpFlag(token) && (dashed || !seenFlag))
-                {
-                    return true;
-                }
-                if (dashed)
-                {
-                    seenFlag = true;
-                }
-            }
-
-            return false;
-        }
 
         /// <summary>
         /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent

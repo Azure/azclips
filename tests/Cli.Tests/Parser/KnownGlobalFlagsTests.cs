@@ -55,7 +55,7 @@ public class KnownGlobalFlagsTests
     {
         var help = Assert.Single(KnownGlobalFlags.All, flag => flag.Name == "--help");
 
-        Assert.Equal(new[] { "-h", "-help", "-?", "--?", "?" }, help.Aliases);
+        Assert.Equal(new[] { "-h", "-help", "-?", "--?" }, help.Aliases);
     }
 
     [Fact]

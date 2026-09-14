@@ -168,20 +168,12 @@ internal static class GlobalArgParser
 
         // Trailing / interspersed help flag: `az <verb> [path...] --help`.
         bool trailingHelp = false;
-        bool seenParameterFlag = false;
         for (int i = 1; i < positional.Count; i++)
         {
-            var token = positional[i];
-            var dashed = token.StartsWith("-", StringComparison.Ordinal);
-            // The bare alias `?` only counts before the first flag, so it can't be read as its value.
-            if (IsHelpFlag(token) && (dashed || !seenParameterFlag))
+            if (IsHelpFlag(positional[i]))
             {
                 trailingHelp = true;
                 break;
-            }
-            if (dashed)
-            {
-                seenParameterFlag = true;
             }
         }
         if (!trailingHelp)
