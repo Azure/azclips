@@ -39,8 +39,8 @@ public class GetAccessTokenCliBindingTests
             new Dictionary<string, object>
             {
                 ["resource-type"] = Value("key-vault"),
-                ["tenant"] = Value("11111111-1111-1111-1111-111111111111"),
-                ["subscription"] = Value("sub-1"),
+                ["tenant-id"] = Value("11111111-1111-1111-1111-111111111111"),
+                ["subscription-id"] = Value("sub-1"),
             },
             metadata.Parameters,
             metadata.ParameterAliases,
