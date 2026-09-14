@@ -21,6 +21,7 @@ public record AccessTokenResult
     public required string Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
+    [JsonConverter(typeof(AzureCliExpiresOnConverter))]
     public required DateTimeOffset ExpiresOn { get; init; }
 
     /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
@@ -53,6 +54,7 @@ public record SecureAccessTokenResult
     public required SecureString Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
+    [JsonConverter(typeof(AzureCliExpiresOnConverter))]
     public required DateTimeOffset ExpiresOn { get; init; }
 
     /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
