@@ -440,6 +440,17 @@ stages:
           exit 0
         fi
 
+        while IFS= read -r changed_file; do
+          if [[ "$changed_file" =~ ^src/Extensions/([^/]+)/Extensions\.([^/]+)\.csproj$ ]] && [[ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]]; then
+            echo "$changed_file does not match its extension directory name. Skipping stable tag creation."
+            exit 0
+          fi
+          if [[ "$changed_file" =~ ^src/PS/([^/]+)/([^/]+)\.psd1$ ]] && [[ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]]; then
+            echo "$changed_file does not match its PowerShell module directory name. Skipping stable tag creation."
+            exit 0
+          fi
+        done <<< "$changed_files"
+
         if ! printf '%s\n' "$changed_files" | grep -qx 'src/CLI/Core.Cli.csproj'; then
           echo "Commit did not change src/CLI/Core.Cli.csproj. Skipping stable tag creation."
           exit 0
@@ -466,8 +477,10 @@ stages:
           [[ -z "$extension_project" ]] && continue
           extension_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- "$extension_project" | grep -E "$extension_version_line_regex" || true)"
           extension_non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- "$extension_project" | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev "$extension_version_line_regex" || true)"
+          removed_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^-' || true)"
+          added_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^+' || true)"
 
-          if [[ -z "$extension_version_diff" || -n "$extension_non_version_diff" ]]; then
+          if [[ "$removed_version_count" -eq 0 || "$added_version_count" -eq 0 || -n "$extension_non_version_diff" ]]; then
             echo "$extension_project changed outside its stable Version line. Skipping stable tag creation."
             printf '%s\n' "$extension_non_version_diff"
             exit 0

@@ -33,6 +33,16 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         self.assertIn("<FileVersion>", violations[0])
         self.assertIn("<Version>", violations[1])
 
+        conditional_project = head_project.replace(
+            "<PropertyGroup>", '<PropertyGroup Condition="\'$(Configuration)\' == \'Release\'">'
+        )
+        violations = find_policy_violations(
+            ["src/Example/Example.csproj"],
+            lambda _: head_project,
+            lambda _: conditional_project,
+        )
+        self.assertEqual(len(violations), 2)
+
     def test_allows_non_version_project_changes_and_new_projects(self):
         base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
         head_project = (
@@ -156,6 +166,37 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
         self.assertEqual(len(added_project_violations), 1)
         self.assertIn("may not add or delete project files", added_project_violations[0])
+
+        deleted_version_project = base_project.replace("        <Version>0.1.0</Version>\n", "")
+        violations = find_policy_violations(
+            ["src/CLI/Core.Cli.csproj"],
+            lambda _: base_project,
+            lambda _: deleted_version_project,
+            stable_release=True,
+        )
+        self.assertEqual(len(violations), 1)
+
+        self.assertEqual(
+            find_policy_violations(
+                ["src/Extensions/Accounts/Extensions.Accounts.csproj"],
+                lambda _: "\ufeff" + base_project,
+                lambda _: "\ufeff" + version_only_project,
+                stable_release=True,
+            ),
+            [],
+        )
+
+        for mismatched_path in (
+            "src/Extensions/Accounts/Extensions.Other.csproj",
+            "src/PS/Accounts/Other.psd1",
+        ):
+            violations = find_policy_violations(
+                [mismatched_path],
+                lambda _: base_project,
+                lambda _: version_only_project,
+                stable_release=True,
+            )
+            self.assertIn("release metadata", violations[0])
 
         for non_version_project in (
             version_only_project.replace("    <PropertyGroup>", "      <PropertyGroup>"),

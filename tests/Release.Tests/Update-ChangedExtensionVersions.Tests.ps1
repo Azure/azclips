@@ -130,6 +130,22 @@ Describe 'Update-ChangedExtensionVersions' {
             Should -Throw '*PowerShell changelog was not found for rollup extension Accounts*'
     }
 
+    It 'aligns first-release metadata to the declared extension version' {
+        $root = New-TestRepository
+        $projectPath = Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj'
+        (Get-Content -Raw $projectPath).Replace('0.1.0', '0.2.0') |
+            Set-Content -NoNewline $projectPath
+        git -C $root add --all
+        git -C $root commit --quiet -m 'declare initial Accounts version'
+
+        & $scriptPath -RepoRoot $root
+
+        Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') |
+            Should -Match "ModuleVersion = '0\.2\.0'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') |
+            Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.2\.0'"
+    }
+
     It 'uses the latest stable tag when BaseRef is omitted' {
         $root = New-TestRepository
         git -C $root tag 'v0.1.0.20260101T000000Z'
@@ -152,6 +168,31 @@ Describe 'Update-ChangedExtensionVersions' {
 
         { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
             Should -Throw '*PowerShell changelog was not found for rollup extension Accounts*'
+    }
+
+    It 'rejects an unchanged rollup extension without a child changelog' {
+        $root = New-TestRepository
+        Remove-Item (Join-Path $root 'src/PS/Compute/ChangeLog.md')
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add --all
+        git -C $root commit --quiet -m 'remove Compute changelog and change Accounts extension'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*PowerShell changelog was not found for rollup extension Compute*'
+    }
+
+    It 'patch-bumps an extension with PowerShell-only changes' {
+        $root = New-TestRepository
+        Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/Constants.cs' -Content 'class Constants { }'
+        git -C $root add --all
+        git -C $root commit --quiet -m 'change Accounts PowerShell module'
+
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
+
+        Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') |
+            Should -Match '<Version>0\.1\.1</Version>'
+        Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') |
+            Should -Match "ModuleVersion = '0\.1\.1'"
     }
 
     It 'rejects a packageable extension missing its Az rollup dependency' {

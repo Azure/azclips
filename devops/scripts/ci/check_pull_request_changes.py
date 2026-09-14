@@ -12,10 +12,11 @@ from pathlib import Path
 STABLE_RELEASE_BRANCH_PREFIX = "release/trigger-stable-release-"
 STABLE_RELEASE_PR_AUTHOR = "x-engineering-agent[bot]"
 STABLE_RELEASE_TITLE_PATTERN = re.compile(r"^\{DevOps\} Trigger stable release (?P<version>\d+\.\d+\.\d+)$")
-STABLE_RELEASE_ALLOWED_PATH_PATTERN = re.compile(
-    r"^(?:CHANGELOG\.md|src/CLI/Core\.Cli\.csproj|"
-    r"src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|"
-    r"src/PS/[^/]+/(?:ChangeLog\.md|[^/]+\.psd1))$"
+STABLE_RELEASE_EXTENSION_PATH_PATTERN = re.compile(
+    r"^src/Extensions/(?P<module>[^/]+)/Extensions\.(?P<project>[^/]+)\.csproj$"
+)
+STABLE_RELEASE_PS_PATH_PATTERN = re.compile(
+    r"^src/PS/(?P<module>[^/]+)/(?P<file>[^/]+)$"
 )
 VERSION_PROPERTIES = {
     "AssemblyVersion",
@@ -47,16 +48,34 @@ def is_stable_release_pull_request(
     )
 
 
-def get_project_versions(content: str) -> dict[str, tuple[str, ...]]:
-    root = ET.fromstring(content)
-    values: dict[str, list[str]] = {}
+def is_stable_release_allowed_path(file_path: str) -> bool:
+    if file_path in {"CHANGELOG.md", "src/CLI/Core.Cli.csproj"}:
+        return True
+    extension_match = STABLE_RELEASE_EXTENSION_PATH_PATTERN.fullmatch(file_path)
+    if extension_match:
+        return extension_match.group("module") == extension_match.group("project")
+    ps_match = STABLE_RELEASE_PS_PATH_PATTERN.fullmatch(file_path)
+    if not ps_match:
+        return False
+    return ps_match.group("file") in {"ChangeLog.md", f"{ps_match.group('module')}.psd1"}
+
+
+def get_project_versions(content: str) -> dict[str, tuple[tuple, ...]]:
+    root = ET.fromstring(content.removeprefix("\ufeff"))
+    values: dict[str, list[tuple]] = {}
     for property_group in root.iter():
         if property_group.tag.rsplit("}", 1)[-1] != "PropertyGroup":
             continue
         for element in property_group:
             property_name = element.tag.rsplit("}", 1)[-1]
             if property_name in VERSION_PROPERTIES:
-                values.setdefault(property_name, []).append((element.text or "").strip())
+                values.setdefault(property_name, []).append(
+                    (
+                        tuple(sorted(property_group.attrib.items())),
+                        tuple(sorted(element.attrib.items())),
+                        (element.text or "").strip(),
+                    )
+                )
     return {name: tuple(sorted(property_values)) for name, property_values in values.items()}
 
 
@@ -69,7 +88,7 @@ def find_policy_violations(
     violations = []
     if stable_release:
         for file_path in changed_files:
-            if not STABLE_RELEASE_ALLOWED_PATH_PATTERN.fullmatch(file_path):
+            if not is_stable_release_allowed_path(file_path):
                 violations.append(f"{file_path}: generated stable-release PRs may only change release metadata.")
     elif "CHANGELOG.md" in changed_files:
         violations.append("CHANGELOG.md must not be edited manually; stable-release automation owns it.")
@@ -105,9 +124,18 @@ def has_only_project_version_line_changes(base_content: str, head_content: str) 
     base_versions = get_project_versions(base_content)
     head_versions = get_project_versions(head_content)
 
-    def is_direct_version_line(line: str, versions: dict[str, tuple[str, ...]]) -> bool:
+    if any(len(head_versions.get(name, ())) < len(records) for name, records in base_versions.items()):
+        return False
+
+    def is_direct_version_line(line: str, versions: dict[str, tuple[tuple, ...]]) -> bool:
         match = VERSION_PROPERTY_LINE_PATTERN.fullmatch(line)
-        return bool(match and match.group("value").strip() in versions.get(match.group("name"), ()))
+        return bool(
+            match
+            and any(
+                record[2] == match.group("value").strip()
+                for record in versions.get(match.group("name"), ())
+            )
+        )
 
     base_lines = base_content.splitlines(keepends=True)
     head_lines = head_content.splitlines(keepends=True)
@@ -116,6 +144,8 @@ def has_only_project_version_line_changes(base_content: str, head_content: str) 
     ).get_opcodes():
         if operation == "equal":
             continue
+        if operation == "delete":
+            return False
         if not all(is_direct_version_line(line, base_versions) for line in base_lines[base_start:base_end]):
             return False
         if not all(is_direct_version_line(line, head_versions) for line in head_lines[head_start:head_end]):

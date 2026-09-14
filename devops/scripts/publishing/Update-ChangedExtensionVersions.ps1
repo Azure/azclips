@@ -110,10 +110,10 @@ else {
 
 $isFirstRelease = [string]::IsNullOrWhiteSpace($resolvedBaseRef)
 $changedPaths = if ($isFirstRelease) {
-    @(& git --no-pager -C $RepoRoot ls-files -- 'src/Extensions' 2>&1)
+    @(& git --no-pager -C $RepoRoot ls-files -- 'src/Extensions' 'src/PS' 2>&1)
 }
 else {
-    @(& git --no-pager -C $RepoRoot diff --name-only "$resolvedBaseRef..HEAD" -- 'src/Extensions' 2>&1)
+    @(& git --no-pager -C $RepoRoot diff --name-only "$resolvedBaseRef..HEAD" -- 'src/Extensions' 'src/PS' 2>&1)
 }
 if ($LASTEXITCODE -ne 0) {
     throw "git failed while detecting extension files. $($changedPaths -join "`n")"
@@ -125,11 +125,38 @@ $changedModules = @(
             if ($_ -match '^src/Extensions/(?<module>[^/]+)/.+\.cs$') {
                 $Matches.module
             }
+            elseif ($_ -match '^src/PS/(?<module>[^/]+)/' -and $Matches.module -ne 'Az') {
+                $Matches.module
+            }
         } |
         Sort-Object -Unique
 )
 
 $rollupContent = Get-Content -Path $rollupManifestPath -Raw
+$packageableModules = New-Object System.Collections.Generic.List[string]
+Get-ChildItem -Path (Join-Path $RepoRoot 'src/Extensions') -Directory | ForEach-Object {
+    $moduleName = $_.Name
+    $projectPath = Join-Path $_.FullName "Extensions.$moduleName.csproj"
+    $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
+    if (-not (Test-Path -Path $projectPath -PathType Leaf) -or
+        -not (Test-Path -Path $moduleManifestPath -PathType Leaf)) {
+        return
+    }
+
+    $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
+    $rollupModulePath = "../$moduleName/$moduleName.psd1"
+    if ($rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
+        throw "Az rollup dependency was not found for packageable extension $moduleName`: $rollupModulePath"
+    }
+    if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
+        throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"
+    }
+    if ([string]::IsNullOrWhiteSpace((Get-ProjectVersion -Content (Get-Content -Path $projectPath -Raw)))) {
+        throw "Version was not found in src/Extensions/$moduleName/Extensions.$moduleName.csproj"
+    }
+    $packageableModules.Add($moduleName)
+}
+
 $updatedModules = New-Object System.Collections.Generic.List[string]
 foreach ($moduleName in $changedModules) {
     $projectRelativePath = "src/Extensions/$moduleName/Extensions.$moduleName.csproj"
@@ -138,23 +165,18 @@ foreach ($moduleName in $changedModules) {
     $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
     $rollupModulePath = "../$moduleName/$moduleName.psd1"
 
-    if (-not (Test-Path -Path $projectPath -PathType Leaf) -or
-        -not (Test-Path -Path $moduleManifestPath -PathType Leaf)) {
-        continue
-    }
-    if ($rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
-        throw "Az rollup dependency was not found for packageable extension $moduleName`: $rollupModulePath"
-    }
-    if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
-        throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"
-    }
-    if ($isFirstRelease) {
+    if ($moduleName -notin $packageableModules) {
         continue
     }
 
-    $baseProjectContent = Get-FileAtRef -Root $RepoRoot -Ref $resolvedBaseRef -RelativePath $projectRelativePath
-    $isNewExtension = $null -eq $baseProjectContent
-    if ($null -eq $baseProjectContent) {
+    $baseProjectContent = if ($isFirstRelease) {
+        $null
+    }
+    else {
+        Get-FileAtRef -Root $RepoRoot -Ref $resolvedBaseRef -RelativePath $projectRelativePath
+    }
+    $isNewExtension = $isFirstRelease -or $null -eq $baseProjectContent
+    if ($isNewExtension) {
         $baseProjectContent = Get-Content -Path $projectPath -Raw
     }
 
@@ -187,7 +209,7 @@ foreach ($moduleName in $changedModules) {
 }
 
 if ($isFirstRelease) {
-    Write-Host 'Validated extension packaging metadata without changing versions for the first stable release.'
+    Write-Host 'Aligned extension packaging metadata without incrementing versions for the first stable release.'
 }
 elseif ($updatedModules.Count -eq 0) {
     Write-Host "No existing rollup extension code changed since $resolvedBaseRef."
