@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+
+import unittest
+
+from check_pull_request_changes import (
+    find_policy_violations,
+    is_stable_release_pull_request,
+)
+
+
+class PullRequestFilePolicyTests(unittest.TestCase):
+    def test_rejects_root_changelog_edit(self):
+        violations = find_policy_violations(
+            ["CHANGELOG.md"], lambda _: "old", lambda _: "new"
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertIn("CHANGELOG.md", violations[0])
+
+    def test_rejects_changes_to_project_version_properties(self):
+        base_project = """
+<Project><PropertyGroup><Version>0.1.0</Version><FileVersion>0.1.0.0</FileVersion></PropertyGroup></Project>
+"""
+        head_project = """
+<Project><PropertyGroup><Version>0.1.1</Version><FileVersion>0.1.1.0</FileVersion></PropertyGroup></Project>
+"""
+
+        violations = find_policy_violations(
+            ["src/Example/Example.csproj"],
+            lambda _: base_project,
+            lambda _: head_project,
+        )
+
+        self.assertEqual(len(violations), 2)
+        self.assertIn("<FileVersion>", violations[0])
+        self.assertIn("<Version>", violations[1])
+
+    def test_allows_non_version_project_changes_and_new_projects(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        head_project = "<Project><PropertyGroup><Version>0.1.0</Version><Nullable>enable</Nullable></PropertyGroup></Project>"
+
+        self.assertEqual(
+            find_policy_violations(
+                ["src/Existing/Existing.csproj"],
+                lambda _: base_project,
+                lambda _: head_project,
+            ),
+            [],
+        )
+        self.assertEqual(
+            find_policy_violations(
+                ["src/New/New.csproj"], lambda _: None, lambda _: head_project
+            ),
+            [],
+        )
+
+    def test_exempts_pr_781_stable_release_changes(self):
+        release_branch = "release/trigger-stable-release-0.1.2"
+        release_title = "{DevOps} Trigger stable release 0.1.2"
+
+        self.assertTrue(
+            is_stable_release_pull_request(
+                "Azure/azclips", "azure/AzCliPs", release_branch, release_title
+            )
+        )
+        self.assertFalse(
+            is_stable_release_pull_request(
+                "contributor/azclips",
+                "Azure/azclips",
+                release_branch,
+                release_title,
+            )
+        )
+        self.assertFalse(
+            is_stable_release_pull_request(
+                "Azure/azclips",
+                "Azure/azclips",
+                release_branch,
+                "{DevOps} Trigger stable release 0.1.3",
+            )
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

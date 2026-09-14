@@ -170,3 +170,20 @@ jobs:
           if (-not (Get-Command Invoke-SyncApply -ErrorAction SilentlyContinue)) {
               throw "Load-only smoke failed: Invoke-SyncApply not defined after dot-sourcing."
           }
+
+  release-script-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Pester 5+
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run release script Pester tests
+        shell: pwsh
+        run: |
+          $result = Invoke-Pester -Path tests/Release.Tests/ -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { throw "Pester tests failed: $($result.FailedCount) failure(s)." }

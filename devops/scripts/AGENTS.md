@@ -19,7 +19,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 ## Directory Layout
 | Path | Purpose |
 | --- | --- |
-| `ci/` | PR/CI checks (`check_pull_request.py`, `scan_recordings.py`). |
+| `ci/` | PR/CI checks (`check_pull_request.py`, `check_pull_request_changes.py`, `scan_recordings.py`). |
 | `compliance/` | NOTICE generation (`generate_notice.ps1`, `NOTICE.template`, `notice-overrides.json`). |
 | `packaging/common/` | Shared build steps (`build_common.sh`, `stage_agent.*`, `inject_builtin_extensions.*`, `create_component_archives.sh`, `rename_extension_packages.sh`). |
 | `packaging/config/` | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`. |
@@ -28,7 +28,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs. |
-| `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`). |
+| `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
