@@ -66,7 +66,7 @@ guide in the same PR so it stays accurate.
 
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.
-- **Stable:** `azclips-trigger-stable-release` (release, manual) bumps the CLI version, detects extension code changes since the latest stable tag, aligns changed extension and PowerShell module versions, and opens a release PR via `gh`. After that PR merges to `main`, a CI run of the same pipeline (`CreateStableTag`, condition `IndividualCI`/`BatchedCI` on `refs/heads/main`) creates the tag `vX.Y.Z.yyyyMMddTHHmmssZ` via `git tag`/`git push` → the tag triggers `azclips-stable-release` → build → `sign-with-esrp` → component governance → verify → `publish-to-github-release`.
+- **Stable:** `azclips-trigger-stable-release` (release, manual) bumps the CLI and top-level Az versions, detects extension code changes since the latest stable tag, independently patch-bumps each changed existing extension, preserves new extensions' declared initial versions, aligns their PowerShell child modules and Az dependencies, and opens a release PR via `gh`. After that PR merges to `main`, a CI run of the same pipeline (`CreateStableTag`, condition `IndividualCI`/`BatchedCI` on `refs/heads/main`) creates the tag `vX.Y.Z.yyyyMMddTHHmmssZ` via `git tag`/`git push` → the tag triggers `azclips-stable-release` → build → `sign-with-esrp` → component governance → verify → `publish-to-github-release`.
 - macOS notarization uses `macos_bundle_id: com.microsoft.azclips.cli`.
 
 ## Editing Rules for Agents

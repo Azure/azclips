@@ -1,5 +1,6 @@
 BeforeAll {
     $scriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ChangedExtensionVersions.ps1'
+    $releaseChangelogScriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ReleaseChangelog.ps1'
 
     function Write-TestFile {
         param(
@@ -61,7 +62,7 @@ Describe 'Update-ChangedExtensionVersions' {
         git -C $root add .
         git -C $root commit --quiet -m 'change Accounts extension code'
 
-        & $scriptPath -RepoRoot $root -Version '0.1.1' -BaseRef 'HEAD^'
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
 
         Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Match '<Version>0\.1\.1</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') | Should -Match "ModuleVersion = '0\.1\.1'"
@@ -80,7 +81,7 @@ Describe 'Update-ChangedExtensionVersions' {
         git -C $root add .
         git -C $root commit --quiet -m 'change and bump Accounts extension'
 
-        & $scriptPath -RepoRoot $root -Version '0.1.1' -BaseRef 'HEAD^'
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
 
         Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Match '<Version>0\.1\.1</Version>'
         Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Not -Match '<Version>0\.1\.2</Version>'
@@ -88,7 +89,7 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
     }
 
-    It 'versions a new rollup extension that did not exist at the stable baseline' {
+    It 'preserves the initial version of a new rollup extension' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
         Write-TestFile -Root $root -RelativePath 'src/Extensions/Identity/Extensions.Identity.csproj' -Content @'
@@ -104,10 +105,46 @@ Describe 'Update-ChangedExtensionVersions' {
         git -C $root add .
         git -C $root commit --quiet -m 'add Identity extension'
 
-        & $scriptPath -RepoRoot $root -Version '0.1.1' -BaseRef $baseRef
+        & $scriptPath -RepoRoot $root -BaseRef $baseRef
 
-        Get-Content -Raw (Join-Path $root 'src/Extensions/Identity/Extensions.Identity.csproj') | Should -Match '<Version>0\.1\.1</Version>'
-        Get-Content -Raw (Join-Path $root 'src/PS/Identity/Identity.psd1') | Should -Match "ModuleVersion = '0\.1\.1'"
-        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Identity/Identity\.psd1'; ModuleVersion = '0\.1\.1'"
+        Get-Content -Raw (Join-Path $root 'src/Extensions/Identity/Extensions.Identity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
+        Get-Content -Raw (Join-Path $root 'src/PS/Identity/Identity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Identity/Identity\.psd1'; ModuleVersion = '0\.1\.0'"
+    }
+}
+
+Describe 'Update-ReleaseChangelog extension versions' {
+    It 'preserves child module versions while bumping the Az rollup version' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $root | Out-Null
+        Write-TestFile -Root $root -RelativePath 'CHANGELOG.md' -Content "## Upcoming Release`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/ChangeLog.md' -Content @'
+## Upcoming Release
+
+- Added account support.
+'@
+        Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/Accounts.psd1' -Content "@{`nModuleVersion = '0.1.1'`n}`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Az/Az.psd1' -Content @'
+@{
+ModuleVersion = '0.1.2'
+RequiredModules = @(
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.1' }
+)
+}
+'@
+
+        git -C $root init --quiet
+        git -C $root config user.name 'Release Test'
+        git -C $root config user.email 'release-test@example.com'
+        git -C $root add .
+        git -C $root commit --quiet -m 'release fixture'
+
+        & $releaseChangelogScriptPath -RepoRoot $root -Version '0.1.3' -ReleaseTimestamp '2026-09-01'
+
+        Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') | Should -Match "ModuleVersion = '0\.1\.1'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Accounts/ChangeLog.md') | Should -Match '## Version 0\.1\.1'
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "ModuleVersion = '0\.1\.3'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
+        Get-Content -Raw (Join-Path $root 'CHANGELOG.md') | Should -Match '#### Az\.Accounts 0\.1\.1'
     }
 }

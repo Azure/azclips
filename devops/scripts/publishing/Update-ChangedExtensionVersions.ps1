@@ -1,7 +1,5 @@
 param(
     [string] $RepoRoot,
-    [Parameter(Mandatory = $true)]
-    [string] $Version,
     [string] $BaseRef,
     [switch] $DryRun
 )
@@ -38,6 +36,18 @@ function Get-ProjectVersion {
     }
 
     $match.Groups['version'].Value
+}
+
+function Get-NextPatchVersion {
+    param([string] $Version)
+
+    $match = [regex]::Match($Version, '^(?<major>[0-9]+)\.(?<minor>[0-9]+)\.(?<patch>[0-9]+)$')
+    if (-not $match.Success) {
+        throw "Extension version must be stable SemVer x.y.z. Received: $Version"
+    }
+
+    $nextPatch = [int]$match.Groups['patch'].Value + 1
+    "$($match.Groups['major'].Value).$($match.Groups['minor'].Value).$nextPatch"
 }
 
 function Set-LineVersion {
@@ -85,9 +95,6 @@ function Get-FileAtRef {
 if (-not (Test-Path -Path $rollupManifestPath -PathType Leaf)) {
     throw "Az rollup manifest was not found: $rollupManifestPath"
 }
-if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
-    throw "Target extension version must be stable SemVer x.y.z. Received: $Version"
-}
 
 $resolvedBaseRef = if ([string]::IsNullOrWhiteSpace($BaseRef)) {
     Get-LatestStableTag -Root $RepoRoot
@@ -131,6 +138,7 @@ foreach ($moduleName in $changedModules) {
     }
 
     $baseProjectContent = Get-FileAtRef -Root $RepoRoot -Ref $resolvedBaseRef -RelativePath $projectRelativePath
+    $isNewExtension = $null -eq $baseProjectContent
     if ($null -eq $baseProjectContent) {
         $baseProjectContent = Get-Content -Path $projectPath -Raw
     }
@@ -139,21 +147,28 @@ foreach ($moduleName in $changedModules) {
     if ([string]::IsNullOrWhiteSpace($baseVersion)) {
         throw "Version was not found in $projectRelativePath"
     }
+    $targetVersion = if ($isNewExtension) {
+        $baseVersion
+    }
+    else {
+        Get-NextPatchVersion -Version $baseVersion
+    }
 
     Set-LineVersion -Path $projectPath `
         -Pattern '(<Version>)\s*[0-9]+\.[0-9]+\.[0-9]+\s*(</Version>)' `
-        -Replacement "`${1}$Version`${2}" `
+        -Replacement "`${1}$targetVersion`${2}" `
         -Description 'Version'
     Set-LineVersion -Path $moduleManifestPath `
         -Pattern "(?<prefix>^\s*ModuleVersion\s*=\s*)'[^']+'(?<suffix>.*)$" `
-        -Replacement "`${prefix}'$Version'`${suffix}" `
+        -Replacement "`${prefix}'$targetVersion'`${suffix}" `
         -Description 'ModuleVersion'
     Set-LineVersion -Path $rollupManifestPath `
         -Pattern "(?<prefix>ModuleName\s*=\s*'$([regex]::Escape($rollupModulePath))';\s*ModuleVersion\s*=\s*)'[^']+'(?<suffix>.*)" `
-        -Replacement "`${prefix}'$Version'`${suffix}" `
+        -Replacement "`${prefix}'$targetVersion'`${suffix}" `
         -Description "Az.$moduleName rollup dependency"
 
-    $updatedModules.Add("${moduleName}: $baseVersion -> $Version")
+    $versionSummary = if ($isNewExtension) { "$targetVersion (new)" } else { "$baseVersion -> $targetVersion" }
+    $updatedModules.Add("${moduleName}: $versionSummary")
 }
 
 if ($updatedModules.Count -eq 0) {
