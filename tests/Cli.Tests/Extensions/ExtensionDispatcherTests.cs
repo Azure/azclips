@@ -246,6 +246,10 @@ public class ExtensionDispatcherTests
         Assert.Equal("vm", ex.Verb);
         Assert.Empty(ex.Path);
         Assert.Contains("az vm --help", ex.Message, StringComparison.Ordinal);
+        // `az vm` alone now renders group help, so the message must name the offending token
+        // instead of claiming `az vm` is unrecognized.
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az vm' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "UsageError",
+    "message": "Invalid arguments: Required parameter \u0027--name\u0027 is missing., Required parameter \u0027--location\u0027 is missing., Required parameter \u0027--resource-group\u0027 is missing., Required parameter \u0027--vm-size\u0027 is missing., Required parameter \u0027--admin-username\u0027 is missing., Required parameter \u0027--admin-password\u0027 is missing., Required parameter \u0027--network-interface-name\u0027 is missing., Required parameter \u0027--virtual-network-name\u0027 is missing., Required parameter \u0027--network-security-group-name\u0027 is missing. (az vm create --help)",
+    "details": {}
+  }
+}

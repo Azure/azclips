@@ -146,7 +146,7 @@ internal static class GlobalArgParser
             for (int i = 1; i < positional.Count; i++)
             {
                 var token = positional[i];
-                // `?` is a help token pre-refactor; skip it here (don't treat it as a path segment).
+                // Help flags are stripped here so they aren't treated as path segments.
                 if (IsHelpFlag(token))
                 {
                     continue;
@@ -160,7 +160,7 @@ internal static class GlobalArgParser
             return new HelpRequest(subPath);
         }
 
-        // Bare top-level help flag: `az --help`, `az -h`, `az -?`, `az ?`.
+        // Bare top-level help flag: `az --help`, `az -h`, `az -?`, `az --?`.
         if (positional.Count == 1 && IsHelpFlag(positional[0]))
         {
             return new HelpRequest(Array.Empty<string>());
