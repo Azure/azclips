@@ -20,6 +20,7 @@
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -311,7 +311,7 @@ publish/win-x64/
 
 ### 6.2 [PS] PowerShell Modules
 
-**Current state** (development only): modules live in `src/PS/` and reference `artifacts/Debug/` via relative paths in `RequiredAssemblies`.
+**Current state**: modules are authored in `src/PS/` and staged by the build as self-contained folders under `artifacts/<Configuration>/PS/<Module>/` (`<Module>.psd1`, `bin/`, `Core/`, `Extensions/`); manifests reference those payloads by module-relative paths in `RequiredAssemblies`.
 
 **Target production layout** (not yet implemented):
 
