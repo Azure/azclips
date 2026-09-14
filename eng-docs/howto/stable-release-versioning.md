@@ -62,16 +62,14 @@ Assume the CLI is `0.1.2`, Compute is `0.1.0`, and the pipeline detects a change
 | File | Generated change |
 | --- | --- |
 | `src/CLI/Core.Cli.csproj` | CLI version properties: `0.1.2` to `0.1.3`. |
-| `src/PS/Az/Az.psd1` | `ModuleVersion`: `0.1.2` to `0.1.3`; Compute dependency: `0.1.0` to `0.1.1`. |
+| `src/PS/Az/Az.psd1` | `ModuleVersion`: `0.1.2` to `0.1.3`; Compute dependency: `0.1.0` to `0.1.1`; include Compute notes when present. |
 | `src/Extensions/Compute/Extensions.Compute.csproj` | `Version`: `0.1.0` to `0.1.1`. |
-| `src/PS/Compute/Compute.psd1` | `ModuleVersion`: `0.1.0` to `0.1.1`. |
-| `CHANGELOG.md` | Add the generated `0.1.3` release section. |
+| `src/PS/Compute/Compute.psd1` | `ModuleVersion`: `0.1.0` to `0.1.1`; update `ReleaseNotes` when upcoming notes exist. |
+| `src/PS/Compute/ChangeLog.md` | If `## Upcoming Release` has notes, move them under `## Version 0.1.1`. |
+| `CHANGELOG.md` | Add the generated `0.1.3` release section, including Compute notes when present. |
+| `src/Extensions/<Dependent>/Extensions.<Dependent>.csproj`, `src/PS/<Dependent>/<Dependent>.psd1`, and its `Az.psd1` entry | If present, patch-bump the exact dependent and align its Compute dependency and rollup version. |
 
 Compute uses its own patch sequence; it does not become `0.1.3` just because the CLI does.
-
-If `src/PS/Compute/ChangeLog.md` has notes under `## Upcoming Release`, automation also creates its
-`## Version 0.1.1` section and updates Compute's manifest release notes. Any existing packageable
-module with an exact dependency on Compute is also patch-bumped and aligned.
 
 A packageable extension requires a matching project, module manifest, module changelog, and active
 `Az` rollup dependency. Missing or inconsistent metadata fails the pipeline.
