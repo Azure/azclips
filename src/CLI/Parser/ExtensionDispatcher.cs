@@ -142,7 +142,7 @@ public class ExtensionDispatcher //: IParser
             // here. Mirrors the verb-only fallback above.
             if (_leafIndex.Value.IsCommandGroup(verb, string.Join(" ", nonFlagLeadingArgs)))
             {
-                throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }
         }
 

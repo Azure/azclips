@@ -298,6 +298,22 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldNameUnrecognizedArguments_WhenResolvedVerbLandsOnCommandGroup()
+    {
+        // The resolved-extension path throws from a different site than the verb-only fallback,
+        // so it needs its own coverage that trailing flags survive into the message.
+        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["agent", "--list"]));
+
+        Assert.Empty(ex.Path);
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az agent' is not a recognized command", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
     {
         // The group gate must not swallow a valid leaf under the same verb.
