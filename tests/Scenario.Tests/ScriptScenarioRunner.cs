@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Utilities;
 
 namespace Scenario.Tests;
@@ -39,7 +39,7 @@ internal static class ScriptScenarioRunner
 
             var (shell, arguments) = scriptName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
                 ? ("pwsh", new[] { "-NoProfile", "-File", scriptPath })
-                : ("bash", [scriptPath]);
+                : (ResolveBash(), [scriptPath]);
 
             var psi = new ProcessStartInfo
             {
@@ -59,6 +59,9 @@ internal static class ScriptScenarioRunner
             psi.Environment["AZCLIPS_HOME"] = home.Replace('\\', '/');
             psi.Environment[RecordingHook.RecordingPathVariable] = recordingCopy.Replace('\\', '/');
             psi.Environment["AZCLIPS_TEST_AZ"] = ResolveCliBinary(repoRoot).Replace('\\', '/');
+            // The product has no test awareness; the runtime injects the recording assembly
+            // into every spawned az and pwsh process.
+            psi.Environment["DOTNET_STARTUP_HOOKS"] = typeof(RecordingHook).Assembly.Location;
             // Script tests always replay; an ambient record-mode run must not leak in.
             psi.Environment.Remove(RecorderModeResolver.EnvironmentVariable);
 
@@ -84,6 +87,36 @@ internal static class ScriptScenarioRunner
             try { Directory.Delete(home, recursive: true); } catch { }
         }
     }
+
+    // On Windows, PATH's bash is often the System32 WSL relay, which fails without a distro.
+    // Git's bash is present wherever the repo was cloned, so prefer it; null means no usable
+    // bash, and bash scenarios skip instead of failing.
+    internal static string? TryResolveBash()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        string?[] roots =
+        [
+            Environment.GetEnvironmentVariable("ProgramFiles"),
+            Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+            Environment.GetEnvironmentVariable("LocalAppData") is { } local ? Path.Combine(local, "Programs") : null,
+        ];
+        foreach (var root in roots)
+        {
+            if (root is not null && Path.Combine(root, "Git", "bin", "bash.exe") is var candidate && File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static string ResolveBash()
+        => TryResolveBash()
+           ?? throw new InvalidOperationException("No usable bash found; on Windows only Git's bash works, the System32 relay needs WSL.");
 
     private static void SeedPlaybackProfile(string home)
     {

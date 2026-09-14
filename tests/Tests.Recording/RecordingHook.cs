@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Lets a real az.exe or ps module process take part in record/playback scenario tests without
@@ -42,8 +42,9 @@ public static class RecordingHook
 
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
-                services.AddSingleton<ITracingInterceptor>(interceptor);
-                // The seam sits after auth, so playback must answer token requests itself.
+                services.AddSingleton<IHttpTerminateHandler>(interceptor);
+                // Token acquisition happens in the processor before the pipeline runs, so
+                // playback still has to answer it locally.
                 services.AddSingleton<IAuthService, PlaybackAuthService>();
             });
         }
@@ -54,7 +55,7 @@ public static class RecordingHook
                 RecorderMode.Record, record, onRecorded: _ => record.Save(path));
 
             AzclipsServiceProvider.OverrideRegistration(services =>
-                services.AddSingleton<ITracingInterceptor>(interceptor));
+                services.AddSingleton<IHttpTerminateHandler>(interceptor));
         }
     }
 }

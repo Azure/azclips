@@ -23,7 +23,7 @@ public class VmCreateScriptScenarioTests
         Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
     }
 
-    [Fact]
+    [BashFact]
     public void BashScript_ReplaysTheWholeRecording()
     {
         var result = ScriptScenarioRunner.RunPlayback("vm-create.sh", RecordingPath);
@@ -43,10 +43,28 @@ public class VmCreateScriptScenarioTests
         Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
     }
 
+    private sealed class BashFactAttribute : FactAttribute
+    {
+        public BashFactAttribute()
+        {
+            if (ScriptScenarioRunner.TryResolveBash() is null)
+            {
+                Skip = "No usable bash on this machine; on Windows the System32 relay needs WSL, only Git's bash works.";
+            }
+        }
+    }
+
     private sealed class DebugArtifactsFactAttribute : FactAttribute
     {
         public DebugArtifactsFactAttribute()
         {
+#if !DEBUG
+            // The injected hook assembly would be a Release build loading beside the
+            // Debug assemblies the manifests reference; mixed identities break the import.
+            Skip = "The dev module manifests hard-code artifacts/Debug paths, so the module "
+                + "scenario only runs from a Debug test build.";
+            return;
+#endif
             var debugCore = Path.Combine(global::Tests.Common.Utilities.RepoLocator.GetRepoRoot(), "artifacts", "Debug", "Core");
             if (!Directory.Exists(debugCore))
             {

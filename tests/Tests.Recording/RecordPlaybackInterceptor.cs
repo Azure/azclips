@@ -6,14 +6,11 @@ using System.Text;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 public enum RecorderMode
 {
-    /// <summary>Send requests through the real pipeline tail and capture each exchange into the session record.</summary>
     Record,
-
-    /// <summary>Serve responses from the session record; the network is never touched.</summary>
     Playback,
 }
 
@@ -34,7 +31,7 @@ public sealed class RecordPlaybackInterceptor(
     RecordingSanitizers? sanitizers = null,
     IEnumerable<int>? alreadyConsumed = null,
     Action<int>? onConsumed = null,
-    Action<SessionRecordEntry>? onRecorded = null) : ITracingInterceptor
+    Action<SessionRecordEntry>? onRecorded = null) : ITracingInterceptor, IHttpTerminateHandler
 {
     private readonly IRequestMatcher _matcher = matcher ?? new DefaultRequestMatcher();
     private readonly RecordingSanitizers _sanitizers = sanitizers ?? RecordingSanitizers.Default;

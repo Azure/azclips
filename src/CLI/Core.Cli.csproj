@@ -27,7 +27,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
-    <ProjectReference Include="..\Core\Core.Recording\Core.Recording.csproj" />
     <ProjectReference Include="..\Core\Core.Extensions\Core.Extensions.csproj" />
   </ItemGroup>
 
