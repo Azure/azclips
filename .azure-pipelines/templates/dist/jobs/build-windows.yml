@@ -59,6 +59,37 @@ jobs:
       path: ${{ parameters.PackagingCommonOutRoot }}
 
   - task: PowerShell@2
+    displayName: Install PowerShell ARM64
+    condition: eq(variables['Rid'], 'win-arm64')
+    inputs:
+      targetType: inline
+      pwsh: false
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $project = Join-Path $env:BUILD_SOURCESDIRECTORY 'src/PS/Accounts/Cmdlets.Accounts.csproj'
+        $packageData = (& dotnet msbuild $project '-getItem:PackageReference' '-verbosity:quiet' | Out-String) | ConvertFrom-Json
+        $versions = @($packageData.Items.PackageReference | Where-Object Identity -eq 'System.Management.Automation' | Select-Object -ExpandProperty Version -Unique)
+        if ($versions.Count -ne 1) {
+          throw "Expected one System.Management.Automation version in $project; found: $($versions -join ', ')."
+        }
+
+        $version = $versions[0]
+        $installDir = Join-Path $env:AGENT_TEMPDIRECTORY "pwsh-$version-arm64"
+        if (Test-Path $installDir) {
+          Remove-Item -Path $installDir -Recurse -Force
+        }
+        dotnet tool install --tool-path $installDir PowerShell --version $version
+        if ($LASTEXITCODE -ne 0) {
+          throw "Failed to install PowerShell $version."
+        }
+
+        & (Join-Path $installDir 'pwsh.exe') -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+        if ($LASTEXITCODE -ne 0) {
+          throw "PowerShell $version failed to start."
+        }
+        Write-Host "##vso[task.prependpath]$installDir"
+
+  - task: PowerShell@2
     displayName: Build CLI Windows Zip
     inputs:
       targetType: inline
