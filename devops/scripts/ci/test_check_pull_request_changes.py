@@ -71,7 +71,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
 
-    def test_identifies_pr_781_stable_release_identity(self):
+    def test_identifies_stable_release_identity(self):
         release_branch = "release/trigger-stable-release-0.1.2"
         release_title = "{DevOps} Trigger stable release 0.1.2"
 
@@ -114,7 +114,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
 
     def test_restricts_generated_stable_release_changes(self):
         base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
-        version_only_project = "<Project><PropertyGroup><Version>0.1.1</Version></PropertyGroup></Project>"
+        version_only_project = "<Project><PropertyGroup><Version>0.1.1</Version><FileVersion>0.1.1.0</FileVersion></PropertyGroup></Project>"
         modified_project = "<Project><PropertyGroup><Version>0.1.1</Version><Target Name=\"RunCode\" /></PropertyGroup></Project>"
 
         self.assertEqual(
@@ -136,6 +136,15 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         self.assertEqual(len(violations), 2)
         self.assertIn("release metadata", violations[0])
         self.assertIn("project version properties", violations[1])
+
+        added_project_violations = find_policy_violations(
+            ["src/Extensions/New/Extensions.New.csproj"],
+            lambda _: None,
+            lambda _: version_only_project,
+            stable_release=True,
+        )
+        self.assertEqual(len(added_project_violations), 1)
+        self.assertIn("may not add or delete project files", added_project_violations[0])
 
 
 if __name__ == "__main__":

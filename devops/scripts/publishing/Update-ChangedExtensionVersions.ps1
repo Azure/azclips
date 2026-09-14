@@ -108,14 +108,15 @@ else {
     $BaseRef.Trim()
 }
 
-if ([string]::IsNullOrWhiteSpace($resolvedBaseRef)) {
-    Write-Host 'No prior stable tag was found. Skipping extension version updates for the first stable release.'
-    return
+$isFirstRelease = [string]::IsNullOrWhiteSpace($resolvedBaseRef)
+$changedPaths = if ($isFirstRelease) {
+    @(& git --no-pager -C $RepoRoot ls-files -- 'src/Extensions' 2>&1)
 }
-
-$changedPaths = @(& git --no-pager -C $RepoRoot diff --name-only "$resolvedBaseRef..HEAD" -- 'src/Extensions' 2>&1)
+else {
+    @(& git --no-pager -C $RepoRoot diff --name-only "$resolvedBaseRef..HEAD" -- 'src/Extensions' 2>&1)
+}
 if ($LASTEXITCODE -ne 0) {
-    throw "git diff failed while detecting extension changes since $resolvedBaseRef. $($changedPaths -join "`n")"
+    throw "git failed while detecting extension files. $($changedPaths -join "`n")"
 }
 
 $changedModules = @(
@@ -146,6 +147,9 @@ foreach ($moduleName in $changedModules) {
     }
     if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
         throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"
+    }
+    if ($isFirstRelease) {
+        continue
     }
 
     $baseProjectContent = Get-FileAtRef -Root $RepoRoot -Ref $resolvedBaseRef -RelativePath $projectRelativePath
@@ -182,7 +186,10 @@ foreach ($moduleName in $changedModules) {
     $updatedModules.Add("${moduleName}: $versionSummary")
 }
 
-if ($updatedModules.Count -eq 0) {
+if ($isFirstRelease) {
+    Write-Host 'Validated extension packaging metadata without changing versions for the first stable release.'
+}
+elseif ($updatedModules.Count -eq 0) {
     Write-Host "No existing rollup extension code changed since $resolvedBaseRef."
 }
 else {

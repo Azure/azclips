@@ -120,6 +120,16 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.0'"
     }
 
+    It 'validates packaging metadata when no stable tag exists' {
+        $root = New-TestRepository
+        Remove-Item (Join-Path $root 'src/PS/Accounts/ChangeLog.md')
+        git -C $root add --all
+        git -C $root commit --quiet -m 'remove changelog before first stable release'
+
+        { & $scriptPath -RepoRoot $root } |
+            Should -Throw '*PowerShell changelog was not found for rollup extension Accounts*'
+    }
+
     It 'uses the latest stable tag when BaseRef is omitted' {
         $root = New-TestRepository
         git -C $root tag 'v0.1.0.20260101T000000Z'
@@ -161,7 +171,7 @@ Describe 'Update-ChangedExtensionVersions' {
 
     It 'skips a changed extension project without a PowerShell child module' {
         $root = New-TestRepository
-        Write-TestFile -Root $root -RelativePath 'src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj' -Content '<Project Sdk="Microsoft.NET.Sdk" />'
+        Write-TestFile -Root $root -RelativePath 'src/Extensions/ExtensionRuntime/Extensions.ExtensionRuntime.csproj' -Content '<Project Sdk="Microsoft.NET.Sdk" />'
         Write-TestFile -Root $root -RelativePath 'src/Extensions/ExtensionRuntime/Runtime.cs' -Content 'class Runtime { }'
         git -C $root add .
         git -C $root commit --quiet -m 'change non-packageable extension runtime'

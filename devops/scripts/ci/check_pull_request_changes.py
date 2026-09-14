@@ -83,6 +83,10 @@ def find_policy_violations(
         base_content = read_base_file(file_path)
         head_content = read_head_file(file_path)
         if base_content is None or head_content is None:
+            if stable_release:
+                violations.append(
+                    f"{file_path}: generated stable-release PRs may not add or delete project files."
+                )
             continue
 
         if stable_release:
@@ -112,13 +116,19 @@ def get_project_structure_without_versions(content: str) -> tuple:
     def canonicalize(element: ET.Element, parent_name: str = "") -> tuple:
         name = element.tag.rsplit("}", 1)[-1]
         text = (element.text or "").strip()
-        if parent_name == "PropertyGroup" and name in VERSION_PROPERTIES:
-            text = "<release-version>"
+        children = (
+            child
+            for child in element
+            if not (
+                name == "PropertyGroup"
+                and child.tag.rsplit("}", 1)[-1] in VERSION_PROPERTIES
+            )
+        )
         return (
             name,
             tuple(sorted(element.attrib.items())),
             text,
-            tuple(canonicalize(child, name) for child in element),
+            tuple(canonicalize(child, name) for child in children),
         )
 
     return canonicalize(root)
@@ -150,7 +160,7 @@ def read_file_at_ref(repo_root: Path, ref: str, file_path: str) -> str | None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repo-root", default=".")
+    parser.add_argument("--repo-root", default=Path(__file__).resolve().parents[3])
     parser.add_argument("--base-sha", required=True)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--base-repository", required=True)
