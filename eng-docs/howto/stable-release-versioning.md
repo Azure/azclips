@@ -19,7 +19,7 @@ functional code and non-version project metadata.
 | Add or delete a `.csproj` | Yes | The release policy permits it in a contributor PR. New packageable extensions must include complete packaging metadata. |
 | Rename a `.csproj` | No | The PR policy fails to prevent version-policy bypasses. |
 | Root `CHANGELOG.md` | No | The PR policy fails because stable-release automation owns it. |
-| Module `src/PS/<Module>/ChangeLog.md` upcoming notes | Yes | Add customer-facing module notes under `## Upcoming Release`. |
+| Module-level changelog (`src/PS/<Module>/ChangeLog.md`) | Yes | CI permits the file; contributors should add customer-facing notes under `## Upcoming Release`. Release automation creates the versioned section. |
 
 The protected direct MSBuild properties are:
 
