@@ -57,8 +57,9 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
 
-    public static UsageErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new(message, details);
+    // Declared return type is the base so already-compiled callers keep binding; the runtime type is the subtype.
+    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new UsageErrorException(message, details);
 
     public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new(message, details, hasMissingRequiredParameters: true);
