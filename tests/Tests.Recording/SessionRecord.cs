@@ -4,7 +4,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// One recorded HTTP exchange: the request as it left the pipeline and the response the

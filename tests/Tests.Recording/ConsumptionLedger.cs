@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Persists which recording entries playback has consumed, one index per line, so consumption

@@ -99,6 +99,16 @@ foreach ($moduleName in $modules)
         $ErrorActionPreference = 'Continue'
 
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -ErrorAction Stop
+        # Name-form RequiredModules refer to sibling modules; import them first.
+        foreach ($required in @((Import-PowerShellDataFile $manifest).RequiredModules))
+        {
+            $name = if ($required -is [hashtable]) { $required.ModuleName } else { $required }
+            if ($name -and $name -notmatch '[\/]')
+            {
+                $sibling = Join-Path (Split-Path (Split-Path $manifest -Parent) -Parent) $name "$name.psd1"
+                if (Test-Path $sibling) { Import-Module $sibling -ErrorAction Stop }
+            }
+        }
         Import-Module $manifest -Force -ErrorAction Stop
 
         # See scratch/CLIPS-652-TEMP-PR-PLAN.md §4.1. Passing this list REPLACES Compare-CommandHelp's

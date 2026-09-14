@@ -77,7 +77,6 @@ public class Program
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            Core.Recording.RecordingHook.TryRegister();
             AzclipsServiceProvider.Initialize(_clientType);
         }
 

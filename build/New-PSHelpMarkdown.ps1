@@ -232,6 +232,16 @@ foreach ($name in $modules)
             pwsh -NoProfile -Command {
                 param($manifestPath, $mdPaths, $tempDir, $moduleName)
                 Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+                # Name-form RequiredModules refer to sibling modules; import them first.
+                foreach ($required in @((Import-PowerShellDataFile $manifestPath).RequiredModules))
+                {
+                    $name = if ($required -is [hashtable]) { $required.ModuleName } else { $required }
+                    if ($name -and $name -notmatch '[\/]')
+                    {
+                        $sibling = Join-Path (Split-Path (Split-Path $manifestPath -Parent) -Parent) $name "$name.psd1"
+                        if (Test-Path $sibling) { Import-Module $sibling -ErrorAction Stop }
+                    }
+                }
                 $mod = Import-Module $manifestPath -Force -PassThru
                 foreach ($p in $mdPaths)
                 {
@@ -312,6 +322,16 @@ foreach ($name in $modules)
         pwsh -NoProfile -Command {
             param($manifestPath, $tempDir, $moduleName)
             Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+            # Name-form RequiredModules refer to sibling modules; import them first.
+            foreach ($required in @((Import-PowerShellDataFile $manifestPath).RequiredModules))
+            {
+                $name = if ($required -is [hashtable]) { $required.ModuleName } else { $required }
+                if ($name -and $name -notmatch '[\/]')
+                {
+                    $sibling = Join-Path (Split-Path (Split-Path $manifestPath -Parent) -Parent) $name "$name.psd1"
+                    if (Test-Path $sibling) { Import-Module $sibling -ErrorAction Stop }
+                }
+            }
             $mod = Import-Module $manifestPath -Force -PassThru
             New-MarkdownCommandHelp -ModuleInfo $mod -OutputFolder $tempDir -Force | Out-Null
 

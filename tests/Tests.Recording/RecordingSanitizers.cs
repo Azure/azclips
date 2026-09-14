@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Recording;
+namespace Tests.Recording;
 
 /// <summary>
 /// Central sanitiser set. Named headers are dropped; every other URI, header value, and body is

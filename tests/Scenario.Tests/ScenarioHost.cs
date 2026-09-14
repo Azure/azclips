@@ -6,7 +6,7 @@ using Core.Configuration.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
 
