@@ -66,6 +66,27 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldPass_WhenGroupHasNoRunnableRootCommand()
+        {
+            // `az group` renders group help at runtime, so the validator must not treat it as unknown.
+            var content = Fence("az group");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldStillFire_WhenGroupIsFollowedByUnknownSubcommand()
+        {
+            var content = Fence("az group nope");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.CLI_L1_UnknownCommand);
+        }
+
+        [Fact]
         public void Validate_ShouldPass_WhenRootCommandResolvesToEmptyKey()
         {
             // az login (no subcommand) → key "" in login's CLI table.

@@ -186,6 +186,13 @@ namespace Azclips.Help.Tool.Validation
 
             if (command is null)
             {
+                // `az <group>` renders that group's help at runtime, so it is a valid example
+                // even when the group has no runnable root command.
+                if (commandTokens.Count == 0 && tokens.Count == 2)
+                {
+                    return;
+                }
+
                 var attempted = commandTokens.Count == 0 ? "<root>" : string.Join(' ', commandTokens);
                 report.AddError(
                     ProblemIds.CLI_L1_UnknownCommand,
