@@ -1,9 +1,9 @@
 ---
-title: Stable release versioning
+title: CLI, PowerShell, and extension versioning
 summary: Contributor rules, CI protections, and stable-release version automation.
 ---
 
-# Stable release versioning
+# CLI, PowerShell, and extension versioning
 
 Release automation owns stable package versions and generated release notes. Contributors own
 functional code and non-version project metadata.
