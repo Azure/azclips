@@ -79,12 +79,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             string[] scopes = TokenScopeResolver.Resolve(Resource, ResourceType, Scope);
 
             var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            AuthResult authResult = await authService.AcquireTokenSilentlyAsync(
-                scopes,
-                explicitTenant ?? profile.TenantId,
-                promptOnError: false,
-                cancellationToken: Token,
-                profile: profile);
+            string targetTenant = explicitTenant ?? profile.TenantId;
+            AuthResult authResult;
+            try
+            {
+                authResult = await authService.AcquireTokenSilentlyAsync(
+                    scopes,
+                    targetTenant,
+                    promptOnError: false,
+                    cancellationToken: Token,
+                    profile: profile);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Acquisition is silent (promptOnError: false), so translate a raw MSAL failure into
+                // actionable, surface-aware sign-in guidance.
+                var errorClientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+                string signInCommand = errorClientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
+                string tenantFlag = errorClientType == ClientType.PowerShell ? "-TenantId" : "--tenant-id";
+                throw new InvalidOperationException(
+                    $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
+                    + "You may not be signed in to that tenant, or it requires additional sign-in "
+                    + "(for example, multifactor authentication or a conditional access policy). "
+                    + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
+                    ex);
+            }
 
             // get-access-token operates in the active profile's context, so the reported subscription
             // always comes from that profile. Unlike classic `az` (which caches every subscription at

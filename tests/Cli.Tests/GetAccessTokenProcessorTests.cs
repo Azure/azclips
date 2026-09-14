@@ -189,6 +189,41 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
+    public async Task ProcessAsync_SilentAcquisitionFails_ThrowsActionableSignInError()
+    {
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("AADSTS50076: interaction required."));
+        InitDi(ClientType.CLI, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor { Tenant = "other-tenant" },
+            ProfileWith(AuthMethod.Browser), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("other-tenant", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("az login --tenant-id other-tenant", ex.Message, StringComparison.Ordinal);
+        // The underlying cause is preserved for diagnosis.
+        Assert.Contains("AADSTS50076", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SilentAcquisitionFails_PowerShellUsesConnectAzAccountGuidance()
+    {
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("interaction required."));
+        InitDi(ClientType.PowerShell, auth.Object);
+
+        var processor = InitProcessor(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("Connect-AzAccount -TenantId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProcessAsync_ResourceType_ResolvesScopePassedToAuthService()
     {
         string[]? capturedScopes = null;
