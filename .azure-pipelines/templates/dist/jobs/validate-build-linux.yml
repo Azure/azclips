@@ -94,7 +94,20 @@ jobs:
 
   - bash: |
       set -euo pipefail
-      docker run --rm \
+      sudo apt-get update
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+      sudo systemctl start docker
+      sudo docker version
+    displayName: Install Docker for Alpine ARM64 Validation
+    condition: and(succeeded(), eq(variables['Rid'], 'linux-musl-arm64'))
+
+  - bash: |
+      set -euo pipefail
+      docker_command=(docker)
+      if [[ "$(Rid)" == "linux-musl-arm64" ]]; then
+        docker_command=(sudo docker)
+      fi
+      "${docker_command[@]}" run --rm \
         -v "$(Build.SourcesDirectory):/src" \
         -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
         -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
