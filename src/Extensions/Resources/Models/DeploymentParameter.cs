@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Models;
 /// <summary>Deployment parameter for the template.</summary>
 public partial class DeploymentParameter
 {

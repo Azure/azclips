@@ -4,8 +4,8 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.Deployment.Customization;
-using Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cli.Tests;
 
@@ -63,7 +63,7 @@ public class ManagementGroupDeploymentTests
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
-        where T : Microsoft.Azure.Azclips.Extensions.Deployment.Processors.DeploymentProcessorBase
+        where T : ResourcesProcessorBase
     {
         Profile profile = new() { TenantId = "test-tenant", SubscriptionId = "test-subscription" };
         processor.Init(new ProcessorContext(

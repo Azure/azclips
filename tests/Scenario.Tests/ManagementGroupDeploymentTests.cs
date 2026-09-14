@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Deployment.Customization;
-using Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Scenario.Tests;
 
@@ -24,7 +24,7 @@ public class ManagementGroupDeploymentTests
             };
 
             await processor.PrepareAsync();
-            ScopedDeployment body = processor.RequestBody();
+            Deployment body = processor.RequestBody();
 
             Assert.Equal(Path.GetFileNameWithoutExtension(path), processor.Name);
             Assert.Equal("eastus", body.Location);
@@ -41,6 +41,6 @@ public class ManagementGroupDeploymentTests
     {
         public Task PrepareAsync() => BeforeProcessAsync();
 
-        public ScopedDeployment RequestBody() => CreateRequestBody()!;
+        public Deployment RequestBody() => CreateRequestBody()!;
     }
 }

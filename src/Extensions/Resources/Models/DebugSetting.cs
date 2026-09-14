@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Azclips.Extensions.Deployment.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Models;
 /// <summary>The debug setting.</summary>
 public partial class DebugSetting
 {

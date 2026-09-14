@@ -7,10 +7,10 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Deployment;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzManagementGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Deployment.Models.DeploymentExtended")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
 public class NewManagementGroupDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -98,7 +98,7 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
         ITelemetryService telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetry.StartRootActivity();
         CommandInvocation invocation = new(
-            "Deployment",
+            "Resources",
             "New-AzManagementGroupDeployment",
             parameters,
             false,

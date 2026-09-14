@@ -28,7 +28,6 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\Deployment\Extensions.Deployment.csproj" />
         <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
