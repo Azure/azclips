@@ -124,9 +124,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             }
 
             bool tenantBoundToAccount = profile.AuthMethod == AuthMethod.ManagedIdentity;
-            if (tenantBoundToAccount &&
-                !string.IsNullOrEmpty(profile.TenantId) &&
-                !string.Equals(explicitTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase))
+            if (!tenantBoundToAccount)
+            {
+                return;
+            }
+
+            // A managed identity's tenant is fixed by the account. If the account's tenant is
+            // unknown (managed identity profiles can carry an empty tenant), an explicit tenant
+            // cannot be honored - MSAL would ignore it and return a token for the account's own
+            // tenant - so reject it rather than silently serve a different tenant than requested.
+            if (string.IsNullOrEmpty(profile.TenantId))
+            {
+                throw new ArgumentException(
+                    $"Tenant '{explicitTenant}' cannot be honored for the current managed identity account, whose tenant is fixed by the account and cannot be overridden. Retry without specifying a tenant.");
+            }
+
+            if (!string.Equals(explicitTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException(
                     $"Tenant '{explicitTenant}' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('{profile.TenantId}').");

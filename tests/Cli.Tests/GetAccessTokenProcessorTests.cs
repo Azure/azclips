@@ -105,6 +105,18 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
+    public async Task ProcessAsync_ManagedIdentity_ExplicitTenantWithUnknownProfileTenant_Throws()
+    {
+        InitDi(ClientType.CLI, AuthReturning("secret").Object);
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor { Tenant = "requested-tenant" },
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: ""), out _);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        Assert.Contains("cannot be honored", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProcessAsync_BrowserAccount_ExplicitDifferentTenant_IsAllowed()
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);

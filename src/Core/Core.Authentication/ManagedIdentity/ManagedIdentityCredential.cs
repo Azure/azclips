@@ -82,6 +82,15 @@ public sealed class ManagedIdentityCredential : TokenCredential
     /// <summary>Converts a scope to the resource format expected by MI endpoints.</summary>
     public static string ScopeToResource(string[] scopes)
     {
+        // Managed identity endpoints authenticate against a single resource, so a multi-scope
+        // request cannot be honored - silently using only the first scope would drop the rest.
+        if (scopes is { Length: > 1 })
+        {
+            throw new ArgumentException(
+                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account.",
+                nameof(scopes));
+        }
+
         var scope = scopes is { Length: > 0 } ? scopes[0] : AuthConstants.ArmDefaultScope;
         return scope.EndsWith("/.default", StringComparison.Ordinal)
             ? scope[..^"/.default".Length]
