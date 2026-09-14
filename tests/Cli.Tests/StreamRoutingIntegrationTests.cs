@@ -163,7 +163,11 @@ public class StreamRoutingIntegrationTests
         }
         finally
         {
-            Directory.Delete(homeDirectory, recursive: true);
+            // Best-effort: Program.cs's SpawnTelemetryUploader detaches an --upload-telemetry
+            // child that inherits AZCLIPS_HOME and may still be reading/writing the trace
+            // directory here, so an immediate recursive delete can race it (esp. on Windows,
+            // where an open handle turns this into a flaky IOException, not a real failure).
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 

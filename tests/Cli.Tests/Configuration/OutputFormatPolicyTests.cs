@@ -35,7 +35,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveFormat_ShouldPreferFlagOverride_WhenGiven()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { Format = "yaml" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { Format = "yaml" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveFormat(options, OutputFormat.Json);
 
@@ -45,7 +45,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveFormat_ShouldFallBackToConfig_WhenFlagNotGiven()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { Format = "yaml" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { Format = "yaml" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveFormat(options, flagOverride: null);
 
@@ -55,7 +55,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveFormat_ShouldFallBackToJson_WhenConfigValueIsInvalid()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { Format = "not-a-format" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { Format = "not-a-format" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveFormat(options, flagOverride: null);
 
@@ -65,7 +65,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveSimpleFormat_ShouldPreferFlagOverride_WhenGiven()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "yaml" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { SimpleFormat = "yaml" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, OutputFormat.Json);
 
@@ -75,7 +75,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveSimpleFormat_ShouldFallBackToConfig_WhenFlagNotGiven()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "yaml" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { SimpleFormat = "yaml" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, flagOverride: null);
 
@@ -85,7 +85,7 @@ public class OutputFormatPolicyTests
     [Fact]
     public void ResolveEffectiveSimpleFormat_ShouldFallBackToTsv_WhenConfigValueIsInvalid()
     {
-        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { SimpleFormat = "not-a-format" } } };
+        var options = new ClientsOptions { Cli = new CliClientOptions { Output = new CliOutputOptions { SimpleFormat = "not-a-format" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveSimpleFormat(options, flagOverride: null);
 
