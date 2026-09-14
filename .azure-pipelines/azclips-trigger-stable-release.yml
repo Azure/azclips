@@ -277,6 +277,13 @@ stages:
         GH_TOKEN: $(GH_TOKEN)
 
     - task: PowerShell@2
+      displayName: Update Changed Extension Versions
+      inputs:
+        pwsh: true
+        filePath: devops/scripts/publishing/Update-ChangedExtensionVersions.ps1
+        arguments: -RepoRoot "$(Build.SourcesDirectory)"
+
+    - task: PowerShell@2
       displayName: Update Release Changelog
       inputs:
         pwsh: true
@@ -301,6 +308,7 @@ stages:
         git_add_paths=(
           "$core_project"
           "$changelog_file"
+          src/Extensions/*/Extensions.*.csproj
           src/PS/*/ChangeLog.md
           src/PS/*/*.psd1
         )
@@ -316,6 +324,8 @@ stages:
           "Prepare stable release $target_version." \
           '' \
           '- Updates src/CLI/Core.Cli.csproj' \
+          '- Patch-bumps each changed existing extension independently and preserves new extensions declared initial versions' \
+          '- Aligns corresponding PowerShell child modules and Az dependency versions' \
           '- Updates the root CHANGELOG.md' \
           '- Updates src/PS/Az/Az.psd1' \
           '- Updates PowerShell module changelogs and manifests' \
@@ -423,12 +433,23 @@ stages:
         echo "Files changed in triggering commit:"
         printf '%s\n' "$changed_files"
 
-        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
+        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|src/Extensions/[^/]+/Extensions\.[^/]+\.csproj|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
         if [[ -n "$unexpected_changed_files" ]]; then
           echo "Commit changed files outside stable version metadata, release notes, and PowerShell manifests. Skipping stable tag creation."
           printf '%s\n' "$unexpected_changed_files"
           exit 0
         fi
+
+        while IFS= read -r changed_file; do
+          if [[ "$changed_file" =~ ^src/Extensions/([^/]+)/Extensions\.([^/]+)\.csproj$ ]] && [[ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]]; then
+            echo "$changed_file does not match its extension directory name. Skipping stable tag creation."
+            exit 0
+          fi
+          if [[ "$changed_file" =~ ^src/PS/([^/]+)/([^/]+)\.psd1$ ]] && [[ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]]; then
+            echo "$changed_file does not match its PowerShell module directory name. Skipping stable tag creation."
+            exit 0
+          fi
+        done <<< "$changed_files"
 
         if ! printf '%s\n' "$changed_files" | grep -qx 'src/CLI/Core.Cli.csproj'; then
           echo "Commit did not change src/CLI/Core.Cli.csproj. Skipping stable tag creation."
@@ -450,7 +471,23 @@ stages:
           exit 0
         fi
 
-        echo "Confirmed triggering commit only changes stable version metadata, release notes, and PowerShell manifests."
+        extension_projects="$(printf '%s\n' "$changed_files" | grep -E '^src/Extensions/[^/]+/Extensions\.[^/]+\.csproj$' || true)"
+        extension_version_line_regex='^[+-][[:space:]]*<Version>[0-9]+\.[0-9]+\.[0-9]+</Version>[[:space:]]*$'
+        while IFS= read -r extension_project; do
+          [[ -z "$extension_project" ]] && continue
+          extension_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- "$extension_project" | grep -E "$extension_version_line_regex" || true)"
+          extension_non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- "$extension_project" | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev "$extension_version_line_regex" || true)"
+          removed_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^-' || true)"
+          added_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^+' || true)"
+
+          if [[ "$removed_version_count" -ne 1 || "$added_version_count" -ne 1 || -n "$extension_non_version_diff" ]]; then
+            echo "$extension_project changed outside its stable Version line. Skipping stable tag creation."
+            printf '%s\n' "$extension_non_version_diff"
+            exit 0
+          fi
+        done <<< "$extension_projects"
+
+        echo "Confirmed triggering commit only changes stable version metadata, release notes, extension versions, and PowerShell manifests."
 
         core_project_tmp="$(mktemp)"
         git show "$source_commit:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
