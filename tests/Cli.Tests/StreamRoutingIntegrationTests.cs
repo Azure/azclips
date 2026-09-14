@@ -122,6 +122,37 @@ public class StreamRoutingIntegrationTests
         Assert.Contains("[ExtensionLoadTracker] Total (", stderr);
     }
 
+    [Fact]
+    public async Task ConfigSet_SimpleFormat_ChangesQueryScalarRendering_EndToEnd()
+    {
+        // Exercises the real path -- az config set writes JSON, ConfigurationService binds it into
+        // ClientsOptions, OutputFormatPolicy resolves it -- not just the in-memory unit tests, which
+        // construct ClientsOptions/CliOutputOptions directly and never touch config persistence.
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        try
+        {
+            var (setExit, _, setStderr) = await RunCliInHomeAsync(
+                homeDirectory,
+                "config", "set", "--key", "clients.cli.output.simpleFormat", "--value", "json", "--force");
+            Assert.Equal(0, setExit);
+            Assert.DoesNotContain("ERROR:", setStderr);
+
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(
+                homeDirectory,
+                "config", "get", "--key", "core.logging.level", "--query", "@");
+
+            Assert.Equal(0, exit);
+            Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
+            Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+            Assert.DoesNotContain("ERROR:", stderr);
+        }
+        finally
+        {
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
     private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
     {
         // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
@@ -133,36 +164,7 @@ public class StreamRoutingIntegrationTests
         File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = ResolveCliBinary(),
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            // Pin AZCLIPS_LOG_LEVEL=warn so ambient developer/CI env doesn't shift the effective level
-            // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
-            // `args > env` precedence means the flag still wins over this pin.
-            psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
-            psi.Environment["AZCLIPS_HOME"] = homeDirectory;
-            foreach (var a in args)
-            {
-                psi.ArgumentList.Add(a);
-            }
-
-            using var proc = new Process { StartInfo = psi };
-            proc.Start();
-            // Drain stdout/stderr concurrently via ReadToEndAsync so we deterministically capture
-            // trailing lines. Event-based capture (OutputDataReceived) can race the process exit
-            // and drop the last few lines under CI scheduling. Same pattern as
-            // tests/Benchmark/Startup/StartupBenchmarkBase.RunToExit.
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
-            var stderrTask = proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-            return (proc.ExitCode, stdout, stderr);
+            return await RunCliInHomeAsync(homeDirectory, args);
         }
         finally
         {
@@ -172,6 +174,41 @@ public class StreamRoutingIntegrationTests
             // where an open handle turns this into a flaky IOException, not a real failure).
             try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = ResolveCliBinary(),
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        // Pin AZCLIPS_LOG_LEVEL=warn so ambient developer/CI env doesn't shift the effective level
+        // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
+        // `args > env` precedence means the flag still wins over this pin.
+        psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
+        psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+        foreach (var a in args)
+        {
+            psi.ArgumentList.Add(a);
+        }
+
+        using var proc = new Process { StartInfo = psi };
+        proc.Start();
+        // Drain stdout/stderr concurrently via ReadToEndAsync so we deterministically capture
+        // trailing lines. Event-based capture (OutputDataReceived) can race the process exit
+        // and drop the last few lines under CI scheduling. Same pattern as
+        // tests/Benchmark/Startup/StartupBenchmarkBase.RunToExit.
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+        var stderrTask = proc.StandardError.ReadToEndAsync();
+        await proc.WaitForExitAsync();
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+        return (proc.ExitCode, stdout, stderr);
     }
 
     private static string ResolveCliBinary()
