@@ -190,16 +190,26 @@ public class Program
         // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
-            activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
-            return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+            try
+            {
+                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
+                return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+            }
+            catch (Exception helpEx)
+            {
+                // Throwing from a catch body skips the catches below, so degrade to the original error here.
+                _logger?.Debug($"group help unavailable: {helpEx.Message}");
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
+            }
         }
         catch (AzclipsErrorException ex)
         {
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation))
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
-
-                DispatchHelp(ErrorHelpPolicy.CommandHelpRequest(invocation), isBareInvocation: false, streams, activity);
+                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
@@ -298,13 +308,29 @@ public class Program
         }
     }
 
-    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
+    /// <summary>
+    /// Renders help beneath an error that was already reported. Routed to stderr so stdout stays
+    /// reserved for command results, and best-effort so a help failure cannot replace the error.
+    /// </summary>
+    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity)
+    {
+        try
+        {
+            DispatchHelp(help, isBareInvocation: false, streams, activity, Console.Error);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"command help unavailable: {ex.Message}");
+        }
+    }
+
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null)
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore);
+            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore, output);
             if (help.Path.Count == 0)
             {
                 // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.

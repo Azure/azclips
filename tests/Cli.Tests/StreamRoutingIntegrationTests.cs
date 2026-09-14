@@ -108,6 +108,67 @@ public class StreamRoutingIntegrationTests
         Assert.Contains("[ExtensionLoadTracker] Total (", stderr);
     }
 
+    [Fact]
+    public async Task BareGroup_RendersGroupHelpToStdout()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("vm");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("# GROUP", stdout);
+        Assert.Contains("az vm:", stdout);
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-help")]
+    [InlineData("-?")]
+    [InlineData("--?")]
+    public async Task GroupHelpAlias_RendersGroupHelpToStdout(string helpToken)
+    {
+        var (exit, stdout, _) = await RunCliAsync("vm", helpToken);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("az vm:", stdout);
+    }
+
+    [Fact]
+    public async Task GroupWithUnknownFlag_KeepsCommandNotFound_AndRendersNoHelp()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("vm", "--list");
+
+        Assert.Equal(4, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("CommandNotFound", stderr);
+    }
+
+    [Fact]
+    public async Task MissingRequiredParameters_KeepStdoutParseable_AndRenderHelpOnStderr()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "vm", "create");
+
+        Assert.Equal(2, exit);
+        // Help is diagnostic here: stdout must stay usable for `| jq` even though the command failed.
+        Assert.Empty(stdout);
+        // JSON output escapes the quotes around --name, so match the surrounding text instead.
+        Assert.Contains("Required parameter", stderr);
+        Assert.Contains("is missing.", stderr);
+        Assert.Contains("# COMMAND", stderr);
+        Assert.Contains("az vm create:", stderr);
+    }
+
+    [Fact]
+    public async Task MissingRequiredParameters_ReportErrorBeforeHelp()
+    {
+        var (_, _, stderr) = await RunCliAsync("vm", "create");
+
+        var errorIndex = stderr.IndexOf("Required parameter", StringComparison.Ordinal);
+        var helpIndex = stderr.IndexOf("# COMMAND", StringComparison.Ordinal);
+
+        Assert.True(errorIndex >= 0 && helpIndex > errorIndex, "The validation error must precede the help page.");
+    }
+
     private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
     {
         var psi = new ProcessStartInfo

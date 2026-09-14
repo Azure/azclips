@@ -38,12 +38,12 @@ public sealed class RuntimeHelpDispatcher
     private readonly OutputStreams _streams;
     private readonly IExtensionRegistryStore _registryStore;
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore, TextWriter? output = null)
         : this(
             engine,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(),
-            Console.Out,
+            output ?? Console.Out,
             streams,
             registryStore)
     {
