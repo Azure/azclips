@@ -9,5 +9,6 @@
   { "Command": "logout", "AzureServiceName": "azure-cli" },
   { "Command": "profile", "AzureServiceName": "azure-cli" },
   { "Command": "rest", "AzureServiceName": "azure-cli" },
+  { "Command": "storage", "AzureServiceName": "azure-cli" },
   { "Command": "vm", "AzureServiceName": "azure-cli" }
 ]
