@@ -27,12 +27,12 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        var output = fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+        var output = fixture.ExecuteCli(["login", "--subscription-id", "11111111-1111-1111-1111-111111111111", "--out-profile", "prod"]);
 
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
-        Assert.Equal("sub-1", prod!.SubscriptionId);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", prod!.SubscriptionId);
         Assert.Equal(AuthMethod.Browser, prod.AuthMethod);
         Assert.Contains(output, line => line.Contains("prod"));
     }
@@ -42,7 +42,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--use-device-code", "--out-profile", "ci"]);
+        fixture.ExecuteCli(["login", "--subscription-id", "11111111-1111-1111-1111-111111111111", "--use-device-code", "--out-profile", "ci"]);
 
         var ci = await fixture.Profiles.GetProfileAsync("ci");
         Assert.Equal(AuthMethod.DeviceCode, ci!.AuthMethod);
@@ -53,7 +53,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1"]);
+        fixture.ExecuteCli(["login", "--subscription-id", "11111111-1111-1111-1111-111111111111"]);
 
         Assert.Equal("default", await fixture.Profiles.GetActiveProfileNameAsync());
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("default"));
@@ -69,7 +69,7 @@ public sealed class ProfileCliTests
             .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(owningTenant);
 
-        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+        fixture.ExecuteCli(["login", "--subscription-id", "11111111-1111-1111-1111-111111111111", "--out-profile", "prod"]);
 
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
@@ -87,7 +87,7 @@ public sealed class ProfileCliTests
             .ThrowsAsync(new HttpRequestException("boom"));
 
         Assert.ThrowsAny<Exception>(() =>
-            fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]));
+            fixture.ExecuteCli(["login", "--subscription-id", "11111111-1111-1111-1111-111111111111", "--out-profile", "prod"]));
 
         Assert.Null(await fixture.Profiles.GetProfileAsync("prod"));
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());

@@ -135,6 +135,33 @@ public class LoginProcessorValidationTests
         Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_NonGuidSubscriptionId_NamesSurfaceCorrectFlag(ClientType surface)
+    {
+        InitDi(surface);
+        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
+        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
+        var processor = new LoginProcessor { SubscriptionId = "Steven Ma [stema] subscription" };
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains("Steven Ma [stema] subscription", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValidateArguments_GuidSubscriptionId_DoesNotThrow()
+    {
+        InitDi(ClientType.CLI);
+        var processor = new LoginProcessor { SubscriptionId = "00000000-0000-0000-0000-000000000000" };
+
+        InvokePrivate(processor, "ValidateArguments", Array.Empty<object?>());
+    }
+
     // ── Section 2: post-validation error paths ─────────────────────────────────────────────
 
     // EnsureCrossTenantAccessible: probe threw (LoginProcessor.cs ~L307)
@@ -435,9 +462,9 @@ public class LoginProcessorValidationTests
     public static IEnumerable<object[]> ValidArgumentCombinations()
     {
         yield return new object[] { "bare-interactive",
-            new LoginProcessor { SubscriptionId = "sub-1" } };
+            new LoginProcessor { SubscriptionId = "00000000-0000-0000-0000-000000000000" } };
         yield return new object[] { "device-code",
-            new LoginProcessor { SubscriptionId = "sub-1", UseDeviceCode = true } };
+            new LoginProcessor { SubscriptionId = "00000000-0000-0000-0000-000000000000", UseDeviceCode = true } };
         yield return new object[] { "managed-identity-system-assigned",
             new LoginProcessor { Identity = true } };
         yield return new object[] { "managed-identity-with-client-id",
