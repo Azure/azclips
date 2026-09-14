@@ -10,9 +10,7 @@ from check_pull_request_changes import (
 
 class PullRequestFilePolicyTests(unittest.TestCase):
     def test_rejects_root_changelog_edit(self):
-        violations = find_policy_violations(
-            ["CHANGELOG.md"], lambda _: "old", lambda _: "new"
-        )
+        violations = find_policy_violations(["CHANGELOG.md"], lambda _: "old", lambda _: "new")
 
         self.assertEqual(len(violations), 1)
         self.assertIn("CHANGELOG.md", violations[0])
@@ -37,7 +35,9 @@ class PullRequestFilePolicyTests(unittest.TestCase):
 
     def test_allows_non_version_project_changes_and_new_projects(self):
         base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
-        head_project = "<Project><PropertyGroup><Version>0.1.0</Version><Nullable>enable</Nullable></PropertyGroup></Project>"
+        head_project = (
+            "<Project><PropertyGroup><Version>0.1.0</Version><Nullable>enable</Nullable></PropertyGroup></Project>"
+        )
 
         self.assertEqual(
             find_policy_violations(
@@ -48,9 +48,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
         self.assertEqual(
-            find_policy_violations(
-                ["src/New/New.csproj"], lambda _: None, lambda _: head_project
-            ),
+            find_policy_violations(["src/New/New.csproj"], lambda _: None, lambda _: head_project),
             [],
         )
 
@@ -113,9 +111,22 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
 
     def test_restricts_generated_stable_release_changes(self):
-        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
-        version_only_project = "<Project><PropertyGroup><Version>0.1.1</Version><FileVersion>0.1.1.0</FileVersion></PropertyGroup></Project>"
-        modified_project = "<Project><PropertyGroup><Version>0.1.1</Version><Target Name=\"RunCode\" /></PropertyGroup></Project>"
+        base_project = """<Project>
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+</Project>
+"""
+        version_only_project = """<Project>
+    <PropertyGroup>
+        <Version>0.1.1</Version>
+        <FileVersion>0.1.1.0</FileVersion>
+    </PropertyGroup>
+</Project>
+"""
+        modified_project = version_only_project.replace(
+            "    </PropertyGroup>", '        <Target Name="RunCode" />\n    </PropertyGroup>'
+        )
 
         self.assertEqual(
             find_policy_violations(
@@ -145,6 +156,19 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
         self.assertEqual(len(added_project_violations), 1)
         self.assertIn("may not add or delete project files", added_project_violations[0])
+
+        for non_version_project in (
+            version_only_project.replace("    <PropertyGroup>", "      <PropertyGroup>"),
+            version_only_project.replace("    </PropertyGroup>", "        <!-- release -->\n    </PropertyGroup>"),
+        ):
+            violations = find_policy_violations(
+                ["src/CLI/Core.Cli.csproj"],
+                lambda _: base_project,
+                lambda _: non_version_project,
+                stable_release=True,
+            )
+            self.assertEqual(len(violations), 1)
+            self.assertIn("project version properties", violations[0])
 
 
 if __name__ == "__main__":

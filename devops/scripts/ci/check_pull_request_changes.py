@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import difflib
 import re
 import subprocess
 import sys
@@ -25,6 +26,9 @@ VERSION_PROPERTIES = {
     "VersionPrefix",
     "VersionSuffix",
 }
+VERSION_PROPERTY_LINE_PATTERN = re.compile(
+    rf"^\s*<(?P<name>{'|'.join(sorted(VERSION_PROPERTIES))})>" r"(?P<value>[^<]*)</(?P=name)>\s*(?:\r?\n)?$"
+)
 
 
 def is_stable_release_pull_request(
@@ -79,9 +83,7 @@ def find_policy_violations(
             continue
 
         if stable_release:
-            base_structure = get_project_structure_without_versions(base_content)
-            head_structure = get_project_structure_without_versions(head_content)
-            if base_structure != head_structure:
+            if not has_only_project_version_line_changes(base_content, head_content):
                 violations.append(
                     f"{file_path}: generated stable-release PRs may only change project version properties."
                 )
@@ -99,25 +101,26 @@ def find_policy_violations(
     return violations
 
 
-def get_project_structure_without_versions(content: str) -> tuple:
-    root = ET.fromstring(content)
+def has_only_project_version_line_changes(base_content: str, head_content: str) -> bool:
+    base_versions = get_project_versions(base_content)
+    head_versions = get_project_versions(head_content)
 
-    def canonicalize(element: ET.Element, parent_name: str = "") -> tuple:
-        name = element.tag.rsplit("}", 1)[-1]
-        text = (element.text or "").strip()
-        children = (
-            child
-            for child in element
-            if not (name == "PropertyGroup" and child.tag.rsplit("}", 1)[-1] in VERSION_PROPERTIES)
-        )
-        return (
-            name,
-            tuple(sorted(element.attrib.items())),
-            text,
-            tuple(canonicalize(child, name) for child in children),
-        )
+    def is_direct_version_line(line: str, versions: dict[str, tuple[str, ...]]) -> bool:
+        match = VERSION_PROPERTY_LINE_PATTERN.fullmatch(line)
+        return bool(match and match.group("value").strip() in versions.get(match.group("name"), ()))
 
-    return canonicalize(root)
+    base_lines = base_content.splitlines(keepends=True)
+    head_lines = head_content.splitlines(keepends=True)
+    for operation, base_start, base_end, head_start, head_end in difflib.SequenceMatcher(
+        None, base_lines, head_lines
+    ).get_opcodes():
+        if operation == "equal":
+            continue
+        if not all(is_direct_version_line(line, base_versions) for line in base_lines[base_start:base_end]):
+            return False
+        if not all(is_direct_version_line(line, head_versions) for line in head_lines[head_start:head_end]):
+            return False
+    return True
 
 
 def run_git(repo_root: Path, arguments: list[str]) -> str:

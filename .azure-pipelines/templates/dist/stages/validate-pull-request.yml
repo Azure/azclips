@@ -27,7 +27,7 @@ stages:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
-      persistCredentials: true
+      persistCredentials: false
       fetchDepth: 0
     - bash: python3 devops/scripts/ci/test_check_pull_request_changes.py
       displayName: Test PR file policy checks
@@ -135,7 +135,7 @@ stages:
             )
             if error.code in (403, 404):
                 print(
-                    'Ensure checkout uses persistCredentials: true and the GitHub service connection can read pull request metadata for this repository.',
+                    'Ensure the repository is public and GitHub API access is available from the build agent.',
                     file=sys.stderr
                 )
             if error_message:
