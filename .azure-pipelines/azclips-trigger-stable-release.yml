@@ -480,7 +480,7 @@ stages:
           removed_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^-' || true)"
           added_version_count="$(printf '%s\n' "$extension_version_diff" | grep -c '^+' || true)"
 
-          if [[ "$removed_version_count" -eq 0 || "$added_version_count" -eq 0 || -n "$extension_non_version_diff" ]]; then
+          if [[ "$removed_version_count" -ne 1 || "$added_version_count" -ne 1 || -n "$extension_non_version_diff" ]]; then
             echo "$extension_project changed outside its stable Version line. Skipping stable tag creation."
             printf '%s\n' "$extension_non_version_diff"
             exit 0

@@ -105,6 +105,7 @@ def find_policy_violations(
     read_base_file: Callable[[str], str | None],
     read_head_file: Callable[[str], str | None],
     stable_release: bool = False,
+    project_renames: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     violations = []
     if stable_release:
@@ -113,6 +114,12 @@ def find_policy_violations(
                 violations.append(f"{file_path}: generated stable-release PRs may only change release metadata.")
     elif "CHANGELOG.md" in changed_files:
         violations.append("CHANGELOG.md must not be edited manually; stable-release automation owns it.")
+
+    if not stable_release:
+        for old_path, new_path in project_renames or []:
+            violations.append(
+                f"{old_path} -> {new_path}: project files containing release-owned versions may not be renamed."
+            )
 
     for file_path in sorted(path for path in changed_files if path.endswith(".csproj")):
         base_content = read_base_file(file_path)
@@ -145,7 +152,9 @@ def has_only_project_version_line_changes(base_content: str, head_content: str) 
     base_versions = get_project_versions(base_content)
     head_versions = get_project_versions(head_content)
 
-    if any(len(head_versions.get(name, ())) < len(records) for name, records in base_versions.items()):
+    if base_versions.keys() != head_versions.keys() or any(
+        len(head_versions[name]) != len(records) for name, records in base_versions.items()
+    ):
         return False
     for name, records in base_versions.items():
         base_contexts = sorted(record[:2] for record in records)
@@ -205,6 +214,22 @@ def read_file_at_ref(repo_root: Path, ref: str, file_path: str) -> str | None:
     return result.stdout
 
 
+def parse_changed_files(diff_output: str) -> tuple[list[str], list[tuple[str, str]]]:
+    changed_files = []
+    project_renames = []
+    for line in diff_output.splitlines():
+        fields = line.split("\t")
+        status = fields[0]
+        if status.startswith("R") and len(fields) == 3:
+            old_path, new_path = fields[1:]
+            changed_files.extend((old_path, new_path))
+            if old_path.endswith(".csproj") or new_path.endswith(".csproj"):
+                project_renames.append((old_path, new_path))
+        elif len(fields) == 2:
+            changed_files.append(fields[1])
+    return list(dict.fromkeys(changed_files)), project_renames
+
+
 def get_default_repo_root() -> Path:
     for candidate in Path(__file__).resolve().parents:
         if (candidate / ".git").exists():
@@ -237,15 +262,18 @@ def main() -> int:
         args.pull_request_author,
     )
 
-    changed_files = run_git(
-        repo_root,
-        ["diff", "--name-only", f"{args.base_sha}...{args.head_sha}", "--"],
-    ).splitlines()
+    changed_files, project_renames = parse_changed_files(
+        run_git(
+            repo_root,
+            ["diff", "--name-status", "--find-renames", f"{args.base_sha}...{args.head_sha}", "--"],
+        )
+    )
     violations = find_policy_violations(
         changed_files,
         lambda path: read_file_at_ref(repo_root, args.base_sha, path),
         lambda path: read_file_at_ref(repo_root, args.head_sha, path),
         stable_release=stable_release,
+        project_renames=project_renames,
     )
 
     for violation in violations:

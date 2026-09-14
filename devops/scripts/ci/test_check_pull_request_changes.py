@@ -5,6 +5,7 @@ import unittest
 from check_pull_request_changes import (
     find_policy_violations,
     is_stable_release_pull_request,
+    parse_changed_files,
 )
 
 
@@ -61,6 +62,18 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             find_policy_violations(["src/New/New.csproj"], lambda _: None, lambda _: head_project),
             [],
         )
+
+        changed_files, project_renames = parse_changed_files(
+            "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n"
+        )
+        violations = find_policy_violations(
+            changed_files,
+            lambda path: base_project if path == "src/Old/Old.csproj" else None,
+            lambda path: head_project if path == "src/New/New.csproj" else None,
+            project_renames=project_renames,
+        )
+        self.assertEqual(len(violations), 1)
+        self.assertIn("may not be renamed", violations[0])
 
     def test_allows_package_reference_child_version_changes(self):
         base_project = """
@@ -124,6 +137,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         base_project = """<Project>
     <PropertyGroup>
         <Version>0.1.0</Version>
+        <FileVersion>0.1.0.0</FileVersion>
     </PropertyGroup>
 </Project>
 """
@@ -174,6 +188,19 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
         self.assertEqual(len(added_project_violations), 1)
         self.assertIn("may not add or delete project files", added_project_violations[0])
+
+        added_property_project = version_only_project.replace(
+            "        <FileVersion>0.1.1.0</FileVersion>",
+            "        <FileVersion>0.1.1.0</FileVersion>\n        <PackageVersion>0.1.1</PackageVersion>",
+        )
+        violations = find_policy_violations(
+            ["src/CLI/Core.Cli.csproj"],
+            lambda _: base_project,
+            lambda _: added_property_project,
+            stable_release=True,
+        )
+        self.assertEqual(len(violations), 1)
+        self.assertIn("project version properties", violations[0])
 
         violations = find_policy_violations(
             ["src/CLI/Core.Cli.csproj"],
