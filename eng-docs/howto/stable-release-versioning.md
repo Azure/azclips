@@ -34,63 +34,46 @@ The protected direct MSBuild properties are:
 The validation job runs the policy checker from the PR base commit. A contributor cannot weaken the
 policy in the same PR that changes protected files.
 
-## Stable release trigger
+## Stable release pipeline
 
-The `azclips-trigger-stable-release` pipeline performs these versioning steps:
+The `azclips-trigger-stable-release` pipeline has four phases:
 
-1. Calculates the next CLI version from `patch`, `minor`, `major`, or an explicit stable SemVer
-   `custom` value. The result must be greater than the current CLI version.
-2. Creates `release/trigger-stable-release-<version>`. The run fails if that branch already exists.
-3. Updates the CLI version properties and the top-level `Az` module version.
-4. Detects extension C# or PowerShell changes since the latest timestamped stable tag.
-5. Patch-bumps each changed existing packageable extension independently.
-6. Patch-bumps existing transitive dependents when their exact PowerShell dependency version must
-   advance.
-7. Preserves the declared initial version of a new extension and leaves unrelated extensions
-   unchanged.
-8. Aligns each affected extension project version, child module `ModuleVersion`, child dependency
-   versions, and the `Az` rollup dependency version.
-9. Moves module `## Upcoming Release` notes into a versioned section and generates the root
-   `CHANGELOG.md` entry.
-10. Opens a generated stable-release PR.
+| Phase | Result |
+| --- | --- |
+| Choose release version | Calculates the next CLI and `Az` version from `patch`, `minor`, `major`, or `custom`. |
+| Select extensions | Compares extension C# and PowerShell files with the latest stable tag. |
+| Align metadata | Updates project, module, dependency, and `Az` rollup versions together. |
+| Prepare release PR | Generates changelogs and opens `release/trigger-stable-release-<version>`. |
 
-A packageable extension must have all of the following:
+Extension versions are selected independently:
 
-- `src/Extensions/<Module>/Extensions.<Module>.csproj`
-- `src/PS/<Module>/<Module>.psd1`
-- `src/PS/<Module>/ChangeLog.md`
-- One active matching dependency in `src/PS/Az/Az.psd1`
+| Extension state | Version result |
+| --- | --- |
+| Changed existing extension | Patch bump. |
+| Existing extension that depends on a bumped module | Patch bump so its exact dependency can advance. |
+| New extension | Keep its declared initial version. |
+| Unchanged unrelated extension | No change. |
 
-Missing or inconsistent metadata fails release preparation.
+A packageable extension requires a matching project, module manifest, module changelog, and active
+`Az` rollup dependency. Missing or inconsistent metadata fails the pipeline.
 
 ## Generated release PR checks
 
-Generated stable-release PRs are intentionally stricter than contributor PRs. CI permits only:
-
-- `CHANGELOG.md`
-- CLI project version properties
-- Matching extension project files with version-only replacements
-- Module changelogs
-- Matching module manifests
-
-For an existing `.csproj`, property structure and version-property cardinality must remain unchanged.
-Formatting, EOF-only changes, non-version properties, added version properties, project renames, and
-project additions or deletions fail validation.
+CI permits only generated changelogs, matching module manifests, and version-only project changes.
+Any formatting, EOF-only, non-version, added-property, rename, add, or delete change in a generated
+`.csproj` fails validation.
 
 ## After the release PR merges
 
-The main-branch tag stage validates the triggering commit again. It requires allowed release files,
-a CLI version change, and exactly one removed and one added `<Version>` line in each changed extension
-project, with no other extension project changes.
-
-If validation succeeds, it creates an immutable tag in this form:
+The main-branch tag stage checks the merged release commit again. Each changed extension project must
+contain exactly one `<Version>` replacement and no other change. If validation succeeds, the pipeline
+creates this immutable tag:
 
 ```text
 v<major>.<minor>.<patch>.<UTC yyyyMMddTHHmmssZ>
 ```
 
-That tag starts the stable build, signing, and publishing flow. If the commit contains unexpected
-changes, tag creation is skipped.
+The tag starts the stable build, signing, and publishing flow. Unexpected changes skip tag creation.
 
 ## Retrying release preparation
 
