@@ -27,10 +27,18 @@ internal static class ErrorHelpPolicy
     /// True when a resolved command failed only because required parameters were missing,
     /// so its help page is worth rendering beneath the error.
     /// </summary>
+    /// <param name="stderrIsRedirected">
+    /// Pass <see cref="Console.IsErrorRedirected"/>. When stderr is piped the help page is
+    /// suppressed so the structured error stays parseable; the message keeps the --help pointer.
+    /// Taken as a parameter rather than read here so the rule stays unit-testable, matching
+    /// <c>ColorPolicy.ShouldEmitColor</c>.
+    /// </param>
     internal static bool ShouldShowCommandHelp(
         AzclipsErrorException ex,
-        [NotNullWhen(true)] CommandInvocation? invocation)
-        => invocation is not null
+        [NotNullWhen(true)] CommandInvocation? invocation,
+        bool stderrIsRedirected)
+        => !stderrIsRedirected
+        && invocation is not null
         && ex is UsageErrorException { HasMissingRequiredParameters: true };
 
     internal static HelpRequest CommandHelpRequest(CommandInvocation invocation)

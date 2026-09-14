@@ -54,7 +54,16 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
-        Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create")));
+        Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: false));
+    }
+
+    [Fact]
+    public void ShouldShowCommandHelp_IsFalse_WhenStderrIsRedirected()
+    {
+        // Piped consumers need the structured error to stay parseable, so the help page is skipped.
+        var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
+
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: true));
     }
 
     [Fact]
@@ -62,7 +71,7 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.UsageError("Unrecognized arguments for 'version': foo");
 
-        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create")));
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), stderrIsRedirected: false));
     }
 
     [Fact]
@@ -70,7 +79,7 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
-        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation: null));
+        Assert.False(ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation: null, stderrIsRedirected: false));
     }
 
     [Fact]

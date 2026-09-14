@@ -206,7 +206,7 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
-            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation))
+            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, Console.IsErrorRedirected))
             {
                 EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);

@@ -144,29 +144,27 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task MissingRequiredParameters_KeepStdoutParseable_AndRenderHelpOnStderr()
+    public async Task MissingRequiredParameters_EmitsParseableError_WhenStderrIsRedirected()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "vm", "create");
 
         Assert.Equal(2, exit);
-        // Help is diagnostic here: stdout must stay usable for `| jq` even though the command failed.
         Assert.Empty(stdout);
-        // JSON output escapes the quotes around --name, so match the surrounding text instead.
-        Assert.Contains("Required parameter", stderr);
-        Assert.Contains("is missing.", stderr);
-        Assert.Contains("# COMMAND", stderr);
-        Assert.Contains("az vm create:", stderr);
+        // stderr is redirected here, so the help page is suppressed and the error stays machine-readable.
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        var error = document.RootElement.GetProperty("error");
+        Assert.Equal("UsageError", error.GetProperty("code").GetString());
+        Assert.Contains("az vm create --help", error.GetProperty("message").GetString());
     }
 
     [Fact]
-    public async Task MissingRequiredParameters_ReportErrorBeforeHelp()
+    public async Task MissingRequiredParameters_DoesNotRenderHelpDocument_WhenRedirected()
     {
-        var (_, _, stderr) = await RunCliAsync("vm", "create");
+        var (_, stdout, stderr) = await RunCliAsync("vm", "create");
 
-        var errorIndex = stderr.IndexOf("Required parameter", StringComparison.Ordinal);
-        var helpIndex = stderr.IndexOf("# COMMAND", StringComparison.Ordinal);
-
-        Assert.True(errorIndex >= 0 && helpIndex > errorIndex, "The validation error must precede the help page.");
+        Assert.Empty(stdout);
+        Assert.DoesNotContain("# COMMAND", stderr);
+        Assert.DoesNotContain("# ARGUMENTS", stderr);
     }
 
     private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
