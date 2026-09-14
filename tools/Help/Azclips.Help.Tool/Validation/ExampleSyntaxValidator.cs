@@ -186,17 +186,20 @@ namespace Azclips.Help.Tool.Validation
 
             if (command is null)
             {
-                // `az <group>` renders that group's help at runtime, so it is a valid example
-                // even when the group has no runnable root command.
-                if (commandTokens.Count == 0 && tokens.Count == 2)
+                // A bare group is a valid CLI invocation (it renders group help) but not a useful
+                // example, so examples are still required to invoke a command.
+                if (commandTokens.Count == 0)
                 {
+                    report.AddError(
+                        ProblemIds.CLI_L1_UnknownCommand,
+                        $"'{groupName}' is a command group, not a command. Examples must invoke a command such as 'az {groupName} <command>'.",
+                        locator);
                     return;
                 }
 
-                var attempted = commandTokens.Count == 0 ? "<root>" : string.Join(' ', commandTokens);
                 report.AddError(
                     ProblemIds.CLI_L1_UnknownCommand,
-                    $"Unknown command path 'az {groupName} {attempted}'. No matching command in the '{groupName}' extension.",
+                    $"Unknown command path 'az {groupName} {string.Join(' ', commandTokens)}'. No matching command in the '{groupName}' extension.",
                     locator);
                 return;
             }

@@ -66,14 +66,16 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
-        public void Validate_ShouldPass_WhenGroupHasNoRunnableRootCommand()
+        public void Validate_ShouldFire_WhenExampleIsABareGroup()
         {
-            // `az group` renders group help at runtime, so the validator must not treat it as unknown.
+            // `az group` renders group help at runtime, but an example must invoke a command.
             var content = Fence("az group");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
-            Assert.False(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.CLI_L1_UnknownCommand &&
+                e.Message.Contains("is a command group", StringComparison.Ordinal));
         }
 
         [Fact]
