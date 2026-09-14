@@ -20,19 +20,19 @@ Gets an access token for the current signed-in context.
 ### ResourceType (Default)
 
 ```
-Get-AzAccessToken [-ResourceTypeName <string>] [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
+Get-AzAccessToken [-ResourceTypeName <string>] [-TenantId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ### Resource
 
 ```
-Get-AzAccessToken -ResourceUrl <string> [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
+Get-AzAccessToken -ResourceUrl <string> [-TenantId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ### Scope
 
 ```
-Get-AzAccessToken -Scope <string[]> [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
+Get-AzAccessToken -Scope <string[]> [-TenantId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -174,27 +174,6 @@ HelpMessage: ''
 ### -TenantId
 
 The tenant ID to acquire the token for. Defaults to the current profile's tenant.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SubscriptionId
-
-The subscription ID associated with the request. Defaults to the current profile's subscription.
 
 ```yaml
 Type: System.String

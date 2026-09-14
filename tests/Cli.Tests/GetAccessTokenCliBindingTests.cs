@@ -29,7 +29,7 @@ public class GetAccessTokenCliBindingTests
     private static List<List<string>> Value(params string[] values) => [[.. values]];
 
     [Fact]
-    public void CliBinding_BindsResourceTypeTenantAndSubscription_ToProcessorProperties()
+    public void CliBinding_BindsResourceTypeAndTenant_ToProcessorProperties()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("account get-access-token", ClientType.CLI);
         var processor = new GetAccessTokenProcessor();
@@ -40,7 +40,6 @@ public class GetAccessTokenCliBindingTests
             {
                 ["resource-type"] = Value("key-vault"),
                 ["tenant-id"] = Value("11111111-1111-1111-1111-111111111111"),
-                ["subscription-id"] = Value("sub-1"),
             },
             metadata.Parameters,
             metadata.ParameterAliases,
@@ -48,7 +47,6 @@ public class GetAccessTokenCliBindingTests
 
         Assert.Equal("key-vault", processor.ResourceType);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.Tenant);
-        Assert.Equal("sub-1", processor.Subscription);
     }
 
     [Fact]

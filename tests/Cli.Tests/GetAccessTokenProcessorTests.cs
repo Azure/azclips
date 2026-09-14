@@ -178,6 +178,17 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
+    public async Task ProcessAsync_PopulatesSubscriptionFromActiveProfile()
+    {
+        // get-access-token has no subscription input; the reported subscription always comes from
+        // the active profile's context.
+        InitDi(ClientType.CLI, AuthReturning("secret").Object);
+        var result = Assert.IsType<AccessTokenResult>(
+            await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser)));
+        Assert.Equal("sub-1", result.SubscriptionId);
+    }
+
+    [Fact]
     public async Task ProcessAsync_ResourceType_ResolvesScopePassedToAuthService()
     {
         string[]? capturedScopes = null;

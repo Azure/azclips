@@ -48,12 +48,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"Subscription ID associated with the request. Defaults to the current profile's subscription.",
-        SerializedName = @"SubscriptionId")]
-        public string? Subscription { get; set; }
-
-        [ArgumentInfo(
-        Required = false,
         Description = @"Emit the raw access token as plain text. By default the token is redacted in output.",
         SerializedName = @"Plaintext")]
         public bool Plaintext { get; set; }
@@ -92,10 +86,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 cancellationToken: Token,
                 profile: profile);
 
-            string? subscription = !string.IsNullOrWhiteSpace(Subscription)
-                ? Subscription.Trim()
-                : profile.SubscriptionId;
-            subscription = string.IsNullOrEmpty(subscription) ? null : subscription;
+            // get-access-token operates in the active profile's context, so the reported subscription
+            // always comes from that profile. Unlike classic `az` (which caches every subscription at
+            // login and can resolve an arbitrary --subscription to its owning tenant offline), AzCLIPS
+            // keeps only the single active profile, so there is no --subscription input to honor here;
+            // switch subscription with login/profile set, which resolves the owning tenant correctly.
+            string? subscription = string.IsNullOrEmpty(profile.SubscriptionId) ? null : profile.SubscriptionId;
 
             string? userId = !string.IsNullOrEmpty(profile.UserPrincipalName)
                 ? profile.UserPrincipalName

@@ -33,9 +33,6 @@ public class GetAccessTokenCmdlet : PSCmdlet
     public string? TenantId { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? SubscriptionId { get; set; }
-
-    [Parameter(Mandatory = false)]
     public SwitchParameter AsPlainText { get; set; }
 
     protected override void BeginProcessing()
@@ -76,8 +73,6 @@ public class GetAccessTokenCmdlet : PSCmdlet
             parameters["Scope"] = Scope!;
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TenantId)))
             parameters["TenantId"] = TenantId!;
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-            parameters["SubscriptionId"] = SubscriptionId!;
         if (AsPlainText.IsPresent)
             parameters["AsPlainText"] = true;
 

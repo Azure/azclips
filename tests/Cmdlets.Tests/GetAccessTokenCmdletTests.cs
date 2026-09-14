@@ -12,11 +12,11 @@ namespace Cmdlets.Tests;
 
 /// <summary>
 /// PowerShell binding tests for <c>Get-AzAccessToken</c>. The shared <see cref="GetAccessTokenProcessor"/>
-/// exposes <c>Tenant</c>/<c>Subscription</c>/<c>Plaintext</c> properties while the cmdlet surfaces
-/// <c>-TenantId</c>/<c>-SubscriptionId</c>/<c>-AsPlainText</c>; the metadata Name must map each PS
-/// parameter onto its processor property, or binding throws at runtime. These exercise the real PS
-/// parsing/binding pipeline, including the multi-valued <c>-Scope</c> and the <c>-AsPlainText</c>
-/// switch mapping onto the <c>Plaintext</c> property.
+/// exposes <c>Tenant</c>/<c>Plaintext</c> properties while the cmdlet surfaces
+/// <c>-TenantId</c>/<c>-AsPlainText</c>; the metadata Name must map each PS parameter onto its
+/// processor property, or binding throws at runtime. These exercise the real PS parsing/binding
+/// pipeline, including the multi-valued <c>-Scope</c> and the <c>-AsPlainText</c> switch mapping onto
+/// the <c>Plaintext</c> property.
 /// </summary>
 public class GetAccessTokenCmdletTests
 {
@@ -24,7 +24,7 @@ public class GetAccessTokenCmdletTests
         new(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
 
     [Fact]
-    public void PSBinding_MapsTenantIdAndSubscriptionId_OntoProcessorProperties()
+    public void PSBinding_MapsTenantId_OntoProcessorProperty()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzAccessToken", ClientType.PowerShell);
         var processor = new GetAccessTokenProcessor();
@@ -35,7 +35,6 @@ public class GetAccessTokenCmdletTests
             {
                 ["ResourceUrl"] = "https://vault.azure.net",
                 ["TenantId"] = "11111111-1111-1111-1111-111111111111",
-                ["SubscriptionId"] = "sub-1",
             },
             metadata.Parameters,
             metadata.ParameterAliases,
@@ -43,7 +42,6 @@ public class GetAccessTokenCmdletTests
 
         Assert.Equal("https://vault.azure.net", processor.Resource);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.Tenant);
-        Assert.Equal("sub-1", processor.Subscription);
     }
 
     [Fact]
