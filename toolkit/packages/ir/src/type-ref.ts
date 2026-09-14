@@ -1,8 +1,8 @@
 /**
- * Type references. Lightweight pointers — named types (models, enums)
+ * Type references. Lightweight pointers — named models, enums, and discriminated unions
  * are referenced by IRId; primitives and structural types are inlined.
  *
- * Why references not embeddings: models and enums live in their own
+ * Why references not embeddings: named definitions live in their own
  * top-level collections to keep them unique. Embedding them at every
  * use site would duplicate definitions and make rename transforms
  * combinatorially expensive.
@@ -23,8 +23,10 @@ export type IRTypeRefEnum = { kind: "enum"; id: IRId };
 export type IRTypeRefArray = { kind: "array"; element: IRTypeRef };
 /** Dictionary keys are always strings on the JSON wire. */
 export type IRTypeRefDictionary = { kind: "dictionary"; value: IRTypeRef };
-/** Structural unions; discriminated polymorphism is modelled on IRModel instead. */
+/** Structural, untagged unions. */
 export type IRTypeRefUnion = { kind: "union"; variants: IRTypeRef[] };
+/** Named @discriminated union; its wire definition lives in IR.discriminatedUnions. */
+export type IRTypeRefDiscriminatedUnion = { kind: "discriminatedUnion"; id: IRId };
 
 export type IRTypeRef =
   | IRTypeRefPrimitive
@@ -32,7 +34,8 @@ export type IRTypeRef =
   | IRTypeRefEnum
   | IRTypeRefArray
   | IRTypeRefDictionary
-  | IRTypeRefUnion;
+  | IRTypeRefUnion
+  | IRTypeRefDiscriminatedUnion;
 
 // ─── Per-kind schemas ───────────────────────────────────────────────────
 // Each variant is a plain (non-lazy) ZodObject so it can serve BOTH as a
@@ -89,6 +92,13 @@ export const IRTypeRefUnionSchema = z
   })
   .strict();
 
+export const IRTypeRefDiscriminatedUnionSchema = z
+  .object({
+    kind: z.literal("discriminatedUnion"),
+    id: IRIdSchema,
+  })
+  .strict();
+
 /**
  * Convenience: model-or-dictionary, used by object-typed model properties
  * (a property whose value is a named model OR an open string-keyed map).
@@ -113,4 +123,5 @@ export const IRTypeRefSchema: z.ZodType<IRTypeRef> = z.discriminatedUnion("kind"
   IRTypeRefArraySchema,
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
 ]);

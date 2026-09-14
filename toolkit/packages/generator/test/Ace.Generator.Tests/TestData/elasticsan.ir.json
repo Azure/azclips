@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.11.0",
   "sources": [
     {
       "id": "Microsoft",
@@ -10,23 +10,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "rootNamespace": [
         "Microsoft",
@@ -54,6 +43,37 @@
                 ]
               }
             ]
+          }
+        ]
+      }
+    }
+  ],
+  "servers": [
+    {
+      "id": {
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
+      },
+      "endpoint": {
+        "kind": "parameterized",
+        "template": "{endpoint}",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "wireName": "endpoint",
+            "type": {
+              "kind": "primitive",
+              "name": "string",
+              "format": "uri"
+            },
+            "defaultValue": {
+              "kind": "string",
+              "value": "https://management.azure.com"
+            }
           }
         ]
       }
@@ -7600,8 +7620,7 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSanClient"
+          "ElasticSan"
         ],
         "name": "restoreVolume"
       },
@@ -7615,8 +7634,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.subscriptionId"
           },
@@ -7635,8 +7653,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.resourceGroupName"
           },
@@ -7655,8 +7672,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.elasticSanName"
           },
@@ -7675,8 +7691,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.volumeGroupName"
           },
@@ -7695,8 +7710,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.volumeName"
           },
@@ -7718,8 +7732,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.accept"
           },
@@ -7808,28 +7821,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Restore Soft Deleted Volumes. The volume name is obtained by using the API to list soft deleted volumes by volume group"
     },
@@ -7838,9 +7841,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Operations"
+          "ElasticSan"
         ],
+        "interface": "Operations",
         "name": "list"
       },
       "name": "list",
@@ -7855,9 +7858,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Operations"
+              "ElasticSan"
             ],
+            "interface": "Operations",
             "name": "list.accept"
           },
           "name": "accept",
@@ -7918,40 +7921,125 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "@azure-tools/typespec-azure-resource-manager",
-            "namespace": [
-              "Azure",
-              "ResourceManager",
-              "CommonTypes"
-            ],
-            "name": "Operation"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "@azure-tools/typespec-azure-resource-manager",
+              "namespace": [
+                "Azure",
+                "ResourceManager",
+                "CommonTypes"
+              ],
+              "name": "Operation"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "OperationListResult.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "Operation"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "OperationListResult.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List the operations for the provider"
     },
@@ -7960,9 +8048,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "get"
       },
       "name": "get",
@@ -7975,9 +8063,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -7995,9 +8083,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8015,9 +8103,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8038,9 +8126,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.accept"
           },
           "name": "accept",
@@ -8100,23 +8188,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get a ElasticSan."
     },
@@ -8125,9 +8202,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "create"
       },
       "name": "create",
@@ -8140,9 +8217,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8160,9 +8237,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8180,9 +8257,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8203,9 +8280,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -8223,9 +8300,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.accept"
           },
           "name": "accept",
@@ -8340,28 +8417,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create ElasticSan."
     },
@@ -8370,9 +8437,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "update"
       },
       "name": "update",
@@ -8385,9 +8452,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8405,9 +8472,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8425,9 +8492,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8448,9 +8515,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -8468,9 +8535,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.accept"
           },
           "name": "accept",
@@ -8573,28 +8640,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update a Elastic San."
     },
@@ -8603,9 +8660,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "delete"
       },
       "name": "delete",
@@ -8618,9 +8675,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8638,9 +8695,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8658,9 +8715,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8747,28 +8804,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete a Elastic San."
     },
@@ -8777,9 +8824,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listByResourceGroup"
       },
       "name": "listByResourceGroup",
@@ -8792,9 +8839,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8812,9 +8859,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8835,9 +8882,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.accept"
           },
           "name": "accept",
@@ -8897,39 +8944,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "ElasticSan"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "ElasticSan"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSan"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "Gets a list of ElasticSan in a resource group."
     },
@@ -8938,9 +9067,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listBySubscription"
       },
       "name": "listBySubscription",
@@ -8953,9 +9082,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listBySubscription.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8976,9 +9105,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listBySubscription.accept"
           },
           "name": "accept",
@@ -9038,39 +9167,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "ElasticSan"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "ElasticSan"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSan"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "Gets a list of ElasticSans in a subscription"
     },
@@ -9079,9 +9290,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "get"
       },
       "name": "get",
@@ -9094,9 +9305,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9114,9 +9325,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9134,9 +9345,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9154,9 +9365,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9177,9 +9388,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.accept"
           },
           "name": "accept",
@@ -9239,23 +9450,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Gets the specified private endpoint connection associated with the Elastic San"
     },
@@ -9264,9 +9464,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "create"
       },
       "name": "create",
@@ -9279,9 +9479,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9299,9 +9499,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9319,9 +9519,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9339,9 +9539,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9362,9 +9562,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -9382,9 +9582,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.accept"
           },
           "name": "accept",
@@ -9499,28 +9699,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update the state of specified private endpoint connection associated with the Elastic San"
     },
@@ -9529,9 +9719,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "delete"
       },
       "name": "delete",
@@ -9544,9 +9734,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9564,9 +9754,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9584,9 +9774,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9604,9 +9794,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9693,28 +9883,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Deletes the specified private endpoint connection associated with the Elastic San"
     },
@@ -9723,9 +9903,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "list"
       },
       "name": "list",
@@ -9738,9 +9918,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9758,9 +9938,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9778,9 +9958,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9801,9 +9981,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.accept"
           },
           "name": "accept",
@@ -9863,39 +10043,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "PrivateEndpointConnection"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "PrivateEndpointConnection"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager"
+                    ],
+                    "name": "PrivateEndpointConnectionListResult.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "PrivateEndpointConnection"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager"
+                    ],
+                    "name": "PrivateEndpointConnectionListResult.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List all Private Endpoint Connections associated with the Elastic San."
     },
@@ -9904,9 +10166,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "get"
       },
       "name": "get",
@@ -9919,9 +10181,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9939,9 +10201,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9959,9 +10221,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9979,9 +10241,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -9999,9 +10261,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.volumeName"
           },
           "name": "volumeName",
@@ -10022,9 +10284,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.accept"
           },
           "name": "accept",
@@ -10084,23 +10346,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get an Volume."
     },
@@ -10109,9 +10360,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "create"
       },
       "name": "create",
@@ -10124,9 +10375,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10144,9 +10395,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10164,9 +10415,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10184,9 +10435,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10204,9 +10455,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.volumeName"
           },
           "name": "volumeName",
@@ -10227,9 +10478,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -10247,9 +10498,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.accept"
           },
           "name": "accept",
@@ -10364,28 +10615,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume."
     },
@@ -10394,9 +10635,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "update"
       },
       "name": "update",
@@ -10409,9 +10650,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10429,9 +10670,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10449,9 +10690,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10469,9 +10710,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10489,9 +10730,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.volumeName"
           },
           "name": "volumeName",
@@ -10512,9 +10753,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -10532,9 +10773,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.accept"
           },
           "name": "accept",
@@ -10637,28 +10878,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update an Volume."
     },
@@ -10667,9 +10898,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "delete"
       },
       "name": "delete",
@@ -10682,9 +10913,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10702,9 +10933,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10722,9 +10953,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10742,9 +10973,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10762,9 +10993,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.volumeName"
           },
           "name": "volumeName",
@@ -10784,9 +11015,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.deleteType"
           },
           "name": "deleteType",
@@ -10813,9 +11044,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.x-ms-delete-snapshots"
           },
           "name": "x-ms-delete-snapshots",
@@ -10840,9 +11071,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.x-ms-force-delete"
           },
           "name": "x-ms-force-delete",
@@ -10934,28 +11165,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete an Volume."
     },
@@ -10964,9 +11185,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "listByVolumeGroup"
       },
       "name": "listByVolumeGroup",
@@ -10979,9 +11200,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10999,9 +11220,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11019,9 +11240,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11039,9 +11260,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11062,9 +11283,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.x-ms-access-soft-deleted-resources"
           },
           "name": "x-ms-access-soft-deleted-resources",
@@ -11089,9 +11310,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.accept"
           },
           "name": "accept",
@@ -11151,39 +11372,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "Volume"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "Volume"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "Volume"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List Volumes in a VolumeGroup."
     },
@@ -11192,9 +11495,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "preBackup"
       },
       "name": "preBackup",
@@ -11207,9 +11510,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11227,9 +11530,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11247,9 +11550,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11267,9 +11570,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11290,9 +11593,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.contentType"
           },
           "name": "contentType",
@@ -11310,9 +11613,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.accept"
           },
           "name": "accept",
@@ -11415,28 +11718,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Validate whether a disk snapshot backup can be taken for list of volumes."
     },
@@ -11445,9 +11738,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "preRestore"
       },
       "name": "preRestore",
@@ -11460,9 +11753,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11480,9 +11773,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11500,9 +11793,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11520,9 +11813,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11543,9 +11836,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.contentType"
           },
           "name": "contentType",
@@ -11563,9 +11856,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.accept"
           },
           "name": "accept",
@@ -11668,28 +11961,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Validate whether a list of backed up disk snapshots can be restored into ElasticSan volumes."
     },
@@ -11698,9 +11981,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "get"
       },
       "name": "get",
@@ -11713,9 +11996,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11733,9 +12016,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11753,9 +12036,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11773,9 +12056,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11796,9 +12079,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.accept"
           },
           "name": "accept",
@@ -11858,23 +12141,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get an VolumeGroups."
     },
@@ -11883,9 +12155,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "create"
       },
       "name": "create",
@@ -11898,9 +12170,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11918,9 +12190,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11938,9 +12210,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11958,9 +12230,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11981,9 +12253,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -12001,9 +12273,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.accept"
           },
           "name": "accept",
@@ -12118,28 +12390,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume Group."
     },
@@ -12148,9 +12410,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "update"
       },
       "name": "update",
@@ -12163,9 +12425,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12183,9 +12445,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12203,9 +12465,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12223,9 +12485,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -12246,9 +12508,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -12266,9 +12528,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.accept"
           },
           "name": "accept",
@@ -12371,28 +12633,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update an VolumeGroup."
     },
@@ -12401,9 +12653,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "delete"
       },
       "name": "delete",
@@ -12416,9 +12668,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12436,9 +12688,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12456,9 +12708,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12476,9 +12728,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -12565,28 +12817,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete an VolumeGroup."
     },
@@ -12595,9 +12837,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "listByElasticSan"
       },
       "name": "listByElasticSan",
@@ -12610,9 +12852,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12630,9 +12872,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12650,9 +12892,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12673,9 +12915,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.x-ms-access-soft-deleted-resources"
           },
           "name": "x-ms-access-soft-deleted-resources",
@@ -12700,9 +12942,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.accept"
           },
           "name": "accept",
@@ -12762,39 +13004,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "VolumeGroup"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "VolumeGroup"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroupList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroup"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroupList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List VolumeGroups."
     },
@@ -12803,9 +13127,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateLinkResources"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listByElasticSan"
       },
       "name": "listByElasticSan",
@@ -12818,9 +13142,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12838,9 +13162,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12858,9 +13182,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12881,9 +13205,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.accept"
           },
           "name": "accept",
@@ -12943,23 +13267,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Gets the private link resources that need to be created for a elastic San."
     },
@@ -12968,9 +13281,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "get"
       },
       "name": "get",
@@ -12983,9 +13296,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13003,9 +13316,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13023,9 +13336,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13043,9 +13356,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13063,9 +13376,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.snapshotName"
           },
           "name": "snapshotName",
@@ -13086,9 +13399,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.accept"
           },
           "name": "accept",
@@ -13148,23 +13461,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get a Volume Snapshot."
     },
@@ -13173,9 +13475,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "create"
       },
       "name": "create",
@@ -13188,9 +13490,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13208,9 +13510,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13228,9 +13530,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13248,9 +13550,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13268,9 +13570,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.snapshotName"
           },
           "name": "snapshotName",
@@ -13291,9 +13593,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -13311,9 +13613,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.accept"
           },
           "name": "accept",
@@ -13428,28 +13730,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume Snapshot."
     },
@@ -13458,9 +13750,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "delete"
       },
       "name": "delete",
@@ -13473,9 +13765,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13493,9 +13785,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13513,9 +13805,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13533,9 +13825,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13553,9 +13845,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.snapshotName"
           },
           "name": "snapshotName",
@@ -13642,28 +13934,18 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete a Volume Snapshot."
     },
@@ -13672,9 +13954,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "listByVolumeGroup"
       },
       "name": "listByVolumeGroup",
@@ -13687,9 +13969,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13707,9 +13989,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13727,9 +14009,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13747,9 +14029,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13769,9 +14051,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.$filter"
           },
           "name": "$filter",
@@ -13791,9 +14073,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.accept"
           },
           "name": "accept",
@@ -13853,39 +14135,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "Snapshot"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "Snapshot"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SnapshotList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "Snapshot"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SnapshotList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List Snapshots in a VolumeGroup or List Snapshots by Volume (name) in a VolumeGroup using filter"
     },
@@ -13894,9 +14258,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Skus"
+          "ElasticSan"
         ],
+        "interface": "SkusOperationGroup",
         "name": "list"
       },
       "name": "list",
@@ -13909,9 +14273,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13931,9 +14295,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.$filter"
           },
           "name": "$filter",
@@ -13953,9 +14317,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.accept"
           },
           "name": "accept",
@@ -14015,39 +14379,121 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "SkuInformation"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "SkuInformation"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformationList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformation"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformationList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List all the available Skus in the region and information related to them",
       "summary": "List all the available Skus in the region and information related to them"

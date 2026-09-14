@@ -12,7 +12,7 @@
  * sentinel that `operations.ts` interprets as "skip this op").
  */
 
-import { NoTarget } from "@typespec/compiler";
+import { NoTarget, type ModelProperty } from "@typespec/compiler";
 import type {
   SdkBodyParameter,
   SdkHeaderParameter,
@@ -23,11 +23,12 @@ import type {
   SdkQueryParameter,
   SdkServiceResponseHeader,
 } from "@azure-tools/typespec-client-generator-core";
-import { isApiVersion } from "@azure-tools/typespec-client-generator-core";
-import type { HttpStatusCodeRange } from "@typespec/http";
+import { getSdkModelPropertyType, isApiVersion } from "@azure-tools/typespec-client-generator-core";
+import type { HttpOperationResponseContent, HttpStatusCodeRange } from "@typespec/http";
 import type {
   CollectionFormat,
   FormatKind,
+  IRId,
   IRParameter,
   IRRequestBody,
   IRResponse,
@@ -39,6 +40,8 @@ import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { pascalCase } from "./naming.js";
 import { typeRefFor, unwrapNullable } from "./types.js";
+import { multipartFrom, sdkTypeFromHttp } from "./multipart.js";
+import { reportSdkDiagnostics } from "./discriminators.js";
 
 const VALID_COLLECTION_FORMATS: ReadonlySet<string> = new Set([
   "csv",
@@ -60,20 +63,22 @@ function formatHintOf(irType: { kind: string; format?: FormatKind | undefined })
   return irType.kind === "primitive" ? irType.format : undefined;
 }
 
+export function parameterIdFor(
+  operationId: IRId,
+  parameter: { name: string; __raw?: ModelProperty | undefined },
+): IRId {
+  return { ...operationId, name: `${operationId.name}.${parameter.__raw?.name ?? parameter.name}` };
+}
+
 function paramOf(
   ctx: BuildContext,
-  opNs: string[],
-  opName: string,
+  operationId: IRId,
   p: SdkHeaderParameter | SdkQueryParameter | SdkPathParameter,
 ): IRParameter {
   const wireName = p.serializedName ?? p.name;
-  const { type, nullable } = unwrapNullable(p.type);
-  const irType = typeRefFor(ctx, type, `${opName}.${p.name}`);
-  const id = {
-    module: ctx.options.sourceId,
-    namespace: opNs,
-    name: `${opName}.${p.name}`,
-  };
+  const { type, nullable } = unwrapNullable(ctx, p.type);
+  const irType = typeRefFor(ctx, type, `${operationId.name}.${p.name}`);
+  const id = parameterIdFor(operationId, p);
   const format = formatHintOf(irType);
   const cf =
     (p as SdkHeaderParameter | SdkQueryParameter).collectionFormat !== undefined
@@ -97,8 +102,7 @@ function paramOf(
 export function parametersByLocation(
   ctx: BuildContext,
   op: SdkHttpOperation,
-  opNs: string[],
-  opName: string,
+  operationId: IRId,
 ): {
   pathParameters: IRParameter[];
   queryParameters: IRParameter[];
@@ -115,18 +119,18 @@ export function parametersByLocation(
 
     switch (p.kind) {
       case "path":
-        pathParameters.push(paramOf(ctx, opNs, opName, p));
+        pathParameters.push(paramOf(ctx, operationId, p));
         break;
       case "query":
-        queryParameters.push(paramOf(ctx, opNs, opName, p));
+        queryParameters.push(paramOf(ctx, operationId, p));
         break;
       case "header":
-        headerParameters.push(paramOf(ctx, opNs, opName, p));
+        headerParameters.push(paramOf(ctx, operationId, p));
         break;
       case "cookie":
         reportDiagnostic(ctx.program, {
           code: "cookie-parameter-dropped",
-          format: { name: p.name, operation: opName },
+          format: { name: p.name, operation: operationId.name },
           target: NoTarget,
         });
         break;
@@ -158,8 +162,12 @@ export function bodyFrom(
     return { ok: false, reason: "streaming" };
   }
 
+  const rawBody = op.__raw.parameters.body;
+  const multipart = rawBody?.bodyKind === "multipart"
+    ? multipartFrom(ctx, rawBody, b.type, `${opName}.body`)
+    : undefined;
   const cts = b.contentTypes ?? [];
-  if (cts.length > 1) {
+  if (cts.length > 1 && !multipart) {
     reportDiagnostic(ctx.program, {
       code: "unsupported-multi-content-body",
       format: { operation: opName, contentTypes: cts.join(", ") },
@@ -168,18 +176,19 @@ export function bodyFrom(
   }
   const contentType = b.defaultContentType ?? cts[0] ?? "application/json";
 
-  const { type } = unwrapNullable(b.type);
-  const irType = typeRefFor(ctx, type, `${opName}.body`);
+  const { type } = unwrapNullable(ctx, b.type);
+  const irType = multipart?.kind === "tuple" ? undefined : typeRefFor(ctx, type, `${opName}.body`);
   const body: IRRequestBody = {
-    type: irType,
+    ...(irType !== undefined ? { type: irType } : {}),
     contentType,
+    ...(multipart !== undefined ? { multipart } : {}),
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
     ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };
   return { ok: true, body };
 }
 
-function statusCodeFrom(
+export function statusCodeFrom(
   s: number | HttpStatusCodeRange | "*",
 ): IRStatusCode {
   if (s === "*") return { kind: "default" };
@@ -190,10 +199,10 @@ function statusCodeFrom(
 function responseHeaderFrom(
   ctx: BuildContext,
   opName: string,
-  h: SdkServiceResponseHeader,
+  h: Pick<SdkServiceResponseHeader, "name" | "serializedName" | "type" | "doc" | "summary">,
 ): IRResponseHeader {
   const wireName = h.serializedName ?? h.name;
-  const { type } = unwrapNullable(h.type);
+  const { type } = unwrapNullable(ctx, h.type);
   const irType = typeRefFor(ctx, type, `${opName}.responseHeader.${wireName}`);
   const format = formatHintOf(irType);
   return {
@@ -211,19 +220,36 @@ function responseOf(
   opName: string,
   r: SdkHttpResponse | SdkHttpErrorResponse,
   isError: boolean,
+  content?: HttpOperationResponseContent,
 ): IRResponse {
   const statusCode = statusCodeFrom(r.statusCodes);
-  const headers = r.headers.map((h) => responseHeaderFrom(ctx, opName, h));
+  const headers = content
+    ? Object.entries(content.headers ?? {}).map(([wireName, raw]) => {
+        const [header, diagnostics] = getSdkModelPropertyType(ctx.sdkContext, raw);
+        reportSdkDiagnostics(ctx.program, diagnostics);
+        return responseHeaderFrom(ctx, opName, { ...header, serializedName: wireName });
+      })
+    : r.headers.map((h) => responseHeaderFrom(ctx, opName, h));
+  const rawBody = content?.body;
+  const sdkType = content
+    ? (rawBody ? sdkTypeFromHttp(ctx, rawBody.type) : undefined)
+    : r.type;
+  const multipart = rawBody?.bodyKind === "multipart" && sdkType
+    ? multipartFrom(ctx, rawBody, sdkType, `${opName}.response`)
+    : undefined;
   let typeRef;
-  if (r.type) {
-    const { type } = unwrapNullable(r.type);
+  if (sdkType && multipart?.kind !== "tuple") {
+    const { type } = unwrapNullable(ctx, sdkType);
     typeRef = typeRefFor(ctx, type, `${opName}.response`);
   }
-  const contentType = r.defaultContentType ?? r.contentTypes?.[0];
+  const contentType = content
+    ? (rawBody?.contentTypes.includes(r.defaultContentType ?? "") ? r.defaultContentType : rawBody?.contentTypes[0])
+    : r.defaultContentType ?? r.contentTypes?.[0];
   return {
     statusCode,
     ...(typeRef !== undefined ? { type: typeRef } : {}),
     ...(contentType !== undefined ? { contentType } : {}),
+    ...(multipart !== undefined ? { multipart } : {}),
     ...(headers.length > 0 ? { headers } : {}),
     isError,
     ...(r.description !== undefined ? { docs: r.description } : {}),
@@ -236,7 +262,18 @@ export function responsesFrom(
   opName: string,
 ): IRResponse[] {
   const out: IRResponse[] = [];
-  for (const r of op.responses) out.push(responseOf(ctx, opName, r, false));
-  for (const r of op.exceptions) out.push(responseOf(ctx, opName, r, true));
+  const append = (response: SdkHttpResponse | SdkHttpErrorResponse, isError: boolean): void => {
+    // TCGC may combine several content alternatives under one status code.
+    // Resolve multipart against each actual body, not the aggregate response type.
+    if (response.__raw.responses.some((content) => content.body?.bodyKind === "multipart")) {
+      for (const content of response.__raw.responses) {
+        out.push(responseOf(ctx, opName, response, isError, content));
+      }
+    } else {
+      out.push(responseOf(ctx, opName, response, isError));
+    }
+  };
+  for (const r of op.responses) append(r, false);
+  for (const r of op.exceptions) append(r, true);
   return out;
 }

@@ -27,6 +27,21 @@ public enum FlattenHintInto
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum FlattenedMemberVisibility
+{
+    [JsonStringEnumMemberName("read")]
+    Read,
+    [JsonStringEnumMemberName("create")]
+    Create,
+    [JsonStringEnumMemberName("update")]
+    Update,
+    [JsonStringEnumMemberName("delete")]
+    Delete,
+    [JsonStringEnumMemberName("query")]
+    Query
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IRApiVersionStampLocation
 {
     [JsonStringEnumMemberName("query")]
@@ -53,6 +68,15 @@ public enum IRAuthSchemeHttpScheme
     Basic,
     [JsonStringEnumMemberName("Bearer")]
     Bearer
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRDiscriminatedUnionEnvelope
+{
+    [JsonStringEnumMemberName("object")]
+    Object,
+    [JsonStringEnumMemberName("none")]
+    None
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -105,6 +129,30 @@ public enum IREnumValueType
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRLongRunningSemanticsFinalStateVia
+{
+    [JsonStringEnumMemberName("azureAsyncOperation")]
+    AzureAsyncOperation,
+    [JsonStringEnumMemberName("location")]
+    Location,
+    [JsonStringEnumMemberName("originalUri")]
+    OriginalUri
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRLongRunningSemanticsPollingStrategy
+{
+    [JsonStringEnumMemberName("azureAsyncOperation")]
+    AzureAsyncOperation,
+    [JsonStringEnumMemberName("location")]
+    Location,
+    [JsonStringEnumMemberName("operationResource")]
+    OperationResource,
+    [JsonStringEnumMemberName("custom")]
+    Custom
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IRModelAccess
 {
     [JsonStringEnumMemberName("public")]
@@ -145,6 +193,30 @@ public enum IRModelUsage
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRMultipartBodyKind
+{
+    [JsonStringEnumMemberName("model")]
+    Model,
+    [JsonStringEnumMemberName("tuple")]
+    Tuple
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRMultipartHeaderCollectionFormat
+{
+    [JsonStringEnumMemberName("csv")]
+    Csv,
+    [JsonStringEnumMemberName("multi")]
+    Multi,
+    [JsonStringEnumMemberName("tsv")]
+    Tsv,
+    [JsonStringEnumMemberName("ssv")]
+    Ssv,
+    [JsonStringEnumMemberName("pipes")]
+    Pipes
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IROperationAccess
 {
     [JsonStringEnumMemberName("public")]
@@ -173,27 +245,36 @@ public enum IROperationMethod
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum IROperationSemanticsLongRunningFinalStateVia
+public enum IRPageableSemanticsMetadataSource
 {
-    [JsonStringEnumMemberName("azureAsyncOperation")]
-    AzureAsyncOperation,
-    [JsonStringEnumMemberName("location")]
-    Location,
-    [JsonStringEnumMemberName("originalUri")]
-    OriginalUri
+    [JsonStringEnumMemberName("compiler")]
+    Compiler,
+    [JsonStringEnumMemberName("sdk")]
+    Sdk
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum IROperationSemanticsLongRunningPollingStrategy
+public enum IRPageableSemanticsSdkNextLinkVerb
 {
-    [JsonStringEnumMemberName("azureAsyncOperation")]
-    AzureAsyncOperation,
-    [JsonStringEnumMemberName("location")]
-    Location,
-    [JsonStringEnumMemberName("operationResource")]
-    OperationResource,
-    [JsonStringEnumMemberName("custom")]
-    Custom
+    [JsonStringEnumMemberName("GET")]
+    GET,
+    [JsonStringEnumMemberName("POST")]
+    POST
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRPagingBindingLocation
+{
+    [JsonStringEnumMemberName("body")]
+    Body,
+    [JsonStringEnumMemberName("query")]
+    Query,
+    [JsonStringEnumMemberName("header")]
+    Header,
+    [JsonStringEnumMemberName("path")]
+    Path,
+    [JsonStringEnumMemberName("cookie")]
+    Cookie
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -423,6 +504,33 @@ public partial class FlattenHint
     public string? NameOverride { get; set; }
 }
 
+public partial class FlattenedMember
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRId> Path { get; set; } = [];
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("visibility")]
+    public IReadOnlyList<FlattenedMemberVisibility>? Visibility { get; set; }
+}
+
+public partial class FlattenedParameter
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRId> Path { get; set; } = [];
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
+}
+
 public partial class IRApiVersionStamp
 {
     [JsonPropertyName("value")]
@@ -502,6 +610,57 @@ public partial class IRAuthSchemeOpenIdConnect : IRAuthScheme
     public string OpenIdConnectUrl { get; set; } = default !;
 }
 
+public partial class IRDiscriminatedUnion
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = default !;
+
+    [JsonPropertyName("discriminatorPropertyName")]
+    public string DiscriminatorPropertyName { get; set; } = default !;
+
+    [JsonPropertyName("envelope")]
+    public IRDiscriminatedUnionEnvelope Envelope { get; set; }
+
+    [JsonPropertyName("envelopePropertyName")]
+    public string? EnvelopePropertyName { get; set; }
+
+    [JsonPropertyName("variants")]
+    public IReadOnlyList<IRDiscriminatedUnionVariant> Variants { get; set; } = [];
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
+public partial class IRDiscriminatedUnionVariant
+{
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+
+    [JsonPropertyName("type")]
+    public IRTypeRef? Type { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("literalValue")]
+    public IRLiteralValue? LiteralValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
 public partial class IRDocument
 {
     [JsonPropertyName("schemaVersion")]
@@ -510,11 +669,17 @@ public partial class IRDocument
     [JsonPropertyName("sources")]
     public IReadOnlyList<IRSource> Sources { get; set; } = [];
 
+    [JsonPropertyName("servers")]
+    public IReadOnlyList<IRServerDefinition> Servers { get; set; } = [];
+
     [JsonPropertyName("models")]
     public IReadOnlyList<IRModel> Models { get; set; } = [];
 
     [JsonPropertyName("enums")]
     public IReadOnlyList<IREnum> Enums { get; set; } = [];
+
+    [JsonPropertyName("discriminatedUnions")]
+    public IReadOnlyList<IRDiscriminatedUnion>? DiscriminatedUnions { get; set; }
 
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
@@ -579,6 +744,9 @@ public partial class IRId
     [JsonPropertyName("namespace")]
     public IReadOnlyList<string> Namespace { get; set; } = [];
 
+    [JsonPropertyName("interface")]
+    public string? Interface { get; set; }
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 
@@ -624,6 +792,21 @@ public partial class IRLiteralValueString : IRLiteralValue
     public string Value { get; set; } = default !;
 }
 
+public partial class IRLongRunningSemantics
+{
+    [JsonPropertyName("finalResultType")]
+    public IRTypeRef? FinalResultType { get; set; }
+
+    [JsonPropertyName("pollingStrategy")]
+    public IRLongRunningSemanticsPollingStrategy PollingStrategy { get; set; }
+
+    [JsonPropertyName("finalStateVia")]
+    public IRLongRunningSemanticsFinalStateVia? FinalStateVia { get; set; }
+
+    [JsonPropertyName("customPollingUrlPath")]
+    public string? CustomPollingUrlPath { get; set; }
+}
+
 public partial class IRModel
 {
     [JsonPropertyName("id")]
@@ -663,7 +846,137 @@ public partial class IRModel
     public IRModelAccess? Access { get; set; }
 
     [JsonPropertyName("rendering")]
-    public OperationHints? Rendering { get; set; }
+    public ModelHints? Rendering { get; set; }
+}
+
+public partial class IRMultipartBody
+{
+    [JsonPropertyName("kind")]
+    public IRMultipartBodyKind Kind { get; set; }
+
+    [JsonPropertyName("contentTypes")]
+    public IReadOnlyList<string> ContentTypes { get; set; } = [];
+
+    [JsonPropertyName("parts")]
+    public IReadOnlyList<IRMultipartPart> Parts { get; set; } = [];
+}
+
+public partial class IRMultipartHeader
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("wireName")]
+    public string WireName { get; set; } = default !;
+
+    [JsonPropertyName("collectionFormat")]
+    public IRMultipartHeaderCollectionFormat? CollectionFormat { get; set; }
+}
+
+public partial class IRMultipartPart
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("property")]
+    public IRId? Property { get; set; }
+
+    [JsonPropertyName("body")]
+    public IRMultipartPartBody Body { get; set; } = default !;
+
+    [JsonPropertyName("headers")]
+    public IReadOnlyList<IRMultipartHeader> Headers { get; set; } = [];
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("multi")]
+    public bool Multi { get; set; }
+
+    [JsonPropertyName("filename")]
+    public IRMultipartValue? Filename { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRMultipartPartBodySingle), "single")]
+[JsonDerivedType(typeof(IRMultipartPartBodyFile), "file")]
+public abstract partial class IRMultipartPartBody
+{
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("contentTypes")]
+    public IReadOnlyList<string> ContentTypes { get; set; } = [];
+
+    [JsonPropertyName("contentType")]
+    public IRMultipartValue? ContentType { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+}
+
+public partial class IRMultipartPartBodyFile : IRMultipartPartBody
+{
+    [JsonPropertyName("contents")]
+    public IRMultipartValue Contents { get; set; } = default !;
+
+    [JsonPropertyName("isText")]
+    public bool IsText { get; set; }
+}
+
+public partial class IRMultipartPartBodySingle : IRMultipartPartBody
+{
+}
+
+public partial class IRMultipartValue
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -752,7 +1065,7 @@ public partial class IROperation
     public IRApiVersionStamp ApiVersion { get; set; } = default !;
 
     [JsonPropertyName("server")]
-    public IRServer Server { get; set; } = default !;
+    public IRId Server { get; set; } = default !;
 
     [JsonPropertyName("semantics")]
     public IROperationSemantics? Semantics { get; set; }
@@ -770,44 +1083,139 @@ public partial class IROperation
     public OperationHints? Rendering { get; set; }
 }
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(IROperationSemanticsPageable), "pageable")]
-[JsonDerivedType(typeof(IROperationSemanticsLongRunning), "longRunning")]
-public abstract partial class IROperationSemantics
+public partial class IROperationSemantics
 {
+    [JsonPropertyName("pageable")]
+    public IRPageableSemantics? Pageable { get; set; }
+
+    [JsonPropertyName("longRunning")]
+    public IRLongRunningSemantics? LongRunning { get; set; }
 }
 
-public partial class IROperationSemanticsLongRunning : IROperationSemantics
+public partial class IRPageableSemantics
 {
-    [JsonPropertyName("finalResultType")]
-    public IRTypeRef? FinalResultType { get; set; }
+    [JsonPropertyName("isList")]
+    public bool IsList { get; set; }
 
-    [JsonPropertyName("pollingStrategy")]
-    public IROperationSemanticsLongRunningPollingStrategy PollingStrategy { get; set; }
+    [JsonPropertyName("metadataSource")]
+    public IRPageableSemanticsMetadataSource MetadataSource { get; set; }
 
-    [JsonPropertyName("finalStateVia")]
-    public IROperationSemanticsLongRunningFinalStateVia? FinalStateVia { get; set; }
-
-    [JsonPropertyName("customPollingUrlPath")]
-    public string? CustomPollingUrlPath { get; set; }
-}
-
-public partial class IROperationSemanticsPageable : IROperationSemantics
-{
     [JsonPropertyName("itemType")]
     public IRTypeRef ItemType { get; set; } = default !;
 
-    [JsonPropertyName("itemsPath")]
-    public string ItemsPath { get; set; } = default !;
+    [JsonPropertyName("input")]
+    public IRPageableSemanticsInput Input { get; set; } = default !;
 
-    [JsonPropertyName("nextLinkPath")]
-    public string? NextLinkPath { get; set; }
+    [JsonPropertyName("output")]
+    public IRPageableSemanticsOutput Output { get; set; } = default !;
 
-    [JsonPropertyName("continuationTokenPath")]
-    public string? ContinuationTokenPath { get; set; }
+    [JsonPropertyName("sdk")]
+    public IRPageableSemanticsSdk Sdk { get; set; } = default !;
+}
 
-    [JsonPropertyName("continuationTokenParameter")]
-    public string? ContinuationTokenParameter { get; set; }
+public partial class IRPageableSemanticsInput
+{
+    [JsonPropertyName("offset")]
+    public IRPagingProperty? Offset { get; set; }
+
+    [JsonPropertyName("pageIndex")]
+    public IRPagingProperty? PageIndex { get; set; }
+
+    [JsonPropertyName("pageSize")]
+    public IRPagingProperty? PageSize { get; set; }
+
+    [JsonPropertyName("continuationToken")]
+    public IRPagingProperty? ContinuationToken { get; set; }
+}
+
+public partial class IRPageableSemanticsOutput
+{
+    [JsonPropertyName("pageItems")]
+    public IRPagingProperty PageItems { get; set; } = default !;
+
+    [JsonPropertyName("nextLink")]
+    public IRPagingProperty? NextLink { get; set; }
+
+    [JsonPropertyName("prevLink")]
+    public IRPagingProperty? PrevLink { get; set; }
+
+    [JsonPropertyName("firstLink")]
+    public IRPagingProperty? FirstLink { get; set; }
+
+    [JsonPropertyName("lastLink")]
+    public IRPagingProperty? LastLink { get; set; }
+
+    [JsonPropertyName("continuationToken")]
+    public IRPagingProperty? ContinuationToken { get; set; }
+}
+
+public partial class IRPageableSemanticsSdk
+{
+    [JsonPropertyName("disabled")]
+    public bool Disabled { get; set; }
+
+    [JsonPropertyName("forced")]
+    public bool Forced { get; set; }
+
+    [JsonPropertyName("nextLinkVerb")]
+    public IRPageableSemanticsSdkNextLinkVerb NextLinkVerb { get; set; }
+
+    [JsonPropertyName("nextLinkReinjectedParameters")]
+    public IReadOnlyList<IRPagingProperty> NextLinkReinjectedParameters { get; set; } = [];
+
+    [JsonPropertyName("nextLinkOperation")]
+    public IRId? NextLinkOperation { get; set; }
+}
+
+public partial class IRPagingBinding
+{
+    [JsonPropertyName("location")]
+    public IRPagingBindingLocation Location { get; set; }
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<string> Path { get; set; } = [];
+
+    [JsonPropertyName("contentType")]
+    public string? ContentType { get; set; }
+
+    [JsonPropertyName("parameter")]
+    public IRId? Parameter { get; set; }
+
+    [JsonPropertyName("response")]
+    public IRPagingBindingResponse? Response { get; set; }
+}
+
+public partial class IRPagingBindingResponse
+{
+    [JsonPropertyName("statusCode")]
+    public IRStatusCode StatusCode { get; set; } = default !;
+}
+
+public partial class IRPagingProperty
+{
+    [JsonPropertyName("sourcePath")]
+    public IReadOnlyList<IRPagingSegment> SourcePath { get; set; } = [];
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("bindings")]
+    public IReadOnlyList<IRPagingBinding> Bindings { get; set; } = [];
+}
+
+public partial class IRPagingSegment
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
 }
 
 public partial class IRParameter
@@ -951,7 +1359,7 @@ public partial class IRPropertyPrimitive : IRProperty
 public partial class IRPropertyUnion : IRProperty
 {
     [JsonPropertyName("type")]
-    public IRTypeRefUnion Type { get; set; } = default !;
+    public IRTypeRef Type { get; set; } = default !;
 
     [JsonPropertyName("rendering")]
     public ValuePropertyHints? Rendering { get; set; }
@@ -960,10 +1368,13 @@ public partial class IRPropertyUnion : IRProperty
 public partial class IRRequestBody
 {
     [JsonPropertyName("type")]
-    public IRTypeRef Type { get; set; } = default !;
+    public IRTypeRef? Type { get; set; }
 
     [JsonPropertyName("contentType")]
     public string ContentType { get; set; } = default !;
+
+    [JsonPropertyName("multipart")]
+    public IRMultipartBody? Multipart { get; set; }
 
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
@@ -985,6 +1396,9 @@ public partial class IRResponse
 
     [JsonPropertyName("contentType")]
     public string? ContentType { get; set; }
+
+    [JsonPropertyName("multipart")]
+    public IRMultipartBody? Multipart { get; set; }
 
     [JsonPropertyName("headers")]
     public IReadOnlyList<IRResponseHeader>? Headers { get; set; }
@@ -1023,6 +1437,15 @@ public partial class IRResponseHeader
 [JsonDerivedType(typeof(IRServerOneOf), "oneOf")]
 public abstract partial class IRServer
 {
+}
+
+public partial class IRServerDefinition
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("endpoint")]
+    public IRServer Endpoint { get; set; } = default !;
 }
 
 public partial class IRServerLiteral : IRServer
@@ -1076,7 +1499,7 @@ public partial class IRSource
     public IRApiVersionStamp ApiVersion { get; set; } = default !;
 
     [JsonPropertyName("server")]
-    public IRServer Server { get; set; } = default !;
+    public IRId Server { get; set; } = default !;
 
     [JsonPropertyName("rootNamespace")]
     public IReadOnlyList<string> RootNamespace { get; set; } = [];
@@ -1119,6 +1542,7 @@ public partial class IRStatusCodeRange : IRStatusCode
 [JsonDerivedType(typeof(IRTypeRefArray), "array")]
 [JsonDerivedType(typeof(IRTypeRefDictionary), "dictionary")]
 [JsonDerivedType(typeof(IRTypeRefUnion), "union")]
+[JsonDerivedType(typeof(IRTypeRefDiscriminatedUnion), "discriminatedUnion")]
 public abstract partial class IRTypeRef
 {
 }
@@ -1133,6 +1557,12 @@ public partial class IRTypeRefDictionary : IRTypeRef
 {
     [JsonPropertyName("value")]
     public IRTypeRef Value { get; set; } = default !;
+}
+
+public partial class IRTypeRefDiscriminatedUnion : IRTypeRef
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
 }
 
 public partial class IRTypeRefEnum : IRTypeRef
@@ -1169,6 +1599,9 @@ public partial class ModelHints
 
     [JsonPropertyName("docs")]
     public DocsHint? Docs { get; set; }
+
+    [JsonPropertyName("flattened")]
+    public IReadOnlyList<FlattenedMember>? Flattened { get; set; }
 }
 
 public partial class ObjectPropertyHints
@@ -1208,6 +1641,9 @@ public partial class RequestBodyHints
 {
     [JsonPropertyName("flatten")]
     public FlattenHint? Flatten { get; set; }
+
+    [JsonPropertyName("parameters")]
+    public IReadOnlyList<FlattenedParameter>? Parameters { get; set; }
 }
 
 public partial class SerializationHint

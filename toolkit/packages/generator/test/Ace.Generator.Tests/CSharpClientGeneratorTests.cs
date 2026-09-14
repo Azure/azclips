@@ -8,11 +8,21 @@ namespace Ace.Generator.Tests;
 
 public sealed class CSharpClientGeneratorTests
 {
+    private static IRId ServerId() => new() { Module = "Test", Name = "server" };
+
     private static IRDocument Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
     {
         return new IRDocument
         {
-            SchemaVersion = "0.7.0",
+            SchemaVersion = "0.8.0",
+            Servers =
+            [
+                new IRServerDefinition
+                {
+                    Id = ServerId(),
+                    Endpoint = new IRServerLiteral { Url = "https://example.com" },
+                },
+            ],
             Models = (models ?? [])
                 .Select(name => new IRModel
                 {
@@ -22,7 +32,7 @@ public sealed class CSharpClientGeneratorTests
                 })
                 .ToList(),
             Operations = (operations ?? [])
-                .Select(name => new IROperation { Name = name })
+                .Select(name => new IROperation { Name = name, Server = ServerId() })
                 .ToList(),
         };
     }
@@ -64,6 +74,184 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(result.Success);
         Assert.Contains("RestoreVolumeProcessor", result.GeneratedClasses.Keys);
+    }
+
+    [Fact]
+    public async Task Generate_Paging_Uses_WholeBody_Bindings_Across_Response_Statuses()
+    {
+        IRDocument ir = Ir(operations: ["list"]);
+        ir.Operations[0].Responses =
+        [
+            new IRResponse
+            {
+                StatusCode = new IRStatusCodeExact { Code = 200 },
+                Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+            },
+        ];
+        ir.Operations[0].Semantics = new IROperationSemantics
+        {
+            Pageable = new IRPageableSemantics
+            {
+                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                Output = new IRPageableSemanticsOutput
+                {
+                    PageItems = new IRPagingProperty
+                    {
+                        Bindings =
+                        [
+                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } },
+                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 201 } } },
+                        ],
+                    },
+                },
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.Empty(result.Diagnostics);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("=> body;", source);
+        Assert.Contains("WriteOutputWithPaginationAsync", source);
+    }
+
+    [Fact]
+    public async Task Generate_Header_Paging_Diagnoses_Unsupported_Binding_Without_Inventing_A_Body_Member()
+    {
+        IRDocument ir = Ir(operations: ["list"]);
+        ir.Operations[0].Semantics = new IROperationSemantics
+        {
+            Pageable = new IRPageableSemantics
+            {
+                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                Output = new IRPageableSemanticsOutput
+                {
+                    PageItems = new IRPagingProperty
+                    {
+                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = ["items"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
+                    },
+                    NextLink = new IRPagingProperty
+                    {
+                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Header, Path = ["x-next"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
+                    },
+                },
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "ace-generator/paging-binding-not-supported");
+        Assert.DoesNotContain("WriteOutputWithPaginationAsync", writer.Files.Source(result, "ListProcessor"));
+    }
+
+    [Fact]
+    public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
+    {
+        IRDocument ir = Ir(operations: ["upload"]);
+        ir.Operations[0].RequestBody = new IRRequestBody
+        {
+            ContentType = "multipart/mixed",
+            Multipart = new IRMultipartBody
+            {
+                Kind = IRMultipartBodyKind.Tuple,
+                ContentTypes = ["multipart/mixed"],
+                Parts =
+                [
+                    new IRMultipartPart
+                    {
+                        Body = new IRMultipartPartBodySingle
+                        {
+                            Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes },
+                            ContentTypes = ["application/octet-stream"],
+                        },
+                    },
+                ],
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains(result.Diagnostics, diagnostic =>
+            diagnostic.Severity == DiagnosticSeverity.Warning &&
+            diagnostic.Code == "ace-generator/multipart-serialization-not-supported");
+        Assert.Contains("object? Body", writer.Files.Source(result, "UploadProcessor"));
+    }
+
+    [Fact]
+    public async Task Generate_DistinguishesInterfacesWithinTheSameNamespace()
+    {
+        IRDocument ir = Ir();
+        ir.Operations = new string?[] { "Widgets", "Gadgets", null }
+            .Select(group => new IROperation
+            {
+                Id = new IRId
+                {
+                    Module = "Test",
+                    Namespace = ["Contoso", "Inventory"],
+                    Interface = group,
+                    Name = "get",
+                },
+                Name = "get",
+                Server = ServerId(),
+            })
+            .ToList();
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(
+            new[] { "GetGadgetsProcessor", "GetProcessor", "GetWidgetsProcessor", "ProcessorBase" },
+            result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Equal(4, writer.Files.ProcessorSources().Count());
+    }
+
+    [Fact]
+    public async Task Generate_UsesDisplayNameAndSourceInterfaceForProcessorName()
+    {
+        IRDocument ir = Ir();
+        ir.Operations =
+        [
+            new IROperation
+            {
+                Id = new IRId { Module = "Test", Interface = "Widgets", Name = "read" },
+                Name = "fetch",
+                Server = ServerId(),
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains("class FetchWidgetsProcessor", writer.Files.Source(result, "FetchWidgetsProcessor"));
+        Assert.DoesNotContain("ReadWidgetsProcessor", result.GeneratedClasses.Keys);
+    }
+
+    [Fact]
+    public async Task Generate_DoesNotInferInterfaceFromNamespace()
+    {
+        IRDocument ir = Ir();
+        ir.Operations =
+        [
+            new IROperation
+            {
+                Id = new IRId
+                {
+                    Module = "Test",
+                    Namespace = ["Contoso", "Inventory"],
+                    Name = "get",
+                },
+                Name = "get",
+                Server = ServerId(),
+            },
+        ];
+
+        (GenerationResult result, _) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains("GetProcessor", result.GeneratedClasses.Keys);
+        Assert.DoesNotContain("GetInventoryProcessor", result.GeneratedClasses.Keys);
     }
 
     [Fact]

@@ -22,6 +22,12 @@ import {
 
 import { emptyIR, type IR } from "@azure-client-engine/ir";
 
+/**
+ * The catalog's optional transform stages have no built-in implementation, so
+ * these tests turn them off and exercise only the two runtime-backed built-ins.
+ */
+const BUILTINS_ONLY = { pipeline: { "flatten-model": false } } as const;
+
 /** A minimal schema-shaped IR with a single identifiable source. */
 function stubIR(id: string): IR {
   return {
@@ -31,10 +37,14 @@ function stubIR(id: string): IR {
         id,
         entrypoint: "stub.tsp",
         apiVersion: { value: "2024-01-01", location: "query", parameterName: "api-version" },
-        server: { kind: "literal", url: "https://stub.example/" },
+        server: { module: id, namespace: [id], name: "server" },
         rootNamespace: [id],
       },
     ],
+    servers: [{
+      id: { module: id, namespace: [id], name: "server" },
+      endpoint: { kind: "literal", url: "https://stub.example/" },
+    }],
   };
 }
 
@@ -74,7 +84,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
   it("runs the tsp-emit tool and returns its IR", async () => {
     const runtime = fakeRuntime({ emit: () => ({ ir: stubIR("FromTool"), diagnostics: [] }) });
 
-    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
+    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.ir?.sources[0]?.id).toBe("FromTool");
@@ -109,7 +119,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
       }),
     });
 
-    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
+    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.diagnostics.some((d) => d.code === "tsp/missing-api-version")).toBe(true);
@@ -125,7 +135,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
       },
     };
 
-    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
+    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime });
 
     expect(result.success).toBe(false);
     expect(
@@ -147,7 +157,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     // No config.generator: the pipeline still ends in the built-in csharp back end.
-    const result = await compile({ entrypoint: "x.tsp" }, { runtime });
+    const result = await compile({ entrypoint: "x.tsp", config: BUILTINS_ONLY }, { runtime });
 
     expect(result.success).toBe(true);
     expect(result.files.get("out/Default.cs")).toBe("// default");
@@ -164,7 +174,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
       { runtime },
     );
 
@@ -191,7 +201,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
       { runtime, output },
     );
 
@@ -213,7 +223,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     await compile(
       {
         entrypoint: "x.tsp",
-        config: { generator: { use: "csharp", options: { rootNamespace: "Contoso.Clients" } } },
+        config: { ...BUILTINS_ONLY, stageOptions: { csharp: { rootNamespace: "Contoso.Clients" } } },
       },
       { runtime },
     );
@@ -237,7 +247,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
       { runtime },
     );
 
@@ -252,7 +262,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     });
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
       { runtime },
     );
 
@@ -269,7 +279,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     const emit: EmitProducer = { name: "stub", produce: () => ({ ir: stubIR("S") }) };
 
     const result = await compile(
-      { entrypoint: "x.tsp", config: { generator: { use: "csharp" } } },
+      { entrypoint: "x.tsp", config: BUILTINS_ONLY },
       { emit },
     );
 
