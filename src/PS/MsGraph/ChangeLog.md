@@ -17,6 +17,7 @@
 -->
 ## Upcoming Release
 
+## Version 0.1.1
 * Refactored Microsoft Graph command customization and extension integration.
 
 ## Version 0.1.0
