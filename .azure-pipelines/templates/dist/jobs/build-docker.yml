@@ -16,10 +16,13 @@ parameters:
   default: 'PSModules'
 - name: cli_base_image
   type: string
-  default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble'
+  default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0'
 - name: pwsh_base_image
   type: string
-  default: 'mcr.microsoft.com/dotnet/runtime:10.0-noble'
+  default: 'mcr.microsoft.com/dotnet/runtime:10.0-azurelinux3.0'
+- name: pwsh_builder_image
+  type: string
+  default: 'mcr.microsoft.com/dotnet/sdk:10.0-azurelinux3.0'
 
 jobs:
 - job: BuildDockerImages
@@ -27,66 +30,67 @@ jobs:
   timeoutInMinutes: 30
   strategy:
     matrix:
-      cli_linux_glibc_lean_amd64:
+      # .NET RIDs use x64, while Docker platforms and image tags use amd64.
+      cli_azurelinux3_lean_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: cli
         PackageProfile: lean
         Platform: linux/amd64
         BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: Distribution_Linux_Lean
-        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Amd64
-      cli_linux_glibc_lean_arm64:
+        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
+      cli_azurelinux3_lean_arm64:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: cli
         PackageProfile: lean
         Platform: linux/arm64
         BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: Distribution_Linux_Arm64_Lean
-        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Arm64
-      cli_linux_glibc_full_amd64:
+        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
+      cli_azurelinux3_full_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: cli
         PackageProfile: full
         Platform: linux/amd64
         BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: Distribution_Linux_Full
-        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Amd64
-      cli_linux_glibc_full_arm64:
+        DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
+      cli_azurelinux3_full_arm64:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: cli
         PackageProfile: full
         Platform: linux/arm64
         BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: Distribution_Linux_Arm64_Full
-        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Arm64
-      powershell_linux_glibc_amd64:
+        DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
+      powershell_azurelinux3_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: pwsh
         PackageProfile: none
         Platform: linux/amd64
         BaseImage: ${{ parameters.pwsh_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_PowerShell_Linux_Glibc_Amd64
-      powershell_linux_glibc_arm64:
+        DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
+      powershell_azurelinux3_arm64:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: pwsh
         PackageProfile: none
         Platform: linux/arm64
         BaseImage: ${{ parameters.pwsh_base_image }}
-        ImageVariant: noble
+        ImageVariant: azurelinux3
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_PowerShell_Linux_Glibc_Arm64
+        DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
   pool:
     name: $(Pool)
   steps:
@@ -159,6 +163,7 @@ jobs:
         OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
         PLATFORM="$(Platform)" \
         BASE_IMAGE="$(BaseImage)" \
+        POWERSHELL_BUILDER_IMAGE="${{ parameters.pwsh_builder_image }}" \
         IMAGE_VARIANT="$(ImageVariant)" \
         DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
         MODULE_REPO_ROOT="$(ResolvedModuleRepo)" \

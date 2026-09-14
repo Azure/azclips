@@ -1,16 +1,15 @@
-ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
+ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0
 FROM ${BASE_IMAGE}
 
 ARG AZCLIPS_UID=10001
 ARG AZCLIPS_GID=10001
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd --system --gid "${AZCLIPS_GID}" azclips \
+RUN tdnf install -y shadow-utils \
+    && groupadd --system --gid "${AZCLIPS_GID}" azclips \
     && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
-        --create-home --shell /usr/sbin/nologin azclips
+        --create-home --shell /sbin/nologin azclips \
+    && tdnf autoremove -y shadow-utils \
+    && tdnf clean all
 
 COPY --chown=azclips:azclips cli/ /app/
 

@@ -90,8 +90,8 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
-- stage: BuildDockerLinuxGlibc
-  displayName: Build Docker Linux glibc Images
+- stage: BuildDockerAzureLinux3
+  displayName: Build Docker Azure Linux 3 Images
   dependsOn:
   - Init
   - BuildLinux
@@ -178,11 +178,11 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
-- stage: ValidateDockerLinuxGlibc
-  displayName: Validate Docker Linux glibc Images
+- stage: ValidateDockerAzureLinux3
+  displayName: Validate Docker Azure Linux 3 Images
   dependsOn:
   - Init
-  - BuildDockerLinuxGlibc
+  - BuildDockerAzureLinux3
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -230,14 +230,14 @@ stages:
   - Init
   - BuildCommon
   - BuildLinux
-  - BuildDockerLinuxGlibc
+  - BuildDockerAzureLinux3
   - BuildWindows
   - BuildMacOS
   - Test
   - Benchmark
   - BuildPSModules
   - ValidateLinux
-  - ValidateDockerLinuxGlibc
+  - ValidateDockerAzureLinux3
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -246,14 +246,14 @@ stages:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
-    BuildDockerResult: $[ stageDependencies.BuildDockerLinuxGlibc.BuildDockerImages.result ]
+    BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidateDockerResult: $[ stageDependencies.ValidateDockerLinuxGlibc.DockerValidation.result ]
+    ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]

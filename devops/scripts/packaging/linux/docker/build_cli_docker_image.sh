@@ -14,8 +14,8 @@ set -euo pipefail
 #   RID             linux-x64 | linux-arm64                        (default: linux-x64)
 #   PLATFORM        Docker platform, e.g. linux/amd64|linux/arm64  (default: linux/amd64)
 #   PACKAGE_PROFILE lean | full                                    (default: lean)
-#   BASE_IMAGE      Base image reference                            (default: mcr.microsoft.com/dotnet/runtime-deps:10.0-noble)
-#   IMAGE_VARIANT   Label used in tag/output naming                 (default: noble)
+#   BASE_IMAGE      Base image reference                            (default: mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0)
+#   IMAGE_VARIANT   Label used in tag/output naming                 (default: azurelinux3)
 #   IMAGE_REPOSITORY Image repository name                          (default: azclips)
 #   ARTIFACT_VERSION Version used in the image tag                  (default: 0.0.0)
 #   OUT_ROOT        Root output directory                           (default: <repo>/devops/out/docker)
@@ -29,8 +29,8 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 RID="${RID:-linux-x64}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
-BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-noble}"
-IMAGE_VARIANT="${IMAGE_VARIANT:-noble}"
+BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0}"
+IMAGE_VARIANT="${IMAGE_VARIANT:-azurelinux3}"
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/docker}"

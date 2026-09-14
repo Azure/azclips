@@ -14,54 +14,54 @@ jobs:
   timeoutInMinutes: 30
   strategy:
     matrix:
-      cli_linux_glibc_lean_amd64:
+      cli_azurelinux3_lean_amd64:
         Pool: ${{ parameters.amd64_pool }}
         ImageFlavor: cli
         PackageProfile: lean
         Platform: linux/amd64
         ImageRepository: azclips
-        ImageVariant: noble
-        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Amd64
-      cli_linux_glibc_lean_arm64:
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
+      cli_azurelinux3_lean_arm64:
         Pool: ${{ parameters.arm64_pool }}
         ImageFlavor: cli
         PackageProfile: lean
         Platform: linux/arm64
         ImageRepository: azclips
-        ImageVariant: noble
-        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Arm64
-      cli_linux_glibc_full_amd64:
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
+      cli_azurelinux3_full_amd64:
         Pool: ${{ parameters.amd64_pool }}
         ImageFlavor: cli
         PackageProfile: full
         Platform: linux/amd64
         ImageRepository: azclips
-        ImageVariant: noble
-        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Amd64
-      cli_linux_glibc_full_arm64:
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
+      cli_azurelinux3_full_arm64:
         Pool: ${{ parameters.arm64_pool }}
         ImageFlavor: cli
         PackageProfile: full
         Platform: linux/arm64
         ImageRepository: azclips
-        ImageVariant: noble
-        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Arm64
-      powershell_linux_glibc_amd64:
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
+      powershell_azurelinux3_amd64:
         Pool: ${{ parameters.amd64_pool }}
         ImageFlavor: pwsh
         PackageProfile: none
         Platform: linux/amd64
         ImageRepository: azclips-powershell
-        ImageVariant: noble
-        DockerArtifact: Docker_PowerShell_Linux_Glibc_Amd64
-      powershell_linux_glibc_arm64:
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
+      powershell_azurelinux3_arm64:
         Pool: ${{ parameters.arm64_pool }}
         ImageFlavor: pwsh
         PackageProfile: none
         Platform: linux/arm64
         ImageRepository: azclips-powershell
-        ImageVariant: noble
-        DockerArtifact: Docker_PowerShell_Linux_Glibc_Arm64
+        ImageVariant: azurelinux3
+        DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
   pool:
     name: $(Pool)
   steps:
