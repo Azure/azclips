@@ -28,7 +28,7 @@ parameters:
   default: 'pool-windows-2022'
 - name: windows_arm64_pool
   type: string
-  default: 'pool-windows-arm64-2022'
+  default: 'pool-windows-2025-gen2-arm64'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'
