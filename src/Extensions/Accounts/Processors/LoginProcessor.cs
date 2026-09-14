@@ -183,6 +183,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 await EnsureCrossTenantAccessible(resultProfile, effectiveSubscriptionId);
             }
 
+            ValidateSubscriptionId(resultProfile.SubscriptionId);
             await profileService.SaveAndActivateProfileAsync(resultProfile);
 
             await WriteOutput(resultProfile);
@@ -258,15 +259,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     $"usage error: '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}' and '{Flag(nameof(ResourceId))}' require '{Flag(nameof(Identity))}'.");
             }
 
-            // A subscription id must be a GUID. Users sometimes paste the subscription's display
-            // name (e.g., copied from the portal) instead of its id, which otherwise surfaces as a
-            // confusing HTTP 400 from the service much later in the login flow. Re-auth sources the
-            // subscription id from the existing profile (already validated when it was created), so
-            // skip this check there; the bound value there is only a default, not user input.
-            if (reAuthName is null && !string.IsNullOrWhiteSpace(SubscriptionId) && !Guid.TryParse(SubscriptionId, out _))
+            ValidateSubscriptionId(SubscriptionId);
+        }
+
+        private void ValidateSubscriptionId(string subscriptionId)
+        {
+            if (!string.IsNullOrWhiteSpace(subscriptionId) && !Guid.TryParse(subscriptionId, out _))
             {
+                var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
                 throw new ArgumentException(
-                    $"Invalid subscription id '{SubscriptionId}'. Provide the subscription's id (a GUID, e.g., 00000000-0000-0000-0000-000000000000) with '{Flag(nameof(SubscriptionId))}', not its display name.");
+                    $"Invalid subscription id '{subscriptionId}'. Provide the subscription's id (a GUID, e.g., 00000000-0000-0000-0000-000000000000) with '{FormatParameterName(nameof(SubscriptionId), clientType)}', not its display name.");
             }
         }
 

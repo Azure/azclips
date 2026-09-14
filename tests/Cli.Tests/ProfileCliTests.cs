@@ -118,14 +118,40 @@ public sealed class ProfileCliTests
     public async Task Login_WithProfile_ShouldReauthenticateExistingProfile()
     {
         using var fixture = new ProfileCliFixture();
-        fixture.SeedProfile("prod", "sub-original");
+        fixture.SeedProfile("prod", "11111111-1111-1111-1111-111111111111");
 
         fixture.ExecuteCli(["login", "--profile", "prod"]);
 
         var prod = await fixture.Profiles.GetProfileAsync("prod");
         Assert.NotNull(prod);
-        Assert.Equal("sub-original", prod!.SubscriptionId); // sourced from the existing profile
+        Assert.Equal("11111111-1111-1111-1111-111111111111", prod!.SubscriptionId); // sourced from the existing profile
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
+    public void Login_WithProfileAndInvalidSubscriptionId_ShouldFailFastWithGuidError()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "11111111-1111-1111-1111-111111111111");
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", "--subscription-id", "My Subscription"]));
+
+        Assert.Contains("Invalid subscription id 'My Subscription'", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("--subscription-id", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Login_WithProfileContainingInvalidSubscriptionId_ShouldNotPersistResult()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-original");
+
+        var ex = Assert.Throws<ArgumentException>(() => fixture.ExecuteCli(["login", "--profile", "prod"]));
+
+        Assert.Contains("Invalid subscription id 'sub-original'", ex.Message, StringComparison.Ordinal);
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.Equal("sub-original", prod!.SubscriptionId);
     }
 
     [Fact]
@@ -133,7 +159,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
         const string miKey = "MSIClient@11111111-1111-1111-1111-111111111111";
-        fixture.SeedManagedIdentityProfile("mi-prod", "sub-original", miKey);
+        fixture.SeedManagedIdentityProfile("mi-prod", "11111111-1111-1111-1111-111111111111", miKey);
 
         fixture.ExecuteCli(["login", "--profile", "mi-prod"]);
 
