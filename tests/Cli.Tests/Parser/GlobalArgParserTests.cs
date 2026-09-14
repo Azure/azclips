@@ -144,6 +144,25 @@ public class GlobalArgParserTests
     }
 
     [Fact]
+    public void Parse_BareQuestionMark_IsNotTreatedAsHelp()
+    {
+        // `?` was removed as a help alias; a future alias-list edit must not silently restore it.
+        var result = GlobalArgParser.Parse(new[] { "?" });
+
+        Assert.Null(result.Help);
+        Assert.Equal(new[] { "?" }, result.Positional);
+    }
+
+    [Fact]
+    public void Parse_BareQuestionMarkAsParameterValue_ReachesTheCommand()
+    {
+        var result = GlobalArgParser.Parse(new[] { "config", "get", "--key", "?" });
+
+        Assert.Null(result.Help);
+        Assert.Equal(new[] { "config", "get", "--key", "?" }, result.Positional);
+    }
+
+    [Fact]
     public void Parse_HelpFlagAtArgsZeroWithTrailingTokens_DoesNotYieldHelp()
     {
         // Pre-refactor behavior: `az --help group` was NOT recognized as help (the dispatcher's
