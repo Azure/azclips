@@ -54,6 +54,23 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
 
+    def test_allows_package_reference_child_version_changes(self):
+        base_project = """
+<Project><ItemGroup><PackageReference Include="Example"><Version>1.0.0</Version></PackageReference></ItemGroup></Project>
+"""
+        head_project = """
+<Project><ItemGroup><PackageReference Include="Example"><Version>2.0.0</Version></PackageReference></ItemGroup></Project>
+"""
+
+        self.assertEqual(
+            find_policy_violations(
+                ["src/Existing/Existing.csproj"],
+                lambda _: base_project,
+                lambda _: head_project,
+            ),
+            [],
+        )
+
     def test_exempts_pr_781_stable_release_changes(self):
         release_branch = "release/trigger-stable-release-0.1.2"
         release_title = "{DevOps} Trigger stable release 0.1.2"

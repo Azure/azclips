@@ -36,6 +36,8 @@ BeforeAll {
         Write-TestFile -Root $root -RelativePath 'src/Extensions/Compute/Processor.cs' -Content 'class ComputeProcessor { }'
         Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/Accounts.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
         Write-TestFile -Root $root -RelativePath 'src/PS/Compute/Compute.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Accounts/ChangeLog.md' -Content "## Upcoming Release`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Compute/ChangeLog.md' -Content "## Upcoming Release`n"
         Write-TestFile -Root $root -RelativePath 'src/PS/Az/Az.psd1' -Content @'
 @{
 RequiredModules = @(
@@ -89,6 +91,59 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
     }
 
+    It 'preserves a project UTF-8 BOM while updating its version' {
+        $root = New-TestRepository
+        $projectPath = Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj'
+        $projectContent = Get-Content -Raw $projectPath
+        [System.IO.File]::WriteAllText($projectPath, $projectContent, [System.Text.UTF8Encoding]::new($true))
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension with BOM project'
+
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
+
+        $projectBytes = [System.IO.File]::ReadAllBytes($projectPath)
+        @($projectBytes[0..2]) | Should -Be @(0xEF, 0xBB, 0xBF)
+        Get-Content -Raw $projectPath | Should -Match '<Version>0\.1\.1</Version>'
+    }
+
+    It 'skips updates when no stable tag exists' {
+        $root = New-TestRepository
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change before first stable release'
+
+        & $scriptPath -RepoRoot $root
+
+        Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Match '<Version>0\.1\.0</Version>'
+        Get-Content -Raw (Join-Path $root 'src/PS/Accounts/Accounts.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.0'"
+    }
+
+    It 'uses the latest stable tag when BaseRef is omitted' {
+        $root = New-TestRepository
+        git -C $root tag 'v0.1.0.20260101T000000Z'
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change after stable release'
+        git -C $root tag 'v-not-a-stable-tag'
+
+        & $scriptPath -RepoRoot $root
+
+        Get-Content -Raw (Join-Path $root 'src/Extensions/Accounts/Extensions.Accounts.csproj') | Should -Match '<Version>0\.1\.1</Version>'
+    }
+
+    It 'rejects a changed rollup extension without a child changelog' {
+        $root = New-TestRepository
+        Remove-Item (Join-Path $root 'src/PS/Accounts/ChangeLog.md')
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add --all
+        git -C $root commit --quiet -m 'remove changelog and change Accounts extension'
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*PowerShell changelog was not found for rollup extension Accounts*'
+    }
+
     It 'preserves the initial version of a new rollup extension' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
@@ -101,7 +156,14 @@ Describe 'Update-ChangedExtensionVersions' {
 '@
         Write-TestFile -Root $root -RelativePath 'src/Extensions/Identity/Processor.cs' -Content 'class IdentityProcessor { }'
         Write-TestFile -Root $root -RelativePath 'src/PS/Identity/Identity.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
-        Add-Content -Path (Join-Path $root 'src/PS/Az/Az.psd1') -Value "@{ ModuleName = '../Identity/Identity.psd1'; ModuleVersion = '0.1.0' }"
+        Write-TestFile -Root $root -RelativePath 'src/PS/Identity/ChangeLog.md' -Content "## Upcoming Release`n"
+        $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
+        $rollupContent = Get-Content -Raw $rollupPath
+        $rollupContent = $rollupContent.Replace(
+            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' }`n)",
+            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },`n    @{ ModuleName = '../Identity/Identity.psd1'; ModuleVersion = '0.1.0' }`n)"
+        )
+        [System.IO.File]::WriteAllText($rollupPath, $rollupContent, [System.Text.UTF8Encoding]::new($false))
         git -C $root add .
         git -C $root commit --quiet -m 'add Identity extension'
 

@@ -40,10 +40,13 @@ def is_stable_release_pull_request(
 def get_project_versions(content: str) -> dict[str, tuple[str, ...]]:
     root = ET.fromstring(content)
     values: dict[str, list[str]] = {}
-    for element in root.iter():
-        property_name = element.tag.rsplit("}", 1)[-1]
-        if property_name in VERSION_PROPERTIES:
-            values.setdefault(property_name, []).append((element.text or "").strip())
+    for property_group in root.iter():
+        if property_group.tag.rsplit("}", 1)[-1] != "PropertyGroup":
+            continue
+        for element in property_group:
+            property_name = element.tag.rsplit("}", 1)[-1]
+            if property_name in VERSION_PROPERTIES:
+                values.setdefault(property_name, []).append((element.text or "").strip())
     return {
         name: tuple(sorted(property_values))
         for name, property_values in values.items()
@@ -130,7 +133,7 @@ def main() -> int:
 
     changed_files = run_git(
         repo_root,
-        ["diff", "--name-only", f"{args.base_sha}..{args.head_sha}", "--"],
+        ["diff", "--name-only", f"{args.base_sha}...{args.head_sha}", "--"],
     ).splitlines()
     violations = find_policy_violations(
         changed_files,

@@ -58,6 +58,11 @@ function Set-LineVersion {
         [string] $Description
     )
 
+    $originalBytes = [System.IO.File]::ReadAllBytes($Path)
+    $hasUtf8Bom = $originalBytes.Length -ge 3 -and
+        $originalBytes[0] -eq 0xEF -and
+        $originalBytes[1] -eq 0xBB -and
+        $originalBytes[2] -eq 0xBF
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.AddRange([string[]](Get-Content -Path $Path))
     for ($index = 0; $index -lt $lines.Count; $index++) {
@@ -68,7 +73,7 @@ function Set-LineVersion {
             }
             else {
                 $content = ($lines -join "`n") + "`n"
-                [System.IO.File]::WriteAllText($Path, $content, [System.Text.UTF8Encoding]::new($false))
+                [System.IO.File]::WriteAllText($Path, $content, [System.Text.UTF8Encoding]::new($hasUtf8Bom))
             }
             return
         }
@@ -129,12 +134,16 @@ foreach ($moduleName in $changedModules) {
     $projectRelativePath = "src/Extensions/$moduleName/Extensions.$moduleName.csproj"
     $projectPath = Join-Path $RepoRoot $projectRelativePath
     $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
+    $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
     $rollupModulePath = "../$moduleName/$moduleName.psd1"
 
     if (-not (Test-Path -Path $projectPath -PathType Leaf) -or
         -not (Test-Path -Path $moduleManifestPath -PathType Leaf) -or
         $rollupContent -notmatch [regex]::Escape("ModuleName = '$rollupModulePath'")) {
         continue
+    }
+    if (-not (Test-Path -Path $moduleChangeLogPath -PathType Leaf)) {
+        throw "PowerShell changelog was not found for rollup extension $moduleName`: $moduleChangeLogPath"
     }
 
     $baseProjectContent = Get-FileAtRef -Root $RepoRoot -Ref $resolvedBaseRef -RelativePath $projectRelativePath
