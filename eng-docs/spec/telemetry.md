@@ -104,7 +104,7 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
-| `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, or `error`                    |
+| `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, or `error` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
 | `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
@@ -205,3 +205,4 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 - **Flush on Dispose**: `TelemetryService.Dispose()` calls `ForceFlush()` which can block CLI exit
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
 - **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time
+

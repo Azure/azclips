@@ -163,6 +163,14 @@ public static class AgentModeEntry
             session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
+        catch (AgentSessionFailedException)
+        {
+            // Already surfaced at the point of failure as "✗ session.error [type] message";
+            // printing "agent mode error: ..." on top of it would report the same failure twice.
+            session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
+            session?.SetStatus(ActivityStatusCode.Error);
+            return 1;
+        }
         catch (OperationCanceledException)
         {
             // Cancellation is not an error; ActivityStatusCode has no Cancelled member.
@@ -218,6 +226,7 @@ public static class AgentModeEntry
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
 
+            ThrowIfSessionEndedInError(agent);
             return;
         }
 
@@ -259,6 +268,31 @@ public static class AgentModeEntry
             }
 
             nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
+        }
+
+        ThrowIfSessionEndedInError(agent);
+    }
+
+    /// <summary>
+    /// Ends the session as a failure when its last turn hit a terminal SDK error.
+    /// </summary>
+    /// <remarks>
+    /// <para><see cref="ChatAgent.LastError"/> is per-turn — <c>SendAsync</c> clears it on every new
+    /// turn — so reading it once the loop has finished answers "did the session END in failure",
+    /// not "did one ever occur". That is the right question for both modes: in one-shot the failed
+    /// turn is the session, and in interactive a user who recovers on a later turn still ends
+    /// successfully.</para>
+    ///
+    /// <para><c>SendAndPumpAsync</c> deliberately swallows the cancellation the SDK raises for this
+    /// case so the loop can keep going, which leaves the caller unable to distinguish failure from
+    /// success. Re-raising it here is what makes <c>recovery.outcome</c>, the span status and the
+    /// exit code reflect what the user actually saw.</para>
+    /// </remarks>
+    private static void ThrowIfSessionEndedInError(ChatAgent agent)
+    {
+        if (agent.LastError is { } err)
+        {
+            throw new AgentSessionFailedException(err.ErrorType, err.Message);
         }
     }
 
@@ -375,6 +409,9 @@ public static class AgentModeEntry
         try { await sendTask.ConfigureAwait(false); }
         catch (OperationCanceledException) when (agent.LastError is { } err)
         {
+            // Swallowed so the interactive loop can offer another turn. agent.LastError stays set
+            // for this turn, and ThrowIfSessionEndedInError reads it once the loop finishes — that
+            // is what keeps a session ending in failure from exporting outcome=ok.
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
         catch (OperationCanceledException) when (redirect is not null)

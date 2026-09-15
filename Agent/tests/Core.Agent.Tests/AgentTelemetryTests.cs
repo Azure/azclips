@@ -167,6 +167,46 @@ public class AgentTelemetryProviderTests
         }
     }
 
+    [Fact]
+    internal async Task RunSessionAsync_RecordsError_WhenSessionEndsOnTerminalSdkFailure()
+    {
+        // The chat loop swallows the SDK's cancellation so an interactive user can take another
+        // turn, then re-raises it as AgentSessionFailedException once the loop ends on a failed
+        // turn. Without that the loop returns normally and this session exports ok / exit 0 —
+        // a run the user just watched fail would count as a success in every metric.
+        const string sensitiveText = "test-only private error detail";
+        var sender = new SnapshotSender([]);
+        var provider = new AgentTelemetryProvider(
+            [
+                new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()),
+                new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()),
+            ],
+            sender, new StubConfiguration(telemetryEnabled: true));
+
+        try
+        {
+            var exitCode = await AgentModeEntry.RunSessionAsync(
+                () => provider,
+                _ => throw new AgentSessionFailedException("rate_limit", sensitiveText),
+                () => provider.TracerProvider.Dispose());
+
+            Assert.Equal(1, exitCode);
+            var exported = Assert.Single(sender.Exported);
+            Assert.Equal("error", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
+            Assert.Equal(ActivityStatusCode.Error, exported.Status);
+            // The failure text came from the model provider and can echo user input, so it must not
+            // ride out on the span even though the user already saw it on screen.
+            Assert.DoesNotContain(exported.Tags.Values,
+                value => value is string text && text.Contains(sensitiveText, StringComparison.Ordinal));
+            Assert.Null(exported.StatusDescription);
+        }
+        finally
+        {
+            provider.TracerProvider.Dispose();
+            provider.ActivitySource.Dispose();
+        }
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(130)]
