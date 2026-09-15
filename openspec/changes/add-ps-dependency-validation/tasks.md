@@ -13,3 +13,8 @@
 ## 3. Completion
 
 - [x] 3.1 Run targeted dependency, lifecycle, smoke, and pipeline fixtures and inspect the resulting diff for unintended changes.
+
+## 4. Continue independent validation after failures
+
+- [x] 4.1 Run both dependency suites before returning failure, and gate lifecycle phases on their actual prerequisites instead of earlier validation outcomes.
+- [x] 4.2 Cover hard/soft dependency failures, multiple failures, prerequisite failures and cancellation in the existing pipeline fixtures; update the failure-handling documentation.

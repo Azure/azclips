@@ -15,6 +15,8 @@ See proposal.md for motivation. The existing matrix bootstraps a framework-depen
 - Negative repositories are private copies with a missing dependency or incompatible version. Restrict resolution to the named repository and imports to scenario and built-in module paths.
 - Run fresh processes with deadlines and capture per-case results, inventory and diagnostics. Expected failures must identify the intended dependency, not merely return nonzero.
 - Add Dependencies after Bootstrap and before Install, using the existing distribution container/toolchain. Scenarios own their scratch directories and cannot alter the normal lifecycle state.
+- Run both independent dependency suites before returning the first nonzero exit code. A package metadata failure may prevent package scenarios that require that contract, but must not suppress runtime validation.
+- Gate Dependencies and Install on successful bootstrap, and Upgrade/Validate on successful installation. Earlier validation failures, including unsupported-canary warnings, do not suppress independent phases. Cancellation skips new validation work, while Uninstall still runs after a successful Install. Preserve every phase's failure in the final report and retain the existing publication policy.
 - Test supported runtime discovery, missing framework diagnostics using a private runtime copy, and rejection under an older PowerShell installed only into temporary toolchain locations. The missing-framework probe must run from the orchestration process.
 - Keep fixture tests offline and distinguish synthetic fixtures from production package integration.
 

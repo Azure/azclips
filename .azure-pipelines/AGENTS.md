@@ -37,6 +37,7 @@ guide in the same PR so it stays accurate.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
+- PowerShell validation matrix phases use `PsValidationBootstrapped` and `PsValidationInstalled` as prerequisites. Dependency failures do not suppress Install or subsequent smoke validation after successful installation; failed prerequisites and cancellation still skip dependent validation work. Cleanup runs after successful installation, and reports/publication gates retain earlier failures.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.

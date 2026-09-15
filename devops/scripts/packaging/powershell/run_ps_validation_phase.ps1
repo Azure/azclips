@@ -7,6 +7,7 @@ Run Dependencies, Install, Upgrade, Validate, and Uninstall in that order using 
 PowerShell executable. Dependencies and Install require a local gallery path in
 RepositoryRoot. Dependencies uses private module directories and the bootstrapped
 DOTNET_ROOT; it does not install user modules. Upgrade is an explicit placeholder.
+Both dependency suites run before the phase returns the first failing exit code.
 Validate runs the configured module smoke tests after Install checks imports,
 exported cmdlets, and external help. Smoke coverage is checked once before the
 distribution matrix, not as a module phase.
@@ -35,6 +36,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
+$script:validationExitCode = 0
 
 Write-Host "=== Azure PS validation phase: $Phase ==="
 
@@ -51,8 +54,8 @@ function Invoke-ValidationScript {
 
     if ($ReportRoot) { $Arguments += @('-ReportRoot', $ReportRoot) }
     & $PwshPath -NoProfile -File $ScriptPath @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0 -and $script:validationExitCode -eq 0) {
+        $script:validationExitCode = $LASTEXITCODE
     }
 }
 
@@ -124,3 +127,5 @@ switch ($Phase) {
             )
     }
 }
+
+exit $script:validationExitCode

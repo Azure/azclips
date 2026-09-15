@@ -6,8 +6,9 @@ Runs one Azure Pipelines PowerShell validation step on a container or native age
 Bootstrap invokes the distribution-specific PowerShell installer. All subsequent
 phases use run_ps_validation_phase.ps1 with the same toolchain and module directory.
 Unsupported combinations report native command failures as SucceededWithIssues and
-set PsValidationSoftFailed so later phase tasks can be skipped, except Uninstall
-after a completed Install. PsValidationInstalled tracks that cleanup obligation.
+set PsValidationSoftFailed without suppressing independent phase tasks.
+PsValidationBootstrapped and PsValidationInstalled track the prerequisites for
+later phases; successful Install also establishes the Uninstall cleanup obligation.
 ReportRoot enables per-phase transcripts and results. Containers write module
 snapshots through a separate writable bind mount; sources and packages stay read-only.
 #>
@@ -137,6 +138,7 @@ function Invoke-ValidationPhase
         {
             Set-ValidationVariable -Name 'PwshPath' -Value $PwshPath
             Set-ValidationVariable -Name 'DotnetRootPath' -Value $DotnetRootPath
+            Set-ValidationVariable -Name 'PsValidationBootstrapped' -Value 'true'
         }
     }
     else
@@ -182,7 +184,11 @@ $reportInitialized = $false
 $transcriptStarted = $false
 try
 {
-    if ($Phase -eq 'Bootstrap') { Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'false' }
+    if ($Phase -eq 'Bootstrap')
+    {
+        Set-ValidationVariable -Name 'PsValidationBootstrapped' -Value 'false'
+        Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'false'
+    }
     if ($ReportRoot)
     {
         $ReportRoot = [IO.Path]::GetFullPath($ReportRoot)

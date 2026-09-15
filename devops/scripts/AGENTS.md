@@ -30,6 +30,11 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
+PowerShell validation's `run_ps_validation_phase.ps1` runs both dependency suites
+before returning the first failing exit code. `invoke_ps_validation_step.ps1`
+publishes successful bootstrap/installation prerequisites so independent phases
+can continue after failures without clearing their recorded outcomes.
+
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
 the **pattern**, not fixed depths:

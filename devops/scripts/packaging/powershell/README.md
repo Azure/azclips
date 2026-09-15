@@ -26,9 +26,12 @@ Each matrix job shows one task for each phase:
 
 Installation verifies version-pinned imports, exported cmdlets, and external help
 examples. Validate additionally imports every module and executes its configured
-smoke commands. Uninstall still runs after a failed Validate phase when Install
-completed successfully, including unsupported canary failures; cleanup never
-replaces the original validation failure.
+smoke commands. Dependencies and Install require a successful Bootstrap, not a
+successful preceding validation phase. Upgrade and Validate require a successful
+Install and still run after dependency failures. Cancellation skips new validation
+work, but Uninstall still runs when Install completed successfully. These rules also
+apply to unsupported canaries; successful later phases and cleanup never replace
+earlier validation failures.
 
 The **Build (PS) Common** job retains its module-output and package installation/
 removal checks, but does not invoke the Dependencies or smoke Validate phase. It publishes the
@@ -66,8 +69,9 @@ Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
   sets `supported: false`.
 - In full runs, optional registry discovery adds the newest unconfigured distribution or
   PowerShell release as an unsupported canary. Canary failures report
-  `SucceededWithIssues`, skip later non-cleanup phases, and do not block final artifact
-  publication. Failures of supported combinations still block publication.
+  `SucceededWithIssues` and do not block independent phases or final artifact
+  publication. Failed prerequisites still skip dependent phases. Failures of
+  supported combinations still block publication.
 - Registry discovery failures produce warnings and retain configured coverage.
   Malformed configuration or generation errors fail instead of emitting a partial
   matrix.
@@ -167,6 +171,10 @@ Dependencies runs after Bootstrap and before Install in every selected matrix le
 It does not preload or install Az modules into the user's module directories.
 The normal Install/Validate/Uninstall phases still provide installation lifecycle
 and smoke coverage; this additional suite tests the dependency contract itself.
+The dispatcher runs both package and runtime suites even if the package suite
+fails, returning the first failing exit code only after both finish. Metadata
+failures can prevent package scenarios that require a valid dependency contract,
+but do not prevent runtime validation or the normal installation lifecycle.
 
 `test_ps_dependencies.ps1` compares every package's NuGet dependency metadata with
 the source manifests, then requests each module (including the Az rollup) alone.
@@ -423,6 +431,7 @@ operations in child processes. Smoke fixtures import actual dummy script modules
 in isolated processes, exercising version/dependency pinning, coverage, command
 provenance, assertions, timeout handling, and both authentication-module layouts.
 Pipeline fixtures exercise the real host runner
-with fake native commands and evaluate the publication gates from the YAML,
-including unsupported failures. Both the GitHub PR workflow and the Azure DevOps
+with fake native commands and evaluate prerequisite and publication gates from the
+YAML, including multiple failures, unsupported warnings, and cancellation. Both
+the GitHub PR workflow and the Azure DevOps
 matrix-generation job run these suites before distribution validation.

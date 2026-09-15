@@ -47,3 +47,24 @@ The pipeline SHALL run dependency validation before normal module installation a
 #### Scenario: Unchanged normal lifecycle
 - **WHEN** dependency validation finishes
 - **THEN** its private files and repository registrations are cleaned up without changing user modules or the shared gallery
+
+### Requirement: Independent validation continues after failures
+The pipeline SHALL retain validation failures without suppressing tests whose prerequisites are still satisfied.
+
+#### Scenario: Package dependency validation fails
+- **WHEN** the package dependency suite fails, including during metadata validation
+- **THEN** the runtime dependency suite still runs and the Dependencies phase returns a failing exit code after both suites finish
+
+#### Scenario: Dependency failure with a usable toolchain
+- **WHEN** bootstrap succeeded and dependency validation fails or reports an unsupported-canary warning
+- **THEN** installation still runs, and successful installation permits smoke validation and cleanup
+- **AND** successful later phases do not erase earlier failures or weaken publication requirements
+
+#### Scenario: Multiple independent failures
+- **WHEN** dependency validation and smoke validation both fail
+- **THEN** both failures are retained in the phase report and Uninstall still runs after successful installation
+
+#### Scenario: Unmet prerequisites or cancellation
+- **WHEN** bootstrap fails, installation fails, or the job is canceled
+- **THEN** phases requiring the failed prerequisite or new validation work after cancellation are skipped
+- **AND** successful installation still authorizes cleanup, including after cancellation

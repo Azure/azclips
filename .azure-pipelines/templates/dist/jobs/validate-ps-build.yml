@@ -92,6 +92,7 @@ jobs:
   displayName: PS Validation
   timeoutInMinutes: 60
   variables:
+    PsValidationBootstrapped: 'false'
     PsValidationInstalled: 'false'
   strategy:
     matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
