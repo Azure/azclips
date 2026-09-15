@@ -15,6 +15,11 @@ The suite SHALL request each consumer without preinstalling dependencies and ver
 - **WHEN** package dependency metadata differs from the source contract
 - **THEN** validation fails with the affected package and dependency
 
+#### Scenario: Equivalent source dependency names
+- **WHEN** a known source dependency is specified as a bare module name, a manifest path, or an already-prefixed package name
+- **THEN** the shared reader resolves it to the same package identity for dependency and smoke validation
+- **AND** required versions remain unchanged and unknown dependencies still fail explicitly
+
 ### Requirement: Intentional dependency rejection
 The suite SHALL distinguish expected dependency errors from unrelated errors and unexpected success.
 

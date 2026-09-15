@@ -34,6 +34,9 @@ PowerShell validation's `run_ps_validation_phase.ps1` runs both dependency suite
 before returning the first failing exit code. `invoke_ps_validation_step.ps1`
 publishes successful bootstrap/installation prerequisites so independent phases
 can continue after failures without clearing their recorded outcomes.
+The shared `module_definitions.ps1` reader normalizes known bare source names and
+manifest-path dependencies to package identities for lifecycle, dependency and
+smoke validation; already-prefixed and unknown names are preserved.
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —

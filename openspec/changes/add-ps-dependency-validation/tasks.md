@@ -18,3 +18,8 @@
 
 - [x] 4.1 Run both dependency suites before returning failure, and gate lifecycle phases on their actual prerequisites instead of earlier validation outcomes.
 - [x] 4.2 Cover hard/soft dependency failures, multiple failures, prerequisite failures and cancellation in the existing pipeline fixtures; update the failure-handling documentation.
+
+## 5. Normalize source dependency identities
+
+- [x] 5.1 Normalize known bare source module references in the shared reader while preserving existing package/path references, versions and unknown-dependency rejection.
+- [x] 5.2 Extend real-package and smoke fixtures for equivalent dependency reference forms, run targeted regressions and document the normalization contract.

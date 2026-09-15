@@ -29,12 +29,26 @@ function Assert-DependencyFixture
 
 function New-FixturePackage
 {
-    param([string]$Name, [string[]]$Dependencies)
+    param(
+        [string]$Name,
+        [string[]]$Dependencies,
+        [ValidateSet('ManifestPath', 'SourceName', 'PackageName')]
+        [string]$DependencyReference = 'ManifestPath'
+    )
     $package = if ($Name -eq 'Az') { 'Az' } else { "Az.$Name" }
     $sourceDirectory = Join-Path $source $Name
     $moduleDirectory = Join-Path $scratch "package-$Name"
     $null = New-Item -ItemType Directory -Path $sourceDirectory, $moduleDirectory -Force
-    $required = @($Dependencies | ForEach-Object { "@{ ModuleName = '../$_/$_.psd1'; ModuleVersion = '1.0.0' }" }) -join ','
+    $required = @($Dependencies | ForEach-Object {
+        $dependencyName = $_
+        $reference = switch ($DependencyReference)
+        {
+            'ManifestPath' { "../$dependencyName/$dependencyName.psd1" }
+            'SourceName' { $dependencyName }
+            'PackageName' { "Az.$dependencyName" }
+        }
+        "@{ ModuleName = '$reference'; ModuleVersion = '1.0.0' }"
+    }) -join ','
     Set-Content -LiteralPath (Join-Path $sourceDirectory "$Name.psd1") -Value "@{ ModuleVersion = '1.0.0'; RequiredModules = @($required); CmdletsToExport = @() }"
     $moduleText = "`$ErrorActionPreference = 'Stop'`n"
     foreach ($dependency in $Dependencies)
@@ -71,8 +85,44 @@ if (`$loaded -and `$loaded.Version -ne [version]'1.0.0') {
 try
 {
     New-FixturePackage Login @()
-    New-FixturePackage Compute @('Login')
-    New-FixturePackage Az @('Login', 'Compute')
+    New-FixturePackage Accounts @()
+    New-FixturePackage Compute @('Accounts') -DependencyReference SourceName
+    New-FixturePackage Resources @('Accounts') -DependencyReference PackageName
+    New-FixturePackage Az @('Login', 'Compute', 'Resources')
+    $computeManifest = Join-Path $source 'Compute/Compute.psd1'
+    $computeSource = Get-Content -LiteralPath $computeManifest -Raw
+    foreach ($requirement in @(
+        "@{ ModuleName = 'Accounts'; ModuleVersion = '1.0.0' }",
+        "@{ ModuleName = 'accounts'; RequiredVersion = '1.0.0' }",
+        "@{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '1.0.0' }",
+        "@{ ModuleName = '..\Accounts\Accounts.psd1'; ModuleVersion = '1.0.0' }",
+        "@{ ModuleName = 'Az.Accounts'; ModuleVersion = '1.0.0' }",
+        "'Accounts'",
+        "'Az.Accounts'"
+    ))
+    {
+        Set-Content -LiteralPath $computeManifest -Value "@{ ModuleVersion = '1.0.0'; RequiredModules = @($requirement); CmdletsToExport = @() }"
+        $contracts = @(Get-PSDependencyContracts -SourcePsRoot $source -RepositoryRoot $gallery)
+        $compute = $contracts | Where-Object Name -eq 'Az.Compute'
+        Assert-DependencyFixture ($compute.Dependencies.Count -eq 1 -and
+            $compute.Dependencies[0].Name -ceq 'Az.Accounts' -and
+            $compute.Dependencies[0].Version -eq '1.0.0') "Source reference normalizes to the exact Accounts contract: $requirement"
+    }
+    foreach ($unknown in 'MissingDependency', 'Az.MissingDependency')
+    {
+        Set-Content -LiteralPath $computeManifest -Value "@{ ModuleVersion = '1.0.0'; RequiredModules = @('$unknown'); CmdletsToExport = @() }"
+        $definition = Get-AzModuleDefinitions -SourcePsRoot $source | Where-Object SourceModule -eq 'Compute'
+        Assert-DependencyFixture ($definition.RequiredModules[0] -ceq $unknown) 'Unknown names are not rewritten as known Az packages.'
+        $caught = $null
+        try { Get-PSDependencyContracts -SourcePsRoot $source -RepositoryRoot $gallery | Out-Null }
+        catch { $caught = $_ }
+        Assert-DependencyFixture ($null -ne $caught -and
+            $caught.Exception.Message.Contains("unknown source dependency: $unknown")) 'Unknown dependencies still fail explicitly.'
+    }
+    Set-Content -LiteralPath $computeManifest -Value $computeSource
+    Write-Host 'PASS: bare, path, prefixed and string dependency names; unknown dependencies remain invalid'
+    $count++
+
     $sentinel = Join-Path $scratch 'NuGet.config'
     Set-Content -LiteralPath $sentinel -Value 'untouched caller configuration'
     $before = @(Get-PSRepository | Select-Object Name, SourceLocation | ConvertTo-Json -Compress)
@@ -81,11 +131,17 @@ try
     Assert-DependencyFixture ($LASTEXITCODE -eq 0) "Real resolver suite failed:`n$($output -join "`n")"
     $report = Get-Content -LiteralPath (Join-Path $reports 'dependency-tests.json') -Raw | ConvertFrom-Json
     Assert-DependencyFixture ($report.status -eq 'Succeeded') 'Successful suite has a successful report.'
-    Assert-DependencyFixture ($report.cases.Count -eq 11) 'Metadata, three resolutions, six missing/incompatible edges, and conflict are all executed.'
+    Assert-DependencyFixture ($report.cases.Count -eq 18) 'Metadata, five resolutions, ten missing/incompatible edges, and two conflicts are all executed.'
     Assert-DependencyFixture (@($report.cases | Where-Object status -ne 'Succeeded').Count -eq 0) 'Expected dependency rejections are asserted passes.'
     $rollup = $report.cases | Where-Object name -eq 'resolve-Az'
-    Assert-DependencyFixture ($rollup.observations[0].result.inventory.Count -eq 3) 'The rollup alone saves all three modules.'
-    Assert-DependencyFixture ($rollup.observations[1].result.imported.Count -eq 3) 'Rollup import loads dependencies without preloading.'
+    Assert-DependencyFixture ($rollup.observations[0].result.inventory.Count -eq 5) 'The rollup alone saves all five modules, including transitive Accounts.'
+    Assert-DependencyFixture ($rollup.observations[1].result.imported.Count -eq 5) 'Rollup import loads dependencies without preloading.'
+    foreach ($consumer in 'Az.Compute', 'Az.Resources')
+    {
+        $resolution = $report.cases | Where-Object name -eq "resolve-$consumer"
+        Assert-DependencyFixture (@($resolution.observations[0].result.inventory |
+            Where-Object { $_.name -eq 'Az.Accounts' -and $_.version -eq '1.0.0' }).Count -eq 1) "$consumer resolves the canonical Accounts package."
+    }
     Assert-DependencyFixture (($before -join '') -ceq (@(Get-PSRepository | Select-Object Name, SourceLocation | ConvertTo-Json -Compress) -join '')) 'Existing repositories are unchanged.'
     Assert-DependencyFixture (($hashes -join '') -ceq (@(Get-ChildItem -LiteralPath $gallery -File | Get-FileHash | Select-Object Path, Hash | ConvertTo-Json -Compress) -join '')) 'The source gallery is unchanged.'
     Assert-DependencyFixture ((Get-Content -LiteralPath $sentinel -Raw).Trim() -eq 'untouched caller configuration') 'Caller configuration is unchanged.'
@@ -117,7 +173,7 @@ try
     $output = & $pwsh -NoProfile -File $runner -RepositoryRoot $gallery -SourcePsRoot $source -PwshPath $pwsh -ReportRoot $reports 2>&1
     Assert-DependencyFixture ($LASTEXITCODE -ne 0) 'Incorrect NuGet dependency metadata fails the runner.'
     $report = Get-Content -LiteralPath (Join-Path $reports 'dependency-tests.json') -Raw | ConvertFrom-Json
-    Assert-DependencyFixture ($report.status -eq 'Failed' -and $report.cases[0].message -match 'Az.Login') 'Metadata failures identify the dependency in the report.'
+    Assert-DependencyFixture ($report.status -eq 'Failed' -and $report.cases[0].message -match 'Az.Accounts') 'Metadata failures identify the dependency in the report.'
     Write-Host 'PASS: incorrect metadata and cycle rejection'
     $count++
 

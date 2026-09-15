@@ -178,6 +178,10 @@ but do not prevent runtime validation or the normal installation lifecycle.
 
 `test_ps_dependencies.ps1` compares every package's NuGet dependency metadata with
 the source manifests, then requests each module (including the Az rollup) alone.
+The shared module reader maps known source names such as `Accounts` and manifest
+paths such as `../Accounts/Accounts.psd1` to `Az.Accounts`, while already-prefixed
+package names remain unchanged. Unknown dependencies and mismatched versions
+still fail validation.
 It uses PowerShellGet `Save-Module` against a uniquely named local repository and
 saves into a fresh directory for each case. Each import runs in another process,
 with only that directory and the tested PowerShell's built-in modules on

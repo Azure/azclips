@@ -5,7 +5,8 @@ Discovers the packaged Az modules in their canonical installation order.
 .DESCRIPTION
 Reads source manifests once, with Accounts (or legacy Login) first, Az last, and
 other modules ordered by manifest path. Callers resolve the source root; uninstall
-reverses this list.
+reverses this list. Dependencies expressed as known source module names or manifest
+paths are normalized to package names; other names are preserved for validation.
 #>
 function Get-AzModuleDefinitions
 {
@@ -20,6 +21,13 @@ function Get-AzModuleDefinitions
     if ($manifests.Count -eq 0)
     {
         throw "No Az module definitions were found under: $SourcePsRoot"
+    }
+
+    $packageNames = @{}
+    foreach ($manifest in $manifests)
+    {
+        $sourceModule = $manifest.BaseName
+        $packageNames[$sourceModule] = if ($sourceModule -eq 'Az') { 'Az' } else { "Az.$sourceModule" }
     }
 
     foreach ($manifest in $manifests)
@@ -42,12 +50,16 @@ function Get-AzModuleDefinitions
                     $baseName = $Matches[2]
                     $name = if ($baseName -eq 'Az' -or $baseName.StartsWith('Az.')) { $baseName } else { "Az.$baseName" }
                 }
+                elseif ($packageNames.ContainsKey($name))
+                {
+                    $name = $packageNames[$name]
+                }
                 $name
             }
         )
         [pscustomobject]@{
             SourceModule = $sourceModule
-            PackageName = if ($sourceModule -eq 'Az') { 'Az' } else { "Az.$sourceModule" }
+            PackageName = $packageNames[$sourceModule]
             Version = $version
             CmdletsToExport = @($manifestData.CmdletsToExport)
             RequiredModules = $requiredModules

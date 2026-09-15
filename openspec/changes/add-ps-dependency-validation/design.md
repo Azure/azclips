@@ -12,6 +12,7 @@ See proposal.md for motivation. The existing matrix bootstraps a framework-depen
 
 - Resolve real packages with PowerShellGet Save-Module into fresh scenario directories. Unlike CurrentUser installation this does not mutate native Windows user module directories, while still exercising the package resolver. Existing Install-Module coverage remains in the lifecycle.
 - Validate source-derived dependency identities and versions against NuGet metadata independently, then request each consumer alone and import without preloading.
+- Normalize known bare source module names through the same discovered source-to-package mapping used for module identities. Preserve existing manifest-path normalization and already-prefixed package names; do not invent package identities for unknown bare names. Keep version and unknown-dependency checks strict.
 - Negative repositories are private copies with a missing dependency or incompatible version. Restrict resolution to the named repository and imports to scenario and built-in module paths.
 - Run fresh processes with deadlines and capture per-case results, inventory and diagnostics. Expected failures must identify the intended dependency, not merely return nonzero.
 - Add Dependencies after Bootstrap and before Install, using the existing distribution container/toolchain. Scenarios own their scratch directories and cannot alter the normal lifecycle state.

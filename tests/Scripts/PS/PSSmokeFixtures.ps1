@@ -195,12 +195,15 @@ try
     }
     Complete-Fixture 'Exact imports, dependency pinning, command execution, WhatIf, expected errors, and rollup'
 
-    Reset-Fixture
-    Set-Content -LiteralPath (Join-Path $fixtureRoot 'source\Az.psd1') -Value "@{ ModuleVersion = '1.2.3'; RequiredModules = @(@{ ModuleName = '../Probe/Probe.psd1'; ModuleVersion = '1.2.3' }); CmdletsToExport = @() }"
-    Set-Content -LiteralPath (Join-Path $fixtureRoot 'modules\Az\1.2.3\Az.psd1') -Value "@{ ModuleVersion = '1.2.3'; RequiredModules = @(); FunctionsToExport = @(); CmdletsToExport = @() }"
-    $report = Invoke-FixtureSmoke $true
-    Assert-Fixture (($report.modules | Where-Object module -eq 'Az').status -eq 'Succeeded') 'Pin and delegate through source dependencies even when packaging clears RequiredModules.'
-    Complete-Fixture 'Source dependency paths and NuGet-only rollup requirements'
+    foreach ($dependencyReference in '../Probe/Probe.psd1', 'Probe', 'Az.Probe')
+    {
+        Reset-Fixture
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'source\Az.psd1') -Value "@{ ModuleVersion = '1.2.3'; RequiredModules = @(@{ ModuleName = '$dependencyReference'; ModuleVersion = '1.2.3' }); CmdletsToExport = @() }"
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'modules\Az\1.2.3\Az.psd1') -Value "@{ ModuleVersion = '1.2.3'; RequiredModules = @(); FunctionsToExport = @(); CmdletsToExport = @() }"
+        $report = Invoke-FixtureSmoke $true
+        Assert-Fixture (($report.modules | Where-Object module -eq 'Az').status -eq 'Succeeded') 'Pin and delegate through source dependencies even when packaging clears RequiredModules.'
+        Complete-Fixture "Source dependency $dependencyReference and NuGet-only rollup requirements"
+    }
 
     Reset-Fixture
     New-FixtureModule Az.New 'function Get-SmokeValue { [CmdletBinding()]param() "new-output" }'
