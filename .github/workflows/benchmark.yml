@@ -61,8 +61,17 @@ jobs:
           filters: |
             shared:
               - 'src/Core/**'
-              - 'src/CLI/**'
-              - '!src/CLI/Help/Docs/**'
+              # src/CLI minus the authored help corpus, expressed as positive patterns.
+              # paths-filter v3 ORs every entry together (predicate-quantifier 'some'), so a
+              # leading-'!' entry excludes nothing — it matches every path *outside* Help/Docs
+              # and would make this filter true for all changes. 'some-with-excludes' is v4-only.
+              # Help markdown ships as Content and is read lazily, only on a help request
+              # (MarkdownCommandHelpProvider <- RuntimeHelpDispatcher <- DispatchHelp), which no
+              # benchmark invokes, so it cannot move a measurement.
+              - 'src/CLI/*'
+              - 'src/CLI/!(Help)/**'
+              - 'src/CLI/Help/*'
+              - 'src/CLI/Help/!(Docs)/**'
               - 'tests/Benchmark/*.cs'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
