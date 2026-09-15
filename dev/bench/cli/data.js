@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789435928553,
+  "lastUpdate": 1789435978831,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10510,6 +10510,54 @@ window.BENCHMARK_DATA = {
             "value": 2508850.968957203,
             "unit": "ns",
             "range": "± 132625.6571477725"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a30177c19ed10863567da54eb7035ac95f46919",
+          "message": "[CLI] Show group help on empty paths and add help aliases (#867)\n\n**Related command**\naz vm, az <group>, az <command>\n\n**Description**\nThis change makes empty command-group invocations behave like help\nrequests instead of throwing a not-found error, and it expands the help\naliases recognized before dispatch.\n\nCloses https://github.com/Azure/CLIPS/issues/895\nCloses https://github.com/Azure/CLIPS/issues/896\n\n- `az vm` and similar `az <group>` calls now render the group help page\n- `az vm -help` and `az vm --?` are recognized as help requests\n- Validation errors from a resolved command still keep their existing\nmessage and append a hint line such as `(az vm create --help)`; the full\nhelp page is also rendered for an interactive stderr\n\nBare (non-dashed) help tokens were dropped during review. `h` was\nproposed and removed, and the pre-existing `?` was removed alongside it:\nbare tokens are ambiguous with subcommands and positional values, so `az\nconfig get h` and `az config get --key ?` rendered help instead of\nreaching the command. Every help token is now dashed and\nposition-insensitive, which also removes the positional guards from the\nparser and the help-example validator. The remaining policy questions\n(`az help <path>`, and whether bare forms should ever return) are\ntracked in Azure/CLIPS#904.\n\n**Note on internal refactoring**\n\nReview feedback moved `AzclipsErrorException` from `Core.Extensions` to\n`Core.Abstractions` so the argument-parsing and engine layers can\nreference it without taking a dependency on `Core.Extensions`. All\nconsumers are in-repo and updated here, so this is not a customer-facing\nAPI change and needs no release note. Alongside it, usage errors now\nshare a single `UsageErrorException` type that flags the\nmissing-required-parameter case, which is what decides whether the\ncommand's help page is rendered beneath the error. Public factory and\nconstructor signatures were kept stable (new overloads rather than\noptional parameters) so already-compiled callers keep binding.\n\nPost-error help is written to stderr and only when stderr is an\ninteractive terminal and no structured `--output` format was requested,\nso `az --output json vm create` and any redirected/piped invocation\nstill produce a clean, parseable error.\n\n**Testing Guide**\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug`\n- `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj -c\nDebug`\n- `dotnet test tests/Core.Engine.Tests/Core.Engine.Tests.csproj -c\nDebug`\n- `./artifacts/Debug/Core.Cli/az.exe vm`\n- `./artifacts/Debug/Core.Cli/az.exe vm -help`\n- `./artifacts/Debug/Core.Cli/az.exe vm --list`\n- `./artifacts/Debug/Core.Cli/az.exe vm create`\n- `./artifacts/Debug/Core.Cli/az.exe --output json vm create`\n- `./artifacts/Debug/Core.Cli/az.exe vm foobar`\n\n**History Notes**\n[CLI] `az <group>`: Show help when invoked without a subcommand\n[CLI] `az <group>`: Support additional help aliases for entry points\n[CLI] BREAKING CHANGE: `az <command>`: Remove the bare `?` help alias in\nfavour of `-?` and `--?`\n[CLI] `az <command>`: Add guidance when argument validation fails",
+          "timestamp": "2026-09-15T09:38:05+10:00",
+          "tree_id": "a8e5bfa2d1c44a74a79496a04220bd4d0df2d0d0",
+          "url": "https://github.com/Azure/azclips/commit/4a30177c19ed10863567da54eb7035ac95f46919"
+        },
+        "date": 1789435976252,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2607439.391182365,
+            "unit": "ns",
+            "range": "± 105649.9904665948"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2667546.9453125,
+            "unit": "ns",
+            "range": "± 121372.87824701959"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2608845.5924664396,
+            "unit": "ns",
+            "range": "± 122575.81296323916"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2515991.0046203295,
+            "unit": "ns",
+            "range": "± 118355.53900125607"
           }
         ]
       }
