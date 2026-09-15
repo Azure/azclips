@@ -193,6 +193,9 @@ public class AgentTelemetryProviderTests
             Assert.Equal(1, exitCode);
             var exported = Assert.Single(sender.Exported);
             Assert.Equal("error", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
+            // The classification is the point: "error" alone cannot tell throttling from an expired
+            // credential, so it says nothing about what to fix.
+            Assert.Equal("rate_limit", exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryFailureReason));
             Assert.Equal(ActivityStatusCode.Error, exported.Status);
             // The failure text came from the model provider and can echo user input, so it must not
             // ride out on the span even though the user already saw it on screen.

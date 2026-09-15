@@ -163,11 +163,15 @@ public static class AgentModeEntry
             session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
-        catch (AgentSessionFailedException)
+        catch (AgentSessionFailedException ex)
         {
             // Already surfaced at the point of failure as "✗ session.error [type] message";
             // printing "agent mode error: ..." on top of it would report the same failure twice.
             session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
+            // The SDK's classification (rate_limit, auth_failed, ...) is what says whether these
+            // failures are ours to fix or the service's. The message itself stays out: it can echo
+            // subscription ids, resource names, or the user's prompt.
+            session?.SetTag(TelemetryTags.RecoveryFailureReason, ex.ErrorType ?? "unknown");
             session?.SetStatus(ActivityStatusCode.Error);
             return 1;
         }
@@ -180,6 +184,9 @@ public static class AgentModeEntry
         catch (Exception ex)
         {
             session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
+            // Host-side failure rather than a model one: the exception type separates "our bug" from
+            // "the service refused us" once both land in the same error bucket.
+            session?.SetTag(TelemetryTags.RecoveryFailureReason, ex.GetType().Name);
             session?.SetStatus(ActivityStatusCode.Error);
             WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
             return 1;
