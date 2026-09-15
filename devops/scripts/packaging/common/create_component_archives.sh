@@ -130,6 +130,8 @@ infer_artifact_version() {
   local source_root="$1"
   local stems=("$CLI_LEAN_ARCHIVE_STEM" "$CLI_ARCHIVE_STEM")
   local labels=(
+    "$(resolve_config_label linux_musl_x64_label linux-musl-x64)"
+    "$(resolve_config_label linux_musl_arm64_label linux-musl-arm64)"
     "$(resolve_config_label linux_x64_label linux-x64)"
     "$(resolve_config_label linux_arm64_label linux-arm64)"
     "$(resolve_config_label windows_x64_label win-x64)"

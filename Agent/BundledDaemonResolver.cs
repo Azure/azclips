@@ -21,6 +21,8 @@ internal static class BundledDaemonResolver
     private static string? FindBundledExe()
     {
         var binaryName = OperatingSystem.IsWindows() ? "copilot.exe" : "copilot";
+        // The Copilot SDK stages native assets under portable OS/architecture
+        // RIDs even when CopilotCliBinaryPath points to a musl executable.
         var rid = GetPortableRid()
             ?? Path.GetFileName(RuntimeInformation.RuntimeIdentifier);
 

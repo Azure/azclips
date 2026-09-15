@@ -63,7 +63,7 @@ public sealed class BenchmarkProfileStoreTests : IDisposable
         {
             Name = "leftover",
             TenantId = "t",
-            SubscriptionId = "s",
+            SubscriptionId = Guid.NewGuid().ToString(),
             CloudName = "AzureCloud",
             AuthMethod = AuthMethod.Browser,
         });
