@@ -131,10 +131,14 @@ if [[ "$RID" == linux-musl-* ]]; then
   if [[ ! -f "$COPILOT_BINARY" ]]; then
     COPILOT_PACKAGE="copilot-linuxmusl-$COPILOT_ARCH"
     COPILOT_ARCHIVE="$COPILOT_CACHE_DIR/$COPILOT_PACKAGE-$COPILOT_CLI_VERSION.tgz"
+    COPILOT_METADATA_URL="https://registry.npmjs.org/@github%2F$COPILOT_PACKAGE/$COPILOT_CLI_VERSION"
     COPILOT_URL="https://registry.npmjs.org/@github/$COPILOT_PACKAGE/-/$COPILOT_PACKAGE-$COPILOT_CLI_VERSION.tgz"
     mkdir -p "$COPILOT_CACHE_DIR"
     echo "Downloading Copilot CLI $COPILOT_CLI_VERSION for linuxmusl-$COPILOT_ARCH"
     curl --fail --location --retry 3 --output "$COPILOT_ARCHIVE" "$COPILOT_URL"
+    COPILOT_ARCHIVE_SHASUM="$(curl --fail --location --retry 3 "$COPILOT_METADATA_URL" \
+      | jq --exit-status --raw-output '.dist.shasum | select(type == "string" and test("^[0-9a-fA-F]{40}$"))')"
+    echo "$COPILOT_ARCHIVE_SHASUM  $COPILOT_ARCHIVE" | sha1sum --check --strict
     tar -xzf "$COPILOT_ARCHIVE" --strip-components=1 -C "$COPILOT_CACHE_DIR" package/copilot
   fi
 
