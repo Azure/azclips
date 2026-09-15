@@ -29,4 +29,26 @@ public class TelemetryExportersTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             TelemetryExporters.AddTraceExporter(builder, (TelemetryTarget)999));
     }
+
+    [Fact]
+    public void AddTraceExporters_BuildsProvider_ForASingleTarget()
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporters(builder, [TelemetryTarget.Local]);
+
+        using var provider = builder.Build();
+        Assert.NotNull(provider);
+    }
+
+    [Fact]
+    public void AddTraceExporters_BuildsProvider_ForBothTargets()
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporters(builder, [TelemetryTarget.Local, TelemetryTarget.Remote]);
+
+        using var provider = builder.Build();
+        Assert.NotNull(provider);
+    }
 }

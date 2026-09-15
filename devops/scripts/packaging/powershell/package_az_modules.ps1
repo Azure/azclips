@@ -144,7 +144,7 @@ function New-AzModulePackage
     $helpRoot = Join-Path $moduleRoot 'en-US'
     $null = New-Item -ItemType Directory -Path $binRoot, $extensionsRoot, $helpRoot -Force
 
-    if ($Definition.SourceModule -eq 'Login')
+    if ($Definition.SourceModule -eq 'Accounts')
     {
         foreach ($assembly in $CoreAssemblies)
         {
@@ -168,7 +168,7 @@ function New-AzModulePackage
     Copy-RequiredFile -Path $sourceHelp -Destination (Join-Path $helpRoot $helpFileName)
 
     $requiredAssemblies = @()
-    if ($Definition.SourceModule -eq 'Login')
+    if ($Definition.SourceModule -eq 'Accounts')
     {
         $requiredAssemblies += @($CoreAssemblies | ForEach-Object { "Core/$_" })
         $requiredAssemblies += "Extensions/Microsoft.Azure.Azclips.Extensions.$($Definition.SourceModule).dll"
@@ -181,7 +181,7 @@ function New-AzModulePackage
         ''
     )
 
-    if ($Definition.SourceModule -ne 'Login')
+    if ($Definition.SourceModule -ne 'Accounts')
     {
         $dependency = @($Definition.ModuleList | Select-Object -First 1)
         if (-not $dependency)
@@ -203,7 +203,7 @@ function New-AzModulePackage
         )
     }
 
-    if ($Definition.SourceModule -ne 'Login')
+    if ($Definition.SourceModule -ne 'Accounts')
     {
         $rootModuleContent += "Add-Type -Path (Join-Path -Path `$PSScriptRoot -ChildPath 'Extensions/Microsoft.Azure.Azclips.Extensions.$($Definition.SourceModule).dll')"
     }
@@ -441,7 +441,7 @@ Remove-Item -Path $modulesRoot, $repositoryRoot, $installRoot -Recurse -Force -E
 $null = New-Item -ItemType Directory -Path $modulesRoot, $repositoryRoot, $installRoot -Force
 
 $packageDefinitions = Get-ChildItem -Path $resolvedSourcePsRoot -Filter '*.psd1' -Recurse |
-    Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
+    Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Accounts') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
     ForEach-Object {
         $manifestData = Import-PowerShellDataFile -Path $_.FullName
         $sourceModule = $_.BaseName
@@ -499,7 +499,7 @@ try
             throw "$($definition.PackageName) package was not published to local repository: $repositoryRoot"
         }
 
-        if ($definition.SourceModule -ne 'Login')
+        if ($definition.SourceModule -ne 'Accounts')
         {
             Update-NupkgManifestModuleList -PackagePath $packageFile.FullName -ModuleList $definition.ModuleList
             foreach ($dependency in @($definition.ModuleList))

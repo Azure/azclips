@@ -14,7 +14,7 @@ public class DirectTelemetrySenderTests
         var sender = new DirectTelemetrySender();
         var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
 
-        sender.ConfigureExporter(builder, traceDirectory: string.Empty);
+        sender.ConfigureExporter(builder);
 
         using var provider = builder.Build();
         Assert.NotNull(provider);

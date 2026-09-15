@@ -16,9 +16,6 @@ namespace Core.Extensions.Tests
     /// </summary>
     public class MultiNamespaceTests
     {
-        private static readonly IReadOnlyDictionary<string, BuiltInExtension> EmptyBuiltIns =
-            new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase);
-
         private static ExtensionRegistryEntry MultiNamespaceEntry() => new()
         {
             Verb = "vm",
@@ -41,7 +38,7 @@ namespace Core.Extensions.Tests
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
 
-            var index = LeafIndex.Build(EmptyBuiltIns, registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.TryGet("vm", "create", out var vmCreate));
             Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vmCreate!.PackageId);
@@ -55,7 +52,7 @@ namespace Core.Extensions.Tests
         {
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
-            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), EmptyBuiltIns);
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
 
             Assert.True(resolver.TryResolve("vm", out var vm));
             Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vm!.PackageId);
@@ -75,7 +72,7 @@ namespace Core.Extensions.Tests
                 Version = "1.0.0",
                 InstalledAt = DateTimeOffset.UtcNow,
             };
-            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), EmptyBuiltIns);
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
 
             Assert.True(resolver.TryResolve("legacy", out var legacy));
             Assert.Equal("Legacy.Package", legacy!.PackageId);
@@ -119,7 +116,7 @@ namespace Core.Extensions.Tests
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
             var store = new InMemoryRegistryStore(registry);
-            var resolver = new ExtensionResolver(store, EmptyBuiltIns);
+            var resolver = new ExtensionResolver(store);
 
             Assert.True(resolver.TryResolve("vm", out _));
             Assert.True(resolver.TryResolve("disk", out _));

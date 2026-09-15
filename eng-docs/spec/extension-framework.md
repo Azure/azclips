@@ -32,7 +32,7 @@ Two host surfaces consume the same extensions:
 
 ### 2.1 What an Extension Is
 
-An extension is a .NET class library that implements a set of commands for one Azure service area (e.g., Login, Resources). Every extension must provide:
+An extension is a .NET class library that implements a set of commands for one Azure service area (e.g., Accounts, Resources). Every extension must provide:
 
 - **`ExtensionIndex`** — implements `IExtensionIndex`, returns `ICommandMetadata` for a given command name and client type
 - **Processor classes** — implement `IProcessor` with `Init(context)` and `ProcessAsync()`
@@ -54,23 +54,30 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 ### 2.3 Extension tiers
 
-Azclips distinguishes three tiers of extension by _how they get onto the machine_, not by their package format:
+Azclips distinguishes two tiers of extension by _how they get onto the machine_, not by their package format:
 
-| Tier          | How it gets there                                                                                                                            | Where it lives at runtime                                                          | Removable?                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
-| **Core**      | Baked into the CLI host at compile time (`BuiltInExtensions.Map`)                                                                            | Dispatch resolves from the static map; verbs are known without any filesystem read | No                            |
-| **Bundled**   | Shipped alongside `az.exe` at packaging time (`<install>/Extensions/<PackageId>/`) or dropped there by a local build (`artifacts/<Config>/`) | Loaded by `BuiltinExtensionLoader` (name pending rename)                           | No — shipped with the install |
-| **Installed** | Placed by `az extension add`                                                                                                                 | `~/.azclips/extensions/<PackageId>/<Version>/`; multi-version aware                | Yes — `az extension remove`   |
+| Tier          | How it gets there                                                                                                                            | Where it lives at runtime                                           | Removable?                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------- |
+| **Bundled**   | Shipped alongside `az.exe` at packaging time (`<install>/Extensions/<PackageId>/`) or dropped there by a local build (`artifacts/<Config>/`) | Loaded by `BundledExtensionLoader`                                  | No — shipped with the install |
+| **Installed** | Placed by `az extension add`                                                                                                                 | `~/.azclips/extensions/<PackageId>/<Version>/`; multi-version aware | Yes — `az extension remove`   |
 
-The three tiers are **independent**: an extension can appear in any subset of them.
+The two tiers are **independent**: an extension can appear in either or both. Dispatch is uniform across both — no runtime distinction between "Core" and other extensions. The set of extensions expected to ship in every install lives in the packaging profile ([`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh) with `lean_package.config` / `full_package.config`), not the runtime.
 
-- **Core** membership is compile-time and independent of what's on disk. A Core verb (e.g. `login`) is dispatchable via the seed even if no Bundled DLL for `Microsoft.Azure.Azclips.Extensions.Login` exists on the machine — the load step then falls through to whichever loader can serve it (Bundled first, Installed second). If neither has the DLL, dispatch fails at load time even though the verb was routable.
-- **Bundled** membership depends on the packaging profile. Full installs typically ship every Core extension's DLL under `<install>/Extensions/`; lean installs ship a subset (see [`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh) and its `lean_package.config` / `full_package.config` inputs). Local `dotnet build` output puts every extension DLL under `artifacts/<Config>/`.
+- **Bundled** membership depends on the packaging profile. Full installs typically ship every packaged extension's DLL under `<install>/Extensions/`; lean installs ship a subset. Local `dotnet build` output puts every extension DLL under `artifacts/<Config>/`.
 - **Installed** membership is entirely user-driven — whatever they've run `az extension add` for.
 
-`Compute` and `Resources` are examples of extensions that are Bundled (in typical installs) but never Core — they do not appear in `BuiltInExtensions.Map`, and dispatch resolves them purely through discovery.
-
 When the same `PackageId` appears in both the Bundled and Installed roots at different versions, [`ExtensionCandidateSelector`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) picks the winner — see §3.4.
+
+#### Write boundary
+
+The extension API (`az extension add` / `remove` / `update` / `pin` / `unpin`) reads and writes **only** under the Installed root (`~/.azclips/extensions/`, or whatever `assemblyLoading.installedExtensionsRoot` points to). The Bundled root (`<install>/Extensions/`) is part of the install artifact and is managed by the OS-level install/uninstall of azcli itself — it cannot be mutated at runtime by any `az extension` command.
+
+Consequences:
+
+- Removing an extension that exists **only** in the Bundled tier is not possible via `az extension remove` — the command reports `ExtensionNotFound` because it only searches the Installed root. To change what's in the Bundled tier, reinstall azcli with a different packaging profile (see `docs/azure-cli/docs-conceptual/install-overview.md`).
+- If a package id exists in both tiers, `az extension remove` deletes the Installed-tier payload only; the Bundled-tier copy remains discoverable and dispatch will fall back to it on the next invocation.
+- `az extension add` never overwrites a Bundled payload. On a package-id collision the new payload lands under the Installed root at a fresh `<pkg>/<version>/` and, if it's a newer version, wins via `ExtensionCandidateSelector` (see §3.4).
+- Bundled and Installed contributions collide on the same terms as any other pair (`LeafConflict` at install time, `LeafIndex` hard-fail at dispatch time). There is no tier bias.
 
 ---
 
@@ -99,7 +106,7 @@ public sealed record DiscoveredExtensionInfo(
 - **PackageId** — Unique extension identifier. Bundled and Installed extensions use the same id scheme.
 - **ResolvedVersion** — The semantic version being used for this discovery pass.
     - For **Installed** extensions the version is the directory name at `~/.azclips/extensions/<pkg>/<version>/`.
-    - For **Bundled** extensions the version is parsed from the on-disk `.nupkg` in the package folder (`BuiltinExtensionLoader.ResolvePackageVersionFromNupkg`). Local `dotnet build` output pairs each DLL with a freshly-packed `.nupkg` (via `GeneratePackageOnBuild=true`) and reports a real version. Packaged installs strip the `.nupkg` at packaging time (see [`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh)) and report `ResolvedVersion = ""` — dispatch takes the unversioned load path in that case. Reporting a non-empty version for packaged Bundled extensions is tracked as a follow-up.
+    - For **Bundled** extensions the version is parsed from the on-disk `.nupkg` in the package folder (`BundledExtensionLoader.ResolvePackageVersionFromNupkg`). Local `dotnet build` output pairs each DLL with a freshly-packed `.nupkg` (via `GeneratePackageOnBuild=true`) and reports a real version. Packaged installs strip the `.nupkg` at packaging time (see [`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh)) and report `ResolvedVersion = ""` — dispatch takes the unversioned load path in that case. Reporting a non-empty version for packaged Bundled extensions is tracked as a follow-up.
 - **Verbs** — All top-level command namespaces contributed by this extension (e.g., an extension may contribute both `vm` and `disk`).
 - **Commands** — Full `CommandMetadata` for each command, keyed by invocation name (for example, `"vm create"`).
 
@@ -138,7 +145,7 @@ Bundled root:                                           Installed root:
 
 With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
 
-**Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BuiltinExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `MultiVersionExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
+**Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BundledExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `InstalledExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
 
 ### 3.5 Discovery in Help & Dispatch
 
@@ -246,8 +253,8 @@ A custom `AssemblyLoadContext` per extension with one rule:
 
 Each extension is loaded into its own `ExtensionLoadContext`. Two loaders are tried in order:
 
-1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.azclips/extensions/`
-2. `BuiltinExtensionLoader` — bundled extensions at `<appDir>/Extensions/`
+1. `InstalledExtensionLoader` — user-installed extensions at `~/.azclips/extensions/`
+2. `BundledExtensionLoader` — bundled extensions at `<appDir>/Extensions/`
 
 Each loader creates a fresh ALC per extension. Dependencies between extensions cannot conflict.
 
@@ -310,10 +317,10 @@ publish/win-x64/
 
 ```
 Azclips/
-  Login/
-    Login.psd1, Login.psm1, exports/*.ps1
+  Accounts/
+    Accounts.psd1, Accounts.psm1, exports/*.ps1
     lib/                            ← Assembled DLLs
-      Core.*.dll, Login.dll, ...
+      Core.*.dll, Accounts.dll, ...
   Resources/
     Resources.psd1, ...
 ```

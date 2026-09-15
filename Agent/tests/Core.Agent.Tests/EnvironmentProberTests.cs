@@ -36,5 +36,7 @@ public class EnvironmentProberTests
         public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) =>
             throw new InvalidOperationException("auth backend down");
         public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
+        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
+        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 }

@@ -14,7 +14,6 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "core.engine.extensionIndexCacheSize", Description = "LFU cache size for extension index.", DefaultValue = "512", ValueType = typeof(int), Minimum = 1, Maximum = 10000 },
         new() { Key = "core.http.maxRetries", Description = "Max retries for transient HTTP failures.", DefaultValue = "3", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
         new() { Key = "core.http.maxRetriesFor429", Description = "Max retries for HTTP 429 responses.", DefaultValue = "5", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
-        new() { Key = "assemblyLoading.bundledExtensionsRoot", Description = "Root directory for extensions bundled alongside az.exe in the packaged install.", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.installedExtensionsRoot", Description = "Root directory for extensions installed via `az extension add` (typically ~/.azclips/extensions).", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.bypassExtensionCache", Description = "Skip the per-process ALC cache and reload extensions on every dispatch (benchmark/test hook).", DefaultValue = "false", ValueType = typeof(bool) },

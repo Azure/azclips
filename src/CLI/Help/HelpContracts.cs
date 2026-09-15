@@ -25,7 +25,10 @@ namespace Core.Cli.Help
         string Description,
         IList<HelpParameter> Parameters,
         HelpExampleSet Examples,
-        HelpTag[] Tags);
+        HelpTag[] Tags,
+        string? PreviewMessage = null,
+        string? ExperimentalMessage = null,
+        string? DeprecatedMessage = null);
 
     public record HelpParameter(
         string Name,
@@ -37,7 +40,9 @@ namespace Core.Cli.Help
         string[] AllowedValues,
         string ParameterSetName,
         bool SupportsPipeline,
-        bool SupportsWildcards);
+        bool SupportsWildcards,
+        string? GroupName = null,
+        string? ValueSources = null);
 
     public record HelpExampleSet(
         IList<HelpExample> Cli,

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Codegen tool: turns the IR JSON Schema artifact (packages/ir/dist/ir.schema.json,
+    itself derived from the Zod source of truth) into C# POCOs for the generator.
+    This keeps the IR contract defined once (in Zod) and prevents hand-duplicating
+    it in C#. See the package README for how to run it.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ace.Ir.CodeGen</RootNamespace>
+    <!-- This is throwaway build tooling, not a shipped artifact. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+  </ItemGroup>
+
+</Project>

@@ -12,7 +12,7 @@ parameters:
 jobs:
 - job: LinuxValidation
   displayName: CLI Linux Validation
-  timeoutInMinutes: 45
+  timeoutInMinutes: 30
   strategy:
     matrix:
       linux_x64_lean:

@@ -3,10 +3,12 @@ using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
+using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Moq;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -47,14 +49,14 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
-    public async Task Login_WithoutOutProfile_ShouldCreateTempProfile()
+    public async Task Login_WithoutOutProfile_ShouldCreateDefaultProfile()
     {
         using var fixture = new ProfileCliFixture();
 
         fixture.ExecuteCli(["login", "--subscription-id", "sub-1"]);
 
-        Assert.Equal("temp", await fixture.Profiles.GetActiveProfileNameAsync());
-        Assert.NotNull(await fixture.Profiles.GetProfileAsync("temp"));
+        Assert.Equal("default", await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.NotNull(await fixture.Profiles.GetProfileAsync("default"));
     }
 
     [Fact]
@@ -92,12 +94,12 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
-    public async Task Login_WithOutProfileTemp_ShouldFail_AsReserved()
+    public async Task Login_WithOutProfileDefault_ShouldFail_AsReserved()
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "temp"]));
-        Assert.Null(await fixture.Profiles.GetProfileAsync("temp"));
+        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "default"]));
+        Assert.Null(await fixture.Profiles.GetProfileAsync("default"));
     }
 
     [Fact]
@@ -379,7 +381,7 @@ public sealed class ProfileCliTests
             AzclipsServiceProvider.Dispose();
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
-                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Login"));
+                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Accounts"));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService>(Profiles);
                 services.AddSingleton<IAuthService>(Auth);
@@ -427,7 +429,7 @@ public sealed class ProfileCliTests
             _outputs.Clear();
             _rawOutputs.Clear();
 
-            var dispatcher = new ExtensionDispatcher();
+            var dispatcher = BuildDispatcher();
             var invocation = dispatcher.Parse(args);
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
@@ -451,5 +453,31 @@ public sealed class ProfileCliTests
         }
 
         public void Dispose() => AzclipsServiceProvider.Dispose();
+
+        private static ExtensionDispatcher BuildDispatcher()
+        {
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.0.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "login", Path = "" },
+                            new Contribution { Verb = "logout", Path = "" },
+                            new Contribution { Verb = "profile", Path = "" },
+                            new Contribution { Verb = "profile", Path = "list" },
+                            new Contribution { Verb = "profile", Path = "show" },
+                            new Contribution { Verb = "profile", Path = "set" },
+                            new Contribution { Verb = "profile", Path = "remove" },
+                        },
+                    },
+                },
+            };
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+            return new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+        }
     }
 }

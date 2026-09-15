@@ -13,19 +13,14 @@ public class ExtensionDispatcher //: IParser
     private readonly Lazy<LeafIndex> _leafIndex;
 
     public ExtensionDispatcher()
-        : this(new FileExtensionRegistryStore())
-    {
-    }
-
-    private ExtensionDispatcher(FileExtensionRegistryStore store)
         : this(
-            new ExtensionResolver(store),
-            () => LeafIndex.Build(BuiltInExtensions.Map, store.Load()))
+            new ExtensionResolver(new EmptyExtensionRegistryStore()),
+            () => LeafIndex.Build(new ExtensionRegistry()))
     {
     }
 
     public ExtensionDispatcher(IExtensionResolver resolver)
-        : this(resolver, () => LeafIndex.Build(BuiltInExtensions.Map, new ExtensionRegistry()))
+        : this(resolver, () => LeafIndex.Build(new ExtensionRegistry()))
     {
     }
 

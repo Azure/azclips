@@ -2,17 +2,28 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// The single decision point that maps a resolved <see cref="TelemetryTarget"/> to
-/// the trace exporter added to a <see cref="TracerProviderBuilder"/>.
+/// Maps resolved <see cref="TelemetryTarget"/> values to the trace exporters added to a
+/// <see cref="TracerProviderBuilder"/>.
 /// </summary>
 internal static class TelemetryExporters
 {
+    internal static void AddTraceExporters(TracerProviderBuilder builder, IReadOnlyList<TelemetryTarget> targets)
+    {
+        foreach (var target in targets)
+        {
+            AddTraceExporter(builder, target);
+        }
+
+        builder.SetSampler(new AlwaysOnSampler());
+    }
+
     internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
     {
         if (target == TelemetryTarget.Local)
@@ -32,3 +43,4 @@ internal static class TelemetryExporters
         }
     }
 }
+

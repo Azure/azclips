@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Cli;
 using Core.Configuration.Options;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -12,60 +13,106 @@ namespace Cli.Tests;
 public class BundledExtensionLoaderTests
 {
     [Fact]
-    public void GetInstalledExtensions_ShouldEnumerateBundledExtensionsFromConfiguredRoot()
+    public void GetInstalledExtensions_ShouldEnumerateBundledExtensions_UnderDefaultRoot()
     {
-        var root = CreateRoot();
+        var suffix = UniqueSuffix();
+        var extName = $"Extension_{suffix}";
+        var loginName = $"Login_{suffix}";
+        var configName = $"Config_{suffix}";
         try
         {
-            CreatePackage(root, "Extension", realDll: false);
-            CreatePackage(root, "Login", realDll: false);
-            CreatePackage(root, "Config", realDll: false);
+            CreatePackage(extName, realDll: false);
+            CreatePackage(loginName, realDll: false);
+            CreatePackage(configName, realDll: false);
 
-            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
 
-            Assert.Contains(installed, x => x.Name == "Extension" && x.Version == string.Empty);
-            Assert.Contains(installed, x => x.Name == "Login" && x.Version == string.Empty);
-            Assert.Contains(installed, x => x.Name == "Config" && x.Version == string.Empty);
+            Assert.Contains(installed, x => x.Name == extName && x.Version == string.Empty);
+            Assert.Contains(installed, x => x.Name == loginName && x.Version == string.Empty);
+            Assert.Contains(installed, x => x.Name == configName && x.Version == string.Empty);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(extName);
+            SafeDeletePackage(loginName);
+            SafeDeletePackage(configName);
         }
     }
 
     [Fact]
-    public void GetInstalledExtensions_ShouldEnumerateInstallRootPackages_NotInBuiltInMap()
+    public void GetInstalledExtensions_ShouldEnumeratePackagesUnderRoot_NotInBuiltInMap()
     {
-        var root = CreateRoot();
+        var name = $"Foo_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Foo", realDll: false);
+            CreatePackage(name, realDll: false);
 
-            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
 
-            Assert.Contains(installed, x => x.Name == "Foo" && x.Version == string.Empty);
+            Assert.Contains(installed, x => x.Name == name && x.Version == string.Empty);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
     [Fact]
-    public void GetInstalledExtensions_ShouldUseHighestNupkgVersion_WhenAvailableInInstallRoot()
+    public void GetInstalledExtensions_ShouldUseHighestNupkgVersion_WhenMultipleAvailable()
     {
-        var root = CreateRoot();
+        var name = $"Compute_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Compute", realDll: false, nupkgVersions: ["0.1.1", "0.1.2"]);
+            CreatePackage(name, realDll: false, nupkgVersions: ["0.1.1", "0.1.2"]);
 
-            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
 
-            Assert.Contains(installed, x => x.Name == "Compute" && x.Version == "0.1.2");
+            Assert.Contains(installed, x => x.Name == name && x.Version == "0.1.2");
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
+    public void GetInstalledExtensions_ShouldFallBackToAssemblyInformationalVersion_WhenNupkgAbsent()
+    {
+        // Packaged-install shape: DLL present, no .nupkg. Loader reads AssemblyInformationalVersion
+        // via MetadataLoadContext instead of returning empty. Fixes Azure/CLIPS#534.
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            var entry = Assert.Single(installed, x => x.Name == name);
+            Assert.False(string.IsNullOrEmpty(entry.Version));
+            Assert.DoesNotContain('+', entry.Version);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
+    public void GetInstalledExtensions_ShouldReturnEmptyVersion_WhenNupkgAbsentAndDllUnreadable()
+    {
+        // Neither .nupkg nor a loadable DLL — fallback returns empty (defensive posture).
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name, realDll: false);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            Assert.Contains(installed, x => x.Name == name && x.Version == string.Empty);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
         }
     }
 
@@ -73,19 +120,20 @@ public class BundledExtensionLoaderTests
     public void GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage()
     {
         // Location must be the absolute DLL path, not just the package directory or null.
-        var root = CreateRoot();
+        var name = $"Compute_{UniqueSuffix()}";
         try
         {
-            var expectedDllPath = CreatePackage(root, "Compute", realDll: false);
+            var expectedDllPath = CreatePackage(name, realDll: false);
 
-            var installed = Assert.Single(CreateLoader(root).GetInstalledExtensions());
+            var installed = Assert.Single(
+                CreateLoader().GetInstalledExtensions(),
+                x => x.Name == name);
 
-            Assert.Equal("Compute", installed.Name);
             Assert.Equal(expectedDllPath, installed.Location);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -105,36 +153,36 @@ public class BundledExtensionLoaderTests
     [Fact]
     public void LoadExtension_ShouldReturnAssembly_WhenVersionMatchesNupkg()
     {
-        var root = CreateRoot();
+        var name = $"Foo_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Foo", nupkgVersions: ["1.2.3"]);
+            CreatePackage(name, nupkgVersions: ["1.2.3"]);
 
-            var assembly = CreateLoader(root).LoadExtension("Foo", "1.2.3");
+            var assembly = CreateLoader().LoadExtension(name, "1.2.3");
 
             Assert.NotNull(assembly);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
     [Fact]
     public void LoadExtension_ShouldReturnNull_WhenVersionDoesNotMatchNupkg()
     {
-        var root = CreateRoot();
+        var name = $"Foo_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Foo", nupkgVersions: ["1.2.3"]);
+            CreatePackage(name, nupkgVersions: ["1.2.3"]);
 
-            var assembly = CreateLoader(root).LoadExtension("Foo", "9.9.9");
+            var assembly = CreateLoader().LoadExtension(name, "9.9.9");
 
             Assert.Null(assembly);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -143,18 +191,18 @@ public class BundledExtensionLoaderTests
     {
         // Package folder has a DLL but no .nupkg (the packaged-install shape). A versioned request
         // cannot confirm identity here, so the loader must defer to the next one in the chain.
-        var root = CreateRoot();
+        var name = $"Foo_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Foo");
+            CreatePackage(name);
 
-            var assembly = CreateLoader(root).LoadExtension("Foo", "1.2.3");
+            var assembly = CreateLoader().LoadExtension(name, "1.2.3");
 
             Assert.Null(assembly);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -162,18 +210,18 @@ public class BundledExtensionLoaderTests
     public void LoadExtension_ShouldReturnAssembly_WhenUnversionedRequest()
     {
         // Regression guard on the pre-existing unversioned load path.
-        var root = CreateRoot();
+        var name = $"Foo_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "Foo");
+            CreatePackage(name);
 
-            var assembly = CreateLoader(root).LoadExtension("Foo");
+            var assembly = CreateLoader().LoadExtension(name);
 
             Assert.NotNull(assembly);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -190,28 +238,29 @@ public class BundledExtensionLoaderTests
     // env var) is the benchmark/test escape hatch and must force a cold load every time, never
     // reading from nor writing to the shared cache.
     //
-    // Each test stages its package under a fresh GUID temp root, so the process-wide cache — which
-    // is keyed by absolute path and intentionally has no reset hook — is always cold for that key.
+    // Each test stages its package under a unique short name derived from a Guid, so the
+    // process-wide cache — which is keyed by absolute path and intentionally has no reset hook —
+    // is always cold for that key.
     // ---------------------------------------------------------------------------------------------
 
     [Fact]
     public void LoadExtension_ShouldReturnSameAssemblyInstance_OnRepeatedLoads()
     {
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root);
+            CreatePackage(name);
+            var loader = CreateLoader();
 
-            var first = loader.LoadExtension("CacheProbe");
-            var second = loader.LoadExtension("CacheProbe");
+            var first = loader.LoadExtension(name);
+            var second = loader.LoadExtension(name);
 
             Assert.NotNull(first);
             Assert.Same(first, second);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -220,22 +269,22 @@ public class BundledExtensionLoaderTests
     {
         // Strongest available proof that the second load never touches the file: corrupt the DLL
         // between calls. A cache hit is unaffected; a re-read would throw BadImageFormatException.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            var dllPath = CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root);
+            var dllPath = CreatePackage(name);
+            var loader = CreateLoader();
 
-            var first = loader.LoadExtension("CacheProbe");
+            var first = loader.LoadExtension(name);
             Corrupt(dllPath);
-            var second = loader.LoadExtension("CacheProbe");
+            var second = loader.LoadExtension(name);
 
             Assert.NotNull(first);
             Assert.Same(first, second);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -244,20 +293,20 @@ public class BundledExtensionLoaderTests
     {
         // The cache is static, not per-instance: a loader resolved from a second DI scope must not
         // re-load an extension another instance already materialised.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
+            CreatePackage(name);
 
-            var first = CreateLoader(root).LoadExtension("CacheProbe");
-            var second = CreateLoader(root).LoadExtension("CacheProbe");
+            var first = CreateLoader().LoadExtension(name);
+            var second = CreateLoader().LoadExtension(name);
 
             Assert.NotNull(first);
             Assert.Same(first, second);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -267,14 +316,14 @@ public class BundledExtensionLoaderTests
         // The cache stores the ExtensionLoadContext alongside the assembly precisely so the ALC
         // stays alive for later dependency resolution. Both loads must resolve to that same
         // isolated context — never the default one, which would defeat extension isolation.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root);
+            CreatePackage(name);
+            var loader = CreateLoader();
 
-            var first = loader.LoadExtension("CacheProbe");
-            var second = loader.LoadExtension("CacheProbe");
+            var first = loader.LoadExtension(name);
+            var second = loader.LoadExtension(name);
 
             var firstContext = AssemblyLoadContext.GetLoadContext(first!);
             var secondContext = AssemblyLoadContext.GetLoadContext(second!);
@@ -285,25 +334,26 @@ public class BundledExtensionLoaderTests
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
     [Fact]
-    public void LoadExtension_ShouldKeyCacheByPath_NotByExtensionName()
+    public void LoadExtension_ShouldProduceIndependentCacheEntries_ForDifferentPackages()
     {
-        // Same short name staged under two roots (the Debug/Release build-output shape) must yield
-        // two independent cache entries. Keying by name would serve the wrong DLL.
-        var root = CreateRoot();
-        var rootA = Path.Combine(root, "a");
-        var rootB = Path.Combine(root, "b");
+        // Two distinct packages must resolve to two distinct cache entries; a regression that
+        // collapsed all entries onto a shared key would return the same assembly for both.
+        var suffix = UniqueSuffix();
+        var nameA = $"CacheProbeA_{suffix}";
+        var nameB = $"CacheProbeB_{suffix}";
         try
         {
-            CreatePackage(rootA, "CacheProbe");
-            CreatePackage(rootB, "CacheProbe");
+            CreatePackage(nameA);
+            CreatePackage(nameB);
+            var loader = CreateLoader();
 
-            var fromA = CreateLoader(rootA).LoadExtension("CacheProbe");
-            var fromB = CreateLoader(rootB).LoadExtension("CacheProbe");
+            var fromA = loader.LoadExtension(nameA);
+            var fromB = loader.LoadExtension(nameB);
 
             Assert.NotNull(fromA);
             Assert.NotNull(fromB);
@@ -311,7 +361,8 @@ public class BundledExtensionLoaderTests
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(nameA);
+            SafeDeletePackage(nameB);
         }
     }
 
@@ -320,21 +371,21 @@ public class BundledExtensionLoaderTests
     {
         // Both request shapes resolve to the same DLL path, so the versioned branch must land on
         // the same cache entry rather than loading a second copy.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe", nupkgVersions: ["1.2.3"]);
-            var loader = CreateLoader(root);
+            CreatePackage(name, nupkgVersions: ["1.2.3"]);
+            var loader = CreateLoader();
 
-            var unversioned = loader.LoadExtension("CacheProbe");
-            var versioned = loader.LoadExtension("CacheProbe", "1.2.3");
+            var unversioned = loader.LoadExtension(name);
+            var versioned = loader.LoadExtension(name, "1.2.3");
 
             Assert.NotNull(unversioned);
             Assert.Same(unversioned, versioned);
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -343,14 +394,14 @@ public class BundledExtensionLoaderTests
     {
         // The Lazy<T> wrapper guarantees a single materialisation under contention; every racing
         // caller must observe the same assembly and the same load context.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root);
+            CreatePackage(name);
+            var loader = CreateLoader();
 
             var results = await Task.WhenAll(
-                Enumerable.Range(0, 16).Select(_ => Task.Run(() => loader.LoadExtension("CacheProbe"))));
+                Enumerable.Range(0, 16).Select(_ => Task.Run(() => loader.LoadExtension(name))));
 
             var expected = results[0];
             Assert.NotNull(expected);
@@ -362,21 +413,21 @@ public class BundledExtensionLoaderTests
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
     [Fact]
     public void LoadExtension_ShouldReturnDistinctAssemblies_WhenCacheBypassed()
     {
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root, bypassExtensionCache: true);
+            CreatePackage(name);
+            var loader = CreateLoader(bypassExtensionCache: true);
 
-            var first = loader.LoadExtension("CacheProbe");
-            var second = loader.LoadExtension("CacheProbe");
+            var first = loader.LoadExtension(name);
+            var second = loader.LoadExtension(name);
 
             Assert.NotNull(first);
             Assert.NotNull(second);
@@ -385,7 +436,7 @@ public class BundledExtensionLoaderTests
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -394,20 +445,20 @@ public class BundledExtensionLoaderTests
     {
         // Mirror of the cache-hit proof: with the bypass on, the second call must go back to the
         // file, so corrupting it surfaces as a load failure instead of a silent cache hit.
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            var dllPath = CreatePackage(root, "CacheProbe");
-            var loader = CreateLoader(root, bypassExtensionCache: true);
+            var dllPath = CreatePackage(name);
+            var loader = CreateLoader(bypassExtensionCache: true);
 
-            Assert.NotNull(loader.LoadExtension("CacheProbe"));
+            Assert.NotNull(loader.LoadExtension(name));
             Corrupt(dllPath);
 
-            Assert.Throws<BadImageFormatException>(() => loader.LoadExtension("CacheProbe"));
+            Assert.Throws<BadImageFormatException>(() => loader.LoadExtension(name));
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
@@ -417,16 +468,16 @@ public class BundledExtensionLoaderTests
         // A bypassed load must leave the shared cache untouched, otherwise a single `--no-cache`
         // load would poison later cached loads (and the first cached load would be a hit, not a
         // fresh materialisation).
-        var root = CreateRoot();
+        var name = $"CacheProbe_{UniqueSuffix()}";
         try
         {
-            CreatePackage(root, "CacheProbe");
+            CreatePackage(name);
 
-            var bypassed = CreateLoader(root, bypassExtensionCache: true).LoadExtension("CacheProbe");
+            var bypassed = CreateLoader(bypassExtensionCache: true).LoadExtension(name);
 
-            var cachingLoader = CreateLoader(root);
-            var firstCached = cachingLoader.LoadExtension("CacheProbe");
-            var secondCached = cachingLoader.LoadExtension("CacheProbe");
+            var cachingLoader = CreateLoader();
+            var firstCached = cachingLoader.LoadExtension(name);
+            var secondCached = cachingLoader.LoadExtension(name);
 
             Assert.NotNull(bypassed);
             Assert.NotNull(firstCached);
@@ -435,40 +486,28 @@ public class BundledExtensionLoaderTests
         }
         finally
         {
-            SafeDelete(root);
+            SafeDeletePackage(name);
         }
     }
 
-    private static BundledExtensionLoader CreateLoader(string root, bool bypassExtensionCache = false)
-        => new(new NullLoggingService(), new TestConfigurationService(root, bypassExtensionCache));
+    private static BundledExtensionLoader CreateLoader(bool bypassExtensionCache = false)
+        => new(new NullLoggingService(), new TestConfigurationService(bypassExtensionCache));
+
+    private static string UniqueSuffix() => Guid.NewGuid().ToString("N");
 
     /// <summary>
-    /// Allocates a unique temp root. Every test gets its own so the loader's process-wide,
-    /// absolute-path-keyed assembly cache is always cold for the packages staged beneath it.
+    /// Stages a Bundled package at
+    /// <c>&lt;<see cref="BundledExtensionLoader.GetDefaultRoot"/>&gt;/Microsoft.Azure.Azclips.Extensions.&lt;shortName&gt;/</c>
+    /// and returns the absolute path of its primary DLL. Tests pass a Guid-suffixed name so the
+    /// staging path is unique per test, keeping the loader's process-wide cache cold.
     /// </summary>
-    private static string CreateRoot()
-        => Path.Combine(Path.GetTempPath(), $"bundled-loader-{Guid.NewGuid():N}");
-
-    /// <summary>
-    /// Stages a Bundled package at <c>&lt;root&gt;/Microsoft.Azure.Azclips.Extensions.&lt;shortName&gt;/</c>
-    /// and returns the absolute path of its primary DLL.
-    /// </summary>
-    /// <param name="realDll">
-    /// <c>true</c> (default) copies the test assembly in as a loadable payload; <c>false</c> writes an
-    /// empty placeholder, which is enough for enumeration-only tests.
-    /// </param>
-    /// <param name="nupkgVersions">
-    /// Versions to stamp as sibling <c>.nupkg</c> files. Pass none to model a packaged install, where
-    /// version resolution reports empty.
-    /// </param>
     private static string CreatePackage(
-        string root,
         string shortName,
         bool realDll = true,
         params string[] nupkgVersions)
     {
         var packageId = $"Microsoft.Azure.Azclips.Extensions.{shortName}";
-        var packageDir = Path.Combine(root, packageId);
+        var packageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), packageId);
         Directory.CreateDirectory(packageDir);
 
         var dllPath = Path.Combine(packageDir, $"{packageId}.dll");
@@ -496,32 +535,28 @@ public class BundledExtensionLoaderTests
     private static void Corrupt(string dllPath)
         => File.WriteAllText(dllPath, "not a portable executable");
 
-    private static void SafeDelete(string root)
+    /// <summary>
+    /// Best-effort delete of the staging dir for a single package (not the shared root).
+    /// </summary>
+    private static void SafeDeletePackage(string shortName)
     {
-        // Assembly load may hold a lock on the DLL until the ALC is collected. Best-effort delete.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        if (Directory.Exists(root))
-        {
-            try
-            {
-                Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // Non-fatal: temp cleanup will handle it eventually.
-            }
-        }
+        var packageDir = Path.Combine(
+            BundledExtensionLoader.GetDefaultRoot(),
+            $"Microsoft.Azure.Azclips.Extensions.{shortName}");
+
+        // Non-fatal if it fails: leftover files at the bin/Debug dir are harmless, and the
+        // extension ALC may still hold the DLL for the process lifetime.
+        DirectoryUtils.TryDeleteDirectory(packageDir);
     }
 
-    private sealed class TestConfigurationService(string installationRoot, bool bypassExtensionCache = false) : IConfigurationService
+    private sealed class TestConfigurationService(bool bypassExtensionCache = false) : IConfigurationService
     {
         private readonly AssemblyLoadingOptions _options = new()
         {
-            BundledExtensionsRoot = installationRoot,
-            InstalledExtensionsRoot = installationRoot,
             BypassExtensionCache = bypassExtensionCache
         };
 

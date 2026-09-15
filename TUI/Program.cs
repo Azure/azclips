@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Telemetry;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
@@ -34,6 +35,7 @@ public static class Program
             // ConsoleLoggingService and writes VERBOSE:/DEBUG: directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
+            services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
             services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();

@@ -7,6 +7,15 @@ pr:
     include:
     - '*'
 
+# Run daily on main so Azure DevOps-injected Component Governance tasks execute for this pipeline.
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily main alpha build
+  branches:
+    include:
+    - main
+  always: true
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml

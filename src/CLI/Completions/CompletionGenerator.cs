@@ -67,6 +67,7 @@ internal static class CompletionGenerator
     /// </summary>
     public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType)
     {
+        // @TODO (DanielMicrosoft) move flag to globals.
         if (args.Length == 0 || args[0] != "--completion-candidates")
         {
             return null;
@@ -138,15 +139,8 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
-        var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
-        var discoveryExtensionNames = leafIndex.Entries.Values
-            .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
-            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
+        // Verb ownership requires discovery; filter output post-hoc.
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -169,23 +163,7 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
-        var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
-        var discoveryExtensionNames = leafIndex.Entries.Values
-            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Also discover extensions available on disk (same roots the BundledExtensionLoader scans)
-        foreach (var name in ScanLocalExtensionNames())
-        {
-            if (!discoveryExtensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
-            {
-                discoveryExtensionNames.Add(name);
-            }
-        }
-
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
@@ -200,8 +178,6 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateCandidatesAsync(ClientType clientType, List<string> commandContext)
     {
         var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-        var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
 
         // The command path is the leading run of non-flag tokens. Flags (and their
         // values) never appear in the command tree, so anything from the first
@@ -211,39 +187,20 @@ internal static class CompletionGenerator
             .Select(token => token.ToLowerInvariant())
             .ToList();
 
+        // Discovery is loader-driven for every level: bundled + installed tiers surface uniformly.
+        var extensionNames = EnumerateOnDiskExtensionNames();
+
         if (pathContext.Count == 0)
         {
-            // Level 0: full discovery for top-level group names
-            var extensionNames = leafIndex.Entries.Values
-                .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            foreach (var name in ScanLocalExtensionNames())
-            {
-                if (!extensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
-                    extensionNames.Add(name);
-            }
-
+            // Level 0: top-level group names from full discovery.
             var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
             var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
             Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
             return 0;
         }
 
-        // Level 1+: discover the extension(s) that own the leading verb, then walk the
-        // command tree by prefix. Commands are keyed by their full invocation name
-        // (e.g. "deployment group create"), so a typed token may be an intermediate
-        // group (offer the next token) or a full command (offer its parameters). This
-        // supports command groups of arbitrary depth.
-        var verb = pathContext[0];
-        var discoveryExtensionNames = leafIndex.Entries.Values
-            .Where(v => v.Verb.Equals(verb, StringComparison.OrdinalIgnoreCase))
-            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
+        // Commands are keyed by full invocation name; ComputeCandidates walks the tree by prefix.
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
         var candidates = ComputeCandidates(discoveredCommands, pathContext);
 
         Console.WriteLine(string.Join(' ', candidates));
@@ -326,37 +283,23 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Scans the same candidate roots used by <c>BundledExtensionLoader</c> for directories
-    /// matching the extension naming convention and returns short extension names (e.g. "Resources").
+    /// Returns short names of every extension the loader chain reports on disk (bundled + installed
+    /// tiers combined). Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>
+    /// so the loaders own search-path knowledge; completion no longer duplicates their disk-walk.
     /// </summary>
-    private static IEnumerable<string> ScanLocalExtensionNames()
+    private static IList<string> EnumerateOnDiskExtensionNames()
     {
-        var roots = new[]
+        var provider = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
+        var installed = provider.GetAllInstalledExtensions();
+        if (installed is null)
         {
-            Path.Combine(AppContext.BaseDirectory, "Extensions"),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release")),
-        };
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in roots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            foreach (var dir in Directory.EnumerateDirectories(root))
-            {
-                var dirName = Path.GetFileName(dir);
-                var matchedPrefix = Constants.extensionPackagePrefixes
-                    .FirstOrDefault(prefix => dirName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-                if (!string.IsNullOrEmpty(matchedPrefix))
-                {
-                    var shortName = dirName[matchedPrefix.Length..];
-                    if (!string.IsNullOrEmpty(shortName) && seen.Add(shortName))
-                    {
-                        yield return shortName;
-                    }
-                }
-            }
+            return [];
         }
+
+        return installed
+            .Select(entry => entry.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)

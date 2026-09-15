@@ -18,8 +18,30 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "PowerShell.Activity.Root",
         "TUI.Activity.Root",
 
-        // CLI entrypoint span — wraps every CLI command invocation.
+        // Second root the CLI opens around the AI error-recovery subprocess, in its own
+        // trace so it does not count toward the command's duration.
+        "CLI.Activity.AiRecovery",
+
+        // Spans from azclips-agent.exe, parented to CLI.Activity.AiRecovery through the
+        // traceparent on its environment block.
+        "Agent.Session",
+        "Agent.Create",
+        "Agent.Turn",
+        "Agent.Send",
+        "Agent.Reprompt",
+
+        // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
+        // is available. Encloses the AzureCLI.Startup.* phase spans below.
+        "AzureCLI.Startup",
+        "AzureCLI.ParseGlobalArgs",
+        "AzureCLI.HandleGlobalArgs",
+        "AzureCLI.ParseCommandInvocation",
         "AzureCLI.ProcessCommand",
+        "AzureCLI.DispatchVersion",
+        "AzureCLI.DispatchHelp",
+        // PowerShell module import phases, replayed by ImportTelemetry on a background
+        // thread once the telemetry stack is built. Encloses PowerShell.Startup.*.
+        "PowerShell.Startup",
 
         // Engine event-driven activities. Engine.Subscriptions wraps these
         // Events.* ids directly (i.e. evt.Id without any class/method suffix).
@@ -64,6 +86,15 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // Engine.Subscriptions writes $"{ActionStart}.{ClassName}.{FunctionName}"
         // for the ActionStart event, so we need the prefix not the exact match.
         "ActionStart.",
+
+        // Individual startup phases: AzureCLI.Startup.Container, AzureCLI.Startup.Services.
+        "AzureCLI.Startup.",
+
+        // Per-tool spans from ToolInvocationLog.Scope: $"tool.{name}".
+        "tool.",
+
+        // Individual import phases: PowerShell.Startup.Container.
+        "PowerShell.Startup.",
     };
 
     /// <summary>Immutable snapshot of the verbatim allowed names.</summary>

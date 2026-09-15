@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.ComponentModel;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
-using Microsoft.Azure.Azclips.Extensions.Login;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Core.Runtime;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
 namespace Cmdlets.Tests;
 
@@ -18,7 +20,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapManagedIdentityArgsOntoLoginProcessor()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider());
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -28,7 +30,7 @@ public class ConnectAccountCmdletTests
             ["SubscriptionId"] = "sub-1",
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases);
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
@@ -41,7 +43,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapUserAssignedSelectors(string key, string value)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider());
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -50,7 +52,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases);
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);
@@ -81,6 +83,34 @@ public class ConnectAccountCmdletTests
         Assert.NotNull(alias);
         Assert.Contains("MSI", alias!.AliasNames);
         Assert.Contains("ManagedIdentity", alias.AliasNames);
+        // Az PowerShell's own alias for -Identity; existing scripts depend on it.
+        Assert.Contains("ManagedService", alias.AliasNames);
+    }
+
+    [Fact]
+    public void Cmdlet_ClientId_ShouldAliasAccountId()
+    {
+        // Connect-AzAccount -Identity -AccountId <clientId> is the Az PowerShell spelling.
+        var alias = (AliasAttribute?)typeof(ConnectAccountCmdlet)
+            .GetProperty("ClientId")!
+            .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
+            .SingleOrDefault();
+
+        Assert.NotNull(alias);
+        Assert.Contains("AccountId", alias!.AliasNames);
+    }
+
+    [Fact]
+    public void PSMetadata_ShouldResolveLegacyManagedIdentityAliases()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+
+        Assert.Equal("Identity", metadata.ParameterAliases["ManagedService"]);
+        Assert.Equal("Identity", metadata.ParameterAliases["MSI"]);
+        Assert.Equal("Identity", metadata.ParameterAliases["ManagedIdentity"]);
+        Assert.Equal("ClientId", metadata.ParameterAliases["AccountId"]);
+        Assert.Contains("ManagedService", metadata.Parameters["Identity"].Aliases);
+        Assert.Contains("AccountId", metadata.Parameters["ClientId"].Aliases);
     }
 
     [Fact]

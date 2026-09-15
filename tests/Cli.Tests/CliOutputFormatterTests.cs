@@ -43,13 +43,13 @@ public class CliOutputFormatterTests
     // ── Primitives ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(42)]
-    [InlineData(3.14)]
-    [InlineData(true)]
-    [InlineData('x')]
-    public void FormatValue_ShouldUseToString_WhenValueIsPrimitive(object value)
+    [InlineData(42, "42")]
+    [InlineData(3.14, "3.14")]
+    [InlineData(true, "true")]
+    [InlineData(false, "false")]
+    [InlineData('x', "\"x\"")]
+    public void FormatValue_ShouldEmitJsonLiteral_WhenValueIsPrimitive(object value, string expected)
     {
-        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", value);
         var result = Core.Cli.CliOutputFormatter.FormatValue(value);
         Assert.Equal(expected, result);
     }
@@ -134,11 +134,10 @@ public class CliOutputFormatterTests
     // ── Decimal (non-primitive, non-string value type) ──────────────
 
     [Fact]
-    public void FormatValue_ShouldUseToString_WhenValueIsDecimal()
+    public void FormatValue_ShouldEmitJsonLiteral_WhenValueIsDecimal()
     {
         var result = Core.Cli.CliOutputFormatter.FormatValue(99.99m);
-        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", 99.99m);
-        Assert.Equal(expected, result);
+        Assert.Equal("99.99", result);
     }
 
     // ── Serialization errors rethrown ──────────────────────────────

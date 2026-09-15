@@ -52,6 +52,18 @@ namespace HelpDrift {
 }
 '@
 
+$twoParamReversedCode = @'
+using System.Management.Automation;
+namespace HelpDrift {
+    [Cmdlet(VerbsCommon.Get, "TestWidget")]
+    public class GetTestWidgetCmdlet : PSCmdlet {
+        [Parameter] public string Color { get; set; }
+        [Parameter(Mandatory = true)] public string Name { get; set; }
+        protected override void ProcessRecord() { }
+    }
+}
+'@
+
 # --- Fixture helpers ----------------------------------------------------------
 
 # Absolute path to System.Management.Automation — pass explicitly rather than by friendly
@@ -181,25 +193,31 @@ Invoke-Scenario -Name 'clean-pass' `
     -ScaffoldCode $twoParamCode `
     -ExpectPsl $null
 
-# (b) Missing param — scaffold md against one-param cmdlet, then swap in two-param DLL.
+# (b) Declaration order differs, but parameter semantics are identical — must remain clean.
+Invoke-Scenario -Name 'declaration-order-only' `
+    -ScaffoldCode $twoParamCode `
+    -ValidateCode $twoParamReversedCode `
+    -ExpectPsl $null
+
+# (c) Missing param — scaffold md against one-param cmdlet, then swap in two-param DLL.
 Invoke-Scenario -Name 'missing-param' `
     -ScaffoldCode $oneParamMandatoryCode `
     -ValidateCode $twoParamCode `
     -ExpectPsl 'PSL14_ParameterDrift'
 
-# (c) Orphan param — scaffold md against two-param cmdlet, then swap in one-param DLL.
+# (d) Orphan param — scaffold md against two-param cmdlet, then swap in one-param DLL.
 Invoke-Scenario -Name 'orphan-param' `
     -ScaffoldCode $twoParamCode `
     -ValidateCode $oneParamMandatoryCode `
     -ExpectPsl 'PSL14_ParameterDrift'
 
-# (d) Required flag flipped — scaffold with Mandatory=true, swap in Mandatory=false DLL.
+# (e) Required flag flipped — scaffold with Mandatory=true, swap in Mandatory=false DLL.
 Invoke-Scenario -Name 'required-flipped' `
     -ScaffoldCode $oneParamMandatoryCode `
     -ValidateCode $oneParamOptionalCode `
     -ExpectPsl 'PSL14_ParameterDrift'
 
-# (e) Schema-corrupt md — clean cmdlet, but stomp the md's frontmatter to unparseable.
+# (f) Schema-corrupt md — clean cmdlet, but stomp the md's frontmatter to unparseable.
 #     Either PSL13 (Test-MarkdownCommandHelp fires) or PSL14 (Import-MarkdownCommandHelp
 #     throws in the drift-check try/catch) is acceptable — both signal "author must fix".
 Invoke-Scenario -Name 'schema-corrupt' `

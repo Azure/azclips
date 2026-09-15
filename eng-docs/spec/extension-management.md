@@ -40,17 +40,17 @@ Consequences:
 - A single extension may contribute to multiple namespaces — e.g. one `Compute` package contributing under `vm`, `disk`, `disk-access`. This is the common case for Azure-style resource families.
 - `az vm --help` (when help lands) aggregates leaves across all extensions contributing to `vm`. The host can answer "who contributes to this namespace" without loading anything.
 
-### Built-in trio
+### Bundled base extensions
 
-The host ships with exactly three built-in extensions, present in every install:
+Every packaging profile ships three extensions in the Bundled tier so a fresh install has a usable command surface out of the box:
 
 - **`extension`** — manages other extensions (the CRUD surface in §3).
 - **`login`** — authentication and tenant/subscription context.
 - **`config`** — user/host configuration.
 
-Built-ins are namespaces in the same sense as installed extensions; the host is the sole contributor for each. Their verbs are **reserved** — `extension add` rejects any third-party contribution whose leaf has a built-in verb as its first token. Built-ins cannot be removed.
+These are ordinary extensions with no runtime privileges — dispatch, discovery, and conflict resolution treat them identically to any other extension. What makes them non-removable at runtime is the **write boundary** ([extension-framework.md §2.3](./extension-framework.md#23-extension-tiers)): the extension API only touches the Installed root, and these three ship in the Bundled root. `az extension remove login` reports `ExtensionNotFound` for the same reason it does for any other Bundled-only extension.
 
-Everything else (including `group` / Resources and `vm` / Compute) is an installable extension. The host has no built-in Azure-resource verbs.
+Everything else (including `group` / Resources and `vm` / Compute) is an installable extension that can also appear in the Bundled tier depending on the packaging profile (full ships them, lean does not). The host has no built-in Azure-resource verbs.
 
 ---
 
@@ -60,15 +60,15 @@ Everything else (including `group` / Resources and `vm` / Compute) is an install
 
 All under `az extension`. Kebab-case CLI convention.
 
-| Command                                        | Behavior                                                                                                                                                                                                          |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
-| `az extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
-| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.azclips/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                            |
-| `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                               |
-| `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                       |
-| `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
-| `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                              |
+| Command                                        | Behavior                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward).                                                                                     |
+| `az extension list`                            | Show installed extensions: name, `selectedVersion`, namespaces, install source, install date, and every discovered candidate per package (`candidates: [{ version, tier, location }]`, sorted by SemVer descending across Bundled + Installed tiers). `--by-verb` regroups output verb-headed (§3.5). |
+| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.azclips/extensions/<pkg>/`. Reports `ExtensionNotFound` for Bundled-only extensions (they're part of the install artifact — see the write boundary in [extension-framework.md §2.3](./extension-framework.md#23-extension-tiers)).                        |
+| `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                                                                                                                   |
+| `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                                                                                                           |
+| `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                                                                                                       |
+| `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                                                                                                                  |
 
 `extension add --name <token>` resolves two ways: **dotted token** → passthrough (full package id, including third-party); **bare token** that is _not_ a known verb → legacy `Microsoft.Azure.Azclips.Extensions.{name}` prefix-strip. A bare token that **is** a known verb in the embedded `ExtensionHintTable` is rejected with a usage error pointing the user at the owning package id (e.g. `add --name disk` errors with "use `--name Compute`"). The unit of install is a package, not a verb — accepting a verb here would silently pull in unrelated sibling verbs (Compute ships both `vm` and `disk`).
 
@@ -80,9 +80,8 @@ When `extension add --name <token>` misses every configured feed, the resulting 
 
 `extension add` validates the candidate's contributions against:
 
-1. **Built-in verbs.** Any leaf whose first token is a built-in verb is rejected immediately.
-2. **Compat metadata** (§6). Hard fail if the candidate's declared range excludes the current `core` version.
-3. **Per-leaf collision.** Every `(verb, path)` tuple the candidate contributes is checked against the registry. All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict`:
+1. **Compat metadata** (§6). Hard fail if the candidate's declared range excludes the current `core` version.
+2. **Per-leaf collision.** Every `(verb, path)` tuple the candidate contributes is checked against a discovery-backed registry (Bundled + Installed leaves overlaid with file-registry preferences). All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict`:
 
     ```
     > az extension add Contoso.Foo
@@ -90,9 +89,9 @@ When `extension add --name <token>` misses every configured feed, the resulting 
     Remove the conflicting extension(s) first or rename the offending leaves.
     ```
 
-    Conflict order is deterministic (candidate `s_cliTable` insertion order). Undeclared-verb and built-in-root checks remain first-error-wins — those are usage errors in the candidate's own code; enumeration adds noise without value.
+    Conflict order is deterministic (candidate `s_cliTable` insertion order). Undeclared-verb checks remain first-error-wins — those are usage errors in the candidate's own code; enumeration adds noise without value.
 
-There is no `--force` override on collision. To swap owners of a leaf: `remove` then `add`. Multiple extensions advertising `[ExtensionVerb("vm")]` is fine and expected — only per-leaf collisions fail.
+There is no tier bias in this check: a leaf collision against a Bundled extension fails the install exactly like a collision against another Installed extension. There is no `--force` override on collision. To swap owners of a leaf: `remove` then `add` (only possible when the incumbent is in the Installed tier — Bundled contributions can only change via a new install of azcli). Multiple extensions advertising `[ExtensionVerb("vm")]` is fine and expected — only per-leaf collisions fail.
 
 ### 3.3 Unknown-verb / unknown-leaf UX
 
@@ -158,27 +157,59 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 
 ### 3.5 `extension list` output
 
-Default output groups by extension:
+Default output groups by extension. Each row carries every existing field plus `selectedVersion` (the version dispatch will route to) and `candidates` (every discovered `(version, tier, location)` triple, sorted by SemVer descending across both Bundled and Installed tiers):
 
+```jsonc
+[
+    {
+        "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
+        "verb": "vm",
+        "namespaces": ["vm", "disk"],
+        "version": "0.1.2",
+        "selectedVersion": "0.1.2",
+        "pinned": false,
+        "source": null,
+        "installedAt": "2026-08-13T...",
+        "location": "<install>/Extensions/.../Compute.dll",
+        "candidates": [
+            {
+                "version": "0.1.2",
+                "tier": "Bundled",
+                "location": "<install>/Extensions/.../Compute.dll",
+            },
+            {
+                "version": "0.1.1",
+                "tier": "Installed",
+                "location": "~/.azclips/extensions/.../0.1.1/Compute.dll",
+            },
+        ],
+    },
+]
 ```
-PackageId                                       Version   Namespaces             Pinned  InstalledAt
-Microsoft.Azure.Azclips.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
-Microsoft.Azure.Azclips.Extensions.Resources     1.0.0     group                  no      2026-04-12
-```
+
+With no pin, `selectedVersion` is the highest SemVer across tiers (here Bundled `0.1.2`). If the user runs `az extension pin --name Compute` while a lower version is currently selected, or pins the older version explicitly, `selectedVersion` follows the pin — the `candidates` array continues to surface every alternative so the user can see what they could unpin to.
+
+When both tiers report the same `(PackageId, ResolvedVersion, command surface)`, `ExtensionCandidateSelector` collapses them to one candidate before this projection runs — there is no meaningful choice to expose. The multi-tier array populates when versions actually differ across tiers.
 
 `--by-verb` regroups verb-headed:
 
 ```
 vm
-  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       0.1.2
   Contoso.VmPreviewExt                            0.3.0-preview
 disk
-  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       0.1.2
 group
   Microsoft.Azure.Azclips.Extensions.Resources     1.0.0
 ```
 
-JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
+Each contributor row under a verb carries the same `candidates` array as the default projection.
+
+**Field-level stability contract:**
+
+- Default JSON: `[{ packageId, verb, namespaces, version, selectedVersion, pinned, source, installedAt, location, candidates }]`. `version` remains for backward-compat and equals `selectedVersion`; consumers should migrate to `selectedVersion` in future changes.
+- `--by-verb` JSON: `{ verb: [{ packageId, version, selectedVersion, pinned, source, installedAt, location, candidates }] }`.
+- `candidates[i]` shape: `{ version, tier, location }`. `tier` is `"Bundled"` or `"Installed"` (path-inferred from the configured `assemblyLoading.installedExtensionsRoot`).
 
 ---
 
@@ -260,7 +291,7 @@ public class ExtensionIndex : IExtensionIndex { ... }
 1. Resolve package from feed (or accept `--path` for a local nupkg).
 2. Extract DLLs to `~/.azclips/extensions/<pkg>/<version>/`.
 3. Read `[ExtensionVerb]` declarations and `s_cliTable` keys from the candidate DLLs in a throwaway ALC. No extension code executes.
-4. Validate: built-in verbs rejected; compat metadata against current `core` (§6); per-leaf `(verb, path)` collisions enumerated against the registry.
+4. Validate: compat metadata against current `core` (§6); per-leaf `(verb, path)` collisions enumerated against the discovery-backed registry (Bundled + Installed).
 5. Update `registry.json` transactionally (write-with-timestamp-guard, §4.7).
 6. On failure at any step: roll back partial state (delete extraction dir, restore registry).
 
@@ -300,13 +331,14 @@ az vm create --name foo
 - After `update` or `remove`, the long-running host should restart. The cache key includes version, so any new version installed simply gets a new ALC on its first use.
 - `--no-cache` test hook for benchmarking.
 
-### 4.6 Built-in seeding
+### 4.6 Bundled tier at dispatch
 
-A hardcoded seed dict in the host, merged with the on-disk registry at startup:
+Bundled extensions are **not** seeded into the `LeafIndex` from a hardcoded map. They participate in dispatch through the same discovery pass as everything else:
 
-- Built-in entries are never written to `registry.json`. They live only in memory.
-- On startup, the dispatcher's `LeafIndex` is `built-in seed ∪ on-disk registry`.
-- On any collision between a built-in and an installed extension, **built-in wins.** Defensive — the collision should be impossible because `extension add` rejects built-in-rooted contributions in step 4 of §4.3.
+- `BundledExtensionLoader` enumerates the Bundled root (`<install>/Extensions/` or the local build artifacts dir) alongside `InstalledExtensionLoader` enumerating `~/.azclips/extensions/`.
+- Every discovered extension — regardless of tier — contributes its `s_cliTable` leaves to the `LeafIndex`.
+- Duplicates are a hard error at index-build time (`LeafIndex.Build` throws `RegistryInvalid`) — there is no tier tiebreak. The install-time `LeafConflict` guard (§3.2 / §4.3 step 4) is what prevents this at write time.
+- The write boundary ([extension-framework.md §2.3](./extension-framework.md#23-extension-tiers)) — not any runtime privilege — is what makes Bundled extensions non-removable.
 
 ### 4.7 Registry hardening
 
@@ -337,9 +369,8 @@ Catches conflicts at PR time, before any artifact ships.
 
 `extension add` step 4 (§4.3):
 
-1. **Built-in verb rejection.** Any leaf whose first token is a built-in verb (`extension`, `login`, `config`) is rejected immediately, even if no installed extension currently claims that root.
-2. **Compat metadata check** (§6). Hard fail if the candidate's `[AzclipsCompatibility]` range excludes the current `core`.
-3. **Per-leaf collisions against registry.** All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict` (§3.2). No `--force` override.
+1. **Compat metadata check** (§6). Hard fail if the candidate's `[AzclipsCompatibility]` range excludes the current `core`.
+2. **Per-leaf collisions against the discovery-backed registry.** All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict` (§3.2). Bundled and Installed contributions are checked on the same terms — no tier bias. No `--force` override.
 
 Namespace-level conflicts no longer exist — multiple extensions declaring the same `[ExtensionVerb]` is fine and expected.
 
@@ -518,4 +549,3 @@ Fresh-eyes review pass against `origin/main`. Findings ordered by severity. Each
 - `Remove.cs` doesn't re-validate the registry between match and save; idempotency under racing removes is not documented.
 - `Add.cs` doesn't re-read the registry after the compat check, so a vanishingly rare race could install two extensions both "valid" against snapshots taken seconds apart.
 - The MSBuild task silently skips unreadable `.csproj` files. Should log a warning so misconfigured projects don't quietly drop from the hint catalog.
-- Built-in seed (§4.6) lives in code as a `Dictionary` literal. If the trio ever changes, the only signal is a `BuiltInExtensions.Map.Count == 3` test. A `[Flags]`-style enum or an `internal const` array would make the surface explicit.

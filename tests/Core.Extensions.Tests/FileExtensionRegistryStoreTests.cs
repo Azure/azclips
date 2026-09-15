@@ -178,16 +178,6 @@ namespace Core.Extensions.Tests
             Assert.ThrowsAny<System.Text.Json.JsonException>(() => store.Load());
         }
 
-        [Fact]
-        public void DefaultPath_ShouldPointToUserProfile()
-        {
-            var path = FileExtensionRegistryStore.DefaultPath();
-
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            Assert.StartsWith(home, path, StringComparison.OrdinalIgnoreCase);
-            Assert.EndsWith(Path.Combine(".azclips", "extensions", "registry.json"), path, StringComparison.OrdinalIgnoreCase);
-        }
-
         // -------- Schema v2 tolerance and round-trip --------
 
         [Fact]

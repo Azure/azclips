@@ -10,15 +10,30 @@ namespace Core.Abstractions;
 public static class HomePaths
 {
     public const string DefaultHomeDirectoryName = ".azclips";
+
+    /// <summary>
+    /// Points every azclips home path (config, extensions, profiles, auth context, traces) at one
+    /// directory instead of the per-user defaults. Scenario tests use it to isolate a run from the
+    /// developer's real state; unset means the normal split defaults below.
+    /// </summary>
+    public const string HomeOverrideVariable = "AZCLIPS_HOME";
+
+    private static string? OverrideRoot
+        => Environment.GetEnvironmentVariable(HomeOverrideVariable) is { Length: > 0 } value ? value : null;
     public const string ExtensionsDirectoryName = "extensions";
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
-    public const string TraceDirectoryName = "trace";
+    public const string TraceDirectoryName = "traces";
     public const string ArmCacheDirectoryName = "arm-cache";
     public const string AuthContextFileName = "context.json";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
+        if (OverrideRoot is { } overridden)
+        {
+            return overridden;
+        }
+
         var home = string.IsNullOrWhiteSpace(userProfilePath)
             ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             : userProfilePath;
@@ -35,9 +50,6 @@ public static class HomePaths
     public static string GetDefaultConfigFilePath(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), ConfigFileName);
 
-    public static string GetDefaultTraceDirectory(string? userProfilePath = null)
-        => Path.Combine(GetDefaultHomeRoot(userProfilePath), TraceDirectoryName);
-
     public static string GetDefaultTraceConfigValue()
         => $"~/{DefaultHomeDirectoryName}/{TraceDirectoryName}";
 
@@ -46,6 +58,11 @@ public static class HomePaths
 
     public static string GetDefaultLocalAppDataRoot(string? localApplicationDataPath = null)
     {
+        if (OverrideRoot is { } overridden)
+        {
+            return overridden;
+        }
+
         var local = string.IsNullOrWhiteSpace(localApplicationDataPath)
             ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
             : localApplicationDataPath;
@@ -55,4 +72,7 @@ public static class HomePaths
 
     public static string GetDefaultAuthContextFilePath(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AuthContextFileName);
+
+    public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);
 }

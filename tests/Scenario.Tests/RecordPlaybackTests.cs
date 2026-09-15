@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
-using Tests.Common.Recording;
+using Core.Recording;
 
 namespace Scenario.Tests;
 

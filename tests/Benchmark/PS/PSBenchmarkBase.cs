@@ -4,10 +4,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Attributes;
+using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry;
 using Perfolizer.Mathematics.OutlierDetection;
 
 namespace Benchmark.PS;
@@ -29,6 +35,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
     private string _psModuleManifestPath = null!;
     private Runspace _runspace = null!;
+    private BenchmarkFileTelemetrySender _sender = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -37,13 +44,47 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
         _psModuleManifestPath = PSManifestStager.StageModule(RepoRoot, ModuleName);
 
-        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP)");
+        VerifyAuthFixture();
+
+        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP, real MSAL cache IO)");
+
+        InitializeTelemetryCommon();
+
+        // The sender holds two paths and the stage listener, so it is constant for the whole run;
+        // only what ConfigureExporter builds is per-iteration.
+        _sender = new BenchmarkFileTelemetrySender(
+            Stage,
+            TelemetryArtifacts.WarmupDirectory,
+            TelemetryArtifacts.ActualDirectory);
+    }
+
+    /// <summary>
+    /// Registers the benchmark telemetry stack: the real TelemetryService, a sender that writes
+    /// trace files, and the filter that drops module-import traces.
+    /// </summary>
+    /// <remarks>
+    /// Runs every iteration because [IterationCleanup] disposes the container. ITelemetryProvider
+    /// is omitted so the PSTelemetryProvider that Import-Module registers wins.
+    /// </remarks>
+    private void RegisterTelemetryCapture()
+    {
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetryService, TelemetryService>();
+            services.AddSingleton<ITelemetrySender>(_sender);
+
+            // Factory rather than by-type: ImportTraceFilter is internal and DI's constructor
+            // selection wants a public one.
+            services.AddSingleton<BaseProcessor<Activity>>(_ => new ImportTraceFilter());
+        });
     }
 
     [IterationSetup]
     public void IterationSetup()
     {
+        SeedProfileStore();
         RegisterBenchmarkStubs();
+        RegisterTelemetryCapture();
 
         // Prime the runspace and import the module. Module import execution is excluded from the measured region, so that the benchmark measures only the cmdlet invocation.
         _runspace = RunspaceFactory.CreateRunspace();
@@ -56,6 +97,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
             import.Invoke();
             ThrowOnPowerShellErrors(import, "Import-Module");
+
+            // Build the telemetry stack eagerly to ensure all telemetry dependencies have been resolved and are not resolved in the measured region.
+            AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
         catch
         {
@@ -68,11 +112,21 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     [IterationCleanup]
     public void IterationCleanup()
     {
+        // A blocking drain since the FileExporter caps it at 500ms
+        _sender?.DrainToDisk();
+
         CleanupCommon();
 
         _runspace?.Close();
         _runspace?.Dispose();
         _runspace = null!;
+    }
+
+    [GlobalCleanup]
+    public void GlobalCleanup()
+    {
+        CleanupTelemetryCommon();
+        CleanupGlobal();
     }
 
     protected object? RunPowerShellCommand(

@@ -8,6 +8,7 @@
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <Project Path="src/Core/Core.Recording/Core.Recording.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
@@ -19,9 +20,11 @@
     <Project Path="src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
-    <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
+    <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
+    <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
+    <Project Path="src/Extensions/Identity/Extensions.Identity.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -41,6 +44,7 @@
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
+    <Project Path="tests/Extensions.MsGraph.Tests/Extensions.MsGraph.Tests.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>
@@ -48,13 +52,17 @@
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
+  <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/Help/">
+      <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
-    <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
+    <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
+    <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
+    <Project Path="src/PS/Identity/Cmdlets.Identity.csproj" />
   </Folder>
 </Solution>

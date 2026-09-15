@@ -11,17 +11,70 @@ namespace Cli.Tests;
 /// </summary>
 public class ProfileSubscriptionResolutionTests
 {
-    private sealed class TestResourceProcessor : ResourcesProcessorBase<object>
+    private sealed class TestResourceProcessor : ResourcesProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
-        public void Resolve() => ResolveSubscriptionId();
+        //public void Resolve() => ResolveSubscriptionId();
     }
 
-    private sealed class TestComputeProcessor : ComputeProcessorBase<object>
+    private sealed class TestComputeProcessor : ComputeProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
-        public void Resolve() => ResolveSubscriptionId();
+        //public void Resolve() => ResolveSubscriptionId();
     }
+
+    // Yabo: there are no resolve sub now, and subid does not live in base processor no more
+    // [Fact]
+    // public void Resources_NullProfile_ShouldThrowClearError()
+    // {
+    //     var processor = new TestResourceProcessor();
+    //     processor.SetProfile(null);
+
+    //     var ex = Assert.Throws<InvalidOperationException>(processor.Resolve);
+    //     Assert.Contains("profile", ex.Message, StringComparison.OrdinalIgnoreCase);
+    // }
+
+    // [Fact]
+    // public void Resources_WithProfile_ShouldResolveSubscriptionFromProfile()
+    // {
+    //     var processor = new TestResourceProcessor();
+    //     processor.SetProfile(ProfileWithSub("sub-123"));
+
+    //     processor.Resolve();
+
+    //     Assert.Equal("sub-123", processor.SubscriptionId);
+    // }
+
+    // [Fact]
+    // public void Resources_ExplicitSubscription_ShouldNotRequireProfile()
+    // {
+    //     var processor = new TestResourceProcessor { SubscriptionId = "explicit-sub" };
+    //     processor.SetProfile(null);
+
+    //     processor.Resolve();
+
+    //     Assert.Equal("explicit-sub", processor.SubscriptionId);
+    // }
+
+    //     [Fact]
+    // public void Compute_NullProfile_ShouldThrowClearError()
+    // {
+    //     var processor = new TestComputeProcessor();
+    //     processor.SetProfile(null);
+
+    //     Assert.Throws<InvalidOperationException>(processor.Resolve);
+    // }
+
+    // [Fact]
+    // public void Compute_WithProfile_ShouldResolveSubscriptionFromProfile()
+    // {
+    //     var processor = new TestComputeProcessor();
+    //     processor.SetProfile(ProfileWithSub("sub-456"));
+
+    //     processor.Resolve();
+
+    //     Assert.Equal("sub-456", processor.SubscriptionId);
+    // }
 
     private static Profile ProfileWithSub(string sub) => new()
     {
@@ -31,38 +84,6 @@ public class ProfileSubscriptionResolutionTests
         CloudName = "AzureCloud",
         AuthMethod = AuthMethod.Browser,
     };
-
-    [Fact]
-    public void Resources_NullProfile_ShouldThrowClearError()
-    {
-        var processor = new TestResourceProcessor();
-        processor.SetProfile(null);
-
-        var ex = Assert.Throws<InvalidOperationException>(processor.Resolve);
-        Assert.Contains("profile", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Resources_WithProfile_ShouldResolveSubscriptionFromProfile()
-    {
-        var processor = new TestResourceProcessor();
-        processor.SetProfile(ProfileWithSub("sub-123"));
-
-        processor.Resolve();
-
-        Assert.Equal("sub-123", processor.SubscriptionId);
-    }
-
-    [Fact]
-    public void Resources_ExplicitSubscription_ShouldNotRequireProfile()
-    {
-        var processor = new TestResourceProcessor { SubscriptionId = "explicit-sub" };
-        processor.SetProfile(null);
-
-        processor.Resolve();
-
-        Assert.Equal("explicit-sub", processor.SubscriptionId);
-    }
 
     [Theory]
     [InlineData(ClientType.CLI, "group create", "subscription-id")]
@@ -75,25 +96,5 @@ public class ProfileSubscriptionResolutionTests
         Assert.False(
             metadata.Parameters[parameterKey].IsRequired,
             $"SubscriptionId should be optional for '{command}' so it defaults to the current subscription.");
-    }
-
-    [Fact]
-    public void Compute_NullProfile_ShouldThrowClearError()
-    {
-        var processor = new TestComputeProcessor();
-        processor.SetProfile(null);
-
-        Assert.Throws<InvalidOperationException>(processor.Resolve);
-    }
-
-    [Fact]
-    public void Compute_WithProfile_ShouldResolveSubscriptionFromProfile()
-    {
-        var processor = new TestComputeProcessor();
-        processor.SetProfile(ProfileWithSub("sub-456"));
-
-        processor.Resolve();
-
-        Assert.Equal("sub-456", processor.SubscriptionId);
     }
 }

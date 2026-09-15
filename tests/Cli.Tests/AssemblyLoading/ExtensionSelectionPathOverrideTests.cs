@@ -11,40 +11,43 @@ namespace Cli.Tests;
 
 public sealed class ExtensionSelectionPathOverrideTests
 {
+    private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
+
     [Fact]
     public void CustomBundledAndInstalledDirs_ShouldFeedSelection_AndPreferHigherVersion()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"selection-override-{Guid.NewGuid():N}");
-        var bundledRoot = Path.Combine(root, "bundled");
-        var installedRoot = Path.Combine(root, "installed");
-        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var suffix = Guid.NewGuid().ToString("N");
+        var shortName = $"Compute_{suffix}";
+        var packageId = PackageIdPrefix + shortName;
 
-        Directory.CreateDirectory(bundledRoot);
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"selection-override-{suffix}", "installed");
+        var bundledPackageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), packageId);
+
+        Directory.CreateDirectory(bundledPackageDir);
         Directory.CreateDirectory(installedRoot);
 
         try
         {
-            var bundledPackageDir = Path.Combine(bundledRoot, packageId);
-            Directory.CreateDirectory(bundledPackageDir);
-            File.WriteAllText(Path.Combine(bundledPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(bundledPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.1.2.0.nupkg"), string.Empty);
+            File.WriteAllText(Path.Combine(bundledPackageDir, $"{packageId}.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(bundledPackageDir, $"{packageId}.1.2.0.nupkg"), string.Empty);
 
             var installedPackageDir = Path.Combine(installedRoot, packageId, "1.3.0");
             Directory.CreateDirectory(installedPackageDir);
-            File.WriteAllText(Path.Combine(installedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(installedPackageDir, $"{packageId}.dll"), string.Empty);
 
-            var configuration = new TestConfigurationService(bundledRoot, installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
 
             var bundledLoader = new BundledExtensionLoader(logging, configuration);
             var installedLoader = new InstalledExtensionLoader(logging, configuration);
 
-            var bundledInstalled = Assert.Single(bundledLoader.GetInstalledExtensions());
-            Assert.Equal("Compute", bundledInstalled.Name);
+            var bundledInstalled = Assert.Single(
+                bundledLoader.GetInstalledExtensions(),
+                x => x.Name == shortName);
             Assert.Equal("1.2.0", bundledInstalled.Version);
 
             var installedInstalled = Assert.Single(installedLoader.GetInstalledExtensions());
-            Assert.Equal("Compute", installedInstalled.Name);
+            Assert.Equal(shortName, installedInstalled.Name);
             Assert.Equal("1.3.0", installedInstalled.Version);
 
             var provider = new CLIAssemblyLoadingProvider(
@@ -54,11 +57,11 @@ public sealed class ExtensionSelectionPathOverrideTests
             var installed = provider.GetAllInstalledExtensions();
 
             Assert.NotNull(installed);
-            Assert.Contains(installed!, item => item.Name == "Compute" && item.Version == "1.2.0");
-            Assert.Contains(installed!, item => item.Name == "Compute" && item.Version == "1.3.0");
+            Assert.Contains(installed!, item => item.Name == shortName && item.Version == "1.2.0");
+            Assert.Contains(installed!, item => item.Name == shortName && item.Version == "1.3.0");
 
             var candidates = installed!
-                .Where(item => item.Name == "Compute")
+                .Where(item => item.Name == shortName)
                 .Select(item => CreateInfo(packageId, item.Version, item.Version == "1.2.0" ? ["vm bundled"] : ["vm installed"]))
                 .ToArray();
 
@@ -70,22 +73,16 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
     [Fact]
     public void StalePinnedVersion_ShouldNotOverrideDiscoveredVersion_WhenPinnedPayloadMissing()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"selection-stale-pin-{Guid.NewGuid():N}");
-        var bundledRoot = Path.Combine(root, "bundled");
-        var installedRoot = Path.Combine(root, "installed");
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"selection-stale-pin-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-
-        Directory.CreateDirectory(bundledRoot);
         Directory.CreateDirectory(installedRoot);
 
         try
@@ -94,7 +91,7 @@ public sealed class ExtensionSelectionPathOverrideTests
             Directory.CreateDirectory(installedPackageDir);
             File.WriteAllText(Path.Combine(installedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
 
-            var configuration = new TestConfigurationService(bundledRoot, installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
             var installedLoader = new InstalledExtensionLoader(logging, configuration);
 
@@ -119,10 +116,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -130,28 +124,29 @@ public sealed class ExtensionSelectionPathOverrideTests
     public void GetAllInstalledExtensions_ShouldPropagateLoaderLocation_IntoInstalledExtensionRef()
     {
         // Both loaders' DLL paths must flow through the provider without being dropped or overwritten.
-        var root = Path.Combine(Path.GetTempPath(), $"location-flow-{Guid.NewGuid():N}");
-        var bundledRoot = Path.Combine(root, "bundled");
-        var installedRoot = Path.Combine(root, "installed");
-        var bundledPackageId = "Microsoft.Azure.Azclips.Extensions.Login";
-        var installedPackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
+        var suffix = Guid.NewGuid().ToString("N");
+        var bundledShortName = $"Login_{suffix}";
+        var installedShortName = $"Resources_{suffix}";
+        var bundledPackageId = PackageIdPrefix + bundledShortName;
+        var installedPackageId = PackageIdPrefix + installedShortName;
 
-        Directory.CreateDirectory(bundledRoot);
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"location-flow-{suffix}", "installed");
+        var bundledPackageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), bundledPackageId);
+
+        Directory.CreateDirectory(bundledPackageDir);
         Directory.CreateDirectory(installedRoot);
 
         try
         {
-            var bundledPackageDir = Path.Combine(bundledRoot, bundledPackageId);
-            Directory.CreateDirectory(bundledPackageDir);
-            var expectedBundledDll = Path.Combine(bundledPackageDir, "Microsoft.Azure.Azclips.Extensions.Login.dll");
+            var expectedBundledDll = Path.Combine(bundledPackageDir, $"{bundledPackageId}.dll");
             File.WriteAllText(expectedBundledDll, string.Empty);
 
             var installedPackageDir = Path.Combine(installedRoot, installedPackageId, "2.0.0");
             Directory.CreateDirectory(installedPackageDir);
-            var expectedInstalledDll = Path.Combine(installedPackageDir, "Microsoft.Azure.Azclips.Extensions.Resources.dll");
+            var expectedInstalledDll = Path.Combine(installedPackageDir, $"{installedPackageId}.dll");
             File.WriteAllText(expectedInstalledDll, string.Empty);
 
-            var configuration = new TestConfigurationService(bundledRoot, installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
 
             var provider = new CLIAssemblyLoadingProvider(
@@ -165,17 +160,15 @@ public sealed class ExtensionSelectionPathOverrideTests
             var installed = provider.GetAllInstalledExtensions();
 
             Assert.NotNull(installed);
-            var login = Assert.Single(installed!, item => item.Name == "Login");
+            var login = Assert.Single(installed!, item => item.Name == bundledShortName);
             Assert.Equal(expectedBundledDll, login.Location);
-            var resources = Assert.Single(installed!, item => item.Name == "Resources");
+            var resources = Assert.Single(installed!, item => item.Name == installedShortName);
             Assert.Equal(expectedInstalledDll, resources.Location);
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -185,8 +178,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         // When the registry pins a version different from what the loader reports as latest,
         // the discovered `Location` came from the *unpinned* version's folder. Emit null rather
         // than a path that disagrees with what dispatch will actually load.
-        var root = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}");
-        var installedRoot = Path.Combine(root, "installed");
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         Directory.CreateDirectory(installedRoot);
 
@@ -199,7 +191,7 @@ public sealed class ExtensionSelectionPathOverrideTests
                 File.WriteAllText(Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
             }
 
-            var configuration = new TestConfigurationService(bundledRoot: Path.Combine(root, "bundled"), installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
             var installedLoader = new InstalledExtensionLoader(logging, configuration);
 
@@ -223,10 +215,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -235,25 +224,21 @@ public sealed class ExtensionSelectionPathOverrideTests
     {
         // Corrupt/partial install: version subdir exists but no DLL. Enumeration must skip it —
         // dispatch couldn't load it anyway, so surfacing it in `az extension list` misleads users.
-        var root = Path.Combine(Path.GetTempPath(), $"missing-dll-{Guid.NewGuid():N}");
-        var installedRoot = Path.Combine(root, "installed");
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"missing-dll-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         var versionDir = Path.Combine(installedRoot, packageId, "1.0.0");
         Directory.CreateDirectory(versionDir);
 
         try
         {
-            var configuration = new TestConfigurationService(bundledRoot: Path.Combine(root, "bundled"), installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var loader = new InstalledExtensionLoader(new NullLoggingService(), configuration);
 
             Assert.Empty(loader.GetInstalledExtensions());
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -262,8 +247,7 @@ public sealed class ExtensionSelectionPathOverrideTests
     {
         // When a pin resolves to the same version the loader already reports, the discovered
         // Location is exactly what dispatch will load — don't null it out.
-        var root = Path.Combine(Path.GetTempPath(), $"pin-match-{Guid.NewGuid():N}");
-        var installedRoot = Path.Combine(root, "installed");
+        var installedRoot = Path.Combine(Path.GetTempPath(), $"pin-match-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         var versionDir = Path.Combine(installedRoot, packageId, "1.2.0");
         Directory.CreateDirectory(versionDir);
@@ -272,7 +256,7 @@ public sealed class ExtensionSelectionPathOverrideTests
 
         try
         {
-            var configuration = new TestConfigurationService(bundledRoot: Path.Combine(root, "bundled"), installedRoot);
+            var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
             var installedLoader = new InstalledExtensionLoader(logging, configuration);
 
@@ -296,10 +280,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -326,11 +307,10 @@ public sealed class ExtensionSelectionPathOverrideTests
         return new DiscoveredExtensionInfo(packageId, version, verbs, commands, Location: null);
     }
 
-    private sealed class TestConfigurationService(string bundledRoot, string installedRoot) : IConfigurationService
+    private sealed class TestConfigurationService(string installedRoot) : IConfigurationService
     {
         private readonly AssemblyLoadingOptions _options = new()
         {
-            BundledExtensionsRoot = bundledRoot,
             InstalledExtensionsRoot = installedRoot,
         };
 

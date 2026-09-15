@@ -12,7 +12,7 @@ parameters:
 jobs:
 - job: BuildAndValidatePSModules
   displayName: Build and Validate PS Common
-  timeoutInMinutes: 90
+  timeoutInMinutes: 30
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:

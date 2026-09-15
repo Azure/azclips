@@ -126,7 +126,10 @@ namespace Core.Cli.Help
                     Description: description,
                     Parameters: parameters,
                     Examples: examples,
-                    Tags: tags));
+                    Tags: tags,
+                    PreviewMessage: NullIfEmpty(processorInfo?.PreviewMessage),
+                    ExperimentalMessage: NullIfEmpty(processorInfo?.ExperimentalMessage),
+                    DeprecatedMessage: NullIfEmpty(processorInfo?.DeprecatedMessage)));
             }
 
             var sortedCommands = commands
@@ -232,7 +235,11 @@ namespace Core.Cli.Help
                     ? mappedPsName
                     : parameter.Name;
 
-                var attribute = FindArgumentAttribute(processorType, parameter.Name);
+                var property = ProcessorParameterReflection.FindPropertyForParameter(processorType, parameter.Name);
+                var attribute = property?.GetCustomAttribute<ArgumentInfoAttribute>();
+                var groupName = ProcessorParameterReflection.GetGroupName(property);
+                var valueSources = ProcessorParameterReflection.GetValueSources(property);
+
                 parameters.Add(new HelpParameter(
                     Name: cliName,
                     PsName: psName,
@@ -243,24 +250,12 @@ namespace Core.Cli.Help
                     AllowedValues: parameter.AllowedValues,
                     ParameterSetName: attribute?.ParameterSetName ?? "(All)",
                     SupportsPipeline: attribute?.SupportsPipeline ?? false,
-                    SupportsWildcards: attribute?.SupportsWildcards ?? false));
+                    SupportsWildcards: attribute?.SupportsWildcards ?? false,
+                    GroupName: groupName,
+                    ValueSources: valueSources));
             }
 
             return parameters;
-        }
-
-        private static ArgumentInfoAttribute? FindArgumentAttribute(Type processorType, string parameterName)
-        {
-            var property = processorType.GetProperty(parameterName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            if (property != null)
-            {
-                return property.GetCustomAttribute<ArgumentInfoAttribute>();
-            }
-
-            return processorType
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Select(propertyInfo => propertyInfo.GetCustomAttribute<ArgumentInfoAttribute>())
-                .FirstOrDefault(attribute => string.Equals(attribute?.SerializedName, parameterName, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string GetSummary(MarkdownCommandHelp markdown, ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)
@@ -361,6 +356,11 @@ namespace Core.Cli.Help
             var underscore = rawKey.IndexOf('_');
             return underscore > 0 ? rawKey[..underscore] : rawKey;
         }
+
+        // Normalise empty ProcessorInfoAttribute message strings to null so nullable HelpCommand
+        // fields reflect "no message" and the WhenWritingNull JSON writer suppresses them.
+        private static string? NullIfEmpty(string? value)
+            => string.IsNullOrEmpty(value) ? null : value;
 
         private static string NormalizeTypeName(Type type)
         {
