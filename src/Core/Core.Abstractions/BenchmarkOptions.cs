@@ -3,6 +3,7 @@
 
 namespace Core.Abstractions;
 
+[ConfigurationSection("benchmark")]
 public sealed class BenchmarkOptions
 {
     /// <summary>

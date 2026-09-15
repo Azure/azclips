@@ -27,19 +27,6 @@ public sealed class ConfigurationService(
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly IReadOnlyDictionary<Type, string> _sectionNames = new Dictionary<Type, string>
-    {
-        [typeof(CoreOptions)] = "core",
-        [typeof(AssemblyLoadingOptions)] = "assemblyLoading",
-        [typeof(TelemetryOptions)] = "telemetry",
-        [typeof(AgentOptions)] = "agent",
-        [typeof(CompletionOptions)] = "completion",
-        [typeof(ExtensionsOptions)] = "extensions",
-        [typeof(ClientsOptions)] = "clients",
-        [typeof(DefaultsOptions)] = "defaults",
-        [typeof(BenchmarkOptions)] = "benchmark"
-    };
-
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
         var normalizedKey = string.IsNullOrWhiteSpace(key) ? null : CanonicalizeKnownKey(key);
@@ -88,9 +75,11 @@ public sealed class ConfigurationService(
             return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
         }
 
-        if (_sectionNames.TryGetValue(typeof(T), out var sectionName))
+        if (typeof(T).GetCustomAttributes(typeof(ConfigurationSectionAttribute), inherit: true)
+            .OfType<ConfigurationSectionAttribute>()
+            .SingleOrDefault() is { } section)
         {
-            return configuration.GetSection(sectionName).Get<T>() ?? defaults;
+            return configuration.GetSection(section.Name).Get<T>() ?? defaults;
         }
 
         return configuration.Get<T>() ?? defaults;
@@ -207,7 +196,10 @@ public sealed class ConfigurationService(
             return results;
         }
 
-        if (!_sectionNames.TryGetValue(typeof(T), out var sectionName))
+        var sectionName = typeof(T).GetCustomAttributes(typeof(ConfigurationSectionAttribute), inherit: true)
+            .OfType<ConfigurationSectionAttribute>()
+            .SingleOrDefault()?.Name;
+        if (sectionName is null)
         {
             FlattenNode(node, string.Empty, results);
             return results;
