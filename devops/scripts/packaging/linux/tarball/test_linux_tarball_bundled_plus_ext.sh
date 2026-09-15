@@ -149,8 +149,7 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Conf
   exit 1
 fi
 
-COPILOT_RUNTIME_RID="linux-${RID##*-}"
-COPILOT="$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/$COPILOT_RUNTIME_RID/native/copilot"
+COPILOT="$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/$RID/native/copilot"
 if [[ ! -x "$COPILOT" ]]; then
   echo "FAIL: Bundled Copilot CLI is not executable at the agent resolver path: $COPILOT"
   exit 1
