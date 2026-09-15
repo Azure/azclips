@@ -20,6 +20,9 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'ubuntu-latest'
+- name: ubuntu_arm64_pool
+  type: string
+  default: 'pool-ubuntu-latest-arm64'
 - name: windows_pool
   type: string
   default: 'windows-latest'
@@ -157,6 +160,7 @@ stages:
   - template: ../jobs/validate-build-linux.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)

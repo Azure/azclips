@@ -26,7 +26,7 @@ guide in the same PR so it stays accurate.
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
-- `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`.
+- `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`. Linux validation includes dedicated native ARM64 Alpine jobs for both musl archive profiles.
 - `templates/dist/steps/` — small reusable steps (`get-github-pat-token.yml`, `validate-release-project.yml`).
 
 ## Build Graph (unsigned distribution)
@@ -35,7 +35,7 @@ guide in the same PR so it stays accurate.
 - `ComponentGovernance` and `BuildPSModules` depend on `Init`.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
-- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
+- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; dedicated jobs run both musl Arm64 profiles in Alpine on `pool-ubuntu-latest-arm64`.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
