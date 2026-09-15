@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789433040880,
+  "lastUpdate": 1789433094502,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -9454,6 +9454,48 @@ window.BENCHMARK_DATA = {
             "value": 1373265.971214915,
             "unit": "ns",
             "range": "± 23541.86257813054"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "10a7d91d4a0b1e0a6abac9d7bd5ba59a7c3fe7e9",
+          "message": "{DevOps} Trigger stable release 0.1.3 (#882)\n\n**Description**\n\nPrepare stable release 0.1.3.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.3.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-14T23:33:23Z",
+          "tree_id": "08b205f14588075b2fcffabaa0884ac657ac07a2",
+          "url": "https://github.com/Azure/azclips/commit/10a7d91d4a0b1e0a6abac9d7bd5ba59a7c3fe7e9"
+        },
+        "date": 1789433091586,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1396176.4613821139,
+            "unit": "ns",
+            "range": "± 29295.815040051"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1435845.832273939,
+            "unit": "ns",
+            "range": "± 34033.4956392485"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1380436.6673427993,
+            "unit": "ns",
+            "range": "± 33035.476999615086"
           }
         ]
       }
