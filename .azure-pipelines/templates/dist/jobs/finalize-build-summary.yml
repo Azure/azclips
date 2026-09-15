@@ -94,6 +94,34 @@ jobs:
       path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Arm64_Full
 
   - task: DownloadPipelineArtifact@2
+    displayName: Download Linux musl x64 Lean Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Musl_X64_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Musl_X64_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux musl Arm64 Lean Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Musl_Arm64_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Musl_Arm64_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux musl x64 Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Musl_X64_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Musl_X64_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux musl Arm64 Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Musl_Arm64_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Musl_Arm64_Full
+
+  - task: DownloadPipelineArtifact@2
     displayName: Download Docker CLI Azure Linux 3 Lean Amd64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:

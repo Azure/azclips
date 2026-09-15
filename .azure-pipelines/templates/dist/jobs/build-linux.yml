@@ -31,6 +31,22 @@ jobs:
         Rid: linux-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Arm64_Full
+      linux_musl_x64_lean:
+        Rid: linux-musl-x64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Linux_Musl_X64_Lean
+      linux_musl_arm64_lean:
+        Rid: linux-musl-arm64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
+      linux_musl_x64_full:
+        Rid: linux-musl-x64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Linux_Musl_X64_Full
+      linux_musl_arm64_full:
+        Rid: linux-musl-arm64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:

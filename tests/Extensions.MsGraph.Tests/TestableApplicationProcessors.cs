@@ -27,6 +27,12 @@ internal sealed class TestableNewApplicationProcessor : NewApplicationProcessor
     public TestableNewApplicationProcessor WithPublisher(Core.Abstractions.Runtime.IEventPublisher publisher)
     {
         Publisher = publisher;
+        // Match production JsonOptions (set in Init) so body assertions see null-omitting serialization.
+        JsonOptions = new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        };
         return this;
     }
 }

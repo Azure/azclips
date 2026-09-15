@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Cli;
 using Core.Configuration.Options;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -547,21 +548,9 @@ public class BundledExtensionLoaderTests
             BundledExtensionLoader.GetDefaultRoot(),
             $"Microsoft.Azure.Azclips.Extensions.{shortName}");
 
-        if (Directory.Exists(packageDir))
-        {
-            try
-            {
-                Directory.Delete(packageDir, recursive: true);
-            }
-            catch (IOException)
-            {
-                // Non-fatal: leftover files at the bin/Debug dir are harmless.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Non-fatal: same as above; transient OS locks or read-only bits.
-            }
-        }
+        // Non-fatal if it fails: leftover files at the bin/Debug dir are harmless, and the
+        // extension ALC may still hold the DLL for the process lifetime.
+        DirectoryUtils.TryDeleteDirectory(packageDir);
     }
 
     private sealed class TestConfigurationService(bool bypassExtensionCache = false) : IConfigurationService

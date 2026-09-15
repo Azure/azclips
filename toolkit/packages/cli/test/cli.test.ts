@@ -10,15 +10,39 @@
  * emitted text without polluting the test reporter.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { IR_SCHEMA_VERSION, idEquals, parseIR } from "@azure-client-engine/ir";
 
 import { run } from "../src/index.js";
-import { createFsSink } from "../src/cli.js";
+import { createFsSink } from "../src/compile-command.js";
+import { resolveGeneratorHost } from "../src/dotnet-generate.js";
+
+// The csharp generation e2e runs only when the .NET generator host has been
+// built (dotnet build packages/generator/host). Otherwise it is skipped, so the
+// pure-Node test run stays green without a .NET toolchain.
+let generatorHostBuilt = false;
+try {
+  resolveGeneratorHost();
+  generatorHostBuilt = true;
+} catch {
+  generatorHostBuilt = false;
+}
+
+/** Recursively list every file under `root`. */
+function walkFiles(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = join(root, entry.name);
+    if (entry.isDirectory()) out.push(...walkFiles(full));
+    else out.push(full);
+  }
+  return out;
+}
 
 const PETS_TSP = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -135,21 +159,29 @@ describe("ace compile: --config loading", () => {
     expect(err).toContain("is not valid JSON");
   });
 
-  it("tolerates a leading UTF-8 BOM in the config file", async () => {
+  it.runIf(generatorHostBuilt)("tolerates a leading UTF-8 BOM in the config file", async () => {
     const { code } = await captureRun([
       "compile",
       "--tsp-location",
       PETS_TSP,
       "--config",
       join(dir, "bom.json"),
+      "--out-dir",
+      join(dir, "bom-out"),
     ]);
     expect(code).toBe(0);
   });
 });
 
-describe("ace compile: happy path", () => {
+describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
   it("compiles pets.tsp and exits 0", async () => {
-    const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP]);
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      join(dir, "hp-plain"),
+    ]);
     expect(err).not.toMatch(/^error:/m);
     expect(code).toBe(0);
   });
@@ -161,24 +193,59 @@ describe("ace compile: happy path", () => {
       PETS_TSP,
       "--config",
       join(dir, "good.json"),
+      "--out-dir",
+      join(dir, "hp-config"),
     ]);
+    expect(code).toBe(0);
+  });
+
+  it("compiles pets.tsp with --api-version and exits 0", async () => {
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--api-version",
+      "2025-01-01",
+      "--out-dir",
+      join(dir, "hp-apiver"),
+    ]);
+    expect(err).not.toMatch(/^error:/m);
     expect(code).toBe(0);
   });
 });
 
-describe("ace compile: --out-dir", () => {
-  it("accepts --out-dir and, with the no-op generator, writes nothing", async () => {
-    const outDir = join(dir, "gen-none");
-    const { code } = await captureRun([
+describe.runIf(generatorHostBuilt)("ace compile: --out-dir", () => {
+  it("removes the staged source and generates with the default (csharp) back end", async () => {
+    const outDir = join(dir, "gen-default");
+    const { code, err } = await captureRun([
       "compile",
       "--tsp-location",
       PETS_TSP,
       "--out-dir",
       outDir,
     ]);
+    expect(err).not.toMatch(/^error:/m);
     expect(code).toBe(0);
-    // The default generator produces no files, so the directory is never created.
-    expect(existsSync(outDir)).toBe(false);
+    // The transient staged copy is deleted by default...
+    expect(existsSync(join(outDir, "source"))).toBe(false);
+    // ...and with no --generator the compiler defaults to csharp, so C# output
+    // (including a project file) lands in <out-dir> — generation is the product.
+    const files = walkFiles(outDir);
+    expect(files.some((f) => f.endsWith(".csproj"))).toBe(true);
+  });
+
+  it("keeps <out-dir>/source with --capture-source", async () => {
+    const outDir = join(dir, "keep-source");
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--capture-source",
+    ]);
+    expect(code).toBe(0);
+    expect(existsSync(join(outDir, "source", "pets.tsp"))).toBe(true);
   });
 });
 
@@ -191,9 +258,65 @@ describe("createFsSink", () => {
     expect(readFileSync(join(outDir, "models", "Pet.cs"), "utf8")).toBe("// pet");
     expect(readFileSync(join(outDir, "Client.cs"), "utf8")).toBe("// client");
   });
+
+  it("removes a generator-owned scope, refusing to escape the output dir", async () => {
+    const outDir = join(dir, "sink-remove");
+    const sink = createFsSink(outDir);
+    await sink({ kind: "generated-file", path: "Models/Stale.cs", contents: "// stale" });
+    await sink({ kind: "generated-file", path: "Keep.cs", contents: "// keep" });
+    expect(existsSync(join(outDir, "Models", "Stale.cs"))).toBe(true);
+
+    // Wiping the Models scope removes it but leaves siblings alone.
+    await sink({ kind: "remove", path: "Models" });
+    expect(existsSync(join(outDir, "Models"))).toBe(false);
+    expect(existsSync(join(outDir, "Keep.cs"))).toBe(true);
+
+    // A scope at/outside the output root is refused (out-dir untouched). Suppress
+    // the expected warnings so they don't pollute the reporter.
+    const errSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      await sink({ kind: "remove", path: ".." });
+      await sink({ kind: "remove", path: "" });
+    } finally {
+      errSpy.mockRestore();
+    }
+    expect(existsSync(outDir)).toBe(true);
+    expect(existsSync(join(outDir, "Keep.cs"))).toBe(true);
+  });
 });
 
-describe("ace compile: --capture-ir", () => {
+describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
+  it("preserves multipart definitions through the real compiler and C# host", async () => {
+    const outDir = join(dir, "multipart-capture");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "typespec-emitter", "test", "fixtures", "multipart-service.tsp"),
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code, err).toBe(0);
+    const captures = walkFiles(join(outDir, "ir")).filter((file) => file.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      const upload = ir.operations.find((operation) => operation.name === "upload");
+      const document = upload?.requestBody?.multipart?.parts.find((part) => part.name === "documents");
+      expect(document).toMatchObject({
+        multi: true, optional: true, filename: { name: "Filename" },
+        body: { kind: "file", isText: false, contents: { type: { kind: "primitive", name: "bytes" } } },
+      });
+      const tuple = ir.operations.find((operation) => operation.name === "tuple");
+      expect(tuple?.requestBody).not.toHaveProperty("type");
+      expect(tuple?.requestBody?.multipart?.parts.map((part) => part.name)).toEqual([undefined, undefined, "text"]);
+      const response = ir.operations.find((operation) => operation.name === "download")?.responses[0];
+      expect(response?.multipart).toEqual(upload?.requestBody?.multipart);
+      expect(response?.headers?.map((header) => header.wireName)).toEqual(["x-response-token"]);
+    }
+  });
+
   it("writes each pipeline IR to <out-dir>/ir when set", async () => {
     const outDir = join(dir, "capture");
     const { code } = await captureRun([
@@ -206,16 +329,24 @@ describe("ace compile: --capture-ir", () => {
     ]);
     expect(code).toBe(0);
 
-    const irPath = join(outDir, "ir", "0-emit.json");
-    expect(existsSync(irPath)).toBe(true);
-    const ir = JSON.parse(readFileSync(irPath, "utf8")) as {
-      schemaVersion: string;
-      models: { name: string }[];
-      operations: { name: string }[];
-    };
-    expect(typeof ir.schemaVersion).toBe("string");
-    expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
-    expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+    // Scan the ir/ folder for snapshot json (the <index>-<step> filename is an
+    // incidental decision — don't hardcode it).
+    const irFiles = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(irFiles.length).toBeGreaterThan(0);
+    for (const file of irFiles) {
+      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
+      expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+      expect(ir.servers).toHaveLength(1);
+      const server = ir.servers[0]!;
+      expect(idEquals(ir.sources[0]!.server, server.id)).toBe(true);
+      for (const operation of ir.operations) {
+        expect(operation.id.namespace).toEqual(["PetStore"]);
+        expect(operation.id.interface).toBe("Pets");
+        expect(idEquals(operation.server, server.id)).toBe(true);
+      }
+    }
   });
 
   it("does not create the ir/ directory when --capture-ir is absent", async () => {
@@ -230,4 +361,186 @@ describe("ace compile: --capture-ir", () => {
     expect(code).toBe(0);
     expect(existsSync(join(outDir, "ir"))).toBe(false);
   });
+
+  it("removes a stale ir/ directory when --capture-ir is absent", async () => {
+    const outDir = join(dir, "stale-ir");
+    // First run WITH --capture-ir writes <out-dir>/ir.
+    await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(walkFiles(join(outDir, "ir")).some((f) => f.endsWith(".json"))).toBe(true);
+
+    // A second run to the SAME out-dir WITHOUT --capture-ir clears the stale ir/.
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+    ]);
+    expect(code).toBe(0);
+    expect(existsSync(join(outDir, "ir"))).toBe(false);
+  });
+});
+
+describe("ace compile: stage toggles", () => {
+  /**
+   * Orchestration is compiler-owned: the catalog places `flatten-model` between
+   * emit and the generator and turns it on by default. A config's only verb is
+   * to flip it.
+   */
+  it("runs the catalog's default stages, flattening the IR the generator consumes", async () => {
+    const outDir = join(dir, "stages-default");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    // Regression guard: an unfulfilled stage fails with `unimplemented-stage`,
+    // and nothing downstream ever sees flattening.
+    expect(err).not.toMatch(/unimplemented-stage/);
+    expect(code).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(1);
+    const ir = parseIR(JSON.parse(readFileSync(captures.sort().at(-1)!, "utf8")));
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.rendering?.parameters?.length).toBeGreaterThan(0);
+  });
+
+  it("skips a stage the config turns off", async () => {
+    const outDir = join(dir, "stages-off");
+    const configPath = join(dir, "no-flatten.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "flatten-model": false } }), "utf8");
+
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--config",
+      configPath,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures).toHaveLength(1);
+    const ir = parseIR(JSON.parse(readFileSync(captures[0]!, "utf8")));
+    expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(true);
+  });
+
+  it("rejects a config that names a stage the compiler does not declare", async () => {
+    const configPath = join(dir, "bogus-stage.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "no-such-stage": true } }), "utf8");
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      join(dir, "stages-bogus"),
+      "--config",
+      configPath,
+    ]);
+    expect(code).toBe(1);
+    expect(err).toMatch(/unknown-stage/);
+  });
+});
+
+describe("ace compile: csharp generation", () => {
+  it.runIf(generatorHostBuilt)(
+    "emits flattened body members when the flatten stage runs",
+    async () => {
+      const outDir = join(dir, "gen-flattened");
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--root-namespace",
+        "Contoso.Pets",
+        "--out-dir",
+        outDir,
+      ]);
+      expect(err).not.toMatch(/^error:/m);
+      expect(code).toBe(0);
+
+      // The end-to-end payoff: the stage's projection reaches the emitted C#.
+      const processors = walkFiles(outDir)
+        .filter((f) => f.endsWith(".cs") && f.includes("Processors"))
+        .map((f) => readFileSync(f, "utf8"));
+      expect(processors.some((source) => /get => Body\?\./.test(source))).toBe(true);
+    },
+  );
+
+  it.runIf(generatorHostBuilt)(
+    "generates C# files under out-dir with --generator csharp",
+    async () => {
+      const outDir = join(dir, "gen-csharp");
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--generator",
+        "csharp",
+        "--root-namespace",
+        "Contoso.Pets",
+        "--out-dir",
+        outDir,
+      ]);
+      expect(err).not.toMatch(/^error:/m);
+      expect(code).toBe(0);
+      // Scan the output: generation ran end-to-end and produced files, including a
+      // C# project. File naming is the generator's concern (pinned in its own
+      // tests), so this wiring test asserts no specific names.
+      const files = walkFiles(outDir);
+      expect(files.length).toBeGreaterThan(0);
+      expect(files.some((f) => f.endsWith(".csproj"))).toBe(true);
+    },
+  );
+
+  it.runIf(generatorHostBuilt)(
+    "wipes stale generated files on regeneration (clean codegen)",
+    async () => {
+      const outDir = join(dir, "regen-clean");
+      await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--generator",
+        "csharp",
+        "--out-dir",
+        outDir,
+      ]);
+
+      // Plant a stale file inside a generator-owned scope (Models/).
+      const stale = join(outDir, "Models", "GhostModel.cs");
+      writeFileSync(stale, "// stale", "utf8");
+      expect(existsSync(stale)).toBe(true);
+
+      // Regenerate: the model generator wipes Models/ first, so the ghost is gone
+      // while fresh output lands.
+      const { code } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--generator",
+        "csharp",
+        "--out-dir",
+        outDir,
+      ]);
+      expect(code).toBe(0);
+      expect(existsSync(stale)).toBe(false);
+      expect(walkFiles(outDir).some((f) => f.endsWith(".cs"))).toBe(true);
+    },
+  );
 });

@@ -21,7 +21,7 @@
 Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
 
 1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
-2. **Extension System** - Dynamic module loading via DLL discovery (Login.dll, Resources.dll)
+2. **Extension System** - Dynamic module loading via DLL discovery (Accounts.dll, Resources.dll)
 3. **Azure OpenAI Integration** - CloudAgent with GPT-4o-mini for natural language interpretation
 
 **Note:** This document describes the **actual implementation** on the `resilv/merge-cli` branch, not idealized designs.
@@ -164,7 +164,7 @@ New-AzResourceGroup -Name mygroup -Location eastus
          │  CommandGroupIndex        │
          │  LoadFromDirectory()      │
          │  • Find Group.dll         │
-         │  • Find Login.dll         │
+         │  • Find Accounts.dll      │
          │  • Find Resources.dll     │
          └───────────┬───────────────┘
                      │
@@ -206,7 +206,7 @@ New-AzResourceGroup -Name mygroup -Location eastus
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/Azclips.Help.Tool/`                             | Build-time validators + manifest emitter      |
-| **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
+| **Accounts Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Accounts/`     | Authentication commands                       |
 | **Resources Extension**      | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
@@ -307,9 +307,8 @@ args: ["group", "create", "--name", "test"]
 **Discovery Pattern:**
 
 ```
-artifacts/Release/Group/Group.dll → "group" command group
-artifacts/Release/Login/Login.dll → "login" command group
-artifacts/Release/Resources/Resources.dll → "resources" command group
+artifacts/Release/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll → "login", "logout", "profile" verbs
+artifacts/Release/Microsoft.Azure.Azclips.Extensions.Resources/Microsoft.Azure.Azclips.Extensions.Resources.dll → "group", "deployment", "rest" verbs
 ```
 
 ### 4. AgentEngine - Conversation Loop
@@ -479,19 +478,19 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 - `group show` - Show resource group details
 - `group delete` - Delete resource group
 
-### Login Extension
+### Accounts Extension
 
-**Location:** `artifacts/Release/Login/Login.dll`
+**Location:** `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll`
 
 **Commands:**
 
 - `login` - Authenticate to Azure
 - `logout` - Sign out
-- `account show` - Display current account
+- `profile list` / `profile show` / `profile set` / `profile remove` - Manage named connection profiles
 
 ### Resources Extension (PowerShell)
 
-**Location:** `artifacts/Release/Resources/Resources.dll`
+**Location:** `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Resources/Microsoft.Azure.Azclips.Extensions.Resources.dll`
 
 **Contains:**
 
@@ -752,7 +751,7 @@ Execute this command? (yes/no): yes
 
 ### ✅ Extension DLL Loading
 
-**Decision:** Load commands from DLL files at runtime (Group.dll, Login.dll, Resources.dll).
+**Decision:** Load commands from DLL files at runtime (Group.dll, Accounts.dll, Resources.dll).
 
 **Rationale:**
 
@@ -887,10 +886,10 @@ artifacts/
       Resources.psd1                                  ← PowerShell Resources module
       Resources.psm1
       runtimes/
-    Microsoft.Azure.Azclips.Extensions.Login/
-      Login.psd1                                      ← PowerShell Login module
-      Login.psm1
-      Microsoft.Azure.Azclips.Extensions.Login.dll
+    Microsoft.Azure.Azclips.Extensions.Accounts/
+      Accounts.psd1                                      ← PowerShell Accounts module
+      Accounts.psm1
+      Microsoft.Azure.Azclips.Extensions.Accounts.dll
     Microsoft.Azure.Azclips.Extensions.Resources/
       Resources.psd1
       Resources.psm1
@@ -914,7 +913,7 @@ PowerShell modules are available in `src/PS/` and can be used directly:
 
 ```powershell
 # Import modules from source
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
@@ -922,7 +921,7 @@ Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-AzResourceGroup -Name test -Location eastus
 ```
 
-**Note:** The Login module requires the solution to be built first so that `Login.dll` is available in the artifacts directory.
+**Note:** The Accounts module requires the solution to be built first so that `Accounts.dll` is available in the artifacts directory.
 
 ## Future Enhancements
 

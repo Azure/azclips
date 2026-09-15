@@ -29,6 +29,14 @@ internal sealed class TraceFileStore
         $"{FilePrefix}{traceId}{PendingExtension}";
 
     /// <summary>
+    /// Search pattern matching every unclaimed trace file, for readers that want the files
+    /// without the claim protocol.
+    /// </summary>
+    internal static string PendingFilePattern => FilePrefix + "*" + PendingExtension;
+
+    private static string ClaimedFilePattern => FilePrefix + "*" + ClaimedExtension;
+
+    /// <summary>
     /// Reclaims abandoned claims, then takes ownership of pending files by renaming them.
     /// Returns only the files this caller won.
     /// </summary>
@@ -41,7 +49,7 @@ internal sealed class TraceFileStore
 
         var claimed = new List<string>();
 
-        foreach (var pending in Directory.GetFiles(_directory, FilePrefix + "*" + PendingExtension))
+        foreach (var pending in Directory.GetFiles(_directory, PendingFilePattern))
         {
             var target = Path.ChangeExtension(pending, ClaimedExtension);
             try
@@ -91,7 +99,7 @@ internal sealed class TraceFileStore
     {
         var cutoff = DateTime.UtcNow - StaleClaimAge;
 
-        foreach (var stale in Directory.GetFiles(_directory, FilePrefix + "*" + ClaimedExtension))
+        foreach (var stale in Directory.GetFiles(_directory, ClaimedFilePattern))
         {
             try
             {

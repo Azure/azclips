@@ -15,24 +15,43 @@
 
 import type { IR } from "@azure-client-engine/ir";
 
-/** A labeled IR snapshot taken at a pipeline step boundary. */
+/** A labeled IR snapshot taken at a stage boundary. */
 export interface IRSnapshot {
-  /** Ordered position in the pipeline; 0 = emit, then 1..N per transform step. */
+  /**
+   * Position in the compiler's stage sequence; 0 = the emit stage. Indices can
+   * have gaps: generate stages take a position but produce no IR to snapshot.
+   */
   index: number;
-  /** Producing step name: "emit", then each transform step's (unique) name. */
+  /** Producing stage id — unique by construction, so it needs no de-duplication. */
   step: string;
   /** The IR as it stood immediately after `step`. */
   ir: IR;
 }
 
-/** An artifact the backbone emits during a compile run. */
+/**
+ * An artifact the backbone emits during a compile run.
+ *
+ * Generated files carry the `stage` that produced them: with several generate
+ * stages in one sequence, a host needs that to scope output (and the backbone
+ * uses it to detect two stages writing the same path).
+ */
 export type EmitArtifact =
-  | { kind: "generated-file"; path: string; contents: string }
+  | { kind: "generated-file"; stage: string; path: string; contents: string }
+  | { kind: "remove"; stage: string; path: string }
   | ({ kind: "ir-snapshot" } & IRSnapshot);
 
 /**
- * Host-provided output sink. The backbone awaits it once per artifact, in
- * pipeline order. Implementations own destination + serialization.
+ * Host-provided output sink. The backbone awaits it once per artifact.
+ *
+ * An `ir-snapshot` carries the **live** IR, not a copy. A sink that serializes
+ * it immediately (before its first `await`) needs no copy, which is why capture
+ * is free on the filesystem path. A sink that *retains* the object **must** copy
+ * it first.
+ *
+ * That contract is load-bearing: a run has exactly one IR, mutated in place from
+ * the emit stage onward, so a retaining sink that skips the copy does not get a
+ * slightly stale snapshot — it gets N references to the run's *final* state,
+ * silently.
  */
 export type OutputDelegate = (artifact: EmitArtifact) => void | Promise<void>;
 
@@ -53,9 +72,17 @@ export function createCollectorSink(): CollectorSink {
   const write: OutputDelegate = (artifact) => {
     if (artifact.kind === "generated-file") {
       files.set(artifact.path, artifact.contents);
-    } else {
-      snapshots.push({ index: artifact.index, step: artifact.step, ir: artifact.ir });
+    } else if (artifact.kind === "ir-snapshot") {
+      // This sink retains, so it owns the copy: the orchestrator hands over the
+      // live IR, which later stages keep writing to.
+      snapshots.push({
+        index: artifact.index,
+        step: artifact.step,
+        ir: structuredClone(artifact.ir),
+      });
     }
+    // "remove" artifacts are host filesystem effects; the in-memory collector has
+    // nothing to remove (removes precede writes within a run), so it ignores them.
   };
   return { write, files, snapshots };
 }

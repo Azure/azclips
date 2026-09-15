@@ -5,7 +5,7 @@
 # Prerequisites: run `dotnet build azclips.slnx` first so the cmdlet DLLs exist.
 # Usage:
 #   pwsh -File build/Test-PSHelpMarkdown.ps1                       # all modules under src/PS/
-#   pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Login         # single module
+#   pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Accounts         # single module
 #   pwsh -File build/Test-PSHelpMarkdown.ps1 -ModuleRoot <tempDir> # arbitrary root (smoke fixtures)
 [CmdletBinding()]
 param(
@@ -99,6 +99,16 @@ foreach ($moduleName in $modules)
         $ErrorActionPreference = 'Continue'
 
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -ErrorAction Stop
+        # Name-form RequiredModules refer to sibling modules; import them first.
+        foreach ($required in @((Import-PowerShellDataFile $manifest).RequiredModules))
+        {
+            $name = if ($required -is [hashtable]) { $required.ModuleName } else { $required }
+            if ($name -and $name -notmatch '[\/]')
+            {
+                $sibling = Join-Path (Split-Path (Split-Path $manifest -Parent) -Parent) $name "$name.psd1"
+                if (Test-Path $sibling) { Import-Module $sibling -ErrorAction Stop }
+            }
+        }
         Import-Module $manifest -Force -ErrorAction Stop
 
         # See scratch/CLIPS-652-TEMP-PR-PLAN.md §4.1. Passing this list REPLACES Compare-CommandHelp's
@@ -152,8 +162,26 @@ foreach ($moduleName in $modules)
 
             try
             {
-                $old   = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
-                $new   = Update-CommandHelp         -Path $md -ErrorAction Stop 2>$null
+                $old = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
+
+                # Update-CommandHelp returns syntax parameters in reflection/declaration order,
+                # while Markdown uses canonical PowerShell syntax order (mandatory before optional).
+                # Round-trip a temporary copy through the same writer used by -Refresh so comparison
+                # detects semantic drift rather than parameter ordering differences.
+                $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsHelpCompare-" + [Guid]::NewGuid().ToString('N'))
+                $tempMd = Join-Path $tempDir $file.Name
+                New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+                try
+                {
+                    Copy-Item -Path $md -Destination $tempMd -Force
+                    Update-MarkdownCommandHelp -Path $tempMd -NoBackup -ErrorAction Stop | Out-Null
+                    $new = Import-MarkdownCommandHelp -Path $tempMd -ErrorAction Stop 2>$null
+                }
+                finally
+                {
+                    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
                 # *>&1 folds Compare-CommandHelp's Information/Verbose trace into $trace as strings.
                 $trace = Compare-CommandHelp `
                     -ReferenceCommandHelp $old `

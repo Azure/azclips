@@ -7,10 +7,11 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { TransformPipeline } from "./transform.js";
-import type { Generator } from "./generate.js";
+import type { EmitProducer } from "./emit-producer.js";
+import type { Runtime } from "./runtime.js";
 import type { IRSnapshot, OutputDelegate } from "./output.js";
 import type { CompilerRegistry } from "./registry.js";
+import type { StageDescriptor } from "./stages.js";
 
 /** Severity levels mirror the TypeSpec compiler's diagnostic model. */
 export type DiagnosticSeverity = "error" | "warning";
@@ -41,6 +42,13 @@ export interface CompilerDiagnostic {
  * affects an Azure Client Engine compile.
  */
 export interface CompileConfig {
+  /**
+   * API version to compile the spec at. A specific version string
+   * (e.g. `"2025-09-01"`), `"latest"` (default), or `"all"`. Threaded to the
+   * emitter as the `api-version` option, which TCGC uses to project the
+   * `@versioned` program to that version before the IR is built.
+   */
+  apiVersion?: string;
   /** Extra files/libraries to import, on top of what the entrypoint imports. */
   additionalImports?: string[];
   /** Promote warning-severity TypeSpec diagnostics to errors. Default false. */
@@ -59,31 +67,23 @@ export interface CompileConfig {
    */
   emitter?: Record<string, unknown>;
   /**
-   * Ordered transform steps to run, resolved by `use` id against the registry
-   * in `CompileOptions.registry`. Absent/empty -> identity (no transform).
+   * Stage enablement toggles, keyed by the compiler's stage id. Orchestration —
+   * which stages exist, in what order they run, and what runs by default — is
+   * owned by the compiler's catalog; a config's only verb is to flip an optional
+   * stage on or off. It cannot append, insert, or reorder.
+   *
+   * Omitted ids keep their catalog default. Naming an unknown stage, disabling a
+   * mandatory one, or disabling a stage that an enabled stage `requires` is an
+   * error rather than a silent no-op.
    */
-  pipeline?: PipelineStepConfig[];
+  pipeline?: Record<string, boolean>;
   /**
-   * Generator to run, resolved by `use` id against the registry. Absent -> the
-   * no-op generator.
+   * Per-stage options, keyed by stage id (e.g.
+   * `{ csharp: { rootNamespace: "Contoso" } }`). Separate from `pipeline`
+   * because options are not orchestration: they configure a stage that the
+   * catalog already placed.
    */
-  generator?: GeneratorConfig;
-}
-
-/** Declarative selection of a registered transform step. */
-export interface PipelineStepConfig {
-  /** Registered transform-step id (see CompilerRegistry). */
-  use: string;
-  /** Options handed to the step factory. */
-  options?: Record<string, unknown>;
-}
-
-/** Declarative selection of a registered generator. */
-export interface GeneratorConfig {
-  /** Registered generator id (see CompilerRegistry). */
-  use: string;
-  /** Options handed to the generator factory. */
-  options?: Record<string, unknown>;
+  stageOptions?: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -94,14 +94,14 @@ export interface GeneratorConfig {
 export interface CompileInput {
   /** Local path to the TypeSpec project directory or an entry `.tsp` file. */
   entrypoint: string;
-  /** Resolved compile configuration (see `CompileConfig`). */
-  config?: CompileConfig;
   /**
-   * Free-form, app-resolved settings threaded into the transform and generate
-   * stages (and available for compile-time supplements to the source spec).
-   * Deliberately a plain dictionary for now.
+   * Resolved compile configuration (see `CompileConfig`). All app-resolved
+   * settings are named fields here — the emit stage reads compiler/emitter
+   * fields, and transform/generate steps read their fields off the same
+   * `config` (exposed read-only on their contexts). There is no separate
+   * free-form `extensions` bag.
    */
-  extensions?: Record<string, unknown>;
+  config?: CompileConfig;
 }
 
 /** Knobs for a single compile run. */
@@ -111,30 +111,46 @@ export interface CompileOptions {
   /** Cooperative cancellation (timeouts, web request abort). */
   signal?: AbortSignal;
   /**
-   * IR -> IR transform stage. Defaults to an identity pipeline. Injecting a
-   * pipeline lets a front end compose passes without forking the backbone.
+   * Host runtime backing the compiler's built-in **external** stages (the
+   * `tsp-emit` tool and the `csharp` generator). The backbone owns *which* tool
+   * runs and its protocol; the runtime resolves the logical tool id to a command
+   * and executes it. Required for the built-in emit (unless `emit` is injected)
+   * and for the built-in `csharp` generator.
    */
-  transform?: TransformPipeline;
+  runtime?: Runtime;
   /**
-   * IR -> files back end (e.g. the future Roslyn C# generator). Defaults to a
-   * no-op generator that emits nothing.
+   * Source -> IR emit stage. **Escape hatch**: normally emit is the compiler's
+   * built-in `tsp-emit` tool run through `runtime`. Inject a producer to bypass
+   * that (tests, bespoke embedding). With neither `emit` nor `runtime`,
+   * `compile()` fails with a `no-emit-producer` diagnostic.
    */
-  generator?: Generator;
+  emit?: EmitProducer;
   /**
-   * Capture the IR after emit (index 0) and after each transform step as
+   * Implementations for the compiler's declared stage ids — the fulfilment seam.
+   * The compiler owns *which* stages exist and *where* they sit; a host supplies
+   * the code behind ids it can serve. Built-in stages (`tsp-emit`, `csharp`) run
+   * through `runtime` when the registry does not override them.
+   */
+  registry?: CompilerRegistry;
+  /**
+   * Stage catalog to plan against. **Escape hatch** for embedders and tests —
+   * orchestration is compiler-owned, so production callers leave this unset and
+   * get `STAGE_CATALOG`. Array order is execution order.
+   */
+  catalog?: readonly StageDescriptor[];
+  /**
+   * Capture the IR after emit (index 0) and after each transform stage as
    * `IRSnapshot`s. Snapshots flow to `output`; with the default collector they
    * also appear on `CompileResult.snapshots`.
    */
   captureIR?: boolean;
   /**
    * Host output sink for every generated file and (when `captureIR`) every IR
-   * snapshot, delivered in pipeline order. Defaults to an in-memory collector
-   * that fills `CompileResult.files` / `.snapshots`. A custom sink takes
-   * ownership, leaving those result buffers empty.
+   * snapshot. Defaults to an in-memory collector that fills
+   * `CompileResult.files` / `.snapshots`. A custom sink takes ownership, leaving
+   * those result buffers empty.
    */
   output?: OutputDelegate;
-  /** Implementations backing `CompileConfig.pipeline` / `.generator` ids. */
-  registry?: CompilerRegistry;
 }
 
 /**
@@ -144,7 +160,10 @@ export interface CompileOptions {
 export interface CompileResult {
   /** True when no error-severity diagnostics were produced. */
   success: boolean;
-  /** The IR after all transform passes. Undefined if compilation failed early. */
+  /**
+   * The run's IR. A run has exactly one, so this is its final state — after
+   * every enabled transform. Undefined only if emit itself failed.
+   */
   ir?: IR;
   /** Generated output files, keyed by relative path. */
   files: Map<string, string>;

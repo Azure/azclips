@@ -3,6 +3,8 @@
 
 using Tests.Common.Utilities;
 
+using Tests.Recording;
+
 namespace Tests.Common.Recording;
 
 /// <summary>
@@ -25,4 +27,18 @@ public static class SessionRecordFiles
             "SessionRecords",
             testClass.Name,
             $"{testName}.json");
+
+    /// <summary>
+    /// Opens a <see cref="RecordingSession"/> for a test: mode from <see cref="RecorderModeResolver"/>,
+    /// file from the canonical layout, scenario metadata stamped on record.
+    /// </summary>
+    public static RecordingSession OpenSession(Type testClass, string testName, IRequestMatcher? matcher = null, RecordingSanitizers? sanitizers = null)
+    {
+        var session = RecordingSession.Open(RecorderModeResolver.FromEnvironment(), GetPath(testClass, testName), matcher, sanitizers);
+        if (session.Mode == RecorderMode.Record)
+        {
+            session.Record.Metadata["scenario"] = $"{testClass.Name}/{testName}";
+        }
+        return session;
+    }
 }

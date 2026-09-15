@@ -12,7 +12,7 @@ public sealed class ClientsOptions
 
 public sealed class CliClientOptions
 {
-    public OutputOptions Output { get; set; } = new() { Format = "table" };
+    public CliOutputOptions Output { get; set; } = new() { Format = "json" };
 }
 
 public sealed class PowerShellClientOptions
@@ -22,5 +22,17 @@ public sealed class PowerShellClientOptions
 
 public sealed class OutputOptions
 {
-    public string Format { get; set; } = "table";
+    public string Format { get; set; } = "json";
+}
+
+/// <summary>
+/// CLI-only output options. Kept separate from the shared <see cref="OutputOptions"/> (used by
+/// PowerShell too) so <see cref="SimpleFormat"/> doesn't leak into PowerShell's config defaults as
+/// an undocumented, unsupported key.
+/// </summary>
+public sealed class CliOutputOptions
+{
+    public string Format { get; set; } = "json";
+
+    public string SimpleFormat { get; set; } = "tsv";
 }

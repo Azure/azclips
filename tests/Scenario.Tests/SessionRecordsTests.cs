@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Tests.Recording;
 using Tests.Common.Recording;
 using Tests.Common.Utilities;
 

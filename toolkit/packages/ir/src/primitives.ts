@@ -42,6 +42,7 @@ export const FormatKinds = [
   "uuid",
   "ip-address",
   "hostname",
+  "arm-id",
   "base64",
   "base64url",
   "byte-stream",
@@ -49,3 +50,52 @@ export const FormatKinds = [
 ] as const;
 
 export type FormatKind = (typeof FormatKinds)[number];
+
+/**
+ * Generated-code visibility, from TCGC's resolved `.access` (core `@access`).
+ * `public` = part of the client's public surface; `internal` = generated but
+ * hidden. Omitted on IR nodes when `public` (the default).
+ */
+export const AccessKinds = ["public", "internal"] as const;
+
+export type IRAccess = (typeof AccessKinds)[number];
+
+/**
+ * Lifecycle visibility phases, mirroring TypeSpec's `TypeSpec.Lifecycle`
+ * visibility class (`@visibility(Lifecycle.Read | Create | Update | Delete |
+ * Query)`). ace preserves the full phase set instead of collapsing to
+ * read/write-only, so downstream generators keep the source's create- vs
+ * update-only distinction.
+ *
+ * Lives here rather than beside `IRModel` so that both `model.ts` (for
+ * `IRProperty.visibility`) and `hints.ts` (for a flattened member's
+ * intersected phases) can name the closed set without an import cycle.
+ */
+export const VisibilityKinds = ["read", "create", "update", "delete", "query"] as const;
+
+export type IRVisibility = (typeof VisibilityKinds)[number];
+
+/**
+ * Data-flow usage flags, decoded from TCGC's numeric `UsageFlags` bitfield
+ * (core/derived `@usage`). A type may carry several at once (e.g. a model used
+ * in both a request and a response is `["input", "output", "json"]`). ace owns
+ * these string tokens so the IR stays TypeSpec-free; the set mirrors TCGC's
+ * `UsageFlags` members (except `None`, which is represented by omission).
+ */
+export const UsageKinds = [
+  "input",
+  "output",
+  "apiVersionEnum",
+  "jsonMergePatch",
+  "multipartFormData",
+  "spread",
+  "json",
+  "xml",
+  "exception",
+  "lroInitial",
+  "lroPolling",
+  "lroFinalEnvelope",
+  "external",
+] as const;
+
+export type IRUsage = (typeof UsageKinds)[number];

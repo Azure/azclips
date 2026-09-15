@@ -73,8 +73,8 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(bundledPackageDir);
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -167,8 +167,8 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(bundledPackageDir);
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -215,7 +215,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -238,7 +238,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -280,26 +280,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            SafeDelete(Path.GetDirectoryName(installedRoot)!);
-        }
-    }
-
-    private static void SafeDelete(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            try
-            {
-                Directory.Delete(path, recursive: true);
-            }
-            catch (IOException)
-            {
-                // Non-fatal
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Non-fatal: transient OS locks or read-only bits.
-            }
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 

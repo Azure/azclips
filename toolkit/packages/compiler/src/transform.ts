@@ -1,15 +1,14 @@
 /**
- * Transform stage: an ordered sequence of named IR -> IR steps.
+ * Transform stage: one IR -> IR step in the compiler's stage sequence.
  *
- * The backbone owns the loop over `TransformPipeline.steps` (defaulting to the
- * empty identity pipeline), so it can label and capture the IR at each step
- * boundary. Front ends compose steps with `createTransformPipeline` (injected
- * via `CompileOptions.transform`) or declare them as data in
- * `CompileConfig.pipeline`, resolved against a `CompilerRegistry`.
+ * A step has no say in where it runs. The compiler's `STAGE_CATALOG` declares
+ * its id, its position, and whether it is on by default; a host only supplies
+ * the implementation behind the id via `CompileOptions.registry`. There is no
+ * host-authored pipeline object — the catalog is the pipeline.
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { CompilerDiagnostic } from "./types.js";
+import type { CompileConfig, CompilerDiagnostic } from "./types.js";
 
 /** Per-run services handed to every step. */
 export interface TransformContext {
@@ -17,38 +16,22 @@ export interface TransformContext {
   reportDiagnostic(diagnostic: CompilerDiagnostic): void;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
-  /** App-resolved free-form settings (`CompileInput.extensions`); `{}` if none. */
-  readonly extensions: Record<string, unknown>;
+  /**
+   * App-resolved compile configuration (`CompileInput.config`); `{}` if none.
+   * Per-stage options arrive through the step's factory, not from here.
+   */
+  readonly config: CompileConfig;
 }
 
 /**
- * A single named IR -> IR transformation. The `name` labels the step's captured
- * IR snapshot (`ir/<index>-<name>.json`), so it should be filename-safe.
+ * A single named IR -> IR transformation. The `name` is conventionally the
+ * stage id, which labels the captured IR snapshot (`ir/<index>-<stage>.json`).
+ *
+ * A run has exactly one IR, so returning the same object mutated in place is the
+ * expected shape; returning a replacement is equally valid, and the orchestrator
+ * carries on with whatever comes back.
  */
 export interface TransformStep {
   readonly name: string;
   run(ir: IR, context: TransformContext): IR | Promise<IR>;
 }
-
-/**
- * An ordered, named sequence of steps. The backbone iterates `steps` itself
- * (running each, then capturing a snapshot), so step boundaries stay observable.
- */
-export interface TransformPipeline {
-  readonly name: string;
-  readonly steps: readonly TransformStep[];
-}
-
-/** Compose ordered steps into a pipeline. */
-export function createTransformPipeline(
-  name: string,
-  steps: readonly TransformStep[],
-): TransformPipeline {
-  return { name, steps: [...steps] };
-}
-
-/** Default pipeline: no steps, so the IR passes through untouched. */
-export const identityPipeline: TransformPipeline = {
-  name: "identity",
-  steps: [],
-};

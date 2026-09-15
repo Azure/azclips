@@ -1,8 +1,8 @@
 /**
- * Type references. Lightweight pointers — named types (models, enums)
+ * Type references. Lightweight pointers — named models, enums, and discriminated unions
  * are referenced by IRId; primitives and structural types are inlined.
  *
- * Why references not embeddings: models and enums live in their own
+ * Why references not embeddings: named definitions live in their own
  * top-level collections to keep them unique. Embedding them at every
  * use site would duplicate definitions and make rename transforms
  * combinatorially expensive.
@@ -23,8 +23,10 @@ export type IRTypeRefEnum = { kind: "enum"; id: IRId };
 export type IRTypeRefArray = { kind: "array"; element: IRTypeRef };
 /** Dictionary keys are always strings on the JSON wire. */
 export type IRTypeRefDictionary = { kind: "dictionary"; value: IRTypeRef };
-/** Structural unions; discriminated polymorphism is modelled on IRModel instead. */
+/** Structural, untagged unions. */
 export type IRTypeRefUnion = { kind: "union"; variants: IRTypeRef[] };
+/** Named @discriminated union; its wire definition lives in IR.discriminatedUnions. */
+export type IRTypeRefDiscriminatedUnion = { kind: "discriminatedUnion"; id: IRId };
 
 export type IRTypeRef =
   | IRTypeRefPrimitive
@@ -32,19 +34,22 @@ export type IRTypeRef =
   | IRTypeRefEnum
   | IRTypeRefArray
   | IRTypeRefDictionary
-  | IRTypeRefUnion;
+  | IRTypeRefUnion
+  | IRTypeRefDiscriminatedUnion;
 
 // ─── Per-kind schemas ───────────────────────────────────────────────────
-// Exported so callers (e.g. property variants in model.ts) can reference
-// the tight per-kind schema directly instead of refining the full union.
-// That avoids running the full discriminated-union validation just to
-// then reject 5/6 variants in a refine.
+// Each variant is a plain (non-lazy) ZodObject so it can serve BOTH as a
+// member of the `IRTypeRefSchema` discriminated union AND be reused directly
+// by narrowed callers (the property variants in model.ts). Recursion is
+// deferred at the *field* level (`element` / `value` / `variants`) via
+// `z.lazy`, instead of wrapping the whole variant in `z.lazy` — that keeps
+// every variant a discriminated-union-eligible object.
 //
-// The non-recursive variants (primitive/model/enum) are plain ZodObject;
-// the recursive ones (array/dictionary/union) need `z.lazy` so they can
-// refer back to the full union via `IRTypeRefSchema`.
+// These are intentionally left un-annotated (no `: z.ZodType<...>`) so
+// TypeScript keeps the concrete ZodObject type that `z.discriminatedUnion`
+// requires. The authoritative shapes are the exported `IRTypeRef*` types above.
 
-export const IRTypeRefPrimitiveSchema: z.ZodType<IRTypeRefPrimitive> = z
+export const IRTypeRefPrimitiveSchema = z
   .object({
     kind: z.literal("primitive"),
     name: z.enum(PrimitiveKinds),
@@ -52,95 +57,71 @@ export const IRTypeRefPrimitiveSchema: z.ZodType<IRTypeRefPrimitive> = z
   })
   .strict();
 
-export const IRTypeRefModelSchema: z.ZodType<IRTypeRefModel> = z
+export const IRTypeRefModelSchema = z
   .object({
     kind: z.literal("model"),
     id: IRIdSchema,
   })
   .strict();
 
-export const IRTypeRefEnumSchema: z.ZodType<IRTypeRefEnum> = z
+export const IRTypeRefEnumSchema = z
   .object({
     kind: z.literal("enum"),
     id: IRIdSchema,
   })
   .strict();
 
-export const IRTypeRefArraySchema: z.ZodType<IRTypeRefArray> = z.lazy(() =>
-  z
-    .object({
-      kind: z.literal("array"),
-      element: IRTypeRefSchema,
-    })
-    .strict(),
-);
+export const IRTypeRefArraySchema = z
+  .object({
+    kind: z.literal("array"),
+    element: z.lazy(() => IRTypeRefSchema),
+  })
+  .strict();
 
-export const IRTypeRefDictionarySchema: z.ZodType<IRTypeRefDictionary> = z.lazy(() =>
-  z
-    .object({
-      kind: z.literal("dictionary"),
-      value: IRTypeRefSchema,
-    })
-    .strict(),
-);
+export const IRTypeRefDictionarySchema = z
+  .object({
+    kind: z.literal("dictionary"),
+    value: z.lazy(() => IRTypeRefSchema),
+  })
+  .strict();
 
-export const IRTypeRefUnionSchema: z.ZodType<IRTypeRefUnion> = z.lazy(() =>
-  z
-    .object({
-      kind: z.literal("union"),
-      variants: z.array(IRTypeRefSchema).min(2),
-    })
-    .strict(),
-);
+export const IRTypeRefUnionSchema = z
+  .object({
+    kind: z.literal("union"),
+    variants: z.array(z.lazy(() => IRTypeRefSchema)).min(2),
+  })
+  .strict();
+
+export const IRTypeRefDiscriminatedUnionSchema = z
+  .object({
+    kind: z.literal("discriminatedUnion"),
+    id: IRIdSchema,
+  })
+  .strict();
 
 /**
  * Convenience: model-or-dictionary, used by object-typed model properties
  * (a property whose value is a named model OR an open string-keyed map).
- * `z.union` rather than `z.discriminatedUnion` because dictionary is lazy.
+ * Reuses the shared model/dictionary variant schemas so an object property's
+ * `type` references the same `#/definitions/IRTypeRef*` nodes.
  */
 export const IRTypeRefObjectSchema: z.ZodType<IRTypeRefModel | IRTypeRefDictionary> = z.union([
   IRTypeRefModelSchema,
   IRTypeRefDictionarySchema,
 ]);
 
-export const IRTypeRefSchema: z.ZodType<IRTypeRef> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z
-      .object({
-        kind: z.literal("primitive"),
-        name: z.enum(PrimitiveKinds),
-        format: z.enum(FormatKinds).optional(),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("model"),
-        id: IRIdSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("enum"),
-        id: IRIdSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("array"),
-        element: IRTypeRefSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("dictionary"),
-        value: IRTypeRefSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("union"),
-        variants: z.array(IRTypeRefSchema).min(2),
-      })
-      .strict(),
-  ]),
-);
+/**
+ * The full type-ref union — built directly from the shared per-kind object
+ * schemas above, so both the union's variants and every narrowed caller
+ * (`IRProperty.type`, ...) reference the SAME schemas, and (once registered in
+ * the JSON-Schema emitter) the SAME `#/definitions/IRTypeRef*` nodes.
+ */
+export const IRTypeRefSchema: z.ZodType<IRTypeRef> = z.discriminatedUnion("kind", [
+  IRTypeRefPrimitiveSchema,
+  IRTypeRefModelSchema,
+  IRTypeRefEnumSchema,
+  IRTypeRefArraySchema,
+  IRTypeRefDictionarySchema,
+  IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
+]);

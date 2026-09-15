@@ -5,18 +5,17 @@
  *   1. createSdkContext  → TCGC-built type universe
  *   2. createBuildContext → caches, diag sink
  *   3. listAllServiceNamespaces → pick first, warn if >1
- *   4. buildSource        → IRSource (server + apiVersion)
- *   5. modelsFrom         → IRModel[]
- *   6. enumsFrom          → IREnum[]
- *   7. operationsFrom     → IROperation[] (denormalizes per-source stamps)
+ *   4. buildSource        → IRSource + shared server definition + apiVersion
+ *   5. operationsFrom     → IROperation[] (also discovers HTTP-part types)
+ *   6. modelsFrom         → IRModel[]
+ *   7. enumsFrom          → IREnum[]
  *   8. parseIR            → integrity check (throws on bug)
  *   9. writeIR            → js-yaml / JSON serialize + emitFile
  *  10. surface diagnostics; honour `diagnosticsAsErrors`
  */
 
 import type { EmitContext } from "@typespec/compiler";
-import { NoTarget } from "@typespec/compiler";
-import { getAuthentication } from "@typespec/http";
+import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
 import {
   createSdkContext,
   listAllServiceNamespaces,
@@ -68,35 +67,25 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   }
 
   // Build context. sourceId defaults to the service namespace FQN.
-  const fqn = sdkContext.sdkPackage.namespaces.find((n) => n.__raw === serviceNs)?.fullName
-    ?? serviceNs.name
-    ?? "spec";
+  const fqn = getNamespaceFullName(serviceNs);
   const buildCtx = createBuildContext(sdkContext, {
     sourceId: options.sourceId ?? fqn,
     diagnosticsAsErrors: options.diagnosticsAsErrors,
   });
 
-  // Auth is an explicit IR deferral: the IR has no IRAuth node yet. If the
-  // service declares @useAuth, drop the metadata but tell the user once.
-  if (getAuthentication(context.program, serviceNs) !== undefined && !buildCtx.flags.authNotEmittedWarned) {
-    buildCtx.flags.authNotEmittedWarned = true;
-    reportDiagnostic(context.program, {
-      code: "auth-not-emitted",
-      target: NoTarget,
-    });
-  }
-
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
 
+  const operations = operationsFrom(buildCtx, apiVersion, server.id);
   const models = modelsFrom(buildCtx);
   const enums = enumsFrom(buildCtx);
-  const operations = operationsFrom(buildCtx, apiVersion, server);
 
   const ir: IR = {
     schemaVersion: IR_SCHEMA_VERSION,
     sources: [source],
+    servers: [server],
     models,
     enums,
+    discriminatedUnions: [...buildCtx.discriminatedUnions.values()],
     operations,
   };
 

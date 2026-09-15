@@ -1,17 +1,20 @@
 /**
  * SdkType → IRTypeRef mapping.
  *
- * Pure mechanical translation. The only "choice" baked in here is the
- * primitive-kind mapping (see `primitiveKindOf` and `formatFor`); even
- * that is dictated by TCGC's own normalization of TypeSpec scalars.
+ * Ordinary types use TCGC's normalization. Discriminated unions are resolved
+ * from TypeSpec before SDK enum/nullable normalization can erase their wire shape.
  *
  * Nullable handling: `SdkNullableType` is *not* a type-ref in IR.
  * Callers (`properties.ts`, `http.ts`, `operations.ts`) call
  * `unwrapNullable` first to lift the nullability flag, then pass the
- * unwrapped type here.
+ * unwrapped type here. A tagged null payload stays inside its union definition.
  */
 
-import { getLocationContext, NoTarget } from "@typespec/compiler";
+import {
+  getDiscriminatedUnion, getDoc, getLocationContext,
+  getNamespaceFullName, getSummary, NoTarget,
+  type Type, type Union, type UnionVariant,
+} from "@typespec/compiler";
 import type {
   SdkArrayType,
   SdkBuiltInType,
@@ -26,17 +29,24 @@ import type {
   SdkType,
   SdkUnionType,
 } from "@azure-tools/typespec-client-generator-core";
-import { getLibraryName } from "@azure-tools/typespec-client-generator-core";
+import {
+  getClientTypeWithDiagnostics, getGeneratedName, getLibraryName, getNamespaceFromType,
+} from "@azure-tools/typespec-client-generator-core";
 import type {
   FormatKind,
+  IRDiscriminatedUnion,
+  IRDiscriminatedUnionVariant,
   IRId,
   IRTypeRef,
   IRTypeRefPrimitive,
+  IRTypeRefDiscriminatedUnion,
   PrimitiveKind,
 } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
+import { literalFromValue } from "./literals.js";
+import { reportSdkDiagnostics } from "./discriminators.js";
 
 const ANY_PRIMITIVE: IRTypeRefPrimitive = { kind: "primitive", name: "any" };
 
@@ -45,14 +55,37 @@ const ANY_PRIMITIVE: IRTypeRefPrimitive = { kind: "primitive", name: "any" };
  * whether a nullable wrapper was found. Repeated callers can spread the
  * result into their own `{ nullable }` field.
  */
-export function unwrapNullable(t: SdkType): { type: SdkType; nullable: boolean } {
-  if (t.kind === "nullable") {
+export function unwrapNullable(ctx: BuildContext, t: SdkType): { type: SdkType; nullable: boolean } {
+  if (t.kind === "nullable" && !discriminatedSource(ctx, t)) {
     const inner = (t as SdkNullableType).type;
     // TCGC normalizes flat nullable; defensively unwrap chains anyway.
-    const next = unwrapNullable(inner);
+    const next = unwrapNullable(ctx, inner);
     return { type: next.type, nullable: true };
   }
   return { type: t, nullable: false };
+}
+
+export function discriminatedSource(ctx: BuildContext, type: SdkType): Union | undefined {
+  const raw = type.__raw;
+  if (raw?.kind !== "Union") return undefined;
+  const [resolved, diagnostics] = getDiscriminatedUnion(ctx.program, raw);
+  ctx.program.reportDiagnostics(diagnostics);
+  return resolved?.type;
+}
+
+export function sourceId(ctx: BuildContext, raw: Type | undefined, name: string): IRId {
+  const namespace = getNamespaceFromType(raw);
+  const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
+  return {
+    module: sourceModule(ctx, raw),
+    namespace: fqn.length === 0 ? [] : fqn.split("."),
+    name,
+  };
+}
+
+function sourceModule(ctx: BuildContext, raw: Type | undefined): string {
+  const location = raw !== undefined ? getLocationContext(ctx.program, raw) : undefined;
+  return location?.type === "library" ? location.metadata.name : ctx.options.sourceId;
 }
 
 /**
@@ -67,46 +100,91 @@ export function moduleFor(
   ctx: BuildContext,
   t: SdkModelType | SdkEnumType | SdkUnionType,
 ): string {
-  const raw = t.__raw;
-  if (raw !== undefined) {
-    const loc = getLocationContext(ctx.program, raw);
-    if (loc.type === "library") return loc.metadata.name;
-  }
-  return ctx.options.sourceId;
+  return sourceModule(ctx, t.__raw);
 }
 
 /**
  * Build an IRId for any *nameable* SdkType (model/enum/union). Uses the
  * id-cache so we hand out the same identity on subsequent calls. The
- * namespace decomposition follows the rule baked into the plan:
+ * namespace comes from the original TypeSpec declaration, not SDK placement:
  *
  *   module     = the source-id (or the type's owning library package name
  *                for library-declared types — see `moduleFor`)
- *   namespace  = the FQN segments BETWEEN the module and the type name
+ *   namespace  = the original TypeSpec namespace's FQN segments
  *   name       = TCGC's libraryName for the type
  */
 export function idFor(
   ctx: BuildContext,
   t: SdkModelType | SdkEnumType | SdkUnionType,
 ): IRId {
+  if (t.kind === "model") ctx.models.add(t);
+  if (t.kind === "enum") ctx.enums.add(t);
   const cached = ctx.idCache.get(t);
   if (cached) return cached;
 
   const name = nameOf(ctx, t);
-  const fqn = t.namespace; // dotted, may be ""
-  const segments = fqn.length === 0 ? [] : fqn.split(".");
-
-  const moduleStr = moduleFor(ctx, t);
-  // Namespace ⊂ FQN; we keep the full FQN segments as the namespace path and
-  // attribute the type to its owning module (spec sourceId or library name).
-  // This matches the design in the plan: IRId.namespace[] = FQN segments.
-  const id: IRId = {
-    module: moduleStr,
-    namespace: segments,
-    name,
-  };
+  const id = sourceId(ctx, t.__raw, name);
   ctx.idCache.set(t, id);
   return id;
+}
+
+function discriminatedVariant(
+  ctx: BuildContext,
+  variant: UnionVariant,
+  where: string,
+): IRDiscriminatedUnionVariant {
+  const docs = getDoc(ctx.program, variant);
+  const summary = getSummary(ctx.program, variant);
+  const metadata = {
+    ...(typeof variant.name === "string" ? { value: variant.name } : {}),
+    ...(docs !== undefined ? { docs } : {}),
+    ...(summary !== undefined ? { summary } : {}),
+  };
+  if (variant.type.kind === "Intrinsic" && variant.type.name === "null") {
+    return { ...metadata, nullable: true, literalValue: { kind: "null" } };
+  }
+  const [sdkType, diagnostics] = getClientTypeWithDiagnostics(ctx.sdkContext, variant.type);
+  reportSdkDiagnostics(ctx.program, diagnostics);
+  const { type, nullable } = unwrapNullable(ctx, sdkType);
+  let literalValue = type.kind === "constant" || type.kind === "enumvalue"
+    ? literalFromValue(type.value) : undefined;
+  if (variant.type.kind === "Number" && !Number.isSafeInteger(variant.type.value)) {
+    const integer = variant.type.numericValue.asBigInt();
+    if (integer !== null) literalValue = literalFromValue(integer);
+  }
+  return {
+    ...metadata,
+    type: typeRefFor(ctx, type, where),
+    nullable,
+    ...(literalValue !== undefined ? { literalValue } : {}),
+  };
+}
+
+function discriminatedUnionRef(ctx: BuildContext, raw: Union, where: string): IRTypeRefDiscriminatedUnion {
+  const existing = ctx.discriminatedUnions.get(raw);
+  if (existing) return { kind: "discriminatedUnion", id: existing.id };
+  const [resolved, diagnostics] = getDiscriminatedUnion(ctx.program, raw);
+  ctx.program.reportDiagnostics(diagnostics);
+  if (!resolved) throw new Error(`Missing discriminator definition for ${where}`);
+  const id = sourceId(ctx, raw, getLibraryName(ctx.sdkContext, raw) || getGeneratedName(ctx.sdkContext, raw));
+  const docs = getDoc(ctx.program, raw);
+  const summary = getSummary(ctx.program, raw);
+  const definition: IRDiscriminatedUnion = {
+    id,
+    name: id.name,
+    source: id.module,
+    discriminatorPropertyName: resolved.options.discriminatorPropertyName,
+    envelope: resolved.options.envelope,
+    ...(resolved.options.envelope === "object" ? { envelopePropertyName: resolved.options.envelopePropertyName } : {}),
+    variants: [],
+    ...(docs !== undefined ? { docs } : {}),
+    ...(summary !== undefined ? { summary } : {}),
+  };
+  // Register before visiting payloads so recursive unions remain references on the wire.
+  ctx.discriminatedUnions.set(raw, definition);
+  definition.variants = [...raw.variants.values()].map((variant, index) =>
+    discriminatedVariant(ctx, variant, `${where}.variant[${index}]`));
+  return { kind: "discriminatedUnion", id };
 }
 
 function nameOf(
@@ -171,6 +249,19 @@ function primitiveKindOf(kind: string): PrimitiveKind | undefined {
   }
 }
 
+/**
+ * Azure.Core semantic string scalars (`armResourceIdentifier`, `uuid`, `ipV4/6Address`)
+ * `extends string`, so TCGC flattens them to `kind: "string"` — but retains their
+ * identity in `crossLanguageDefinitionId`. Map that identity onto the IR's format
+ * hint so the semantic survives the flattening (source-faithful — nothing dropped).
+ */
+const SEMANTIC_SCALAR_FORMATS: Readonly<Record<string, FormatKind>> = {
+  "Azure.Core.armResourceIdentifier": "arm-id",
+  "Azure.Core.uuid": "uuid",
+  "Azure.Core.ipV4Address": "ip-address",
+  "Azure.Core.ipV6Address": "ip-address",
+};
+
 /** Compute a wire-format hint from a TCGC builtin/datetime/duration kind. */
 function formatFor(t: SdkType): FormatKind | undefined {
   switch (t.kind) {
@@ -191,8 +282,12 @@ function formatFor(t: SdkType): FormatKind | undefined {
       if (enc === "base64") return "base64";
       return undefined;
     }
-    default:
-      return undefined;
+    default: {
+      // Semantic string scalars keep their identity in crossLanguageDefinitionId
+      // even though TCGC reports kind "string".
+      const xldi = (t as SdkBuiltInType).crossLanguageDefinitionId;
+      return xldi !== undefined ? SEMANTIC_SCALAR_FORMATS[xldi] : undefined;
+    }
   }
 }
 
@@ -206,6 +301,9 @@ export function typeRefFor(
   t: SdkType,
   where: string,
 ): IRTypeRef {
+  // Inspect the source before TCGC's enum/nullable/single-variant normalization.
+  const discriminated = discriminatedSource(ctx, t);
+  if (discriminated) return discriminatedUnionRef(ctx, discriminated, where);
   switch (t.kind) {
     case "nullable": {
       // Defensive: should have been unwrapped by caller. Try anyway.
@@ -219,8 +317,12 @@ export function typeRefFor(
       return { kind: "enum", id: idFor(ctx, t as SdkEnumType) };
 
     case "enumvalue": {
-      // A single enum value used as a type — treat as the parent enum.
       const ev = t as SdkEnumValueType;
+      // A member of an enum-normalized @discriminated union is its payload
+      // literal, not a reference to the SDK's synthetic enum.
+      if (discriminatedSource(ctx, ev.enumType)) {
+        return typeRefFor(ctx, ev.enumType.valueType, where);
+      }
       return { kind: "enum", id: idFor(ctx, ev.enumType) };
     }
 
@@ -243,8 +345,6 @@ export function typeRefFor(
 
     case "union": {
       const u = t as SdkUnionType;
-      // discriminated unions still get emitted as a union *type-ref*;
-      // generators consult IRModel for envelope semantics if any.
       const variants: IRTypeRef[] = u.variantTypes.map((v, i) =>
         typeRefFor(ctx, v as SdkType, `${where}.variant[${i}]`),
       );

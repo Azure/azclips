@@ -489,7 +489,7 @@ An **extension** is a DLL that exposes commands. Structurally each has:
 
 - an `ExtensionIndex.cs` — the registry mapping verbs to processor types,
 - one `IProcessor` per verb (the command logic),
-- optionally `Orchestrators/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
+- optionally `Customization/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
 - a `Compatibility.cs` marking Azclips compatibility.
 
 The six extensions today (`azclips.slnx`):
@@ -500,7 +500,7 @@ The six extensions today (`azclips.slnx`):
 | `Extension`        | Extension _management_: `add`/`list`/`pin`/`unpin`/`remove`/`show`/`update`                  |
 | `Resources`        | Resource groups & deployments (`group create`, `deployment ...`)                             |
 | `Compute`          | VMs, NICs, NSGs, VNets                                                                       |
-| `Login`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
+| `Accounts`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
 | `Config`           | `config get/set/list/delete/info`                                                            |
 
 **Discovery & loading.** Every extension is discovered at runtime through the loader chain. `BundledExtensionLoader` scans `<install>/Extensions/` (and local build output); `InstalledExtensionLoader` scans `~/.azclips/extensions/`, honoring the config-driven root. `ExtensionDispatcher` uses a `LeafIndex` built from the discovery results to resolve which extension owns a verb (`ExtensionDispatcher.cs:44`). Loading the DLL is `IAssemblyLoadingService` / `CLIAssemblyLoadingProvider` (`src/CLI/AssemblyLoading/`), with side-by-side versions via `InstalledExtensionLoader` (registered at `Program.cs:59`). Because loading + reflecting is expensive, `Engine` caches each extension's `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` keyed by `name-version` (`Engine.cs:36,81`).
@@ -508,7 +508,7 @@ The six extensions today (`azclips.slnx`):
 
 ### 10.1 Simple commands vs. orchestrated commands
 
-Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Orchestrators/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
+Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Customization/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
 
 - **Single request/response** (like `config set`, `group show`) → a plain `IProcessor`.
 - **Long-running / multi-call** (like a deployment with polling, or "create a VM" which also creates a NIC, NSG, and VNet) → an orchestrator that sequences several processors.
@@ -567,7 +567,7 @@ Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `ag
 
 A **profile** is a named connection: tenant, subscription, user, cloud, auth method. `IProfileService`/`ProfileService` (`src/Core/Core.Runtime/ProfileService.cs:14`) store them in `{LocalApplicationData}/.azclips/profiles.json` with a separate `active-profile` pointer file. Writes are **atomic** (temp file + rename) and serialized in-process by a semaphore.
 
-The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Login` extension (`src/Extensions/Login/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
+The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Accounts` extension (`src/Extensions/Accounts/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
 
 Login/profile semantics, which trip up newcomers:
 
@@ -716,7 +716,7 @@ az group --help
 | `az config list`                  | Dump current settings (`~/.azclips/config.json`)         |
 | `az config set --key K --value V` | Set a setting (keys normalize `:`→`.`, case-insensitive) |
 | `az config get --key K`           | Read one setting                                         |
-| `az login`                        | Auth into the reserved `temp` profile                    |
+| `az login`                        | Auth into the reserved `default` profile                 |
 | `az login --out-profile prod`     | Auth into a named profile                                |
 | `az --profile prod group list`    | Run a command under a specific profile                   |
 | `az --upload-telemetry`           | (Internal) the detached uploader the CLI spawns for you  |
@@ -724,7 +724,7 @@ az group --help
 **PowerShell:**
 
 ```powershell
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Connect-AzAccount -SubscriptionId <sub> -TenantId <tenant>
 Import-Module ./src/PS/Resources/Resources.psd1
 New-AzResourceGroup -Name demo -Location eastus
@@ -993,7 +993,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `src/CLI/Parser/ExtensionDispatcher.cs` — arg parsing / verb resolution (`:44`).
 - `src/Extensions/Extension/` — extension management (`add`/`update`/`pin`…).
 - `src/Extensions/ExtensionRuntime/` — serialization runtime.
-- `src/Extensions/Login/Processors/` — login/logout + profile commands.
+- `src/Extensions/Accounts/Processors/` — login/logout + profile commands.
 
 **AI & TUI**
 

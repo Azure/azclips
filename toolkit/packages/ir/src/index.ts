@@ -18,8 +18,13 @@ export {
 export {
   PrimitiveKinds,
   FormatKinds,
+  AccessKinds,
+  UsageKinds,
+  VisibilityKinds,
   type PrimitiveKind,
   type FormatKind,
+  type IRAccess,
+  type IRUsage,
 } from "./primitives.js";
 
 export {
@@ -35,6 +40,7 @@ export {
   IRTypeRefArraySchema,
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
   IRTypeRefObjectSchema,
   type IRTypeRef,
   type IRTypeRefPrimitive,
@@ -43,10 +49,20 @@ export {
   type IRTypeRefArray,
   type IRTypeRefDictionary,
   type IRTypeRefUnion,
+  type IRTypeRefDiscriminatedUnion,
 } from "./type-ref.js";
 
 export {
+  IRDiscriminatedUnionSchema,
+  IRDiscriminatedUnionVariantSchema,
+  type IRDiscriminatedUnion,
+  type IRDiscriminatedUnionVariant,
+} from "./discriminated-union.js";
+
+export {
   FlattenHintSchema,
+  FlattenedMemberSchema,
+  FlattenedParameterSchema,
   SerializationHintSchema,
   ClientApiHintSchema,
   DocsHintSchema,
@@ -60,6 +76,8 @@ export {
   OperationHintsSchema,
   RequestBodyHintsSchema,
   type FlattenHint,
+  type FlattenedMember,
+  type FlattenedParameter,
   type SerializationHint,
   type ClientApiHint,
   type DocsHint,
@@ -85,6 +103,7 @@ export {
   IRModelSchema,
   IRPolymorphismSchema,
   IRPropertySchema,
+  IRVisibilitySchema,
   type IRModel,
   type IRPolymorphism,
   type IRProperty,
@@ -93,18 +112,25 @@ export {
   type IRPropertyCollection,
   type IRPropertyEnum,
   type IRPropertyUnion,
+  type IRVisibility,
 } from "./model.js";
 
 export {
   IROperationSchema,
   IRParameterSchema,
+  IRMultipartValueSchema,
+  IRMultipartHeaderSchema,
+  IRMultipartPartBodySchema,
+  IRMultipartPartSchema,
+  IRMultipartBodySchema,
   IRRequestBodySchema,
   IRResponseSchema,
   IRResponseHeaderSchema,
   IRStatusCodeSchema,
   IRApiVersionStampSchema,
-  IRServerSchema,
-  IRServerParameterSchema,
+  IRPagingSegmentSchema,
+  IRPagingBindingSchema,
+  IRPagingPropertySchema,
   IRPageableSemanticsSchema,
   IRLongRunningSemanticsSchema,
   IROperationSemanticsSchema,
@@ -112,13 +138,19 @@ export {
   CollectionFormats,
   type IROperation,
   type IRParameter,
+  type IRMultipartValue,
+  type IRMultipartHeader,
+  type IRMultipartPartBody,
+  type IRMultipartPart,
+  type IRMultipartBody,
   type IRRequestBody,
   type IRResponse,
   type IRResponseHeader,
   type IRStatusCode,
   type IRApiVersionStamp,
-  type IRServer,
-  type IRServerParameter,
+  type IRPagingSegment,
+  type IRPagingBinding,
+  type IRPagingProperty,
   type IRPageableSemantics,
   type IRLongRunningSemantics,
   type IROperationSemantics,
@@ -127,9 +159,31 @@ export {
 } from "./operation.js";
 
 export {
+  IRServerSchema,
+  IRServerParameterSchema,
+  IRServerDefinitionSchema,
+  type IRServer,
+  type IRServerParameter,
+  type IRServerDefinition,
+} from "./server.js";
+
+export {
   IRSourceSchema,
   type IRSource,
 } from "./source.js";
+
+export {
+  IRAuthSchema,
+  IRAuthOptionSchema,
+  IRAuthSchemeSchema,
+  IROAuth2FlowSchema,
+  IROAuth2ScopeSchema,
+  type IRAuth,
+  type IRAuthOption,
+  type IRAuthScheme,
+  type IROAuth2Flow,
+  type IROAuth2Scope,
+} from "./auth.js";
 
 export {
   IRSchema,

@@ -11,12 +11,12 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 **Goals:**
 - Users can list, show, switch, and remove named profiles
 - Users can switch between profiles persistently or override per-command
-- Login automatically creates a profile (named or "temp") and sets it active
+- Login automatically creates a profile (named or "default") and sets it active
 - Profile is the single source of truth for connection state, replacing `context.json`
 - `AuthContext`, `IAuthContextService`/`AuthContextService`, and `context.json` are removed entirely; the HTTP auth pipeline (`AuthHandler`) reads tenant/subscription directly from the resolved `Profile`
 - Cloud name is a stored property on every profile (no behavioral impact — sovereign cloud MSAL wiring deferred)
 - Profile writes are atomic (temp-file-plus-rename) to prevent corruption from concurrent access
-- `"temp"` is a reserved profile name used exclusively by bare login
+- `"default"` is a reserved profile name used exclusively by bare login
 
 **Non-Goals:**
 - Commands for creating or modifying profiles directly (e.g. `profile create`) — deferred to a future configuration-management change
@@ -43,11 +43,13 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 **Alternative considered**: One file per profile (`{LocalApplicationData}/.azclips/profiles/<name>.json`). More filesystem overhead, harder to list atomically. SQLite also considered but overly complex for a small config store.
 
-### 3. Bare login creates a "temp" profile
+### 3. Bare login creates a "default" profile
 
-**Decision**: `az login` without `--out-profile` saves the resulting connection as a profile named `"temp"`, overwriting any previous temp profile. `az login --out-profile <name>` creates/overwrites a named profile. `"temp"` is a reserved profile name — users cannot create it via `profile create` (deferred) but bare login always uses it.
+> **Update (#490, Aug 2026):** The reserved name was changed from `"temp"` to `"default"` based on private-preview feedback that "temp" was confusing about the profile's purpose and lifecycle. The original decision and rationale below are preserved as history; wherever it says `"temp"`, the current behavior uses `"default"`.
 
-**Rationale**: Eliminates backward-compat complexity of maintaining both profile and non-profile code paths. "temp" is intentionally disposable, nudging users toward named profiles. The name "temp" avoids collision with "default" which could be confused with a pointer concept. Reserving "temp" prevents user confusion about its lifecycle.
+**Decision**: `az login` without `--out-profile` saves the resulting connection as a profile named `"default"`, overwriting any previous default profile. `az login --out-profile <name>` creates/overwrites a named profile. `"default"` is a reserved profile name — users cannot create it via `profile create` (deferred) but bare login always uses it.
+
+**Rationale (original, for "temp")**: Eliminates backward-compat complexity of maintaining both profile and non-profile code paths. "temp" is intentionally disposable, nudging users toward named profiles. The name "temp" avoids collision with "default" which could be confused with a pointer concept. Reserving "temp" prevents user confusion about its lifecycle. (Preview feedback later reversed the naming preference — see the update note above.)
 
 **Alternative considered**: (A) Keep old `context.json` behavior for bare login — rejected to avoid dual code paths. (C) Auto-generate name from tenant/user — rejected because long names defeat the purpose of named profiles.
 
@@ -79,11 +81,11 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 **Decision**: `LoginProcessor` is repurposed to build and **return the resulting `Profile`** as its output (replacing the removed `AuthContext` output). The auth method is derived from the login flags (Browser by default, DeviceCode with `--use-device-code`); `UserPrincipalName` is sourced from the authenticated account. Because the current `AuthResult` does not surface the account username, `AuthResult` is extended to expose it (from MSAL's `IAccount.Username`) so the returned `Profile` is complete. `Broker`/`ServicePrincipal`/`ManagedIdentity` enum values are defined for forward-compatibility but are not reachable through the current login flags in this change. Persistence and activation are performed in a single `SaveAndActivateProfileAsync` call.
 
-`login` accepts `--profile <name>` to **re-authenticate an existing profile** (e.g., MFA/token refresh): tenant/subscription/cloud come from that profile, the auth flow runs, the profile is overwritten with the refreshed result and set active. `--profile` and `--out-profile` are **mutually exclusive** — supplying both fails fast before authentication. To distinguish an explicit `--profile` from the active-profile fallback, `LoginProcessor` reads its own bound `--profile`/`--out-profile` parameter values (not the resolved `ProcessorContext.Profile`, which includes the active fallback). When neither is supplied, login targets `"temp"`.
+`login` accepts `--profile <name>` to **re-authenticate an existing profile** (e.g., MFA/token refresh): tenant/subscription/cloud come from that profile, the auth flow runs, the profile is overwritten with the refreshed result and set active. `--profile` and `--out-profile` are **mutually exclusive** — supplying both fails fast before authentication. To distinguish an explicit `--profile` from the active-profile fallback, `LoginProcessor` reads its own bound `--profile`/`--out-profile` parameter values (not the resolved `ProcessorContext.Profile`, which includes the active fallback). When neither is supplied, login targets `"default"`.
 
 **Rationale**: Returning the `Profile` gives `login`, `profile show`, and `profile list` a single consistent output shape and lets us delete the `GetContextProcessor`/`Get-AzContext` "show" path. Re-auth via `--profile` matches the real-world need to refresh a specific profile's tokens without re-typing tenant/subscription. Failing fast on `--profile`+`--out-profile` avoids the ambiguous "re-auth one profile but write another" case and follows the proposal's "no surprising precedence" principle.
 
-**Alternative considered**: Relying on `ProcessorContext.Profile` for the re-auth target — rejected because resolution falls back to the active profile, so bare `login` with an active profile set would be indistinguishable from explicit `--profile` and would wrongly re-auth the active profile instead of creating `"temp"`.
+**Alternative considered**: Relying on `ProcessorContext.Profile` for the re-auth target — rejected because resolution falls back to the active profile, so bare `login` with an active profile set would be indistinguishable from explicit `--profile` and would wrongly re-auth the active profile instead of creating `"default"`.
 
 ### 8. Active-profile and save-and-activate are native service methods; `AuthMethod.Browser`/`Broker`
 
@@ -97,7 +99,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 - **[Risk] MSAL cache is shared across profiles** → Tokens for different tenants coexist in one cache file. MSAL handles this natively (accounts are keyed by tenant+user), but logout must carefully target only the active profile's account. Mitigation: use MSAL's `GetAccountsAsync()` filtered by tenant/UPN to find the right account.
 
-- **[Risk] "temp" profile overwrite loses context** → A bare `az login` silently overwrites the previous temp profile. Mitigation: This is by design — temp is disposable. Users who need persistence use `--out-profile`.
+- **[Risk] "default" profile overwrite loses context** → A bare `az login` silently overwrites the previous default profile. Mitigation: This is by design — the default profile is disposable. Users who need persistence use `--out-profile`.
 
 - **[Risk] `--profile` per-processor is maintenance burden** → Resource, Compute, and Login processors must add the parameter. Other modules to be updated via code generation. Mitigation: Acceptable short-term; global parameter framework is the long-term fix. Document the pattern clearly.
 

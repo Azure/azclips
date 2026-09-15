@@ -9,20 +9,13 @@
  * # Explicit deferrals (the IR doesn't carry these yet; transformers / IR
  *   bumps will pick them up later):
  *
- *   - Auth (`@useAuth`): IR has no `IRAuth` node. Reported once as an
- *     informational diagnostic the first time a service declares auth.
  *   - Examples (`@opExample`): IR has no `IRExample` node.
- *   - Open enums: TCGC's `isFixed: false` enums lose their open-ness in IR.
- *     A one-shot `open-enum-as-closed` info diagnostic is emitted on the
- *     first such enum.
  *   - Primitive constraints (`@minLength`, `@pattern`, etc.): dropped
  *     silently; the transformer layer (or a future IR bump) is the right
  *     home for these.
  *   - Cookies, tuples, streaming bodies: each diagnosed and skipped.
  *   - Multi-content-type bodies: first content-type wins; rest warned.
  *   - Override methods (`SdkServiceMethod.isOverride`): skipped.
- *   - Internal-access types (`access === "internal"`): silently skipped
- *     (this is intentional shaping by the spec author).
  */
 
 import {
@@ -41,6 +34,7 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
     pretty: { type: "boolean", nullable: true },
     emitterName: { type: "string", nullable: true },
     sourceId: { type: "string", nullable: true },
+    "api-version": { type: "string", nullable: true },
     diagnosticsAsErrors: { type: "boolean", nullable: true },
   },
   required: [],
@@ -49,6 +43,18 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 export const $lib = createTypeSpecLibrary({
   name: "@azure-client-engine/typespec-emitter",
   diagnostics: {
+    "paging-property-unbound": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Paging property '${"property"}' on operation '${"operation"}' has no resolved HTTP binding; its source metadata is retained.`,
+      },
+    },
+    "paging-items-not-array": {
+      severity: "error",
+      messages: {
+        default: paramMessage`Paging items on operation '${"operation"}' must resolve to an array.`,
+      },
+    },
     "unsupported-type-kind": {
       severity: "warning",
       messages: {
@@ -139,22 +145,10 @@ export const $lib = createTypeSpecLibrary({
         default: `Override methods (SdkServiceMethod.isOverride) are not emitted; skipping.`,
       },
     },
-    "internal-access-skipped": {
-      severity: "warning",
-      messages: {
-        default: `Internal-access types are not emitted; skipping.`,
-      },
-    },
     "open-enum-as-closed": {
       severity: "warning",
       messages: {
-        default: paramMessage`Open enum '${"enum"}' is emitted as closed; IR has no open-enum variant.`,
-      },
-    },
-    "auth-not-emitted": {
-      severity: "warning",
-      messages: {
-        default: `@useAuth is declared but IR has no IRAuth node; auth metadata is dropped.`,
+        default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
       },
     },
     "ir-validation-failed": {

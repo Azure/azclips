@@ -22,12 +22,13 @@ stages:
   condition: succeeded()
   jobs:
   - job: CheckPullRequest
-    displayName: Check Pull Request Title and History Notes
+    displayName: Check Pull Request Policies
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
       persistCredentials: true
+      fetchDepth: 0
     - bash: |
         set -euo pipefail
 
@@ -104,6 +105,22 @@ stages:
         if token:
             headers['Authorization'] = f'Bearer {token}'
 
+        def remove_checkout_credentials():
+            result = subprocess.run(
+                ['git', 'config', '--local', '--name-only', '--get-regexp', r'^http\..*\.extraheader$'],
+                capture_output=True,
+                check=False,
+                text=True
+            )
+            if result.returncode not in (0, 1):
+                print('Failed to inspect persisted checkout credentials.', file=sys.stderr)
+                sys.exit(1)
+            for key in result.stdout.splitlines():
+                subprocess.run(
+                    ['git', 'config', '--local', '--unset-all', key],
+                    check=True
+                )
+
         def get_error_body(error):
             try:
                 return error.read().decode('utf-8', errors='replace').strip()
@@ -142,19 +159,94 @@ stages:
             print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
             sys.exit(1)
 
+        remove_checkout_credentials()
+        headers.pop('Authorization', None)
+        token = ''
+
         title = pull_request.get('title') or ''
         body = pull_request.get('body') or ''
+        base = pull_request.get('base') or {}
+        head = pull_request.get('head') or {}
+        base_repository = (base.get('repo') or {}).get('full_name') or ''
+        head_repository = (head.get('repo') or {}).get('full_name') or ''
+        base_sha = base.get('sha') or ''
+        head_sha = head.get('sha') or ''
+        head_ref = head.get('ref') or ''
+        pull_request_author = (pull_request.get('user') or {}).get('login') or ''
+
+        if not all([base_repository, head_repository, base_sha, head_sha, head_ref, pull_request_author]):
+            print('Pull request metadata is missing base/head repository, SHA, branch, or author information.', file=sys.stderr)
+            sys.exit(1)
 
         print(f'Check pull request title and history notes: #{pr_number}')
         print(title)
 
+        trusted_title_checker_path = os.path.join(
+            os.environ.get('AGENT_TEMPDIRECTORY', '/tmp'),
+            'check_pull_request.py'
+        )
+        trusted_title_checker = subprocess.run(
+            ['git', 'show', f'{base_sha}:devops/scripts/ci/check_pull_request.py'],
+            capture_output=True,
+            check=False
+        )
+        if trusted_title_checker.returncode != 0:
+            print('The trusted PR title checker is missing from the base commit.', file=sys.stderr)
+            sys.exit(1)
+        with open(trusted_title_checker_path, 'wb') as checker_file:
+            checker_file.write(trusted_title_checker.stdout)
+
         subprocess.run(
-            ['python3', 'devops/scripts/ci/check_pull_request.py', title],
+            ['python3', trusted_title_checker_path, title],
             input=body,
             text=True,
             check=True
         )
+
+        print(f'Check pull request file policies: #{pr_number}')
+        trusted_checker_path = os.path.join(
+            os.environ.get('AGENT_TEMPDIRECTORY', '/tmp'),
+            'check_pull_request_changes.py'
+        )
+        trusted_checker = subprocess.run(
+            ['git', 'show', f'{base_sha}:devops/scripts/ci/check_pull_request_changes.py'],
+            capture_output=True,
+            check=False
+        )
+        if trusted_checker.returncode != 0:
+            is_bootstrap_pr = (
+                pr_number == '878'
+                and base_sha == '4a955c8aa520f6744e8bc285a2f6de526736dd50'
+                and base_repository.casefold() == 'azure/azclips'
+                and head_repository.casefold() == 'azure/azclips'
+                and pull_request_author.casefold() == 'naga-nandyala'
+            )
+            if not is_bootstrap_pr:
+                print('The trusted PR file policy checker is missing from the base commit.', file=sys.stderr)
+                sys.exit(1)
+            print('Using the checked-out policy checker for its restricted bootstrap PR.')
+            with open('devops/scripts/ci/check_pull_request_changes.py', 'rb') as checker_file:
+                trusted_checker.stdout = checker_file.read()
+
+        with open(trusted_checker_path, 'wb') as checker_file:
+            checker_file.write(trusted_checker.stdout)
+
+        subprocess.run(
+            [
+                'python3',
+                trusted_checker_path,
+                '--repo-root', os.environ.get('BUILD_SOURCESDIRECTORY', os.getcwd()),
+                '--base-sha', base_sha,
+                '--head-sha', head_sha,
+                '--base-repository', base_repository,
+                '--head-repository', head_repository,
+                '--head-ref', head_ref,
+                '--pull-request-title', title,
+                '--pull-request-author', pull_request_author,
+            ],
+            check=True
+        )
         PY
-      displayName: Check PR title and history notes
+      displayName: Check PR title, history notes, and file policies
       env:
         GITHUB_REPOSITORY_NAME: ${{ parameters.github_repository }}

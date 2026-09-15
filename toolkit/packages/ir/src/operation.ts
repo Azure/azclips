@@ -3,15 +3,15 @@
  *
  * Each operation will be generated as one C# class (IProcessor pattern),
  * so the IR carries everything needed to construct an HTTP request and
- * surface its response. No client/group concept — operations live flat
- * at the IR root and are organized by `id.namespace` for output layout.
+ * surface its response. Operations live flat at the IR root; `id.namespace`
+ * and optional `id.interface` retain their TypeSpec ownership for grouping.
  */
 
 import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
-import { FormatKinds, type FormatKind } from "./primitives.js";
+import { AccessKinds, FormatKinds, type FormatKind, type IRAccess } from "./primitives.js";
 import {
   OperationHintsSchema,
   ParameterHintsSchema,
@@ -43,6 +43,8 @@ export type IRParameter = {
   /** Serialization format for primitive-shaped parameters (e.g. date-time). */
   format?: FormatKind | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
   rendering?: ParameterHints | undefined;
 };
 
@@ -58,14 +60,127 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
     collectionFormat: z.enum(CollectionFormats).optional(),
     format: z.enum(FormatKinds).optional(),
     docs: z.string().optional(),
+    summary: z.string().optional(),
     rendering: ParameterHintsSchema.optional(),
   })
   .strict();
 
+// Multipart metadata is separate from both the payload model and outer headers.
+
+export type IRMultipartValue = {
+  name: string;
+  type: IRTypeRef;
+  optional: boolean;
+  nullable: boolean;
+  defaultValue?: IRLiteralValue | undefined;
+  docs?: string | undefined;
+  summary?: string | undefined;
+};
+
+const multipartValueFields = {
+  name: z.string().min(1),
+  type: IRTypeRefSchema,
+  optional: z.boolean(),
+  nullable: z.boolean(),
+  defaultValue: IRLiteralValueSchema.optional(),
+  docs: z.string().optional(),
+  summary: z.string().optional(),
+};
+
+export const IRMultipartValueSchema: z.ZodType<IRMultipartValue> =
+  z.object(multipartValueFields).strict();
+
+export type IRMultipartHeader = IRMultipartValue & {
+  wireName: string;
+  collectionFormat?: CollectionFormat | undefined;
+};
+
+export const IRMultipartHeaderSchema: z.ZodType<IRMultipartHeader> = z.object({
+  ...multipartValueFields,
+  wireName: z.string().min(1),
+  collectionFormat: z.enum(CollectionFormats).optional(),
+}).strict();
+
+type MultipartPartBodyFields = {
+  type: IRTypeRef;
+  nullable: boolean;
+  contentTypes: string[];
+  contentType?: IRMultipartValue | undefined;
+  defaultValue?: IRLiteralValue | undefined;
+};
+
+export type IRMultipartPartBody =
+  | (MultipartPartBodyFields & { kind: "single" })
+  | (MultipartPartBodyFields & {
+      kind: "file";
+      contents: IRMultipartValue;
+      isText: boolean;
+    });
+
+const multipartPartBodyFields = {
+  type: IRTypeRefSchema,
+  nullable: z.boolean(),
+  contentTypes: z.array(z.string().min(1)),
+  contentType: IRMultipartValueSchema.optional(),
+  defaultValue: IRLiteralValueSchema.optional(),
+};
+
+export const IRMultipartPartBodySchema: z.ZodType<IRMultipartPartBody> =
+  z.discriminatedUnion("kind", [
+    z.object({ ...multipartPartBodyFields, kind: z.literal("single") }).strict(),
+    z.object({
+      ...multipartPartBodyFields,
+      kind: z.literal("file"),
+      contents: IRMultipartValueSchema,
+      isText: z.boolean(),
+    }).strict(),
+  ]);
+
+export type IRMultipartPart = {
+  /** Content-Disposition part name; unnamed multipart/mixed tuple entries omit it. */
+  name?: string | undefined;
+  /** Payload-model property supplying this part; tuple entries have no property. */
+  property?: IRId | undefined;
+  body: IRMultipartPartBody;
+  headers: IRMultipartHeader[];
+  optional: boolean;
+  /** Repeated MIME parts, not an array serialized within a single part. */
+  multi: boolean;
+  filename?: IRMultipartValue | undefined;
+  docs?: string | undefined;
+  summary?: string | undefined;
+};
+
+export const IRMultipartPartSchema: z.ZodType<IRMultipartPart> = z.object({
+  name: z.string().optional(),
+  property: IRIdSchema.optional(),
+  body: IRMultipartPartBodySchema,
+  headers: z.array(IRMultipartHeaderSchema),
+  optional: z.boolean(),
+  multi: z.boolean(),
+  filename: IRMultipartValueSchema.optional(),
+  docs: z.string().optional(),
+  summary: z.string().optional(),
+}).strict();
+
+export type IRMultipartBody = {
+  kind: "model" | "tuple";
+  contentTypes: string[];
+  /** Declaration order is significant, particularly for tuple bodies. */
+  parts: IRMultipartPart[];
+};
+
+export const IRMultipartBodySchema: z.ZodType<IRMultipartBody> = z.object({
+  kind: z.enum(["model", "tuple"]),
+  contentTypes: z.array(z.string().min(1)).min(1),
+  parts: z.array(IRMultipartPartSchema),
+}).strict();
+
 // ─── Request body ───────────────────────────────────────────────────────
 
 /**
- * Request body. Single content-type only (multi-content not supported).
+ * Request body. Ordinary bodies select a single content-type; multipart
+ * bodies additionally retain all resolved content types and ordered parts.
  * Streaming is handled by the consumer framework, not modelled here.
  *
  * `rendering.flatten`: when `self`, the generator hoists body properties
@@ -74,20 +189,35 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
  * (flatten unless polymorphic / binary / dictionary / array / too-wide).
  */
 export type IRRequestBody = {
-  type: IRTypeRef;
+  /** Absent for a multipart tuple, whose complete shape is in `multipart.parts`. */
+  type?: IRTypeRef | undefined;
   contentType: string;
+  multipart?: IRMultipartBody | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
   rendering?: RequestBodyHints | undefined;
 };
 
 export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
   .object({
-    type: IRTypeRefSchema,
+    type: IRTypeRefSchema.optional(),
     contentType: z.string().min(1),
+    multipart: IRMultipartBodySchema.optional(),
     docs: z.string().optional(),
+    summary: z.string().optional(),
     rendering: RequestBodyHintsSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.type === undefined && body.multipart?.kind !== "tuple") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["type"],
+        message: "A request body requires a type unless it is a multipart tuple",
+      });
+    }
+  });
 
 // ─── Responses ──────────────────────────────────────────────────────────
 
@@ -119,6 +249,8 @@ export type IRResponseHeader = {
   type: IRTypeRef;
   format?: FormatKind | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
 };
 
 export const IRResponseHeaderSchema: z.ZodType<IRResponseHeader> = z
@@ -128,14 +260,16 @@ export const IRResponseHeaderSchema: z.ZodType<IRResponseHeader> = z
     type: IRTypeRefSchema,
     format: z.enum(FormatKinds).optional(),
     docs: z.string().optional(),
+    summary: z.string().optional(),
   })
   .strict();
 
 export type IRResponse = {
   statusCode: IRStatusCode;
-  /** Undefined when the response has no body (e.g. 204). */
+  /** Absent for no body (e.g. 204) or a multipart tuple described by `multipart`. */
   type?: IRTypeRef | undefined;
   contentType?: string | undefined;
+  multipart?: IRMultipartBody | undefined;
   headers?: IRResponseHeader[] | undefined;
   /** Precomputed: true if the generator should treat this as an error path. */
   isError: boolean;
@@ -147,6 +281,7 @@ export const IRResponseSchema: z.ZodType<IRResponse> = z
     statusCode: IRStatusCodeSchema,
     type: IRTypeRefSchema.optional(),
     contentType: z.string().min(1).optional(),
+    multipart: IRMultipartBodySchema.optional(),
     headers: z.array(IRResponseHeaderSchema).optional(),
     isError: z.boolean(),
     docs: z.string().optional(),
@@ -176,28 +311,93 @@ export const IRApiVersionStampSchema: z.ZodType<IRApiVersionStamp> = z
 
 // ─── Pageable / LRO semantics ───────────────────────────────────────────
 
-/**
- * Pageable: either next-link style (Azure REST norm) or continuation-token
- * style. Validation enforces exactly-one-style. The transform that fills
- * this reads `@pagedResult` / `@items` / `@nextLink` decorators.
- */
+/** Source declarations, including HTTP envelope properties absent from IR.models. */
+export const IRPagingSegmentSchema = z.object({
+  id: IRIdSchema,
+  name: z.string(),
+}).strict();
+export type IRPagingSegment = z.infer<typeof IRPagingSegmentSchema>;
+
+/** A wire path is segmented: a property named "next.link" is one segment. */
+export const IRPagingBindingSchema = z.object({
+  location: z.enum(["body", "query", "header", "path", "cookie"]),
+  path: z.array(z.string()),
+  /** Media type for which this request/response binding applies. */
+  contentType: z.string().optional(),
+  /** Reference to an emitted request parameter, when there is one. */
+  parameter: IRIdSchema.optional(),
+  /** Absent for requests; selects the HTTP response alternative otherwise. */
+  response: z.object({
+    statusCode: IRStatusCodeSchema,
+  }).strict().optional(),
+}).strict();
+export type IRPagingBinding = z.infer<typeof IRPagingBindingSchema>;
+
+export const IRPagingPropertySchema = z.object({
+  sourcePath: z.array(IRPagingSegmentSchema).min(1),
+  type: IRTypeRefSchema,
+  optional: z.boolean(),
+  nullable: z.boolean(),
+  bindings: z.array(IRPagingBindingSchema),
+}).strict();
+export type IRPagingProperty = z.infer<typeof IRPagingPropertySchema>;
+
+/** Independent declared roles, not a selected runtime paging strategy. */
 export type IRPageableSemantics = {
-  kind: "pageable";
+  /** Whether the REST operation has the standard @list marker. */
+  isList: boolean;
+  metadataSource: "compiler" | "sdk";
   itemType: IRTypeRef;
-  itemsPath: string;
-  nextLinkPath?: string | undefined;
-  continuationTokenPath?: string | undefined;
-  continuationTokenParameter?: string | undefined;
+  input: {
+    offset?: IRPagingProperty | undefined;
+    pageIndex?: IRPagingProperty | undefined;
+    pageSize?: IRPagingProperty | undefined;
+    continuationToken?: IRPagingProperty | undefined;
+  };
+  output: {
+    pageItems: IRPagingProperty;
+    nextLink?: IRPagingProperty | undefined;
+    prevLink?: IRPagingProperty | undefined;
+    firstLink?: IRPagingProperty | undefined;
+    lastLink?: IRPagingProperty | undefined;
+    continuationToken?: IRPagingProperty | undefined;
+  };
+  /** SDK presentation settings do not erase the REST operation's metadata. */
+  sdk: {
+    disabled: boolean;
+    forced: boolean;
+    nextLinkVerb: "GET" | "POST";
+    nextLinkReinjectedParameters: IRPagingProperty[];
+    nextLinkOperation?: IRId | undefined;
+  };
 };
 
-export const IRPageableSemanticsSchema = z
+export const IRPageableSemanticsSchema: z.ZodType<IRPageableSemantics> = z
   .object({
-    kind: z.literal("pageable"),
+    isList: z.boolean(),
+    metadataSource: z.enum(["compiler", "sdk"]),
     itemType: IRTypeRefSchema,
-    itemsPath: z.string().min(1),
-    nextLinkPath: z.string().min(1).optional(),
-    continuationTokenPath: z.string().min(1).optional(),
-    continuationTokenParameter: z.string().min(1).optional(),
+    input: z.object({
+      offset: IRPagingPropertySchema.optional(),
+      pageIndex: IRPagingPropertySchema.optional(),
+      pageSize: IRPagingPropertySchema.optional(),
+      continuationToken: IRPagingPropertySchema.optional(),
+    }).strict(),
+    output: z.object({
+      pageItems: IRPagingPropertySchema,
+      nextLink: IRPagingPropertySchema.optional(),
+      prevLink: IRPagingPropertySchema.optional(),
+      firstLink: IRPagingPropertySchema.optional(),
+      lastLink: IRPagingPropertySchema.optional(),
+      continuationToken: IRPagingPropertySchema.optional(),
+    }).strict(),
+    sdk: z.object({
+      disabled: z.boolean(),
+      forced: z.boolean(),
+      nextLinkVerb: z.enum(["GET", "POST"]),
+      nextLinkReinjectedParameters: z.array(IRPagingPropertySchema),
+      nextLinkOperation: IRIdSchema.optional(),
+    }).strict(),
   })
   .strict();
 
@@ -208,7 +408,6 @@ export const IRPageableSemanticsSchema = z
  * LROs and carries an explicit polling URL path into the response body.
  */
 export type IRLongRunningSemantics = {
-  kind: "longRunning";
   finalResultType?: IRTypeRef | undefined;
   pollingStrategy: "azureAsyncOperation" | "location" | "operationResource" | "custom";
   finalStateVia?: "azureAsyncOperation" | "location" | "originalUri" | undefined;
@@ -217,97 +416,33 @@ export type IRLongRunningSemantics = {
 
 export const IRLongRunningSemanticsSchema = z
   .object({
-    kind: z.literal("longRunning"),
     finalResultType: IRTypeRefSchema.optional(),
     pollingStrategy: z.enum(["azureAsyncOperation", "location", "operationResource", "custom"]),
     finalStateVia: z.enum(["azureAsyncOperation", "location", "originalUri"]).optional(),
     customPollingUrlPath: z.string().min(1).optional(),
   })
-  .strict();
-
-export type IROperationSemantics = IRPageableSemantics | IRLongRunningSemantics;
-
-export const IROperationSemanticsSchema = z
-  .discriminatedUnion("kind", [IRPageableSemanticsSchema, IRLongRunningSemanticsSchema])
+  .strict()
   .superRefine((s, ctx) => {
-    if (s.kind === "pageable") {
-      const usesNextLink = s.nextLinkPath !== undefined;
-      const usesContinuation =
-        s.continuationTokenPath !== undefined || s.continuationTokenParameter !== undefined;
-      if (usesNextLink === usesContinuation) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "pageable must use either nextLinkPath OR continuation-token fields, not both/neither",
-        });
-      }
-    } else if (s.kind === "longRunning") {
-      if (
-        s.pollingStrategy === "custom" &&
-        (s.customPollingUrlPath === undefined || s.customPollingUrlPath.length === 0)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "pollingStrategy 'custom' requires customPollingUrlPath",
-          path: ["customPollingUrlPath"],
-        });
-      }
+    if (s.pollingStrategy === "custom" && s.customPollingUrlPath === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pollingStrategy 'custom' requires customPollingUrlPath",
+        path: ["customPollingUrlPath"],
+      });
     }
-  }) as z.ZodType<IROperationSemantics>;
+  });
 
-// ─── Server (endpoint) ──────────────────────────────────────────────────
-
-/**
- * Endpoint description, resolved per source from TypeSpec's `@server`.
- * `literal` becomes a baked-in URL constant; `parameterized` becomes
- * processor constructor parameters.
- */
-export type IRServerParameter = {
-  name: string;
-  wireName: string;
-  type: IRTypeRef;
-  defaultValue?: IRLiteralValue | undefined;
-  docs?: string | undefined;
+export type IROperationSemantics = {
+  pageable?: IRPageableSemantics | undefined;
+  longRunning?: IRLongRunningSemantics | undefined;
 };
 
-export const IRServerParameterSchema: z.ZodType<IRServerParameter> = z
-  .object({
-    name: z.string().min(1),
-    wireName: z.string().min(1),
-    type: IRTypeRefSchema,
-    defaultValue: IRLiteralValueSchema.optional(),
-    docs: z.string().optional(),
-  })
-  .strict();
-
-export type IRServer =
-  | { kind: "literal"; url: string }
-  | { kind: "parameterized"; template: string; parameters: IRServerParameter[] }
-  | { kind: "oneOf"; servers: IRServer[] };
-
-export const IRServerSchema: z.ZodType<IRServer> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z
-      .object({
-        kind: z.literal("literal"),
-        url: z.string().url(),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("parameterized"),
-        template: z.string().min(1),
-        parameters: z.array(IRServerParameterSchema).min(1),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("oneOf"),
-        servers: z.array(IRServerSchema).min(2),
-      })
-      .strict(),
-  ]),
-);
+export const IROperationSemanticsSchema: z.ZodType<IROperationSemantics> = z.object({
+  pageable: IRPageableSemanticsSchema.optional(),
+  longRunning: IRLongRunningSemanticsSchema.optional(),
+}).strict().refine((s) => s.pageable !== undefined || s.longRunning !== undefined, {
+  message: "operation semantics must contain pageable or longRunning metadata",
+});
 
 // ─── Operation ──────────────────────────────────────────────────────────
 
@@ -326,14 +461,19 @@ export type IROperation = {
   requestBody?: IRRequestBody | undefined;
   responses: IRResponse[];
 
-  // Per-operation context (denormalized from source for generator convenience).
+  // Per-operation context.
   apiVersion: IRApiVersionStamp;
-  server: IRServer;
+  /** Reference to a definition in IR.servers. */
+  server: IRId;
 
   // Optional Azure-flavoured semantics.
   semantics?: IROperationSemantics | undefined;
 
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
+  /** Generated-code visibility (`@access`). Omitted when `public` (the default). */
+  access?: IRAccess | undefined;
   rendering?: OperationHints | undefined;
 };
 
@@ -352,11 +492,13 @@ export const IROperationSchema: z.ZodType<IROperation> = z
     responses: z.array(IRResponseSchema).min(1),
 
     apiVersion: IRApiVersionStampSchema,
-    server: IRServerSchema,
+    server: IRIdSchema,
 
     semantics: IROperationSemanticsSchema.optional(),
 
     docs: z.string().optional(),
+    summary: z.string().optional(),
+    access: z.enum(AccessKinds).optional(),
     rendering: OperationHintsSchema.optional(),
   })
   .strict();

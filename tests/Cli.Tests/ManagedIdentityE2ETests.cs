@@ -17,14 +17,15 @@ namespace Cli.Tests;
 /// <para>
 /// These tests isolate the profile store by pointing <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> at a
 /// throwaway temp directory so the CLI subprocess never touches the real <c>~/.azclips</c>. That redirection
-/// only works on <b>Linux and macOS</b>: there .NET's
+/// only works on <b>Linux</b>: there .NET's
 /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> for
 /// <see cref="System.Environment.SpecialFolder.LocalApplicationData"/> reads the <c>$XDG_DATA_HOME</c>
 /// environment variable. On <b>Windows</b> the same call resolves via the Win32 known-folder API
-/// (registry <c>User Shell Folders</c>) and <b>ignores a process-set <c>%LOCALAPPDATA%</c></b>, so the
-/// subprocess would write to the developer's real profile store instead of the temp directory — breaking the
-/// assertions and polluting <c>%LOCALAPPDATA%\.azclips</c>. The profile-dependent cases are therefore skipped
-/// on Windows via <see cref="SkipOnWindowsFactAttribute"/>.
+/// (registry <c>User Shell Folders</c>), and on <b>macOS</b> it resolves via
+/// <c>NSApplicationSupportDirectory</c> (<c>~/Library/Application Support</c>); both <b>ignore the
+/// process-set environment variables</b>, so the subprocess would write to the developer's real profile
+/// store instead of the temp directory — breaking the assertions and polluting the real store. The
+/// profile-dependent cases are therefore restricted to Linux via <see cref="LinuxOnlyFactAttribute"/>.
 /// </para>
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
@@ -73,17 +74,17 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         var artifactsDir = ResolveArtifactsDirectory();
 
-        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Login");
+        var accountsExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Accounts");
 
-        if (!Directory.Exists(loginExtensionDir))
+        if (!Directory.Exists(accountsExtensionDir))
         {
             throw new InvalidOperationException(
-                $"Login extension not found at {loginExtensionDir}. " +
+                $"Accounts extension not found at {accountsExtensionDir}. " +
                 $"Run `dotnet build tests/Cli.Tests/Cli.Tests.csproj` (or `dotnet test`) to regenerate it.");
         }
 
         Console.WriteLine($"Extensions found in: {artifactsDir}");
-        Console.WriteLine($"   - Login extension: {loginExtensionDir}");
+        Console.WriteLine($"   - Accounts extension: {accountsExtensionDir}");
 
         // route MSAL MI discovery to the mock IMDS server
         _imds = new MockImdsServer(MockAccessToken, MockClientId);
@@ -169,7 +170,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         return process.ExitCode;
     }
 
-    [SkipOnWindowsFact]
+    [LinuxOnlyFact]
     public async Task ManagedIdentity_E2E_SystemAssigned_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -208,7 +209,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Contains("MSI@", profilesJson);
     }
 
-    [SkipOnWindowsFact]
+    [LinuxOnlyFact]
     public async Task ManagedIdentity_E2E_UserAssignedClientId_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -235,7 +236,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
 
 
-    [SkipOnWindowsFact]
+    [LinuxOnlyFact]
     public async Task ManagedIdentity_E2E_CommandWithToken_ShouldUseTokenFromProfile()
     {
         // Exercise AuthHandler and verify it stamps the saved MI token on requests.
@@ -290,7 +291,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     }
 
 
-    [Fact]
+    [LinuxOnlyFact]
     public async Task ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail()
     {
         // only one user-assigned MI selector is allowed
@@ -390,23 +391,24 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     }
 
     /// <summary>
-    /// A <see cref="FactAttribute"/> that skips on Windows. The profile-store isolation these tests rely on
+    /// A <see cref="FactAttribute"/> that runs only on Linux. The profile-store isolation these tests rely on
     /// works by redirecting <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> to a temp directory, which only affects
-    /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> on Linux/macOS. On
-    /// Windows that call resolves via the Win32 known-folder API (registry <c>User Shell Folders</c>) and
-    /// ignores a process-set <c>%LOCALAPPDATA%</c>, so the CLI subprocess would write to the real
-    /// <c>%LOCALAPPDATA%\.azclips</c> instead of the temp store — failing the assertions and polluting the
-    /// developer's profile. Skip until the CLI honors an explicit cross-platform override.
+    /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> on Linux. Windows
+    /// resolves <c>LocalApplicationData</c> via the Win32 known-folder API and macOS via
+    /// <c>NSApplicationSupportDirectory</c>; neither honors the environment override, so the CLI subprocess
+    /// would write to the developer's real profile store instead of the temp one — failing the assertions and
+    /// polluting that store. Skip until the CLI honors an explicit cross-platform override.
     /// </summary>
-    private sealed class SkipOnWindowsFactAttribute : FactAttribute
+    private sealed class LinuxOnlyFactAttribute : FactAttribute
     {
-        public SkipOnWindowsFactAttribute()
+        public LinuxOnlyFactAttribute()
         {
-            if (OperatingSystem.IsWindows())
+            if (!OperatingSystem.IsLinux())
             {
                 Skip = "Profile-store isolation redirects LOCALAPPDATA/XDG_DATA_HOME, which only affects "
-                    + "GetFolderPath on Linux/macOS. On Windows .NET resolves LocalApplicationData via the "
-                    + "Win32 known-folder API and ignores the env override, so the store cannot be isolated.";
+                    + "GetFolderPath on Linux. Windows resolves LocalApplicationData via the Win32 "
+                    + "known-folder API and macOS via NSApplicationSupportDirectory, so neither honors the "
+                    + "env override and the store cannot be isolated.";
             }
         }
     }

@@ -16,12 +16,14 @@
 
 import type {
   SdkContext,
+  SdkEnumType,
   SdkHttpOperation,
   SdkModelPropertyType,
+  SdkModelType,
   SdkType,
 } from "@azure-tools/typespec-client-generator-core";
-import type { Program } from "@typespec/compiler";
-import type { IRId } from "@azure-client-engine/ir";
+import type { Program, Union } from "@typespec/compiler";
+import type { IRDiscriminatedUnion, IRId } from "@azure-client-engine/ir";
 
 export type BuildContextOptions = {
   /** Source id used as the default module string in IRIds. */
@@ -39,13 +41,16 @@ export type BuildContext = {
   idCache: Map<SdkType, IRId>;
   /** Property id interning so `.overrides` pointers stay stable. */
   propertyIdCache: Map<SdkModelPropertyType, IRId>;
+  /** Includes types reached through HTTP parts and discriminators outside TCGC's initial package. */
+  models: Set<SdkModelType>;
+  enums: Set<SdkEnumType>;
+  multipartPayloadTypes: Set<SdkType>;
+  discriminatedUnions: Map<Union, IRDiscriminatedUnion>;
 
   /** One-shot diagnostic flags. */
   flags: {
     overrideMethodWarned: boolean;
-    internalAccessWarned: boolean;
     openEnumWarned: boolean;
-    authNotEmittedWarned: boolean;
   };
 };
 
@@ -59,11 +64,13 @@ export function createBuildContext(
     options,
     idCache: new Map(),
     propertyIdCache: new Map(),
+    models: new Set(sdkContext.sdkPackage.models),
+    enums: new Set(sdkContext.sdkPackage.enums),
+    multipartPayloadTypes: new Set(),
+    discriminatedUnions: new Map(),
     flags: {
       overrideMethodWarned: false,
-      internalAccessWarned: false,
       openEnumWarned: false,
-      authNotEmittedWarned: false,
     },
   };
 }

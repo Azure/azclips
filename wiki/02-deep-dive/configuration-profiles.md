@@ -246,15 +246,15 @@ stateDiagram-v2
     direction LR
     [*] --> NoActive: fresh install<br>(no active-profile file)
 
-    NoActive --> TempActive: az login<br>(bare → reserved "temp")
+    NoActive --> DefaultActive: az login<br>(bare → reserved "default")
     NoActive --> NamedActive: az login --out-profile prod
 
     NamedActive --> NamedActive: az profile set staging<br>(SetActiveProfileNameAsync)
-    TempActive --> NamedActive: az login --out-profile prod
-    NamedActive --> TempActive: az login (bare)
+    DefaultActive --> NamedActive: az login --out-profile prod
+    NamedActive --> DefaultActive: az login (bare)
 
     NamedActive --> NoActive: az logout<br>(clears pointer, keeps definition)
-    TempActive --> NoActive: az logout
+    DefaultActive --> NoActive: az logout
     NamedActive --> NoActive: az profile remove <active><br>(pointer cleared, no fallback)
 
     NoActive --> [*]
@@ -266,11 +266,11 @@ stateDiagram-v2
     end note
 ```
 
-### Profile management commands (in the Login extension)
+### Profile management commands (in the Accounts extension)
 
-The CRUD/switch verbs are **not** in a separate extension — they live in the Login extension
-under `src/Extensions/Login/Processors/`, all deriving from `ProfileProcessorBase`
-(`src/Extensions/Login/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
+The CRUD/switch verbs are **not** in a separate extension — they live in the Accounts extension
+under `src/Extensions/Accounts/Processors/`, all deriving from `ProfileProcessorBase`
+(`src/Extensions/Accounts/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
 require a resolved `Profile` on the context:
 
 | Command             | Processor                | Behavior                                                                                     |
@@ -278,10 +278,10 @@ require a resolved `Profile` on the context:
 | `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileSummary` projection                |
 | `az profile show`   | `ProfileShowProcessor`   | Shows one profile by name **or** the active one (`--active`); the two are mutually exclusive |
 | `az profile set`    | `ProfileSetProcessor`    | Sets the active pointer; **validates existence, no re-auth**                                 |
-| `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to temp**)         |
+| `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to default**)      |
 
 `ProfileSetProcessor` is the switch primitive — it resolves the named profile and only writes
-the pointer, never re-authenticating (`src/Extensions/Login/Processors/ProfileSetProcessor.cs:16`):
+the pointer, never re-authenticating (`src/Extensions/Accounts/Processors/ProfileSetProcessor.cs:16`):
 
 ```csharp
 Profile profile = await profileService.GetProfileAsync(Name)
@@ -292,17 +292,17 @@ await profileService.SetActiveProfileNameAsync(profile.Name);
 `profile create` is intentionally **not** offered — profiles are created only as a side effect
 of `login` (design Non-Goals). User-facing creation would go through
 `ProfileNameValidator.ValidateForCreation`, which additionally rejects the reserved name
-`"temp"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
+`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
 
 ### Login semantics
 
 `LoginProcessor` was repurposed to build and return a `Profile` (Decision 7). It reconciles
 two mutually-exclusive flags before any authentication runs
-(`src/Extensions/Login/Processors/LoginProcessor.cs:36`):
+(`src/Extensions/Accounts/Processors/LoginProcessor.cs:36`):
 
-- **Bare `az login`** → saves the connection to the reserved profile named `"temp"`,
-  overwriting any previous temp (`ReservedTempName`, `ProfileNameValidator.cs:14`).
-- **`az login --out-profile <name>`** → validates the name for creation (rejecting `"temp"`)
+- **Bare `az login`** → saves the connection to the reserved profile named `"default"`,
+  overwriting any previous default (`ReservedDefaultName`, `ProfileNameValidator.cs:14`).
+- **`az login --out-profile <name>`** → validates the name for creation (rejecting `"default"`)
   and writes a new named profile.
 - **`az login --profile <name>`** → **re-authenticates** an existing profile, sourcing tenant
   / subscription / cloud from that stored profile.
@@ -397,8 +397,8 @@ active pointer — even though `prod` happens to be active after the login.
 | Abstraction       | `IConfigurationService`                     | `IProfileService`                                    |
 | Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
 | Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
-| Command home      | `Config` extension                          | `Login` extension                                    |
-| Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `temp`) |
+| Command home      | `Config` extension                          | `Accounts` extension                                    |
+| Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
 The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,
 and the agent's environment prober reads the **active profile** to tell the model whether the
@@ -415,7 +415,7 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 - `src/Core/Core.Abstractions/CoreOptions.cs`, `TelemetryOptions.cs`, `AgentOptions.cs` — typed known keys
 - `src/Core/Core.Runtime/ProfileService.cs` — file-backed store, `_gate`, atomic writes
 - `src/Core/Core.Abstractions/IProfileService.cs`, `Models/Profile.cs`, `ProfileNameValidator.cs`
-- `src/Extensions/Login/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
+- `src/Extensions/Accounts/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
 - `src/Core/Core.Engine/Engine.cs` — `ResolveProfileAsync` and context wiring
 - `openspec/changes/profile-management/design.md` — Decisions 1–8 (storage, temp login, global `--profile`, AuthContext removal, logout, login output)
 - `docs/azure-cli/docs-conceptual/config.md`, `eng-docs/spec/config-implementation.md`

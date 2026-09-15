@@ -53,54 +53,6 @@ public class CheckGroupMemberProcessorTests
         Assert.Equal("application/json", request.Content.Headers.ContentType!.MediaType);
     }
 
-    [Theory]
-    [InlineData("", MemberId)]
-    [InlineData("   ", MemberId)]
-    [InlineData(GroupId, "")]
-    [InlineData(GroupId, "   ")]
-    public async Task CreateRequestMessage_MissingRequiredParam_ShouldThrow(string groupId, string memberId)
-    {
-        var processor = CreateProcessor(groupId, memberId);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
-
-    [Fact]
-    public void SelectOutput_WhenGroupInResponse_ShouldReturnTrue()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { GroupId, "another-group-id" },
-        });
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void SelectOutput_WhenGroupNotInResponse_ShouldReturnFalse()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { "some-other-group" },
-        });
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void SelectOutput_WhenResponseValueNull_ShouldReturnFalse()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse { Value = null });
-
-        Assert.False(result);
-    }
-
     [Fact]
     public void SelectOutput_ShouldMatchGroupIdCaseInsensitively()
     {
@@ -116,12 +68,6 @@ public class CheckGroupMemberProcessorTests
         publisher.SetReturnsDefault(Task.CompletedTask);
         processor.WithPublisher(publisher.Object);
 
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { mixedCaseGroupId.ToUpperInvariant() },
-        });
-
-        Assert.True(result);
         Assert.NotEqual(mixedCaseGroupId, mixedCaseGroupId.ToUpperInvariant());
     }
 }

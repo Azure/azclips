@@ -8,25 +8,30 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterface>
+public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterface, NetworkInterface>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
     public List<string> SubnetIds { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
+    public bool AcceleratedNetworking { get; set; }
 
-    protected override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override HttpMethod Method => HttpMethod.Put;
+
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
+
+    protected override NetworkInterface? CreateRequestBody()
     {
-        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
         NetworkInterface body = new NetworkInterface
         {
             Location = Location,
             Properties = new NetworkInterfaceProperties
             {
-                EnableAcceleratedNetworking = true,
+                EnableAcceleratedNetworking = AcceleratedNetworking,
                 EnableIPForwarding = false,
                 NetworkSecurityGroup = string.IsNullOrEmpty(NetworkSecurityGroupId)
                     ? null
@@ -68,12 +73,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
                 }).ToList()
             }
         };
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
-        {
-            Content = JsonContent.Create(body, options: JsonOptions)
-        };
-        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-        return request;
+        return body;
     }
 
     /*

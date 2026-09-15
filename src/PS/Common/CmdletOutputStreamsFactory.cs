@@ -5,6 +5,7 @@ using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Common;
 
@@ -38,6 +39,11 @@ internal static class CmdletOutputStreamsFactory
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
+                if (value is SerializedJson serializedJson)
+                {
+                    value = serializedJson.Value;
+                }
+
                 if (enumerateOutput && value is IEnumerable and not string)
                 {
                     cmdlet.WriteObject(value, true);

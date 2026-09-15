@@ -10,9 +10,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <summary>
     /// Atomic processor for <c>GET /me</c>. Convenience features (merging <c>$select</c> with a
     /// default property set) live in
-    /// <c>Orchestrators/GetSignedInUserProcessor_Orchestrator</c>.
+    /// <c>Customization/GetSignedInUserProcessor_Orchestrator</c>.
     /// </summary>
-    public class GetSignedInUserProcessor : GraphProcessorBase<User>
+    public class GetSignedInUserProcessor : GraphProcessorBase<object, User>
     {
         [ArgumentInfo(
             Required = false,
@@ -26,16 +26,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Get;
 
-            string uri = "https://graph.microsoft.com/v1.0/me"
+        protected override string CreateRequestUri() =>
+            "https://graph.microsoft.com/v1.0/me"
                 + ODataQueryBuilder.Build(select: Select, expand: Expand);
-
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
     }
 }

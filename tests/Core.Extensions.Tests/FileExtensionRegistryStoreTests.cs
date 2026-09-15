@@ -5,6 +5,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Extensions;
+using Core.Abstractions;
 
 namespace Core.Extensions.Tests
 {

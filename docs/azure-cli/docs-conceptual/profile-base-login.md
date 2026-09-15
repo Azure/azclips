@@ -53,7 +53,7 @@ az login --tenant-id <tenant-id> --subscription-id <subscription-id> --out-profi
 The profile that you sign in to most recently becomes the active profile.
 
 > [!NOTE]
-> If you run `az login` without `--out-profile`, Azure CLI saves the sign-in context as the reserved `temp` profile (overwriting any existing `temp` profile) and sets it as active.
+> If you run `az login` without `--out-profile`, Azure CLI saves the sign-in context as the reserved `default` profile (overwriting any existing `default` profile) and sets it as active.
 > To keep a reusable, named context, always pass `--out-profile`.
 
 ### Profile naming rules
@@ -63,7 +63,7 @@ A profile name must:
 - Be 1–100 characters long.
 - Contain only letters, digits, hyphens (`-`), underscores (`_`), or periods (`.`).
 
-The name `temp` is reserved for sign-in without a named profile and can't be used as a profile name.
+The name `default` is reserved for sign-in without a named profile and can't be used as a profile name.
 
 ## List profiles
 
@@ -81,9 +81,10 @@ To view the details of a specific profile, use `az profile show` with the profil
 az profile show personal
 ```
 
-To view the currently active profile, use the `--active` option:
+To view the currently active profile, omit the profile name or use `--active` option:
 
 ```bash
+az profile show
 az profile show --active
 ```
 

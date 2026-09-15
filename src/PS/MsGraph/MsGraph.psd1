@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.0'
+ModuleVersion = '0.1.1'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -37,7 +37,7 @@ PowerShellVersion = '7.6'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.1.0' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -81,7 +81,9 @@ PrivateData = @{
         ProjectUri = 'https://github.com/Azure/azclips'
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Refactored Microsoft Graph command customization and extension integration.
+'@
 
     } # End of PSData hashtable
 

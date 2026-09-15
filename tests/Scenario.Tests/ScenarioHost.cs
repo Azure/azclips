@@ -6,7 +6,7 @@ using Core.Configuration.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Common.Recording;
+using Tests.Recording;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
 
@@ -27,7 +27,14 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Compute",
         typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly,
         "vm",
-        ["", "create", "create-basic", "show", "list", "delete"]);
+        ["", "create", "create-basic", "show", "list", "start", "delete"]);
+
+    public static readonly ExtensionUnderTest Identity = new(
+        "Identity",
+        "Microsoft.Azure.Azclips.Extensions.Identity",
+        typeof(Microsoft.Azure.Azclips.Extensions.Identity.ExtensionIndex).Assembly,
+        "identity",
+        ["create", "list", "show", "update", "delete"]);
 }
 
 /// <summary>
@@ -104,7 +111,7 @@ internal sealed class ScenarioHost : IDisposable
             }
             else
             {
-                services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Login.PSArgumentParsingProvider>();
+                services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Accounts.PSArgumentParsingProvider>();
             }
         });
         AzclipsServiceProvider.Initialize(clientType);

@@ -13,7 +13,9 @@ public class StubProfileService : IProfileService
 {
     private readonly Dictionary<string, Profile> _profiles;
     private string? _active;
-
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StubProfileService"/> class.
+    /// </summary>
     /// <param name="seedDefault">Seed a single active "default" profile.</param>
     /// <param name="userPrincipalName">
     /// UPN stamped on the seeded profile. Required by callers that exercise the real
@@ -36,6 +38,36 @@ public class StubProfileService : IProfileService
             };
             _profiles[profile.Name] = profile;
             _active = profile.Name;
+        }
+    }
+
+    // Default profile keys for other services to use; currently SubscriptionId only.
+    List<string> IProfileService.GetProfileKeysForDefault() => ["SubscriptionId"];
+
+    string? IProfileService.GetProfileValueByKey(Profile? profile, string key)
+    {
+        switch (key)
+        {
+            case "Name":
+                return profile?.Name;
+            case "SubscriptionId":
+                return profile?.SubscriptionId;
+            case "TenantId":
+                return profile?.TenantId;
+            case "ClientId":
+                return profile?.ClientId;
+            case "CloudName":
+                return profile?.CloudName;
+            case "AuthMethod":
+                return profile?.AuthMethod.ToString();
+            case "DefaultLocation":
+                return profile?.DefaultLocation;
+            case "UserPrincipalName":
+                return profile?.UserPrincipalName;
+            case "ManagedIdentityId":
+                return profile?.ManagedIdentityId;
+            default:
+                return null;
         }
     }
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.11.0",
   "sources": [
     {
       "id": "PetStore",
@@ -10,6 +10,27 @@
         "parameterName": "api-version"
       },
       "server": {
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
+      },
+      "rootNamespace": [
+        "PetStore"
+      ]
+    }
+  ],
+  "servers": [
+    {
+      "id": {
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
+      },
+      "endpoint": {
         "kind": "parameterized",
         "template": "{endpoint}",
         "parameters": [
@@ -27,10 +48,7 @@
             }
           }
         ]
-      },
-      "rootNamespace": [
-        "PetStore"
-      ]
+      }
     }
   ],
   "models": [
@@ -57,8 +75,6 @@
           "wireName": "items",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "collection",
           "type": {
             "kind": "array",
@@ -86,8 +102,6 @@
           "wireName": "nextLink",
           "optional": true,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -95,6 +109,10 @@
             "format": "uri"
           }
         }
+      ],
+      "usage": [
+        "output",
+        "json"
       ]
     },
     {
@@ -120,8 +138,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -140,8 +156,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -160,8 +174,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -199,7 +211,12 @@
             }
           }
         ]
-      }
+      },
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -224,8 +241,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -251,8 +266,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -278,8 +291,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "defaultValue": {
             "kind": "string",
             "value": "dog"
@@ -309,8 +320,6 @@
           "wireName": "breed",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -325,7 +334,12 @@
         ],
         "name": "Pet"
       },
-      "discriminatorValue": "dog"
+      "discriminatorValue": "dog",
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -350,8 +364,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -377,8 +389,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -404,8 +414,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "defaultValue": {
             "kind": "string",
             "value": "cat"
@@ -435,8 +443,6 @@
           "wireName": "indoor",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -451,7 +457,12 @@
         ],
         "name": "Pet"
       },
-      "discriminatorValue": "cat"
+      "discriminatorValue": "cat",
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -476,8 +487,6 @@
           "wireName": "operationId",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -496,8 +505,6 @@
           "wireName": "status",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "enum",
           "type": {
             "kind": "enum",
@@ -510,6 +517,11 @@
             }
           }
         }
+      ],
+      "usage": [
+        "output",
+        "json",
+        "lroPolling"
       ]
     },
     {
@@ -535,14 +547,16 @@
           "wireName": "newName",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
             "name": "string"
           }
         }
+      ],
+      "usage": [
+        "input",
+        "json"
       ]
     }
   ],
@@ -557,6 +571,7 @@
       },
       "name": "OperationState",
       "valueType": "string",
+      "isFixed": true,
       "members": [
         {
           "name": "NotStarted",
@@ -579,7 +594,12 @@
           "value": "Canceled"
         }
       ],
-      "source": "PetStore"
+      "source": "PetStore",
+      "usage": [
+        "output",
+        "json",
+        "lroPolling"
+      ]
     }
   ],
   "operations": [
@@ -587,9 +607,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "list"
       },
       "name": "list",
@@ -602,9 +622,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "list.tag"
           },
           "name": "tag",
@@ -622,9 +642,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "list.accept"
           },
           "name": "accept",
@@ -664,47 +684,79 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "PetStore",
-            "namespace": [
-              "PetStore"
-            ],
-            "name": "Pet"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "PetStore",
+              "namespace": ["PetStore"],
+              "name": "Pet"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [{
+                "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "PetPage.items" },
+                "name": "items"
+              }],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "Pet" }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [{
+                "location": "body",
+                "path": ["items"],
+                "contentType": "application/json",
+                "response": { "statusCode": { "kind": "exact", "code": 200 } }
+              }]
+            },
+            "nextLink": {
+              "sourcePath": [{
+                "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "PetPage.nextLink" },
+                "name": "nextLink"
+              }],
+              "type": { "kind": "primitive", "name": "string" },
+              "optional": true,
+              "nullable": false,
+              "bindings": [{
+                "location": "body",
+                "path": ["nextLink"],
+                "contentType": "application/json",
+                "response": { "statusCode": { "kind": "exact", "code": 200 } }
+              }]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "items",
-        "nextLinkPath": "nextLink"
+        }
       }
     },
     {
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "get"
       },
       "name": "get",
@@ -716,9 +768,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "get.petId"
           },
           "name": "petId",
@@ -737,9 +789,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "get.accept"
           },
           "name": "accept",
@@ -779,32 +831,20 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "create"
       },
       "name": "create",
@@ -818,9 +858,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -837,9 +877,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "create.accept"
           },
           "name": "accept",
@@ -892,32 +932,20 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "getStatus"
       },
       "name": "getStatus",
@@ -929,9 +957,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "getStatus.operationId"
           },
           "name": "operationId",
@@ -950,9 +978,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "getStatus.accept"
           },
           "name": "accept",
@@ -992,32 +1020,20 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "rename"
       },
       "name": "rename",
@@ -1029,9 +1045,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "rename.petId"
           },
           "name": "petId",
@@ -1050,9 +1066,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "rename.contentType"
           },
           "name": "contentType",
@@ -1105,28 +1121,17 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       }
     }
   ]

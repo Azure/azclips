@@ -38,7 +38,7 @@ public abstract class StartupBenchmarkBase
     /// Stage a PS module and its <c>RequiredModules</c> dependency closure via
     /// <see cref="PSManifestStager"/>, returning the absolute path to the staged manifest.
     /// Unlike build/Set-ModuleConfiguration.ps1, this preserves <c>RequiredModules</c>, so importing
-    /// a dependent module (e.g. Config) transitively imports Login and initializes the service
+    /// a dependent module (e.g. Config) transitively imports Accounts and initializes the service
     /// provider. Staged fresh from source each run, so it is never stale (survives renames).
     /// Call from <c>[GlobalSetup]</c> so the staging I/O stays outside the measured region.
     /// </summary>
@@ -62,7 +62,7 @@ public abstract class StartupBenchmarkBase
     }
 
     /// <summary>ProcessStartInfo for a pwsh module-import + cmdlet invocation, stopping at the seam.</summary>
-    protected ProcessStartInfo PsStartInfo(string modulePsd1, string cmdlet)
+    protected ProcessStartInfo PsStartInfo(string modulePsd1, string cmdlet, params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -74,7 +74,8 @@ public abstract class StartupBenchmarkBase
         psi.ArgumentList.Add("-NoProfile");
         psi.ArgumentList.Add("-NonInteractive");
         psi.ArgumentList.Add("-Command");
-        psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {cmdlet} | Out-Null");
+        var call = args.Length == 0 ? cmdlet : $"{cmdlet} {string.Join(' ', args)}";
+        psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {call} | Out-Null");
         psi.Environment["AZCLIPS_BENCH_RESOLVE_ONLY"] = "true";
         return psi;
     }

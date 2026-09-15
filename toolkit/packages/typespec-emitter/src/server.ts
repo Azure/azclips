@@ -29,7 +29,7 @@ import { typeRefFor, unwrapNullable } from "./types.js";
 
 function paramFor(ctx: BuildContext, p: SdkPathParameter): IRServerParameter {
   const wireName = p.serializedName ?? p.name;
-  const { type } = unwrapNullable(p.type);
+  const { type } = unwrapNullable(ctx, p.type);
   const irType = typeRefFor(ctx, type, `server.${wireName}`);
   return {
     name: p.name,

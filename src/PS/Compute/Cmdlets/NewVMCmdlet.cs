@@ -16,7 +16,7 @@ public class NewVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -83,6 +83,9 @@ public class NewVMCmdlet : PSCmdlet
     public string[]? RuleAccesses { get; set; }
 
     [Parameter(Mandatory = false)]
+    public SwitchParameter AcceleratedNetworking { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -97,7 +100,6 @@ public class NewVMCmdlet : PSCmdlet
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "Name", Name },
             { "Location", Location },
             { "ResourceGroupName", ResourceGroupName },
@@ -108,6 +110,7 @@ public class NewVMCmdlet : PSCmdlet
             { "VirtualNetworkName", VirtualNetworkName },
             { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
@@ -120,6 +123,7 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

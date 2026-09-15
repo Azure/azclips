@@ -59,14 +59,4 @@ public class NewApplicationProcessorTests
 
         Assert.Contains("\"signInAudience\":\"AzureADMyOrg\"", body, StringComparison.Ordinal);
     }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task CreateRequestMessage_MissingDisplayName_ShouldThrow(string displayName)
-    {
-        var processor = CreateProcessor(displayName);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
 }

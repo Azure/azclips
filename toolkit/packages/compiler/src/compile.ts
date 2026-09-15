@@ -1,33 +1,42 @@
 /**
- * The backbone orchestrator: compile -> emit IR -> transform -> generate.
+ * The backbone orchestrator: run the compiler's stage sequence.
+ *
+ * Orchestration is compiler-owned. `STAGE_CATALOG` declares what stages exist,
+ * in what order they run, and what runs by default; `CompileConfig.pipeline`
+ * only flips optional stages on or off. The planner resolves that into a **flat
+ * sequence**, and this module walks it start to finish.
+ *
+ * There is exactly **one IR per run**. Transforms hand it along — returning it
+ * mutated, or returning a replacement — and each generate stage renders the IR
+ * as it stands when its turn comes. Nothing here copies the IR, and nothing runs
+ * concurrently, so a stage's view of the IR is precisely "everything enabled
+ * before me, and nothing after".
+ *
+ * Stages run to the first failure. In a sequence every later stage would consume
+ * the broken IR, so continuing could only produce more noise.
  *
  * Host-agnostic and free of direct runtime coupling (no disk writes, no
  * `console.*`, no `process.exit`). Artifacts leave through an injected output
- * sink (`CompileOptions.output`); with no sink they are collected and returned.
- * Diagnostics are structured data. Cancellable via `AbortSignal`, checked at
- * every stage boundary.
- *
- * The pipeline is configurable, not hard-coded: transform steps and the
- * generator are resolved from `CompileConfig.pipeline` / `.generator` against a
- * `CompilerRegistry`, or overridden directly via `CompileOptions`. The backbone
- * owns the step loop, so with `captureIR` it emits a labeled `IRSnapshot` after
- * emit and after each transform step.
+ * sink; diagnostics are structured data; cancellation is checked at every stage
+ * boundary.
  */
 
 import type { IR } from "@azure-client-engine/ir";
 
-import { emitIR } from "./emit.js";
-import { toCompilerDiagnostic } from "./diagnostics.js";
-import {
-  createTransformPipeline,
-  identityPipeline,
-  type TransformContext,
-  type TransformPipeline,
-  type TransformStep,
-} from "./transform.js";
-import { noopGenerator, type Generator, type GeneratorContext } from "./generate.js";
+import type { EmitContext, EmitProducer } from "./emit-producer.js";
+import type { TransformContext, TransformStep } from "./transform.js";
+import type { Generator, GeneratorContext } from "./generate.js";
+import { createBuiltinEmit } from "./builtins/emit.js";
+import { createCsharpGenerator } from "./builtins/generate-csharp.js";
 import { createCollectorSink, type OutputDelegate } from "./output.js";
 import { isAbortError, throwIfAborted } from "./abort.js";
+import {
+  CSHARP_STAGE,
+  TSP_EMIT_STAGE,
+  planStages,
+  type PlannedStage,
+  type StageDescriptor,
+} from "./stages.js";
 import type {
   CompileConfig,
   CompileInput,
@@ -49,11 +58,8 @@ export async function compile(
   };
 
   const config = input.config ?? {};
-  const extensions = input.extensions ?? {};
   const captureIR = options.captureIR === true;
 
-  // Output sink: a caller-provided delegate, or the default in-memory collector
-  // that fills the result buffers. A custom sink takes ownership of artifacts.
   const collector = options.output ? undefined : createCollectorSink();
   const sink: OutputDelegate = options.output ?? collector!.write;
 
@@ -66,162 +72,246 @@ export async function compile(
     diagnostics,
   });
 
-  // Unique, filename-safe snapshot labels: "emit" is taken first, and a step
-  // name reused within a run is de-duplicated ("flatten", then "flatten-2").
-  const label = createLabeler();
-  const captureSnapshot = async (index: number, name: string, ir: IR): Promise<boolean> => {
+  // ── Plan: catalog defaults ⊕ config toggles → one flat sequence ─────────
+  const plan = planStages(config.pipeline ?? {}, reportDiagnostic, options.catalog);
+  if (plan === undefined) return finish(false);
+
+  /** Paths already written, with the stage that wrote them. */
+  const writtenBy = new Map<string, string>();
+
+  const captureSnapshot = async (stage: PlannedStage, ir: IR): Promise<boolean> => {
     if (!captureIR) return true;
     try {
-      // Deep-clone at capture so a later mutating step can't corrupt this snapshot.
-      await sink({ kind: "ir-snapshot", index, step: label(name), ir: structuredClone(ir) });
+      // The IR is handed over live, and later stages keep writing to it. A sink
+      // that serializes immediately (before its first `await`) needs no copy,
+      // which is why capture is free on the filesystem path; a sink that
+      // *retains* the object must copy it, or every snapshot it keeps will end
+      // up showing the run's final state.
+      await sink({ kind: "ir-snapshot", index: stage.index, step: stage.descriptor.id, ir });
       return true;
     } catch (error) {
       if (isAbortError(error)) throw error;
-      reportDiagnostic(outputError("ir-snapshot", name, error));
+      reportDiagnostic(outputError("ir-snapshot", stage.descriptor.id, error));
       return false;
     }
   };
 
-  // ── Stage 1 + 2: compile TypeSpec and emit IR ──────────────────────────
-  const emitted = await emitIR({
-    entrypoint: input.entrypoint,
-    ...(config.emitter !== undefined ? { emitterOptions: config.emitter } : {}),
-    ...(config.additionalImports !== undefined
-      ? { additionalImports: config.additionalImports }
-      : {}),
-    ...(config.warnAsError !== undefined ? { warnAsError: config.warnAsError } : {}),
-    ...(config.trace !== undefined ? { trace: config.trace } : {}),
-    ...(config.nostdlib !== undefined ? { nostdlib: config.nostdlib } : {}),
-  });
-  for (const d of emitted.diagnostics) diagnostics.push(toCompilerDiagnostic(d));
+  // ── Emit: the sequence's first stage, and the run's only IR source ──────
+  const emitProducer = resolveEmit(plan.emit.descriptor, options, config, reportDiagnostic);
+  if (emitProducer === undefined) return finish(false);
 
-  if (emitted.ir === undefined || hasError()) {
+  const emitContext: EmitContext = {
+    reportDiagnostic,
+    ...(signal !== undefined ? { signal } : {}),
+  };
+  let emitted: IR | undefined;
+  try {
+    ({ ir: emitted } = await emitProducer.produce(input, emitContext));
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    reportDiagnostic(stageError("emit", emitProducer.name, error));
     return finish(false);
   }
+  if (emitted === undefined || hasError()) return finish(false);
 
-  // Snapshot 0: the IR straight from the emitter.
-  throwIfAborted(signal);
-  if (!(await captureSnapshot(0, "emit", emitted.ir))) return finish(false);
+  // The emitted object is the run's only IR. Release the local the destructuring
+  // bound it to, so a transform that returns a *new* object leaves the old one
+  // collectable rather than pinned here for the rest of the run.
+  let ir: IR = emitted;
+  emitted = undefined;
 
-  // ── Stage 3: transform (identity unless configured/injected) ────────────
-  const pipeline = resolvePipeline(options, config, reportDiagnostic);
-  if (pipeline === undefined) return finish(false);
+  if (!(await captureSnapshot(plan.emit, ir))) return finish(false, ir);
 
   const transformContext: TransformContext = {
     reportDiagnostic,
-    extensions,
+    config,
     ...(signal !== undefined ? { signal } : {}),
   };
-  let ir: IR = emitted.ir;
-  let index = 1;
-  for (const step of pipeline.steps) {
+
+  /** Run one transform stage. Returns the IR to carry on with, or `undefined` on failure. */
+  const runTransform = async (stage: PlannedStage, current: IR): Promise<IR | undefined> => {
+    const id = stage.descriptor.id;
+    const step = resolveTransform(stage.descriptor, options, config, reportDiagnostic);
+    if (step === undefined) return undefined;
+    try {
+      return await step.run(current, transformContext);
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      reportDiagnostic(stageError("transform", id, error));
+      return undefined;
+    }
+  };
+
+  /** Run one generate stage, streaming its artifacts straight to the sink. */
+  const runGenerator = async (stage: PlannedStage, current: IR): Promise<boolean> => {
+    const id = stage.descriptor.id;
+    const generator = resolveGenerator(stage.descriptor, options, config, reportDiagnostic);
+    if (generator === undefined) return false;
+
+    let outputFailed = false;
+    const generatorContext: GeneratorContext = {
+      reportDiagnostic,
+      config,
+      ...(signal !== undefined ? { signal } : {}),
+      emit: async (artifact) => {
+        if (outputFailed) return;
+        // Two generators writing the same path would silently clobber each other,
+        // so a cross-stage collision is an error rather than last-writer-wins.
+        const owner = writtenBy.get(artifact.path);
+        if (owner !== undefined && owner !== id) {
+          outputFailed = true;
+          reportDiagnostic({
+            severity: "error",
+            code: "@azure-client-engine/compiler/output-path-collision",
+            message:
+              `Stages '${owner}' and '${id}' both write '${artifact.path}'. ` +
+              "Scope one stage's output so generators cannot overwrite each other.",
+          });
+          return;
+        }
+        writtenBy.set(artifact.path, id);
+        try {
+          if (artifact.kind === "file") {
+            await sink({
+              kind: "generated-file",
+              stage: id,
+              path: artifact.path,
+              contents: artifact.contents,
+            });
+          } else {
+            await sink({ kind: "remove", stage: id, path: artifact.path });
+          }
+        } catch (error) {
+          if (isAbortError(error)) throw error;
+          outputFailed = true;
+          reportDiagnostic(
+            outputError(artifact.kind === "file" ? "generated-file" : "remove", artifact.path, error),
+          );
+        }
+      },
+    };
+
+    try {
+      // Awaited in place, so the generator sees the IR exactly as it stands at
+      // its position. Handing a live IR to something that runs concurrently
+      // would let a later transform change what it renders.
+      await generator.generate(current, generatorContext);
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      reportDiagnostic(stageError("generate", id, error));
+      return false;
+    }
+    return !outputFailed;
+  };
+
+  // ── Walk the rest of the sequence ──────────────────────────────────────
+  for (const stage of plan.stages.slice(1)) {
     throwIfAborted(signal);
-    try {
-      ir = await step.run(ir, transformContext);
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      reportDiagnostic(stageError("transform", step.name, error));
-      return finish(false, ir);
+
+    if (stage.descriptor.kind === "generate") {
+      if (!(await runGenerator(stage, ir))) return finish(false, ir);
+      continue;
     }
-    if (!(await captureSnapshot(index, step.name, ir))) return finish(false, ir);
-    index++;
+
+    const next = await runTransform(stage, ir);
+    if (next === undefined) return finish(false, ir);
+    ir = next;
+    if (!(await captureSnapshot(stage, ir))) return finish(false, ir);
   }
 
-  // ── Stage 4: generate (no-op unless configured/injected) ────────────────
-  throwIfAborted(signal);
-  const generator = resolveGenerator(options, config, reportDiagnostic);
-  if (generator === undefined) return finish(false, ir);
-
-  const generatorContext: GeneratorContext = {
-    reportDiagnostic,
-    extensions,
-    ...(signal !== undefined ? { signal } : {}),
-  };
-  let files: Map<string, string>;
-  try {
-    ({ files } = await generator.generate(ir, generatorContext));
-  } catch (error) {
-    if (isAbortError(error)) throw error;
-    reportDiagnostic(stageError("generate", generator.name, error));
-    return finish(false, ir);
-  }
-
-  // Forward generated files to the sink (in-memory collector or host).
-  for (const [path, contents] of files) {
-    try {
-      await sink({ kind: "generated-file", path, contents });
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      reportDiagnostic(outputError("generated-file", path, error));
-      return finish(false, ir);
-    }
-  }
-
-  const failed =
+  const diagnosticsFailed =
     hasError() ||
-    (options.diagnosticsAsErrors === true &&
-      diagnostics.some((d) => d.severity === "warning"));
+    (options.diagnosticsAsErrors === true && diagnostics.some((d) => d.severity === "warning"));
 
-  return finish(!failed, ir);
+  return finish(!diagnosticsFailed, ir);
 }
 
-/** Resolve the transform pipeline: explicit override, then config+registry, then identity. */
-function resolvePipeline(
+/** Resolve the root emit stage: explicit override, registry, then the built-in. */
+function resolveEmit(
+  descriptor: StageDescriptor,
   options: CompileOptions,
   config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
-): TransformPipeline | undefined {
-  if (options.transform !== undefined) return options.transform;
+): EmitProducer | undefined {
+  if (options.emit !== undefined) return options.emit;
 
-  const specs = config.pipeline;
-  if (specs === undefined || specs.length === 0) return identityPipeline;
+  const factory = options.registry?.emitters.get(descriptor.id);
+  if (factory !== undefined) return factory(stageOptions(config, descriptor.id));
 
-  const steps: TransformStep[] = [];
-  for (const spec of specs) {
-    const factory = options.registry?.transforms.get(spec.use);
-    if (factory === undefined) {
+  if (descriptor.id === TSP_EMIT_STAGE) {
+    if (options.runtime === undefined) {
       reportDiagnostic({
         severity: "error",
-        code: "@azure-client-engine/compiler/unknown-transform-step",
-        message: `No transform step registered for id '${spec.use}'.`,
+        code: "@azure-client-engine/compiler/no-emit-producer",
+        message:
+          `The '${TSP_EMIT_STAGE}' stage runs out of process and needs a host runtime ` +
+          "(CompileOptions.runtime), or an injected producer (CompileOptions.emit).",
       });
       return undefined;
     }
-    steps.push(factory(spec.options ?? {}));
+    return createBuiltinEmit(options.runtime);
   }
-  return createTransformPipeline("configured", steps);
+
+  reportDiagnostic(unimplemented(descriptor.id, "emit"));
+  return undefined;
 }
 
-/** Resolve the generator: explicit override, then config+registry, then no-op. */
+/** Resolve a transform stage. Transforms have no built-ins; the host must fulfil them. */
+function resolveTransform(
+  descriptor: StageDescriptor,
+  options: CompileOptions,
+  config: CompileConfig,
+  reportDiagnostic: (d: CompilerDiagnostic) => void,
+): TransformStep | undefined {
+  const factory = options.registry?.transforms.get(descriptor.id);
+  if (factory === undefined) {
+    reportDiagnostic(unimplemented(descriptor.id, "transform"));
+    return undefined;
+  }
+  return factory(stageOptions(config, descriptor.id));
+}
+
+/** Resolve a generate stage: a registry entry, else the compiler's built-in `csharp`. */
 function resolveGenerator(
+  descriptor: StageDescriptor,
   options: CompileOptions,
   config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): Generator | undefined {
-  if (options.generator !== undefined) return options.generator;
+  const resolved = stageOptions(config, descriptor.id);
 
-  const spec = config.generator;
-  if (spec === undefined) return noopGenerator;
+  const factory = options.registry?.generators.get(descriptor.id);
+  if (factory !== undefined) return factory(resolved);
 
-  const factory = options.registry?.generators.get(spec.use);
-  if (factory === undefined) {
-    reportDiagnostic({
-      severity: "error",
-      code: "@azure-client-engine/compiler/unknown-generator",
-      message: `No generator registered for id '${spec.use}'.`,
-    });
-    return undefined;
+  if (descriptor.id === CSHARP_STAGE) {
+    if (options.runtime === undefined) {
+      reportDiagnostic({
+        severity: "error",
+        code: "@azure-client-engine/compiler/generator-requires-runtime",
+        message:
+          `The '${CSHARP_STAGE}' stage runs out of process and needs a host runtime ` +
+          "(CompileOptions.runtime).",
+      });
+      return undefined;
+    }
+    return createCsharpGenerator(options.runtime, resolved);
   }
-  return factory(spec.options ?? {});
+
+  reportDiagnostic(unimplemented(descriptor.id, "generate"));
+  return undefined;
 }
 
-/** Build a labeler that returns unique names ("x", then "x-2", "x-3", ...). */
-function createLabeler(): (name: string) => string {
-  const counts = new Map<string, number>();
-  return (name) => {
-    const seen = counts.get(name) ?? 0;
-    counts.set(name, seen + 1);
-    return seen === 0 ? name : `${name}-${seen + 1}`;
+function stageOptions(config: CompileConfig, id: string): Record<string, unknown> {
+  return config.stageOptions?.[id] ?? {};
+}
+
+function unimplemented(id: string, kind: string): CompilerDiagnostic {
+  return {
+    severity: "error",
+    code: "@azure-client-engine/compiler/unimplemented-stage",
+    message:
+      `The '${id}' ${kind} stage is enabled but no implementation was supplied. ` +
+      "Register one through CompileOptions.registry, or disable the stage in config.pipeline.",
   };
 }
 
@@ -230,7 +320,7 @@ function stageError(stage: string, name: string, error: unknown): CompilerDiagno
   return {
     severity: "error",
     code: `@azure-client-engine/compiler/${stage}-stage-failed`,
-    message: `${stage} step '${name}' threw: ${detail}`,
+    message: `${stage} stage '${name}' threw: ${detail}`,
   };
 }
 

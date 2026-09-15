@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Atomic processor for <c>GET /groups/{id}/members</c>. Takes only what the Microsoft
     /// Graph endpoint accepts: the group's object ID and OData query options. Convenience
     /// features (accepting a display-name prefix or exact name for the group, ...) live in
-    /// <c>Orchestrators/ListGroupMemberProcessor_Orchestrator</c>.
+    /// <c>Customization/ListGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
     /// <remarks>
     /// Hand-authored atomic: <c>/groups/{group-id}/members</c> is only referenced via an
@@ -20,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// consumes the upstream <c>msgraph-metadata</c> spec (which does define the full sub-path),
     /// this class becomes a codegen candidate.
     /// </remarks>
-    public class ListGroupMemberProcessor : GraphProcessorBase<DirectoryObjectList>
+    public class ListGroupMemberProcessor : GraphProcessorBase<object, DirectoryObjectList>
     {
         [ArgumentInfo(
             Required = true,
@@ -64,23 +64,21 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            if (string.IsNullOrWhiteSpace(GroupId))
-            {
-                throw new InvalidOperationException("GroupId is required to list group members.");
-            }
+        protected override HttpMethod Method => HttpMethod.Get;
 
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-
-            string uri = $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(GroupId)}/members"
+        protected override string CreateRequestUri() =>
+            $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(GroupId)}/members"
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.SetConsistencyLevel(ConsistencyLevel);
+        protected override void CreateRequestHeaders(HttpRequestMessage request) => request.SetConsistencyLevel(ConsistencyLevel);
 
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
+        private string? nextLink(DirectoryObjectList body) => body.NextLink;
+        private DirectoryObject[]? pageItems(DirectoryObjectList body) => body.Value;
+
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DirectoryObjectList? body)
+        {
+            await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+            return true;
         }
     }
 }

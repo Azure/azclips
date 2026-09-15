@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Agent.AgentMode;
@@ -30,26 +33,45 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI
-        // as its error-handling fallback — so it initializes as ClientType.CLI
-        // (was TUI back when this entry lived inside Core.Tui and borrowed its shell).
+        // Runs as its own process (azclips-agent.exe), spawned by the CLI on command
+        // failure, so it initializes as ClientType.CLI. AgentTelemetryProvider replaces
+        // the default one because only it attaches a listener; without it every span
+        // in this process is null.
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
+            services.AddSingleton<ITelemetryProvider, AgentTelemetryProvider>();
+        });
         AzclipsServiceProvider.Initialize(ClientType.CLI);
 
         TraceAgentRenderer? trace = null;
         try
         {
+            // Constructing the provider builds the TracerProvider and attaches the
+            // listener every span here depends on. DI singletons are lazy, so this
+            // resolve is what triggers it. The container disposes it in the finally,
+            // which flushes the exporter.
+            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>();
+
+            // Parents to the CLI's recovery span via the traceparent on our environment
+            // block. Inside the try so it disposes before the finally tears down the
+            // TracerProvider — nothing exports after that.
+            using var session = telemetry.ActivitySource.StartActivity(
+                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
+            session?.SetTag(TelemetryTags.RecoverySessionStyle, agentOpts.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
-            // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
+            // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
-
-            PrintBanner(failedCommand, errorText, quiet);
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
@@ -72,7 +94,12 @@ public static class AgentModeEntry
                 // user explicitly wants it and needs to know where to look.
                 Console.WriteLine($"   trace: {fullPath}");
             }
-            var spinner  = new SpinnerService(renderer);
+            // await using: the spinner is Started before CreateAsync (below), so it
+            // must be Stopped even when CreateAsync throws or the user Ctrl+Cs during
+            // cold start. Disposal runs on the way out of this scope — before the
+            // catch blocks — so the spinner line is cleared and the cursor restored
+            // before the error is printed.
+            await using var spinner = new SpinnerService(renderer);
 
             // Watcher is shared across all turns and paused (not destroyed) while
             // the approval pump reads y/n — that's how single-reader stdin is
@@ -89,18 +116,30 @@ public static class AgentModeEntry
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
 
-            await using var agent = await ChatAgent.CreateAsync(
-                flavor: flavor,
-                auth: auth,
-                profileService: profileService,
-                azExePath: az,
-                approvalSink: approval,
-                renderer: renderer,
-                options: agentOpts,
-                entrypoint: entrypoint,
-                spinner: spinner,
-                failedCommand: failedCommand,
-                ct: cts.Token);
+            // Start the spinner BEFORE CreateAsync: daemon cold-start + silent auth
+            // take several seconds, and without this the screen hangs blank. The
+            // first chat turn re-Starts the spinner with the same verb (Start is
+            // idempotent — it Stops first), so this seams into the turn cleanly.
+            spinner.Start("Analyzing error root cause using AI");
+
+            ChatAgent agent;
+            // Times Copilot SDK and stdio daemon startup.
+            using (AgentTracing.Source.StartActivity("Agent.Create"))
+            {
+                agent = await ChatAgent.CreateAsync(
+                    flavor: flavor,
+                    auth: auth,
+                    profileService: profileService,
+                    azExePath: az,
+                    approvalSink: approval,
+                    renderer: renderer,
+                    options: agentOpts,
+                    entrypoint: entrypoint,
+                    spinner: spinner,
+                    failedCommand: failedCommand,
+                    ct: cts.Token);
+            }
+            await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
             // outcome, ConsoleAgentRenderer drops any trailing prose the model
@@ -115,6 +154,7 @@ public static class AgentModeEntry
             var interactive = agentOpts.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
         catch (OperationCanceledException)
@@ -232,6 +272,7 @@ public static class AgentModeEntry
         CancellationToken ct,
         string initialVerb = "thinking")
     {
+        using var turn = AgentTracing.Source.StartActivity("Agent.Turn");
         var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
@@ -243,6 +284,9 @@ public static class AgentModeEntry
             if (agent.LastSendCalledClosingTool) break;
             // Errored turn: don't pile a correction on top of a failure.
             if (agent.LastError is not null) break;
+
+            using var reprompt = AgentTracing.Source.StartActivity("Agent.Reprompt");
+            reprompt?.SetTag(TelemetryTags.RecoveryReprompts, attempt + 1);
 
             WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");
             const string correction =
@@ -328,26 +372,6 @@ public static class AgentModeEntry
         }
 
         return redirect;
-    }
-
-    private static void PrintBanner(string failedCommand, string error, bool quiet)
-    {
-        // Quiet mode (one-shot): no "agent mode" banner / AI scaffolding — the
-        // spinner ("Analyzing error root cause using AI …") is the only hint, and
-        // the AI help is the output. Keep it clean.
-        if (quiet) return;
-
-        var prev = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine();
-        Console.WriteLine("🤖 agent mode");
-        if (!string.IsNullOrWhiteSpace(failedCommand))
-            Console.WriteLine($"   triggered by failed command: {failedCommand}");
-        if (!string.IsNullOrWhiteSpace(error))
-            Console.WriteLine($"   error: {Truncate(error, 200)}");
-        Console.WriteLine("   type 'exit' or Ctrl+C to leave");
-        Console.WriteLine();
-        Console.ForegroundColor = prev;
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default

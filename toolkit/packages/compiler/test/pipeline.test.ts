@@ -1,209 +1,457 @@
 /**
- * Extension-seam tests.
+ * Orchestration tests.
  *
- * Prove that `compile()` threads the emitted IR through an injected
- * `TransformPipeline` and routes the transformed IR to an injected
- * `Generator`, returning the generator's files. These are the seams the
- * future transform passes and the Roslyn C# back end plug into.
+ * Prove that `compile()` walks the compiler-owned stage sequence: the emit stage
+ * produces the run's one IR, transforms hand it along in catalog order, each
+ * generate stage renders it as it stands at that position, and every seam is
+ * fulfilled by stage id rather than by a host-authored pipeline.
+ *
+ * The orchestrator is TypeSpec-free, so emit is a stub producer backed by the
+ * committed `pets.ir.json` fixture — the real compile+emit path is covered in
+ * @azure-client-engine/cli's tests.
  */
 
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { normalizePath } from "@typespec/compiler";
 
 import {
+  CSHARP_STAGE,
+  FLATTEN_MODEL_STAGE,
+  TSP_EMIT_STAGE,
   compile,
   createRegistry,
-  createTransformPipeline,
+  noopGenerator,
+  type CompileOptions,
+  type EmitArtifact,
+  type EmitProducer,
   type Generator,
-  type OutputDelegate,
+  type StageDescriptor,
   type TransformStep,
 } from "../src/index.js";
 
-const PETS_TSP = normalizePath(
-  resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "ir", "examples", "pets.tsp"),
+import { parseIR, type IR } from "@azure-client-engine/ir";
+
+const PETS_IR: IR = parseIR(
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "ir", "examples", "pets.ir.json"),
+      "utf8",
+    ),
+  ),
 );
 
-describe("compiler backbone: extension seams", () => {
-  it("threads IR through an injected TransformPipeline", async () => {
-    const renamePet = createTransformPipeline("test-rename-pet", [
+// Fresh clone per call so a mutating stage in one test cannot leak into another.
+const petsEmit: EmitProducer = {
+  name: "stub-pets",
+  produce: () => ({ ir: structuredClone(PETS_IR) }),
+};
+
+const ENTRYPOINT = "pets.tsp";
+
+/** A transform that renames a model in place, so a stage's effect is observable. */
+const renameModel = (from: string, to: string): TransformStep => ({
+  name: `rename-${from}`,
+  run: (ir) => {
+    for (const model of ir.models) if (model.name === from) model.name = to;
+    return ir;
+  },
+});
+
+/** A generator that records what IR it saw, under its own file path. */
+const reportingGenerator = (name: string): Generator => ({
+  name,
+  generate: async (ir, ctx) => {
+    await ctx.emit({
+      kind: "file",
+      path: `${name}.txt`,
+      contents: ir.models.map((m) => m.name).join(","),
+    });
+  },
+});
+
+/**
+ * Fulfil the shipped catalog's optional stages so a test exercises orchestration
+ * rather than tripping over unimplemented ones.
+ */
+function defaults(overrides: Partial<Parameters<typeof createRegistry>[0]> = {}): CompileOptions {
+  return {
+    emit: petsEmit,
+    registry: createRegistry({
+      transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }) },
+      generators: { [CSHARP_STAGE]: () => noopGenerator },
+      ...overrides,
+    }),
+  };
+}
+
+describe("orchestration: the emit stage", () => {
+  it("fails when the emit stage has no implementation and no runtime", async () => {
+    const result = await compile({ entrypoint: ENTRYPOINT });
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/no-emit-producer",
+    );
+  });
+
+  it("uses the injected producer and never touches the entrypoint", async () => {
+    const result = await compile({ entrypoint: "does-not-exist.tsp" }, defaults());
+    expect(result.success).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir?.models.some((m) => m.name === "Pet")).toBe(true);
+  });
+
+  it("resolves the emit stage from the registry by its catalog id", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
       {
-        name: "rename-pet",
-        run: (ir) => ({
-          ...ir,
-          models: ir.models.map((m) => (m.name === "Pet" ? { ...m, name: "Animal" } : m)),
+        registry: createRegistry({
+          emitters: { [TSP_EMIT_STAGE]: () => petsEmit },
+          transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }) },
+          generators: { [CSHARP_STAGE]: () => noopGenerator },
         }),
       },
-    ]);
+    );
+    expect(result.success).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+  });
 
-    const result = await compile({ entrypoint: PETS_TSP }, { transform: renamePet });
+  it("reports a stage-failed diagnostic when the producer throws", async () => {
+    const result = await compile(
+      { entrypoint: "x.tsp" },
+      { emit: { name: "boom", produce: () => { throw new Error("kaboom"); } } },
+    );
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/emit-stage-failed",
+    );
+  });
+});
+
+describe("orchestration: config toggles", () => {
+  it("runs the catalog's default stages without any config", async () => {
+    const seen: string[] = [];
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({
+        transforms: {
+          [FLATTEN_MODEL_STAGE]: () => ({
+            name: FLATTEN_MODEL_STAGE,
+            run: (ir) => { seen.push(FLATTEN_MODEL_STAGE); return ir; },
+          }),
+        },
+      }),
+      captureIR: true,
+    });
+    expect(result.success).toBe(true);
+    expect(seen).toEqual([FLATTEN_MODEL_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
+  });
+
+  it("skips a stage the config turns off, and the sequence closes up", async () => {
+    let ran = false;
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { pipeline: { [FLATTEN_MODEL_STAGE]: false } } },
+      {
+        ...defaults({
+          transforms: {
+            [FLATTEN_MODEL_STAGE]: () => ({
+              name: FLATTEN_MODEL_STAGE,
+              run: (ir) => { ran = true; return ir; },
+            }),
+          },
+          generators: { [CSHARP_STAGE]: () => reportingGenerator(CSHARP_STAGE) },
+        }),
+        captureIR: true,
+      },
+    );
+    expect(result.success).toBe(true);
+    expect(ran).toBe(false);
+    // csharp still ran — it simply moved up the sequence.
+    expect(result.files.has(`${CSHARP_STAGE}.txt`)).toBe(true);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+  });
+
+  it("fails when an enabled stage has no implementation", async () => {
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit });
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/unimplemented-stage",
+    );
+  });
+
+  it("hands each stage its own options from config.stageOptions", async () => {
+    let seen: unknown;
+    const result = await compile(
+      {
+        entrypoint: ENTRYPOINT,
+        config: { stageOptions: { [FLATTEN_MODEL_STAGE]: { threshold: 7 } } },
+      },
+      defaults({
+        transforms: {
+          [FLATTEN_MODEL_STAGE]: (options) => ({
+            name: FLATTEN_MODEL_STAGE,
+            run: (ir) => { seen = options.threshold; return ir; },
+          }),
+        },
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(seen).toBe(7);
+  });
+
+  it("threads CompileInput.config into every stage context", async () => {
+    let transformSaw: unknown;
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { apiVersion: "2025-09-01" } },
+      defaults({
+        transforms: {
+          [FLATTEN_MODEL_STAGE]: () => ({
+            name: FLATTEN_MODEL_STAGE,
+            run: (ir, ctx) => { transformSaw = ctx.config.apiVersion; return ir; },
+          }),
+        },
+        generators: {
+          [CSHARP_STAGE]: () => ({
+            name: CSHARP_STAGE,
+            generate: async (_ir, ctx) => {
+              await ctx.emit({ kind: "file", path: "cfg.txt", contents: String(ctx.config.apiVersion) });
+            },
+          }),
+        },
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(transformSaw).toBe("2025-09-01");
+    expect(result.files.get("cfg.txt")).toBe("2025-09-01");
+  });
+});
+
+describe("orchestration: the linear sequence", () => {
+  /** emit -> early -> gen-early -> late -> gen-late. */
+  const SEQUENCE: readonly StageDescriptor[] = [
+    { id: "tsp-emit", kind: "emit", default: "mandatory" },
+    { id: "early", kind: "transform", default: "on" },
+    { id: "gen-early", kind: "generate", default: "on" },
+    { id: "late", kind: "transform", default: "on" },
+    { id: "gen-late", kind: "generate", default: "on" },
+  ];
+
+  const sequenceOptions = (extra: Partial<CompileOptions> = {}): CompileOptions => ({
+    emit: petsEmit,
+    catalog: SEQUENCE,
+    registry: createRegistry({
+      transforms: {
+        early: () => renameModel("Pet", "Early"),
+        late: () => renameModel("Early", "Late"),
+      },
+      generators: {
+        "gen-early": () => reportingGenerator("gen-early"),
+        "gen-late": () => reportingGenerator("gen-late"),
+      },
+    }),
+    ...extra,
+  });
+
+  it("renders each generate stage against the IR as it stands at that position", async () => {
+    const result = await compile({ entrypoint: ENTRYPOINT }, sequenceOptions());
 
     expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    // `gen-early` ran before `late`, so it cannot have seen that rename.
+    expect(result.files.get("gen-early.txt")).toContain("Early");
+    expect(result.files.get("gen-early.txt")).not.toContain("Late");
+    expect(result.files.get("gen-late.txt")).toContain("Late");
+  });
+
+  it("carries one IR through the whole run, with no copy between stages", async () => {
+    const seen: IR[] = [];
+    const record = (name: string): TransformStep => ({
+      name,
+      run: (ir) => { seen.push(ir); return ir; },
+    });
+
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      {
+        emit: petsEmit,
+        catalog: SEQUENCE,
+        registry: createRegistry({
+          transforms: { early: () => record("early"), late: () => record("late") },
+          generators: {
+            "gen-early": () => reportingGenerator("gen-early"),
+            "gen-late": () => reportingGenerator("gen-late"),
+          },
+        }),
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(seen).toHaveLength(2);
+    // Same object throughout — the sequence never clones.
+    expect(new Set(seen).size).toBe(1);
+    expect(result.ir).toBe(seen[0]);
+  });
+
+  it("returns the IR in its final state, after every transform", async () => {
+    const result = await compile({ entrypoint: ENTRYPOINT }, sequenceOptions());
+    expect(result.ir?.models.some((m) => m.name === "Late")).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Pet")).toBe(false);
   });
 
-  it("routes transformed IR to an injected Generator and returns its files", async () => {
-    const generator: Generator = {
-      name: "test-generator",
-      generate: (ir) => ({
-        files: new Map([
-          ["summary.txt", `models=${ir.models.length};operations=${ir.operations.length}`],
-        ]),
-      }),
-    };
-
-    const result = await compile({ entrypoint: PETS_TSP }, { generator });
-
-    expect(result.success).toBe(true);
-    expect(result.files.get("summary.txt")).toMatch(/^models=\d+;operations=\d+$/);
-  });
-
-  it("forwards emitter options via config.emitter (sourceId overrides the module)", async () => {
-    const result = await compile({
-      entrypoint: PETS_TSP,
-      config: { emitter: { sourceId: "CustomSource" } },
-    });
-
-    expect(result.success).toBe(true);
-    const pet = result.ir?.models.find((m) => m.name === "Pet");
-    expect(pet?.source).toBe("CustomSource");
-    expect(pet?.id.module).toBe("CustomSource");
-  });
-
-  it("threads CompileInput.extensions into transform and generator contexts", async () => {
-    const seen: Record<string, unknown> = {};
-    const transform = createTransformPipeline("capture-extensions", [
-      {
-        name: "capture",
-        run: (ir, ctx) => {
-          seen.marker = ctx.extensions.marker;
-          return ir;
-        },
-      },
-    ]);
-    const generator: Generator = {
-      name: "capture-extensions-generator",
-      generate: (ir, ctx) => ({ files: new Map([["ext.txt", String(ctx.extensions.marker)]]) }),
-    };
-
+  it("carries on with a replacement when a stage returns a new object", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, extensions: { marker: "hello" } },
-      { transform, generator },
-    );
-
-    expect(result.success).toBe(true);
-    expect(seen.marker).toBe("hello");
-    expect(result.files.get("ext.txt")).toBe("hello");
-  });
-});
-
-describe("compiler backbone: IR capture", () => {
-  it("captures emit as snapshot 0 (default collector)", async () => {
-    const result = await compile({ entrypoint: PETS_TSP }, { captureIR: true });
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.[0]?.index).toBe(0);
-    expect(result.snapshots?.[0]?.step).toBe("emit");
-    expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
-  });
-
-  it("captures a snapshot per transform step, labeled by step name", async () => {
-    const renamePet = createTransformPipeline("t", [
+      { entrypoint: ENTRYPOINT },
       {
-        name: "rename-pet",
-        run: (ir) => ({
-          ...ir,
-          models: ir.models.map((m) => (m.name === "Pet" ? { ...m, name: "Animal" } : m)),
+        emit: petsEmit,
+        catalog: SEQUENCE,
+        registry: createRegistry({
+          transforms: {
+            // Pure style: returns a fresh object rather than mutating.
+            early: () => ({
+              name: "early",
+              run: (ir) => ({ ...ir, models: ir.models.map((m) => ({ ...m, name: `x:${m.name}` })) }),
+            }),
+            late: () => ({ name: "late", run: (ir) => ir }),
+          },
+          generators: {
+            "gen-early": () => reportingGenerator("gen-early"),
+            "gen-late": () => reportingGenerator("gen-late"),
+          },
         }),
       },
-    ]);
-    const result = await compile(
-      { entrypoint: PETS_TSP },
-      { captureIR: true, transform: renamePet },
     );
     expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename-pet"]);
-    // Emit snapshot is isolated (structuredClone) from the later rename.
-    expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
-    expect(result.snapshots?.[1]?.ir.models.some((m) => m.name === "Animal")).toBe(true);
+    expect(result.files.get("gen-early.txt")).toContain("x:Pet");
   });
 
-  it("omits snapshots when captureIR is not set", async () => {
-    const result = await compile({ entrypoint: PETS_TSP });
-    expect(result.snapshots).toBeUndefined();
-  });
+  it("stops at the first failing stage rather than feeding broken IR onward", async () => {
+    let lateRan = false;
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      {
+        emit: petsEmit,
+        catalog: SEQUENCE,
+        registry: createRegistry({
+          transforms: {
+            early: () => ({ name: "early", run: () => { throw new Error("kaboom"); } }),
+            late: () => ({ name: "late", run: (ir) => { lateRan = true; return ir; } }),
+          },
+          generators: {
+            "gen-early": () => reportingGenerator("gen-early"),
+            "gen-late": () => reportingGenerator("gen-late"),
+          },
+        }),
+      },
+    );
 
-  it("routes artifacts to a custom sink, leaving result buffers empty", async () => {
-    const seen: string[] = [];
-    const output: OutputDelegate = (a) => {
-      seen.push(a.kind === "ir-snapshot" ? `ir:${a.index}-${a.step}` : `file:${a.path}`);
-    };
-    const result = await compile({ entrypoint: PETS_TSP }, { captureIR: true, output });
-    expect(result.success).toBe(true);
-    expect(seen).toContain("ir:0-emit");
-    expect(result.snapshots).toBeUndefined();
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/transform-stage-failed",
+    );
+    expect(lateRan).toBe(false);
     expect(result.files.size).toBe(0);
+  });
+
+  it("tags every artifact with the stage that produced it", async () => {
+    const artifacts: EmitArtifact[] = [];
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      sequenceOptions({ output: (artifact) => { artifacts.push(artifact); } }),
+    );
+
+    expect(result.success).toBe(true);
+    const stages = artifacts
+      .filter((a) => a.kind === "generated-file")
+      .map((a) => (a.kind === "generated-file" ? a.stage : ""));
+    expect(new Set(stages)).toEqual(new Set(["gen-early", "gen-late"]));
+    // A custom sink takes ownership, so the result buffers stay empty.
+    expect(result.files.size).toBe(0);
+  });
+
+  it("errors when two generate stages write the same path", async () => {
+    const collide: Generator = {
+      name: "collide",
+      generate: async (_ir, ctx) => {
+        await ctx.emit({ kind: "file", path: "same.txt", contents: "x" });
+      },
+    };
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      {
+        emit: petsEmit,
+        catalog: SEQUENCE,
+        registry: createRegistry({
+          transforms: {
+            early: () => ({ name: "early", run: (ir) => ir }),
+            late: () => ({ name: "late", run: (ir) => ir }),
+          },
+          generators: { "gen-early": () => collide, "gen-late": () => collide },
+        }),
+      },
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/compiler/output-path-collision",
+    );
+  });
+
+  it("captures one snapshot per IR-producing stage, in sequence order", async () => {
+    const result = await compile({ entrypoint: ENTRYPOINT }, sequenceOptions({ captureIR: true }));
+
+    expect(result.success).toBe(true);
+    // Generate stages take a position but produce no IR, hence the index gap.
+    expect(result.snapshots?.map((s) => [s.index, s.step])).toEqual([
+      [0, "tsp-emit"],
+      [1, "early"],
+      [3, "late"],
+    ]);
+  });
+
+  it("copies each snapshot, so in-place mutation cannot rewrite an earlier one", async () => {
+    // The run has one IR mutated from end to end, so the retaining collector sink
+    // owns the copy — without it every snapshot would show the final state.
+    const result = await compile({ entrypoint: ENTRYPOINT }, sequenceOptions({ captureIR: true }));
+
+    const names = (step: string): string[] =>
+      result.snapshots!.find((s) => s.step === step)!.ir.models.map((m) => m.name);
+
+    expect(names("tsp-emit")).toContain("Pet");
+    expect(names("early")).toContain("Early");
+    expect(names("late")).toContain("Late");
   });
 });
 
-describe("compiler backbone: configurable pipeline (registry + config)", () => {
-  const renameFactory = (options: Record<string, unknown>): TransformStep => {
-    const from = String(options.from ?? "Pet");
-    const to = String(options.to ?? "Animal");
-    return {
-      name: "rename",
-      run: (ir) => ({
-        ...ir,
-        models: ir.models.map((m) => (m.name === from ? { ...m, name: to } : m)),
-      }),
-    };
-  };
+describe("orchestration: a long sequence", () => {
+  it("runs every stage in catalog order, however deep the sequence gets", async () => {
+    const DEPTH = 8;
+    const catalog: StageDescriptor[] = [{ id: "tsp-emit", kind: "emit", default: "mandatory" }];
+    const transforms: Record<string, () => TransformStep> = {};
+    const ran: string[] = [];
 
-  it("resolves config.pipeline steps against the registry, in order", async () => {
-    const registry = createRegistry({ transforms: { rename: renameFactory } });
+    for (let i = 0; i < DEPTH; i++) {
+      const id = `t${i}`;
+      catalog.push({ id, kind: "transform", default: "on" });
+      transforms[id] = () => ({
+        name: id,
+        run: (ir) => { ran.push(id); return ir; },
+      });
+    }
+    catalog.push({ id: "csharp", kind: "generate", default: "on" });
+
     const result = await compile(
+      { entrypoint: ENTRYPOINT },
       {
-        entrypoint: PETS_TSP,
-        config: { pipeline: [{ use: "rename", options: { from: "Pet", to: "Animal" } }] },
+        emit: petsEmit,
+        catalog,
+        registry: createRegistry({ transforms, generators: { csharp: () => noopGenerator } }),
       },
-      { registry, captureIR: true },
     );
-    expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename"]);
-  });
 
-  it("de-duplicates repeated step labels (rename, rename-2)", async () => {
-    const registry = createRegistry({ transforms: { rename: renameFactory } });
-    const result = await compile(
-      {
-        entrypoint: PETS_TSP,
-        config: {
-          pipeline: [
-            { use: "rename", options: { from: "Pet", to: "Animal" } },
-            { use: "rename", options: { from: "Animal", to: "Creature" } },
-          ],
-        },
-      },
-      { registry, captureIR: true },
-    );
     expect(result.success).toBe(true);
-    expect(result.ir?.models.some((m) => m.name === "Creature")).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename", "rename-2"]);
-  });
-
-  it("fails with a diagnostic when a step id is not registered", async () => {
-    const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: [{ use: "does-not-exist" }] } },
-      { registry: createRegistry() },
-    );
-    expect(result.success).toBe(false);
-    expect(
-      result.diagnostics.some(
-        (d) => d.code === "@azure-client-engine/compiler/unknown-transform-step",
-      ),
-    ).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(ran).toEqual(Array.from({ length: DEPTH }, (_, i) => `t${i}`));
   });
 });

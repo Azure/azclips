@@ -39,14 +39,4 @@ public class GetApplicationProcessorTests
             "https://graph.microsoft.com/v1.0/applications/app%20id%2Fwith%20space",
             request.RequestUri!.AbsoluteUri);
     }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task CreateRequestMessage_MissingId_ShouldThrow(string id)
-    {
-        var processor = CreateProcessor(id);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
 }

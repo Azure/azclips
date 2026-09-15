@@ -161,8 +161,8 @@ public class RegistryLookupTests
     // ── ToShortName ──
 
     [Theory]
-    [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
-    [InlineData("microsoft.azure.azclips.extensions.login", "login")]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Accounts", "Accounts")]
+    [InlineData("microsoft.azure.azclips.extensions.accounts", "accounts")]
     [InlineData("Microsoft.Azure.Azclips.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.azclips.extensions.compute", "compute")]
     [InlineData("Contoso.MyExtension", "Contoso.MyExtension")]

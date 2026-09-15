@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/ir",
+    "packages/typespec-emitter",
+    "packages/compiler",
+    "packages/transformers",
+    "packages/cli"
   ],
   "scripts": {
     "build": "tsc -b",
@@ -14,7 +18,10 @@
     "rebuild": "npm run clean && npm run build",
     "test": "npm run test --workspaces --if-present",
     "lint:deps": "syncpack lint",
-    "fix:deps": "syncpack fix-mismatches"
+    "fix:deps": "syncpack fix-mismatches",
+    "schema": "npm run schema -w @azure-client-engine/ir --",
+    "schema:check": "npm run schema:check -w @azure-client-engine/ir --",
+    "login": "npm install @microsoft/artifacts-npm-credprovider -g --registry https://pkgs.dev.azure.com/artifacts-public/PublicTools/_packaging/AzureArtifacts/npm/registry/ && artifacts-npm-credprovider -c ./.npmrc"
   },
   "keywords": [],
   "author": "",

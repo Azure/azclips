@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj" />
     <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+    <ProjectReference Include="..\Tests.Recording\Tests.Recording.csproj" />
   </ItemGroup>
 
   <ItemGroup>

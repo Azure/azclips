@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Extensions;
+using Core.Abstractions;
 
 namespace Core.Cli.Exceptions;
 
@@ -22,10 +22,15 @@ public sealed class CommandNotFoundException : AzclipsErrorException
     public IReadOnlyList<string> Path { get; }
 
     public CommandNotFoundException(string verb, IReadOnlyList<string> path)
+        : this(verb, path, Array.Empty<string>())
+    {
+    }
+
+    public CommandNotFoundException(string verb, IReadOnlyList<string> path, IReadOnlyList<string> unrecognizedArguments)
         : base(
             code: "CommandNotFound",
             exitCode: 4,
-            message: BuildMessage(verb, path),
+            message: BuildMessage(verb, path, unrecognizedArguments),
             details: new Dictionary<string, object?>
             {
                 ["verb"] = verb,
@@ -36,8 +41,16 @@ public sealed class CommandNotFoundException : AzclipsErrorException
         Path = path;
     }
 
-    private static string BuildMessage(string verb, IReadOnlyList<string> path)
+    private static string BuildMessage(string verb, IReadOnlyList<string> path, IReadOnlyList<string> unrecognizedArguments)
     {
+        // A bare group renders help before reaching here, so an empty path means trailing flags.
+        if (path.Count == 0 && unrecognizedArguments.Count > 0)
+        {
+            return
+                $"Unrecognized arguments for command group '{verb}': {string.Join(' ', unrecognizedArguments)}. " +
+                $"Run 'az {verb} --help' to see available commands.";
+        }
+
         var invocation = path.Count == 0
             ? verb
             : $"{verb} {string.Join(' ', path)}";

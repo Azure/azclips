@@ -11,8 +11,8 @@
  *   - `apiVersion`   ← walk the first op's parameters for `isApiVersionParam`;
  *                     value from `sdkPackage.metadata.apiVersions.get(fqn)`
  *                     or `getDefaultApiVersion(serviceNs)`.
- *   - `server`       ← `serverFrom(rootClient.clientInitialization
- *                     .parameters[0])` (the SdkEndpointParameter).
+ *   - `server`       ← reference to the shared definition built from
+ *                     rootClient.clientInitialization's endpoint parameter.
  *   - `rootNamespace`← FQN split by '.'.
  */
 
@@ -32,10 +32,12 @@ import {
 import type {
   IRApiVersionStamp,
   IRServer,
+  IRServerDefinition,
   IRSource,
 } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
+import { authFrom } from "./auth.js";
 import { reportDiagnostic } from "./lib.js";
 import { serverFrom } from "./server.js";
 
@@ -124,7 +126,7 @@ function apiVersionLocationFor(
 export type SourceContext = {
   source: IRSource;
   apiVersion: IRApiVersionStamp;
-  server: IRServer;
+  server: IRServerDefinition;
 };
 
 export function buildSource(
@@ -168,13 +170,20 @@ export function buildSource(
   if (path && path.length > 0) entrypoint = path;
 
   const rootNamespace = fqn.length === 0 ? [] : fqn.split(".");
+  const definition: IRServerDefinition = {
+    id: { module: ctx.options.sourceId, namespace: rootNamespace, name: "server" },
+    endpoint: server,
+  };
+
+  const auth = authFrom(ctx, serviceNs);
 
   const source: IRSource = {
     id: ctx.options.sourceId,
     entrypoint,
     apiVersion,
-    server,
+    server: definition.id,
     rootNamespace,
+    ...(auth !== undefined ? { auth } : {}),
   };
-  return { source, apiVersion, server };
+  return { source, apiVersion, server: definition };
 }

@@ -116,6 +116,52 @@ lock_versioned_tag() {
     --output none
 }
 
+lock_new_versioned_tag() {
+  local repository="$1"
+  local tag="$2"
+  local image="$repository:$tag"
+
+  if lock_versioned_tag "$repository" "$tag"; then
+    return 0
+  fi
+
+  echo "ERROR: Failed to lock newly published image '$REGISTRY_SERVER/$image'. Removing only the new tag." >&2
+  local tag_count=""
+  if az acr repository untag \
+    --name "$REGISTRY_NAME" \
+    --image "$image"; then
+    tag_count="$(az acr repository show-tags \
+      --name "$REGISTRY_NAME" \
+      --repository "$repository" \
+      --query "[?@=='$tag'] | length(@)" \
+      --output tsv 2>/dev/null || true)"
+  fi
+  if [[ "$tag_count" == "0" ]]; then
+    echo "Removed unlocked version tag '$REGISTRY_SERVER/$image'." >&2
+    return 1
+  fi
+
+  echo "WARNING: Failed to remove '$REGISTRY_SERVER/$image'. Retrying the immutable lock." >&2
+  lock_versioned_tag "$repository" "$tag" >/dev/null 2>&1 || true
+
+  local -a attributes=()
+  local write_enabled delete_enabled
+  mapfile -t attributes < <(az acr repository show \
+    --name "$REGISTRY_NAME" \
+    --image "$image" \
+    --query '[writeEnabled, deleteEnabled]' \
+    --output tsv 2>/dev/null || true)
+  write_enabled="${attributes[0]:-}"
+  delete_enabled="${attributes[1]:-}"
+  if [[ "$write_enabled" == "false" && "$delete_enabled" == "false" ]]; then
+    echo "Confirmed '$REGISTRY_SERVER/$image' is write- and delete-disabled." >&2
+    return 1
+  fi
+
+  echo "CRITICAL: Unable to remove or confirm immutability for '$REGISTRY_SERVER/$image'. Manual remediation is required." >&2
+  return 1
+}
+
 record_digest() {
   local repository="$1"
   local tag="$2"
@@ -387,8 +433,10 @@ publish_image() {
 
   docker tag "$local_tag" "$remote_tag"
   docker push "$remote_tag"
+  if ! lock_new_versioned_tag "$repository" "$VERSION-$tag_suffix"; then
+    exit 1
+  fi
   record_digest "$repository" "$VERSION-$tag_suffix"
-  lock_versioned_tag "$repository" "$VERSION-$tag_suffix"
 }
 
 publish_manifest() {
@@ -410,6 +458,11 @@ publish_manifest() {
     echo "Verified existing immutable versioned manifest '$REGISTRY_SERVER/$repository:$VERSION-$tag_suffix'."
   else
     create_manifest "$repository" "$VERSION-$tag_suffix" "$@"
+    if ! lock_new_versioned_tag "$repository" "$VERSION-$tag_suffix"; then
+      exit 1
+    fi
+    record_digest "$repository" "$VERSION-$tag_suffix"
+    return
   fi
   record_digest "$repository" "$VERSION-$tag_suffix"
   lock_versioned_tag "$repository" "$VERSION-$tag_suffix"

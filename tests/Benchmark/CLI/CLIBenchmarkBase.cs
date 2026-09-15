@@ -4,11 +4,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Attributes;
 using Core.Abstractions;
 using Core.Cli;
 using Core.DependencyInjection;
 using Core.Extensions;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Perfolizer.Mathematics.OutlierDetection;
@@ -39,6 +41,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
+    private StageTraceDirectoryProvider _traceDirectory = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -48,7 +51,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
         // resolver, reconciler, and InstalledExtensionLoader all agree on.
         _extensionsRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "extensions");
-        TryDeleteDirectory(_extensionsRoot);
+        DirectoryUtils.TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
         // Fallback path for source build output.
@@ -69,6 +72,13 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP, real MSAL cache IO); staged {stagedCount} extension(s)");
+
+        InitializeTelemetryCommon();
+
+        _traceDirectory = new StageTraceDirectoryProvider(
+            TelemetryArtifacts.WarmupDirectory,
+            TelemetryArtifacts.ActualDirectory,
+            Stage);
     }
 
     [IterationSetup]
@@ -77,6 +87,25 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         SeedProfileStore();
         RegisterBenchmarkStubs();
         RegisterExtensionResolution();
+        RegisterTelemetryCapture();
+    }
+
+    /// <summary>
+    /// Registers the production <see cref="TelemetryService"/> and this benchmark's trace
+    /// directories. Runs after <see cref="BenchmarkBase.RegisterBenchmarkStubs"/>, so DI last-wins
+    /// semantics take the production service over <c>StubTelemetryService</c>.
+    /// </summary>
+    /// <remarks>
+    /// Repeated every iteration because <c>[IterationCleanup]</c> disposes the container; the
+    /// registered instance is the same throughout.
+    /// </remarks>
+    private void RegisterTelemetryCapture()
+    {
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetryService, TelemetryService>();
+            services.AddSingleton<ITraceDirectoryProvider>(_traceDirectory);
+        });
     }
 
     [IterationCleanup]
@@ -88,11 +117,13 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
+        CleanupTelemetryCommon();
         CleanupGlobal();
 
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
-        TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
+        DirectoryUtils.TryDeleteDirectory(
+            Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
     }
 
     /// <summary>
@@ -151,16 +182,4 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             $"No '{packageId}.*.nupkg' found in '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
     }
 
-    private static void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
-            {
-                Directory.Delete(path, recursive: true);
-            }
-        }
-        catch (IOException) { /* best-effort */ }
-        catch (UnauthorizedAccessException) { /* best-effort */ }
-    }
 }

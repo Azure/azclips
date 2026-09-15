@@ -6,6 +6,8 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [
-    { "path": "../compiler" }
+    { "path": "../compiler" },
+    { "path": "../transformers" },
+    { "path": "../typespec-emitter" }
   ]
 }

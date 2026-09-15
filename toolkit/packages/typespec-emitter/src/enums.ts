@@ -1,10 +1,8 @@
 /**
  * SdkEnumType → IREnum.
  *
- * Two flavours land here:
- *   - Closed enums (`isFixed: true`): the natural mapping.
- *   - Open enums (`isFixed: false`): IR doesn't model open enums; we
- *     emit them as closed and warn once with `open-enum-as-closed`.
+ * Both closed enums (`isFixed: true`) and extensible enums (`isFixed: false`)
+ * preserve their TCGC semantics in IR.
  *
  * Union-as-enum: TCGC turns string-literal unions into `SdkEnumType` with
  * `isUnionAsEnum: true`. They show up here exactly like any other enum.
@@ -17,7 +15,8 @@ import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
-import { idFor } from "./types.js";
+import { accessFrom, usageFrom } from "./annotations.js";
+import { discriminatedSource, idFor } from "./types.js";
 
 function valueTypeOf(e: SdkEnumType): "string" | "number" {
   const k = e.valueType.kind;
@@ -28,14 +27,6 @@ function valueTypeOf(e: SdkEnumType): "string" | "number" {
 }
 
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
-  if (e.access === "internal") {
-    if (!ctx.flags.internalAccessWarned) {
-      reportDiagnostic(ctx.program, { code: "internal-access-skipped", target: NoTarget });
-      ctx.flags.internalAccessWarned = true;
-    }
-    return undefined;
-  }
-
   if (!e.isFixed && !ctx.flags.openEnumWarned) {
     reportDiagnostic(ctx.program, {
       code: "open-enum-as-closed",
@@ -50,27 +41,35 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     name: v.name,
     value: v.value,
     ...(v.doc !== undefined ? { docs: v.doc } : {}),
+    ...(v.summary !== undefined ? { summary: v.summary } : {}),
   }));
   if (members.length === 0) {
     // IR requires min(1). Skip silently; an empty enum is a meaningless
     // surface and almost certainly a TCGC quirk we can't help.
     return undefined;
   }
+  const usage = usageFrom(e.usage);
+  const access = accessFrom(e.access);
   return {
     id,
     name: id.name,
     valueType: valueTypeOf(e),
+    isFixed: e.isFixed,
     members,
     // Library-shared enums are attributed to their owning library module
     // (carried on id.module), not the spec's source id. See IREnum.source.
     source: id.module,
     ...(e.doc !== undefined ? { docs: e.doc } : {}),
+    ...(e.summary !== undefined ? { summary: e.summary } : {}),
+    ...(usage !== undefined ? { usage } : {}),
+    ...(access !== undefined ? { access } : {}),
   };
 }
 
 export function enumsFrom(ctx: BuildContext): IREnum[] {
   const out: IREnum[] = [];
-  for (const e of ctx.sdkContext.sdkPackage.enums) {
+  for (const e of ctx.enums) {
+    if (discriminatedSource(ctx, e)) continue;
     // The @versioned api-version enum is denormalized onto IRSource.apiVersion;
     // it isn't a domain type, so don't surface it as a standalone IREnum.
     if ((e.usage & UsageFlags.ApiVersionEnum) !== 0) continue;

@@ -7,6 +7,10 @@
   "bin": {
     "ace": "dist/src/cli.js"
   },
+  "files": [
+    "dist",
+    "generator-host"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
@@ -14,9 +18,13 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/compiler": "*"
+    "@azure-client-engine/compiler": "*",
+    "@azure-client-engine/transformers": "*",
+    "@azure-client-engine/typespec-emitter": "*",
+    "@typespec/compiler": "^1.13.0"
   },
   "devDependencies": {
+    "@azure-client-engine/ir": "*",
     "@types/node": "~20.14.0",
     "rimraf": "^5.0.5",
     "vitest": "3.2.4"

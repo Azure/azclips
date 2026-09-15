@@ -15,7 +15,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// object ID to test against. Graph returns the subset of the queried group IDs that the
     /// member is a transitive member of; the processor projects that to a single boolean.
     /// Convenience features (display-name resolution for the group) live in
-    /// <c>Orchestrators/CheckGroupMemberProcessor_Orchestrator</c>.
+    /// <c>Customization/CheckGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
     /// <remarks>
     /// Hand-authored atomic: the <c>/directoryObjects</c> path is not defined in the
@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// the azure-powershell spec is extended, this class becomes a codegen candidate and the
     /// <c>SelectOutput</c> boolean reduction below moves to the orchestrator.
     /// </remarks>
-    public class CheckGroupMemberProcessor : GraphProcessorBase<CheckMemberGroupsResponse>
+    public class CheckGroupMemberProcessor : GraphProcessorBase<CheckMemberGroupsRequest, CheckMemberGroupsResponse>
     {
         [ArgumentInfo(
             Required = true,
@@ -38,33 +38,11 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"MemberId")]
         public string MemberId { get; set; } = "";
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            if (string.IsNullOrWhiteSpace(GroupId))
-            {
-                throw new InvalidOperationException("GroupId is required to check group membership.");
-            }
-            if (string.IsNullOrWhiteSpace(MemberId))
-            {
-                throw new InvalidOperationException("MemberId is required to check group membership.");
-            }
+        protected override HttpMethod Method => HttpMethod.Post;
 
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override string CreateRequestUri() =>
+            $"https://graph.microsoft.com/v1.0/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
 
-            string uri = $"https://graph.microsoft.com/v1.0/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
-            string body = JsonSerializer.Serialize(new { groupIds = new[] { GroupId } }, JsonOptions);
-
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            };
-
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
-
-        protected override object SelectOutput(CheckMemberGroupsResponse body) =>
-            body.Value is not null
-                && body.Value.Any(id => string.Equals(id, GroupId, StringComparison.OrdinalIgnoreCase));
+        protected override CheckMemberGroupsRequest? CreateRequestBody() => new CheckMemberGroupsRequest { GroupIds = [GroupId] };
     }
 }
