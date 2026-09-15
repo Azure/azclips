@@ -10,6 +10,11 @@ namespace Core.Abstractions.Runtime
     using System.Threading.Tasks;
     using GetEventData = Func<object>;
 
+    public readonly record struct SerializedJson(string Value)
+    {
+        public override string ToString() => Value;
+    }
+
     public delegate Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback);
     public delegate Task<HttpResponseMessage> SendAsyncStep(HttpRequestMessage request, IEventPublisher callback, ISendAsync next);
     public delegate Task<HttpResponseMessage> SendAsyncStepExpand(

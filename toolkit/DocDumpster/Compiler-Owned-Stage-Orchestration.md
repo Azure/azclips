@@ -1,8 +1,10 @@
-# Compiler-Owned Stage Orchestration: a Fork-Only Stage Tree
+# Compiler-Owned Stage Orchestration: a Linear Stage Sequence
 
-> **Status:** Accepted (design) — **implementation pending.** Today's
-> host-supplied ordered pipeline and no-op-generator default stay until we act.
-> _(2026-08-26)_
+> **Status:** Implemented _(2026-09-12)_, with the **shape revised**: the
+> fork-only tree this record originally decided was replaced by a **single linear
+> sequence** before it shipped. Decision point 2 below is superseded — see
+> [Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence).
+> Every other point stands as written. _(originally accepted 2026-08-26)_
 >
 > **Scope:** the Azure Client Engine (ACE) compiler pipeline
 > (`emit → transform* → generate`) — specifically *what* runs, *in what order/shape*,
@@ -23,6 +25,89 @@ ends in a generator** (default `csharp`, compiler-owned) because generated conte
 is the product. `--capture-ir` is purely **additive** materialization between
 stages and never gates generation.
 
+## Revision — from fork-only tree to linear sequence
+
+_2026-09-12. Supersedes Decision point 2 below. Everything else in this record
+stands._
+
+**The shape is now one linear sequence.** `STAGE_CATALOG` is an ordered array;
+one IR leaves the emit stage and flows through every enabled transform in that
+order, and each generate stage renders the IR as it stands at its position.
+`after` is gone — array position *is* the order. Disabling a stage removes it
+from the sequence instead of reattaching a subtree.
+
+### Why
+
+- **The parallelism was notional.** Transforms are in-process, synchronous CPU
+  work, so `Promise.all` over sibling branches bought no real concurrency. The
+  only genuinely parallel stage is an out-of-process generator, and there is one.
+- **Fork = clone is a memory and determinism cost with no payer.** Isolating
+  branches meant `structuredClone` of the largest object in the run, plus an
+  `effect: additive | mutate` annotation on every stage to decide when that copy
+  could be skipped, plus `needsIsolation` propagation up each subtree. And
+  siblings that *shared* one object could interleave at `await` points, so a
+  snapshot captured in one branch depended on another branch's timing — bad for
+  diffability.
+- **The conceptual load scaled with the catalog.** Every future stage author had
+  to answer "additive or mutate?" correctly or silently corrupt a sibling. With
+  naming and virtual-parameter transforms queued up, deleting that question was
+  cheapest at one transform and one generator.
+- **Disabling a stage got simpler, not harder.** "Climb to the nearest enabled
+  ancestor" collapses into "filter the array".
+
+### What it cost
+
+**Divergent per-backend transform branches.** Two generators can no longer sit on
+differently-shaped IR. The substitute — and arguably the better design — is an
+*additive, backend-namespaced* annotation stage on the shared sequence that each
+generator reads its own tags from: one IR, no branching, no copies.
+
+**Concurrent generators.** A generate stage is awaited in place so it sees
+exactly the IR at its position. Handing a live IR to something running
+concurrently would let a later transform change what it renders — silent wrong
+codegen, the worst failure class here. If generator parallelism is ever wanted,
+the answer is to make the snapshot explicit (serialize in the compiler at the
+stage's position) rather than to loosen that contract.
+
+### What replaced the `effect` annotation
+
+Nothing mechanical, deliberately. The ordering discipline is documented on
+`STAGE_CATALOG` and upheld by review:
+
+1. Stages that alter existing IR go **before the first generate stage**, so every
+   backend renders the same canonical IR.
+2. Stages after it are **purely additive** and backend-namespaced, so one
+   backend's annotations are inert to another's.
+
+Note the boundary is *the first generate stage*, not "the front": a generate
+stage freezes its own view when it runs, so a later mutating stage cannot corrupt
+an earlier generator — only a later one. `effect` was deleted rather than left
+vestigial, because a declared-but-unchecked field looks enforced. The compiler
+owns the catalog and no host can insert into it, which is what makes convention
+sufficient here.
+
+### What was added
+
+**`requires: string[]`.** In a linear sequence every stage runs after every
+earlier one, so ordering no longer carries the dependency information `after`
+implied. A stage that is *wrong* without an earlier stage now declares it, and
+disabling that stage becomes a config error naming both ends instead of quietly
+wrong generated code.
+
+### Consequences for the rest of this record
+
+- **"Fork = clone is automatic under serialized IR"** (Decision 2, and the
+  JSON-RPC ADR cross-reference) no longer applies — there are no forks. The
+  JSON-RPC ADR is otherwise unaffected.
+- **"No barriers"** under Costs is moot: with no branches there is nothing to
+  join.
+- **"Invariants rely on discipline"** still holds, and now also covers the
+  additive-after-generate rule above.
+- **The retain-⇒-copy contract on `OutputDelegate` became load-bearing.** A run
+  mutates one IR end to end, so a retaining sink that skips the copy does not get
+  a slightly stale snapshot — it gets N references to the run's final state.
+  Forking used to mask this.
+
 ## Context — where we are today
 
 - **The backbone is pure and host-agnostic**, sequencing `emit → transform* →
@@ -41,6 +126,10 @@ stages and never gates generation.
   already treats "IR between stages" as first-class data.
 
 ## Decision
+
+> Point 2 was revised before implementation — see
+> [Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence).
+> Points 1 and 3–6 shipped as written.
 
 1. **The compiler owns one predefined workflow.** Order + parallelism are
    compiler-owned, not host-assembled. Mandatory stages are pre-enabled. The host

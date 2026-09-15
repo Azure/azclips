@@ -1,24 +1,39 @@
 /**
  * @azure-client-engine/compiler — orchestration backbone.
  *
- * Pure, host-agnostic, TypeSpec-free library that sequences the Azure Client
- * Engine compilation pipeline end to end:
+ * Pure, host-agnostic, TypeSpec-free library that owns the compilation workflow.
  *
- *   1. emit        source -> raw IR (an injected producer; the host supplies it,
- *                  e.g. the CLI's out-of-process tsp-compile — there is no
- *                  built-in default, so the backbone carries no TypeSpec deps)
- *   2. transform   IR -> IR (an injectable pipeline; identity by default)
- *   3. generate    IR -> output files (an injectable back end; no-op by default)
+ * Orchestration is **compiler-owned**: `STAGE_CATALOG` declares what stages
+ * exist, in what order they run, and what runs by default. The resolved plan is
+ * a single **linear sequence** — one IR flows from emit through every enabled
+ * transform, and each generate stage renders it as it stands at that point. A
+ * host's only orchestration verb is flipping an optional stage on or off through
+ * `CompileConfig.pipeline`; it supplies *implementations* for declared ids
+ * through `CompileOptions.registry`.
  *
  * Design contract (so a CLI *and* a web service can both consume it):
  *   - Inputs are data / an entrypoint, never assumed to be on disk.
- *   - Outputs are RETURNED (files as a map, IR as an object), never written.
+ *   - Outputs go to an injected sink (or are returned), never written directly.
  *   - Diagnostics are structured data, never printed.
  *   - No process side effects (no process.exit, no console.*).
  *   - Cancellable via AbortSignal; per-run state stays per-run.
  */
 
 export { compile } from "./compile.js";
+
+export {
+  STAGE_CATALOG,
+  TSP_EMIT_STAGE,
+  FLATTEN_MODEL_STAGE,
+  CSHARP_STAGE,
+  planStages,
+  isStageEnabled,
+  type StageDescriptor,
+  type StageKind,
+  type StageDefault,
+  type PlannedStage,
+  type StagePlan,
+} from "./stages.js";
 
 export type {
   DiagnosticSeverity,
@@ -27,8 +42,6 @@ export type {
   CompileInput,
   CompileOptions,
   CompileResult,
-  PipelineStepConfig,
-  GeneratorConfig,
 } from "./types.js";
 
 export type {
@@ -39,16 +52,14 @@ export type {
 
 export {
   createRegistry,
-  isValidStepId,
+  isValidStageId,
   type CompilerRegistry,
+  type EmitProducerFactory,
   type TransformStepFactory,
   type GeneratorFactory,
 } from "./registry.js";
 
 export {
-  createTransformPipeline,
-  identityPipeline,
-  type TransformPipeline,
   type TransformStep,
   type TransformContext,
 } from "./transform.js";
@@ -75,7 +86,6 @@ export {
 
 export {
   createCsharpGenerator,
-  CSHARP_GENERATOR_ID,
 } from "./builtins/generate-csharp.js";
 
 export type {

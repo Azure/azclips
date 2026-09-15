@@ -37,7 +37,8 @@ import type {
 import type { BuildContext } from "./context.js";
 import { pascalCase } from "./naming.js";
 import { accessFrom } from "./annotations.js";
-import { typeRefFor, unwrapNullable } from "./types.js";
+import { discriminatedSource, typeRefFor, unwrapNullable } from "./types.js";
+import { literalFromValue } from "./literals.js";
 
 /** Map TCGC's resolved visibility (a `@typespec/http` `Visibility` flags array)
  * onto IR's lifecycle phases. Returns `undefined` when the property is
@@ -69,23 +70,6 @@ function visibilityPhases(prop: SdkModelPropertyType): IRVisibility[] | undefine
  */
 function flattenHintFor(prop: SdkModelPropertyType): FlattenHint | undefined {
   return prop.flatten ? { into: "self" } : undefined;
-}
-
-/** Build a literal value from a `SdkConstantType`. Returns undefined if not representable. */
-function literalFromConstant(c: SdkConstantType): IRLiteralValue | undefined {
-  const v = c.value;
-  switch (typeof v) {
-    case "string":
-      return { kind: "string", value: v };
-    case "boolean":
-      return { kind: "boolean", value: v };
-    case "number":
-      return { kind: "number", value: v };
-    case "bigint":
-      return { kind: "bigint", value: (v as bigint).toString(10) };
-    default:
-      return undefined;
-  }
 }
 
 /** Build the IR id for a SdkModelPropertyType, interned. */
@@ -134,16 +118,18 @@ export function propertyFrom(
     wireName = prop.serializedName ?? prop.name;
   }
 
-  const { type: unwrapped, nullable } = unwrapNullable(prop.type);
+  const { type: unwrapped, nullable } = unwrapNullable(ctx, prop.type);
 
   // Resolve default value & wire-effective type if this is a constant.
   let defaultValue: IRLiteralValue | undefined;
   let valueType: SdkType = unwrapped;
   if (unwrapped.kind === "constant") {
     const c = unwrapped as SdkConstantType;
-    const lit = literalFromConstant(c);
+    const lit = literalFromValue(c.value);
     if (lit) defaultValue = lit;
     valueType = c.valueType as SdkType;
+  } else if (unwrapped.kind === "enumvalue" && discriminatedSource(ctx, unwrapped.enumType)) {
+    defaultValue = literalFromValue(unwrapped.value);
   }
 
   const irType = typeRefFor(ctx, valueType, `${containingModelId.name}.${libName}`);
@@ -192,6 +178,8 @@ function dispatchByTypeKind(
       return { ...common, typeKind: "enum", type: irType as IRTypeRefEnum };
     case "union":
       return { ...common, typeKind: "union", type: irType as IRTypeRefUnion };
+    case "discriminatedUnion":
+      return { ...common, typeKind: "union", type: irType };
   }
   // Should be unreachable; keep tsc honest.
   void common;

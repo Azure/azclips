@@ -14,6 +14,8 @@ namespace Cmdlets.Tests;
 
 public class ConnectAccountCmdletTests
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+
     // The managed-identity params must be reachable from Connect-AzAccount and bind to the
     // shared LoginProcessor exactly like the CLI surface does.
     [Fact]
@@ -27,14 +29,14 @@ public class ConnectAccountCmdletTests
         {
             ["Identity"] = true,
             ["ClientId"] = "11111111-1111-1111-1111-111111111111",
-            ["SubscriptionId"] = "sub-1",
+            ["SubscriptionId"] = ValidSubscriptionId,
         };
 
         service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
-        Assert.Equal("sub-1", processor.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
     }
 
     [Theory]

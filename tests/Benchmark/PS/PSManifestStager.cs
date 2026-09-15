@@ -27,6 +27,12 @@ internal static class PSManifestStager
         @"ModuleName\s*=\s*'(?:\.\./)+(?<name>[^'/]+)/[^']*\.psd1'",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // Matches a RequiredModules entry that references a sibling module by bare name,
+    // e.g. ModuleName = 'Login'.
+    private static readonly Regex NamedModuleReference = new(
+        @"ModuleName\s*=\s*'(?<name>[A-Za-z][\w.]*)'",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     /// <summary>
     /// Stages a single module's manifest — plus the transitive <c>RequiredModules</c> closure
     /// it depends on — into <c>artifacts/Benchmark/PS</c>, with artifact references rewritten to
@@ -94,6 +100,10 @@ internal static class PSManifestStager
             {
                 StageClosure(reference.Groups["name"].Value);
             }
+            foreach (Match reference in NamedModuleReference.Matches(manifestContent))
+            {
+                StageClosure(reference.Groups["name"].Value);
+            }
         }
 
         // Copies a single manifest into the staging tree with artifact references rewritten to
@@ -110,6 +120,12 @@ internal static class PSManifestStager
             {
                 rewritten = rewritten.Replace(prefix, _absReleaseArtifacts);
             }
+
+            // A bare-name requirement only resolves against loaded modules or PSModulePath;
+            // the staged tree is neither, so point it at the staged sibling manifest, which
+            // PowerShell auto-imports.
+            rewritten = NamedModuleReference.Replace(
+                rewritten, m => $"ModuleName = '../{m.Groups["name"].Value}/{m.Groups["name"].Value}.psd1'");
 
             File.WriteAllText(Path.Combine(targetDir, $"{moduleName}.psd1"), rewritten);
             return content;

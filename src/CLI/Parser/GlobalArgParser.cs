@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Cli.Version;
-using Core.Extensions;
 
 namespace Core.Cli.Parser;
 
@@ -28,8 +28,6 @@ internal static class GlobalArgParser
 {
     private const string HelpSubcommand = "help";
 
-    private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
-
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.
     /// Per-token flag recognition dispatches through <see cref="KnownGlobalFlags.All"/>; the
@@ -52,6 +50,7 @@ internal static class GlobalArgParser
                 Debug: false,
                 Output: null,
                 NoCache: false,
+                Query: null,
                 Help: new HelpRequest(Array.Empty<string>()),
                 Version: null);
         }
@@ -83,6 +82,7 @@ internal static class GlobalArgParser
             Debug: builder.Debug,
             Output: builder.Output,
             NoCache: builder.NoCache,
+            Query: builder.Query,
             Help: help,
             Version: version);
     }
@@ -100,6 +100,11 @@ internal static class GlobalArgParser
 
         foreach (var flag in KnownGlobalFlags.All)
         {
+            if (flag.Action is null)
+            {
+                continue;
+            }
+
             if (flag.Name.Equals(lookup, StringComparison.OrdinalIgnoreCase))
             {
                 return flag;
@@ -141,7 +146,7 @@ internal static class GlobalArgParser
             for (int i = 1; i < positional.Count; i++)
             {
                 var token = positional[i];
-                // `?` is a help token pre-refactor; skip it here (don't treat it as a path segment).
+                // Help flags are stripped here so they aren't treated as path segments.
                 if (IsHelpFlag(token))
                 {
                     continue;
@@ -155,7 +160,7 @@ internal static class GlobalArgParser
             return new HelpRequest(subPath);
         }
 
-        // Bare top-level help flag: `az --help`, `az -h`, `az -?`, `az ?`.
+        // Bare top-level help flag: `az --help`, `az -h`, `az -?`, `az --?`.
         if (positional.Count == 1 && IsHelpFlag(positional[0]))
         {
             return new HelpRequest(Array.Empty<string>());
@@ -225,14 +230,9 @@ internal static class GlobalArgParser
     }
 
     private static bool IsHelpFlag(string token)
-    {
-        foreach (var flag in s_helpFlags)
-        {
-            if (token.Equals(flag, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+        => KnownGlobalFlags.All
+            .First(flag => flag.Name.Equals("--help", StringComparison.OrdinalIgnoreCase))
+            .Aliases
+            .Append("--help")
+            .Contains(token, StringComparer.OrdinalIgnoreCase);
 }
