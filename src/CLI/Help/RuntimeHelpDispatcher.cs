@@ -47,12 +47,17 @@ public sealed class RuntimeHelpDispatcher
         : this(
             engine,
             ExtensionHintTable.Default,
-            new RuntimeHelpRenderer(),
+            new RuntimeHelpRenderer(ColorPolicy.ShouldEmitColor(IsTargetStreamRedirected(output))),
             output ?? Console.Out,
             streams,
             registryStore)
     {
     }
+
+    // `output` is either the default (stdout) or the stderr writer TryRenderHelpAfterError passes
+    // explicitly; there is no third destination, so a reference check picks the matching redirect flag.
+    private static bool IsTargetStreamRedirected(TextWriter? output)
+        => ReferenceEquals(output, Console.Error) ? Console.IsErrorRedirected : Console.IsOutputRedirected;
 
     internal RuntimeHelpDispatcher(
         IEngine engine,

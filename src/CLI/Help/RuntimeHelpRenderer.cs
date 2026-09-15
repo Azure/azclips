@@ -16,7 +16,21 @@ public interface IHelpRenderer
 
 public sealed class RuntimeHelpRenderer : IHelpRenderer
 {
-    private static string SectionHeader(string title) => $"# {title.ToUpperInvariant()}";
+    private const string Bold = "\u001b[1m";
+    private const string Reset = "\u001b[0m";
+
+    private readonly bool _boldHeaders;
+
+    public RuntimeHelpRenderer(bool boldHeaders = false)
+    {
+        _boldHeaders = boldHeaders;
+    }
+
+    private string SectionHeader(string title)
+    {
+        var header = $"# {title.ToUpperInvariant()}";
+        return _boldHeaders ? $"{Bold}{header}{Reset}" : header;
+    }
 
     public string[] RenderRoot(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
     {
@@ -133,7 +147,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         lines.Add(summary);
     }
 
-    private static void AppendGlobalArguments(List<string> lines)
+    private void AppendGlobalArguments(List<string> lines)
     {
         lines.Add(string.Empty);
         lines.Add(SectionHeader("Global Arguments"));
@@ -156,7 +170,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
     // alphabetical order. Sections with no params are skipped. When Parameters is empty, the
     // single "Arguments" header + "(none)" placeholder is emitted (preserves prior behavior for
     // no-param commands like `az logout`).
-    private static void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
+    private void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
     {
         if (parameters.Count == 0)
         {
@@ -198,7 +212,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         }
     }
 
-    private static void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
+    private void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
     {
         if (leadingBlank)
         {
