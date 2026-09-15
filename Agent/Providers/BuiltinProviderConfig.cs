@@ -26,11 +26,18 @@ internal static class BuiltinProviderConfig
     /// Acquires the Azure token the builtin provider authenticates with.
     /// </summary>
     /// <remarks>
-    /// Split out from <see cref="Build"/> so a host can acquire once, up front, and feed the same
-    /// token to both the provider and the ARM data boundary lookup — one MSAL flow on the startup
-    /// path instead of two, and the actionable login error surfaces before anything else runs.
-    /// The scope is an ARM audience (<see cref="BuiltinProviderOptions.ArmScope"/>), which is what
-    /// makes that sharing valid.
+    /// <para>Split out from <see cref="Build"/> so a host can acquire once, up front, and feed the
+    /// same token to both the provider and the ARM data boundary lookup — one MSAL flow on the
+    /// startup path instead of two, and the actionable login error surfaces before anything else
+    /// runs.</para>
+    ///
+    /// <para>The requested audience is <c>management.core.windows.net</c> while the boundary lookup
+    /// calls <c>management.azure.com</c>. Those are interchangeable ARM audiences, not a mismatch:
+    /// <c>TUI/Azure/ArmClient.cs</c> already ships this exact pairing — it acquires with null scopes
+    /// (which <c>MsalAuthService</c> resolves to <c>AuthConstants.ArmDefaultScope</c>, the same
+    /// <c>management.core.windows.net</c> value) and calls <c>management.azure.com/tenants</c> and
+    /// Resource Graph under <c>EnsureSuccessStatusCode</c>. Keeping this audience also preserves the
+    /// bearer the APIM provider has always been given.</para>
     /// </remarks>
     public static async Task<AuthResult> AcquireAsync(
         BuiltinProviderOptions opts,
