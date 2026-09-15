@@ -194,16 +194,12 @@ printf '%s\n' "$help_output" | sed -n '1,20p'
 
 echo ""
 echo "[3/7] Verify bundled Copilot CLI daemon starts"
-if ! copilot_output="$(HOME="$SIM_ROOT/home" "$COPILOT" --version 2>&1)"; then
+if ! copilot_output="$(HOME="$SIM_ROOT/home" timeout 15s "$COPILOT" --server --stdio </dev/null 2>&1)"; then
   echo "FAIL: Bundled Copilot CLI failed to start"
   printf '%s\n' "$copilot_output" | sed -n '1,20p'
   exit 1
 fi
-if [[ -z "${copilot_output//[[:space:]]/}" ]]; then
-  echo "FAIL: Bundled Copilot CLI returned no version output"
-  exit 1
-fi
-printf '%s\n' "$copilot_output" | sed -n '1,20p'
+echo "  PASS: Bundled Copilot CLI daemon started and stopped cleanly"
 
 echo ""
 echo "[4/7] Verify built-in extension manager is available"
