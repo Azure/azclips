@@ -59,25 +59,44 @@ internal sealed class DataBoundaryResolver
     /// throwing. Only a cancellation raised by <paramref name="ct"/> propagates, so Ctrl+C still
     /// exits promptly. Recovery is expected to continue no matter what this returns.
     /// </remarks>
-    public async Task<DataBoundaryResult> ResolveAsync(CancellationToken ct = default)
+    public Task<DataBoundaryResult> ResolveAsync(CancellationToken ct = default) =>
+        ResolveWithTelemetryAsync(presuppliedToken: null, ct);
+
+    /// <summary>
+    /// Resolves the boundary using a token the caller already holds.
+    /// </summary>
+    /// <remarks>
+    /// The builtin provider acquires an ARM-audience token for the model call anyway, so reusing it
+    /// here keeps the recovery startup path to a single MSAL flow. That matters beyond the saved
+    /// round trip: <c>MsalAuthService</c> builds a fresh <c>IPublicClientApplication</c> and
+    /// re-registers the on-disk token cache on every acquisition, with no synchronization, so two
+    /// concurrent acquisitions over one cache file is not a tested configuration.
+    /// </remarks>
+    public Task<DataBoundaryResult> ResolveAsync(string accessToken, CancellationToken ct = default) =>
+        ResolveWithTelemetryAsync(accessToken, ct);
+
+    private async Task<DataBoundaryResult> ResolveWithTelemetryAsync(string? presuppliedToken, CancellationToken ct)
     {
         using var activity = AgentTracing.Source.StartActivity("Agent.DataBoundary");
         var stopwatch = Stopwatch.StartNew();
 
-        var result = await ResolveCoreAsync(ct).ConfigureAwait(false);
+        var result = await ResolveCoreAsync(activity, presuppliedToken, ct).ConfigureAwait(false);
 
         stopwatch.Stop();
-        activity?.SetTag("dataBoundary", result.TagValue);
-        activity?.SetTag("elapsedMs", stopwatch.ElapsedMilliseconds);
+        // Tag keys come from TelemetryTags so they ride the vetted properties.* channel and are
+        // covered by IsAllowed_EveryTelemetryTagsConstant_IsAdmitted. A bare literal here would
+        // compile, export nothing, and no test would notice.
+        activity?.SetTag(TelemetryTags.RecoveryDataBoundary, result.TagValue);
+        activity?.SetTag(TelemetryTags.RecoveryDataBoundaryElapsedMs, stopwatch.ElapsedMilliseconds);
         if (result.FailureReason is not null)
         {
-            activity?.SetTag("failureReason", result.FailureReason);
+            activity?.SetTag(TelemetryTags.RecoveryDataBoundaryFailureReason, result.FailureReason);
         }
 
         return result;
     }
 
-    private async Task<DataBoundaryResult> ResolveCoreAsync(CancellationToken ct)
+    private async Task<DataBoundaryResult> ResolveCoreAsync(Activity? activity, string? presuppliedToken, CancellationToken ct)
     {
         string? tenantId;
         try
@@ -107,26 +126,35 @@ internal sealed class DataBoundaryResolver
         timeoutCts.CancelAfter(LookupTimeout);
 
         string? token;
-        try
+        if (!string.IsNullOrEmpty(presuppliedToken))
         {
-            var auth = await _authService.AcquireTokenSilentlyAsync(
-                scopes: ArmScope,
-                tenantId: tenantId,
-                promptOnError: false,
-                cancellationToken: timeoutCts.Token).ConfigureAwait(false);
-            token = auth?.AccessToken;
+            // Caller already holds an ARM-audience token; acquiring a second one would duplicate
+            // the whole MSAL flow for no gain.
+            token = presuppliedToken;
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        else
         {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            return DataBoundaryResult.Failed("timeout_acquiring_token", tenantId);
-        }
-        catch (Exception ex)
-        {
-            return DataBoundaryResult.Failed($"token_unavailable: {ex.GetType().Name}", tenantId);
+            try
+            {
+                var auth = await _authService.AcquireTokenSilentlyAsync(
+                    scopes: ArmScope,
+                    tenantId: tenantId,
+                    promptOnError: false,
+                    cancellationToken: timeoutCts.Token).ConfigureAwait(false);
+                token = auth?.AccessToken;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                return DataBoundaryResult.Failed("timeout_acquiring_token", tenantId);
+            }
+            catch (Exception ex)
+            {
+                return DataBoundaryResult.Failed($"token_unavailable: {ex.GetType().Name}", tenantId);
+            }
         }
 
         if (string.IsNullOrEmpty(token))
@@ -134,12 +162,20 @@ internal sealed class DataBoundaryResolver
             return DataBoundaryResult.Failed("token_unavailable", tenantId);
         }
 
+        var armStopwatch = Stopwatch.StartNew();
         try
         {
             using var request = new HttpRequestMessage(
                 HttpMethod.Get, $"{ArmEndpoint}{DataBoundaryPath}?api-version={ApiVersion}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
+            // TODO (deferred): no retry while this is observation-only. A failed lookup just
+            // records Unknown, so one attempt under LookupTimeout is enough and keeps the
+            // recovery startup path short. This MUST change before the boundary selects an
+            // endpoint: at that point every transient ARM blip — 429 throttling above all —
+            // becomes a routing decision made on Unknown, and Unknown must never resolve to
+            // Global. The portal's equivalent (DataBoundaryDataProvider) retries 3 times with
+            // exponential backoff over 5xx, 408, 429, network errors and timeouts.
             using var response = await _http
                 .SendAsync(request, HttpCompletionOption.ResponseContentRead, timeoutCts.Token)
                 .ConfigureAwait(false);
@@ -164,6 +200,14 @@ internal sealed class DataBoundaryResolver
         catch (Exception ex)
         {
             return DataBoundaryResult.Failed($"arm_request_failed: {ex.GetType().Name}", tenantId);
+        }
+        finally
+        {
+            // Separate from the caller's total: that one also covers the token acquisition, which
+            // is shared with the provider and so is not a cost this lookup adds. Recorded on every
+            // path — a rejected or timed-out attempt still spends the user's wall clock.
+            armStopwatch.Stop();
+            activity?.SetTag(TelemetryTags.RecoveryDataBoundaryArmElapsedMs, armStopwatch.ElapsedMilliseconds);
         }
     }
 
@@ -203,8 +247,11 @@ internal sealed class DataBoundaryResolver
             return DataBoundaryResult.Failed("missing_data_boundary", tenantId);
         }
 
-        if (!string.IsNullOrWhiteSpace(responseTenantId)
-            && !string.Equals(responseTenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+        // A missing echo is treated the same as a wrong one: the point of the check is to prove the
+        // answer belongs to the tenant we asked about, and an absent name proves nothing. Accepting
+        // it would let a trimmed or unexpected response pass as an authoritative "not EU".
+        if (string.IsNullOrWhiteSpace(responseTenantId)
+            || !string.Equals(responseTenantId, tenantId, StringComparison.OrdinalIgnoreCase))
         {
             return DataBoundaryResult.Failed("tenant_mismatch", tenantId, rawValue);
         }

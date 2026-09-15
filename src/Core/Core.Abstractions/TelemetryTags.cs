@@ -45,6 +45,19 @@ public static class TelemetryTags
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     /// <summary>eu, global, or unknown — the caller tenant's ARM data boundary.</summary>
     public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
+    /// <summary>
+    /// Wall-clock cost of the whole boundary lookup: profile read, token acquisition, ARM call, parse.
+    /// Pair with <see cref="RecoveryDataBoundaryArmElapsedMs"/> — the token acquisition is shared with
+    /// the provider, so the ARM portion is the part that is genuinely additional.
+    /// </summary>
+    public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
+    /// <summary>
+    /// Wall-clock cost of the ARM request alone, recorded on success and failure alike. Absent when the
+    /// lookup returned before reaching ARM (no tenant, or no token).
+    /// </summary>
+    public const string RecoveryDataBoundaryArmElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.armElapsedMs";
+    /// <summary>Short, non-sensitive reason the boundary came back unknown; absent otherwise.</summary>
+    public const string RecoveryDataBoundaryFailureReason = PropertyTagPrefix + "recovery.dataBoundary.failureReason";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";

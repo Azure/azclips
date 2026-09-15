@@ -113,6 +113,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
+        AuthResult? preAcquiredAuth = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -122,7 +123,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // GitHub keychain and prompts on macOS, touches a credential this path never
         // uses. Disable it for builtin only; the github provider keeps auto-login so
         // subscription users' stored/gh-CLI credentials still work.
-        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
+        var useBuiltin = options.IsBuiltinProvider;
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
@@ -134,7 +135,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, preAcquiredAuth, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -155,6 +156,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         SpinnerService? spinner,
         string? failedCommand,
+        AuthResult? preAcquiredAuth,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -224,7 +226,11 @@ public sealed class ChatAgent : IAsyncDisposable
             case "builtin":
                 resolvedModel = options.Builtin.ModelId;
                 sessionConfig.Model = resolvedModel;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                // A host that already acquired the Azure token (AgentModeEntry does, so the same one
+                // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                sessionConfig.Provider = preAcquiredAuth is not null
+                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
                 break;
 
             case "github":

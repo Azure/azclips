@@ -18,6 +18,25 @@ internal static class BuiltinProviderConfig
         IAuthService auth,
         CancellationToken ct)
     {
+        var authResult = await AcquireAsync(opts, auth, ct).ConfigureAwait(false);
+        return Build(opts, authResult.AccessToken);
+    }
+
+    /// <summary>
+    /// Acquires the Azure token the builtin provider authenticates with.
+    /// </summary>
+    /// <remarks>
+    /// Split out from <see cref="Build"/> so a host can acquire once, up front, and feed the same
+    /// token to both the provider and the ARM data boundary lookup — one MSAL flow on the startup
+    /// path instead of two, and the actionable login error surfaces before anything else runs.
+    /// The scope is an ARM audience (<see cref="BuiltinProviderOptions.ArmScope"/>), which is what
+    /// makes that sharing valid.
+    /// </remarks>
+    public static async Task<AuthResult> AcquireAsync(
+        BuiltinProviderOptions opts,
+        IAuthService auth,
+        CancellationToken ct)
+    {
         AuthResult? authResult;
         try
         {
@@ -46,17 +65,21 @@ internal static class BuiltinProviderConfig
             throw new InvalidOperationException(BuildAuthErrorMessage());
         }
 
-        return new ProviderConfig
+        return authResult;
+    }
+
+    /// <summary>Builds the SDK provider config from an already-acquired token.</summary>
+    public static ProviderConfig Build(BuiltinProviderOptions opts, string accessToken) =>
+        new()
         {
             Type = "azure",
             WireApi = "responses",
             BaseUrl = opts.Endpoint,
-            BearerToken = authResult.AccessToken,
+            BearerToken = accessToken,
             ModelId = opts.ModelId,
             WireModel = opts.ModelId,
             Azure = new AzureOptions { ApiVersion = opts.ApiVersion },
         };
-    }
 
     public static string BuildAuthErrorMessage() =>
         """

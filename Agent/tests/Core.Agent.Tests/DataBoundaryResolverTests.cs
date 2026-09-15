@@ -75,6 +75,10 @@ public class DataBoundaryResolverTests
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "arm_status_401")]
     [InlineData(HttpStatusCode.Forbidden, "arm_status_403")]
+    // ARM throttles with 429. It is the most likely transient failure here and the one the
+    // deferred retry (see DataBoundaryResolver) exists for, so pin today's degrade-to-Unknown
+    // behaviour before that changes.
+    [InlineData(HttpStatusCode.TooManyRequests, "arm_status_429")]
     [InlineData(HttpStatusCode.InternalServerError, "arm_status_500")]
     public async Task Resolve_ArmRejects_IsUnknownWithoutThrowing(HttpStatusCode status, string expectedReason)
     {
@@ -112,6 +116,73 @@ public class DataBoundaryResolverTests
 
         Assert.Equal(DataBoundary.Unknown, result.Boundary);
         Assert.Equal("tenant_mismatch", result.FailureReason);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Resolve_ResponseWithoutTenantEcho_IsRejected(string? name)
+    {
+        // A missing echo proves nothing about whose boundary this is, so it is rejected the same
+        // way a wrong one is. Accepting it would let a trimmed or unexpected response pass as an
+        // authoritative "not EU" for a tenant we never confirmed.
+        var resolver = Build(new FakeHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU", name: name))));
+
+        var result = await resolver.ResolveAsync();
+
+        Assert.Equal(DataBoundary.Unknown, result.Boundary);
+        Assert.Equal("tenant_mismatch", result.FailureReason);
+    }
+
+    [Fact]
+    public async Task Resolve_WithCallerSuppliedToken_SkipsTokenAcquisition()
+    {
+        // AgentModeEntry acquires an ARM-audience token for the builtin provider and hands it here.
+        // Acquiring a second one would repeat the whole MSAL flow — a fresh IPublicClientApplication
+        // plus another on-disk cache registration — on the recovery startup path.
+        var auth = new CountingAuthService();
+        string? sentToken = null;
+        var handler = new FakeHandler(request =>
+        {
+            sentToken = request.Headers.Authorization?.Parameter;
+            return (HttpStatusCode.OK, BoundaryPayload("EU"));
+        });
+        var resolver = new DataBoundaryResolver(auth, new FakeProfileService(TenantId), new HttpClient(handler));
+
+        var result = await resolver.ResolveAsync("caller-supplied-token");
+
+        Assert.Equal(DataBoundary.Eu, result.Boundary);
+        Assert.Equal("caller-supplied-token", sentToken);
+        Assert.Equal(0, auth.AcquireCount);
+    }
+
+    [Fact]
+    public async Task Resolve_WithoutCallerSuppliedToken_AcquiresExactlyOne()
+    {
+        var auth = new CountingAuthService();
+        var handler = new FakeHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU")));
+        var resolver = new DataBoundaryResolver(auth, new FakeProfileService(TenantId), new HttpClient(handler));
+
+        var result = await resolver.ResolveAsync();
+
+        Assert.Equal(DataBoundary.Eu, result.Boundary);
+        Assert.Equal(1, auth.AcquireCount);
+    }
+
+    [Fact]
+    internal void NotApplicable_IsDistinctFromUnknown()
+    {
+        // The github provider never calls ARM, so its sessions have to be separable in telemetry
+        // from a lookup that ran and failed — and from a tag that was dropped at export. Collapsing
+        // them would make "unknown" mean two different things in the same column.
+        var skipped = DataBoundaryResult.NotApplicable("provider_github");
+        var failed = DataBoundaryResult.Failed("timeout", TenantId);
+
+        Assert.Equal(DataBoundary.NotApplicable, skipped.Boundary);
+        Assert.Equal("not_applicable", skipped.TagValue);
+        Assert.NotEqual(failed.TagValue, skipped.TagValue);
+        Assert.Equal("provider_github", skipped.FailureReason);
     }
 
     [Fact]
@@ -253,6 +324,30 @@ public class DataBoundaryResolverTests
                 TenantId = TenantId,
                 CorrelationId = Guid.NewGuid(),
             });
+        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+    }
+
+    private sealed class CountingAuthService : IAuthService
+    {
+        public int AcquireCount { get; private set; }
+
+        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
+        {
+            AcquireCount++;
+            return Task.FromResult(new AuthResult
+            {
+                AccessToken = "self-acquired-token",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = scopes ?? Array.Empty<string>(),
+                TenantId = TenantId,
+                CorrelationId = Guid.NewGuid(),
+            });
+        }
         public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
     }

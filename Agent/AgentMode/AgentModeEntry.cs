@@ -114,13 +114,33 @@ public static class AgentModeEntry
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
 
-            // Observe the caller's ARM data boundary before the provider picks an endpoint.
-            // Nothing branches on it yet: the builtin provider still calls one endpoint for
-            // everyone. Recording it now proves the lookup works and shows what it costs, so the
-            // change that routes EU traffic separately starts from measured behavior. Never
-            // throws, so recovery proceeds unchanged whatever it reports.
-            var dataBoundary = await new DataBoundaryResolver(auth, profileService)
-                .ResolveAsync(cts.Token);
+            // Acquire the Azure token once, here, and feed it to both consumers below.
+            //
+            // Ordering matters: this throws BuildAuthErrorMessage()'s actionable "run az login" on a
+            // signed-out or stale login, so the user sees it immediately instead of after a boundary
+            // lookup that was always going to fail. Sharing matters too — MsalAuthService builds a
+            // fresh IPublicClientApplication and re-registers the on-disk token cache per call with
+            // no synchronization, so one acquisition is both cheaper and the prerequisite for ever
+            // running the lookup concurrently with agent startup.
+            //
+            // Only the builtin provider needs it: github authenticates the model with the user's own
+            // Copilot credential and never touches ARM, so asking those users for an Azure login
+            // would be a regression. They skip the boundary lookup entirely for the same reason.
+            AuthResult? azureAuth = null;
+            var dataBoundary = DataBoundaryResult.NotApplicable("provider_github");
+            if (agentOpts.IsBuiltinProvider)
+            {
+                azureAuth = await BuiltinProviderConfig.AcquireAsync(agentOpts.Builtin, auth, cts.Token);
+
+                // Observe the caller's ARM data boundary before the provider picks an endpoint.
+                // Nothing branches on it yet: the builtin provider still calls one endpoint for
+                // everyone. Recording it now proves the lookup works and shows what it costs, so the
+                // change that routes EU traffic separately starts from measured behavior. Never
+                // throws, so recovery proceeds unchanged whatever it reports.
+                dataBoundary = await new DataBoundaryResolver(auth, profileService)
+                    .ResolveAsync(azureAuth.AccessToken, cts.Token);
+            }
+
             session?.SetTag(TelemetryTags.RecoveryDataBoundary, dataBoundary.TagValue);
             trace?.Note("data_boundary", new
             {
@@ -144,6 +164,7 @@ public static class AgentModeEntry
                     entrypoint: entrypoint,
                     spinner: spinner,
                     failedCommand: failedCommand,
+                    preAcquiredAuth: azureAuth,
                     ct: cts.Token);
             }
             await using var agentScope = agent;

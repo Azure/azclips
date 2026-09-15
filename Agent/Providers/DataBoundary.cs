@@ -20,6 +20,19 @@ internal enum DataBoundary
 
     /// <summary>ARM reported <c>EU</c>; the tenant is opted into the EU Data Boundary.</summary>
     Eu,
+
+    /// <summary>
+    /// The lookup does not apply to this session, so it was never attempted — today that means the
+    /// <c>github</c> provider, whose traffic goes to GitHub rather than the Microsoft endpoint.
+    /// </summary>
+    /// <remarks>
+    /// A telemetry state, not a boundary. It exists so a deliberately skipped lookup is
+    /// distinguishable in the data from one that ran and failed (<see cref="Unknown"/>) and from a
+    /// tag that never survived export. It must never appear in a routing decision: when routing
+    /// lands, this and <see cref="Unknown"/> both have to be handled explicitly, and neither may
+    /// fall through to <see cref="Global"/>.
+    /// </remarks>
+    NotApplicable,
 }
 
 /// <summary>Outcome of one data boundary lookup.</summary>
@@ -42,11 +55,19 @@ internal readonly record struct DataBoundaryResult(
     public static DataBoundaryResult Failed(string reason, string? tenantId = null, string? rawValue = null) =>
         new(DataBoundary.Unknown, rawValue, tenantId, reason);
 
-    /// <summary>Lower-case wire form for tags and trace entries: <c>eu</c>, <c>global</c>, or <c>unknown</c>.</summary>
+    /// <summary>
+    /// The lookup was deliberately not attempted. Distinct from <see cref="Failed"/> so telemetry can
+    /// tell "does not apply" from "we tried and could not determine it".
+    /// </summary>
+    public static DataBoundaryResult NotApplicable(string reason) =>
+        new(DataBoundary.NotApplicable, RawValue: null, TenantId: null, reason);
+
+    /// <summary>Lower-case wire form for tags and trace entries: <c>eu</c>, <c>global</c>, <c>not_applicable</c>, or <c>unknown</c>.</summary>
     public string TagValue => Boundary switch
     {
         DataBoundary.Eu => "eu",
         DataBoundary.Global => "global",
+        DataBoundary.NotApplicable => "not_applicable",
         _ => "unknown",
     };
 
