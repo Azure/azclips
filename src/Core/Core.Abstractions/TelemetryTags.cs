@@ -47,10 +47,16 @@ public static class TelemetryTags
     public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
     /// <summary>
     /// Wall-clock cost of the whole boundary lookup: profile read, token acquisition, ARM call, parse.
-    /// Pair with <see cref="RecoveryDataBoundaryArmElapsedMs"/> — the token acquisition is shared with
-    /// the provider, so the ARM portion is the part that is genuinely additional.
+    /// Pair with <see cref="RecoveryDataBoundaryTokenElapsedMs"/> and
+    /// <see cref="RecoveryDataBoundaryArmElapsedMs"/> to see which part dominates.
     /// </summary>
     public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
+    /// <summary>
+    /// Wall-clock cost of acquiring the ARM token. Absent when the caller supplied one, which is the
+    /// normal path — the builtin provider needs the same token anyway, so the lookup only pays this
+    /// when it acquires its own.
+    /// </summary>
+    public const string RecoveryDataBoundaryTokenElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.tokenElapsedMs";
     /// <summary>
     /// Wall-clock cost of the ARM request alone, recorded on success and failure alike. Absent when the
     /// lookup returned before reaching ARM (no tenant, or no token).

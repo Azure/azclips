@@ -134,6 +134,10 @@ internal sealed class DataBoundaryResolver
         }
         else
         {
+            // Timed separately from the ARM call: this is the expensive half when it runs at all,
+            // and on the normal path it does not run, so folding it into one number would make the
+            // lookup look costlier than it is.
+            var tokenStopwatch = Stopwatch.StartNew();
             try
             {
                 var auth = await _authService.AcquireTokenSilentlyAsync(
@@ -154,6 +158,13 @@ internal sealed class DataBoundaryResolver
             catch (Exception ex)
             {
                 return DataBoundaryResult.Failed($"token_unavailable: {ex.GetType().Name}", tenantId);
+            }
+            finally
+            {
+                // In finally so a failed or timed-out acquisition is measured too — those are the
+                // slow ones, and dropping them would flatter the numbers.
+                tokenStopwatch.Stop();
+                activity?.SetTag(TelemetryTags.RecoveryDataBoundaryTokenElapsedMs, tokenStopwatch.ElapsedMilliseconds);
             }
         }
 
@@ -203,9 +214,9 @@ internal sealed class DataBoundaryResolver
         }
         finally
         {
-            // Separate from the caller's total: that one also covers the token acquisition, which
-            // is shared with the provider and so is not a cost this lookup adds. Recorded on every
-            // path — a rejected or timed-out attempt still spends the user's wall clock.
+            // Separate from the caller's total so the ARM round trip is visible on its own.
+            // Recorded on every path — a rejected or timed-out attempt still spends the user's
+            // wall clock.
             armStopwatch.Stop();
             activity?.SetTag(TelemetryTags.RecoveryDataBoundaryArmElapsedMs, armStopwatch.ElapsedMilliseconds);
         }
