@@ -99,15 +99,38 @@ block.
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
-| `properties.agent.model`           | `Agent.Send`                | Model name                                      |
+| `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
+| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 
-For `builtin`, the model tag is the configured model ID. For `github`, the SDK
-selects the model; each `Agent.Send` records the last non-empty main-agent model
-reported by `assistant.usage` before that send ends. Sub-agent and auxiliary
-usage do not replace it. If no such event is observed (for example, an early
-cancellation), the model tag is absent rather than guessed. Runs without an
-`Agent.Send` span have no model observation.
+For `builtin`, the effective `agent.builtin.modelId` comes from configuration,
+falling back to the `AgentOptions` default when the key is absent. It is recorded
+on the recovery root before launching the child, and on `Agent.Session` and
+`Agent.Create` before startup work. Authentication failure or cancellation before
+the first send therefore need not lose a known configured model.
+
+For `github`, the SDK still chooses the model. Session start/resume/model-change
+events track its selection. If no selection event has arrived, startup performs
+one read-only `session.model.getCurrent` query with a five-second deadline.
+If no valid selection is available, query failure, malformed/empty results, or
+timeout use the existing warning channel and leave an unavailable model; they do
+not prevent recovery. Caller cancellation still propagates. Delayed startup
+events cannot overwrite a queried selection, while an explicit model-change
+event wins over an in-flight query reply. No builtin default is substituted for
+a GitHub model.
+
+Each GitHub `Agent.Send` records the last non-empty main-agent model reported by
+`assistant.usage` before that send ends, or the SDK selection if no usage arrived.
+Sub-agent and auxiliary usage are ignored, and usage observations are not cached
+as the selection for the next send. `Agent.Create` and the session retain startup
+metadata even when there is no send. `modelSource` distinguishes a configured or
+selected model from a model observed in usage; none proves that an absent send ran.
+
+Dashboards should prefer named `Agent.Send` models, falling back to `Agent.Session`,
+then `Agent.Create`, then the recovery root only when higher-priority metadata is
+missing. Do not infer historical models from today's configuration. Telemetry
+opt-out, termination before spans stop, and storage/upload failures can still
+prevent delivery; model metadata does not override those boundaries.
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:

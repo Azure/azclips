@@ -518,8 +518,7 @@ public class Program
         {
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
         }
-        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
-        recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
+        RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
 
         try
         {
