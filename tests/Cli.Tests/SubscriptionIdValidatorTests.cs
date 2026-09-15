@@ -6,7 +6,6 @@ public class SubscriptionIdValidatorTests
 {
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000000")]
-    [InlineData(" 11111111-1111-1111-1111-111111111111 ")]
     public void Validate_ShouldAccept_GuidSubscriptionIds(string subscriptionId)
     {
         SubscriptionIdValidator.Validate(subscriptionId);
@@ -14,6 +13,7 @@ public class SubscriptionIdValidatorTests
 
     [Theory]
     [InlineData("sub-1")]
+    [InlineData(" 11111111-1111-1111-1111-111111111111 ")]
     [InlineData("Steven Ma [stema] subscription")]
     public void Validate_ShouldReject_NonGuidSubscriptionIds(string subscriptionId)
     {

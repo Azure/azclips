@@ -292,6 +292,6 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     private static void ValidateProfile(Profile profile)
     {
         ProfileNameValidator.Validate(profile.Name);
-        SubscriptionIdValidator.Validate(profile.SubscriptionId, nameof(profile), allowEmpty: true);
+        SubscriptionIdValidator.Validate(profile.SubscriptionId, nameof(Profile.SubscriptionId), allowEmpty: true);
     }
 }

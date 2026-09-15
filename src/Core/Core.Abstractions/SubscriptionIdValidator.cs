@@ -10,7 +10,9 @@ public static class SubscriptionIdValidator
     {
         if (allowEmpty && string.IsNullOrWhiteSpace(subscriptionId)) return;
 
-        if (string.IsNullOrWhiteSpace(subscriptionId) || !Guid.TryParse(subscriptionId.Trim(), out _))
+        if (string.IsNullOrWhiteSpace(subscriptionId)
+            || subscriptionId != subscriptionId.Trim()
+            || !Guid.TryParse(subscriptionId, out _))
         {
             throw new ArgumentException(
                 $"Invalid subscription id '{subscriptionId}'",
