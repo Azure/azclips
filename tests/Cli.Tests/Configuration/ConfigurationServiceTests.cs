@@ -115,21 +115,31 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ListConfigurationAsync_ShouldNotExposeBuiltinScope_BecauseItIsNotConfigurable()
+    public async Task ListConfigurationAsync_ShouldExposeExactlyTheSchemasAgentKeys()
     {
-        // The scope must stay an ARM audience: the same token authorizes the ARM data boundary
-        // lookup, so a user-set value would break that lookup with an opaque 401 and aim the model's
-        // bearer token at an arbitrary audience. Removing the ConfigurationSchema entry is not
-        // enough on its own — defaults come from serializing AgentOptions, so a public getter would
-        // still surface here as an apparent setting.
+        // Defaults are produced by serializing AgentOptions, while the configurable surface is
+        // ConfigurationSchema — two independent mechanisms. Any public getter that is not a real
+        // setting (a computed view, or a value deliberately kept out of the schema) silently shows
+        // up here as an apparent key. Pinning the whole set rather than individual names is what
+        // makes that structural: a name-specific assertion passes while a sibling leaks.
+        //
+        // agent.builtin.scope must stay out because the same token authorizes the ARM data boundary
+        // lookup, so a user-set value would break it with an opaque 401 and aim the model's bearer
+        // token at an arbitrary audience.
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
         var values = await service.ListConfigurationAsync(includeDefaults: true);
 
-        Assert.DoesNotContain("agent.builtin.scope", values.Keys, StringComparer.OrdinalIgnoreCase);
-        // Sibling keys are still present, so this is not passing because the section went missing.
-        Assert.Contains("agent.builtin.modelId", values.Keys, StringComparer.OrdinalIgnoreCase);
+        var exposed = values.Keys
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+        var schema = new ConfigurationSchema().GetAllKeys()
+            .Select(e => e.Key)
+            .Where(k => k.StartsWith("agent.", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(schema, exposed, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -271,4 +281,6 @@ public class ConfigurationServiceTests
         }
     }
 }
+
+
 

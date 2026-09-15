@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json.Serialization;
+
 namespace Core.Abstractions;
 
 public sealed class AgentOptions
@@ -26,14 +28,23 @@ public sealed class AgentOptions
     // alone). Local debugging / evaluation harness only.
     public TraceOptions Trace { get; set; } = new();
 
+    // Derived views over the settable properties above, not settings in their own right.
+    //
+    // [JsonIgnore] is load-bearing: ConfigurationService builds `--include-defaults` by serializing
+    // this object, so any public getter here shows up as an apparent config key regardless of
+    // whether it is bindable or listed in ConfigurationSchema. Anything computed added below needs
+    // the same attribute — ConfigurationServiceTests pins the whole agent key set for that reason.
+
     // Single source of truth for the SessionStyle string comparison, so the
     // "interactive" literal doesn't drift across call sites.
+    [JsonIgnore]
     public bool IsInteractive =>
         string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
 
     // Same idea for the provider. Builtin authenticates the model with an Azure token and is the
     // only provider that talks to Microsoft-hosted endpoints; github uses the user's own Copilot
     // credential and never needs an Azure login, so anything ARM-shaped must be gated on this.
+    [JsonIgnore]
     public bool IsBuiltinProvider =>
         string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
 }
