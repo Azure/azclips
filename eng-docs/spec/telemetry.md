@@ -130,7 +130,10 @@ Each GitHub `Agent.Send` records the last non-empty main-agent model reported by
 Main-agent usage accepts an absent/empty initiator or the runtime's explicit
 `initiator=user`; an event with `agentId` still belongs to a sub-agent and is ignored.
 Other auxiliary usage is ignored, and usage observations are not cached as the
-selection for the next send. `Agent.Create` and the session retain available startup
+selection for the next send. Collection is gated by the serialized main-agent
+turn-start/turn-end events, so usage arriving before the next turn or after its
+end does not overwrite its model. Missing SDK event data is ignored safely.
+`Agent.Create` and the session retain available startup
 metadata even when there is no send. `modelSource` distinguishes a configured or
 selected model from a model observed in usage; none proves that an absent send ran.
 

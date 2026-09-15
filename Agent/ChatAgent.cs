@@ -382,17 +382,32 @@ public sealed class ChatAgent : IAsyncDisposable
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
         _modelTelemetry.RecordTo(send);
         AgentModelObservation? observedModel = null;
+        var inMainTurn = false;
         try
         {
             // SDK events run off-thread. Capture this send's model, then tag it before export.
             using var modelSubscription = send is not null && !_modelTelemetry.IsBuiltin
-                ? _session.On<AssistantUsageEvent>(usage =>
+                ? _session.On<SessionEvent>(ev =>
                 {
-                    if (string.IsNullOrEmpty(usage.AgentId) &&
-                        usage.Data.Initiator is null or "" or "user" &&
-                        !string.IsNullOrWhiteSpace(usage.Data.Model))
+                    if (!string.IsNullOrEmpty(ev.AgentId))
+                        return;
+                    switch (ev)
                     {
-                        Volatile.Write(ref observedModel, new AgentModelObservation(usage.Data.Model, "usage"));
+                        case AssistantTurnStartEvent { Data.TurnId.Length: > 0 }:
+                            inMainTurn = true;
+                            break;
+                        case AssistantTurnEndEvent:
+                        case SessionIdleEvent:
+                        case SessionErrorEvent:
+                            inMainTurn = false;
+                            break;
+                        case AssistantUsageEvent { Data: { } usage } when inMainTurn:
+                            if (usage.Initiator is null or "" or "user" &&
+                                !string.IsNullOrWhiteSpace(usage.Model))
+                            {
+                                Volatile.Write(ref observedModel, new AgentModelObservation(usage.Model, "usage"));
+                            }
+                            break;
                     }
                 })
                 : null;

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -10,6 +11,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Telemetry;
 using GitHub.Copilot;
+using Microsoft.Extensions.Logging;
 
 namespace Core.Agent.Tests;
 
@@ -407,6 +409,108 @@ public class ChatAgentModelTelemetryTests
             Data = new AssistantUsageData { Model = model, Initiator = initiator },
         };
 
+    [Theory]
+    [InlineData("session.start")]
+    [InlineData("session.resume")]
+    [InlineData("session.model_change")]
+    public void NullStartupData_DoesNotThrowOrEraseSelection(string eventType)
+    {
+        var metadata = new AgentModelTelemetry(new AgentOptions { Provider = "github" }, _ => { });
+        metadata.Observe(Started("selected-model"));
+
+        metadata.Observe(SessionEvent.FromJson($"{{\"type\":\"{eventType}\",\"data\":null}}"));
+
+        Assert.Equal("selected-model", metadata.Current.Model);
+    }
+
+    [Fact]
+    public async Task NullUsageData_DoesNotLogAnSdkHandlerError()
+    {
+        using var capture = new SendCapture();
+        await using var runtime = new CopilotRuntimeStub(
+            [SessionEvent.FromJson("""{"type":"assistant.usage","data":null}"""), Idle()])
+        {
+            SelectedModel = "selected-model",
+        };
+        await using var rig = await CreateAgentAsync(runtime);
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        Assert.Equal("selected-model", Assert.Single(capture.Stopped).Model);
+        Assert.Empty(rig.SdkErrors);
+    }
+
+    [Fact]
+    public async Task ResumeEvent_ProvidesSelectionBeforeInitialization()
+    {
+        await using var runtime = new CopilotRuntimeStub();
+        await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
+        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = rig.Session.On<SessionResumeEvent>(_ => processed.TrySetResult());
+        await runtime.EmitAsync(new SessionResumeEvent
+        {
+            Data = new SessionResumeData
+            {
+                EventCount = 1, ResumeTime = DateTimeOffset.UtcNow, SelectedModel = "resumed-model",
+            },
+        });
+        await processed.Task.WaitAsync(TestTimeout);
+
+        await rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
+
+        Assert.Equal("resumed-model", rig.Agent.Model);
+        Assert.Equal("sdk", rig.Metadata.Current.Source);
+        Assert.Equal(0, runtime.ModelQueryCount);
+        Assert.Empty(rig.SdkErrors);
+    }
+
+    [Fact]
+    public async Task CancelledSend_LateUsageBeforeTheNextTurnIsIgnored()
+    {
+        using var capture = new SendCapture();
+        await using var runtime = new CopilotRuntimeStub(
+            [new AssistantMessageEvent
+            {
+                Data = new AssistantMessageData { MessageId = "cancel", Content = "cancel" },
+            }], [Idle()])
+        {
+            SelectedModel = "selected-model",
+        };
+        await using var rig = await CreateAgentAsync(runtime);
+        using var cts = new CancellationTokenSource();
+        using var cancel = rig.Session.On<AssistantMessageEvent>(_ => cts.Cancel());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => rig.Agent.SendAsync("first prompt", cts.Token).WaitAsync(TestTimeout));
+        runtime.BeforeTurn = () => runtime.EmitAsync(Usage("previous-send-model", initiator: "user"));
+
+        await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        Assert.Equal("selected-model", capture.Stopped[1].Model);
+        Assert.Equal("sdk", capture.Stopped[1].Source);
+    }
+
+    [Fact]
+    public async Task UsageAfterTurnEnd_IsIgnored_AndLaterTurnsAreCaptured()
+    {
+        using var capture = new SendCapture();
+        await using var runtime = new CopilotRuntimeStub(
+            [Usage("first-model"), new AssistantTurnEndEvent
+            {
+                Data = new AssistantTurnEndData { TurnId = "first" },
+            }, Usage("late-model"), new AssistantTurnStartEvent
+            {
+                Data = new AssistantTurnStartData { TurnId = "second" },
+            }, Usage("second-model"), new AssistantTurnEndEvent
+            {
+                Data = new AssistantTurnEndData { TurnId = "second" },
+            }, Usage("late-model"), Idle()]);
+        await using var rig = await CreateAgentAsync(runtime);
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        Assert.Equal("second-model", Assert.Single(capture.Stopped).Model);
+    }
+
     private static SessionIdleEvent Idle() => new() { Data = new SessionIdleData() };
 
     private static SessionStartEvent Started(string model) => new()
@@ -428,9 +532,11 @@ public class ChatAgentModelTelemetryTests
             Builtin = new BuiltinProviderOptions { ModelId = configuredModel },
         };
         var metadata = new AgentModelTelemetry(options, warnings.Add);
+        var sdkErrors = new ConcurrentQueue<string>();
         var client = new CopilotClient(new CopilotClientOptions
         {
             Connection = RuntimeConnection.ForUri(runtime.Url),
+            Logger = new SdkErrorLogger(sdkErrors),
         });
         try
         {
@@ -443,7 +549,7 @@ public class ChatAgentModelTelemetryTests
             }).WaitAsync(TestTimeout);
             if (initializeModel)
                 await metadata.InitializeAsync(session, CancellationToken.None).WaitAsync(TestTimeout);
-            return new AgentRig(new ChatAgent(client, session, metadata, state: null), session, metadata, warnings);
+            return new AgentRig(new ChatAgent(client, session, metadata, state: null), session, metadata, warnings, sdkErrors);
         }
         catch
         {
@@ -453,9 +559,22 @@ public class ChatAgentModelTelemetryTests
     }
 
     private sealed record AgentRig(
-        ChatAgent Agent, CopilotSession Session, AgentModelTelemetry Metadata, List<string> Warnings) : IAsyncDisposable
+        ChatAgent Agent, CopilotSession Session, AgentModelTelemetry Metadata, List<string> Warnings,
+        ConcurrentQueue<string> SdkErrors) : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => Agent.DisposeAsync();
+    }
+
+    private sealed class SdkErrorLogger(ConcurrentQueue<string> errors) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+            Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Warning)
+                errors.Enqueue(formatter(state, exception));
+        }
     }
 
     private sealed class SendCapture : IDisposable
@@ -509,6 +628,7 @@ public class ChatAgentModelTelemetryTests
         public bool HoldModelResponse { get; set; }
         public Func<object?>? ModelResult { get; set; }
         public Func<Task>? BeforeModelResponse { get; set; }
+        public Func<Task>? BeforeTurn { get; set; }
         public TaskCompletionSource ModelQueryStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public async Task EmitAsync(SessionEvent sessionEvent)
@@ -569,6 +689,12 @@ public class ChatAgentModelTelemetryTests
                     await WriteAsync(stream, new { jsonrpc = "2.0", id, result });
                     if (method == "session.send")
                     {
+                        if (BeforeTurn is not null)
+                            await BeforeTurn();
+                        await EmitAsync(new AssistantTurnStartEvent
+                        {
+                            Data = new AssistantTurnStartData { TurnId = Guid.NewGuid().ToString() },
+                        });
                         foreach (var sessionEvent in _turns.Dequeue())
                             await EmitAsync(sessionEvent);
                     }

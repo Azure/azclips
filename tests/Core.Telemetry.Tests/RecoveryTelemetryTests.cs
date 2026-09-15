@@ -37,7 +37,7 @@ public class RecoveryTelemetryTests
     }
 
     [Fact]
-    public void RecordConfiguration_RespectsMissingActivity_WhenTelemetryIsDisabled()
+    public void RecordConfiguration_NoOps_WhenActivityIsMissing()
     {
         var options = new AgentOptions();
 

@@ -36,9 +36,9 @@ internal sealed class AgentModelTelemetry
 
         var model = sessionEvent switch
         {
-            SessionStartEvent started => started.Data.SelectedModel,
-            SessionResumeEvent resumed => resumed.Data.SelectedModel,
-            SessionModelChangeEvent changed => changed.Data.NewModel,
+            SessionStartEvent started => started.Data?.SelectedModel,
+            SessionResumeEvent resumed => resumed.Data?.SelectedModel,
+            SessionModelChangeEvent changed => changed.Data?.NewModel,
             _ => null,
         };
         if (!string.IsNullOrWhiteSpace(model))
