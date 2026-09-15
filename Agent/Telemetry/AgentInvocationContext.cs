@@ -154,12 +154,20 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
+
+            // Stop the activity before the slot opens, not after. Between the two, StartOperation
+            // and EnterCallback both look at Activity.Current to pick a parent, and IsWithin only
+            // rejects an activity once it is stopped. Freeing the slot first let a new operation in
+            // while this one still looked live, so it was parented under an ending sibling instead
+            // of the session. Outside the lock deliberately: stopping an activity runs the
+            // telemetry processors synchronously, which should not happen while holding _gate.
+            Activity?.Dispose();
+
             lock (owner._gate)
             {
                 if (ReferenceEquals(owner._operation, this))
                     owner._operation = null;
             }
-            Activity?.Dispose();
         }
     }
 
