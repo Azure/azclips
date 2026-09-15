@@ -389,7 +389,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 ? _session.On<AssistantUsageEvent>(usage =>
                 {
                     if (string.IsNullOrEmpty(usage.AgentId) &&
-                        string.IsNullOrEmpty(usage.Data.Initiator) &&
+                        usage.Data.Initiator is null or "" or "user" &&
                         !string.IsNullOrWhiteSpace(usage.Data.Model))
                     {
                         Volatile.Write(ref observedModel, new AgentModelObservation(usage.Data.Model, "usage"));

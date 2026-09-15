@@ -18,11 +18,14 @@ public class ChatAgentModelTelemetryTests
 {
     private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
 
-    [Fact]
-    public async Task Github_RecordsSdkModelBeforeSendStops_WithoutSelectingAModel()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("user")]
+    public async Task Github_RecordsSdkModelBeforeSendStops_WithoutSelectingAModel(string? initiator)
     {
         using var capture = new SendCapture();
-        await using var runtime = new CopilotRuntimeStub([Usage("github-model"), Idle()]);
+        await using var runtime = new CopilotRuntimeStub([Usage("github-model", initiator: initiator), Idle()]);
         await using var rig = await CreateAgentAsync(runtime);
         using var parent = new Activity("test-parent").Start();
 
@@ -51,6 +54,7 @@ public class ChatAgentModelTelemetryTests
 
     [Theory]
     [InlineData("child-agent", null)]
+    [InlineData("child-agent", "user")]
     [InlineData(null, "sub-agent")]
     [InlineData(null, "mcp-sampling")]
     public async Task Github_IgnoresSubagentAndAuxiliaryModels(string? agentId, string? initiator)

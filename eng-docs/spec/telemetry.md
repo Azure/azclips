@@ -119,10 +119,18 @@ events cannot overwrite a queried selection, while an explicit model-change
 event wins over an in-flight query reply. No builtin default is substituted for
 a GitHub model.
 
+Some runtimes select their default model lazily: both `session.start` and
+`getCurrent` can legitimately have no model until the first send triggers
+`session.model_change`. Selecting the GitHub provider alone does not identify a
+model in that case. Keep startup metadata unavailable rather than guessing from
+the available-model list or issuing an extra LLM request to force selection.
+
 Each GitHub `Agent.Send` records the last non-empty main-agent model reported by
 `assistant.usage` before that send ends, or the SDK selection if no usage arrived.
-Sub-agent and auxiliary usage are ignored, and usage observations are not cached
-as the selection for the next send. `Agent.Create` and the session retain startup
+Main-agent usage accepts an absent/empty initiator or the runtime's explicit
+`initiator=user`; an event with `agentId` still belongs to a sub-agent and is ignored.
+Other auxiliary usage is ignored, and usage observations are not cached as the
+selection for the next send. `Agent.Create` and the session retain available startup
 metadata even when there is no send. `modelSource` distinguishes a configured or
 selected model from a model observed in usage; none proves that an absent send ran.
 
