@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789436040569,
+  "lastUpdate": 1789447654617,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9830,6 +9830,48 @@ window.BENCHMARK_DATA = {
             "value": 2509611.7789569437,
             "unit": "ns",
             "range": "± 112493.00788115243"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "611fddacb854e8b38b6d4113ff77ccc1cd587169",
+          "message": "[Login] add client level validations for subscription-id (#888)",
+          "timestamp": "2026-09-15T03:40:50Z",
+          "tree_id": "2ee4b11ec0f0f56e878a63ca384d1a5f176e4f4f",
+          "url": "https://github.com/Azure/azclips/commit/611fddacb854e8b38b6d4113ff77ccc1cd587169"
+        },
+        "date": 1789447651583,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2709781.613563403,
+            "unit": "ns",
+            "range": "± 126567.3497399299"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 5406299.184556297,
+            "unit": "ns",
+            "range": "± 202959.99334210964"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2762756.0652130023,
+            "unit": "ns",
+            "range": "± 122055.3425374149"
           }
         ]
       }
