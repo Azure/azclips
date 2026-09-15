@@ -17,6 +17,8 @@ namespace Cli.Tests;
 /// </summary>
 public class LoginCompatibilityAliasTests
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+
     private static IArgumentParsingService CreateBinder() =>
         new ServiceCollection()
             .AddSingleton<ILoggingService, ConsoleLoggingService>()
@@ -60,7 +62,7 @@ public class LoginCompatibilityAliasTests
             {
                 ["i"] = new List<List<string>> { new() },
                 ["client-id"] = Value("11111111-1111-1111-1111-111111111111"),
-                ["subscription-id"] = Value("sub-1"),
+                ["subscription-id"] = Value(ValidSubscriptionId),
             },
             metadata.Parameters,
             metadata.ParameterAliases,
@@ -68,7 +70,7 @@ public class LoginCompatibilityAliasTests
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
-        Assert.Equal("sub-1", processor.SubscriptionId);
+        Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
     }
 
     [Theory]

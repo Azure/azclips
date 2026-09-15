@@ -101,7 +101,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     public async Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        ProfileNameValidator.Validate(profile.Name);
+        ValidateProfile(profile);
 
         await _gate.WaitAsync(cancellationToken);
         try
@@ -119,7 +119,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     public async Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        ProfileNameValidator.Validate(profile.Name);
+        ValidateProfile(profile);
 
         await _gate.WaitAsync(cancellationToken);
         try
@@ -287,5 +287,11 @@ public class ProfileService : IProfileService // todo: testability, consider inj
             }
             throw;
         }
+    }
+
+    private static void ValidateProfile(Profile profile)
+    {
+        ProfileNameValidator.Validate(profile.Name);
+        SubscriptionIdValidator.Validate(profile.SubscriptionId, nameof(profile), allowEmpty: true);
     }
 }
