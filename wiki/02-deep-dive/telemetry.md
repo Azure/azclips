@@ -157,6 +157,8 @@ For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActiv
 
 After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
 
+Because that child outlives `az`, it must not inherit the CLI's stdio. A pipe reader (`az ... | jq`) only sees EOF once *every* writer has closed its end, so an inherited stdout would make the shell wait for the upload instead of for the command. Two things prevent that: the child's three streams are redirected (on Unix, exec replaces descriptors 0–2 outright), and on Windows `DetachedStdio.SuppressStandardHandleInheritance` first clears `HANDLE_FLAG_INHERIT` on our standard handles — `Process.Start` always calls `CreateProcess` with `bInheritHandles: true`, which would otherwise duplicate them into the child regardless of redirection (`src/CLI/Telemetry/DetachedStdio.cs`).
+
 ```mermaid
 sequenceDiagram
     autonumber

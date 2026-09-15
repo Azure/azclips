@@ -147,6 +147,50 @@ public sealed class BenchmarkProfileStoreTests : IDisposable
         Assert.Null(ex);
     }
 
+    [Fact]
+    public async Task SeedAsync_ShouldStampUserPrincipalName_WhenOneIsSupplied()
+    {
+        await BenchmarkProfileStore.SeedAsync(_dir, "benchmark@contoso.com");
+
+        var active = await NewService(_dir).GetActiveProfileAsync();
+
+        Assert.NotNull(active);
+        Assert.Equal("benchmark@contoso.com", active!.UserPrincipalName);
+    }
+
+    [Fact]
+    public async Task SeedAsync_ShouldLeaveUserPrincipalNameNull_WhenNoneIsSupplied()
+    {
+        await BenchmarkProfileStore.SeedAsync(_dir);
+
+        var active = await NewService(_dir).GetActiveProfileAsync();
+
+        Assert.NotNull(active);
+        Assert.Null(active!.UserPrincipalName);
+    }
+
+    [Fact]
+    public async Task VerifySeededAsync_ShouldThrow_WhenSeededUserPrincipalNameDoesNotMatch()
+    {
+        await BenchmarkProfileStore.SeedAsync(_dir, "someone-else@contoso.com");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => BenchmarkProfileStore.VerifySeededAsync(_dir, "benchmark@contoso.com"));
+
+        Assert.Contains("benchmark@contoso.com", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task VerifySeededAsync_ShouldSucceed_WhenSeededUserPrincipalNameMatches()
+    {
+        await BenchmarkProfileStore.SeedAsync(_dir, "benchmark@contoso.com");
+
+        var ex = await Record.ExceptionAsync(
+            () => BenchmarkProfileStore.VerifySeededAsync(_dir, "benchmark@contoso.com"));
+
+        Assert.Null(ex);
+    }
+
     public void Dispose()
     {
         try

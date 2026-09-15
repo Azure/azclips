@@ -5,8 +5,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
+using Benchmark.Auth;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
+using Core.Authentication;
 using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,9 @@ public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
+
+    /// <summary>Scratch directory holding the seeded MSAL token cache for this run.</summary>
+    protected string MsalCacheDirectory { get; private set; } = null!;
 
     /// <summary>
     /// The extension this benchmark class targets, read from its
@@ -62,21 +67,31 @@ public abstract class BenchmarkBase
     protected void InitializeCommon()
     {
         RepoRoot = RepoLocator.GetRepoRoot();
+
+        MsalCacheDirectory = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "msal");
+        MsalCacheFixture.Seed(MsalCacheDirectory);
         ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
 
         // The profile store is seeded and verified once during global setup to confirm that
         // profiles are present. Executing without a profile is a supported workflow, but it is not
         // the primary one and is therefore outside the scope of these benchmarks, if they were to fail gracefully.
         SeedProfileStore();
-        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
+        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)
+            .GetAwaiter()
+            .GetResult();
     }
 
     /// <summary>
     /// Resets the profile store to its seeded state. Called from each iteration's setup so every
     /// iteration starts from identical bytes even when a benchmark writes profiles.
     /// </summary>
+    /// <remarks>
+    /// Seeds the MSAL fixture's UPN, which <c>MsalAccountSelector</c> matches the cached account by.
+    /// </remarks>
     protected void SeedProfileStore() =>
-        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot).GetAwaiter().GetResult();
+        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)
+            .GetAwaiter()
+            .GetResult();
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
@@ -91,8 +106,63 @@ public abstract class BenchmarkBase
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton<IProfileService>(sp =>
                 new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
-            services.AddSingleton<IAuthService, StubAuthService>();
+            services.AddSingleton(new MsalClientOptions
+            {
+                CacheDirectory = MsalCacheDirectory,
+                HttpClientFactory = new ThrowingMsalHttpClientFactory(),
+            });
         });
+    }
+
+    /// <summary>
+    /// Proves, once per run, that the seeded cache yields a token without touching the network.
+    /// Mirrors exactly what an iteration does. A drifted fixture, a UPN mismatch, or a stubbed-out
+    /// auth service would otherwise change what is being measured without changing the numbers
+    /// enough to notice — this turns that into a hard setup failure.
+    /// </summary>
+    protected void VerifyAuthFixture()
+    {
+        RegisterBenchmarkStubs();
+        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        try
+        {
+            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            if (authService is not MsalAuthService)
+            {
+                throw new InvalidOperationException(
+                    $"Benchmarks must exercise the real MsalAuthService but resolved " +
+                    $"'{authService.GetType().Name}'. Auth must not be stubbed.");
+            }
+
+            var result = authService
+                .AcquireTokenSilentlyAsync(scopes: null, tenantId: null)
+                .GetAwaiter()
+                .GetResult();
+
+            if (!string.Equals(result.AccessToken, MsalCacheFixture.AccessTokenSecret, StringComparison.Ordinal) ||
+                !string.Equals(result.UserPrincipalName, MsalCacheFixture.UserPrincipalName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Silent acquisition returned a token that does not match the seeded cache. " +
+                    $"Expected UPN '{MsalCacheFixture.UserPrincipalName}', got '{result.UserPrincipalName}'.");
+            }
+
+            Console.WriteLine("[Setup] MSAL cache hit verified — auth file IO is measured, network is blocked");
+        }
+        catch (Exception ex)
+        {
+            var cacheFile = Path.Combine(MsalCacheDirectory, "MSAL.cache.plaintext");
+            var exists = File.Exists(cacheFile);
+            var size = exists ? new FileInfo(cacheFile).Length : 0;
+            throw new InvalidOperationException(
+                $"MSAL benchmark fixture verification failed. Cache file '{cacheFile}' " +
+                $"exists={exists}, size={size} bytes. The benchmark cannot run without a cache hit, " +
+                "because a miss would either fail or measure something other than file IO.", ex);
+        }
+        finally
+        {
+            AzclipsServiceProvider.Dispose();
+        }
     }
 
     /// <summary>

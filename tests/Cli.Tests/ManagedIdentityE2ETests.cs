@@ -258,7 +258,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
             Logger,
             Telemetry,
             profileService,
-            new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry));
+            new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry),
+            new MsalClientOptions());
 
         // production handler that adds the bearer token
         var authHandler = new AuthHandler

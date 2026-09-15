@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.MsGraph</AssemblyName>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.MsGraph</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.MsGraph</ExtName>
+
+        <Description>Microsoft Graph Extension for Azclips CLI</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
+
+        <PackageId>Microsoft.Azure.Azclips.Extensions.MsGraph</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>Microsoft Corporation</Authors>
+        <Company>Microsoft Corporation</Company>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Extensions.MsGraph.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Extensions.MsGraph.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+</Project>

@@ -131,10 +131,10 @@ namespace Core.Engine
             );
             // stamp User-Agent header on every outgoing request
             httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
-            // passthrough by default, terminate during client mocking
-            httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+            // passthrough by default, terminate during client mocking
+            httpPipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
 
             // Announce the created context; the ProcessorContextCreated subscriber enriches the
             // telemetry root span with profile-derived tags (subscription, tenant, auth type).

@@ -483,31 +483,61 @@ public class Program
     {
         try
         {
-            var exePath = Environment.ProcessPath;
-            if (exePath == null) return;
+            var startInfo = BuildTelemetryUploaderStartInfo(Environment.ProcessPath);
+            if (startInfo is null) return;
 
-            // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
-            if (!exePath.EndsWith("az", StringComparison.OrdinalIgnoreCase) &&
-                !exePath.EndsWith("az.exe", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
+            // Windows process guard, must be run before process creation.
+            DetachedStdio.SuppressStandardHandleInheritance();
 
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                Arguments = "--upload-telemetry",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            Process.Start(startInfo);
-            // Don't wait — the background process runs independently.
+            using var uploader = Process.Start(startInfo);
+            // Drop our ends of the three pipes immediately.
+            CloseRedirectedStreams(uploader);
         }
         catch
         {
             // Best effort. If spawn fails, traces remain on disk
             // and will be uploaded on the next CLI invocation.
         }
+    }
+
+    /// <summary>
+    /// Builds the start info for the detached <c>--upload-telemetry</c> process, or
+    /// <see langword="null"/> when this process must not spawn one.
+    /// </summary>
+    internal static ProcessStartInfo? BuildTelemetryUploaderStartInfo(string? exePath)
+    {
+        if (string.IsNullOrEmpty(exePath)) return null;
+
+        // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
+        var exeName = Path.GetFileName(exePath);
+        if (!exeName.Equals("az", StringComparison.OrdinalIgnoreCase) &&
+            !exeName.Equals("az.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new ProcessStartInfo
+        {
+            FileName = exePath,
+            Arguments = "--upload-telemetry",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            // The uploader outlives us, so it must not inherit our stdio: an
+            // inherited pipe keeps the caller's reader waiting on the upload
+            // rather than on `az`.
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+    }
+
+    /// <summary>Closes the parent-side ends of a redirected child's stdio pipes.</summary>
+    private static void CloseRedirectedStreams(Process? process)
+    {
+        if (process is null) return;
+
+        try { process.StandardInput.Close(); } catch { /* already closed */ }
+        try { process.StandardOutput.Close(); } catch { /* already closed */ }
+        try { process.StandardError.Close(); } catch { /* already closed */ }
     }
 }
