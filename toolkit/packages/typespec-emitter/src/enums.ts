@@ -1,10 +1,8 @@
 /**
  * SdkEnumType → IREnum.
  *
- * Two flavours land here:
- *   - Closed enums (`isFixed: true`): the natural mapping.
- *   - Open enums (`isFixed: false`): IR doesn't model open enums; we
- *     emit them as closed and warn once with `open-enum-as-closed`.
+ * Both closed enums (`isFixed: true`) and extensible enums (`isFixed: false`)
+ * preserve their TCGC semantics in IR.
  *
  * Union-as-enum: TCGC turns string-literal unions into `SdkEnumType` with
  * `isUnionAsEnum: true`. They show up here exactly like any other enum.
@@ -18,7 +16,7 @@ import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { accessFrom, usageFrom } from "./annotations.js";
-import { idFor } from "./types.js";
+import { discriminatedSource, idFor } from "./types.js";
 
 function valueTypeOf(e: SdkEnumType): "string" | "number" {
   const k = e.valueType.kind;
@@ -56,6 +54,7 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     id,
     name: id.name,
     valueType: valueTypeOf(e),
+    isFixed: e.isFixed,
     members,
     // Library-shared enums are attributed to their owning library module
     // (carried on id.module), not the spec's source id. See IREnum.source.
@@ -69,7 +68,8 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
 
 export function enumsFrom(ctx: BuildContext): IREnum[] {
   const out: IREnum[] = [];
-  for (const e of ctx.sdkContext.sdkPackage.enums) {
+  for (const e of ctx.enums) {
+    if (discriminatedSource(ctx, e)) continue;
     // The @versioned api-version enum is denormalized onto IRSource.apiVersion;
     // it isn't a domain type, so don't surface it as a standalone IREnum.
     if ((e.usage & UsageFlags.ApiVersionEnum) !== 0) continue;

@@ -99,7 +99,7 @@
         "group_name": "Global Arguments"
       },
       {
-        "name": "--help -h",
+        "name": "--help -h -help -? --?",
         "required": false,
         "short_summary": "Show help for the command or group and exit.",
         "long_summary": "",
@@ -118,8 +118,15 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   }

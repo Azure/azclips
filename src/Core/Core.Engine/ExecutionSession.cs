@@ -235,6 +235,12 @@ internal class ExecutionSession : ISession
         {
             processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases, Profile);
         }
+        catch (AzclipsErrorException)
+        {
+            // Structured error (e.g. a missing required argument): let it propagate as-is so the
+            // host renders it directly instead of falling through to AI-fallback recovery.
+            throw;
+        }
         catch (Exception ex)
         {
             throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);

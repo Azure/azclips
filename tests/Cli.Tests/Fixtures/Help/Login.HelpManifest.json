@@ -28,9 +28,7 @@
           "type": "bool",
           "required": false,
           "description": "Login using managed identity in the current environment.",
-          "aliases": [
-            "i"
-          ],
+          "aliases": ["i"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -93,7 +91,7 @@
           "type": "string",
           "required": false,
           "description": "Azure Subscription Id.",
-          "aliases": [],
+          "aliases": ["s", "subscription"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -105,7 +103,7 @@
           "type": "string",
           "required": false,
           "description": "Tenant ID to login to.",
-          "aliases": [],
+          "aliases": ["t", "tenant"],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,

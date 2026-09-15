@@ -15,9 +15,18 @@ public sealed class GeneratorCleanupTests
 {
     private static IRDocument Ir() => new()
     {
-        SchemaVersion = "0.6.0",
+
+        SchemaVersion = "0.8.0",
         Models = [new IRModel { Name = "Widget", Source = "T", Id = new IRId { Module = "T", Name = "Widget" } }],
-        Operations = [new IROperation { Name = "get" }],
+        Servers =
+        [
+            new IRServerDefinition
+            {
+                Id = new IRId { Module = "T", Name = "server" },
+                Endpoint = new IRServerLiteral { Url = "https://example.com" },
+            },
+        ],
+        Operations = [new IROperation { Name = "get", Server = new IRId { Module = "T", Name = "server" } }],
     };
 
     [Fact]

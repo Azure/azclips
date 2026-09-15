@@ -7,6 +7,7 @@
     "packages/ir",
     "packages/typespec-emitter",
     "packages/compiler",
+    "packages/transformers",
     "packages/cli"
   ],
   "scripts": {

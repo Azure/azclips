@@ -31,6 +31,8 @@ namespace Cmdlets.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class LoginProcessorValidationTests
 {
+    private const string ValidSubscriptionId = "11111111-1111-1111-1111-111111111111";
+
     // ── Shared helpers ──────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -88,7 +90,7 @@ public class LoginProcessorValidationTests
     {
         Name = "temp",
         TenantId = tenantId,
-        SubscriptionId = "sub-1",
+        SubscriptionId = ValidSubscriptionId,
         CloudName = "AzureCloud",
         AuthMethod = AuthMethod.Browser,
     };
@@ -132,6 +134,54 @@ public class LoginProcessorValidationTests
             Array.Empty<object?>()));
 
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_InvalidSubscriptionId_NamesSurfaceCorrectSubscriptionFlag(ClientType surface)
+    {
+        InitDi(surface);
+        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
+        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
+        const string invalidSubscriptionId = "Steven Ma [stema] subscription";
+        var processor = new LoginProcessor { SubscriptionId = invalidSubscriptionId };
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor,
+            "ValidateArguments",
+            Array.Empty<object?>()));
+
+        Assert.Contains(invalidSubscriptionId, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Invalid subscription id", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_InvalidSubscriptionIdWithProfile_NamesSurfaceCorrectSubscriptionFlag(ClientType surface)
+    {
+        InitDi(surface);
+        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
+        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
+        const string invalidSubscriptionId = "Steven Ma [stema] subscription";
+        var processor = new LoginProcessor
+        {
+            Profile = "prod",
+            SubscriptionId = invalidSubscriptionId,
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor,
+            "ValidateArguments",
+            Array.Empty<object?>()));
+
+        Assert.Contains(invalidSubscriptionId, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Invalid subscription id", ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
     }
 
@@ -397,7 +447,7 @@ public class LoginProcessorValidationTests
         InitDi(surface);
         var processor = new LoginProcessor
         {
-            SubscriptionId = "sub-1",
+            SubscriptionId = ValidSubscriptionId,
             ClientId = "c",
         };
         var expectedSelector = FlagFor(surface, nameof(LoginProcessor.ClientId));
@@ -435,9 +485,9 @@ public class LoginProcessorValidationTests
     public static IEnumerable<object[]> ValidArgumentCombinations()
     {
         yield return new object[] { "bare-interactive",
-            new LoginProcessor { SubscriptionId = "sub-1" } };
+            new LoginProcessor { SubscriptionId = ValidSubscriptionId } };
         yield return new object[] { "device-code",
-            new LoginProcessor { SubscriptionId = "sub-1", UseDeviceCode = true } };
+            new LoginProcessor { SubscriptionId = ValidSubscriptionId, UseDeviceCode = true } };
         yield return new object[] { "managed-identity-system-assigned",
             new LoginProcessor { Identity = true } };
         yield return new object[] { "managed-identity-with-client-id",
@@ -465,7 +515,7 @@ public class LoginProcessorValidationTests
         InitDi(ClientType.CLI);
         var processor = new LoginProcessor
         {
-            SubscriptionId = "sub-1",
+            SubscriptionId = ValidSubscriptionId,
             OutProfile = ProfileNameValidator.ReservedDefaultName,
         };
 

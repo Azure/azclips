@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions.Runtime;
+using Core.Abstractions;
 using Core.Extensions;
 using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
