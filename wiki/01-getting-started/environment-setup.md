@@ -50,10 +50,10 @@ The solution is defined in the modern XML `azclips.slnx` format (`azclips.slnx:1
 | --- | --- | --- |
 | `/src/CLI/` | `Core.Cli` | The `az` binary entry point. |
 | `/src/Core/` | `Core.Abstractions`, `Core.Authentication`, `Core.Engine`, `Core.Telemetry`, `Core.Runtime`, `Core.DependencyInjection`, `Core.AssemblyLoading`, `Core.ArgumentParsing`, `Core.Configuration`, `Core.Extensions` | The 10-project core engine. |
-| `/src/Extensions/` | `ExtensionRuntime`, `Extension`, `Resources`, `Login`, `Config`, `Compute` | The 6 dynamically-loaded extensions. |
+| `/src/Extensions/` | `ExtensionRuntime`, `Extension`, `Resources`, `Accounts`, `Config`, `Compute` | The 6 dynamically-loaded extensions. |
 | `/TUI/` | `Core.Tui` | Interactive terminal UI / agent-mode host. |
 | `/Agent/` | `Core.Agent` (+ tests) | GitHub Copilot SDK integration. |
-| `/src/PS/` | `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Login`, `Cmdlets.Config` | Mirrored PowerShell cmdlets. |
+| `/src/PS/` | `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Accounts`, `Cmdlets.Config` | Mirrored PowerShell cmdlets. |
 | `/tests/` | `Cli.Tests`, `Benchmark`, `Cmdlets.Tests`, `Tests.Common`, `Core.Extensions.Tests`, `Core.Telemetry.Tests`, and fixtures | Test suites. |
 | `/tools/` | `Azclips.Help.Tool` (+ tests) | Help artifact generation. |
 

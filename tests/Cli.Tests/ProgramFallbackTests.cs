@@ -26,6 +26,15 @@ public class ProgramFallbackTests
         Assert.Equal(0, exitCode);
     }
 
+    [Fact]
+    public async Task Main_ShouldReturnStructuredError_WhenGroupHasUnknownFlag()
+    {
+        // A group plus extra tokens must keep the command-not-found exit code, not render group help or escape unhandled.
+        var exitCode = await Core.Cli.Program.Main(["vm", "--list"]);
+
+        Assert.Equal(4, exitCode);
+    }
+
     // The following tests verify that AgentEngine is invoked by observing the side effects.
     // They require AI integration which prompts for user input, making them unsuitable for automated testing.
     // These are skipped in CI but can be run manually for integration testing.

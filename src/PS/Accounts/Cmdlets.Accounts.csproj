@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Accounts</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Accounts</RootNamespace>
+        <Description>PowerShell binary cmdlets for Azclips Accounts module</Description>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
+        <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.0" />
+        <PackageReference Include="OpenTelemetry" Version="1.15.3" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Common\CmdletOutputStreamsFactory.cs" Link="Common\CmdletOutputStreamsFactory.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Telemetry\Core.Telemetry.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+</Project>

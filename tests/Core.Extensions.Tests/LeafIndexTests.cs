@@ -148,13 +148,13 @@ namespace Core.Extensions.Tests
         // longer leaves (Agent: (agent, "tool env"), …) is a group at the root and at every
         // intermediate path.
 
-        private static LeafIndex BuildAgentAndLoginIndex()
+        private static LeafIndex BuildAgentAndAccountsIndex()
         {
             var registry = new ExtensionRegistry
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                     {
                         Version = "0.0.0",
                         Contributions = { new Contribution { Verb = "login", Path = "" } },
@@ -179,7 +179,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldReturnTrue_ForGroupRootAndIntermediatePaths()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             Assert.True(index.IsCommandGroup("agent", ""));                 // az agent
             Assert.True(index.IsCommandGroup("agent", "tool"));             // az agent tool
@@ -189,7 +189,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldReturnFalse_ForRunnableLeaves()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             Assert.False(index.IsCommandGroup("agent", "tool env"));            // runnable leaf
             Assert.False(index.IsCommandGroup("agent", "tool resource find"));  // runnable leaf
@@ -198,7 +198,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldReturnFalse_ForRunnableRootVerb()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             // login's only leaf is its root, so `az login` is a runnable command, not a group.
             Assert.False(index.IsCommandGroup("login", ""));
@@ -207,7 +207,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldReturnFalse_ForUnknownLeafUnderGroup()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             // `tool resource findxxx` is neither a leaf nor a group prefix — a typo, not a group.
             Assert.False(index.IsCommandGroup("agent", "tool resource findxxx"));
@@ -216,7 +216,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldMatch_CaseInsensitively()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             Assert.True(index.IsCommandGroup("AGENT", "Tool Resource"));
         }
@@ -224,7 +224,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void IsCommandGroup_ShouldReturnFalse_ForNullOrEmptyVerb()
         {
-            var index = BuildAgentAndLoginIndex();
+            var index = BuildAgentAndAccountsIndex();
 
             Assert.False(index.IsCommandGroup(string.Empty, ""));
             Assert.False(index.IsCommandGroup(null!, ""));

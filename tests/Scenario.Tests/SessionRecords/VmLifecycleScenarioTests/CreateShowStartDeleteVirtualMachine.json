@@ -1,0 +1,1542 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "VmLifecycleScenarioTests/CreateShowStartDeleteVirtualMachine"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vm-lifecycle-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-vm-lifecycle-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "ec4d5008-8d2e-412d-ae47-cf65472ff085"
+          ],
+          "x-ms-correlation-request-id": [
+            "ec4d5008-8d2e-412d-ae47-cf65472ff085"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005012Z:ec4d5008-8d2e-412d-ae47-cf65472ff085"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 30D330D406004315A697981BDC89E578 Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:10Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg\u0022,\u0022name\u0022:\u0022scenario-vm-lifecycle-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet?api-version=2025-05-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022],\u0022ipamPoolPrefixAllocations\u0022:[]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:null,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022addressPrefixes\u0022:[\u002210.0.0.0/24\u0022],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false,\u0022ipAllocations\u0022:[]},\u0022location\u0022:\u0022westus2\u0022}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "3"
+          ],
+          "x-ms-request-id": [
+            "ec395747-3aeb-4c4e-918f-79d81b3e8d16"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/ec395747-3aeb-4c4e-918f-79d81b3e8d16?api-version=2025-05-01\u0026t=639244254138564174\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=G88OsF7Mx0hXp58yG4hGrLbkysYWbT89YiwHQ17X6aVywNxtwPyhcj3byBzB6qSIXPVtHdKlQdshlUpDDYt0oA4ihCexcHaCE2iAdxRVKEYaI3YsN5vnXqZzidpvUTE8LzDCZOflhB_IunvxUDcUIYN_RpWel_WOwPpgDIljOhMPuxVaZ-4ew4217Mm7YaY_H0ydWlrxe8RUewMhMSMCMyK48jRMSOp52ngCALnDqaKcG3n_QcJMn5KQhRlUkH8TIKuCArfj1AFaPps_aGNSOkj7IUiKYodEEfAjHNa6VYUgpvcT4D1hwgFBtJOb5AO5PhLGHB-ZF8LnYnpie5Y6xg\u0026h=YALuJa8f9THWGJpD0hf4dhMYaAV639d1j56w3MXeF8Y"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "29a96923-f8f8-463f-96e2-544e2d962cd2"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "82291b79-138d-46e3-8ddc-40f393ef5ee2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005013Z:29a96923-f8f8-463f-96e2-544e2d962cd2"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 420467E273E54CD8B426116218BCAC38 Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:12Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:13 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u002287df2903-77a6-4840-9c71-f35bb43ab5b0\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00220ea76559-9920-4f4b-94d6-63c919165414\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u002287df2903-77a6-4840-9c71-f35bb43ab5b0\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg?api-version=2025-05-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "c1e47fc8-3d70-4fde-a7c2-954533c27a27"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/c1e47fc8-3d70-4fde-a7c2-954533c27a27?api-version=2025-05-01\u0026t=639244254175345000\u0026c=MIIHlTCCBn2gAwIBAgIRAP3gA1NTVfsyY1OAzEH6ZxgwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UEAxMrQ0NNRSBHMSBUTFMgUlNBIDIwNDggU0hBMjU2IDIwNDkgV1VTMiBDQSAwMTAeFw0yNjA4MTcwMzUwMzRaFw0yNzAyMTIwOTUwMzRaMEAxPjA8BgNVBAMTNWFzeW5jb3BlcmF0aW9uc2lnbmluZ2NlcnRpZmljYXRlLm1hbmFnZW1lbnQuYXp1cmUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz4QdyZCaJJyeTiLaFPtWJfrFjQBvFiPuzXEv1RYUnOVbG6CgM9-zAjE6VqzzH_ry3ylc1gfGz6trnOm36FC95XZN2cCXp9y49dBX5ARtbkqOb5BHj5WIXttGYC8azrRlvpPY-UgoTrxrODNYnd9zPdmWFTt8eiVOabmtu8YkeC5xQbAfStgY-cSF67cM163I2m0lUmMRhXAoURoP8LYqW8LPszEPUm35qa6W0XcEfar_boQxw4ZdhrhAO_JSNzOmKlvArod48lGW9Qo67YUrtSxaxhZLN-ToHXgM2BXkkOkxuLlfF-zewr3Hc0ZK_XonevTH-HqtYfak-VOdgLwwwQIDAQABo4IEkjCCBI4wgZ0GA1UdIASBlTCBkjAMBgorBgEEAYI3ewEBMGYGCisGAQQBgjd7AgIwWDBWBggrBgEFBQcCAjBKHkgAMwAzAGUAMAAxADkAMgAxAC0ANABkADYANAAtADQAZgA4AGMALQBhADAANQA1AC0ANQBiAGQAYQBmAGYAZAA1AGUAMwAzAGQwDAYKKwYBBAGCN3sDAjAMBgorBgEEAYI3ewQCMAwGA1UdEwEB_wQCMAAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMA4GA1UdDwEB_wQEAwIFoDAdBgNVHQ4EFgQUMwWFFADYJuZjpCje-R5vqszDG70wHwYDVR0jBBgwFoAUrONy-gOyc549lcjvh1uu3Ruh7WgwggGyBgNVHR8EggGpMIIBpTBpoGegZYZjaHR0cDovL3ByaW1hcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3R1czIvY3Jscy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxLzkzL2N1cnJlbnQuY3JsMGugaaBnhmVodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0dXMyL2NybHMvY2NtZXdlc3R1czJwa2kvY2NtZXdlc3R1czJpY2EwMS85My9jdXJyZW50LmNybDBaoFigVoZUaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3R1czIvY3Jscy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxLzkzL2N1cnJlbnQuY3JsMG-gbaBrhmlodHRwOi8vY2NtZXdlc3R1czJwa2kud2VzdHVzMi5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0dXMyaWNhMDEvOTMvY3VycmVudC5jcmwwggG3BggrBgEFBQcBAQSCAakwggGlMGwGCCsGAQUFBzAChmBodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdHVzMi9jYWNlcnRzL2NjbWV3ZXN0dXMycGtpL2NjbWV3ZXN0dXMyaWNhMDEvY2VydC5jZXIwbgYIKwYBBQUHMAKGYmh0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3R1czIvY2FjZXJ0cy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxL2NlcnQuY2VyMF0GCCsGAQUFBzAChlFodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdHVzMi9jYWNlcnRzL2NjbWV3ZXN0dXMycGtpL2NjbWV3ZXN0dXMyaWNhMDEvY2VydC5jZXIwZgYIKwYBBQUHMAKGWmh0dHA6Ly9jY21ld2VzdHVzMnBraS53ZXN0dXMyLnBraS5jb3JlLndpbmRvd3MubmV0L2NlcnRpZmljYXRlQXV0aG9yaXRpZXMvY2NtZXdlc3R1czJpY2EwMTANBgkqhkiG9w0BAQsFAAOCAQEAfdst7PXa3ogyQLF7Jy4O_dGeSpqDceWxzIbo4NIpZfZMInuRZt6N1cZ17JzQwO9wpT3dbvQrW_9Chfhc9K26kB7skQlG9nV6CIaJ5LroI00qr85tOPRcMbzSa_LwIM_1WhqUAbC1vt42bKM4cgC_QniX7bfhwBKQ7zUjh4Fstu-6lYJzztVawXpnNMYNceUEljzwL2p7jhz2ReKQafSIStD7cREW2DUKEw0nW492Ro2Eb8rMaVqMGpcq__nFurDqDstzrSOzcc76ZsENCHFmj_X5HdtdrvHDESbNm8n4LAaZi15lQlMTGFLJdEx8Ck-obWaoY0XEIqJDE2uMyZfZ7Q\u0026s=EymSvyJFN-kGQbTEH4ov4D8W7X6jNM9ig40eWhrakkT7RsYg8IFPV-VsXOcSQ763NFzLYHmFuutLVNZ7EyD2EIsshpyKgwzQ3VnIcDR18pRQTl2WeuqMv6OMPXd5CA34AUaztGVuRCw0cWVBONpNhhx2lqylPZG3uHuAcwfPdEucvicrz20fFKddMTWpl-tXqfVeaA6-B7-VtMIZdfTQjtuxM17sLspZqyoNEWpTCM-vJa08MKljFxxxTdZeOF-9zuje4sEyQbcjPWEFByjyaDIHyCMzGznFPHoRCflByxA_CTS7KrvL7zZAvejnoIKIBvVamtAHZzrVRdeWzvBhfg\u0026h=R62G6FLKGXgmOPsZBlSFs-bb7jJhCS24Knp1e-EX8S8"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "758e48a7-88cf-4c5e-9fab-a86db86f0762"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e9f33fa9-84f5-4f08-9458-f0d26930b864"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20260908T005017Z:758e48a7-88cf-4c5e-9fab-a86db86f0762"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A3AB25E981AA45C0ADF1989D60CF3C38 Ref B: SYD281080705042 Ref C: 2026-09-08T00:50:12Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022f46a3873-939d-4393-a4bf-743deeeea799\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002255f3e05f-02a3-44e0-999d-79928b54bcba\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/ec395747-3aeb-4c4e-918f-79d81b3e8d16?api-version=2025-05-01\u0026t=639244254138564174\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=G88OsF7Mx0hXp58yG4hGrLbkysYWbT89YiwHQ17X6aVywNxtwPyhcj3byBzB6qSIXPVtHdKlQdshlUpDDYt0oA4ihCexcHaCE2iAdxRVKEYaI3YsN5vnXqZzidpvUTE8LzDCZOflhB_IunvxUDcUIYN_RpWel_WOwPpgDIljOhMPuxVaZ-4ew4217Mm7YaY_H0ydWlrxe8RUewMhMSMCMyK48jRMSOp52ngCALnDqaKcG3n_QcJMn5KQhRlUkH8TIKuCArfj1AFaPps_aGNSOkj7IUiKYodEEfAjHNa6VYUgpvcT4D1hwgFBtJOb5AO5PhLGHB-ZF8LnYnpie5Y6xg\u0026h=YALuJa8f9THWGJpD0hf4dhMYaAV639d1j56w3MXeF8Y",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "4d0b07ff-4615-4af9-8873-69932774d549"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "44d7a028-63c6-4453-8669-3f9dd5721107"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f47fabfe-3c62-4191-b425-fe750aa6fa09"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005017Z:44d7a028-63c6-4453-8669-3f9dd5721107"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F9D8F8F64D534946A88C1640719BC30E Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:17Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet?api-version=2025-05-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "889a8c86-6f3a-45c2-bdd0-d66077428b30"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=2.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "4a928217-e0b8-4181-a021-4f9be9c84c85"
+          ],
+          "x-ms-arm-service-request-id": [
+            "74c4eaeb-2507-4b38-83b1-82a2a5585399"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005018Z:4a928217-e0b8-4181-a021-4f9be9c84c85"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 809DE234D39A4AF787FAD579EA41915D Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:17Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:17 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022c964126b-6351-4435-9c58-67a6f709d60b\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00220ea76559-9920-4f4b-94d6-63c919165414\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u0022c964126b-6351-4435-9c58-67a6f709d60b\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/c1e47fc8-3d70-4fde-a7c2-954533c27a27?api-version=2025-05-01\u0026t=639244254175345000\u0026c=MIIHlTCCBn2gAwIBAgIRAP3gA1NTVfsyY1OAzEH6ZxgwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UEAxMrQ0NNRSBHMSBUTFMgUlNBIDIwNDggU0hBMjU2IDIwNDkgV1VTMiBDQSAwMTAeFw0yNjA4MTcwMzUwMzRaFw0yNzAyMTIwOTUwMzRaMEAxPjA8BgNVBAMTNWFzeW5jb3BlcmF0aW9uc2lnbmluZ2NlcnRpZmljYXRlLm1hbmFnZW1lbnQuYXp1cmUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz4QdyZCaJJyeTiLaFPtWJfrFjQBvFiPuzXEv1RYUnOVbG6CgM9-zAjE6VqzzH_ry3ylc1gfGz6trnOm36FC95XZN2cCXp9y49dBX5ARtbkqOb5BHj5WIXttGYC8azrRlvpPY-UgoTrxrODNYnd9zPdmWFTt8eiVOabmtu8YkeC5xQbAfStgY-cSF67cM163I2m0lUmMRhXAoURoP8LYqW8LPszEPUm35qa6W0XcEfar_boQxw4ZdhrhAO_JSNzOmKlvArod48lGW9Qo67YUrtSxaxhZLN-ToHXgM2BXkkOkxuLlfF-zewr3Hc0ZK_XonevTH-HqtYfak-VOdgLwwwQIDAQABo4IEkjCCBI4wgZ0GA1UdIASBlTCBkjAMBgorBgEEAYI3ewEBMGYGCisGAQQBgjd7AgIwWDBWBggrBgEFBQcCAjBKHkgAMwAzAGUAMAAxADkAMgAxAC0ANABkADYANAAtADQAZgA4AGMALQBhADAANQA1AC0ANQBiAGQAYQBmAGYAZAA1AGUAMwAzAGQwDAYKKwYBBAGCN3sDAjAMBgorBgEEAYI3ewQCMAwGA1UdEwEB_wQCMAAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMA4GA1UdDwEB_wQEAwIFoDAdBgNVHQ4EFgQUMwWFFADYJuZjpCje-R5vqszDG70wHwYDVR0jBBgwFoAUrONy-gOyc549lcjvh1uu3Ruh7WgwggGyBgNVHR8EggGpMIIBpTBpoGegZYZjaHR0cDovL3ByaW1hcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3R1czIvY3Jscy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxLzkzL2N1cnJlbnQuY3JsMGugaaBnhmVodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0dXMyL2NybHMvY2NtZXdlc3R1czJwa2kvY2NtZXdlc3R1czJpY2EwMS85My9jdXJyZW50LmNybDBaoFigVoZUaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3R1czIvY3Jscy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxLzkzL2N1cnJlbnQuY3JsMG-gbaBrhmlodHRwOi8vY2NtZXdlc3R1czJwa2kud2VzdHVzMi5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0dXMyaWNhMDEvOTMvY3VycmVudC5jcmwwggG3BggrBgEFBQcBAQSCAakwggGlMGwGCCsGAQUFBzAChmBodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdHVzMi9jYWNlcnRzL2NjbWV3ZXN0dXMycGtpL2NjbWV3ZXN0dXMyaWNhMDEvY2VydC5jZXIwbgYIKwYBBQUHMAKGYmh0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3R1czIvY2FjZXJ0cy9jY21ld2VzdHVzMnBraS9jY21ld2VzdHVzMmljYTAxL2NlcnQuY2VyMF0GCCsGAQUFBzAChlFodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdHVzMi9jYWNlcnRzL2NjbWV3ZXN0dXMycGtpL2NjbWV3ZXN0dXMyaWNhMDEvY2VydC5jZXIwZgYIKwYBBQUHMAKGWmh0dHA6Ly9jY21ld2VzdHVzMnBraS53ZXN0dXMyLnBraS5jb3JlLndpbmRvd3MubmV0L2NlcnRpZmljYXRlQXV0aG9yaXRpZXMvY2NtZXdlc3R1czJpY2EwMTANBgkqhkiG9w0BAQsFAAOCAQEAfdst7PXa3ogyQLF7Jy4O_dGeSpqDceWxzIbo4NIpZfZMInuRZt6N1cZ17JzQwO9wpT3dbvQrW_9Chfhc9K26kB7skQlG9nV6CIaJ5LroI00qr85tOPRcMbzSa_LwIM_1WhqUAbC1vt42bKM4cgC_QniX7bfhwBKQ7zUjh4Fstu-6lYJzztVawXpnNMYNceUEljzwL2p7jhz2ReKQafSIStD7cREW2DUKEw0nW492Ro2Eb8rMaVqMGpcq__nFurDqDstzrSOzcc76ZsENCHFmj_X5HdtdrvHDESbNm8n4LAaZi15lQlMTGFLJdEx8Ck-obWaoY0XEIqJDE2uMyZfZ7Q\u0026s=EymSvyJFN-kGQbTEH4ov4D8W7X6jNM9ig40eWhrakkT7RsYg8IFPV-VsXOcSQ763NFzLYHmFuutLVNZ7EyD2EIsshpyKgwzQ3VnIcDR18pRQTl2WeuqMv6OMPXd5CA34AUaztGVuRCw0cWVBONpNhhx2lqylPZG3uHuAcwfPdEucvicrz20fFKddMTWpl-tXqfVeaA6-B7-VtMIZdfTQjtuxM17sLspZqyoNEWpTCM-vJa08MKljFxxxTdZeOF-9zuje4sEyQbcjPWEFByjyaDIHyCMzGznFPHoRCflByxA_CTS7KrvL7zZAvejnoIKIBvVamtAHZzrVRdeWzvBhfg\u0026h=R62G6FLKGXgmOPsZBlSFs-bb7jJhCS24Knp1e-EX8S8",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "b2facf63-688b-4a43-8515-a5839ad17ec6"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "0aea6008-700e-4194-b6ed-4670d0d32bd6"
+          ],
+          "x-ms-arm-service-request-id": [
+            "bcd32be5-cb60-4dca-bf2c-ba16552fc440"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20260908T005020Z:0aea6008-700e-4194-b6ed-4670d0d32bd6"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B7B70167C72D44609DE781458FD00EA9 Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:18Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:19 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg?api-version=2025-05-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\u0022"
+          ],
+          "x-ms-request-id": [
+            "3dfaad1f-56c3-4c08-8afd-405e9f9304f2"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b365e956-e458-4317-b7e1-c9e73ce936f8"
+          ],
+          "x-ms-arm-service-request-id": [
+            "db77481d-cbef-4fd2-8b90-7b6dbfbe25ce"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005020Z:b365e956-e458-4317-b7e1-c9e73ce936f8"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 273ADF4B077F4AD98360609CEBA68EDA Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:20Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:20 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022f46a3873-939d-4393-a4bf-743deeeea799\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022f26f3ff5-4083-4204-96bd-46b1324c06ae\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic?api-version=2025-05-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022,\u0022location\u0022:null,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}},\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022properties\u0022:{\u0022subnet\u0022:{\u0022name\u0022:null,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u0022\u0022,\u0022addressPrefixes\u0022:[],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}},\u0022virtualNetworkTaps\u0022:[],\u0022applicationGatewayBackendAddressPools\u0022:[],\u0022loadBalancerBackendAddressPools\u0022:[],\u0022loadBalancerInboundNatRules\u0022:[],\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022primary\u0022:true}}],\u0022enableAcceleratedNetworking\u0022:true,\u0022enableIPForwarding\u0022:false}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "6bb4b8fb-2519-45fb-84c8-f99a6353fb39"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "c9fd773e-361f-4ecc-bd47-ddbddbdfa920"
+          ],
+          "x-ms-arm-service-request-id": [
+            "6c04f3e7-a9c4-4a26-9df9-0549e34d36e4"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005022Z:c9fd773e-361f-4ecc-bd47-ddbddbdfa920"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 44E0107544614EFEBDEAA1744D1A1FBD Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:21Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00229e4325c3-d02c-486f-a063-5147a741141d\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022lfs0odratffu5fgwmpersfsuce.xx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic?api-version=2025-05-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\u0022"
+          ],
+          "x-ms-request-id": [
+            "01549c5d-0239-4352-95f0-b2581762bb38"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5d0ba57e-2ba7-4160-8090-d30ea98bc391"
+          ],
+          "x-ms-arm-service-request-id": [
+            "a38169da-c2bc-450a-9f9a-a44090fa33dd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005037Z:5d0ba57e-2ba7-4160-8090-d30ea98bc391"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DD80A2AB14E44A119137559F7D5113DD Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:37Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:36 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00229e4325c3-d02c-486f-a063-5147a741141d\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022lfs0odratffu5fgwmpersfsuce.xx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic?api-version=2025-05-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\u0022"
+          ],
+          "x-ms-request-id": [
+            "11aef4f0-df60-480a-b6f0-2cf7e1f3b745"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "3372d4a1-a2b9-462a-bb54-9a3ab1e3ec17"
+          ],
+          "x-ms-arm-service-request-id": [
+            "788fd1bc-a7f1-43a1-9ed0-60e737053994"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005038Z:3372d4a1-a2b9-462a-bb54-9a3ab1e3ec17"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 43C3E2DE689E438E9E506355F855ACE9 Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:37Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:37 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-lifecycle-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00229e4325c3-d02c-486f-a063-5147a741141d\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022de52b85e-d613-4f42-9d8b-1575dab3c60b\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/virtualNetworks/scenario-lifecycle-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022lfs0odratffu5fgwmpersfsuce.xx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-lifecycle-nsg\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:null,\u0022name\u0022:null,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022hardwareProfile\u0022:{\u0022vmSize\u0022:\u0022Standard_D2s_v3\u0022},\u0022storageProfile\u0022:{\u0022osDisk\u0022:null,\u0022imageReference\u0022:{\u0022publisher\u0022:\u0022MicrosoftWindowsServer\u0022,\u0022offer\u0022:\u0022WindowsServer\u0022,\u0022sku\u0022:\u00222022-datacenter-azure-edition\u0022,\u0022version\u0022:\u0022latest\u0022}},\u0022osProfile\u0022:{\u0022computerName\u0022:\u0022lifecycle-vm\u0022,\u0022adminUsername\u0022:\u0022azadmin\u0022,\u0022adminPassword\u0022:\u0022[redacted]\u0022,\u0022windowsConfiguration\u0022:{}},\u0022networkProfile\u0022:{\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022,\u0022primary\u0022:null,\u0022deleteOption\u0022:null}]},\u0022securityProfile\u0022:{\u0022uefiSettings\u0022:{\u0022secureBootEnabled\u0022:true,\u0022vTpmEnabled\u0022:true},\u0022securityType\u0022:\u0022trustedlaunch\u0022},\u0022diagnosticsProfile\u0022:{\u0022bootDiagnostics\u0022:{\u0022enabled\u0022:false}}}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "\u00221\u0022"
+          ],
+          "Retry-After": [
+            "10"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/a431a15e-d226-4410-b70e-653c9a2c9ae4?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244254395125792\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=B0e8gzJpJvkMMlvauRSK91oF3TM-x0kih4kXUgxcmbwGLWHrlsFsD8ee1n9CCZZihJFFUw0HwcX1ZOgnFiSib8OZ4_AVbdkYW2yskVp6xmZOoL0labLhprLVUCRN7uk_tJIscJ0z36pag1DSYpEIKVQvs0HdZQqaZnFmVNdZQOd9solHOcqT54cxWKI5RFTFvAHIDKVT-m5HjpVHBGR7sTN1K88tuJMIopN0DbXdhnvYAeXQ8biyfr3WXRepNMZLPV9tCMhRLZoRXpRBq-UhgtJwYIH4YRpUaBAvShxoy8VZVEde04AVdaphLtzNPA44b56-_WDizz0luSt6Q8D6QQ\u0026h=rFq1u-vBKxsaL_t9AfvXfsPm74fbzeB44kFsvbJ39JY"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/PutVMSubscriptionMaximum;1499,Microsoft.Compute/PutVMResource;11"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "a431a15e-d226-4410-b70e-653c9a2c9ae4"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-correlation-request-id": [
+            "d2e06a50-ee8e-4625-b67e-149fff6d084c"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005039Z:d2e06a50-ee8e-4625-b67e-149fff6d084c"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 38347AB16F674440B29C27819FD80A0B Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:38Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:38 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022name\u0022: \u0022lifecycle-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Creating\u0022,\r\n    \u0022vmId\u0022: \u002287f3d08f-5fde-4557-afbf-8de88d33f30e\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5499.260809\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022lifecycle-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00221\\\u0022\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/a431a15e-d226-4410-b70e-653c9a2c9ae4?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244254395125792\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=B0e8gzJpJvkMMlvauRSK91oF3TM-x0kih4kXUgxcmbwGLWHrlsFsD8ee1n9CCZZihJFFUw0HwcX1ZOgnFiSib8OZ4_AVbdkYW2yskVp6xmZOoL0labLhprLVUCRN7uk_tJIscJ0z36pag1DSYpEIKVQvs0HdZQqaZnFmVNdZQOd9solHOcqT54cxWKI5RFTFvAHIDKVT-m5HjpVHBGR7sTN1K88tuJMIopN0DbXdhnvYAeXQ8biyfr3WXRepNMZLPV9tCMhRLZoRXpRBq-UhgtJwYIH4YRpUaBAvShxoy8VZVEde04AVdaphLtzNPA44b56-_WDizz0luSt6Q8D6QQ\u0026h=rFq1u-vBKxsaL_t9AfvXfsPm74fbzeB44kFsvbJ39JY",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "50"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;44,Microsoft.Compute/GetOperationSubscriptionMaximum;14999"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "b35d7250-3d65-4642-af36-dd3e68d1399b"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "8b06021e-75b7-4b9a-b929-17a1bcc72329"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005050Z:8b06021e-75b7-4b9a-b929-17a1bcc72329"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9250F2A51A1841B09E962EAF4D41B146 Ref B: SYD281080707036 Ref C: 2026-09-08T00:50:49Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:50:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022InProgress\u0022,\r\n  \u0022name\u0022: \u0022a431a15e-d226-4410-b70e-653c9a2c9ae4\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/a431a15e-d226-4410-b70e-653c9a2c9ae4?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244254395125792\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=B0e8gzJpJvkMMlvauRSK91oF3TM-x0kih4kXUgxcmbwGLWHrlsFsD8ee1n9CCZZihJFFUw0HwcX1ZOgnFiSib8OZ4_AVbdkYW2yskVp6xmZOoL0labLhprLVUCRN7uk_tJIscJ0z36pag1DSYpEIKVQvs0HdZQqaZnFmVNdZQOd9solHOcqT54cxWKI5RFTFvAHIDKVT-m5HjpVHBGR7sTN1K88tuJMIopN0DbXdhnvYAeXQ8biyfr3WXRepNMZLPV9tCMhRLZoRXpRBq-UhgtJwYIH4YRpUaBAvShxoy8VZVEde04AVdaphLtzNPA44b56-_WDizz0luSt6Q8D6QQ\u0026h=rFq1u-vBKxsaL_t9AfvXfsPm74fbzeB44kFsvbJ39JY",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "30"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;43,Microsoft.Compute/GetOperationSubscriptionMaximum;14998"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "5a9a6a5b-b88d-473a-b280-6c8f68589034"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "00879dd8-a776-4633-9f72-2756481fbe84"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005140Z:00879dd8-a776-4633-9f72-2756481fbe84"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6166D6907F4746A49B4E9D78DBF1A2A1 Ref B: SYD281080707036 Ref C: 2026-09-08T00:51:40Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:51:39 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022InProgress\u0022,\r\n  \u0022name\u0022: \u0022a431a15e-d226-4410-b70e-653c9a2c9ae4\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/a431a15e-d226-4410-b70e-653c9a2c9ae4?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244254395125792\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=B0e8gzJpJvkMMlvauRSK91oF3TM-x0kih4kXUgxcmbwGLWHrlsFsD8ee1n9CCZZihJFFUw0HwcX1ZOgnFiSib8OZ4_AVbdkYW2yskVp6xmZOoL0labLhprLVUCRN7uk_tJIscJ0z36pag1DSYpEIKVQvs0HdZQqaZnFmVNdZQOd9solHOcqT54cxWKI5RFTFvAHIDKVT-m5HjpVHBGR7sTN1K88tuJMIopN0DbXdhnvYAeXQ8biyfr3WXRepNMZLPV9tCMhRLZoRXpRBq-UhgtJwYIH4YRpUaBAvShxoy8VZVEde04AVdaphLtzNPA44b56-_WDizz0luSt6Q8D6QQ\u0026h=rFq1u-vBKxsaL_t9AfvXfsPm74fbzeB44kFsvbJ39JY",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;44,Microsoft.Compute/GetOperationSubscriptionMaximum;14999"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "20d1d152-286f-45f3-a262-bf8ad8f41ce0"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "ade757f8-39f0-4dd3-b672-c4ffbd9e38f3"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005211Z:ade757f8-39f0-4dd3-b672-c4ffbd9e38f3"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 702923AAC4A34816AA8C123A8C92D647 Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:10Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:10 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-09-08T00:51:50.1980823\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u0022a431a15e-d226-4410-b70e-653c9a2c9ae4\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "\u00222\u0022"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/LowCostGetSubscriptionMaximum;23997,Microsoft.Compute/LowCostGetResource;33"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "1875a19c-93b4-4958-b676-9004c23b0d1e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "8e3a0ab3-5aeb-4af6-a66a-b8a18aa86076"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005212Z:8e3a0ab3-5aeb-4af6-a66a-b8a18aa86076"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 75D41E7CDEC84BB0A63DF8EA105F319A Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:11Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022name\u0022: \u0022lifecycle-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u002287f3d08f-5fde-4557-afbf-8de88d33f30e\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5499.260809\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022lifecycle-vm_OsDisk_1_313e59a40cb24dedb2cc7ab1f19518ce\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/disks/lifecycle-vm_OsDisk_1_313e59a40cb24dedb2cc7ab1f19518ce\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022lifecycle-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "\u00222\u0022"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/LowCostGetSubscriptionMaximum;23996,Microsoft.Compute/LowCostGetResource;32"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "6e2fdfe0-4197-41c5-8ad2-22aa929578b6"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "a02b70da-5d84-48b8-921a-4e892b5ecc14"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005212Z:a02b70da-5d84-48b8-921a-4e892b5ecc14"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 798CF9EAAA2E4329B398448FD002228C Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:12Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022name\u0022: \u0022lifecycle-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u002287f3d08f-5fde-4557-afbf-8de88d33f30e\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5499.260809\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022lifecycle-vm_OsDisk_1_313e59a40cb24dedb2cc7ab1f19518ce\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/disks/lifecycle-vm_OsDisk_1_313e59a40cb24dedb2cc7ab1f19518ce\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022lifecycle-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Network/networkInterfaces/scenario-lifecycle-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-09-08T00:50:38.4324781\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm/start?api-version=2025-11-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/c4ea5bff-20b3-40b4-8280-9fa64399cbed?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026monitor=true\u0026api-version=2025-11-01\u0026t=639244255328187774\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=eI_7MpXxunbgswpJGjN5aOVAQaCyzzNZZIJ8QBF2xAVS_bkng6YqpoxcRbOkKgkQ3brQPMJq4nLoUuYNCMHW8-5x4cTGw7oNSg60m6ZkhBSooAqt7FBPJCy3AK9nYZ41mFelFxm3gjzW54AKrgIdxWLgJ2rYryMs5LV_Xva2LzN_CagCSlI5PL18Iy1dDU6ErOs5TpJmbkXt3VkuaPIkxCVSdJSnV8U_ryqG23Eiqcc_5tsWDh19rX1ACvC0-ex6aKbv1rDifXv-oUNe7gUHORDdITtMbreVMqBVMChk-CNQMg3GJmKJQmELJY0-lhOEBZn-jsotN41IhK3Lapnugw\u0026h=I_0sNCoOEwHxVqDy_aiSpGfHAw5gexx8W-Sj_x9iRxY"
+          ],
+          "Retry-After": [
+            "10"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/c4ea5bff-20b3-40b4-8280-9fa64399cbed?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244255328031492\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=CjTiG9bN-HR0KMHYQo67wlwFjCF6YrAzcgEIH65c4iuU-8fvIfByQ7xt-v2Ld6ZsT0GmvNN_5gAC2jOB9CmjB3kUK5e02qjvJZCyVEO43XZ0r7XGqHly1qG0Mm3K53J0VT2pqmU4N3rYFUIkrfOwH1Ay1dJhgxtGUfNwFjeCemMDbyI7DYTCTmwWHe5Zh38Vy4-QWedZyuWa_h0d1tiGFk0QzYHcqvY85XYU4Hdv6cZDaMu4WWPUE7R8dX7q7zrcThdXE-L7aR0kCfIqk8nMzioxeaTaO--71gNJjPDghKcj-cWG2B9ahZRt62-sztkQHH-W2qoK2V2HrngpmZTKyg\u0026h=tJ-8bsdvt2H-m6r_h0I0YjpKFvHWcASh-K0rb9IvuTI"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/UpdateVMSubscriptionMaximum;1499,Microsoft.Compute/UpdateVMResource;11"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "c4ea5bff-20b3-40b4-8280-9fa64399cbed"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-correlation-request-id": [
+            "730b3d36-03f5-4001-af38-94dca4b8b955"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005212Z:730b3d36-03f5-4001-af38-94dca4b8b955"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 82318D034282434ABD47D9ED097A9570 Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:12Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/c4ea5bff-20b3-40b4-8280-9fa64399cbed?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244255328031492\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=CjTiG9bN-HR0KMHYQo67wlwFjCF6YrAzcgEIH65c4iuU-8fvIfByQ7xt-v2Ld6ZsT0GmvNN_5gAC2jOB9CmjB3kUK5e02qjvJZCyVEO43XZ0r7XGqHly1qG0Mm3K53J0VT2pqmU4N3rYFUIkrfOwH1Ay1dJhgxtGUfNwFjeCemMDbyI7DYTCTmwWHe5Zh38Vy4-QWedZyuWa_h0d1tiGFk0QzYHcqvY85XYU4Hdv6cZDaMu4WWPUE7R8dX7q7zrcThdXE-L7aR0kCfIqk8nMzioxeaTaO--71gNJjPDghKcj-cWG2B9ahZRt62-sztkQHH-W2qoK2V2HrngpmZTKyg\u0026h=tJ-8bsdvt2H-m6r_h0I0YjpKFvHWcASh-K0rb9IvuTI",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;43,Microsoft.Compute/GetOperationSubscriptionMaximum;14997"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "33521e6d-3898-4333-b87c-819bd98a692f"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "3b15f44b-803f-496f-8fba-e35c2983fbe5"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005223Z:3b15f44b-803f-496f-8fba-e35c2983fbe5"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 47E9061D1E824751AF2AE70DE9833EFD Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:22Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:22 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:52:12.7166295\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-09-08T00:52:13.0787701\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u0022c4ea5bff-20b3-40b4-8280-9fa64399cbed\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/c4ea5bff-20b3-40b4-8280-9fa64399cbed?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026monitor=true\u0026api-version=2025-11-01\u0026t=639244255328187774\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=eI_7MpXxunbgswpJGjN5aOVAQaCyzzNZZIJ8QBF2xAVS_bkng6YqpoxcRbOkKgkQ3brQPMJq4nLoUuYNCMHW8-5x4cTGw7oNSg60m6ZkhBSooAqt7FBPJCy3AK9nYZ41mFelFxm3gjzW54AKrgIdxWLgJ2rYryMs5LV_Xva2LzN_CagCSlI5PL18Iy1dDU6ErOs5TpJmbkXt3VkuaPIkxCVSdJSnV8U_ryqG23Eiqcc_5tsWDh19rX1ACvC0-ex6aKbv1rDifXv-oUNe7gUHORDdITtMbreVMqBVMChk-CNQMg3GJmKJQmELJY0-lhOEBZn-jsotN41IhK3Lapnugw\u0026h=I_0sNCoOEwHxVqDy_aiSpGfHAw5gexx8W-Sj_x9iRxY",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;42,Microsoft.Compute/GetOperationSubscriptionMaximum;14996"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "885e43fa-f3a8-41ac-9443-1b3a6a14468b"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "b4dc49f1-04db-4c0a-83a5-038dd1686b8f"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005224Z:b4dc49f1-04db-4c0a-83a5-038dd1686b8f"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: ED76F890EB3C42E28C1DF6BCC90F96F8 Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:23Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/f0422e06-3844-467a-96cb-10336faa4b8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026monitor=true\u0026api-version=2025-11-01\u0026t=639244255444751313\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=EqNxGIs14iCJ76gIQtREWX6j_EbtmjVJR3LiI3l6nXkOux7Y6KHWnnTE9WLar5bdOkpvITE1AdDfJ0s8zp7vOrngzkjTkqFf8uwOVsGofFH33Kn9kqIeq0ab1khBwvtw-qhB3yDxYznl9R3ik6Du0EiAebHdu2DOiF-pHN29xotOlgH1NYn5J394G1fvg1Bo3QAiRdimfQWphDTV2IbuOsYsW0lIptjFs6iYPsghU78ianCO1fGA_hxKRa_L35kJrsD10sHwrLASixr-sGPK0XncjKiOV-yqLEwjx97jl6DvMi1A9ZmJZYsQ1cp9zr6GYDIPFGmryiZ7WFCi-4J2yw\u0026h=yok_SDuxtJHZOHklplkkWJnYE9tkx_wAe29eKISs5_A"
+          ],
+          "Retry-After": [
+            "10"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/f0422e06-3844-467a-96cb-10336faa4b8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244255444751313\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=L_Lsbnspwe5Kswv5rJ9za1QfIEvXQcO0NFH_jEkDUkwTg17sHELEwsX3WTwzmoFP9jczHtosAgD6h4zGY__pH3UzPnVM96EMO9a5N3EUz4e3miraIgpp2Ca690g-a10JjIS8-cGNLWfjM0bYeS-BN3ecmLAz4RXvuIKMS-AAKkFvotKyA5zVgN6oKEzp_uyHt-liVAX_xw6P6mUt-P26So7IT5pqqLnZivNYXEsembH4JhbausaqAF_QEyHeFzuNmN4L373TEMMjV6RfwhdZY4MhxwJ966WmMwD0fjrF_xJO4oeuwzSSqMe1nM0nQ5p55ysZwca-mZD_AJ0-WxlwFw\u0026h=yok_SDuxtJHZOHklplkkWJnYE9tkx_wAe29eKISs5_A"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/DeleteVMSubscriptionMaximum;1499,Microsoft.Compute/DeleteVMResource;11"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "f0422e06-3844-467a-96cb-10336faa4b8c"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-correlation-request-id": [
+            "77b56a30-c588-429c-8e3c-dfedb51a51d4"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260908T005224Z:77b56a30-c588-429c-8e3c-dfedb51a51d4"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 23AF29AA879A43518A3C4B0002CD944B Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:24Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/f0422e06-3844-467a-96cb-10336faa4b8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244255444751313\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=L_Lsbnspwe5Kswv5rJ9za1QfIEvXQcO0NFH_jEkDUkwTg17sHELEwsX3WTwzmoFP9jczHtosAgD6h4zGY__pH3UzPnVM96EMO9a5N3EUz4e3miraIgpp2Ca690g-a10JjIS8-cGNLWfjM0bYeS-BN3ecmLAz4RXvuIKMS-AAKkFvotKyA5zVgN6oKEzp_uyHt-liVAX_xw6P6mUt-P26So7IT5pqqLnZivNYXEsembH4JhbausaqAF_QEyHeFzuNmN4L373TEMMjV6RfwhdZY4MhxwJ966WmMwD0fjrF_xJO4oeuwzSSqMe1nM0nQ5p55ysZwca-mZD_AJ0-WxlwFw\u0026h=yok_SDuxtJHZOHklplkkWJnYE9tkx_wAe29eKISs5_A",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "30"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;44,Microsoft.Compute/GetOperationSubscriptionMaximum;14995"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "30c5fe2d-5756-45ca-89dd-6544efca9cdf"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "ac8365d6-bd7a-4051-91eb-156cc07c5a95"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005235Z:ac8365d6-bd7a-4051-91eb-156cc07c5a95"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 1D3F9E0FE51C4A3B8D31B633199C167D Ref B: SYD281080707036 Ref C: 2026-09-08T00:52:34Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:52:34 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:52:24.4373834\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022InProgress\u0022,\r\n  \u0022name\u0022: \u0022f0422e06-3844-467a-96cb-10336faa4b8c\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/f0422e06-3844-467a-96cb-10336faa4b8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639244255444751313\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=L_Lsbnspwe5Kswv5rJ9za1QfIEvXQcO0NFH_jEkDUkwTg17sHELEwsX3WTwzmoFP9jczHtosAgD6h4zGY__pH3UzPnVM96EMO9a5N3EUz4e3miraIgpp2Ca690g-a10JjIS8-cGNLWfjM0bYeS-BN3ecmLAz4RXvuIKMS-AAKkFvotKyA5zVgN6oKEzp_uyHt-liVAX_xw6P6mUt-P26So7IT5pqqLnZivNYXEsembH4JhbausaqAF_QEyHeFzuNmN4L373TEMMjV6RfwhdZY4MhxwJ966WmMwD0fjrF_xJO4oeuwzSSqMe1nM0nQ5p55ysZwca-mZD_AJ0-WxlwFw\u0026h=yok_SDuxtJHZOHklplkkWJnYE9tkx_wAe29eKISs5_A",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;43,Microsoft.Compute/GetOperationSubscriptionMaximum;14999"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "ec3aeeab-63c4-44dc-94f3-dc0dcdba188e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-correlation-request-id": [
+            "7b456fcc-0d3a-40ec-a070-cba581a896ac"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005306Z:7b456fcc-0d3a-40ec-a070-cba581a896ac"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6229EE5E26574590BEA2CA948FD1E734 Ref B: SYD281080707036 Ref C: 2026-09-08T00:53:05Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:53:05 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-09-08T00:52:24.4373834\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-09-08T00:52:51.0017233\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u0022f0422e06-3844-467a-96cb-10336faa4b8c\u0022\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/f0422e06-3844-467a-96cb-10336faa4b8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026monitor=true\u0026api-version=2025-11-01\u0026t=639244255444751313\u0026c=MIIIJjCCBw6gAwIBAgIQQsgxla0M-7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMgYDVQQDEytDQ01FIEcxIFRMUyBSU0EgMjA0OCBTSEEyNTYgMjA0OSBXQ1VTIENBIDAxMB4XDTI2MDgxMjE5NTYzN1oXDTI3MDIwODAxNTYzN1owQDE-MDwGA1UEAxM1YXN5bmNvcGVyYXRpb25zaWduaW5nY2VydGlmaWNhdGUubWFuYWdlbWVudC5henVyZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCjyQHyKRQ8UpdzxWWmCxMDjs6UMG9UbX9c9OJQKRD6Vai9vjx5MJuD6y4Uxn_YQqnEDALPbdoRwyZAdcXPY31TFD_XnfajmM-ZAQlS9ZBdI-60cOBzeuSODBevgfQ0gq_hMbZEC0Gr1XAAgQqCPsDLKjYiVH3oIGsLWkoCqvZR4ia1rQCx7vc3lMlGGfppWILnw6mAlIEM_SgbK4PavIUii4QNGXK2NR4CMgJ-Zp_gP6e8XW6ImAcOaDhsUJoyJmxR-GCBPhxrDngK1ixA-r7uNDfXWC7ksmzehqGfAupArw6Zdbh21RA3hjU104hl9GSgZ2FREhNYHcvCVol3oY9RAgMBAAGjggUkMIIFIDCBnQYDVR0gBIGVMIGSMAwGCisGAQQBgjd7AQEwZgYKKwYBBAGCN3sCAjBYMFYGCCsGAQUFBwICMEoeSAAzADMAZQAwADEAOQAyADEALQA0AGQANgA0AC0ANABmADgAYwAtAGEAMAA1ADUALQA1AGIAZABhAGYAZgBkADUAZQAzADMAZDAMBgorBgEEAYI3ewMCMAwGCisGAQQBgjd7BAIwDAYDVR0TAQH_BAIwADAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDgYDVR0PAQH_BAQDAgWgMB0GA1UdDgQWBBTDKruM3AEmoKnjmjE6ukKa0VlRvTAfBgNVHSMEGDAWgBQU0jfg9tZ9ft2NurplqwSUJeCWHTCCAfsGA1UdHwSCAfIwggHuMHugeaB3hnVodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwfaB7oHmGd2h0dHA6Ly9zZWNvbmRhcnktY2RuLnBraS5jb3JlLndpbmRvd3MubmV0L3dlc3RjZW50cmFsdXMvY3Jscy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxLzMyL2N1cnJlbnQuY3JsMGygaqBohmZodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vd2VzdGNlbnRyYWx1cy9jcmxzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwgYGgf6B9hntodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvMzIvY3VycmVudC5jcmwwggIABggrBgEFBQcBAQSCAfIwggHuMH4GCCsGAQUFBzAChnJodHRwOi8vcHJpbWFyeS1jZG4ucGtpLmNvcmUud2luZG93cy5uZXQvd2VzdGNlbnRyYWx1cy9jYWNlcnRzL2NjbWV3ZXN0Y2VudHJhbHVzcGtpL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEvY2VydC5jZXIwgYAGCCsGAQUFBzAChnRodHRwOi8vc2Vjb25kYXJ5LWNkbi5wa2kuY29yZS53aW5kb3dzLm5ldC93ZXN0Y2VudHJhbHVzL2NhY2VydHMvY2NtZXdlc3RjZW50cmFsdXNwa2kvY2NtZXdlc3RjZW50cmFsdXNpY2EwMS9jZXJ0LmNlcjBvBggrBgEFBQcwAoZjaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3dlc3RjZW50cmFsdXMvY2FjZXJ0cy9jY21ld2VzdGNlbnRyYWx1c3BraS9jY21ld2VzdGNlbnRyYWx1c2ljYTAxL2NlcnQuY2VyMHgGCCsGAQUFBzAChmxodHRwOi8vY2NtZXdlc3RjZW50cmFsdXNwa2kud2VzdGNlbnRyYWx1cy5wa2kuY29yZS53aW5kb3dzLm5ldC9jZXJ0aWZpY2F0ZUF1dGhvcml0aWVzL2NjbWV3ZXN0Y2VudHJhbHVzaWNhMDEwDQYJKoZIhvcNAQELBQADggEBAHlzTkQ03xhxyAyJLFgMbgclkkaQSsTdGfKPvuLkqxHhbwnnnQj0qIblVcex8MFLZvU3I4zzPrs3huVLUyBtiVr2Y78czcDCslyFYf_yD7yDQmCDeFn-Dh3_NNn9SxCCh7Moi0fLyv3UL6gFl2WyfNkvWwxj6hdhpIup-yc0PzkaeZJLOrPxWWgfHFH7UqxWxDdkBrV72ZkyuZF3SBC9yXBvvWUpO4Lk4CnfX6Ne4e0TrUrhxQ8sAk04P8J9qzMFa_9nBHpIKyFVHLuwKrjo5GIbhIakXmn1NckxGDEMHDRg5_Nj4ZHsdrSm8aMM6wj5pMXv4cza_0NwReDfvipkjEw\u0026s=EqNxGIs14iCJ76gIQtREWX6j_EbtmjVJR3LiI3l6nXkOux7Y6KHWnnTE9WLar5bdOkpvITE1AdDfJ0s8zp7vOrngzkjTkqFf8uwOVsGofFH33Kn9kqIeq0ab1khBwvtw-qhB3yDxYznl9R3ik6Du0EiAebHdu2DOiF-pHN29xotOlgH1NYn5J394G1fvg1Bo3QAiRdimfQWphDTV2IbuOsYsW0lIptjFs6iYPsghU78ianCO1fGA_hxKRa_L35kJrsD10sHwrLASixr-sGPK0XncjKiOV-yqLEwjx97jl6DvMi1A9ZmJZYsQ1cp9zr6GYDIPFGmryiZ7WFCi-4J2yw\u0026h=yok_SDuxtJHZOHklplkkWJnYE9tkx_wAe29eKISs5_A",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-resource": [
+            "Microsoft.Compute/GetOperationResource;42,Microsoft.Compute/GetOperationSubscriptionMaximum;14998"
+          ],
+          "x-ms-need-to-refresh-epl-cache": [
+            "False"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-request-id": [
+            "793920cf-def4-4bb6-8cb1-a8170e499b78"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-correlation-request-id": [
+            "0f9f432f-fdb8-4ec6-9674-0070448ec609"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260908T005306Z:0f9f432f-fdb8-4ec6-9674-0070448ec609"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B85F5172D9F44E86B97C0BF5C853B25B Ref B: SYD281080707036 Ref C: 2026-09-08T00:53:06Z"
+          ],
+          "Date": [
+            "Tue, 08 Sep 2026 00:53:05 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

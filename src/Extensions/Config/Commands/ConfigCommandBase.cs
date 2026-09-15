@@ -113,7 +113,8 @@ public abstract class ConfigCommandBase : IProcessor
         }
     }
 
-    protected static string Serialize(object value) => JsonSerializer.Serialize(value, s_jsonOptions);
+    protected static SerializedJson SerializeAsJsonValue(object value) =>
+        new(JsonSerializer.Serialize(value, s_jsonOptions));
 
     protected static string FormatValue(object? value)
     {

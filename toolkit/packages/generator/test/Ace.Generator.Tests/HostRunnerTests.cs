@@ -17,7 +17,7 @@ public sealed class HostRunnerTests
 {
     private static IRDocument Ir() => new()
     {
-        SchemaVersion = "0.6.0",
+        SchemaVersion = "0.8.0",
         Models =
         [
             new IRModel { Name = "Widget", Source = "Test", Id = new IRId { Module = "Test", Name = "Widget" } },
@@ -73,6 +73,34 @@ public sealed class HostRunnerTests
             f.GetProperty("kind").GetString() == "file" &&
             f.GetProperty("contents").GetString()!.Contains("class Widget"));
         Assert.Contains("namespace Generated", widget.GetProperty("contents").GetString());
+    }
+
+    [Fact]
+    public async Task Invalid_server_reference_emits_an_error_result_without_the_processor()
+    {
+        IRDocument ir = Ir();
+        ir.Operations =
+        [
+            new IROperation
+            {
+                Name = "get",
+                Server = new IRId { Module = "Test", Name = "missing" },
+                PathTemplate = "/widgets",
+            },
+        ];
+
+        (int code, List<JsonElement> frames) = await RunAsync(new { ir, options = new { } });
+
+        Assert.Equal(1, code);
+        JsonElement result = frames[^1];
+        Assert.Equal("result", result.GetProperty("kind").GetString());
+        Assert.False(result.GetProperty("success").GetBoolean());
+        Assert.Contains(result.GetProperty("diagnostics").EnumerateArray(), d =>
+            d.GetProperty("severity").GetString() == "error" &&
+            d.GetProperty("code").GetString() == "ace-generator/unknown-server-reference");
+        Assert.DoesNotContain(frames, f =>
+            f.GetProperty("kind").GetString() == "file" &&
+            f.GetProperty("contents").GetString()!.Contains("class GetProcessor"));
     }
 
     [Fact]

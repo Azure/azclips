@@ -68,7 +68,7 @@ public class ExtensionDispatcherTests
         // `az version` / `az --version` are dispatched by GlobalArgParser before the dispatcher runs.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([verbToken, trailing]));
 
         Assert.Equal("UsageError", exception.Code);
         Assert.Equal(2, exception.ExitCode);
@@ -80,8 +80,8 @@ public class ExtensionDispatcherTests
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
         var helpProvider = new ExtensionIndexHelpAdapter(
-            new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex().GetCommandTable(ClientType.CLI),
-            "Login");
+            new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandTable(ClientType.CLI),
+            "login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login"]);
@@ -168,11 +168,11 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -182,7 +182,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -198,7 +198,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Verb = "login",
@@ -212,7 +212,7 @@ public class ExtensionDispatcherTests
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -246,6 +246,10 @@ public class ExtensionDispatcherTests
         Assert.Equal("vm", ex.Verb);
         Assert.Empty(ex.Path);
         Assert.Contains("az vm --help", ex.Message, StringComparison.Ordinal);
+        // `az vm` alone now renders group help, so the message must name the offending token
+        // instead of claiming `az vm` is unrecognized.
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az vm' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -294,6 +298,22 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldNameUnrecognizedArguments_WhenResolvedVerbLandsOnCommandGroup()
+    {
+        // The resolved-extension path throws from a different site than the verb-only fallback,
+        // so it needs its own coverage that trailing flags survive into the message.
+        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["agent", "--list"]));
+
+        Assert.Empty(ex.Path);
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az agent' is not a recognized command", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
     {
         // The group gate must not swallow a valid leaf under the same verb.
@@ -314,7 +334,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Contributions = { new Contribution { Verb = "login", Path = "" } },

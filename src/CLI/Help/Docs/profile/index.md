@@ -16,6 +16,7 @@ az profile list
 ### Show the active profile
 
 ```bash
+az profile show
 az profile show --active
 ```
 

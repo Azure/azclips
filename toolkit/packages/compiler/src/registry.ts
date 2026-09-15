@@ -1,26 +1,31 @@
 /**
- * Registry of transform-step and generator implementations.
+ * Fulfilment registry: implementations for the compiler's declared stage ids.
  *
- * This is the "what's available" half of the configurable pipeline: step and
- * generator *implementations* are registered here (code), while *which* run, in
- * *what* order, with *what* options is declared as data in
- * `CompileConfig.pipeline` / `CompileConfig.generator`. The backbone resolves
- * the declared ids against this registry.
+ * This is **not** a place to declare a pipeline. The compiler's `STAGE_CATALOG`
+ * owns which stages exist, in what order they run, and what runs by default; a
+ * host only supplies the code behind ids it can serve. The two built-in external
+ * stages (`tsp-emit`, `csharp`) need no entry — they run through the host
+ * `Runtime` — but a registry entry overrides them when one is present.
  *
- * Ids are constrained to a filename-safe charset so a step name maps 1:1 to a
- * captured-IR filename (`ir/<index>-<step>.json`) with no escaping.
+ * Ids are the catalog's, constrained to a filename-safe charset so a stage id
+ * maps 1:1 to a captured-IR filename (`ir/<index>-<stage>.json`) with no escaping.
  */
 
+import type { EmitProducer } from "./emit-producer.js";
 import type { TransformStep } from "./transform.js";
 import type { Generator } from "./generate.js";
 
-/** Builds a transform step from app-provided options. */
+/** Builds an emit producer from the stage's configured options. */
+export type EmitProducerFactory = (options: Record<string, unknown>) => EmitProducer;
+
+/** Builds a transform step from the stage's configured options. */
 export type TransformStepFactory = (options: Record<string, unknown>) => TransformStep;
 
-/** Builds a generator from app-provided options. */
+/** Builds a generator from the stage's configured options. */
 export type GeneratorFactory = (options: Record<string, unknown>) => Generator;
 
 export interface CompilerRegistry {
+  emitters: Map<string, EmitProducerFactory>;
   transforms: Map<string, TransformStepFactory>;
   generators: Map<string, GeneratorFactory>;
 }
@@ -28,8 +33,8 @@ export interface CompilerRegistry {
 /** Registered ids must be filename-safe (used verbatim as snapshot filenames). */
 const ID_PATTERN = /^[a-z0-9._-]+$/;
 
-/** True if `id` is a valid, filename-safe registry id. */
-export function isValidStepId(id: string): boolean {
+/** True if `id` is a valid, filename-safe stage id. */
+export function isValidStageId(id: string): boolean {
   return ID_PATTERN.test(id);
 }
 
@@ -38,24 +43,24 @@ export function isValidStepId(id: string): boolean {
  * mistakes surface at startup rather than as a broken filename later.
  */
 export function createRegistry(init?: {
+  emitters?: Record<string, EmitProducerFactory>;
   transforms?: Record<string, TransformStepFactory>;
   generators?: Record<string, GeneratorFactory>;
 }): CompilerRegistry {
-  const transforms = new Map<string, TransformStepFactory>();
-  const generators = new Map<string, GeneratorFactory>();
+  return {
+    emitters: toMap("emitter", init?.emitters),
+    transforms: toMap("transform", init?.transforms),
+    generators: toMap("generator", init?.generators),
+  };
+}
 
-  for (const [id, factory] of Object.entries(init?.transforms ?? {})) {
-    if (!isValidStepId(id)) {
-      throw new Error(`Invalid transform step id '${id}': must match ${ID_PATTERN}.`);
+function toMap<T>(label: string, entries: Record<string, T> | undefined): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const [id, factory] of Object.entries(entries ?? {})) {
+    if (!isValidStageId(id)) {
+      throw new Error(`Invalid ${label} stage id '${id}': must match ${ID_PATTERN}.`);
     }
-    transforms.set(id, factory);
+    map.set(id, factory);
   }
-  for (const [id, factory] of Object.entries(init?.generators ?? {})) {
-    if (!isValidStepId(id)) {
-      throw new Error(`Invalid generator id '${id}': must match ${ID_PATTERN}.`);
-    }
-    generators.set(id, factory);
-  }
-
-  return { transforms, generators };
+  return map;
 }

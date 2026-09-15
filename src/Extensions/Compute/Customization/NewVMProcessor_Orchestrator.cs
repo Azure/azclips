@@ -70,6 +70,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Network Arguments")]
         public List<string> RuleAccesses { get; set; } = [];
 
+        [ParameterGroup("Network Arguments")]
+        public bool AcceleratedNetworking { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
@@ -92,6 +95,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.RuleDestinationPortRanges = RuleDestinationPortRanges;
                 p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
                 p.RuleAccesses = RuleAccesses;
+                p.AcceleratedNetworking = AcceleratedNetworking;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;

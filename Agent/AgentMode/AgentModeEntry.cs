@@ -70,11 +70,9 @@ public static class AgentModeEntry
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
-            // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
+            // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
-
-            PrintBanner(failedCommand, errorText, quiet);
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
@@ -97,7 +95,12 @@ public static class AgentModeEntry
                 // user explicitly wants it and needs to know where to look.
                 Console.WriteLine($"   trace: {fullPath}");
             }
-            var spinner  = new SpinnerService(renderer);
+            // await using: the spinner is Started before CreateAsync (below), so it
+            // must be Stopped even when CreateAsync throws or the user Ctrl+Cs during
+            // cold start. Disposal runs on the way out of this scope — before the
+            // catch blocks — so the spinner line is cleared and the cursor restored
+            // before the error is printed.
+            await using var spinner = new SpinnerService(renderer);
 
             // Watcher is shared across all turns and paused (not destroyed) while
             // the approval pump reads y/n — that's how single-reader stdin is
@@ -113,6 +116,14 @@ public static class AgentModeEntry
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
+
+            // Start the spinner BEFORE CreateAsync: daemon cold-start + silent auth
+            // take several seconds, and without this the screen hangs blank. The
+            // first chat turn re-Starts the spinner with the same verb (Start is
+            // idempotent — it Stops first), so this seams into the turn cleanly.
+            // It also has to precede the token acquisition below, which is the other
+            // thing that can spend seconds here.
+            spinner.Start("Analyzing error root cause using AI");
 
             // Acquire the Azure token once, here, and feed it to both consumers below.
             //
@@ -400,26 +411,6 @@ public static class AgentModeEntry
         }
 
         return redirect;
-    }
-
-    private static void PrintBanner(string failedCommand, string error, bool quiet)
-    {
-        // Quiet mode (one-shot): no "agent mode" banner / AI scaffolding — the
-        // spinner ("Analyzing error root cause using AI …") is the only hint, and
-        // the AI help is the output. Keep it clean.
-        if (quiet) return;
-
-        var prev = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine();
-        Console.WriteLine("🤖 agent mode");
-        if (!string.IsNullOrWhiteSpace(failedCommand))
-            Console.WriteLine($"   triggered by failed command: {failedCommand}");
-        if (!string.IsNullOrWhiteSpace(error))
-            Console.WriteLine($"   error: {Truncate(error, 200)}");
-        Console.WriteLine("   type 'exit' or Ctrl+C to leave");
-        Console.WriteLine();
-        Console.ForegroundColor = prev;
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default

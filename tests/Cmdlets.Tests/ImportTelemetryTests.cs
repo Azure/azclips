@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
 namespace Cmdlets.Tests;
 

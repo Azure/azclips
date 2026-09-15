@@ -59,6 +59,10 @@ if [[ "$RID" == "linux-x64" ]]; then
   ASSET_RID="$(read_artifact_config linux_x64_label linux-x64)"
 elif [[ "$RID" == "linux-arm64" ]]; then
   ASSET_RID="$(read_artifact_config linux_arm64_label linux-arm64)"
+elif [[ "$RID" == "linux-musl-x64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_x64_label linux-musl-x64)"
+elif [[ "$RID" == "linux-musl-arm64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_arm64_label linux-musl-arm64)"
 fi
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
@@ -112,15 +116,43 @@ dotnet publish "$CLI_PROJECT" \
 echo "Publishing Agent exe (Release, $RID) into scratch"
 AGENT_SCRATCH="$COMMON_OUT_ROOT/agent-publish/$RID"
 [[ -d "$AGENT_SCRATCH" ]] && rm -rf "$AGENT_SCRATCH"
+AGENT_PUBLISH_PROPERTIES=(-p:IsPackagedBuild=true)
+if [[ "$RID" == linux-musl-* ]]; then
+  COPILOT_ARCH="${RID##*-}"
+  dotnet restore "$REPO_ROOT/Agent/Core.Agent.csproj" --nologo
+  COPILOT_CLI_VERSION="$(dotnet msbuild "$REPO_ROOT/Agent/Core.Agent.csproj" -getProperty:CopilotCliVersion -nologo)"
+  if [[ -z "$COPILOT_CLI_VERSION" ]]; then
+    echo "ERROR: Could not resolve CopilotCliVersion from GitHub.Copilot.SDK."
+    exit 1
+  fi
+  COPILOT_CACHE_DIR="$COMMON_OUT_ROOT/copilot-cli/$COPILOT_CLI_VERSION/linuxmusl-$COPILOT_ARCH"
+  COPILOT_BINARY="$COPILOT_CACHE_DIR/copilot"
+
+  if [[ ! -f "$COPILOT_BINARY" ]]; then
+    COPILOT_PACKAGE="copilot-linuxmusl-$COPILOT_ARCH"
+    COPILOT_ARCHIVE="$COPILOT_CACHE_DIR/$COPILOT_PACKAGE-$COPILOT_CLI_VERSION.tgz"
+    COPILOT_METADATA_URL="https://registry.npmjs.org/@github%2F$COPILOT_PACKAGE/$COPILOT_CLI_VERSION"
+    COPILOT_URL="https://registry.npmjs.org/@github/$COPILOT_PACKAGE/-/$COPILOT_PACKAGE-$COPILOT_CLI_VERSION.tgz"
+    mkdir -p "$COPILOT_CACHE_DIR"
+    echo "Downloading Copilot CLI $COPILOT_CLI_VERSION for linuxmusl-$COPILOT_ARCH"
+    curl --fail --location --retry 3 --output "$COPILOT_ARCHIVE" "$COPILOT_URL"
+    COPILOT_ARCHIVE_SHASUM="$(curl --fail --location --retry 3 "$COPILOT_METADATA_URL" \
+      | jq --exit-status --raw-output '.dist.shasum | select(type == "string" and test("^[0-9a-fA-F]{40}$"))')"
+    echo "$COPILOT_ARCHIVE_SHASUM  $COPILOT_ARCHIVE" | sha1sum --check --strict
+    tar -xzf "$COPILOT_ARCHIVE" --strip-components=1 -C "$COPILOT_CACHE_DIR" package/copilot
+  fi
+
+  AGENT_PUBLISH_PROPERTIES+=("-p:CopilotCliBinaryPath=$COPILOT_BINARY")
+fi
 dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
   -c Release \
   -r "$RID" \
   --self-contained true \
   -o "$AGENT_SCRATCH" \
-  -p:IsPackagedBuild=true
+  "${AGENT_PUBLISH_PROPERTIES[@]}"
 
 # Publish the Agent.Commands extension into builtin-publish/ so the inject
-# script picks it up in the same pass as Login/Config.
+# script picks it up in the same pass as Accounts/Config.
 echo "Publishing Agent.Commands extension (Release)"
 AGENT_EXT_DIR="$COMMON_OUT_ROOT/builtin-publish/Microsoft.Azure.Azclips.Extensions.Agent"
 dotnet publish "$REPO_ROOT/Agent/Commands/Agent.Commands.csproj" \

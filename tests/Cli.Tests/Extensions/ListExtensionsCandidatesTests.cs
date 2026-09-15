@@ -27,7 +27,7 @@ public class ListExtensionsCandidatesTests
     [Fact]
     public void InferTier_ShouldReturnBundled_WhenLocationIsOutsideInstalledRoot()
     {
-        var location = Path.Combine(BundledRoot, "Microsoft.Azure.Azclips.Extensions.Login", "Microsoft.Azure.Azclips.Extensions.Login.dll");
+        var location = Path.Combine(BundledRoot, "Microsoft.Azure.Azclips.Extensions.Accounts", "Microsoft.Azure.Azclips.Extensions.Accounts.dll");
         Assert.Equal("Bundled", ListExtensionsProcessor.InferTier(location, InstalledRoot));
     }
 
