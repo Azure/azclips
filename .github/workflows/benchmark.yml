@@ -72,7 +72,6 @@ jobs:
               - 'global.json'
               - 'azclips.slnx'
               - 'Shared.props'
-              - '.github/workflows/benchmark.yml'
               - '.github/scripts/detect-benchmark-changes.sh'
             startup:
               - 'tests/Benchmark/Startup/**'
