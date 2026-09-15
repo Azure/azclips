@@ -4,12 +4,14 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using SpanKey = (string? TraceId, string? SpanId);
 
 namespace Core.Telemetry;
 
 /// <summary>
 /// Replays trace entries through an <see cref="ActivitySource"/>, preserving the original
-/// TraceId and parent/child hierarchy.
+/// TraceId and source-recorded hierarchy tags. Exporter parent IDs can only be remapped
+/// within a batch; they are not the identity of a source-recorded span.
 /// </summary>
 internal static class TraceReplayer
 {
@@ -25,8 +27,8 @@ internal static class TraceReplayer
 
         var ordered = TopologicallyOrder(entriesList);
 
-        // Original SpanId -> the new SpanId assigned during replay.
-        var spanIdMap = new Dictionary<string, ActivitySpanId>(StringComparer.Ordinal);
+        // Span identity is scoped by TraceId, even when a batch contains several traces.
+        var spanIdMap = new Dictionary<SpanKey, ActivitySpanId>();
 
         foreach (var entry in ordered)
         {
@@ -40,21 +42,21 @@ internal static class TraceReplayer
     /// </summary>
     private static List<TraceEntry> TopologicallyOrder(List<TraceEntry> entries)
     {
-        var bySpanId = new Dictionary<string, TraceEntry>(StringComparer.Ordinal);
+        var bySpanId = new Dictionary<SpanKey, TraceEntry>();
         foreach (var e in entries)
         {
             if (!string.IsNullOrEmpty(e.SpanId))
-                bySpanId[e.SpanId] = e;
+                bySpanId[(e.TraceId, e.SpanId)] = e;
         }
 
-        var childrenOf = new Dictionary<string, List<TraceEntry>>(StringComparer.Ordinal);
+        var childrenOf = new Dictionary<SpanKey, List<TraceEntry>>();
         var roots = new List<TraceEntry>();
 
         foreach (var e in entries)
         {
-            var parentKey = e.ParentSpanId;
-            if (string.IsNullOrEmpty(parentKey)
-                || parentKey == "0000000000000000"
+            var parentKey = (e.TraceId, e.ParentSpanId);
+            if (string.IsNullOrEmpty(e.ParentSpanId)
+                || e.ParentSpanId == "0000000000000000"
                 || !bySpanId.ContainsKey(parentKey))
             {
                 roots.Add(e);
@@ -71,20 +73,20 @@ internal static class TraceReplayer
         }
 
         var ordered = new List<TraceEntry>(entries.Count);
-        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var visited = new HashSet<SpanKey>();
         var queue = new Queue<TraceEntry>(roots);
 
         while (queue.Count > 0)
         {
             var entry = queue.Dequeue();
-            var key = entry.SpanId ?? string.Empty;
+            var key = (entry.TraceId, entry.SpanId);
 
-            if (!string.IsNullOrEmpty(key) && !visited.Add(key))
+            if (!string.IsNullOrEmpty(entry.SpanId) && !visited.Add(key))
                 continue;
 
             ordered.Add(entry);
 
-            if (!string.IsNullOrEmpty(key) && childrenOf.TryGetValue(key, out var children))
+            if (!string.IsNullOrEmpty(entry.SpanId) && childrenOf.TryGetValue(key, out var children))
             {
                 foreach (var child in children)
                     queue.Enqueue(child);
@@ -95,12 +97,10 @@ internal static class TraceReplayer
         {
             foreach (var e in entries)
             {
-                var key = e.SpanId ?? string.Empty;
-                if (string.IsNullOrEmpty(key) || !visited.Contains(key))
+                var key = (e.TraceId, e.SpanId);
+                if (!string.IsNullOrEmpty(e.SpanId) && visited.Add(key))
                 {
                     ordered.Add(e);
-                    if (!string.IsNullOrEmpty(key))
-                        visited.Add(key);
                 }
             }
         }
@@ -112,7 +112,7 @@ internal static class TraceReplayer
     /// Reconstructs one Activity from an entry and records its new SpanId in
     /// <paramref name="spanIdMap"/> for its descendants.
     /// </summary>
-    private static void ReplayTrace(ActivitySource source, TraceEntry entry, Dictionary<string, ActivitySpanId> spanIdMap)
+    private static void ReplayTrace(ActivitySource source, TraceEntry entry, Dictionary<SpanKey, ActivitySpanId> spanIdMap)
     {
         if (string.IsNullOrEmpty(entry.TraceId))
             return;
@@ -124,7 +124,7 @@ internal static class TraceReplayer
         ActivitySpanId parentSpanId;
         if (!string.IsNullOrEmpty(entry.ParentSpanId)
             && entry.ParentSpanId != "0000000000000000"
-            && spanIdMap.TryGetValue(entry.ParentSpanId, out var remapped))
+            && spanIdMap.TryGetValue((entry.TraceId, entry.ParentSpanId), out var remapped))
         {
             parentSpanId = remapped;
         }
@@ -147,19 +147,20 @@ internal static class TraceReplayer
             : DateTimeOffset.UtcNow;
 
         using var activity = source.StartActivity(
-            entry.DisplayName ?? entry.OperationName ?? "unknown",
+            entry.OperationName ?? entry.DisplayName ?? "unknown",
             kind,
             parentContext,
             startTime: startTime);
 
         if (activity == null)
             return;
+        activity.DisplayName = entry.DisplayName ?? activity.OperationName;
 
         // Recorded before disposal so descendants can reference it.
         if (!string.IsNullOrEmpty(entry.SpanId))
-            spanIdMap[entry.SpanId] = activity.SpanId;
+            spanIdMap[(entry.TraceId, entry.SpanId)] = activity.SpanId;
 
-        // Restore tags
+        // Restore source tags verbatim, never deriving hierarchy from replay IDs or time.
         if (entry.Tags.ValueKind == JsonValueKind.Array)
         {
             foreach (var tag in entry.Tags.EnumerateArray())
@@ -170,9 +171,7 @@ internal static class TraceReplayer
                     var key = keyEl.GetString();
                     if (key != null)
                     {
-                        activity.SetTag(key, valueEl.ValueKind == JsonValueKind.String
-                            ? valueEl.GetString()
-                            : valueEl.ToString());
+                        activity.SetTag(key, RestoreTagValue(valueEl));
                     }
                 }
             }
@@ -217,4 +216,16 @@ internal static class TraceReplayer
         // Restore end time (start + duration)
         activity.SetEndTime(activity.StartTimeUtc + TimeSpan.FromMilliseconds(entry.Duration));
     }
+
+    private static object? RestoreTagValue(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString(),
+        JsonValueKind.Number when value.TryGetInt32(out var number) => number,
+        JsonValueKind.Number when value.TryGetInt64(out var number) => number,
+        JsonValueKind.Number => value.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => value.ToString(),
+    };
 }

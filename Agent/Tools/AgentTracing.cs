@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Core.Abstractions;
 
 namespace Core.Agent;
 
@@ -14,4 +15,7 @@ public static class AgentTracing
     public const string SourceName = "CLI";
 
     public static readonly ActivitySource Source = new(SourceName);
+
+    public static Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
+        TelemetryHierarchy.StartActivity(Source, name, kind);
 }

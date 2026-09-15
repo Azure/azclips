@@ -47,4 +47,10 @@ public static class TelemetryTags
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
+
+    public const string HierarchyVersion = PropertyTagPrefix + "hierarchy.version";
+    public const string HierarchySpanId = PropertyTagPrefix + "hierarchy.spanId";
+    public const string HierarchyParentSpanId = PropertyTagPrefix + "hierarchy.parentSpanId";
+    public const string HierarchyDepth = PropertyTagPrefix + "hierarchy.depth";
+    public const string HierarchyPath = PropertyTagPrefix + "hierarchy.path";
 }

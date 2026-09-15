@@ -32,7 +32,7 @@ public class Program
     /// trace. Namespaced rather than the bare TRACEPARENT, which a surrounding CI system
     /// may set. The agent reads the same literal name — rename both together.
     /// </summary>
-    internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
+    internal const string RecoveryTraceparentEnvVar = TelemetryHierarchy.RecoveryTraceparentEnvVar;
 
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
@@ -415,7 +415,8 @@ public class Program
         string agentExe,
         string[] args,
         string? errorText,
-        string? recoveryTraceparent)
+        string? recoveryTraceparent,
+        string? recoveryHierarchy = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -441,10 +442,16 @@ public class Program
         try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
         catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
 
-        // Null when telemetry is off and no recovery span exists. Leave the variable
-        // absent in that case rather than setting it to an empty string.
+        // ProcessStartInfo inherits the environment. Never forward a stale handoff,
+        // including when opt-out means this invocation produced no recovery span.
+        psi.Environment.Remove(RecoveryTraceparentEnvVar);
+        psi.Environment.Remove(TelemetryHierarchy.RecoveryHierarchyEnvVar);
         if (!string.IsNullOrEmpty(recoveryTraceparent))
+        {
             psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
+            if (!string.IsNullOrEmpty(recoveryHierarchy))
+                psi.Environment[TelemetryHierarchy.RecoveryHierarchyEnvVar] = recoveryHierarchy;
+        }
 
         psi.ArgumentList.Add("--agent-mode");
         psi.ArgumentList.Add("--failed-command");
@@ -510,7 +517,7 @@ public class Program
 
         // Opened only once a spawn is certain. The command root is already stopped, so
         // Activity.Current is null and this starts a second root with its own TraceId.
-        using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
+        using var recovery = _telemetryService?.StartRootActivity(name: TelemetryHierarchy.RecoveryOperationName);
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
         var telemetryCommandName = commandName ?? GetCommandGroupFromArgs(args);
@@ -523,7 +530,8 @@ public class Program
 
         try
         {
-            var psi = BuildAgentStartInfo(agentExe, args, errorText, recovery?.Id);
+            var psi = BuildAgentStartInfo(agentExe, args, errorText, recovery?.Id,
+                TelemetryHierarchy.CreateRecoveryHandoff(recovery));
 
             // The child agent takes over Ctrl+C (it cancels the session). The parent
             // must also intercept it — otherwise Ctrl+C kills the parent first, the

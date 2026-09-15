@@ -87,18 +87,19 @@ public async Task Foo()
 
 AI error recovery runs as a blocking subprocess, so it is recorded as its own trace
 rather than inside the command's root span (Azure/CLIPS#602). The command trace ends when
-the command fails; `CLI.Activity.AiRecovery` is a second root covering the agent, and the
-agent's own spans nest under it via a W3C traceparent passed on the child environment
-block.
+the command fails; a second root covers the agent. Its canonical hierarchy path is
+`Agent`; `CLI.Activity.AiRecovery` remains its legacy `OperationName` for compatible
+queries. The agent's own spans nest under it via a W3C traceparent and source-recorded
+hierarchy handoff passed on the child environment block.
 
-| Tag                                | Span                        | Description                                     |
+| Tag                                | Legacy OperationName        | Description                                     |
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
-| `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
+| `properties.recovery.reprompts`   | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 
@@ -112,9 +113,121 @@ requests
 ```
 
 The agent's `ActivitySource` is named `CLI`, matching the CLI's. `FileExporter` derives
-`service.name` from `ActivitySource.Name` and `TraceUploader` rebuilds parent/child edges
-only within a service-name group, so any other name would detach the agent's spans from
-their parent on upload.
+`service.name` from `ActivitySource.Name`. `TraceUploader` groups by this name and can
+remap exporter parent IDs only within the current upload batch. The source-recorded
+identity below, not the Azure exporter's generated span ID, is the durable tree contract.
+
+### Source-Recorded Hierarchy (version 1)
+
+The five vetted properties are recorded when an activity starts, before child work:
+
+| Tag | Type | Meaning |
+|-----|------|---------|
+| `properties.hierarchy.version` | integer | `1` only when this source's complete lineage is known |
+| `properties.hierarchy.spanId` | string | Original W3C `Activity.SpanId`, stable across buffering and replay |
+| `properties.hierarchy.parentSpanId` | string | Original parent span ID; empty string for a root, not an all-zero ID |
+| `properties.hierarchy.depth` | integer | Recorded depth, with root `0` |
+| `properties.hierarchy.path` | string | Canonical dot-separated full path; recovery trees have a single leading `Agent` namespace |
+
+Identity is scoped by `TraceId` (`operation_Id` in Application Insights). Consumers join
+`(operation_Id, properties.hierarchy.parentSpanId)` to
+`(operation_Id, properties.hierarchy.spanId)` and use the recorded depth/path as the
+primary hierarchy display, not the legacy operation names.
+Repeated or concurrent calls may have identical names and paths, but have distinct span
+IDs. Legacy `OperationName` values stay unchanged for compatible queries, metrics and
+allowlists. Paths never use `DisplayName`, prompts, tool arguments, error text, or model
+responses.
+
+An ordinary recovery path is:
+
+```text
+Agent                                                   depth 0
+  Agent.Session                                         depth 1
+    Agent.Session.Create                                depth 2
+      Agent.Session.Create.Tool.get_command              depth 3 (initialization)
+    Agent.Session.Turn                                   depth 2
+      Agent.Session.Turn.Send                            depth 3
+        Agent.Session.Turn.Send.Tool.get_command          depth 4 (execution)
+      Agent.Session.Turn.Reprompt                        depth 3
+        Agent.Session.Turn.Reprompt.Send                 depth 4
+          Agent.Session.Turn.Reprompt.Send.Tool.propose_plan  depth 5
+```
+
+The shared producer maps the legacy recovery root to `Agent`, appends `Session`,
+`Create`, `Turn`, `Send`, or `Reprompt` for the corresponding agent child operations,
+and appends `Tool.<operation>` for a legacy `tool.<operation>` span. Generic instrumented
+children append their stable code operation name to the known parent path, for example
+`Agent.Session.Turn.Send.Tool.get_command.MsalAuthService.AcquireTokenSilentlyAsync`.
+
+**Depth counts actual parent-span edges, never dots.** `Tool.get_command` is one span,
+not a `Tool` span plus a `get_command` span; the dotted generic code name above also adds
+only one edge. No missing Session or Turn span is invented: a send directly under a
+standalone session has path `Agent.Session.Send` and depth `1`. Repeated turns/tools
+reuse canonical paths but retain unique source span IDs and their actual parent IDs.
+Non-agent traces retain their own code-named roots rather than becoming recovery traces.
+
+#### Producer and process handoff
+
+[`TelemetryHierarchy.StartActivity/Record`](../../src/Core/Core.Abstractions/TelemetryHierarchy.cs)
+are the shared producer helpers. They store immutable in-process parent metadata and
+stamp the actual activity's identity; they do not reconstruct ancestors from exported
+tags. [`TelemetryService.StartActivity`](../../src/Core/Core.Telemetry/TelemetryService.cs)
+and [`AgentTracing.StartActivity`](../../Agent/Tools/AgentTracing.cs) use them.
+[`SourceHierarchyProcessor.OnStart`](../../src/Core/Core.Telemetry/SourceHierarchyProcessor.cs)
+also includes nested instrumentation whose operation names pass the product allowlist.
+An unknown ancestor is not skipped or silently replaced.
+
+[`Program.BuildAgentStartInfo`](../../src/CLI/Program.cs) passes
+`AZCLIPS_RECOVERY_TRACEPARENT` plus `AZCLIPS_RECOVERY_HIERARCHY`. The latter is a bounded
+JSON handoff containing `Version`, `TraceId`, `SpanId`, `Depth`, and `Path` from the recorded
+recovery root (`Depth = 0`, `Path = "Agent"`). Both inherited environment values are
+removed before setting this invocation's values, including when telemetry is disabled.
+[`RecoveryTraceContext.StartSession`](../../Agent/Telemetry/RecoveryTraceContext.cs)
+validates the version, root depth/path, and matching W3C identity together:
+
+- A valid handoff makes `Agent.Session` a recorded child of the recovery root.
+- A legacy traceparent without valid hierarchy metadata retains W3C correlation, but
+  neither the session nor its descendants is labelled version 1.
+- Missing/invalid traceparent starts an independent `Agent.Session` root at depth `0`. No recovery
+  parent or ambient caller is invented. Invalid supplied values produce a diagnostic
+  without echoing the handoff contents.
+
+#### Callback concurrency and lifetime
+
+[`AgentInvocationContext`](../../Agent/Telemetry/AgentInvocationContext.cs) belongs to
+one `ChatAgent`, not to a process-global mutable parent. Initialization and each send
+publish their active operation through a scoped lease. Registered `AIFunction` wrappers
+and the configured hooks/permission/event callbacks rebind `Activity.Current` when they
+execute, even if the SDK retained the completed Create's `ExecutionContext`.
+`DelegatingAIFunction` preserves tool metadata and schemas; `GetService<AIFunction>()`
+resolves the wrapper rather than bypassing it.
+
+Parallel tool callbacks have independent ambient scopes under the same send; independent
+sessions keep separate holders. One session supports one in-flight send; an overlapping
+send is rejected before its mutable turn state is changed. An async execution-context
+boundary restores the previous ambient state even for synchronous callbacks retaining a
+stopped Create (the `Activity.Current` setter cannot restore a stopped activity).
+Cancellation leases are disposed in `finally`, and tools receive the send cancellation token
+(linked with an incoming callback token when necessary). A per-holder async-local callback
+snapshot lets in-flight nested work retain its original parent and cancellation token
+even if a later send starts. Idle callbacks use the live session, never a
+completed Create. Disposal rejects new operations and clears the holder after SDK cleanup.
+The existing telemetry opt-out remains in effect; no listener is created by these helpers.
+
+#### Buffering, replay, and boundaries
+
+[`FileExporter.Export`](../../src/Core/Core.Telemetry/FileExporter.cs) already buffers all
+source tags. [`TraceReplayer.ReplayEntries`](../../src/Core/Core.Telemetry/TraceReplayer.cs)
+restores them, including numeric version/depth values, without rewriting them with replay
+IDs. Replayed `OperationName` and `DisplayName` remain separate. Exporter ID remapping is
+scoped by trace and batch, but a child uploaded before its parent still retains its exact
+source parent ID, depth, and path for a later join.
+
+Missing parents remain explicitly missing until their records arrive. Consumers must not
+infer edges from timestamps, durations, upload order, or matching names. Legacy buffers
+are not upgraded or assigned fabricated version-1 paths. This contract covers instrumented
+managed work and the explicit CLI-to-agent handoff; it does not synthesize spans for
+uninstrumented SDK/native-daemon internals or subprocesses without a hierarchy handoff.
 
 
 ### HTTP Tags (Auto-instrumented)

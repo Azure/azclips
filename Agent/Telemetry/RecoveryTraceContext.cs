@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 
 namespace Core.Agent.Telemetry;
 
@@ -16,18 +17,33 @@ namespace Core.Agent.Telemetry;
 internal static class RecoveryTraceContext
 {
     /// <summary>Must match <c>Core.Cli.Program.RecoveryTraceparentEnvVar</c>.</summary>
-    internal const string EnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
+    internal const string EnvVar = TelemetryHierarchy.RecoveryTraceparentEnvVar;
 
-    internal static ActivityContext FromEnvironment() =>
-        Parse(Environment.GetEnvironmentVariable(EnvVar));
+    internal static Activity? StartSession(ActivitySource source) =>
+        StartSession(source, Environment.GetEnvironmentVariable(EnvVar),
+            Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar));
+
+    internal static Activity? StartSession(ActivitySource source, string? traceparent, string? hierarchy)
+    {
+        var context = Parse(traceparent);
+        TelemetryHierarchy.TryReadRecoveryHandoff(context, hierarchy, out var parent);
+        if ((!string.IsNullOrEmpty(traceparent) && context == default)
+            || (!string.IsNullOrEmpty(hierarchy) && parent is null))
+        {
+            Console.Error.WriteLine("Ignoring invalid recovery telemetry handoff; source lineage is unavailable.");
+        }
+
+        return TelemetryHierarchy.StartActivity(
+            source, "Agent.Session", ActivityKind.Server, context, parent);
+    }
 
     /// <summary>
     /// Returns <c>default(ActivityContext)</c> when the value is absent or malformed. The
-    /// caller then starts its own root and only the link to the CLI's trace is lost.
+    /// session producer explicitly starts its own root and does not inherit ambient work.
     /// </summary>
     internal static ActivityContext Parse(string? traceparent) =>
         !string.IsNullOrWhiteSpace(traceparent)
-        && ActivityContext.TryParse(traceparent, traceState: null, out var context)
+        && ActivityContext.TryParse(traceparent, traceState: null, isRemote: true, out var context)
             ? context
             : default;
 }

@@ -56,8 +56,7 @@ public static class AgentModeEntry
             // Parents to the CLI's recovery span via the traceparent on our environment
             // block. Inside the try so it disposes before the finally tears down the
             // TracerProvider — nothing exports after that.
-            using var session = telemetry.ActivitySource.StartActivity(
-                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+            using var session = RecoveryTraceContext.StartSession(telemetry.ActivitySource);
             session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
 
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
@@ -122,23 +121,18 @@ public static class AgentModeEntry
             // idempotent — it Stops first), so this seams into the turn cleanly.
             spinner.Start("Analyzing error root cause using AI");
 
-            ChatAgent agent;
-            // Times Copilot SDK and stdio daemon startup.
-            using (AgentTracing.Source.StartActivity("Agent.Create"))
-            {
-                agent = await ChatAgent.CreateAsync(
-                    flavor: flavor,
-                    auth: auth,
-                    profileService: profileService,
-                    azExePath: az,
-                    approvalSink: approval,
-                    renderer: renderer,
-                    options: agentOpts,
-                    entrypoint: entrypoint,
-                    spinner: spinner,
-                    failedCommand: failedCommand,
-                    ct: cts.Token);
-            }
+            var agent = await ChatAgent.CreateAsync(
+                flavor: flavor,
+                auth: auth,
+                profileService: profileService,
+                azExePath: az,
+                approvalSink: approval,
+                renderer: renderer,
+                options: agentOpts,
+                entrypoint: entrypoint,
+                spinner: spinner,
+                failedCommand: failedCommand,
+                ct: cts.Token);
             await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
@@ -272,7 +266,7 @@ public static class AgentModeEntry
         CancellationToken ct,
         string initialVerb = "thinking")
     {
-        using var turn = AgentTracing.Source.StartActivity("Agent.Turn");
+        using var turn = AgentTracing.StartActivity("Agent.Turn");
         var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
@@ -285,7 +279,7 @@ public static class AgentModeEntry
             // Errored turn: don't pile a correction on top of a failure.
             if (agent.LastError is not null) break;
 
-            using var reprompt = AgentTracing.Source.StartActivity("Agent.Reprompt");
+            using var reprompt = AgentTracing.StartActivity("Agent.Reprompt");
             reprompt?.SetTag(TelemetryTags.RecoveryReprompts, attempt + 1);
 
             WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");

@@ -38,10 +38,8 @@ public class TelemetryService : ITelemetryService
     {
         if (!IsTelemetryEnabled()) return null;
 
-        // parentContext: default keeps the ambient Activity.Current parenting the
-        // two-argument overload gives us; only the start timestamp is being added.
-        return _telemetryProvider.ActivitySource
-            .StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime)
+        return TelemetryHierarchy
+            .StartActivity(_telemetryProvider.ActivitySource, name, kind, startTime: startTime)
             ?.SetTag(TelemetryTags.EventName, name);
     }
 

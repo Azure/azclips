@@ -34,6 +34,7 @@ public sealed class ChatAgent : IAsyncDisposable
     private readonly CopilotSession _session;
     private readonly string _model;
     private readonly SessionState? _state;
+    private readonly AgentInvocationContext _invocationContext;
 
     private CancellationTokenSource? _activeTurnCts;
 
@@ -85,12 +86,15 @@ public sealed class ChatAgent : IAsyncDisposable
         if (_state is not null) _state.OnFinalRendered = callback;
     }
 
-    private ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
+    private ChatAgent(
+        CopilotClient client, CopilotSession session, string model, SessionState? state,
+        AgentInvocationContext invocationContext)
     {
         _client = client;
         _session = session;
         _model = model;
         _state = state;
+        _invocationContext = invocationContext;
     }
 
     /// <param name="ct">
@@ -116,6 +120,8 @@ public sealed class ChatAgent : IAsyncDisposable
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
+        var invocationContext = new AgentInvocationContext(Activity.Current);
+        using var create = invocationContext.StartOperation("Agent.Create", ct);
         var sdkLogger = logger ?? NullLogger.Instance;
         // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
         // GitHub credential — so the daemon's default auto-login, which reads the
@@ -133,11 +139,12 @@ public sealed class ChatAgent : IAsyncDisposable
         try
         {
             return await CreateCoreAsync(
-                client, flavor, auth, profileService, azExePath, approvalSink,
+                client, invocationContext, flavor, auth, profileService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
         }
         catch
         {
+            invocationContext.Dispose();
             await client.DisposeAsync().ConfigureAwait(false);
             throw;
         }
@@ -145,6 +152,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
     private static async Task<ChatAgent> CreateCoreAsync(
         CopilotClient client,
+        AgentInvocationContext invocationContext,
         string flavor,
         IAuthService auth,
         IProfileService profileService,
@@ -237,12 +245,20 @@ public sealed class ChatAgent : IAsyncDisposable
                     nameof(options));
         }
 
-        var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
-
-        var agent = new ChatAgent(client, session, resolvedModel, state);
+        var agent = await ConnectAsync(
+            client, sessionConfig, resolvedModel, state, invocationContext, ct).ConfigureAwait(false);
         self = agent;
         if (earlyError is not null) agent.LastError = earlyError;
         return agent;
+    }
+
+    internal static async Task<ChatAgent> ConnectAsync(
+        CopilotClient client, SessionConfig sessionConfig, string model, SessionState? state,
+        AgentInvocationContext invocationContext, CancellationToken ct = default)
+    {
+        invocationContext.Bind(sessionConfig);
+        var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
+        return new ChatAgent(client, session, model, state, invocationContext);
     }
 
     // Duplicates the classic-CLI-boundary line already present in every
@@ -358,14 +374,13 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
+        using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var send = _invocationContext.StartOperation("Agent.Send", turnCts.Token);
+        send.Activity?.SetTag(TelemetryTags.AgentModel, _model);
         LastError = null;
         Volatile.Write(ref _sendCalledClosingTool, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
-        var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
-        oldCts?.Dispose();
-        using var send = AgentTracing.Source.StartActivity("Agent.Send");
-        send?.SetTag(TelemetryTags.AgentModel, _model);
+        Interlocked.Exchange(ref _activeTurnCts, turnCts);
         try
         {
             await _session.SendAndWaitAsync(
@@ -375,8 +390,7 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         finally
         {
-            var done = Interlocked.Exchange(ref _activeTurnCts, null);
-            done?.Dispose();
+            Interlocked.CompareExchange(ref _activeTurnCts, null, turnCts);
         }
     }
 
@@ -416,8 +430,17 @@ public sealed class ChatAgent : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await WithTimeout(_session.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);
-        await WithTimeout(_client.DisposeAsync().AsTask(),  DisposeTimeout).ConfigureAwait(false);
+        if (!_invocationContext.BeginDispose())
+            return;
+        try
+        {
+            await WithTimeout(_session.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);
+            await WithTimeout(_client.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);
+        }
+        finally
+        {
+            _invocationContext.Dispose();
+        }
     }
 
     private static async Task WithTimeout(Task work, TimeSpan timeout)

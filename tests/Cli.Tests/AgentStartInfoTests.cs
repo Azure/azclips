@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
+using Core.Abstractions;
 using Xunit;
 
 namespace Cli.Tests;
@@ -9,6 +11,7 @@ namespace Cli.Tests;
 /// The agent runs in its own process, so its spans join the CLI.Activity.AiRecovery
 /// trace through a W3C traceparent on the child environment block.
 /// </summary>
+[Collection("Azclips Service Provider Tests")]
 public class AgentStartInfoTests
 {
     private const string Traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
@@ -33,6 +36,34 @@ public class AgentStartInfoTests
         Assert.Equal(Traceparent, psi.Environment[Core.Cli.Program.RecoveryTraceparentEnvVar]);
     }
 
+    [Fact]
+    public void BuildAgentStartInfo_ForwardsTheSourceRecordedHandoffWithoutEditingIt()
+    {
+        using var source = new ActivitySource("handoff-" + Guid.NewGuid());
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = candidate => candidate == source,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var recovery = TelemetryHierarchy.StartActivity(source, "CLI.Activity.AiRecovery");
+        Assert.NotNull(recovery);
+        var handoff = TelemetryHierarchy.CreateRecoveryHandoff(recovery);
+
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, ["profile", "show"], "private error", recovery.Id, handoff);
+
+        Assert.Equal(recovery.Id, psi.Environment[TelemetryHierarchy.RecoveryTraceparentEnvVar]);
+        Assert.Equal(handoff, psi.Environment[TelemetryHierarchy.RecoveryHierarchyEnvVar]);
+        Assert.DoesNotContain("private error", handoff);
+        Assert.True(TelemetryHierarchy.TryReadRecoveryHandoff(recovery.Context,
+            psi.Environment[TelemetryHierarchy.RecoveryHierarchyEnvVar], out var parent));
+        Assert.Equal(recovery.SpanId, parent!.ActivityContext.SpanId);
+        Assert.Equal(0, parent.Depth);
+        Assert.Equal("Agent", parent.Path);
+        Assert.Equal("CLI.Activity.AiRecovery", recovery.OperationName);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -44,6 +75,40 @@ public class AgentStartInfoTests
             AgentExe, new[] { "profile", "show" }, "boom", traceparent);
 
         Assert.False(psi.Environment.ContainsKey(Core.Cli.Program.RecoveryTraceparentEnvVar));
+        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
+    }
+
+    [Fact]
+    public void BuildAgentStartInfo_DoesNotForwardHierarchyWithoutTraceparent()
+    {
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, [], null, null, "{\"Version\":1}");
+
+        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryTraceparentEnvVar));
+        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
+    }
+
+    [Fact]
+    public void BuildAgentStartInfo_RemovesInheritedHandoffWhenTelemetryIsDisabled()
+    {
+        var savedTraceparent = Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar);
+        var savedHierarchy = Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar);
+        try
+        {
+            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar, Traceparent);
+            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar, "stale hierarchy");
+
+            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, null);
+
+            Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryTraceparentEnvVar));
+            Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
+            Assert.Equal(Traceparent, Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar, savedTraceparent);
+            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar, savedHierarchy);
+        }
     }
 
     [Fact]

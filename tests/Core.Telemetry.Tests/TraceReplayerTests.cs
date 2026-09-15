@@ -3,8 +3,10 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using Tests.Common.Utilities;
 
 namespace Core.Telemetry.Tests;
 
@@ -157,6 +159,116 @@ public class TraceReplayerTests
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("bar", activity.GetTagItem("foo"));
         Assert.Equal("qux", activity.GetTagItem("baz"));
+    }
+
+    [Fact]
+    public void BufferAndReplay_PreserveExactSourceMetadataAcrossChildFirstIndependentBatches()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hierarchy-replay-" + Guid.NewGuid());
+        try
+        {
+            using var producer = new ReplayHarness();
+            using var exporter = new FileExporter(directory);
+            using var recovery = TelemetryHierarchy.StartActivity(producer.Source, "CLI.Activity.AiRecovery")!;
+            Activity first;
+            Activity second;
+            using (first = TelemetryHierarchy.StartActivity(producer.Source, "tool.get_command")!) { }
+            using (second = TelemetryHierarchy.StartActivity(producer.Source, "tool.get_command")!) { }
+
+            Assert.Equal(ExportResult.Success, exporter.Export(new Batch<Activity>([first, second], 2)));
+            var file = Assert.Single(Directory.GetFiles(directory, TraceFileStore.PendingFilePattern));
+            var childEntries = TraceFileFormat.Parse(File.ReadAllText(file));
+
+            using var earlierUpload = new ReplayHarness();
+            TraceReplayer.ReplayEntries(earlierUpload.Source, childEntries);
+            Assert.False(recovery.IsStopped);
+            Assert.Equal(2, earlierUpload.Stopped.Count);
+
+            recovery.Dispose();
+            Assert.Equal(ExportResult.Success, exporter.Export(new Batch<Activity>(recovery)));
+            var rootEntry = Assert.Single(TraceFileFormat.Parse(File.ReadAllText(file)),
+                entry => entry.OperationName == "CLI.Activity.AiRecovery");
+            using var laterUpload = new ReplayHarness();
+            TraceReplayer.ReplayEntries(laterUpload.Source, [rootEntry]);
+            var replayedRoot = Assert.Single(laterUpload.Stopped);
+
+            foreach (var original in new[] { recovery, first, second })
+            {
+                var replayed = earlierUpload.Stopped.Concat(laterUpload.Stopped)
+                    .Single(activity => Equals(activity.GetTagItem(TelemetryTags.HierarchySpanId), original.SpanId.ToHexString()));
+                Assert.Equal(original.TraceId, replayed.TraceId);
+                Assert.NotEqual(original.SpanId, replayed.SpanId);
+                Assert.Equal(original.OperationName, replayed.OperationName);
+                Assert.Equal(
+                    original.TagObjects.OrderBy(tag => tag.Key).ToArray(),
+                    replayed.TagObjects.OrderBy(tag => tag.Key).ToArray());
+            }
+            Assert.Equal("", replayedRoot.GetTagItem(TelemetryTags.HierarchyParentSpanId));
+            Assert.Equal("Agent", replayedRoot.GetTagItem(TelemetryTags.HierarchyPath));
+            Assert.Equal("CLI.Activity.AiRecovery", replayedRoot.OperationName);
+            Assert.All(earlierUpload.Stopped, activity =>
+            {
+                Assert.Equal(1, activity.GetTagItem(TelemetryTags.HierarchyDepth));
+                Assert.Equal("Agent.Tool.get_command", activity.GetTagItem(TelemetryTags.HierarchyPath));
+                Assert.Equal(replayedRoot.GetTagItem(TelemetryTags.HierarchySpanId),
+                    activity.GetTagItem(TelemetryTags.HierarchyParentSpanId));
+            });
+            Assert.NotEqual(first.SpanId, second.SpanId);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void LegacyBuffer_IsNotLabelledWithSourceHierarchy()
+    {
+        using var producer = new ReplayHarness();
+        using var replay = new ReplayHarness();
+        using var legacy = producer.Source.StartActivity("Agent.Create");
+        Assert.NotNull(legacy);
+        var entry = MakeEntry(legacy.TraceId.ToHexString(), legacy.SpanId.ToHexString(), null, legacy.OperationName);
+
+        TraceReplayer.ReplayEntries(replay.Source, [entry]);
+
+        Assert.DoesNotContain(Assert.Single(replay.Stopped).TagObjects,
+            tag => tag.Key.StartsWith("properties.hierarchy.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ReplayEntries_PreservesOperationNameWhenDisplayNameDiffers()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", null, "tool.get_command");
+        entry.DisplayName = "display aid";
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal("tool.get_command", activity.OperationName);
+        Assert.Equal("display aid", activity.DisplayName);
+    }
+
+    [Fact]
+    public void ReplayEntries_DoesNotDeduplicateOrJoinIdenticalSpanIdsFromDifferentTraces()
+    {
+        const string otherTraceId = "abcdef0123456789abcdef0123456789";
+        using var harness = new ReplayHarness();
+        var firstParent = MakeEntry(SampleTraceId, "1111111111111111", null, "first-parent");
+        var firstChild = MakeEntry(SampleTraceId, "2222222222222222", firstParent.SpanId, "first-child");
+        var otherParent = MakeEntry(otherTraceId, firstParent.SpanId!, null, "other-parent");
+        var otherChild = MakeEntry(otherTraceId, firstChild.SpanId!, otherParent.SpanId, "other-child");
+
+        TraceReplayer.ReplayEntries(harness.Source, [otherChild, firstChild, firstParent, otherParent]);
+
+        Assert.Equal(4, harness.Stopped.Count);
+        foreach (var trace in harness.Stopped.GroupBy(activity => activity.TraceId))
+        {
+            var parent = Assert.Single(trace, activity => activity.OperationName.EndsWith("-parent", StringComparison.Ordinal));
+            var child = Assert.Single(trace, activity => activity.OperationName.EndsWith("-child", StringComparison.Ordinal));
+            Assert.Equal(parent.SpanId, child.ParentSpanId);
+        }
     }
 
     [Fact]

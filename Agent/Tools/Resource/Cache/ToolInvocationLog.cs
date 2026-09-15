@@ -48,19 +48,22 @@ public static class ToolInvocationLog
         private readonly Stopwatch _sw;
         private readonly Activity? _activity;
         private string? _result;
+        private int _disposed;
 
         public Scope(string name, string? args)
         {
             _name = name;
             _args = args;
             _sw = Stopwatch.StartNew();
-            _activity = AgentTracing.Source.StartActivity($"tool.{name}");
+            _activity = AgentTracing.StartActivity($"tool.{name}");
         }
 
         public void SetResult(string result) => _result = result;
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
             _sw.Stop();
             _activity?.Dispose();
             _entries.Enqueue(new ToolInvocation(_name, _args, _result, _sw.Elapsed, DateTime.UtcNow));

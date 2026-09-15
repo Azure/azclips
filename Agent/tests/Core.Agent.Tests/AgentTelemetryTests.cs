@@ -21,8 +21,7 @@ public class RecoveryTraceContextTests
     [InlineData("00-tooshort-00f067aa0ba902b7-01")]
     public void Parse_ReturnsDefault_WhenAbsentOrMalformed(string? value)
     {
-        // default(ActivityContext) makes the caller fall back to ambient parenting, so a
-        // missing or broken handoff costs the parent edge and nothing else.
+        // StartSession treats this as an explicit independent root, not an ambient parent.
         Assert.Equal(default, RecoveryTraceContext.Parse(value));
     }
 
