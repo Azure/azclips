@@ -5,7 +5,7 @@ summary: Contributor rules, CI protections, and stable-release version automatio
 
 # CLI, PowerShell, and extension versioning
 
-Release automation owns stable package versions and generated release notes. Contributors own
+Release automation calculates stable package versions and generates release notes. Contributors own
 functional code and non-version project metadata.
 
 ## Contributor pull requests
@@ -16,6 +16,7 @@ functional code and non-version project metadata.
 | Non-version `.csproj` properties, references, or build settings | Yes | The release policy permits the change. |
 | Direct version properties in an existing `.csproj` | No | The PR policy fails. A new project may declare its initial versions. |
 | A nested dependency version, such as `PackageReference/Version` | Yes | It is not treated as the project's release version. |
+| PowerShell manifest versions (`ModuleVersion` or `RequiredModules`) | Yes | The PR policy does not inspect `.psd1` content. Stable-release automation later recalculates and aligns packageable module versions. |
 | Add or delete a `.csproj` | Yes | The release policy permits it in a contributor PR. New packageable extensions must include complete packaging metadata. |
 | Rename a `.csproj` | No | The PR policy fails to prevent version-policy bypasses. |
 | Root `CHANGELOG.md` | No | The PR policy fails because stable-release automation owns it. |
