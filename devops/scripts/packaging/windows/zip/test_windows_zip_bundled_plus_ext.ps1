@@ -131,6 +131,12 @@ if (-not (Test-Path -Path $azExe -PathType Leaf)) {
 }
 Write-Host 'PASS: az.exe found'
 
+$copilotExe = Join-Path $SimRoot "install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/$Rid/native/copilot.exe"
+if (-not (Test-Path -Path $copilotExe -PathType Leaf)) {
+    throw "FAIL: Bundled Copilot CLI not found at the agent resolver path: $copilotExe"
+}
+Write-Host 'PASS: Bundled Copilot CLI found at the agent resolver path'
+
 foreach ($legalFile in @('NOTICE', 'LICENSE')) {
     $legalPath = Join-Path $SimRoot "install/$legalFile"
     if (-not (Test-Path -Path $legalPath -PathType Leaf)) {
@@ -183,6 +189,29 @@ if ($IsWindows -and -not $SkipRuntime) {
     if ([string]::IsNullOrWhiteSpace($versionText)) {
         throw 'FAIL: az.exe --version returned no output.'
     }
+
+    Write-Host 'Verifying bundled Copilot CLI daemon starts'
+    $copilotInput = Join-Path $SimRoot 'copilot.stdin'
+    $copilotOutput = Join-Path $SimRoot 'copilot.stdout'
+    $copilotError = Join-Path $SimRoot 'copilot.stderr'
+    Set-Content -Path $copilotInput -Value '' -NoNewline
+    $copilotProcess = Start-Process -FilePath $copilotExe `
+        -ArgumentList '--server', '--stdio' `
+        -NoNewWindow `
+        -PassThru `
+        -RedirectStandardInput $copilotInput `
+        -RedirectStandardOutput $copilotOutput `
+        -RedirectStandardError $copilotError
+    if (-not $copilotProcess.WaitForExit(15000)) {
+        $copilotProcess.Kill($true)
+        $copilotProcess.WaitForExit()
+        throw 'FAIL: Bundled Copilot CLI daemon did not stop within 15 seconds.'
+    }
+    if ($copilotProcess.ExitCode -ne 0) {
+        Get-Content -Path $copilotOutput, $copilotError | Select-Object -First 20 | Out-Host
+        throw "FAIL: Bundled Copilot CLI daemon exited with code $($copilotProcess.ExitCode)."
+    }
+    Write-Host 'PASS: Bundled Copilot CLI daemon started and stopped cleanly'
 
     & $azExe --help | Select-Object -First 20 | Out-Host
     if ($LASTEXITCODE -ne 0) {
