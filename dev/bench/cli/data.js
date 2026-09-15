@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789447654617,
+  "lastUpdate": 1789447724873,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10642,6 +10642,54 @@ window.BENCHMARK_DATA = {
             "value": 2515991.0046203295,
             "unit": "ns",
             "range": "± 118355.53900125607"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "611fddacb854e8b38b6d4113ff77ccc1cd587169",
+          "message": "[Login] add client level validations for subscription-id (#888)",
+          "timestamp": "2026-09-15T03:40:50Z",
+          "tree_id": "2ee4b11ec0f0f56e878a63ca384d1a5f176e4f4f",
+          "url": "https://github.com/Azure/azclips/commit/611fddacb854e8b38b6d4113ff77ccc1cd587169"
+        },
+        "date": 1789447721220,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2387900.0138276555,
+            "unit": "ns",
+            "range": "± 91675.28241296356"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2430444.3394439965,
+            "unit": "ns",
+            "range": "± 97285.77493292629"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2393729.7252758276,
+            "unit": "ns",
+            "range": "± 97475.47864823362"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2279338.605178643,
+            "unit": "ns",
+            "range": "± 96403.01386076654"
           }
         ]
       }
