@@ -102,6 +102,13 @@ block.
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 
+For `builtin`, the model tag is the configured model ID. For `github`, the SDK
+selects the model; each `Agent.Send` records the last non-empty main-agent model
+reported by `assistant.usage` before that send ends. Sub-agent and auxiliary
+usage do not replace it. If no such event is observed (for example, an early
+cancellation), the model tag is absent rather than guessed. Runs without an
+`Agent.Send` span have no model observation.
+
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:
 

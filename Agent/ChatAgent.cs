@@ -85,7 +85,7 @@ public sealed class ChatAgent : IAsyncDisposable
         if (_state is not null) _state.OnFinalRendered = callback;
     }
 
-    private ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
+    internal ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
     {
         _client = client;
         _session = session;
@@ -365,9 +365,23 @@ public sealed class ChatAgent : IAsyncDisposable
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         oldCts?.Dispose();
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
-        send?.SetTag(TelemetryTags.AgentModel, _model);
+        if (!string.IsNullOrEmpty(_model))
+            send?.SetTag(TelemetryTags.AgentModel, _model);
+        string? observedModel = null;
         try
         {
+            // SDK events run off-thread. Capture this send's model, then tag it before export.
+            using var modelSubscription = send is not null && string.IsNullOrEmpty(_model)
+                ? _session.On<AssistantUsageEvent>(usage =>
+                {
+                    if (string.IsNullOrEmpty(usage.AgentId) &&
+                        string.IsNullOrEmpty(usage.Data.Initiator) &&
+                        !string.IsNullOrWhiteSpace(usage.Data.Model))
+                    {
+                        Volatile.Write(ref observedModel, usage.Data.Model);
+                    }
+                })
+                : null;
             await _session.SendAndWaitAsync(
                 new MessageOptions { Prompt = prompt },
                 timeout: TurnTimeout,
@@ -375,6 +389,8 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         finally
         {
+            if (Volatile.Read(ref observedModel) is { } model)
+                send?.SetTag(TelemetryTags.AgentModel, model);
             var done = Interlocked.Exchange(ref _activeTurnCts, null);
             done?.Dispose();
         }
