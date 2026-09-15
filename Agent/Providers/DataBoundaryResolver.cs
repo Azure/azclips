@@ -98,15 +98,26 @@ internal sealed class DataBoundaryResolver
 
     private async Task<DataBoundaryResult> ResolveCoreAsync(Activity? activity, string? presuppliedToken, CancellationToken ct)
     {
+        // The budget starts here, not after the profile read: that read can block on file I/O or on
+        // the profile service's own gate, and anything before the CTS exists is outside the ceiling
+        // this lookup promises. A caller cancellation stays distinguishable from our timeout so
+        // Ctrl+C is never reported as a lookup failure.
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(LookupTimeout);
+
         string? tenantId;
         try
         {
-            var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
+            var profile = await _profileService.GetActiveProfileAsync(timeoutCts.Token).ConfigureAwait(false);
             tenantId = profile?.TenantId;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return DataBoundaryResult.Failed("timeout_reading_profile");
         }
         catch (Exception ex)
         {
@@ -119,11 +130,6 @@ internal sealed class DataBoundaryResolver
         {
             return DataBoundaryResult.Failed("no_active_tenant");
         }
-
-        // The timeout is ours, but a caller cancellation has to stay distinguishable from it so
-        // Ctrl+C is not reported as a lookup failure.
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(LookupTimeout);
 
         string? token;
         if (!string.IsNullOrEmpty(presuppliedToken))
@@ -236,7 +242,19 @@ internal sealed class DataBoundaryResolver
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
 
+            // TryGetProperty throws InvalidOperationException on anything that is not an object, so
+            // a well-formed body of the wrong shape (an array, a bare number) has to be rejected by
+            // kind first. Letting it throw would surface as arm_request_failed from the caller's
+            // catch — blaming the transport for what is actually a response-shape problem.
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return DataBoundaryResult.Failed("malformed_response", tenantId);
+            }
+
+            // Same guard one level down: "properties" can legitimately be present as null or an
+            // array, and both would throw rather than read as a missing boundary.
             rawValue = root.TryGetProperty("properties", out var properties)
+                       && properties.ValueKind == JsonValueKind.Object
                        && properties.TryGetProperty("dataBoundary", out var dataBoundary)
                        && dataBoundary.ValueKind == JsonValueKind.String
                 ? dataBoundary.GetString()

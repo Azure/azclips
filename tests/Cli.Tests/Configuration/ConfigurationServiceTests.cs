@@ -115,6 +115,24 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ListConfigurationAsync_ShouldNotExposeBuiltinScope_BecauseItIsNotConfigurable()
+    {
+        // The scope must stay an ARM audience: the same token authorizes the ARM data boundary
+        // lookup, so a user-set value would break that lookup with an opaque 401 and aim the model's
+        // bearer token at an arbitrary audience. Removing the ConfigurationSchema entry is not
+        // enough on its own — defaults come from serializing AgentOptions, so a public getter would
+        // still surface here as an apparent setting.
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        Assert.DoesNotContain("agent.builtin.scope", values.Keys, StringComparer.OrdinalIgnoreCase);
+        // Sibling keys are still present, so this is not passing because the section went missing.
+        Assert.Contains("agent.builtin.modelId", values.Keys, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured()
     {
         using var fixture = new TempConfigurationFixture();

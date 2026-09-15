@@ -36,20 +36,12 @@ public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
             .AddSource(sourceName)
             .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
-        // Matches CLITelemetryProvider. Without this the agent process emits no span at all for
-        // its outbound HTTP — the ARM data boundary lookup included — so a custom span is the only
-        // record of a call, with no status code or duration to fall back on. Safe by construction:
-        // DefaultTelemetryPropertyFilter admits only method/status/scheme/host/user-agent/length and
-        // drops http.url, url.full and http.target, which are the keys that can carry resource paths.
-        builder.AddHttpClientInstrumentation(options =>
-        {
-            options.RecordException = true;
-            options.EnrichWithHttpRequestMessage = (activity, request) =>
-            {
-                activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-            };
-        });
-
+        // No AddHttpClientInstrumentation here, deliberately. The CLI, TUI and PS providers call it,
+        // but DefaultTelemetryActivityNameFilter rejects "System.Net.Http.HttpRequestOut" — asserted
+        // in ActivityNameFilterTests — so every span it produces is dropped before export. Adding it
+        // would buy instrumentation overhead on every agent HTTP call and no data. Outbound calls
+        // that need timing carry it on their own allowlisted span instead, the way
+        // Agent.DataBoundary records armElapsedMs.
         foreach (var processor in filterProcessors)
         {
             builder.AddProcessor(processor);

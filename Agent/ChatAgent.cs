@@ -113,8 +113,11 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        AuthResult? preAcquiredAuth = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Appended after ct rather than placed with the other optional parameters: inserting it
+        // ahead of ct would rebind the final positional argument of any existing call site from
+        // CancellationToken to AuthResult.
+        AuthResult? preAcquiredAuth = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         var sdkLogger = logger ?? NullLogger.Instance;

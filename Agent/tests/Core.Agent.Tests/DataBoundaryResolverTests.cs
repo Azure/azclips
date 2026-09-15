@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using Core.Abstractions;
@@ -95,6 +96,12 @@ public class DataBoundaryResolverTests
     [InlineData("not json at all", "malformed_response")]
     [InlineData("""{"properties":{}}""", "missing_data_boundary")]
     [InlineData("""{"unexpected":"shape"}""", "missing_data_boundary")]
+    // A 200 whose body is well-formed JSON but not the documented object. These must classify as a
+    // shape problem, not as a transport failure, or the telemetry blames the wrong layer.
+    [InlineData("[]", "malformed_response")]
+    [InlineData("123", "malformed_response")]
+    [InlineData("""{"properties":null}""", "missing_data_boundary")]
+    [InlineData("""{"properties":[]}""", "missing_data_boundary")]
     public async Task Resolve_UnusableBody_IsUnknownWithoutThrowing(string body, string expectedReason)
     {
         var resolver = Build(new FakeHandler(_ => (HttpStatusCode.OK, body)));
@@ -183,6 +190,30 @@ public class DataBoundaryResolverTests
         Assert.Equal("not_applicable", skipped.TagValue);
         Assert.NotEqual(failed.TagValue, skipped.TagValue);
         Assert.Equal("provider_github", skipped.FailureReason);
+    }
+
+    [Fact]
+    public async Task Resolve_SlowProfileRead_TimesOutWithinTheLookupBudget()
+    {
+        // The budget has to start before the profile read, not after it. A profile service blocked
+        // on file I/O or its own gate would otherwise stall recovery startup past the ceiling this
+        // lookup advertises, and no ARM call would ever be attempted to hit the later timeout.
+        var handler = new FakeHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU")));
+        var resolver = new DataBoundaryResolver(
+            new FakeAuthService(),
+            new HangingProfileService(),
+            new HttpClient(handler));
+
+        var started = Stopwatch.StartNew();
+        var result = await resolver.ResolveAsync();
+        started.Stop();
+
+        Assert.Equal(DataBoundary.Unknown, result.Boundary);
+        Assert.Equal("timeout_reading_profile", result.FailureReason);
+        Assert.True(
+            started.Elapsed < DataBoundaryResolver.LookupTimeout * 3,
+            $"the lookup budget did not bound the profile read; took {started.Elapsed}");
+        Assert.Equal(0, handler.RequestCount);
     }
 
     [Fact]
@@ -362,6 +393,27 @@ public class DataBoundaryResolverTests
             throw new InvalidOperationException("no cached account");
         public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
+    }
+
+    private sealed class HangingProfileService : IProfileService
+    {
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+        public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(null);
+        // Never completes on its own — stands in for a profile read blocked on file I/O or on the
+        // service's own gate. Only the caller's token can end it.
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
+            Task.Delay(Timeout.Infinite, cancellationToken).ContinueWith<Profile?>(
+                _ => null, cancellationToken, TaskContinuationOptions.None, TaskScheduler.Default);
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
+        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 
     private sealed class FakeProfileService : IProfileService

@@ -60,15 +60,18 @@ public sealed class TraceOptions
 public sealed class BuiltinProviderOptions
 {
     /// <summary>
-    /// AAD scope requested for the builtin provider's token. Deliberately not in
-    /// <c>ConfigurationSchema</c>: it must stay an ARM audience, because the same token also
-    /// authorizes the ARM data boundary lookup, and pointing it elsewhere would both break that
-    /// lookup with an opaque 401 and aim the model's bearer token at an arbitrary audience.
+    /// AAD scope requested for the builtin provider's token. A constant rather than a property, so
+    /// it is neither in <c>ConfigurationSchema</c> nor picked up by the options serializer that
+    /// backs <c>az config list --include-defaults</c> — a bindable property would still surface it
+    /// as an apparent setting even with the schema entry gone.
+    ///
+    /// It must stay an ARM audience: the same token also authorizes the ARM data boundary lookup,
+    /// and pointing it elsewhere would break that lookup with an opaque 401 while aiming the
+    /// model's bearer token at an arbitrary audience.
     /// </summary>
     public const string ArmScope = "https://management.core.windows.net//.default";
 
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
-    public string Scope => ArmScope;
     public string ModelId { get; set; } = "gpt-5.4";
     public string ApiVersion { get; set; } = "2025-04-01-preview";
 }

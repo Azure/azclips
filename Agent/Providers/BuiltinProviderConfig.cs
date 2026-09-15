@@ -41,7 +41,7 @@ internal static class BuiltinProviderConfig
         try
         {
             authResult = await auth.AcquireTokenSilentlyAsync(
-                scopes: [opts.Scope],
+                scopes: [BuiltinProviderOptions.ArmScope],
                 tenantId: null,
                 promptOnError: false,
                 cancellationToken: ct).ConfigureAwait(false);
