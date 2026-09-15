@@ -699,6 +699,36 @@ public class ManagementGroupDeploymentTests
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task Wait_CreatedStopsWhenDeploymentSucceeds()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
+        WaitManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new WaitManagementGroupDeploymentProcessor { Created = true, Interval = 1, Timeout = 1 }, pipeline, new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_DeletedStopsWhenDeploymentIsNotFound()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"error":{"code":"DeploymentNotFound"}}""", HttpStatusCode.NotFound));
+        WaitManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new WaitManagementGroupDeploymentProcessor { Deleted = true }, pipeline, new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : ResourcesProcessorBase
     {

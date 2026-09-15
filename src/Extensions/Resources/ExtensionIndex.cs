@@ -13,6 +13,7 @@ using StopManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extension
 using RemoveManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Customization.RemoveManagementGroupDeploymentProcessor_Orchestrator;
 using ExportManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor;
 using NewManagementGroupDeploymentWhatIfProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Customization.NewManagementGroupDeploymentWhatIfProcessor_Orchestrator;
+using WaitManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Customization.WaitManagementGroupDeploymentProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -617,6 +618,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["p"] = "parameters",
             }
         );
+        private static readonly CommandMetadata s_waitManagementGroupDeployment_CLI = new(
+            Name: nameof(WaitManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg wait",
+            Aliases: [],
+            FullName: typeof(WaitManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(WaitManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
+                ["created"] = new("Created", "created", typeof(bool), "Wait until provisioningState is Succeeded.", false, [], []),
+                ["updated"] = new("Updated", "updated", typeof(bool), "Wait until provisioningState is Succeeded.", false, [], []),
+                ["deleted"] = new("Deleted", "deleted", typeof(bool), "Wait until the deployment no longer exists.", false, [], []),
+                ["exists"] = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", false, [], []),
+                ["custom"] = new("Custom", "custom", typeof(string), "Wait for a provisioningState equality expression.", false, [], []),
+                ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds.", false, [], []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds.", false, [], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -705,6 +728,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg delete"]      = s_removeManagementGroupDeployment_CLI,
             ["deployment mg export"]      = s_exportManagementGroupDeployment_CLI,
             ["deployment mg what-if"]     = s_newManagementGroupDeploymentWhatIf_CLI,
+            ["deployment mg wait"]        = s_waitManagementGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
