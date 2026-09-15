@@ -1,0 +1,543 @@
+parameters:
+- name: dependency_stage
+  type: object
+  default: VerifySignedDistribution
+- name: azure_subscription
+  type: string
+- name: cli_registry_name
+  type: string
+  default: azurecli
+- name: cli_registry_server
+  type: string
+  default: azurecli.azurecr.io
+- name: cli_repository
+  type: string
+  default: public/azure-cli-v3
+- name: powershell_registry_name
+  type: string
+  default: azureps
+- name: powershell_registry_server
+  type: string
+  default: azureps.azurecr.io
+- name: powershell_repository
+  type: string
+  default: public/azure-powershell-v3
+- name: amd64_pool
+  type: string
+  default: pool-ubuntu-latest-multi-core
+- name: arm64_pool
+  type: string
+  default: pool-ubuntu-latest-arm64
+- name: PackagingScriptsRoot
+  type: string
+- name: signed_artifact_name
+  type: string
+  default: Final_Signed_Distribution
+- name: cli_base_image
+  type: string
+  default: mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0
+- name: pwsh_base_image
+  type: string
+  default: mcr.microsoft.com/dotnet/runtime:10.0-azurelinux3.0
+- name: pwsh_builder_image
+  type: string
+  default: mcr.microsoft.com/dotnet/sdk:10.0-azurelinux3.0
+- name: publication_environment
+  type: string
+  default: azclips-container-production
+- name: promote_aliases
+  type: boolean
+  default: true
+- name: release_version
+  type: string
+  default: auto
+
+stages:
+- stage: BuildSignedDockerImages
+  displayName: Build Docker Images From Signed Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  condition: succeeded()
+  jobs:
+  - job: BuildSignedDockerImages
+    displayName: Docker Image From Signed Distribution
+    timeoutInMinutes: 45
+    strategy:
+      matrix:
+        cli_azurelinux3_lean_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Rid: linux-x64
+          Platform: linux/amd64
+          ImageFlavor: cli
+          PackageProfile: lean
+          BaseImage: ${{ parameters.cli_base_image }}
+          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Lean_Amd64
+        cli_azurelinux3_lean_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Rid: linux-arm64
+          Platform: linux/arm64
+          ImageFlavor: cli
+          PackageProfile: lean
+          BaseImage: ${{ parameters.cli_base_image }}
+          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Lean_Arm64
+        cli_azurelinux3_full_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Rid: linux-x64
+          Platform: linux/amd64
+          ImageFlavor: cli
+          PackageProfile: full
+          BaseImage: ${{ parameters.cli_base_image }}
+          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Full_Amd64
+        cli_azurelinux3_full_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Rid: linux-arm64
+          Platform: linux/arm64
+          ImageFlavor: cli
+          PackageProfile: full
+          BaseImage: ${{ parameters.cli_base_image }}
+          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Full_Arm64
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          ImageFlavor: pwsh
+          PackageProfile: none
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          ImageFlavor: pwsh
+          PackageProfile: none
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Arm64
+    pool:
+      name: $(Pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+      retryCountOnTaskFailure: 3
+
+    - script: |
+        set -euo pipefail
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      displayName: Install Docker
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Distribution
+      inputs:
+        artifact: ${{ parameters.signed_artifact_name }}
+        path: $(Pipeline.Workspace)/signed-docker-input
+
+    - script: |
+        set -euo pipefail
+        version="$RELEASE_VERSION"
+        if [[ "$version" == "auto" ]]; then
+          source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
+          version="${source_tag%.*T*Z}"
+        fi
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Docker image build requires a SemVer-like release version. Got: $version"
+          exit 1
+        fi
+
+        signed_root="$(Pipeline.Workspace)/signed-docker-input"
+        output_root="$(Pipeline.Workspace)/signed-docker-output/$(System.JobName)"
+        rm -rf "$output_root"
+        mkdir -p "$output_root"
+
+        if [[ "$(ImageFlavor)" == "cli" ]]; then
+          archive_name="azcli-${version}-$(Rid).tar.gz"
+          if [[ "$(PackageProfile)" == "lean" ]]; then
+            archive_name="azcli-lean-${version}-$(Rid).tar.gz"
+          fi
+          mapfile -t archives < <(find "$signed_root" -type f -name "$archive_name" | sort)
+          if [[ ${#archives[@]} -ne 1 ]]; then
+            echo "ERROR: Expected exactly one signed CLI archive named '$archive_name', found ${#archives[@]}."
+            printf '%s\n' "${archives[@]}"
+            exit 1
+          fi
+
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
+          ARTIFACT_VERSION="$version" \
+          OUT_ROOT="$output_root" \
+          RID="$(Rid)" \
+          PLATFORM="$(Platform)" \
+          PACKAGE_PROFILE="$(PackageProfile)" \
+          BASE_IMAGE="$(BaseImage)" \
+          IMAGE_VARIANT=azurelinux3 \
+          DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.cli" \
+          TARBALL_PATH="${archives[0]}" \
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
+          image_tag="azclips:${version}-azurelinux3-$(PackageProfile)-${PLATFORM#linux/}"
+          expected_version="$version"
+        else
+          archive_name="azps-cmdlets-${version}.tar.gz"
+          mapfile -t archives < <(find "$signed_root" -type f -name "$archive_name" | sort)
+          if [[ ${#archives[@]} -ne 1 ]]; then
+            echo "ERROR: Expected exactly one signed PowerShell archive named '$archive_name', found ${#archives[@]}."
+            printf '%s\n' "${archives[@]}"
+            exit 1
+          fi
+
+          module_repo="$output_root/signed-module-repo"
+          mkdir -p "$module_repo"
+          tar -xzf "${archives[0]}" -C "$module_repo"
+          mapfile -t rollup_packages < <(find "$module_repo" -maxdepth 1 -type f -name 'Az.[0-9]*.nupkg' | sort)
+          if [[ ${#rollup_packages[@]} -ne 1 ]]; then
+            echo "ERROR: Expected exactly one signed Az rollup package, found ${#rollup_packages[@]}."
+            printf '%s\n' "${rollup_packages[@]}"
+            exit 1
+          fi
+          rollup_name="$(basename "${rollup_packages[0]}")"
+          expected_version="${rollup_name#Az.}"
+          expected_version="${expected_version%.nupkg}"
+          if [[ ! "$expected_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: Unable to derive a valid Az module version from '$rollup_name'."
+            exit 1
+          fi
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+          ARTIFACT_VERSION="$version" \
+          OUT_ROOT="$output_root" \
+          PLATFORM="$(Platform)" \
+          BASE_IMAGE="$(BaseImage)" \
+          POWERSHELL_BUILDER_IMAGE="${{ parameters.pwsh_builder_image }}" \
+          IMAGE_VARIANT=azurelinux3 \
+          DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
+          MODULE_REPO_ROOT="$module_repo" \
+          INSTALL_MODULE_SCRIPT="$module_repo/InstallModule.ps1" \
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+          image_tag="azclips-powershell:${version}-azurelinux3-${PLATFORM#linux/}"
+          printf '%s\n' "$expected_version" > "$output_root/Release/docker/powershell-version.txt"
+        fi
+
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+        IMAGE_TAG="$image_tag" \
+        IMAGE_FLAVOR="$(ImageFlavor)" \
+        PLATFORM="$(Platform)" \
+        EXPECTED_VERSION="$expected_version" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+        echo "##vso[task.setvariable variable=ReleaseDockerOutputRoot]$output_root/Release/docker"
+      displayName: Build And Validate Docker Image From Signed Distribution
+      env:
+        RELEASE_VERSION: ${{ parameters.release_version }}
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Docker Image From Signed Distribution
+      inputs:
+        targetPath: $(ReleaseDockerOutputRoot)
+        artifact: $(ReleaseDockerArtifact)
+        publishLocation: pipeline
+
+- stage: PublishDockerImagesToAcr
+  displayName: Publish Docker Images To ACR
+  dependsOn: BuildSignedDockerImages
+  condition: succeeded()
+  lockBehavior: sequential
+  jobs:
+  - deployment: PublishDockerImages
+    displayName: Publish Versioned Docker Images
+    timeoutInMinutes: 90
+    environment: ${{ parameters.publication_environment }}
+    pool:
+      name: ${{ parameters.amd64_pool }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+
+          - script: |
+              set -euo pipefail
+              chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+              "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+            displayName: Install Docker
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download CLI Azure Linux 3 Lean Amd64 Image
+            inputs:
+              artifact: Release_Docker_CLI_AzureLinux3_Lean_Amd64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Lean_Amd64
+          - task: DownloadPipelineArtifact@2
+            displayName: Download CLI Azure Linux 3 Lean Arm64 Image
+            inputs:
+              artifact: Release_Docker_CLI_AzureLinux3_Lean_Arm64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Lean_Arm64
+          - task: DownloadPipelineArtifact@2
+            displayName: Download CLI Azure Linux 3 Full Amd64 Image
+            inputs:
+              artifact: Release_Docker_CLI_AzureLinux3_Full_Amd64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Full_Amd64
+          - task: DownloadPipelineArtifact@2
+            displayName: Download CLI Azure Linux 3 Full Arm64 Image
+            inputs:
+              artifact: Release_Docker_CLI_AzureLinux3_Full_Arm64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Full_Arm64
+          - task: DownloadPipelineArtifact@2
+            displayName: Download PowerShell Azure Linux 3 Amd64 Image
+            inputs:
+              artifact: Release_Docker_PowerShell_AzureLinux3_Amd64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_PowerShell_AzureLinux3_Amd64
+          - task: DownloadPipelineArtifact@2
+            displayName: Download PowerShell Azure Linux 3 Arm64 Image
+            inputs:
+              artifact: Release_Docker_PowerShell_AzureLinux3_Arm64
+              path: $(Pipeline.Workspace)/docker-publish/Release_Docker_PowerShell_AzureLinux3_Arm64
+
+          - task: AzureCLI@2
+            displayName: Push Images And Create Version Manifests
+            inputs:
+              azureSubscription: ${{ parameters.azure_subscription }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                version="$RELEASE_VERSION"
+                if [[ "$version" == "auto" ]]; then
+                  source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
+                  version="${source_tag%.*T*Z}"
+                fi
+                if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+                  echo "ERROR: Docker publication requires a SemVer-like release version. Got: $version"
+                  exit 1
+                fi
+
+                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+                ACTION=validate \
+                VERSION="$version" \
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+                az acr login --name "$CLI_REGISTRY_NAME"
+                az acr login --name "$POWERSHELL_REGISTRY_NAME"
+                ACTION=publish \
+                VERSION="$version" \
+                ARTIFACT_ROOT="$(Pipeline.Workspace)/docker-publish" \
+                METADATA_ROOT="$(Build.ArtifactStagingDirectory)/docker-publish-metadata" \
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+            env:
+              RELEASE_VERSION: ${{ parameters.release_version }}
+              CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
+              CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
+              CLI_REPOSITORY: ${{ parameters.cli_repository }}
+              POWERSHELL_REGISTRY_NAME: ${{ parameters.powershell_registry_name }}
+              POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
+              POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish Docker Image Digests
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)/docker-publish-metadata
+              artifact: Docker_Publish_Metadata
+              publishLocation: pipeline
+
+- stage: VerifyPublishedDockerImages
+  displayName: Verify Published Docker Images
+  dependsOn: PublishDockerImagesToAcr
+  condition: succeeded()
+  jobs:
+  - job: VerifyPublishedDockerImages
+    displayName: Published Docker Image
+    timeoutInMinutes: 45
+    strategy:
+      matrix:
+        cli_azurelinux3_lean_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          ImageFlavor: cli
+          RegistryName: ${{ parameters.cli_registry_name }}
+          RegistryServer: ${{ parameters.cli_registry_server }}
+          ImageRepository: ${{ parameters.cli_repository }}
+          TagSuffix: azurelinux3-lean
+        cli_azurelinux3_lean_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          ImageFlavor: cli
+          RegistryName: ${{ parameters.cli_registry_name }}
+          RegistryServer: ${{ parameters.cli_registry_server }}
+          ImageRepository: ${{ parameters.cli_repository }}
+          TagSuffix: azurelinux3-lean
+        cli_azurelinux3_full_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          ImageFlavor: cli
+          RegistryName: ${{ parameters.cli_registry_name }}
+          RegistryServer: ${{ parameters.cli_registry_server }}
+          ImageRepository: ${{ parameters.cli_repository }}
+          TagSuffix: azurelinux3-full
+        cli_azurelinux3_full_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          ImageFlavor: cli
+          RegistryName: ${{ parameters.cli_registry_name }}
+          RegistryServer: ${{ parameters.cli_registry_server }}
+          ImageRepository: ${{ parameters.cli_repository }}
+          TagSuffix: azurelinux3-full
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          ImageFlavor: pwsh
+          RegistryName: ${{ parameters.powershell_registry_name }}
+          RegistryServer: ${{ parameters.powershell_registry_server }}
+          ImageRepository: ${{ parameters.powershell_repository }}
+          TagSuffix: azurelinux3
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          ImageFlavor: pwsh
+          RegistryName: ${{ parameters.powershell_registry_name }}
+          RegistryServer: ${{ parameters.powershell_registry_server }}
+          ImageRepository: ${{ parameters.powershell_repository }}
+          TagSuffix: azurelinux3
+    pool:
+      name: $(Pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+      retryCountOnTaskFailure: 3
+
+    - script: |
+        set -euo pipefail
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      displayName: Install Docker
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Docker Image Digests
+      inputs:
+        artifact: Docker_Publish_Metadata
+        path: $(Pipeline.Workspace)/docker-publish-metadata
+
+    - task: AzureCLI@2
+      displayName: Pull And Verify Version Manifest
+      inputs:
+        azureSubscription: ${{ parameters.azure_subscription }}
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          version="$RELEASE_VERSION"
+          if [[ "$version" == "auto" ]]; then
+            source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
+            version="${source_tag%.*T*Z}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: Docker verification requires a SemVer-like release version. Got: $version"
+            exit 1
+          fi
+
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+          ACTION=validate \
+          VERSION="$version" \
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+          az acr login --name "$TARGET_REGISTRY_NAME"
+          digest_file="$(Pipeline.Workspace)/docker-publish-metadata/image-digests.txt"
+          image_prefix="$TARGET_REGISTRY_SERVER/$TARGET_IMAGE_REPOSITORY:${version}-$TARGET_TAG_SUFFIX@"
+          image_ref="$(grep -F "$image_prefix" "$digest_file" || true)"
+          if [[ "$(grep -c . <<<"$image_ref")" -ne 1 ]]; then
+            echo "ERROR: Expected one published digest for '$image_prefix'."
+            printf '%s\n' "$image_ref"
+            exit 1
+          fi
+          expected_version=""
+          if [[ "$TARGET_IMAGE_FLAVOR" == "cli" ]]; then
+            expected_version="$version"
+          else
+            powershell_version_file="$(Pipeline.Workspace)/docker-publish-metadata/powershell-version.txt"
+            if [[ ! -f "$powershell_version_file" ]]; then
+              echo "ERROR: Published PowerShell image metadata is missing '$powershell_version_file'."
+              exit 1
+            fi
+            expected_version="$(<"$powershell_version_file")"
+          fi
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
+          IMAGE_TAG="$image_ref" \
+          IMAGE_FLAVOR="$TARGET_IMAGE_FLAVOR" \
+          PLATFORM="$TARGET_PLATFORM" \
+          EXPECTED_VERSION="$expected_version" \
+          SMOKE_TEST_SCRIPT="${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh" \
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
+      env:
+        RELEASE_VERSION: ${{ parameters.release_version }}
+        CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
+        CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
+        CLI_REPOSITORY: ${{ parameters.cli_repository }}
+        POWERSHELL_REGISTRY_NAME: ${{ parameters.powershell_registry_name }}
+        POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
+        POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}
+        TARGET_REGISTRY_NAME: $(RegistryName)
+        TARGET_REGISTRY_SERVER: $(RegistryServer)
+        TARGET_IMAGE_REPOSITORY: $(ImageRepository)
+        TARGET_TAG_SUFFIX: $(TagSuffix)
+        TARGET_IMAGE_FLAVOR: $(ImageFlavor)
+        TARGET_PLATFORM: $(Platform)
+
+- stage: PromoteDockerImagesInAcr
+  displayName: Promote Docker Image Aliases In ACR
+  dependsOn: VerifyPublishedDockerImages
+  condition: and(succeeded(), eq(${{ parameters.promote_aliases }}, true))
+  lockBehavior: sequential
+  jobs:
+  - deployment: PromoteDockerImages
+    displayName: Promote Verified Docker Images
+    environment: ${{ parameters.publication_environment }}
+    pool:
+      name: ${{ parameters.amd64_pool }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+
+          - script: |
+              set -euo pipefail
+              chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+              "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+            displayName: Install Docker
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download Docker Image Digests
+            inputs:
+              artifact: Docker_Publish_Metadata
+              path: $(Pipeline.Workspace)/docker-publish-metadata
+
+          - task: AzureCLI@2
+            displayName: Promote Verified Tags
+            inputs:
+              azureSubscription: ${{ parameters.azure_subscription }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                version="$RELEASE_VERSION"
+                if [[ "$version" == "auto" ]]; then
+                  source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
+                  version="${source_tag%.*T*Z}"
+                fi
+                if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+                  echo "ERROR: Docker promotion requires a SemVer-like release version. Got: $version"
+                  exit 1
+                fi
+
+                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+                ACTION=validate \
+                VERSION="$version" \
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+                az acr login --name "$CLI_REGISTRY_NAME"
+                az acr login --name "$POWERSHELL_REGISTRY_NAME"
+                ACTION=promote \
+                VERSION="$version" \
+                METADATA_ROOT="$(Pipeline.Workspace)/docker-publish-metadata" \
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+            env:
+              RELEASE_VERSION: ${{ parameters.release_version }}
+              CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
+              CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
+              CLI_REPOSITORY: ${{ parameters.cli_repository }}
+              POWERSHELL_REGISTRY_NAME: ${{ parameters.powershell_registry_name }}
+              POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
+              POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}

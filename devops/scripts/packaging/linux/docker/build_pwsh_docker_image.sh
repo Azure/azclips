@@ -17,6 +17,7 @@ set -euo pipefail
 #   ARTIFACT_VERSION  Version used in image tag        (default: 0.0.0)
 #   OUT_ROOT          Root output directory            (default: <repo>/devops/out/docker)
 #   DOCKERFILE        Path to Dockerfile               (default: <packaging>/linux/docker/Dockerfile.pwsh)
+#   INSTALL_MODULE_SCRIPT Path to InstallModule.ps1     (default: <packaging>/powershell/InstallModule.ps1)
 #   BUILDX_BUILDER    Docker-container Buildx builder  (default: azclips-builder)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,6 +32,7 @@ IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips-powershell}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/docker}"
 DOCKERFILE="${DOCKERFILE:-$PACKAGING_ROOT/linux/docker/Dockerfile.pwsh}"
+INSTALL_MODULE_SCRIPT="${INSTALL_MODULE_SCRIPT:-$PACKAGING_ROOT/powershell/InstallModule.ps1}"
 BUILDX_BUILDER="${BUILDX_BUILDER:-azclips-builder}"
 MODULE_REPO_ROOT="${MODULE_REPO_ROOT:?ERROR: MODULE_REPO_ROOT must point to a PS local-repo directory}"
 
@@ -41,6 +43,11 @@ fi
 
 if [[ ! -f "$DOCKERFILE" ]]; then
   echo "ERROR: Dockerfile not found at $DOCKERFILE"
+  exit 1
+fi
+
+if [[ ! -f "$INSTALL_MODULE_SCRIPT" ]]; then
+  echo "ERROR: InstallModule.ps1 not found at $INSTALL_MODULE_SCRIPT"
   exit 1
 fi
 
@@ -59,7 +66,7 @@ rm -rf "$BUILD_CONTEXT"
 mkdir -p "$LOCAL_REPO_CONTEXT"
 
 cp -a "$MODULE_REPO_ROOT/." "$LOCAL_REPO_CONTEXT/"
-cp "$PACKAGING_ROOT/powershell/InstallModule.ps1" "$BUILD_CONTEXT/InstallModule.ps1"
+cp "$INSTALL_MODULE_SCRIPT" "$BUILD_CONTEXT/InstallModule.ps1"
 cp "$REPO_ROOT/LICENSE" "$BUILD_CONTEXT/LICENSE"
 cp "$REPO_ROOT/NOTICE" "$BUILD_CONTEXT/NOTICE"
 

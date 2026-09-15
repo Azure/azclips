@@ -49,7 +49,7 @@ stages:
     - script: |
         set -euo pipefail
         core_project="$(Build.SourcesDirectory)/src/CLI/Core.Cli.csproj"
-        override_version="${{ parameters.artifact_version_override }}"
+        override_version="$ARTIFACT_VERSION_OVERRIDE"
         override_version="$(echo "$override_version" | xargs)"
         bump_type="${{ parameters.bump_type }}"
         release_channel="${{ parameters.release_channel }}"
@@ -249,3 +249,5 @@ stages:
         echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$computed_version"
       name: SetCoreVersion
       displayName: Resolve Distribution Version
+      env:
+        ARTIFACT_VERSION_OVERRIDE: ${{ parameters.artifact_version_override }}
