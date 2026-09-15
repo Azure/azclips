@@ -107,11 +107,11 @@ public class AgentTelemetryProviderTests
     }
 
     [Theory]
-    [InlineData("ok", 0, ActivityStatusCode.Ok)]
-    [InlineData("cancelled", 130, ActivityStatusCode.Unset)]
-    [InlineData("error", 1, ActivityStatusCode.Error)]
+    [InlineData("ok", 0, ActivityStatusCode.Ok, null)]
+    [InlineData("cancelled", 130, ActivityStatusCode.Unset, null)]
+    [InlineData("error", 1, ActivityStatusCode.Error, nameof(InvalidOperationException))]
     public async Task RunSessionAsync_ExportsTerminalOutcome_BeforeDisposingServices(
-        string expectedOutcome, int expectedExitCode, ActivityStatusCode expectedStatus)
+        string expectedOutcome, int expectedExitCode, ActivityStatusCode expectedStatus, string? expectedFailureReason)
     {
         const string sensitiveText = "test-only private error detail";
         var order = new List<string>();
@@ -153,6 +153,10 @@ public class AgentTelemetryProviderTests
             var exported = Assert.Single(sender.Exported);
             Assert.Equal("Agent.Session", exported.Name);
             Assert.Equal(expectedOutcome, exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryOutcome));
+            // A host failure is classified by exception type, the same way a model failure is by SDK
+            // error type — without it the dashboard sees "error" and cannot tell our bug from theirs.
+            // Success and cancellation must leave it absent so the column stays a failure signal.
+            Assert.Equal(expectedFailureReason, exported.Tags.GetValueOrDefault(TelemetryTags.RecoveryFailureReason));
             Assert.Equal(expectedStatus, exported.Status);
             Assert.Equal("azclips-agent", exported.Tags.GetValueOrDefault(TelemetryTags.ProcessName));
             Assert.Null(exported.StatusDescription);
