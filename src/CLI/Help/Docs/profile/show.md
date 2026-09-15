@@ -24,3 +24,5 @@ az profile show
 ```bash
 az profile show --active
 ```
+
+<!-- benchmark path-filter probe: docs-only edit, should not trigger benchmarks -->
