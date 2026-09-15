@@ -232,7 +232,7 @@ public class AgentTelemetryProviderTests
     {
         // LastError is per-turn, so a session whose final turn succeeded has none even if an earlier
         // turn failed and the user recovered. That session ends ok.
-        AgentModeEntry.ThrowIfSessionEndedInError(lastError: null, CancellationToken.None);
+        AgentModeEntry.ThrowIfSessionEndedInError(terminalError: null, CancellationToken.None);
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class AgentTelemetryProviderTests
         cts.Cancel();
 
         Assert.Throws<OperationCanceledException>(
-            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError: null, cts.Token));
+            () => AgentModeEntry.ThrowIfSessionEndedInError(terminalError: null, cts.Token));
     }
 
     [Fact]
@@ -425,4 +425,5 @@ public class AgentSpanNestingTests
         Assert.Equal(turn.SpanId, send.ParentSpanId);
     }
 }
+
 

@@ -309,10 +309,14 @@ public static class AgentModeEntry
     /// arriving after a send completed would otherwise return normally and export <c>ok</c> with
     /// exit code 0. The error is checked first: if a turn failed and the user then stopped, the
     /// failure is the more useful signal and it happened first.</para>
+    ///
+    /// <para>Callers pass <c>LastError ?? StartupError</c>. The fallback covers a session that
+    /// never got a turn past the error it started with; a session that did is no longer carrying
+    /// one, because <see cref="ChatAgent.SendAsync"/> clears it on the first completed turn.</para>
     /// </remarks>
-    internal static void ThrowIfSessionEndedInError(SessionErrored? lastError, CancellationToken ct)
+    internal static void ThrowIfSessionEndedInError(SessionErrored? terminalError, CancellationToken ct)
     {
-        if (lastError is { } err)
+        if (terminalError is { } err)
         {
             throw new AgentSessionFailedException(err.ErrorType, err.Message);
         }
@@ -504,6 +508,8 @@ public static class AgentModeEntry
     private static string Truncate(string s, int max) =>
         s.Length > max ? s[..max] + "…" : s;
 }
+
+
 
 
 

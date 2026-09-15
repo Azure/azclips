@@ -48,6 +48,24 @@ public sealed class ChatAgent : IAsyncDisposable
 
     public SessionErrored? LastError { get; private set; }
 
+    /// <summary>
+    /// A session error that arrived before the first turn could start.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kept apart from <see cref="LastError"/>, which describes the current turn and is
+    /// cleared at the start of every send. The host always sends a first prompt immediately after
+    /// creation, so an error stored on the per-turn field during creation was wiped every time
+    /// before anything could read it.</para>
+    ///
+    /// <para>Nothing consumes this yet, deliberately. <c>recovery.outcome</c> stays driven by the
+    /// last turn: a session whose turn completed did help the caller, whatever went wrong while it
+    /// was starting — and several of these are recoverable by design, which is what the SDK's
+    /// <c>eligibleForAutoSwitch</c> flag is for. The user already sees the error, since every event
+    /// is rendered. What is still missing is a measure of how often the upstream provider is flaky
+    /// at setup, which is a different question from whether recovery succeeded.</para>
+    /// </remarks>
+    public SessionErrored? StartupError { get; private set; }
+
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
     // get_command/bash — replied in prose and broke the act-through-tools contract.
@@ -241,7 +259,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var agent = new ChatAgent(client, session, resolvedModel, state);
         self = agent;
-        if (earlyError is not null) agent.LastError = earlyError;
+        if (earlyError is not null) agent.StartupError = earlyError;
         return agent;
     }
 
@@ -431,3 +449,5 @@ public sealed class ChatAgent : IAsyncDisposable
         catch { }
     }
 }
+
+
