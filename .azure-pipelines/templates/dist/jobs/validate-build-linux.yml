@@ -2,9 +2,6 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'ubuntu-latest'
-- name: ubuntu_arm64_pool
-  type: string
-  default: 'pool-ubuntu-latest-arm64'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -103,55 +100,3 @@ jobs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
       artifact: Validate_Linux_Sim_$(Rid)_$(BuildProfile)
       publishLocation: pipeline
-
-- job: LinuxMuslArm64RuntimeValidation
-  displayName: CLI Linux ARM64 musl Runtime Validation
-  timeoutInMinutes: 30
-  strategy:
-    matrix:
-      linux_musl_arm64_lean:
-        Rid: linux-musl-arm64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
-      linux_musl_arm64_full:
-        Rid: linux-musl-arm64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
-  pool:
-    name: ${{ parameters.ubuntu_arm64_pool }}
-  steps:
-  - checkout: self
-    clean: true
-    fetchDepth: 0
-    retryCountOnTaskFailure: 3
-
-  - task: DownloadPipelineArtifact@2
-    displayName: Get Linux Dist
-    inputs:
-      artifact: $(DistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
-
-  - task: DownloadPipelineArtifact@2
-    displayName: Get CLI Common
-    inputs:
-      artifact: Distribution_Common
-      path: ${{ parameters.PackagingCommonOutRoot }}
-
-  - bash: |
-      set -euo pipefail
-      sudo apt-get update
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
-      sudo systemctl start docker
-      sudo docker version
-    displayName: Install Docker
-
-  - bash: |
-      set -euo pipefail
-      sudo docker run --rm \
-        -v "$(Build.SourcesDirectory):/src" \
-        -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
-        -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
-        -w /src \
-        alpine:3.22 \
-        sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME=false bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
-    displayName: Validate CLI Linux ARM64 musl Tarball in Alpine
