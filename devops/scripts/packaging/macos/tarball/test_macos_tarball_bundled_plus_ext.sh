@@ -187,7 +187,7 @@ if [[ "$is_runnable" != "true" ]]; then
 fi
 
 echo ""
-echo "[1/6] CLI version (bundled install)"
+echo "[1/7] CLI version (bundled install)"
 if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
   echo "FAIL: az --version exited with a non-zero status"
   printf '%s\n' "$version_output" | sed -n '1,20p'
@@ -200,7 +200,7 @@ fi
 printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
-echo "[2/6] CLI help (bundled install)"
+echo "[2/7] CLI help (bundled install)"
 if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
   echo "FAIL: az --help exited with a non-zero status"
   printf '%s\n' "$help_output" | sed -n '1,20p'
@@ -213,7 +213,7 @@ fi
 printf '%s\n' "$help_output" | sed -n '1,20p'
 
 echo ""
-echo "[3/6] Verify bundled Copilot CLI daemon starts"
+echo "[3/7] Verify bundled Copilot CLI daemon starts"
 copilot_stdout="$SIM_ROOT/copilot.stdout"
 copilot_stderr="$SIM_ROOT/copilot.stderr"
 copilot_timeout="$SIM_ROOT/copilot.timeout"
@@ -247,7 +247,7 @@ fi
 echo "  PASS: Bundled Copilot CLI daemon started and stopped cleanly"
 
 echo ""
-echo "[4/6] Verify built-in extension manager is available"
+echo "[4/7] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
@@ -261,7 +261,7 @@ else
 fi
 
 echo ""
-echo "[5/6] Verify bundled Config commands work"
+echo "[5/7] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
@@ -274,7 +274,7 @@ else
 fi
 
 echo ""
-echo "[6/6] Install Resources extension and verify command resolves"
+echo "[6/7] Install Resources extension via 'extension add'"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
@@ -287,7 +287,10 @@ if ! echo "$output" | grep -q "installedExtensionPath"; then
   echo "  FAIL: Resources extension install output did not include installed path"
   exit 1
 fi
+echo "  PASS: Resources extension installed"
 
+echo ""
+echo "[7/7] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then

@@ -179,6 +179,8 @@ if ($IsWindows -and -not $SkipRuntime) {
 
     $env:USERPROFILE = Join-Path $SimRoot 'home'
 
+    Write-Host ''
+    Write-Host '[1/7] CLI version (bundled install)'
     $versionOutput = & $azExe --version 2>&1
     $versionExitCode = $LASTEXITCODE
     $versionText = $versionOutput | Out-String
@@ -190,7 +192,15 @@ if ($IsWindows -and -not $SkipRuntime) {
         throw 'FAIL: az.exe --version returned no output.'
     }
 
-    Write-Host 'Verifying bundled Copilot CLI daemon starts'
+    Write-Host ''
+    Write-Host '[2/7] CLI help (bundled install)'
+    & $azExe --help | Select-Object -First 20 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "FAIL: az.exe --help exited with code $LASTEXITCODE."
+    }
+
+    Write-Host ''
+    Write-Host '[3/7] Verify bundled Copilot CLI daemon starts'
     $copilotInput = Join-Path $SimRoot 'copilot.stdin'
     $copilotOutput = Join-Path $SimRoot 'copilot.stdout'
     $copilotError = Join-Path $SimRoot 'copilot.stderr'
@@ -213,12 +223,22 @@ if ($IsWindows -and -not $SkipRuntime) {
     }
     Write-Host 'PASS: Bundled Copilot CLI daemon started and stopped cleanly'
 
-    & $azExe --help | Select-Object -First 20 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "FAIL: az.exe --help exited with code $LASTEXITCODE."
+    Write-Host ''
+    Write-Host '[4/7] Verify built-in extension manager is available'
+    $extensionOutput = & $azExe extension add 2>&1
+    $extensionText = $extensionOutput | Out-String
+    $extensionText.Trim() | Out-Host
+    if ($extensionText -match 'Extension.*could not be found') {
+        throw 'FAIL: Extension manager not loaded.'
     }
+    if ($extensionText -notmatch 'Either Name or Path must be provided|Required option.*(name|path)') {
+        throw 'FAIL: Extension command response was unexpected.'
+    }
+    Write-Host 'PASS: Extension manager loaded'
+    $global:LASTEXITCODE = 0
 
-    Write-Host 'Verifying bundled Config command behavior'
+    Write-Host ''
+    Write-Host '[5/7] Verify bundled Config commands work'
     & $azExe config set --key core.logging.level --value debug --force | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: config set exited with code $LASTEXITCODE."
@@ -234,6 +254,8 @@ if ($IsWindows -and -not $SkipRuntime) {
         throw 'FAIL: Config command output did not confirm debug value.'
     }
 
+    Write-Host ''
+    Write-Host "[6/7] Install Resources extension via 'extension add'"
     $addResOut = & $azExe extension add --path $resNupkg.FullName 2>&1
     $addResExitCode = $LASTEXITCODE
     $addResText = $addResOut | Out-String
@@ -244,7 +266,10 @@ if ($IsWindows -and -not $SkipRuntime) {
     if ($addResText -notmatch 'installedExtensionPath') {
         throw 'FAIL: Resources extension installation did not report installedExtensionPath.'
     }
+    Write-Host 'PASS: Resources extension installed'
 
+    Write-Host ''
+    Write-Host '[7/7] Verify Resources command resolves'
     $groupOut = & $azExe group list 2>&1
     $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
