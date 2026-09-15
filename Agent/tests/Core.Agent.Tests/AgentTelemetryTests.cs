@@ -210,6 +210,54 @@ public class AgentTelemetryProviderTests
         }
     }
 
+    [Fact]
+    internal void ThrowIfSessionEndedInError_ConvertsTerminalLastError_IntoSessionFailure()
+    {
+        // The conversion itself, which the RunSessionAsync test above cannot reach: that one injects
+        // the exception directly and would still pass if this step were deleted.
+        var lastError = new SessionErrored("rate_limit", "quota exceeded", ErrorCode: null, StatusCode: 429, ProviderCallId: null, At: DateTimeOffset.UtcNow);
+
+        var ex = Assert.Throws<AgentSessionFailedException>(
+            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError, CancellationToken.None));
+
+        Assert.Equal("rate_limit", ex.ErrorType);
+    }
+
+    [Fact]
+    internal void ThrowIfSessionEndedInError_DoesNotThrow_WhenTheLastTurnSucceeded()
+    {
+        // LastError is per-turn, so a session whose final turn succeeded has none even if an earlier
+        // turn failed and the user recovered. That session ends ok.
+        AgentModeEntry.ThrowIfSessionEndedInError(lastError: null, CancellationToken.None);
+    }
+
+    [Fact]
+    internal void ThrowIfSessionEndedInError_PropagatesCancellation_WhenTheLoopExitedOnTheToken()
+    {
+        // The chat loops exit by observing the token rather than by throwing, so without this a
+        // cancellation arriving after a send completed would return normally and export ok / 0.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.Throws<OperationCanceledException>(
+            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError: null, cts.Token));
+    }
+
+    [Fact]
+    internal void ThrowIfSessionEndedInError_PrefersTheFailure_WhenBothHappened()
+    {
+        // A user who stops after a turn failed is still reporting a failed session, and the failure
+        // carries a reason while the cancellation does not.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var lastError = new SessionErrored("auth_failed", "token expired", ErrorCode: null, StatusCode: 401, ProviderCallId: null, At: DateTimeOffset.UtcNow);
+
+        var ex = Assert.Throws<AgentSessionFailedException>(
+            () => AgentModeEntry.ThrowIfSessionEndedInError(lastError, cts.Token));
+
+        Assert.Equal("auth_failed", ex.ErrorType);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(130)]
@@ -373,3 +421,4 @@ public class AgentSpanNestingTests
         Assert.Equal(turn.SpanId, send.ParentSpanId);
     }
 }
+

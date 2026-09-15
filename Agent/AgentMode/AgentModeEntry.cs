@@ -233,7 +233,7 @@ public static class AgentModeEntry
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
 
-            ThrowIfSessionEndedInError(agent);
+            ThrowIfSessionEndedInError(agent.LastError, ct);
             return;
         }
 
@@ -277,11 +277,12 @@ public static class AgentModeEntry
             nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
         }
 
-        ThrowIfSessionEndedInError(agent);
+        ThrowIfSessionEndedInError(agent.LastError, ct);
     }
 
     /// <summary>
-    /// Ends the session as a failure when its last turn hit a terminal SDK error.
+    /// Ends the session as a failure when its last turn hit a terminal SDK error, or as a
+    /// cancellation when the user asked to stop.
     /// </summary>
     /// <remarks>
     /// <para><see cref="ChatAgent.LastError"/> is per-turn — <c>SendAsync</c> clears it on every new
@@ -294,13 +295,20 @@ public static class AgentModeEntry
     /// case so the loop can keep going, which leaves the caller unable to distinguish failure from
     /// success. Re-raising it here is what makes <c>recovery.outcome</c>, the span status and the
     /// exit code reflect what the user actually saw.</para>
+    ///
+    /// <para>The loops also exit by observing the token rather than by throwing, so a cancellation
+    /// arriving after a send completed would otherwise return normally and export <c>ok</c> with
+    /// exit code 0. The error is checked first: if a turn failed and the user then stopped, the
+    /// failure is the more useful signal and it happened first.</para>
     /// </remarks>
-    private static void ThrowIfSessionEndedInError(ChatAgent agent)
+    internal static void ThrowIfSessionEndedInError(SessionErrored? lastError, CancellationToken ct)
     {
-        if (agent.LastError is { } err)
+        if (lastError is { } err)
         {
             throw new AgentSessionFailedException(err.ErrorType, err.Message);
         }
+
+        ct.ThrowIfCancellationRequested();
     }
 
     // Max times we re-prompt a bare-prose turn before giving up and letting it
@@ -507,3 +515,6 @@ public static class AgentModeEntry
     private static string Truncate(string s, int max) =>
         s.Length > max ? s[..max] + "…" : s;
 }
+
+
+
