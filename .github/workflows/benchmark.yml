@@ -62,6 +62,7 @@ jobs:
             shared:
               - 'src/Core/**'
               - 'src/CLI/**'
+              - '!src/CLI/Help/Docs/**'
               - 'tests/Benchmark/*.cs'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
