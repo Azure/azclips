@@ -7,4 +7,6 @@ namespace Core.Abstractions;
 public sealed class ConfigurationSectionAttribute(string name) : Attribute
 {
     public string Name { get; } = name;
+
+    public bool IncludeInSchema { get; init; } = true;
 }

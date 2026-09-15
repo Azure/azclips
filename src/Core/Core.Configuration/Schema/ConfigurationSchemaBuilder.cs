@@ -9,6 +9,24 @@ namespace Core.Configuration.Schema;
 
 internal static class ConfigurationSchemaBuilder
 {
+    public static IReadOnlyList<ConfigurationKeyMetadata> BuildAll(Assembly assembly)
+    {
+        var roots = assembly.GetTypes()
+            .Where(type => type.IsClass && type.GetCustomAttribute<ConfigurationSectionAttribute>() is { IncludeInSchema: true })
+            .OrderBy(type => type.FullName, StringComparer.Ordinal);
+
+        var metadata = roots.SelectMany(Build).ToList();
+        var duplicate = metadata
+            .GroupBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicate is not null)
+        {
+            throw new InvalidOperationException($"Duplicate configuration key '{duplicate.Key}'.");
+        }
+
+        return metadata;
+    }
+
     public static IReadOnlyList<ConfigurationKeyMetadata> Build(Type rootType)
     {
         var rootPath = rootType.GetCustomAttribute<ConfigurationSectionAttribute>()?.Name
