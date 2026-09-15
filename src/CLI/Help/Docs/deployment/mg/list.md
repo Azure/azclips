@@ -7,6 +7,8 @@ online version:
 
 Description: List deployments for a management group, optionally filtered by provisioning state.
 
+### List management group deployments
+
 ```bash
 az deployment mg list --management-group-id myManagementGroup
 ```

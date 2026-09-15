@@ -7,6 +7,8 @@ online version:
 
 Description: Get one deployment by management group and deployment name.
 
+### Show a management group deployment
+
 ```bash
 az deployment mg show --management-group-id myManagementGroup --name myDeployment
 ```
