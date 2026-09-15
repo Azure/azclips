@@ -49,9 +49,13 @@ jobs:
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       & pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyFixtures.ps1
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyRuntimeFixtures.ps1
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       & ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
       exit $LASTEXITCODE
-    displayName: Test PS Validation Lifecycle, Smoke Tests and Pipeline
+    displayName: Test PS Validation Lifecycle, Dependencies, Smoke Tests and Pipeline
 
   - pwsh: |
       & pwsh -NoProfile -File ./devops/scripts/packaging/powershell/test_ps_smoke.ps1 `
@@ -113,6 +117,12 @@ jobs:
     parameters:
       phase: Bootstrap
       display_name: Install PowerShell $(PowerShellVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Dependencies
+      display_name: Validate Azure PS Dependencies
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
   - template: ../steps/ps-validation-phase.yml

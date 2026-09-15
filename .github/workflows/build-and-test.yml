@@ -46,6 +46,14 @@ jobs:
         shell: pwsh
         run: ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
 
+      - name: Test PowerShell package and runtime dependencies
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyFixtures.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyRuntimeFixtures.ps1
+          exit $LASTEXITCODE
+
   build-and-test:
     runs-on: ubuntu-latest
 

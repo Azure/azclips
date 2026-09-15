@@ -3,6 +3,7 @@ parameters:
   type: string
   values:
   - Bootstrap
+  - Dependencies
   - Install
   - Upgrade
   - Validate

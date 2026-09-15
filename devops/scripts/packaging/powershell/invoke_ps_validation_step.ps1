@@ -14,7 +14,7 @@ snapshots through a separate writable bind mount; sources and packages stay read
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')]
+    [ValidateSet('Bootstrap', 'Dependencies', 'Install', 'Upgrade', 'Validate', 'Uninstall')]
     [string]$Phase,
 
     [Parameter(Mandatory)]

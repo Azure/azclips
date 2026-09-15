@@ -18,6 +18,7 @@ Each matrix job shows one task for each phase:
 | Task | Implementation |
 | --- | --- |
 | Install PowerShell `<version>` | The distribution's bootstrap script |
+| Validate Azure PS Dependencies | `test_ps_dependencies.ps1` and `test_ps_dependency_runtime.ps1` |
 | Install Azure PS `v<version>` | `test_ps_installation.ps1` |
 | Upgrade Azure PS `v<version>` | Explicit placeholder; no upgrade is performed |
 | Validate Azure PS `v<version>` | `test_ps_smoke.ps1`, configured by `ps_smoke_tests.psd1` |
@@ -30,7 +31,7 @@ completed successfully, including unsupported canary failures; cleanup never
 replaces the original validation failure.
 
 The **Build (PS) Common** job retains its module-output and package installation/
-removal checks, but does not invoke the smoke Validate phase. It publishes the
+removal checks, but does not invoke the Dependencies or smoke Validate phase. It publishes the
 packages first; the dependent **Validate (PS)** stage owns smoke validation across
 the distribution matrix. Missing smoke coverage therefore cannot block publication
 of the input packages needed by that stage.
@@ -128,8 +129,10 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `inventories/` | Target-module state before/after installation and uninstall, with failure/rollback state when applicable. |
 | `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
-| `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
-| `results.json` | Per-distribution phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Validate is required for success. Coverage is reported separately in the pre-matrix artifact. |
+| `logs/` | Bootstrap, Dependencies, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
+| `results.json` | Schema version 2: per-distribution phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Dependencies and Validate are required for success. Coverage is reported separately in the pre-matrix artifact. |
+| `dependency-tests.json` | Package metadata, automatic dependency resolution, missing/incompatible dependency and loaded-version-conflict results, including child exit codes, diagnostics and saved/imported inventories. |
+| `runtime-dependencies.json` | Actual runtime details and isolated missing-framework/unsupported-PowerShell rejection results. |
 | `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, failures, and missing-coverage warnings. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
@@ -157,6 +160,58 @@ Passing `-ReportRoot` directly to the module scripts or phase dispatcher capture
 module snapshots, inventories, runtime metadata, and smoke results as applicable,
 but not host phase transcripts/results. Omitting it runs the same assertions
 without retaining reports.
+
+## Dependency validation
+
+Dependencies runs after Bootstrap and before Install in every selected matrix leg.
+It does not preload or install Az modules into the user's module directories.
+The normal Install/Validate/Uninstall phases still provide installation lifecycle
+and smoke coverage; this additional suite tests the dependency contract itself.
+
+`test_ps_dependencies.ps1` compares every package's NuGet dependency metadata with
+the source manifests, then requests each module (including the Az rollup) alone.
+It uses PowerShellGet `Save-Module` against a uniquely named local repository and
+saves into a fresh directory for each case. Each import runs in another process,
+with only that directory and the tested PowerShell's built-in modules on
+`PSModulePath`. It verifies the expected dependency versions and command exports
+without manually preloading dependencies.
+
+For every direct dependency, private gallery copies omit the package or replace
+it with version `0.0.0`, below the required version. A case passes only when the
+resolver reports the intended missing dependency; unrelated failures and unexpected
+success fail validation. For non-rollup consumers, a separate case preloads a dummy
+conflicting dependency and requires the packaged module's version-conflict diagnostic.
+The dummy supplies only the loaded-version precondition; the import guard under test
+is the one in the real consumer package.
+
+The package runner bounds each child to 180 seconds by default (`-TimeoutSeconds`).
+It records expected errors and partial inventories, continues other cases after
+failures, and removes its own temporary repository registrations and scratch files.
+The published gallery and existing user repositories/modules remain unchanged.
+Reports must be outside the source modules and gallery. Reuse a fresh report
+directory for each run.
+
+The runtime suite checks the target's actual runtime, launches it against an
+isolated .NET host without the required framework, and verifies rejection by both
+the installation helper and packaged manifest under PowerShell 7.5. Its older
+PowerShell/.NET toolchain is private and temporary; provisioning failures are
+failures, not successful rejection tests. No runtime is removed from the primary
+toolchain. These checks cover the framework dependency, not exhaustive removal of
+every distribution-specific native library.
+
+Run just the package dependency suite locally against an existing gallery:
+
+```powershell
+pwsh -NoProfile -File .\devops\scripts\packaging\powershell\test_ps_dependencies.ps1 `
+    -RepositoryRoot .\artifacts\Release\PSGallery\local-repo `
+    -SourcePsRoot .\src\PS -PwshPath $pwshPath -ReportRoot 'C:\temp\ps-dependencies'
+```
+
+The full `Dependencies` dispatcher phase additionally requires the bootstrap's
+`DOTNET_ROOT` and downloads the older tool/runtime for negative probes. The package
+fixtures below use real local synthetic NuGet packages, while runtime fixtures are
+offline harness tests. Neither establishes public PSGallery or PSResourceGet
+delivery; those remain separate validation paths.
 
 ## Configuring module smoke tests
 
@@ -352,6 +407,8 @@ bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
 ```powershell
 pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSSmokeFixtures.ps1
+pwsh -NoProfile -File tests\Scripts\PS\PSDependencyFixtures.ps1
+pwsh -NoProfile -File tests\Scripts\PS\PSDependencyRuntimeFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSValidationPipelineFixtures.ps1
 ```
 

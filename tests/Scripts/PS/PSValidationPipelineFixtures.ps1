@@ -42,7 +42,9 @@ if ($Scenario)
         if (($Scenario -eq 'pull-fails' -and $Arguments[0] -eq 'pull') -or
             ($Scenario -eq 'run-fails' -and $Arguments[0] -eq 'run') -or
             ($Scenario -in @('bootstrap-soft-fails', 'bootstrap-hard-fails') -and $Arguments[0] -eq 'exec') -or
-            $Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'dispatcher-validate-fails') -or
+            $Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'dispatcher-validate-fails', 'dispatcher-dependencies-fails') -or
+            ($Scenario -in @('dependency-soft-fails', 'dependency-hard-fails') -and
+                $Arguments -contains '-Phase' -and $Arguments -contains 'Dependencies') -or
             ($Scenario -in @('validate-soft-fails', 'validate-hard-fails') -and
                 $Arguments -contains '-Phase' -and $Arguments -contains 'Validate'))
         {
@@ -68,6 +70,13 @@ if ($Scenario)
         if ($Scenario -ne 'dispatcher-validate-no-report')
         {
             $dispatchParameters.ReportRoot = Join-Path $ScratchRoot 'reports with spaces'
+        }
+        if ($Scenario -like 'dispatcher-dependencies*')
+        {
+            $dispatchParameters.Phase = 'Dependencies'
+            $dispatchParameters.RepositoryRoot = Join-Path $ScratchRoot 'gallery with spaces'
+            $null = New-Item -ItemType Directory -Path $dispatchParameters.RepositoryRoot
+            $env:DOTNET_ROOT = Join-Path $ScratchRoot 'dotnet with spaces'
         }
         & $dispatcher @dispatchParameters
         exit $LASTEXITCODE
@@ -107,13 +116,14 @@ if ($Scenario)
     {
         $parameters.Phase = $Scenario.Substring('container-'.Length)
     }
-    if ($Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'native-install', 'missing-command', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails', 'install-transcript-fails', 'validate-hard-fails', 'validate-soft-fails'))
+    if ($Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'native-install', 'missing-command', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails', 'install-transcript-fails', 'validate-hard-fails', 'validate-soft-fails', 'dependency-hard-fails', 'dependency-soft-fails'))
     {
         $parameters.Phase = 'Install'
         $parameters.ValidationMode = 'native'
         $parameters.DistributionFamily = 'windows'
         $parameters.PwshPath = 'Invoke-FakePowerShell'
     }
+    if ($Scenario -in 'dependency-hard-fails', 'dependency-soft-fails') { $parameters.Phase = 'Dependencies' }
     if ($Scenario -eq 'missing-command')
     {
         $parameters.PwshPath = 'Nonexistent-ValidationFixtureCommand'
@@ -138,7 +148,7 @@ if ($Scenario)
     if ($Scenario -in @('complete-lifecycle', 'validate-hard-fails', 'validate-soft-fails'))
     {
         $lifecycleExitCode = 0
-        foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+        foreach ($phase in 'Bootstrap', 'Dependencies', 'Install', 'Upgrade', 'Validate', 'Uninstall')
         {
             $parameters.Phase = $phase
             & $runner @parameters
@@ -270,11 +280,12 @@ try
     $scenarios = @(
         'bootstrap-success', 'pull-fails', 'run-fails', 'bootstrap-hard-fails',
         'bootstrap-soft-fails', 'windows-bootstrap', 'macos-bootstrap',
-        'container-Install', 'container-Upgrade', 'container-Validate', 'container-Uninstall',
+        'container-Dependencies', 'container-Install', 'container-Upgrade', 'container-Validate', 'container-Uninstall',
         'native-install', 'phase-hard-fails', 'phase-soft-fails', 'missing-command',
         'complete-lifecycle', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails',
-        'validate-hard-fails', 'validate-soft-fails', 'install-transcript-fails',
-        'dispatcher-validate', 'dispatcher-validate-no-report', 'dispatcher-validate-fails'
+        'validate-hard-fails', 'validate-soft-fails', 'dependency-hard-fails', 'dependency-soft-fails', 'install-transcript-fails',
+        'dispatcher-validate', 'dispatcher-validate-no-report', 'dispatcher-validate-fails',
+        'dispatcher-dependencies', 'dispatcher-dependencies-fails'
     )
     foreach ($name in $scenarios)
     {
@@ -283,13 +294,32 @@ try
         $output = & $pwsh -NoProfile -File $PSCommandPath -Scenario $name -ScratchRoot $caseRoot 2>&1
         $exitCode = $LASTEXITCODE
         $text = ($output | ForEach-Object { "$_" }) -join "`n"
-        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails', 'native-output-fails', 'validate-hard-fails', 'dispatcher-validate-fails')) {
+        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails', 'native-output-fails', 'validate-hard-fails', 'dependency-hard-fails', 'dispatcher-validate-fails', 'dispatcher-dependencies-fails')) {
             42
         } elseif ($name -in 'missing-command', 'report-write-fails', 'install-transcript-fails') { 1 } else { 0 }
         Assert-Equal $expectedExit $exitCode "$name exit code`n$text"
         if ($name -like 'dispatcher-*')
         {
             $calls = @(Get-Content -LiteralPath (Join-Path $caseRoot 'calls.json') -Raw | ConvertFrom-Json)
+            if ($name -like 'dispatcher-dependencies*')
+            {
+                Assert-Equal $(if ($name.EndsWith('-fails')) { 1 } else { 2 }) $calls.Count 'Dependencies runs package and runtime suites; package failure stops dispatch'
+                Assert-Contains ($calls[0].Arguments -join '|') 'test_ps_dependencies.ps1' 'Dependencies invokes the real package suite'
+                foreach ($call in $calls)
+                {
+                    Assert-Equal 'tested-pwsh-with-spaces' $call.Command 'Dependency dispatch uses the tested executable'
+                    Assert-Contains ($call.Arguments -join '|') "-RepositoryRoot|$(Join-Path $caseRoot 'gallery with spaces')" 'Dependency repository path is preserved'
+                    Assert-Contains ($call.Arguments -join '|') "-ReportRoot|$(Join-Path $caseRoot 'reports with spaces')" 'Dependency report path is preserved'
+                }
+                if ($calls.Count -eq 2)
+                {
+                    Assert-Contains ($calls[1].Arguments -join '|') 'test_ps_dependency_runtime.ps1' 'Dependencies invokes the real runtime suite'
+                    Assert-Contains ($calls[1].Arguments -join '|') "-DotnetRootPath|$(Join-Path $caseRoot 'dotnet with spaces')" 'Runtime validation receives the primary toolchain'
+                }
+                Write-Host "PASS: $name"
+                $count++
+                continue
+            }
             Assert-Equal 1 $calls.Count 'Validate dispatches exactly one smoke runner'
             Assert-Equal 'tested-pwsh-with-spaces' $calls[0].Command 'Smoke dispatch preserves the requested executable with spaces'
             $expectedArguments = @(
@@ -343,7 +373,7 @@ try
             Assert-Equal '7.6' $matrix.requestedPowerShellVersion 'Requested version is distinguished from the host version'
             Assert-Equal '1.2.3' $matrix.azVersion 'Report records the Azure PS version'
             $executed = @($report.phases | Where-Object { $null -ne $_.startedAtUtc })
-            Assert-Equal $(if ($isLifecycle) { 5 } else { 1 }) $executed.Count 'Only executed phases have start timestamps'
+            Assert-Equal $(if ($isLifecycle) { 6 } else { 1 }) $executed.Count 'Only executed phases have start timestamps'
             foreach ($entry in $executed)
             {
                 $phaseFailed = (-not $isLifecycle -or $entry.phase -eq 'Validate') -and
@@ -383,7 +413,7 @@ try
                 $completedAgain = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
                 Assert-Equal $expectedStatus $completedAgain.status 'Cleanup success cannot erase hard or soft Validate failure from the summary'
             }
-            Assert-Equal 5 @(Get-ChildItem -LiteralPath (Join-Path $reportRoot 'logs') -Filter '*.log').Count 'All phases have a log or an explicit skip explanation'
+            Assert-Equal 6 @(Get-ChildItem -LiteralPath (Join-Path $reportRoot 'logs') -Filter '*.log').Count 'All phases have a log or an explicit skip explanation'
             Assert-Equal 0 @($completed.phases | Where-Object status -eq 'NotRun').Count 'Never-started phases are explicitly skipped'
         }
 
@@ -449,7 +479,7 @@ try
         if ($name -in 'validate-hard-fails', 'validate-soft-fails')
         {
             $phaseCalls = @($calls | Where-Object { $_.Arguments -contains '-Phase' })
-            Assert-Equal 'Install,Upgrade,Validate,Uninstall' (($phaseCalls | ForEach-Object {
+            Assert-Equal 'Dependencies,Install,Upgrade,Validate,Uninstall' (($phaseCalls | ForEach-Object {
                 $_.Arguments[[array]::IndexOf($_.Arguments, '-Phase') + 1]
             }) -join ',') 'Native cleanup still executes after the smoke command fails'
             Assert-Equal 'tested-pwsh' $phaseCalls[-1].Command 'Cleanup uses the same tested PowerShell'
@@ -465,7 +495,7 @@ try
         & $completeReport -ReportRoot $reportRoot -ValidationKey 'never_started' -JobStatus $jobStatus
         $report = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
         Assert-Equal $(if ($jobStatus -eq 'Succeeded') { 'Incomplete' } else { $jobStatus }) $report.status 'Collection handles jobs that never reached Bootstrap'
-        Assert-Equal 5 @($report.phases | Where-Object status -eq 'Skipped').Count 'Missing phases are not fabricated as passed'
+        Assert-Equal 6 @($report.phases | Where-Object status -eq 'Skipped').Count 'Missing phases are not fabricated as passed'
         Assert-Equal $false $report.runtimeEnvironmentCaptured 'Missing target PowerShell environment is explicit'
     }
     . (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/phase_artifacts.ps1')
@@ -483,7 +513,7 @@ try
     {
         $reportRoot = Join-Path $scratch "missing-validate-$validateStatus"
         Initialize-PSValidationReport -ReportRoot $reportRoot -Metadata @{ validationKey = 'missing_validate' }
-        foreach ($phase in 'Bootstrap', 'Install', 'Uninstall')
+        foreach ($phase in 'Bootstrap', 'Dependencies', 'Install', 'Uninstall')
         {
             Set-PSValidationPhaseResult -ReportRoot $reportRoot -Phase $phase -Status Succeeded
         }
@@ -497,6 +527,20 @@ try
         Assert-Equal 'Incomplete' $report.status 'Install and cleanup alone cannot substitute for successful smoke validation'
     }
     Write-Host 'PASS: successful smoke validation is required'
+    $count++
+
+    $reportRoot = Join-Path $scratch 'missing-dependencies'
+    Initialize-PSValidationReport -ReportRoot $reportRoot -Metadata @{ validationKey = 'missing_dependencies' }
+    foreach ($phase in 'Bootstrap', 'Install', 'Validate', 'Uninstall')
+    {
+        Set-PSValidationPhaseResult -ReportRoot $reportRoot -Phase $phase -Status Succeeded
+    }
+    Set-PSValidationPhaseResult -ReportRoot $reportRoot -Phase Upgrade -Status Skipped
+    & $completeReport -ReportRoot $reportRoot -JobStatus Succeeded
+    $report = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
+    Assert-Equal 'Incomplete' $report.status 'Successful lifecycle cannot substitute for dependency validation'
+    Assert-Equal 2 $report.schemaVersion 'The required dependency phase uses the new phase-report schema'
+    Write-Host 'PASS: dependency validation is required for success'
     $count++
 
     foreach ($corruption in 'empty', 'duplicate', 'unknown-status')
@@ -547,7 +591,7 @@ try
     $template = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/steps/ps-validation-phase.yml') -Raw
     Assert-Equal 1 ([regex]::Matches($template, '(?m)^- (pwsh|bash|task):').Count) 'Exactly one visible task per phase'
     Assert-Contains $template 'invoke_ps_validation_step.ps1' 'Template invokes the exercised phase runner'
-    foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+    foreach ($phase in 'Bootstrap', 'Dependencies', 'Install', 'Upgrade', 'Validate', 'Uninstall')
     {
         $condition = Get-PhaseCondition -Template $template -Phase $phase
         foreach ($jobStatus in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled')
@@ -569,7 +613,7 @@ try
         }
     }
     $uninstallCondition = Get-PhaseCondition -Template $template -Phase Uninstall
-    foreach ($name in 'phase-hard-fails', 'phase-soft-fails', 'missing-command', 'report-write-fails', 'install-transcript-fails')
+    foreach ($name in 'phase-hard-fails', 'phase-soft-fails', 'dependency-hard-fails', 'dependency-soft-fails', 'missing-command', 'report-write-fails', 'install-transcript-fails')
     {
         $variables = @{
             'Agent.JobStatus' = if ($name -like '*soft-fails') { 'SucceededWithIssues' } else { 'Failed' }
@@ -579,7 +623,7 @@ try
         Assert-Equal ($name -eq 'install-transcript-fails') (Test-Condition $uninstallCondition $variables) 'Only an actually successful Install authorizes Uninstall, even when reporting fails'
     }
     $job = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/validate-ps-build.yml') -Raw
-    Assert-Equal 'Bootstrap,Install,Upgrade,Validate,Uninstall' (([regex]::Matches($job, '(?m)^\s+phase: (\w+)') |
+    Assert-Equal 'Bootstrap,Dependencies,Install,Upgrade,Validate,Uninstall' (([regex]::Matches($job, '(?m)^\s+phase: (\w+)') |
         ForEach-Object { $_.Groups[1].Value }) -join ',') 'All phases retain their order'
     $preMatrixJob = [regex]::Match($job, '(?ms)^- job: GeneratePowerShellValidationMatrix\r?\n(?<body>.*?)(?=^- job:|\z)').Groups['body'].Value
     $matrixJob = [regex]::Match($job, '(?ms)^- job: PowerShellValidation\r?\n(?<body>.*?)(?=^- job:|\z)').Groups['body'].Value
@@ -635,6 +679,8 @@ try
     foreach ($pipeline in @($job, $workflow))
     {
         Assert-Contains $pipeline 'PSSmokeFixtures.ps1' 'Both pipelines run the offline module smoke fixtures'
+        Assert-Contains $pipeline 'PSDependencyFixtures.ps1' 'Both pipelines run real local-package dependency fixtures'
+        Assert-Contains $pipeline 'PSDependencyRuntimeFixtures.ps1' 'Both pipelines run offline runtime dependency fixtures'
         Assert-Contains $pipeline '& pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1' 'Smoke fixtures run as a native process rather than relying on a stale LASTEXITCODE'
         Assert-Equal $true ([regex]::IsMatch($pipeline, 'PSSmokeFixtures\.ps1\r?\n\s+(?:if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}|exit \$LASTEXITCODE)')) 'Smoke fixture native failures propagate in both pipelines'
         Assert-Contains $pipeline 'python3 -m venv "$tools_root"' 'YAML dependency uses an isolated environment'
