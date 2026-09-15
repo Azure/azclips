@@ -13,7 +13,7 @@ $template = New-TemporaryFile
 
 try {
     Import-Module (Join-Path $repoRoot 'src\PS\Accounts\Accounts.psd1') -Force
-    Import-Module (Join-Path $repoRoot 'src\PS\Deployment\Deployment.psd1') -Force
+    Import-Module (Join-Path $repoRoot 'src\PS\Resources\Resources.psd1') -Force
 
     '{"$schema":"https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{},"resources":[]}' |
         Set-Content -Path $template -NoNewline
