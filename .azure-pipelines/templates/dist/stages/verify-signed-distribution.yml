@@ -1,7 +1,7 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+  default: 'pool-ubuntu-2204'
 - name: dependency_stage
   type: object
   default: 'AssembleSignedArtifacts'
@@ -32,7 +32,7 @@ stages:
   - job: VerifySignedDistribution
     displayName: Verify Signed Distribution Assets
     pool:
-      vmImage: ${{ parameters.ubuntu_pool }}
+      name: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: none
 

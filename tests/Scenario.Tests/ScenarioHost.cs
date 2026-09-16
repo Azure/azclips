@@ -27,7 +27,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Compute",
         typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly,
         "vm",
-        ["", "create", "create-basic", "show", "list", "start", "delete"]);
+        ["", "create", "create-basic", "show", "list", "start", "stop", "deallocate", "delete"]);
 
     public static readonly ExtensionUnderTest Identity = new(
         "Identity",

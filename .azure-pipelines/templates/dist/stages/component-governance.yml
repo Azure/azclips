@@ -7,7 +7,7 @@ parameters:
   default: Component Governance
 - name: windows_pool
   type: string
-  default: 'windows-latest'
+  default: 'pool-windows-2022'
 - name: depends_on
   type: object
   default: []
@@ -24,7 +24,7 @@ stages:
   - job: ComponentGovernanceAndPoliCheck
     displayName: Component Governance and PoliCheck
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     steps:
     - checkout: self
       clean: true
