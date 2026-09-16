@@ -263,6 +263,45 @@ public class RuntimeHelpRendererTests
         Assert.Contains("1. First example\naz vm create --name vm1\n\n2. Second example\naz vm create --name vm2", actual);
     }
 
+    [Fact]
+    public void RenderCommand_ShouldNotEmitEscapeCodes_WhenBoldHeadersIsFalse()
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders: false);
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("\n# COMMAND\n", "\n" + actual + "\n");
+        Assert.DoesNotContain("\u001b[", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldWrapSectionHeaders_WhenBoldHeadersIsTrue()
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders: true);
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("\u001b[1m# COMMAND\u001b[0m", actual);
+        Assert.Contains("\u001b[1m# ARGUMENTS\u001b[0m", actual);
+        Assert.Contains("\u001b[1m# GLOBAL ARGUMENTS\u001b[0m", actual);
+        // Only the header text itself is wrapped, not the name/summary line beneath it.
+        Assert.DoesNotContain("\u001b[1maz vm create", actual);
+    }
+
     private static string LoadFixture(string fileName)
     {
         var repoRoot = RepoLocator.GetRepoRoot();
