@@ -7,6 +7,7 @@ using Core.Runtime;
 
 namespace Cli.Tests;
 
+[Collection("Azclips Service Provider Tests")]
 public class RuntimeHelpDispatcherTests
 {
     [Fact]
