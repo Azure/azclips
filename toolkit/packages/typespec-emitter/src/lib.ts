@@ -43,6 +43,18 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 export const $lib = createTypeSpecLibrary({
   name: "@azure-client-engine/typespec-emitter",
   diagnostics: {
+    "paging-property-unbound": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Paging property '${"property"}' on operation '${"operation"}' has no resolved HTTP binding; its source metadata is retained.`,
+      },
+    },
+    "paging-items-not-array": {
+      severity: "error",
+      messages: {
+        default: paramMessage`Paging items on operation '${"operation"}' must resolve to an array.`,
+      },
+    },
     "unsupported-type-kind": {
       severity: "warning",
       messages: {

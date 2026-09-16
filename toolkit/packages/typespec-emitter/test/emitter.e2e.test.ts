@@ -31,7 +31,7 @@ import {
   type CompilerHost,
   type Diagnostic,
 } from "@typespec/compiler";
-import { IR_SCHEMA_VERSION, parseIR, type IR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, idEquals, parseIR, type IR } from "@azure-client-engine/ir";
 
 const EMITTER = "@azure-client-engine/typespec-emitter";
 
@@ -83,6 +83,14 @@ describe("emitter e2e: pets.tsp → IR", () => {
     expect(errors).toEqual([]);
   });
 
+  it("stores the endpoint once and references it from every operation and source", () => {
+    expect(ir.servers).toHaveLength(1);
+    const definition = ir.servers[0]!;
+    expect(idEquals(ir.sources[0]!.server, definition.id)).toBe(true);
+    expect(ir.operations.length).toBeGreaterThan(0);
+    for (const operation of ir.operations) expect(idEquals(operation.server, definition.id)).toBe(true);
+  });
+
   it("applies PascalCase to logical names while preserving wire names", () => {
     const pet = ir.models.find((m) => m.name === "Pet");
     expect(pet).toBeDefined();
@@ -100,16 +108,15 @@ describe("emitter e2e: pets.tsp → IR", () => {
 
   it("emits pageable semantics for the list operation", () => {
     const list = ir.operations.find((o) => o.name === "list");
-    expect(list?.semantics?.kind).toBe("pageable");
-    if (list?.semantics?.kind === "pageable") {
-      expect(list.semantics.itemsPath).toBe("items");
-      expect(list.semantics.nextLinkPath).toBe("nextLink");
-    }
+    expect(list?.semantics?.pageable?.output.pageItems.bindings)
+      .toContainEqual(expect.objectContaining({ location: "body", path: ["items"] }));
+    expect(list?.semantics?.pageable?.output.nextLink?.bindings)
+      .toContainEqual(expect.objectContaining({ location: "body", path: ["nextLink"] }));
   });
 
   it("emits long-running semantics for the rename operation", () => {
     const rename = ir.operations.find((o) => o.name === "rename");
-    expect(rename?.semantics?.kind).toBe("longRunning");
+    expect(rename?.semantics?.longRunning).toBeDefined();
   });
 
   it("attributes spec-declared types to the source module", () => {

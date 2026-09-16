@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Extensions;
+namespace Core.Abstractions;
 
 /// <summary>
 /// Base exception for structured AzClips CLI errors. Carries a symbolic <see cref="Code"/> for
@@ -57,8 +57,12 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
 
+    // Declared return type is the base so already-compiled callers keep binding; the runtime type is the subtype.
     public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new("UsageError", 2, message, details);
+        => new UsageErrorException(message, details);
+
+    public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new(message, details, hasMissingRequiredParameters: true);
 
     /// <summary>
     /// Compatibility violation: the extension's <c>[AzclipsCompatibility]</c> declared range
@@ -85,4 +89,15 @@ public class AzclipsErrorException : Exception
     /// </summary>
     public static AzclipsErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("RegistryInvalid", 9, message, details);
+}
+
+public class UsageErrorException : AzclipsErrorException
+{
+    public bool HasMissingRequiredParameters { get; }
+
+    public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null, bool hasMissingRequiredParameters = false)
+        : base("UsageError", 2, message, details)
+    {
+        HasMissingRequiredParameters = hasMissingRequiredParameters;
+    }
 }

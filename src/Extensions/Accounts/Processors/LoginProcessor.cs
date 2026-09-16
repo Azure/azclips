@@ -258,7 +258,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     $"usage error: '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}' and '{Flag(nameof(ResourceId))}' require '{Flag(nameof(Identity))}'.");
             }
 
-
+            SubscriptionIdValidator.Validate(SubscriptionId, Flag(nameof(SubscriptionId)), allowEmpty: true);
         }
 
         /// <summary>

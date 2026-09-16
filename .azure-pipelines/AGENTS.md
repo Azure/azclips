@@ -19,13 +19,13 @@ guide in the same PR so it stays accurate.
 | `azclips-alpha-build.yml` | PR to any branch (`pr: '*'`, autoCancel) + daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`, for Component Governance) | public | PR validation + unsigned build (`release_channel: pr-alpha`). |
 | `azclips-beta-build.yml` | CI on `main` (batched) | public | Unsigned beta build; optional `sign_beta` param adds a `sign-beta` build tag. |
 | `azclips-beta-sign.yml` | Pipeline resource `betaBuild` tagged `sign-beta` | release | ESRP-signs a completed beta build, verifies, runs component governance. |
-| `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI version and opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
+| `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → publish GitHub release. |
 
 ## Template Layout (`templates/`)
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
-- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`).
+- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
 - `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`.
 - `templates/dist/steps/` — small reusable steps (`get-github-pat-token.yml`, `validate-release-project.yml`).
 
@@ -35,6 +35,7 @@ guide in the same PR so it stays accurate.
 - `ComponentGovernance` and `BuildPSModules` depend on `Init`.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
+- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
@@ -66,7 +67,7 @@ guide in the same PR so it stays accurate.
 
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.
-- **Stable:** `azclips-trigger-stable-release` (release, manual) bumps the CLI version and opens a release PR via `gh`. After that PR merges to `main`, a CI run of the same pipeline (`CreateStableTag`, condition `IndividualCI`/`BatchedCI` on `refs/heads/main`) creates the tag `vX.Y.Z.yyyyMMddTHHmmssZ` via `git tag`/`git push` → the tag triggers `azclips-stable-release` → build → `sign-with-esrp` → component governance → verify → `publish-to-github-release`.
+- **Stable:** `azclips-trigger-stable-release` (release, manual) bumps the CLI and top-level Az versions, detects extension code changes since the latest stable tag, independently patch-bumps each changed existing extension, preserves new extensions' declared initial versions, requires their PowerShell child changelogs, aligns their child manifests and Az dependencies, and opens a release PR via `gh`. After that PR merges to `main`, a CI run of the same pipeline (`CreateStableTag`, condition `IndividualCI`/`BatchedCI` on `refs/heads/main`) creates the tag `vX.Y.Z.yyyyMMddTHHmmssZ` via `git tag`/`git push` → the tag triggers `azclips-stable-release` → build → `sign-with-esrp` → component governance → verify → `publish-to-github-release`.
 - macOS notarization uses `macos_bundle_id: com.microsoft.azclips.cli`.
 
 ## Editing Rules for Agents

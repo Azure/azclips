@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
+using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Output;
 using Core.Cli.Parser;
@@ -102,7 +103,9 @@ public class Program
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var errorFormat = OutputFormat.Table;
         var errorColorAllowed = false;
+        var errorHelpAllowed = false;
         var positional = args;
+        CommandInvocation? invocation = null;
 
         try
         {
@@ -136,6 +139,7 @@ public class Program
                 streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
                 errorFormat = settings.Format;
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -155,7 +159,6 @@ public class Program
             }
 
 
-            CommandInvocation invocation;
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
@@ -185,11 +188,36 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
+        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
+        {
+            try
+            {
+                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested (empty command group)");
+                return DispatchHelp(new HelpRequest([ex.Verb]), isBareInvocation: false, streams, activity);
+            }
+            catch (Exception helpEx)
+            {
+                // Throwing from a catch body skips the catches below, so degrade to the original error here.
+                _logger?.Debug($"group help unavailable: {helpEx.Message}");
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
+            }
+        }
         catch (AzclipsErrorException ex)
         {
+            if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
+            {
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
+            }
+
             // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed);
+            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -281,13 +309,29 @@ public class Program
         }
     }
 
-    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
+    /// <summary>
+    /// Renders help beneath an error that was already reported. Routed to stderr so stdout stays
+    /// reserved for command results, and best-effort so a help failure cannot replace the error.
+    /// </summary>
+    private static void TryRenderHelpAfterError(HelpRequest help, OutputStreams streams, Activity? activity)
+    {
+        try
+        {
+            DispatchHelp(help, isBareInvocation: false, streams, activity, Console.Error);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"command help unavailable: {ex.Message}");
+        }
+    }
+
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity, TextWriter? output = null)
     {
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore);
+            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore, output);
             if (help.Path.Count == 0)
             {
                 // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
@@ -299,16 +343,19 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
-            // AzclipsErrorException catch renders it via EmitStructuredError.
+            // Render extension help; structured errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor)
+    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
     {
+        var message = invocation is not null && ex is UsageErrorException
+            ? $"{ex.Message} (az {invocation.CommandName} --help)"
+            : ex.Message;
+
         if (format is OutputFormat.Json or OutputFormat.Jsonc)
         {
             var payload = new
@@ -316,7 +363,7 @@ public class Program
                 error = new
                 {
                     code = ex.Code,
-                    message = ex.Message,
+                    message,
                     details = ex.Details,
                 },
             };
@@ -329,7 +376,7 @@ public class Program
         }
         else
         {
-            ConsoleSink.Error($"[{ex.Code}] {ex.Message}");
+            ConsoleSink.Error($"[{ex.Code}] {message}");
         }
     }
 
