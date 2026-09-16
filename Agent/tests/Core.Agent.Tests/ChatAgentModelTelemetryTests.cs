@@ -766,7 +766,12 @@ public class ChatAgentModelTelemetryTests
                     var root = request.RootElement;
                     if (!root.TryGetProperty("id", out var id))
                         continue;
-                    var method = root.GetProperty("method").GetString();
+                    // Defensive for the same reason the teardown verbs are answered generically:
+                    // a message this stub cannot parse must not take down the receive loop and
+                    // resurface later against whichever test happens to be tearing down.
+                    if (!root.TryGetProperty("method", out var methodElement))
+                        continue;
+                    var method = methodElement.GetString();
                     if (method == "session.model.getCurrent")
                     {
                         ModelQueryCount++;
@@ -797,6 +802,12 @@ public class ChatAgentModelTelemetryTests
                         "session.model.getCurrent" => ModelResult is null
                             ? new { modelId = SelectedModel } : ModelResult(),
                         "session.destroy" => new { },
+                        // Teardown is not any of these tests' subject, and the SDK's teardown
+                        // sequence is not frozen -- session.detach appeared only once the client
+                        // began shutting down cleanly. Answering the teardown verbs generically
+                        // keeps a model-telemetry assertion from failing over the shape of a
+                        // goodbye, in a stack trace that names neither.
+                        "session.detach" or "session.abort" or "session.shutdown" => new { },
                         _ => throw new InvalidOperationException($"Unexpected SDK RPC: {method}"),
                     };
                     await WriteAsync(stream, new { jsonrpc = "2.0", id, result });
@@ -854,9 +865,17 @@ public class ChatAgentModelTelemetryTests
                 if (header.Length > 4096)
                     throw new InvalidDataException("RPC header is too large.");
             }
+            // First, not Single: an LSP-style transport may legitimately carry other headers, and a
+            // duplicate or a companion header should not be an exception thrown from a background
+            // read loop. TryParse for the same reason.
             var lengthHeader = header.ToString().Split("\r\n", StringSplitOptions.RemoveEmptyEntries)
-                .Single(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
-            var length = int.Parse(lengthHeader["Content-Length:".Length..], CultureInfo.InvariantCulture);
+                .FirstOrDefault(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
+            if (lengthHeader is null ||
+                !int.TryParse(lengthHeader["Content-Length:".Length..], NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out var length))
+            {
+                throw new InvalidDataException("RPC frame carried no readable Content-Length.");
+            }
             if (length < 0 || length > 1024 * 1024)
                 throw new InvalidDataException("Invalid RPC content length.");
             var body = new byte[length];
