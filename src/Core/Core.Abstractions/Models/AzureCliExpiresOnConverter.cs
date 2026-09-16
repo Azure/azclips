@@ -41,5 +41,11 @@ public sealed class AzureCliExpiresOnConverter : JsonConverter<DateTimeOffset>
     }
 
     public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
-        => writer.WriteStringValue(value.ToLocalTime().ToString(Format, CultureInfo.InvariantCulture));
+    {
+        // Classic az derives expiresOn from the integer epoch (datetime.fromtimestamp(expires_on)), so it
+        // always renders whole-second precision (".000000"). Truncate sub-second ticks so our output is
+        // byte-for-byte compatible instead of leaking the token's fractional expiry.
+        var wholeSecond = value.AddTicks(-(value.Ticks % TimeSpan.TicksPerSecond));
+        writer.WriteStringValue(wholeSecond.ToLocalTime().ToString(Format, CultureInfo.InvariantCulture));
+    }
 }

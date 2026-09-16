@@ -384,7 +384,9 @@ public class CliOutputFormatterTests
         var token = new Core.Abstractions.AccessTokenResult
         {
             Token = "the-raw-token",
-            ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
+            // Sub-second precision on purpose: classic az derives expiresOn from the integer epoch, so
+            // it is always whole seconds. The converter must truncate rather than leak the fraction.
+            ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000).AddTicks(1_512_345),
             ExpiresOnUnixTime = 1_700_000_000,
             TenantId = "tid",
         };
@@ -393,9 +395,9 @@ public class CliOutputFormatterTests
 
         using var doc = JsonDocument.Parse(result);
         // Classic `az account get-access-token` emits `expiresOn` as a local-time string
-        // "yyyy-MM-dd HH:mm:ss.ffffff" (deprecated, kept for backward compatibility).
+        // "yyyy-MM-dd HH:mm:ss.ffffff" with whole-second precision (deprecated, kept for compatibility).
         var expiresOn = doc.RootElement.GetProperty("expiresOn").GetString();
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$", expiresOn);
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.000000$", expiresOn);
     }
 
     // ── Relaxed escaping: raw JSON strings stay human-readable ──────
