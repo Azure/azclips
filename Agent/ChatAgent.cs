@@ -144,8 +144,19 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         catch
         {
-            invocationContext.Dispose();
-            await client.DisposeAsync().ConfigureAwait(false);
+            // Same order as the successful path in DisposeAsync: tear the SDK down first, clear the
+            // invocation context in a finally. Bind has already installed the wrapped hooks and
+            // tools by now, so SDK cleanup can still call them — disposing the context first makes
+            // EnterCallback throw ObjectDisposedException and mask the create failure being
+            // rethrown here.
+            try
+            {
+                await client.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                invocationContext.Dispose();
+            }
             throw;
         }
     }

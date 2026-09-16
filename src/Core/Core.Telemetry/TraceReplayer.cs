@@ -74,6 +74,10 @@ internal static class TraceReplayer
 
         var ordered = new List<TraceEntry>(entries.Count);
         var visited = new HashSet<SpanKey>();
+        // Tracks what the walk emitted. visited cannot serve for this: an entry with no SpanId is
+        // emitted but deliberately kept out of visited, because every such entry would otherwise
+        // collide on the same (traceId, "") key and only the first would survive.
+        var emitted = new HashSet<TraceEntry>();
         var queue = new Queue<TraceEntry>(roots);
 
         while (queue.Count > 0)
@@ -85,6 +89,7 @@ internal static class TraceReplayer
                 continue;
 
             ordered.Add(entry);
+            emitted.Add(entry);
 
             if (!string.IsNullOrEmpty(entry.SpanId) && childrenOf.TryGetValue(key, out var children))
             {
@@ -97,8 +102,14 @@ internal static class TraceReplayer
         {
             foreach (var e in entries)
             {
+                if (emitted.Contains(e))
+                    continue;
+
                 var key = (e.TraceId, e.SpanId);
-                if (!string.IsNullOrEmpty(e.SpanId) && visited.Add(key))
+                // Mirrors the walk above, which admits an empty SpanId and deduplicates only real
+                // ones. TraceEntry allows null ids, and an entry with no SpanId whose parent sits in
+                // a cycle is never reached by the walk, so requiring one here dropped it silently.
+                if (string.IsNullOrEmpty(e.SpanId) || visited.Add(key))
                 {
                     ordered.Add(e);
                 }
@@ -229,3 +240,4 @@ internal static class TraceReplayer
         _ => value.ToString(),
     };
 }
+

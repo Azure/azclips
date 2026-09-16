@@ -143,6 +143,23 @@ public class TraceReplayerTests
     }
 
     [Fact]
+    public void ReplayEntries_ShouldKeepEntriesWithoutASpanId_WhenTheirParentIsInACycle()
+    {
+        using var harness = new ReplayHarness();
+        // a and b are mutual parents, so neither is a root and the walk never reaches anything
+        // hanging off them. c has no SpanId of its own and its parent is inside that cycle, so only
+        // the sweep can emit it — requiring a SpanId there dropped it silently.
+        var a = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: "2222222222222222", name: "a");
+        var b = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "1111111111111111", name: "b");
+        var c = MakeEntry(SampleTraceId, spanId: null, parentSpanId: "1111111111111111", name: "c");
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { a, b, c });
+
+        Assert.Equal(3, harness.Stopped.Count);
+        Assert.Single(harness.Stopped, activity => activity.OperationName == "c");
+    }
+
+    [Fact]
     public void ReplayEntries_ShouldRestoreTags()
     {
         using var harness = new ReplayHarness();
