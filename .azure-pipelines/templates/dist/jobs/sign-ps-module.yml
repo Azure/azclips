@@ -3,7 +3,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: SourceProject
   type: string
   default: 'public'

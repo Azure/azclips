@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: artifact_name
   type: string
   default: 'signed-nuget'

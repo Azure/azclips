@@ -47,7 +47,7 @@ guide in the same PR so it stays accurate.
 - `templates/dist/steps/validate-release-project.yml` enforces that signing/release pipelines only run in `release`. Preserve these guards when editing.
 
 ## Variables, Groups & Secrets
-- Shared values in `templates/variables.yml`: pools (`ubuntu_pool: pool-ubuntu-2204`, `ubuntu_arm64_pool: pool-ubuntu-latest-arm64`, `windows_pool: pool-windows-2022`, `windows_arm64_pool: pool-windows-2025-gen2-arm64`, `macos_arm64_pool: macOS-15-arm64`, `macos_intel_pool: macOS-15`), `public_project`/`release_project`, `github_target_repo: Azure/azclips`, `esrp_service_connection: ame_esrp_connection`, `macos_bundle_id`, and pipeline names.
+- Shared pool, project, repository, service-connection, bundle, and pipeline-name values are defined in `templates/variables.yml`.
 - Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `get-github-pat-token`.
 - ESRP keycodes (`ESRPNuGetKeyCode`, `ESRPAuthenticodeKeyCode`, `ESRPThirdPartyKeyCode`, `ESRPStrongNameKeyCode`, `ESRPAppleKeyCode`) come from groups and are mapped in `release.yml`. Never hardcode them.
 - The GitHub PAT is fetched at runtime from Key Vault via `steps/get-github-pat-token.yml`; do not persist it.

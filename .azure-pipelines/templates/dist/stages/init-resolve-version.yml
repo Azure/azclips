@@ -19,7 +19,6 @@ parameters:
   default: 'auto'
 - name: ubuntu_pool
   type: string
-  default: 'pool-ubuntu-2204'
 
 stages:
 - stage: Init
