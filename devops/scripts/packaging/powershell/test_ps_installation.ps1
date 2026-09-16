@@ -6,7 +6,8 @@ Shared, platform-agnostic Az PowerShell module installation validation invoked b
 Registers a local package gallery, installs each packaged Az PowerShell module from the local repository with
 Install-Module into the given -Scope, and validates module import, exported cmdlets, and external help examples.
 Installed modules are intentionally left in place after successful validation; test_ps_uninstall.ps1 is expected to run
-after the upgrade placeholder and smoke validation phases to remove them and verify removal.
+after smoke validation to remove them and verify removal. Upgrade runs and cleans its
+own installations before this fresh-install phase.
 Use a disposable environment: preexisting exact target versions or a conflicting RepositoryName are rejected before
 any mutation. Other installed versions and existing repository registrations are preserved. On failure, only packages
 attempted by this run are removed in reverse order; cleanup continues after individual errors without hiding the

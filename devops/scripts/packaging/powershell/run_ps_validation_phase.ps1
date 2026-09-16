@@ -3,10 +3,11 @@
 Runs one shared Azure PowerShell module validation phase.
 
 .DESCRIPTION
-Run Dependencies, Install, Upgrade, Validate, and Uninstall in that order using the same
+Run Dependencies, Upgrade, Install, Validate, and Uninstall in that order using the same
 PowerShell executable. Dependencies and Install require a local gallery path in
 RepositoryRoot. Dependencies uses private module directories and the bootstrapped
-DOTNET_ROOT; it does not install user modules. Upgrade is an explicit placeholder.
+DOTNET_ROOT; it does not install user modules. Upgrade uses a prepared GitHub baseline,
+verifies replacement by pipeline packages, and cleans its own installed modules.
 Both dependency suites run before the phase returns the first failing exit code.
 Validate runs the configured module smoke tests after Install checks imports,
 exported cmdlets, and external help. Smoke coverage is checked once before the
@@ -20,10 +21,12 @@ partial-install cleanup. See README.md in this directory for local and CI usage.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Dependencies', 'Install', 'Upgrade', 'Validate', 'Uninstall')]
+    [ValidateSet('Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')]
     [string] $Phase,
 
     [string] $RepositoryRoot,
+
+    [string] $BaselineRoot,
 
     [Parameter(Mandatory)]
     [string] $SourceRoot,
@@ -113,8 +116,18 @@ switch ($Phase) {
     }
 
     'Upgrade' {
-        # Intentional placeholder reserved for future upgrade coverage.
-        Write-Host "PLACEHOLDER: the 'Upgrade' phase is not implemented yet; skipping."
+        if ([string]::IsNullOrWhiteSpace($RepositoryRoot) -or
+            [string]::IsNullOrWhiteSpace($BaselineRoot)) {
+            throw "The 'Upgrade' phase requires -RepositoryRoot and -BaselineRoot."
+        }
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_upgrade.ps1') `
+            -Arguments @(
+                '-BaselineRoot', $BaselineRoot,
+                '-RepositoryRoot', $RepositoryRoot,
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath
+            )
     }
 
     'Validate' {

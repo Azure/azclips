@@ -37,6 +37,14 @@ can continue after failures without clearing their recorded outcomes.
 The shared `module_definitions.ps1` reader normalizes known bare source names and
 manifest-path dependencies to package identities for lifecycle, dependency and
 smoke validation; already-prefixed and unknown names are preserved.
+`prepare_ps_upgrade_baseline.ps1` freezes a checksum-verified stable GitHub bundle
+for all matrix legs, selecting the previous distinct version when latest equals
+the target. `test_ps_upgrade.ps1` runs the bundled installer against a unique local
+gallery, replaces its packages with pipeline inputs, verifies installed payloads
+and imports, and cleans its own baseline/target state before fresh installation.
+`shared/upgrade_worker.ps1` isolates package-manager operations and module imports
+in bounded child processes. Offline upgrade fixtures must never install real Az
+modules into the developer's profile.
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —

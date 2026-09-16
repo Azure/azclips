@@ -54,6 +54,14 @@ jobs:
           & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyRuntimeFixtures.ps1
           exit $LASTEXITCODE
 
+      - name: Test PowerShell release upgrades
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File ./tests/Scripts/PS/PSUpgradeReleaseFixtures.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & pwsh -NoProfile -File ./tests/Scripts/PS/PSUpgradeFixtures.ps1
+          exit $LASTEXITCODE
+
   build-and-test:
     runs-on: ubuntu-latest
 

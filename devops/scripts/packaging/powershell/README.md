@@ -19,22 +19,23 @@ Each matrix job shows one task for each phase:
 | --- | --- |
 | Install PowerShell `<version>` | The distribution's bootstrap script |
 | Validate Azure PS Dependencies | `test_ps_dependencies.ps1` and `test_ps_dependency_runtime.ps1` |
-| Install Azure PS `v<version>` | `test_ps_installation.ps1` |
-| Upgrade Azure PS `v<version>` | Explicit placeholder; no upgrade is performed |
+| Upgrade Azure PS `v<version>` | `test_ps_upgrade.ps1`: released baseline to pipeline packages |
+| Install Azure PS `v<version>` | `test_ps_installation.ps1` (fresh install after upgrade cleanup) |
 | Validate Azure PS `v<version>` | `test_ps_smoke.ps1`, configured by `ps_smoke_tests.psd1` |
 | Uninstall Azure PS `v<version>` | `test_ps_uninstall.ps1` |
 
 Installation verifies version-pinned imports, exported cmdlets, and external help
 examples. Validate additionally imports every module and executes its configured
-smoke commands. Dependencies and Install require a successful Bootstrap, not a
-successful preceding validation phase. Upgrade and Validate require a successful
-Install and still run after dependency failures. Cancellation skips new validation
+smoke commands. Dependencies, Upgrade and Install require a successful Bootstrap,
+not a successful preceding validation phase. Upgrade cleans its own installations
+before fresh Install. Validate requires successful Install and still runs after
+dependency or upgrade failures. Cancellation skips new validation
 work, but Uninstall still runs when Install completed successfully. These rules also
 apply to unsupported canaries; successful later phases and cleanup never replace
 earlier validation failures.
 
 The **Build (PS) Common** job retains its module-output and package installation/
-removal checks, but does not invoke the Dependencies or smoke Validate phase. It publishes the
+removal checks, but does not invoke Dependencies, Upgrade or smoke Validate. It publishes the
 packages first; the dependent **Validate (PS)** stage owns smoke validation across
 the distribution matrix. Missing smoke coverage therefore cannot block publication
 of the input packages needed by that stage.
@@ -133,10 +134,11 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `inventories/` | Target-module state before/after installation and uninstall, with failure/rollback state when applicable. |
 | `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
-| `logs/` | Bootstrap, Dependencies, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
-| `results.json` | Schema version 2: per-distribution phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Dependencies and Validate are required for success. Coverage is reported separately in the pre-matrix artifact. |
+| `logs/` | Bootstrap, Dependencies, Upgrade, Install, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
+| `results.json` | Schema version 3: per-distribution phase timestamps, native exit codes, outcomes, and overall result. All six phases, including Upgrade, are required for success. Coverage is reported separately in the pre-matrix artifact. |
 | `dependency-tests.json` | Package metadata, automatic dependency resolution, missing/incompatible dependency and loaded-version-conflict results, including child exit codes, diagnostics and saved/imported inventories. |
 | `runtime-dependencies.json` | Actual runtime details and isolated missing-framework/unsupported-PowerShell rejection results. |
+| `upgrade-tests.json` | Selected GitHub release, target version, baseline/target package hashes and installed paths, operation outcomes, process diagnostics, imports and cleanup failures. |
 | `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, failures, and missing-coverage warnings. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
@@ -224,6 +226,66 @@ The full `Dependencies` dispatcher phase additionally requires the bootstrap's
 fixtures below use real local synthetic NuGet packages, while runtime fixtures are
 offline harness tests. Neither establishes public PSGallery or PSResourceGet
 delivery; those remain separate validation paths.
+
+## Upgrade validation
+
+`PreparePowerShellUpgradeBaseline` downloads one released bundle for the entire
+matrix using authenticated GitHub CLI. It uses the latest stable release unless
+its Az version equals the pipeline's Az version; in that case it selects the
+highest older distinct stable version. Drafts and prereleases are excluded.
+A newer release than the target, no older baseline, missing digest or checksum
+mismatch fails explicitly. The downloaded tarball is checked for unsafe entries
+before extraction. The `PSUpgradeBaseline` artifact contains the selected release
+metadata and its flat `gallery/` with packages and the released `InstallModule.ps1`.
+
+Private GitHub access uses the checkout's built-in authorization only in the
+preparation job; persisted headers are removed afterward. Credentials are not
+published or passed into distribution containers. Matrix jobs still run when
+baseline preparation fails: Upgrade records its missing input while independent
+dependency, fresh-install and smoke coverage remains available.
+
+Each Upgrade transaction copies the baseline to a unique writable gallery and
+uses its bundled installer with a unique repository name and explicit versions.
+It imports the released modules, copies pipeline packages into that same gallery,
+and invokes the helper for every target module in dependency order, with Az last.
+This forces replacement of child packages even when their versions did not change.
+Target-install workers apply the existing fresh-install CI policy,
+`Install-Module -SkipPublisherCheck`, through process-local default parameters:
+unsigned pipeline packages must be able to replace publisher-signed releases on
+Windows. The released helper is not edited, baseline installation retains normal
+publisher checks, and installed artifact bytes are still verified. This is not a
+publisher-signature compatibility test.
+The suite compares installed file hashes with the input nupkg payloads and rejects
+unexpected files, then checks exact-version imports, locations and command exports
+in fresh processes. NuGet transport metadata and generated PSGetModuleInfo.xml are
+not module payloads.
+
+Run this suite only in a disposable environment. It refuses preexisting exact
+baseline or target versions, including unregistered version directories, and
+preserves unrelated versions and repositories. Cleanup runs even after failed
+installation or verification; it removes only attempted module identities from
+the preflight module roots, the owned repository and scratch gallery. Baseline-only
+modules such as a renamed authentication module are included in cleanup. Both the
+primary failure and any cleanup errors remain in `upgrade-tests.json`. The normal
+fresh-install lifecycle runs afterward and retains its separate snapshot evidence.
+
+To prepare a baseline without installing modules, use a new destination under an
+existing parent directory:
+
+```powershell
+pwsh -NoProfile -File .\devops\scripts\packaging\powershell\prepare_ps_upgrade_baseline.ps1 `
+    -TargetVersion (Import-PowerShellDataFile .\src\PS\Az\Az.psd1).ModuleVersion `
+    -DestinationRoot 'C:\temp\ps-upgrade-baseline'
+```
+
+On a disposable host bootstrapped with the target PowerShell and .NET runtime:
+
+```powershell
+& $pwshPath -NoProfile -File .\devops\scripts\packaging\powershell\test_ps_upgrade.ps1 `
+    -BaselineRoot 'C:\temp\ps-upgrade-baseline' `
+    -RepositoryRoot .\artifacts\Release\PSGallery\local-repo `
+    -SourcePsRoot .\src\PS -PwshPath $pwshPath -ReportRoot 'C:\temp\ps-upgrade-report'
+```
 
 ## Configuring module smoke tests
 
@@ -421,6 +483,8 @@ pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSSmokeFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSDependencyFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSDependencyRuntimeFixtures.ps1
+pwsh -NoProfile -File tests\Scripts\PS\PSUpgradeReleaseFixtures.ps1
+pwsh -NoProfile -File tests\Scripts\PS\PSUpgradeFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSValidationPipelineFixtures.ps1
 ```
 

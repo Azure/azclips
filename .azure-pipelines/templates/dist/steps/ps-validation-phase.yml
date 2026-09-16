@@ -4,8 +4,8 @@ parameters:
   values:
   - Bootstrap
   - Dependencies
-  - Install
   - Upgrade
+  - Install
   - Validate
   - Uninstall
 - name: display_name
@@ -53,9 +53,9 @@ steps:
     PS_CONTINUE_ON_ERROR: $(ContinueOnError)
   ${{ if eq(parameters.phase, 'Uninstall') }}:
     condition: and(always(), eq(variables['PsValidationInstalled'], 'true'))
-  ${{ elseif or(eq(parameters.phase, 'Upgrade'), eq(parameters.phase, 'Validate')) }}:
+  ${{ elseif eq(parameters.phase, 'Validate') }}:
     condition: and(succeededOrFailed(), eq(variables['PsValidationInstalled'], 'true'))
-  ${{ elseif or(eq(parameters.phase, 'Dependencies'), eq(parameters.phase, 'Install')) }}:
+  ${{ elseif in(parameters.phase, 'Dependencies', 'Upgrade', 'Install') }}:
     condition: and(succeededOrFailed(), eq(variables['PsValidationBootstrapped'], 'true'))
   ${{ else }}:
     condition: succeeded()

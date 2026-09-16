@@ -33,7 +33,7 @@ function Initialize-PSValidationReport
     $resultsPath = Join-Path $ReportRoot 'results.json'
     if (-not (Test-Path -LiteralPath $resultsPath))
     {
-        $phases = @(foreach ($phase in 'Bootstrap', 'Dependencies', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+        $phases = @(foreach ($phase in 'Bootstrap', 'Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')
         {
             [ordered]@{
                 phase = $phase
@@ -45,7 +45,7 @@ function Initialize-PSValidationReport
             }
         })
         Write-PSValidationJson -Path $resultsPath -Value ([ordered]@{
-            schemaVersion = 2
+            schemaVersion = 3
             status = 'NotStarted'
             completedAtUtc = $null
             phases = $phases
@@ -89,9 +89,9 @@ function Read-PSValidationReport
     param([Parameter(Mandatory)][string]$Path)
 
     $report = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
-    $expectedPhases = 'Bootstrap,Dependencies,Install,Upgrade,Validate,Uninstall'
+    $expectedPhases = 'Bootstrap,Dependencies,Upgrade,Install,Validate,Uninstall'
     $allowedStatuses = @('NotRun', 'Running', 'Succeeded', 'SucceededWithIssues', 'Failed', 'Skipped', 'Interrupted')
-    if ($report.schemaVersion -ne 2 -or
+    if ($report.schemaVersion -ne 3 -or
         (($report.phases | ForEach-Object { $_.phase }) -join ',') -ne $expectedPhases -or
         @($report.phases | Where-Object { $_.status -notin $allowedStatuses }).Count -gt 0)
     {
@@ -135,7 +135,7 @@ function Complete-PSValidationReport
                 Set-Content -LiteralPath $logPath -Encoding utf8 -ErrorAction Stop
         }
     }
-    $requiredPhases = @($report.phases | Where-Object { $_.phase -in 'Bootstrap', 'Dependencies', 'Install', 'Validate', 'Uninstall' })
+    $requiredPhases = @($report.phases)
     $report.status = if ($JobStatus -eq 'Canceled') { 'Canceled' }
         elseif ($JobStatus -eq 'Failed' -or @($report.phases | Where-Object { $_.status -eq 'Failed' }).Count -gt 0) { 'Failed' }
         elseif (@($report.phases | Where-Object { $_.status -eq 'SucceededWithIssues' }).Count -gt 0) { 'SucceededWithIssues' }

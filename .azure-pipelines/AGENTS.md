@@ -37,7 +37,8 @@ guide in the same PR so it stays accurate.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
-- PowerShell validation matrix phases use `PsValidationBootstrapped` and `PsValidationInstalled` as prerequisites. Dependency failures do not suppress Install or subsequent smoke validation after successful installation; failed prerequisites and cancellation still skip dependent validation work. Cleanup runs after successful installation, and reports/publication gates retain earlier failures.
+- PowerShell validation matrix phases are Bootstrap, Dependencies, Upgrade, Install, Validate and Uninstall. Dependencies, Upgrade and fresh Install require `PsValidationBootstrapped`; Validate/Uninstall require `PsValidationInstalled`. Upgrade cleans its own state before Install. Independent failures do not suppress later work; cancellation still skips new validation. Reports/publication gates retain earlier failures.
+- `PreparePowerShellUpgradeBaseline` acquires a checksum-verified stable GitHub bundle once, using built-in persisted checkout authorization that is removed in `finally`. It publishes `PSUpgradeBaseline`; credentials never enter that artifact or matrix containers. Equal latest/target versions select the previous distinct stable version. Matrix expansion requires successful generation but still proceeds after baseline-preparation failure, so independent coverage remains available.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
@@ -52,7 +53,7 @@ guide in the same PR so it stays accurate.
 - Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `get-github-pat-token`.
 - ESRP keycodes (`ESRPNuGetKeyCode`, `ESRPAuthenticodeKeyCode`, `ESRPThirdPartyKeyCode`, `ESRPStrongNameKeyCode`, `ESRPAppleKeyCode`) come from groups and are mapped in `release.yml`. Never hardcode them.
 - The GitHub PAT is fetched at runtime from Key Vault via `steps/get-github-pat-token.yml`; do not persist it.
-- Some jobs also rely on **service connections** (`ame_esrp_connection` for ESRP, `AzureSubscription` for Key Vault) and **persisted checkout credentials** (`persistCredentials: true`, for checkout/fetch). Git tag/push and `gh` operations authenticate with the Key Vault `GH_TOKEN`, not the persisted checkout credentials — use these built-in mechanisms rather than embedding tokens.
+- Some jobs also rely on **service connections** (`ame_esrp_connection` for ESRP, `AzureSubscription` for Key Vault) and **persisted checkout credentials** (`persistCredentials: true`, for checkout/fetch). Release Git tag/push and `gh` operations authenticate with Key Vault `GH_TOKEN`. The public-project PS upgrade baseline job uses checkout authorization for read-only GitHub release acquisition, then removes the persisted headers. Do not introduce release-only secrets into public-project jobs.
 
 ## Packaging Roots (`packaging.yml`)
 - `PackagingScriptsRoot = devops/scripts/packaging`
@@ -65,6 +66,8 @@ guide in the same PR so it stays accurate.
 - `Final_Signed_Distribution` — stable ESRP-signed output.
 - `Final_Signed_Beta_Distribution` — beta ESRP-signed output.
 - `PSModules` — packaged PowerShell modules.
+- `PSUpgradeBaseline` — selected stable PowerShell release metadata and verified bundle gallery for upgrade validation.
+- `Validate_PS_Sim_<ValidationKey>` — schema-3 phase results, logs and lifecycle/dependency/upgrade/smoke diagnostics for each matrix leg; Upgrade is required for success.
 
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.
