@@ -42,7 +42,7 @@ The `azclips-trigger-stable-release` pipeline has four phases:
 | Phase | Result |
 | --- | --- |
 | Choose release version | Calculates the next CLI and `Az` version from `patch`, `minor`, `major`, or `custom`. |
-| Select extensions | Compares extension C# and PowerShell files with the latest stable tag. |
+| Select extensions | Compares extension C# source and all files under each PowerShell module directory with the latest stable tag. |
 | Align metadata | Updates project, module, dependency, and `Az` rollup versions together. |
 | Prepare release PR | Generates changelogs and opens `release/trigger-stable-release-<version>`. |
 
@@ -57,12 +57,13 @@ Extension versions are selected independently:
 
 ### Example: Compute changed
 
-Assume the CLI is `0.1.2`, Compute is `0.1.0`, and the pipeline detects a change under
-`src/Extensions/Compute` or `src/PS/Compute` since the latest stable tag. For a patch release:
+Assume the CLI is `0.1.2`, Compute is `0.1.0`, and the pipeline detects a `*.cs` change under
+`src/Extensions/Compute` or any change under `src/PS/Compute` since the latest stable tag. For a
+patch release:
 
 | File | Generated change |
 | --- | --- |
-| `src/CLI/Core.Cli.csproj` | CLI version properties: `0.1.2` to `0.1.3`. |
+| `src/CLI/Core.Cli.csproj` | `Version` and `InformationalVersion`: `0.1.2` to `0.1.3`; `AssemblyVersion` and `FileVersion`: `0.1.2.0` to `0.1.3.0`. |
 | `src/PS/Az/Az.psd1` | `ModuleVersion`: `0.1.2` to `0.1.3`; Compute dependency: `0.1.0` to `0.1.1`; include Compute notes when present. |
 | `src/Extensions/Compute/Extensions.Compute.csproj` | `Version`: `0.1.0` to `0.1.1`. |
 | `src/PS/Compute/Compute.psd1` | `ModuleVersion`: `0.1.0` to `0.1.1`; update `ReleaseNotes` when upcoming notes exist. |
