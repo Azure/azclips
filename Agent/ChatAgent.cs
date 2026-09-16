@@ -403,9 +403,10 @@ public sealed class ChatAgent : IAsyncDisposable
                             break;
                         case AssistantUsageEvent { Data: { } usage } when inMainTurn:
                             if (usage.Initiator is null or "" or "user" &&
-                                !string.IsNullOrWhiteSpace(usage.Model))
+                                RecoveryTelemetry.IsExportableModel(usage.Model))
                             {
-                                Volatile.Write(ref observedModel, new AgentModelObservation(usage.Model, "usage"));
+                                Volatile.Write(ref observedModel,
+                                    new AgentModelObservation(usage.Model, AgentModelSource.Usage));
                             }
                             break;
                     }

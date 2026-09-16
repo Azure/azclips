@@ -95,13 +95,19 @@ block.
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
-| `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
-| `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
+| `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
+| `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
 | `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+
+`modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
+mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
+documented here. `agent.model` is bounded before export — 1–128 characters of
+`A-Z a-z 0-9 . _ : -` — because the value arrives from the remote runtime; a name outside
+those bounds is recorded as `unavailable` rather than exported.
 
 For `builtin`, the effective `agent.builtin.modelId` comes from configuration,
 falling back to the `AgentOptions` default when the key is absent. It is recorded
@@ -112,9 +118,10 @@ the first send therefore need not lose a known configured model.
 For `github`, the SDK still chooses the model. Session start/resume/model-change
 events track its selection. If no selection event has arrived, startup performs
 one read-only `session.model.getCurrent` query with a five-second deadline.
-If no valid selection is available, query failure, malformed/empty results, or
-timeout use the existing warning channel and leave an unavailable model; they do
-not prevent recovery. Caller cancellation still propagates. Delayed startup
+If no valid selection is available, any query failure — including an exception type the
+experimental RPC was not expected to raise — malformed/empty results, or timeout use the
+existing warning channel and leave an unavailable model; they do not prevent recovery.
+Caller cancellation still propagates. Delayed startup
 events cannot overwrite a queried selection, while an explicit model-change
 event wins over an in-flight query reply. No builtin default is substituted for
 a GitHub model.

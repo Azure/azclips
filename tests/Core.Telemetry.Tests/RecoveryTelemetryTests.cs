@@ -37,6 +37,49 @@ public class RecoveryTelemetryTests
     }
 
     [Fact]
+    public void EveryModelSource_HasADistinctWireForm()
+    {
+        var sources = Enum.GetValues<AgentModelSource>();
+
+        var wireForms = sources.Select(source => source.Wire()).ToArray();
+
+        var duplicates = wireForms.GroupBy(wire => wire, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1).Select(group => group.Key).ToArray();
+        Assert.True(duplicates.Length == 0,
+            "agent.modelSource is a closed set, so every member must map to its own wire form. " +
+            $"Shared by more than one member: {string.Join(", ", duplicates)}.");
+        Assert.All(wireForms, wire => Assert.True(
+            wire.Length > 0 && wire == wire.ToLowerInvariant(),
+            $"Wire forms are lowercase and non-empty; got '{wire}'."));
+
+        // telemetry.md claims a new source cannot reach the exporter without being documented.
+        // Distinctness alone does not make that true -- adding a member with its own wire form
+        // would have shipped undocumented and left this test green. Pinning the set is what
+        // turns the doc's claim into something enforced rather than asserted.
+        Assert.Equal(
+            new[] { "unavailable", "configuration", "sdk", "usage" }.OrderBy(w => w, StringComparer.Ordinal),
+            wireForms.OrderBy(w => w, StringComparer.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void RecordModel_WithNullOrWhitespaceModel_ReportsUnavailable(string? model)
+    {
+        using var activity = new Activity("recovery").Start();
+
+        RecoveryTelemetry.RecordModel(activity, model, AgentModelSource.Sdk);
+
+        var recorded = activity.GetTagItem(TelemetryTags.AgentModel);
+        Assert.True(recorded is null,
+            $"A blank model name is not a model; it must not be exported. Recorded '{recorded}'.");
+        var source = activity.GetTagItem(TelemetryTags.AgentModelSource);
+        Assert.True(Equals(source, AgentModelSource.Unavailable.Wire()),
+            $"A blank model must report modelSource=unavailable, not the claimed source. Reported '{source}'.");
+    }
+
+    [Fact]
     public void RecordConfiguration_NoOps_WhenActivityIsMissing()
     {
         var options = new AgentOptions();

@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Telemetry;
+using Core.Telemetry;
 using GitHub.Copilot;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,9 @@ namespace Core.Agent.Tests;
 public class ChatAgentModelTelemetryTests
 {
     private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
+    // Longer than the five-second query budget, shorter than TestTimeout, so a breached budget
+    // still finishes inside the test's own ceiling.
+    private static readonly TimeSpan SlowModelReply = TimeSpan.FromSeconds(8);
 
     [Theory]
     [InlineData(null)]
@@ -87,11 +91,18 @@ public class ChatAgentModelTelemetryTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task Github_EmptyUsageDoesNotEraseObservedModel(string emptyModel)
+    // The bound sits at the ingestion site in ChatAgent, not inside RecordModel, so these last two
+    // are the only cases that can fail on that line. Reverting it to a null-or-whitespace check
+    // leaves the empty cases green -- they are rejected either way -- and lets an over-long or
+    // space-bearing name straight through to the exporter.
+    [InlineData("model with spaces")]
+    [InlineData("overlong")]
+    public async Task Github_UnusableUsageDoesNotEraseObservedModel(string unusableModel)
     {
         using var capture = new SendCapture();
+        var model = unusableModel == "overlong" ? new string('m', 129) : unusableModel;
         await using var runtime = new CopilotRuntimeStub(
-            [Usage("main-model"), Usage(emptyModel), Idle()]);
+            [Usage("main-model"), Usage(model), Idle()]);
         await using var rig = await CreateAgentAsync(runtime);
 
         await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
@@ -197,7 +208,7 @@ public class ChatAgentModelTelemetryTests
         await using var rig = await CreateAgentAsync(runtime);
 
         Assert.Equal("sdk-default", rig.Agent.Model);
-        Assert.Equal("sdk", rig.Metadata.Current.Source);
+        Assert.Equal(AgentModelSource.Sdk, rig.Metadata.Current.Source);
         Assert.Equal(1, runtime.ModelQueryCount);
         Assert.False(runtime.CreateOptions.TryGetProperty("model", out _));
         Assert.Empty(capture.Stopped);
@@ -292,6 +303,8 @@ public class ChatAgentModelTelemetryTests
     [Fact]
     public async Task Github_ModelChangeDuringQuery_WinsOverTheOlderRpcReply()
     {
+        // Ordering invariant 2 of 2: a stale RPC reply cannot overwrite an explicit model change.
+        // Guarded by the `IsSelectionChange` precedence in AgentModelTelemetry.InitializeAsync.
         await using var runtime = new CopilotRuntimeStub { SelectedModel = "stale-model" };
         await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
         var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -315,6 +328,9 @@ public class ChatAgentModelTelemetryTests
     [Fact]
     public async Task Github_LateStartupEvent_DoesNotOverwriteQueriedSelection()
     {
+        // Ordering invariant 1 of 2: a startup event delivered after the query resolved is older
+        // information, so it must not replace the queried selection. Guarded by the
+        // `current.Model is null` precedence in AgentModelTelemetry.Observe.
         await using var runtime = new CopilotRuntimeStub { SelectedModel = "queried-model" };
         await using var rig = await CreateAgentAsync(runtime);
         var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -329,6 +345,14 @@ public class ChatAgentModelTelemetryTests
     [Fact]
     public async Task Github_StartupEventDuringQuery_DoesNotOverrideTheCurrentRpcSelection()
     {
+        // Same ordering seen from the other side: the startup event lands while the query is in
+        // flight, so the reply that arrives after it is the newer information and wins.
+        //
+        // What this test can actually fail on is the ABSENCE of Observe's `current.Model is null`
+        // precedence here — add that guard to InitializeAsync and the reply stops replacing the
+        // startup observation. It does NOT pin `!current.IsSelectionChange`: make the CAS loop
+        // unconditional and this still passes, because the reply overwrites either way. That line
+        // is pinned by Github_ModelChangeDuringQuery_WinsOverTheOlderRpcReply instead.
         await using var runtime = new CopilotRuntimeStub { SelectedModel = "queried-model" };
         await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
         var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -364,24 +388,27 @@ public class ChatAgentModelTelemetryTests
         await using var rig = await CreateAgentAsync(runtime);
 
         Assert.Equal(string.Empty, rig.Agent.Model);
-        Assert.Equal("unavailable", rig.Metadata.Current.Source);
+        Assert.Equal(AgentModelSource.Unavailable, rig.Metadata.Current.Source);
         Assert.Contains("model metadata is unavailable", Assert.Single(rig.Warnings));
         await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
         Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
     }
 
     [Fact]
-    public async Task Github_MetadataTimeout_IsBounded_AndDoesNotBlockRecovery()
+    public async Task ModelQueryHang_DoesNotExceedItsBudget()
     {
         using var capture = new SendCapture();
+        // A slow reply, not an absent one: widening the deadline must produce an elapsed time an
+        // assertion can fail on, rather than a test only the harness timeout can end.
         await using var runtime = new CopilotRuntimeStub([Usage("actual-model"), Idle()])
         {
-            HoldModelResponse = true,
+            SelectedModel = "too-late-model",
+            BeforeModelResponse = () => Task.Delay(SlowModelReply),
         };
         var timer = Stopwatch.StartNew();
         await using var rig = await CreateAgentAsync(runtime);
 
-        Assert.InRange(timer.Elapsed, TimeSpan.FromSeconds(4), TestTimeout);
+        Assert.InRange(timer.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(6));
         Assert.Contains("timed out", Assert.Single(rig.Warnings));
         await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
         Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
@@ -410,17 +437,17 @@ public class ChatAgentModelTelemetryTests
         };
 
     [Fact]
-    public async Task ModelQuery_CancelledMidFlight_PropagatesCancellation()
+    public async Task ModelQueryThrows_CallerCancellationStillPropagates()
     {
-        // Covers the ordinary case: cancelling while the query is in flight must not be reported as
-        // a failed model lookup. It does NOT cover the narrower race the guard in the IOException
-        // catch exists for, where the transport dies and its IOException beats the token check —
-        // that ordering cannot be produced deterministically from here.
-        await using var runtime = new CopilotRuntimeStub { SelectedModel = "sdk-default" };
+        // The seam the old ModelQuery_CancelledMidFlight_PropagatesCancellation could not build:
+        // the query fails on a torn transport with the caller already cancelled, so the failure
+        // reaches the broad catch rather than the cancellation filter above it. Which of the two
+        // the transport actually produces is not pinned here — what is pinned is that either one
+        // ends as cancellation and never as a reported model failure.
+        await using var runtime = new CopilotRuntimeStub { TearTransportOnModelQuery = true };
         await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
         using var cts = new CancellationTokenSource();
-        // Disposing the stub here would deadlock: this callback runs on the stub's own serve loop,
-        // which Dispose awaits.
+        // Runs on the stub's serve loop immediately before it drops the connection.
         runtime.BeforeModelResponse = () =>
         {
             cts.Cancel();
@@ -429,6 +456,62 @@ public class ChatAgentModelTelemetryTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(TestTimeout));
+
+        Assert.True(rig.Warnings.Count == 0,
+            "A cancelled caller is not a failed model lookup, so nothing is reported to the user. " +
+            $"Reported: {string.Join(" | ", rig.Warnings)}.");
+    }
+
+    [Fact]
+    public async Task ModelQueryThrowsUnexpectedType_RecoveryStillRuns()
+    {
+        // The SDK normalises wire faults before they reach us: an RPC error and a torn connection
+        // both arrive as IOException wrapping the real cause, a malformed result as JsonException.
+        // Reaching the failure path with a type the old catch did not name therefore takes a
+        // non-wire fault, and a disposed session gives one — ObjectDisposedException, which used
+        // to escape into ChatAgent.CreateAsync, dispose the client and rethrow, ending the
+        // recovery session the user is waiting on. See Github_MetadataFailure_... for the claim
+        // this one cannot make with a disposed session: that a later send still names the model.
+        await using var runtime = new CopilotRuntimeStub();
+        await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
+        await rig.Session.DisposeAsync();
+
+        var failure = await Record.ExceptionAsync(
+            () => rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None).WaitAsync(TestTimeout));
+
+        Assert.True(failure is null,
+            "A read-only metadata query must not be able to end the recovery session: whatever the " +
+            "experimental RPC throws has to degrade to an unavailable model. Escaped: " +
+            $"{failure?.GetType().FullName}: {failure?.Message}");
+        Assert.Equal(AgentModelSource.Unavailable, rig.Metadata.Current.Source);
+        Assert.Contains("model metadata is unavailable", Assert.Single(rig.Warnings));
+    }
+
+    [Theory]
+    [InlineData(128, null, true)]
+    [InlineData(129, null, false)]
+    [InlineData(0, "model with spaces", false)]
+    // $ in .NET also matches before a single trailing newline, so the anchored pattern admitted
+    // both of these until it became \z. The second is 129 characters, one of them a control char.
+    [InlineData(0, "gpt-5\n", false)]
+    [InlineData(-128, null, false)]
+    public async Task ModelName_IsBoundedBeforeExport(int length, string? literal, bool exportable)
+    {
+        using var capture = new SendCapture();
+        // A negative length is the "128 valid characters plus a trailing newline" case.
+        var model = literal ?? (length < 0 ? new string('m', -length) + "\n" : new string('m', length));
+        await using var runtime = new CopilotRuntimeStub([Idle()]) { SelectedModel = model };
+        await using var rig = await CreateAgentAsync(runtime);
+
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        var exported = Assert.Single(capture.Stopped);
+        Assert.True(exported.Model == (exportable ? model : null),
+            "agent.model admits 1-128 characters of [A-Za-z0-9._:-] and records anything else as " +
+            $"unavailable; a {model.Length}-character name exported as '{exported.Model}'.");
+        Assert.Equal(exportable ? "sdk" : "unavailable", exported.Source);
+        if (!exportable)
+            Assert.Contains("model metadata is unavailable", Assert.Single(rig.Warnings));
     }
 
     [Theory]
@@ -481,7 +564,7 @@ public class ChatAgentModelTelemetryTests
         await rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
 
         Assert.Equal("resumed-model", rig.Agent.Model);
-        Assert.Equal("sdk", rig.Metadata.Current.Source);
+        Assert.Equal(AgentModelSource.Sdk, rig.Metadata.Current.Source);
         Assert.Equal(0, runtime.ModelQueryCount);
         Assert.Empty(rig.SdkErrors);
     }
@@ -648,6 +731,9 @@ public class ChatAgentModelTelemetryTests
         public int ModelQueryCount { get; private set; }
         public int? ModelQueryErrorCode { get; set; }
         public bool HoldModelResponse { get; set; }
+        // Drops the connection instead of answering the model query, so the client's in-flight
+        // request fails on a torn transport rather than on a clean RPC error.
+        public bool TearTransportOnModelQuery { get; set; }
         public Func<object?>? ModelResult { get; set; }
         public Func<Task>? BeforeModelResponse { get; set; }
         public Func<Task>? BeforeTurn { get; set; }
@@ -687,6 +773,11 @@ public class ChatAgentModelTelemetryTests
                         ModelQueryStarted.TrySetResult();
                         if (BeforeModelResponse is not null)
                             await BeforeModelResponse();
+                        // Returning ends the serve loop, which disposes the socket the client is
+                        // waiting on. Leaving cleanly keeps teardown quiet: a faulted serve task
+                        // would surface in DisposeAsync as a crash unrelated to the assertion.
+                        if (TearTransportOnModelQuery)
+                            return;
                         if (ModelQueryErrorCode is { } code)
                         {
                             await WriteAsync(stream, new
