@@ -547,6 +547,211 @@ public sealed class SourceRecordedHierarchyTests
         Assert.Single(trace.Stopped);
         Assert.Single(ToolInvocationLog.Snapshot(), invocation => invocation.Name == name);
     }
+
+    [Fact]
+    public async Task RejectedSend_LeavesTheSlotsCancellationHandleUnchanged()
+    {
+        // A send that loses the race for the slot must not write anything shared on its way out.
+        // The handle an abort reaches is the one carried by whatever is in the slot, so a rejected
+        // caller that lands there hands abort the handle of a turn that never started.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        // Deliberately unrelated to `timeout`: if the live send shared the test's own budget, a
+        // reverted fix would still end it -- on that budget -- and the red would be a timeout
+        // rather than an assertion.
+        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
+        using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
+        using var context = new AgentInvocationContext(session);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var agent = await ConnectOfflineAsync(
+            server, context, BlockingTool(entered, release.Task), timeout.Token);
+
+        var live = agent.SendAsync("hold the slot", liveBudget.Token);
+        await entered.Task.WaitAsync(timeout.Token);
+        var reserved = context.CurrentTurnCts;
+        Assert.NotNull(reserved);
+
+        var rejected = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => agent.SendAsync("overlap", timeout.Token));
+        Assert.Contains("one in-flight operation", rejected.Message);
+
+        Assert.Same(reserved, context.CurrentTurnCts);
+
+        release.SetResult();
+        await live;
+        server.ThrowIfFaulted();
+    }
+
+    [Fact]
+    public async Task DisposeWhileSendInFlight_ClosesTheSendItself()
+    {
+        // Disposal must cancel the turn before it waits on the SDK, so the send unwinds and closes
+        // Agent.Send itself. Without the cancel the turn still ends here -- tearing the loopback
+        // connection faults it -- but it ends the wrong way: nobody told it to stop, so
+        // AgentInvocationContext.Dispose reaches it first and reports it as abandoned. Assertions
+        // (1) and (3) below are the ones that see that difference; (2) is only a hang guard, and
+        // does not fail on this transport because the SDK's dispose does not actually wedge.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
+        using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
+        using var context = new AgentInvocationContext(session);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var agent = await ConnectOfflineAsync(
+            server, context, BlockingTool(entered, never.Task), timeout.Token);
+
+        var sending = agent.SendAsync("hold the slot", liveBudget.Token);
+        await entered.Task.WaitAsync(timeout.Token);
+        var sendActivity = context.CurrentOperation!.Activity!;
+
+        var sw = Stopwatch.StartNew();
+        await agent.DisposeAsync();
+        sw.Stop();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => sending.WaitAsync(TimeSpan.FromSeconds(2)));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
+            $"DisposeAsync spent {sw.Elapsed} instead of returning promptly. Hang guard only -- the "
+            + "assertions either side of it are what prove who closed the send.");
+        // The teardown path also reaches "activity stopped", by marking the turn abandoned. Without
+        // this the test would pass on that path and prove nothing about who closed the send.
+        Assert.DoesNotContain("Abandoned", sendActivity.StatusDescription ?? "");
+        server.ThrowIfFaulted();
+    }
+
+    [Fact]
+    public async Task SessionError_CancelsTheLiveSend()
+    {
+        // The SessionErrored branch is the third reader of the turn's cancellation source and the
+        // only one the host cannot reach directly, so it needs its own coverage. The tell is the
+        // exception type, not the timing: without the cancel the turn still ends promptly, because
+        // the SDK faults SendAndWaitAsync itself with InvalidOperationException("Session error:
+        // ..."). With the cancel, Cancel() completes the send's task synchronously from inside the
+        // OnEvent callback, before the SDK gets to fault it, so the turn unwinds as a cancellation.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer
+        {
+            // A tool that never returns, so session.idle cannot fire and nothing but the error can
+            // end this turn.
+            Calls = [new("wait", new { })],
+            SessionErrorAfterDispatch = "offline session error",
+        };
+        using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
+        using var context = new AgentInvocationContext(session);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ChatAgent? self = null;
+        await using var agent = await ConnectOfflineAsync(
+            server, context, BlockingTool(entered, never.Task), timeout.Token,
+            // The production handler itself, not a hand-rolled equivalent. Installing a copy here
+            // would prove only that the copy cancels: ChatAgent.CreateAsync needs a live daemon, so
+            // the real call site would keep its zero coverage and a rebase could drop the branch
+            // with every test still green.
+            onAgentEvent: ev => ChatAgent.HandleAgentEvent(
+                ev, self, _ => { }, spinner: null, renderer: new SilentRenderer()));
+        self = agent;
+
+        var live = agent.SendAsync("this turn fails", liveBudget.Token);
+        var sw = Stopwatch.StartNew();
+        var settled = await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(3), timeout.Token));
+        sw.Stop();
+
+        Assert.True(ReferenceEquals(settled, live),
+            $"the turn never ended at all: still running after {sw.Elapsed}. This guard only "
+            + "converts a hang into an assertion; the cancellation check below is the real one.");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live);
+        Assert.Equal("offline session error", agent.LastError?.Message);
+        server.ThrowIfFaulted();
+    }
+
+    [Fact]
+    public async Task OperationLeavesTheSlotBeforeItsCtsIsDisposed()
+    {
+        // CancelCurrentOperation reads the slot under the lock and cancels outside it, which is
+        // only safe because the source outlives the reservation that carries it. Dispose the source
+        // first and the window inverts: the slot is still occupied while its handle is already
+        // dead, so an abort lands on a disposed source and silently does nothing.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
+        using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
+        using var context = new AgentInvocationContext(session);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var agent = await ConnectOfflineAsync(
+            server, context, BlockingTool(entered, release.Task), timeout.Token);
+
+        var live = agent.SendAsync("one turn", timeout.Token);
+        await entered.Task.WaitAsync(timeout.Token);
+        var turnCts = context.CurrentTurnCts;
+        Assert.NotNull(turnCts);
+
+        bool? usableOnceTheSlotWasClear = null;
+        context.CurrentOperation!.Disposed += () =>
+        {
+            // Cancel is the probe, not CanBeCanceled: that stays true after Dispose, so it passes
+            // under the reverted order too. Cancel is also what CancelCurrentOperation actually
+            // calls, and cancelling a turn that is already finishing is harmless.
+            try { turnCts.Cancel(); usableOnceTheSlotWasClear = true; }
+            catch (ObjectDisposedException) { usableOnceTheSlotWasClear = false; }
+        };
+
+        release.SetResult();
+        await live;
+
+        Assert.True(usableOnceTheSlotWasClear,
+            "At the moment the operation left the slot its cancellation source was already "
+            + "disposed, so an abort that read the slot a moment earlier would have cancelled "
+            + "nothing. SendAsync must dispose the operation before the source.");
+        server.ThrowIfFaulted();
+    }
+
+    private static AIFunction BlockingTool(TaskCompletionSource entered, Task release) =>
+        AIFunctionFactory.Create(async (CancellationToken ct) =>
+        {
+            using var tool = ToolInvocationLog.Start("wait");
+            entered.TrySetResult();
+            await release.WaitAsync(ct);
+            return "";
+        }, new AIFunctionFactoryOptions { Name = "wait" });
+
+    /// <summary>Swallows output so the production event handler can run without a console.</summary>
+    private sealed class SilentRenderer : IAgentRenderer
+    {
+        public void OnText(string chunk) { }
+        public void OnEvent(AgentEvent ev) { }
+        public void OnSpinnerFrame(string frame, string verb) { }
+        public void OnSpinnerStop() { }
+    }
+
+    private static async Task<ChatAgent> ConnectOfflineAsync(
+        OfflineCopilotServer server, AgentInvocationContext context, AIFunction tool,
+        CancellationToken ct, Action<AgentEvent>? onAgentEvent = null)
+    {
+        var client = new CopilotClient(new CopilotClientOptions
+        {
+            Connection = RuntimeConnection.ForUri(server.Url),
+        });
+        var config = new SessionConfig
+        {
+            SessionId = Guid.NewGuid().ToString(),
+            OnPermissionRequest = PermissionHandler.ApproveAll,
+            Tools = [tool],
+        };
+        // Same translation the host installs: the SDK's SessionErrorEvent only becomes a
+        // SessionErrored through EventRenderer, and a hand-rolled stand-in would not exercise the
+        // required-field deserialisation the fake's payload has to satisfy.
+        if (onAgentEvent is not null)
+            config.OnEvent = new EventRenderer { OnEvent = onAgentEvent }.Forward;
+        using (context.StartOperation("Agent.Create"))
+            return await ChatAgent.ConnectAsync(client, config, "offline-model", null, context, ct);
+    }
 }
 
 internal sealed class AgentTraceCapture : IDisposable

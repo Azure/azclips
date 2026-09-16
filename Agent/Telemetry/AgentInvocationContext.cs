@@ -21,11 +21,28 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
     private bool _closing;
     private bool _disposed;
 
-    internal Operation StartOperation(string name, CancellationToken cancellationToken = default)
+    internal Operation StartOperation(string name, CancellationToken cancellationToken = default) =>
+        StartOperation(name, turnCts: null, cancellationToken);
+
+    /// <summary>
+    /// Reserves the slot for a turn that owns a <see cref="CancellationTokenSource"/>, so the
+    /// handle an abort has to cancel and the slot it has to find are the same reservation rather
+    /// than two fields updated separately. The source is borrowed, never owned: the caller's
+    /// <c>using</c> disposes it, and must do so only after this operation has left the slot.
+    /// </summary>
+    internal Operation StartOperation(string name, CancellationTokenSource turnCts)
+    {
+        ArgumentNullException.ThrowIfNull(turnCts);
+        return StartOperation(name, turnCts, cancellationToken: default);
+    }
+
+    private Operation StartOperation(string name, CancellationTokenSource? turnCts, CancellationToken cancellationToken)
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closing || _disposed, this);
+            // Reject before writing anything: a caller that loses the race for the slot must leave
+            // nothing of itself behind, or it disarms the caller that won.
             if (_operation is not null)
                 throw new InvalidOperationException("An agent session supports only one in-flight operation.");
 
@@ -33,8 +50,43 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
             var activity = TelemetryHierarchy.StartActivity(
                 AgentTracing.Source, name, parentContext: parent?.Context ?? default,
                 parentHierarchy: TelemetryHierarchy.Capture(parent));
-            return _operation = new Operation(this, activity, cancellationToken);
+            return _operation = new Operation(this, activity, turnCts, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The reservation currently in the slot. The slot is private, so without this nothing --
+    /// including a test -- can observe which operation, and therefore which cancellation handle,
+    /// an abort would actually reach.
+    /// </summary>
+    internal Operation? CurrentOperation
+    {
+        get { lock (_gate) return _operation; }
+    }
+
+    /// <summary>The cancellation source carried by the reservation currently in the slot.</summary>
+    internal CancellationTokenSource? CurrentTurnCts => CurrentOperation?.TurnCts;
+
+    /// <summary>
+    /// Cancels the turn currently holding the slot. A no-op when the slot is empty, or when its
+    /// occupant was reserved without a source -- <c>Agent.Create</c> takes the token overload, so
+    /// create is not cancellable through here.
+    /// </summary>
+    internal void CancelCurrentOperation()
+    {
+        CancellationTokenSource? cts;
+        lock (_gate) { cts = _operation?.TurnCts; }
+        // Outside the lock on purpose: Cancel runs registrations synchronously on this thread, and
+        // those continuations can re-enter this type. Taking the reference under the lock is
+        // enough -- the send that owns the source cannot dispose it until its Operation has left
+        // the slot, so what is read here is either live or already unreachable.
+        //
+        // The catch is deliberately as broad as the three call sites it replaces, which all used a
+        // bare `catch { }`. ObjectDisposedException is the expected case (the send finished between
+        // the lock release and the Cancel), but Cancel also rethrows a registered callback's
+        // exception wrapped in AggregateException; narrowing this would let an SDK callback's
+        // failure escape into an abort path that today swallows everything.
+        try { cts?.Cancel(); } catch { }
     }
 
     internal void Bind(SessionConfig config)
@@ -157,11 +209,33 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
     }
 
     internal sealed class Operation(
-        AgentInvocationContext owner, Activity? activity, CancellationToken cancellationToken) : IDisposable
+        AgentInvocationContext owner, Activity? activity,
+        CancellationTokenSource? turnCts, CancellationToken cancellationToken) : IDisposable
     {
         private int _disposed;
         internal Activity? Activity { get; } = activity;
-        internal CancellationToken CancellationToken { get; } = cancellationToken;
+
+        /// <summary>
+        /// The turn's cancellation source, when the slot was reserved with one. Borrowed, not
+        /// owned: this type never disposes it. Its owner outlives this operation on purpose, so a
+        /// concurrent <see cref="CancelCurrentOperation"/> can only ever read a live source.
+        /// </summary>
+        internal CancellationTokenSource? TurnCts { get; } = turnCts;
+
+        internal CancellationToken CancellationToken { get; } = turnCts?.Token ?? cancellationToken;
+
+        /// <summary>
+        /// Raised once, by whichever caller performed the disposal, after this operation has left
+        /// the slot.
+        /// </summary>
+        /// <remarks>
+        /// It does <b>not</b> promise that <see cref="TurnCts"/> is still usable when it fires.
+        /// Disposal is idempotent and the loser of that race returns immediately, so a concurrent
+        /// teardown can reach the raise after the send that owns the source has already disposed
+        /// it. Subscribers must therefore treat the source as possibly dead — which is what the
+        /// disposal-order test asserts on, rather than assuming.
+        /// </remarks>
+        internal event Action? Disposed;
 
         /// <summary>
         /// Records that the owning context was torn down while this operation was still running, so
@@ -192,6 +266,12 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
                 if (ReferenceEquals(owner._operation, this))
                     owner._operation = null;
             }
+
+            // After the slot is clear and outside the lock, so a subscriber sees the state it is
+            // there to observe. Swallowing is deliberate: this runs inside SendAsync's using and
+            // inside AgentInvocationContext.Dispose's tail, so an escaping subscriber exception
+            // would replace whatever real failure was already unwinding.
+            try { Disposed?.Invoke(); } catch { }
         }
     }
 

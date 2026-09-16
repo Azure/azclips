@@ -2,11 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
@@ -83,6 +81,7 @@ public sealed class SdkRecoveryHierarchyTests
         Assert.Equal("offline-model", send.GetTagItem(TelemetryTags.AgentModel));
         Assert.Equal("CLI", send.Source.Name);
         Assert.Same(turn, Activity.Current);
+        server.ThrowIfFaulted();
     }
 
     [Fact]
@@ -119,18 +118,22 @@ public sealed class SdkRecoveryHierarchyTests
         await Assert.ThrowsAsync<ObjectDisposedException>(() => agent.SendAsync("after disposal", timeout.Token));
         Assert.Equal(2, server.SendCount);
         Assert.Same(session, Activity.Current);
+        server.ThrowIfFaulted();
     }
 
     [Fact]
     public async Task RejectedOverlappingSend_LeavesTheLiveSendCancellable()
     {
-        // SendAsync publishes its cancellation handle before reserving the single operation slot,
-        // because publishing later leaves an Esc window where an abort finds nothing. The cost of
-        // that order is this case: a second SendAsync publishes its own handle and only then gets
-        // rejected for the busy slot. If its exit path cleared the field instead of restoring what
-        // it displaced, the rejected call would disarm the send that is still running -- Esc and
-        // disposal would both go nowhere, and the turn would run to completion uncancelled.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        // A second SendAsync loses the race for the single operation slot and is rejected. It must
+        // leave nothing of itself behind: if it can replace what the live send published, Esc and
+        // disposal both go nowhere and the turn runs to completion uncancelled.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        // Deliberately not `timeout`. When the live send and the test's own waits shared one token,
+        // a reverted fix still ended the live send -- via that shared token, once the shared budget
+        // expired. The test went red on a timeout rather than on an assertion, and was recorded as
+        // validated. These two must stay distinct or this test stops testing anything.
+        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Assert.NotEqual(liveBudget.Token, timeout.Token);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
@@ -156,18 +159,55 @@ public sealed class SdkRecoveryHierarchyTests
         }
         await using var agentScope = agent;
 
-        var live = agent.SendAsync("hold the slot", timeout.Token);
+        var live = agent.SendAsync("hold the slot", liveBudget.Token);
         await entered.Task.WaitAsync(timeout.Token);
 
         var rejected = await Assert.ThrowsAsync<InvalidOperationException>(
             () => agent.SendAsync("overlap", timeout.Token));
         Assert.Contains("one in-flight operation", rejected.Message);
 
-        // The live send must still answer to abort. Without the restore this hangs until the
-        // 15s budget expires, because the handle it would have cancelled was set to null.
+        // The live send must still answer to abort, and it must do so on abort's own budget -- not
+        // on its own, which is why the two tokens above are unrelated.
+        var sw = Stopwatch.StartNew();
         await agent.AbortAsync(timeout.Token);
+        var settled = await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(2), timeout.Token));
+        sw.Stop();
+        Assert.True(ReferenceEquals(settled, live),
+            $"The live send was still running {sw.Elapsed} after AbortAsync returned: the rejected "
+            + "overlapping send disarmed the turn that owns the slot.");
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
+            $"AbortAsync took {sw.Elapsed} to stop the live send.");
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live).WaitAsync(timeout.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live);
+        server.ThrowIfFaulted();
+    }
+
+    [Fact]
+    public async Task OfflineServerFault_FailsTheProvokingTest()
+    {
+        // The receive loop runs detached, so a message it cannot handle used to be invisible until
+        // shutdown and was then blamed on an unrelated test. It must be observable by the test that
+        // provoked it, at the moment that test asks.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var server = new OfflineCopilotServer();
+        await using (server)
+        {
+            using var probe = new TcpClient();
+            await probe.ConnectAsync(IPAddress.Loopback, int.Parse(server.Url.Split(':')[^1]), timeout.Token);
+            await using var stream = probe.GetStream();
+            var payload = """{"jsonrpc":"2.0","id":1,"method":"offline.fault.probe"}"""u8.ToArray();
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {payload.Length}\r\n\r\n"), timeout.Token);
+            await stream.WriteAsync(payload, timeout.Token);
+            await stream.FlushAsync(timeout.Token);
+            await server.Faulted.WaitAsync(timeout.Token);
+        }
+
+        Exception? surfaced = null;
+        try { server.ThrowIfFaulted(); }
+        catch (InvalidOperationException ex) { surfaced = ex; }
+
+        Assert.NotNull(surfaced);
+        Assert.Contains("offline.fault.probe", surfaced.InnerException!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -219,188 +259,6 @@ public sealed class SdkRecoveryHierarchyTests
         var send = Assert.Single(trace.Stopped, activity => activity.OperationName == "Agent.Send");
         AgentTraceCapture.AssertHierarchy(toolSpan, send, 2, "Agent.Session.Send.Tool.wait");
         Assert.Same(session, Activity.Current);
+        server.ThrowIfFaulted();
     }
-
-    // The real SDK connects only to this loopback JSON-RPC peer. No native daemon,
-    // credentials, model, Azure endpoint, or SDK private/reflection API is involved.
-    private sealed class OfflineCopilotServer : IAsyncDisposable
-    {
-        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
-        private readonly CancellationTokenSource _stop = new();
-        private readonly Task _run;
-        private readonly TaskCompletionSource _firstToolHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private string _sessionId = "";
-        private int _pending;
-
-        internal OfflineCopilotServer()
-        {
-            _listener.Start();
-            Url = $"127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
-            _run = RunAsync();
-        }
-
-        internal string Url { get; }
-        internal ToolCall[] Calls { get; init; } = [];
-        internal List<JsonElement> ToolResults { get; } = [];
-        internal bool RejectNextSend { get; set; }
-        internal int SendCount { get; private set; }
-        internal Task FirstToolHandled => _firstToolHandled.Task;
-
-        private async Task RunAsync()
-        {
-            using var client = await _listener.AcceptTcpClientAsync(_stop.Token);
-            await using var stream = client.GetStream();
-            while (!_stop.IsCancellationRequested)
-            {
-                using var message = await ReadAsync(stream, _stop.Token);
-                if (message is null)
-                    return;
-                var request = message.RootElement;
-                var method = request.GetProperty("method").GetString();
-                if (!request.TryGetProperty("id", out var idElement))
-                {
-                    // A JSON-RPC notification: no id, no reply expected. The SDK sends these on the
-                    // abort path, and this fake has nothing to do with any of them. Reading id
-                    // unconditionally made one crash the receive loop, and that crash only surfaced
-                    // at server shutdown -- the same trap session.detach fell into.
-                    continue;
-                }
-                var id = idElement.Clone();
-                object result;
-                switch (method)
-                {
-                    case "connect":
-                        result = new { ok = true, protocolVersion = 3, version = "offline-test" };
-                        break;
-                    case "session.create":
-                        _sessionId = request.GetProperty("params").GetProperty("sessionId").GetString()!;
-                        result = new { sessionId = _sessionId };
-                        break;
-                    case "session.send":
-                        SendCount++;
-                        if (RejectNextSend)
-                        {
-                            RejectNextSend = false;
-                            await WriteAsync(stream, new
-                            {
-                                jsonrpc = "2.0", id,
-                                error = new { code = -32603, message = "offline send failure" },
-                            });
-                            continue;
-                        }
-                        await ReplyAsync(stream, id, new { messageId = Guid.NewGuid().ToString() });
-                        _pending = Calls.Length;
-                        foreach (var call in Calls)
-                        {
-                            await EventAsync(stream, "external_tool.requested", new
-                            {
-                                sessionId = _sessionId,
-                                requestId = Guid.NewGuid().ToString(),
-                                toolCallId = Guid.NewGuid().ToString(),
-                                toolName = call.Name,
-                                arguments = call.Arguments,
-                            });
-                        }
-                        if (_pending == 0)
-                            await EventAsync(stream, "session.idle", new { });
-                        continue;
-                    case "session.tools.handlePendingToolCall":
-                        ToolResults.Add(request.GetProperty("params").Clone());
-                        _firstToolHandled.TrySetResult();
-                        await ReplyAsync(stream, id, new { });
-                        if (--_pending == 0)
-                            await EventAsync(stream, "session.idle", new { });
-                        continue;
-                    case "session.destroy":
-                    case "session.abort":
-                    // Teardown is not this test's subject, and the SDK's teardown sequence is not
-                    // frozen: session.detach appeared here only once ChatAgent.DisposeAsync started
-                    // cancelling the in-flight turn, which let disposal run to completion instead of
-                    // timing out part-way through. Answering the teardown verbs generically keeps a
-                    // span-parentage test from failing over the shape of a goodbye.
-                    case "session.detach":
-                        result = new { };
-                        break;
-                    default:
-                        throw new InvalidOperationException(
-                            $"Unexpected offline SDK request: {method} :: {request.GetRawText()}");
-                }
-                await ReplyAsync(stream, id, result);
-            }
-        }
-
-        private Task ReplyAsync(Stream stream, JsonElement id, object result) =>
-            WriteAsync(stream, new { jsonrpc = "2.0", id, result });
-
-        private Task EventAsync(Stream stream, string type, object data) =>
-            WriteAsync(stream, new
-            {
-                jsonrpc = "2.0",
-                method = "session.event",
-                @params = new
-                {
-                    sessionId = _sessionId,
-                    @event = new
-                    {
-                        id = Guid.NewGuid().ToString(),
-                        timestamp = DateTimeOffset.UtcNow,
-                        parentId = (string?)null,
-                        type,
-                        data,
-                    },
-                },
-            });
-
-        private async Task WriteAsync(Stream stream, object value)
-        {
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(value);
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n"), _stop.Token);
-            await stream.WriteAsync(bytes, _stop.Token);
-            await stream.FlushAsync(_stop.Token);
-        }
-
-        private static async Task<JsonDocument?> ReadAsync(Stream stream, CancellationToken ct)
-        {
-            var header = new List<byte>();
-            var next = new byte[1];
-            while (header.Count < 8192)
-            {
-                if (await stream.ReadAsync(next, ct) == 0)
-                {
-                    if (header.Count == 0)
-                        return null;
-                    throw new EndOfStreamException("Incomplete offline RPC header.");
-                }
-                header.Add(next[0]);
-                if (header.Count >= 4 && header.TakeLast(4).SequenceEqual("\r\n\r\n"u8.ToArray()))
-                    break;
-            }
-            var lengthHeader = Encoding.ASCII.GetString(header.ToArray()).Split("\r\n")
-                .Single(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
-            var length = int.Parse(lengthHeader["Content-Length:".Length..], CultureInfo.InvariantCulture);
-            var body = new byte[length];
-            await stream.ReadExactlyAsync(body, ct);
-            return JsonDocument.Parse(body);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            _stop.Cancel();
-            _listener.Stop();
-            try
-            {
-                await _run.WaitAsync(TimeSpan.FromSeconds(10));
-            }
-            catch (Exception ex) when (_stop.IsCancellationRequested
-                                       && ex is OperationCanceledException or SocketException or IOException)
-            {
-            }
-            finally
-            {
-                _stop.Dispose();
-            }
-        }
-    }
-
-    private sealed record ToolCall(string Name, object Arguments);
 }

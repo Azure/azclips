@@ -36,8 +36,6 @@ public sealed class ChatAgent : IAsyncDisposable
     private readonly SessionState? _state;
     private readonly AgentInvocationContext _invocationContext;
 
-    private CancellationTokenSource? _activeTurnCts;
-
     // Tracks, for the in-flight SendAsync, whether the agent called a turn-closing
     // tool — propose_plan (asks for plan approval) or submit_response (ends the
     // session). Diagnostic/help tools like get_command DON'T count: a turn that
@@ -197,29 +195,11 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var eventRenderer = new EventRenderer
         {
-            OnEvent = ev =>
-            {
-                if (ev is SessionErrored err)
-                {
-                    if (self is not null) self.LastError = err;
-                    else                  earlyError = err;
-                    try { self?._activeTurnCts?.Cancel(); } catch { }
-                }
-                if (ev is ToolStarted ts && self is not null)
-                {
-                    if (PreToolUseHook.IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
-                        Volatile.Write(ref self._sendCalledClosingTool, 1);
-                }
-                if (spinner is not null)
-                {
-                    switch (ev)
-                    {
-                        case ToolStarted t: spinner.SetVerb(SpinnerService.VerbForTool(t.Name)); break;
-                        case ToolCompleted: case ToolFailed: spinner.SetVerb("thinking"); break;
-                    }
-                }
-                renderer.OnEvent(ev);
-            },
+            // One line, because the body below is the only translation of an SDK event into agent
+            // state, and CreateCoreAsync needs a live daemon to reach. Leaving it inline left it
+            // with no coverage at all: a test could exercise the handler it hand-rolled and still
+            // be blind to this call site losing a branch. #884 reworks this closure next.
+            OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
         };
 
@@ -383,18 +363,81 @@ public sealed class ChatAgent : IAsyncDisposable
             OnEvent = eventRenderer.Forward,
         };
     }
+    /// <summary>
+    /// A fatal session error arrives on the SDK's own event thread, which is not synchronised with
+    /// the host's turn boundaries, so this can run concurrently with an in-flight SendAsync. It has
+    /// to cancel whichever turn currently holds the slot, not a handle recorded separately that may
+    /// no longer be the live one. The SDK also faults the pending send on its own, so the effect
+    /// here is which of the two wins: Cancel runs its registrations synchronously on this thread,
+    /// so the turn unwinds as a cancellation rather than as an SDK fault.
+    /// </summary>
+    internal void OnSessionErrored(SessionErrored error)
+    {
+        LastError = error;
+        _invocationContext.CancelCurrentOperation();
+    }
+
+    /// <summary>
+    /// Translates one SDK event into agent state, spinner verb and rendered output.
+    /// </summary>
+    /// <remarks>
+    /// Extracted so the wiring is testable. <see cref="CreateCoreAsync"/> needs a live daemon, so
+    /// while this lived inline it had no coverage: a test could hand-roll an equivalent handler,
+    /// exercise that, and stay blind to the real call site dropping a branch. <paramref name="self"/>
+    /// is null until construction finishes, which is the whole reason for
+    /// <paramref name="onEarlyError"/> — an error arriving during session creation has no turn to
+    /// attribute itself to yet.
+    /// </remarks>
+    internal static void HandleAgentEvent(
+        AgentEvent ev,
+        ChatAgent? self,
+        Action<SessionErrored> onEarlyError,
+        SpinnerService? spinner,
+        IAgentRenderer renderer)
+    {
+        if (ev is SessionErrored err)
+        {
+            if (self is not null) self.OnSessionErrored(err);
+            else                  onEarlyError(err);
+        }
+        if (ev is ToolStarted ts && self is not null)
+        {
+            if (PreToolUseHook.IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
+                Volatile.Write(ref self._sendCalledClosingTool, 1);
+        }
+        if (spinner is not null)
+        {
+            switch (ev)
+            {
+                case ToolStarted t: spinner.SetVerb(SpinnerService.VerbForTool(t.Name)); break;
+                case ToolCompleted: case ToolFailed: spinner.SetVerb("thinking"); break;
+            }
+        }
+        renderer.OnEvent(ev);
+    }
+
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
-        using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        // Published before anything else this turn does, and released in a finally that covers all
-        // of it. AbortAsync reads this field from the Esc watcher, which is already running when
-        // SendAsync is entered; publishing it after StartOperation and the turn-state resets left a
-        // window where an abort found null, issued session.abort before session.send existed, and
-        // the send then ran to completion uncancelled.
-        var displaced = Interlocked.Exchange(ref _activeTurnCts, turnCts);
-        try
+        // Reserving the slot IS publishing the handle, under one lock, so there is no window in
+        // between for an abort to find nothing. The older order published the handle first to close
+        // a supposed Esc window ahead of StartOperation, but that window cannot be reached from the
+        // host: SendAndPumpAsync starts AbortKeyWatcher.RunAsync only after agent.SendAsync has
+        // returned its Task, and everything before this method's first await already ran
+        // synchronously on the caller's thread by then. An abort between entering SendAsync and
+        // reserving the slot is therefore a no-op by construction -- and publishing first is what
+        // let a rejected overlapping send stomp the live turn's handle.
+        //
+        // Disposal order is load-bearing, and `using` disposes in reverse acquisition order: the
+        // Operation must leave the slot before the source it carries is disposed. That is what lets
+        // CancelCurrentOperation take the reference under the lock and cancel outside it -- an abort
+        // racing the end of a turn sees either a live source or an empty slot, never a disposed one.
+        // The source is built on its own line so the two scopes below are independent statements
+        // whose order can be swapped, which is how that guarantee is reverse-validated. If
+        // StartOperation throws, the outer scope still disposes the source, so nothing leaks.
+        var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using (turnCts)
+        using (var send = _invocationContext.StartOperation("Agent.Send", turnCts))
         {
-            using var send = _invocationContext.StartOperation("Agent.Send", turnCts.Token);
             send.Activity?.SetTag(TelemetryTags.AgentModel, _model);
             LastError = null;
             Volatile.Write(ref _sendCalledClosingTool, 0);
@@ -404,21 +447,11 @@ public sealed class ChatAgent : IAsyncDisposable
                 timeout: TurnTimeout,
                 cancellationToken: turnCts.Token).ConfigureAwait(false);
         }
-        finally
-        {
-            // Restore what was displaced rather than clearing. Publishing before StartOperation is
-            // what closes the abort window, but it also means an overlapping SendAsync publishes its
-            // handle and only then gets rejected for the busy operation slot. Clearing on the way
-            // out would strip cancellation from the send that is still running — the rejected call
-            // would disarm the live one. In the ordinary case nothing was displaced and this
-            // restores null, exactly as before.
-            Interlocked.CompareExchange(ref _activeTurnCts, displaced, turnCts);
-        }
     }
 
     public async Task AbortAsync(CancellationToken ct = default)
     {
-        try { _activeTurnCts?.Cancel(); } catch { }
+        _invocationContext.CancelCurrentOperation();
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
     private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
@@ -454,11 +487,12 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         if (!_invocationContext.BeginDispose())
             return;
-        // Cancel the in-flight turn before waiting on the SDK. Without this the two five-second
-        // timeouts below are pure waiting: a hung send is never told to stop, so DisposeAsync always
-        // spends the full ten seconds and then abandons it. Cancelling first gives SendAsync a
-        // chance to unwind and close Agent.Send itself, which is the only path that reports the turn.
-        try { _activeTurnCts?.Cancel(); } catch { }
+        // Cancel the in-flight turn before waiting on the SDK. Without this nothing tells the send
+        // to stop, so it ends only as a side effect of the connection going away -- or, when the
+        // SDK is genuinely wedged, not before the two five-second timeouts below have run out and
+        // abandoned it. Cancelling first gives SendAsync a chance to unwind and close Agent.Send
+        // itself, which is the only path that reports the turn rather than marking it abandoned.
+        _invocationContext.CancelCurrentOperation();
         try
         {
             await WithTimeout(_session.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);
