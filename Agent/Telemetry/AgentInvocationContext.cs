@@ -134,13 +134,26 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
 
     public void Dispose()
     {
+        Operation? orphan;
         lock (_gate)
         {
+            if (_disposed)
+                return;
             _closing = true;
             _disposed = true;
+            orphan = _operation;
             _operation = null;
             _session = null;
         }
+
+        // An operation still in the slot means a send outlived the dispose timeout. Stopping its
+        // activity here is what keeps it in the data: an Activity that is never stopped is never
+        // exported, so the one turn that hung -- the turn worth seeing -- would be the one turn
+        // missing. Its own Dispose is idempotent, so the late send closing afterwards is a no-op
+        // rather than a double stop. Done outside the lock: stopping an activity runs exporter
+        // callbacks, and this type's own callbacks take the same gate.
+        orphan?.MarkAbandoned();
+        orphan?.Dispose();
     }
 
     internal sealed class Operation(
@@ -149,6 +162,17 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
         private int _disposed;
         internal Activity? Activity { get; } = activity;
         internal CancellationToken CancellationToken { get; } = cancellationToken;
+
+        /// <summary>
+        /// Records that the owning context was torn down while this operation was still running, so
+        /// the exported span says the turn was abandoned rather than looking like a normal close.
+        /// </summary>
+        internal void MarkAbandoned()
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+                return;
+            Activity?.SetStatus(ActivityStatusCode.Error, "Abandoned: the agent was disposed while this send was in flight.");
+        }
 
         public void Dispose()
         {

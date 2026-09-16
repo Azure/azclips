@@ -386,14 +386,19 @@ public sealed class ChatAgent : IAsyncDisposable
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
         using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        using var send = _invocationContext.StartOperation("Agent.Send", turnCts.Token);
-        send.Activity?.SetTag(TelemetryTags.AgentModel, _model);
-        LastError = null;
-        Volatile.Write(ref _sendCalledClosingTool, 0);
-        if (_state is not null) _state.SubmittedThisTurn = false;
+        // Published before anything else this turn does, and released in a finally that covers all
+        // of it. AbortAsync reads this field from the Esc watcher, which is already running when
+        // SendAsync is entered; publishing it after StartOperation and the turn-state resets left a
+        // window where an abort found null, issued session.abort before session.send existed, and
+        // the send then ran to completion uncancelled.
         Interlocked.Exchange(ref _activeTurnCts, turnCts);
         try
         {
+            using var send = _invocationContext.StartOperation("Agent.Send", turnCts.Token);
+            send.Activity?.SetTag(TelemetryTags.AgentModel, _model);
+            LastError = null;
+            Volatile.Write(ref _sendCalledClosingTool, 0);
+            if (_state is not null) _state.SubmittedThisTurn = false;
             await _session.SendAndWaitAsync(
                 new MessageOptions { Prompt = prompt },
                 timeout: TurnTimeout,
@@ -443,6 +448,11 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         if (!_invocationContext.BeginDispose())
             return;
+        // Cancel the in-flight turn before waiting on the SDK. Without this the two five-second
+        // timeouts below are pure waiting: a hung send is never told to stop, so DisposeAsync always
+        // spends the full ten seconds and then abandons it. Cancelling first gives SendAsync a
+        // chance to unwind and close Agent.Send itself, which is the only path that reports the turn.
+        try { _activeTurnCts?.Cancel(); } catch { }
         try
         {
             await WithTimeout(_session.DisposeAsync().AsTask(), DisposeTimeout).ConfigureAwait(false);

@@ -19,6 +19,34 @@ namespace Core.Agent.Tests;
 public sealed class SourceRecordedHierarchyTests
 {
     [Fact]
+    public void ContextDisposedMidSend_StopsTheAbandonedOperationSoItStillExports()
+    {
+        // ChatAgent.DisposeAsync gives the SDK five seconds per handle and then gives up. If a send
+        // is still in flight when that budget runs out, the context is disposed with an operation
+        // still in its slot. Clearing the slot without stopping the activity loses it entirely: an
+        // Activity that is never stopped is never exported, so the one turn that hung -- the turn a
+        // hang investigation needs -- would be the only turn with no span at all.
+        using var trace = new AgentTraceCapture();
+        using var session = RecoveryTraceContext.StartSession(
+            AgentTracing.Source, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", null);
+        var context = new AgentInvocationContext(session);
+
+        // Deliberately not disposed: this stands in for a send that never returned.
+        var send = context.StartOperation("Agent.Send");
+        var activity = send.Activity!;
+        Assert.False(activity.IsStopped);
+
+        context.Dispose();
+
+        Assert.True(activity.IsStopped);
+        Assert.Equal(ActivityStatusCode.Error, activity.Status);
+
+        // The late send unwinding afterwards must not double-stop or resurrect anything.
+        send.Dispose();
+        Assert.True(activity.IsStopped);
+    }
+
+    [Fact]
     public void CrossProcessSession_UsesRecordedRecoveryIdentityDepthAndPath()
     {
         using var trace = new AgentTraceCapture();
