@@ -257,7 +257,15 @@ public sealed class SdkRecoveryHierarchyTests
                     return;
                 var request = message.RootElement;
                 var method = request.GetProperty("method").GetString();
-                var id = request.GetProperty("id").Clone();
+                if (!request.TryGetProperty("id", out var idElement))
+                {
+                    // A JSON-RPC notification: no id, no reply expected. The SDK sends these on the
+                    // abort path, and this fake has nothing to do with any of them. Reading id
+                    // unconditionally made one crash the receive loop, and that crash only surfaced
+                    // at server shutdown -- the same trap session.detach fell into.
+                    continue;
+                }
+                var id = idElement.Clone();
                 object result;
                 switch (method)
                 {
