@@ -239,12 +239,17 @@ public static class AgentModeEntry
     /// do not control reach telemetry. Unlisted values become <c>sdk_other</c>, which is expected to
     /// be common — it measures how much of that vocabulary we have not yet seen.
     /// </remarks>
-    private static RecoveryFailure ClassifySdkFailure(string? errorType) => errorType switch
+    internal static RecoveryFailure ClassifySdkFailure(string? errorType) => errorType switch
     {
-        null             => RecoveryFailure.Unknown,
-        "rate_limit"     => RecoveryFailure.RateLimit,
-        "authentication" => RecoveryFailure.Authentication,
-        _                => RecoveryFailure.SdkOther,
+        // "unknown" before null, because that is the shape this actually arrives in: EventRenderer
+        // substitutes the literal for a missing SessionErrorData.ErrorType before the event reaches
+        // the host, so a genuine "the service sent no type" would otherwise fall to sdk_other and
+        // the documented unknown bucket would never be emitted at all. The null arm stays for
+        // callers that do not go through that mapping.
+        null or "unknown" => RecoveryFailure.Unknown,
+        "rate_limit"      => RecoveryFailure.RateLimit,
+        "authentication"  => RecoveryFailure.Authentication,
+        _                 => RecoveryFailure.SdkOther,
     };
 
     private static async Task RunChatLoopAsync(

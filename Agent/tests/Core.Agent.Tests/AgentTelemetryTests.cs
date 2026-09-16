@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Agent.AgentMode;
 using Core.Agent.Telemetry;
 using Core.Telemetry;
+using GitHub.Copilot;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 using Xunit;
@@ -252,6 +253,28 @@ public class AgentTelemetryProviderTests
             provider.TracerProvider.Dispose();
             provider.ActivitySource.Dispose();
         }
+    }
+
+    [Fact]
+    internal void ClassifiesTheSentinelEventRendererSubstitutes_AsUnknown()
+    {
+        // EventRenderer replaces a missing SessionErrorData.ErrorType with the literal "unknown"
+        // before the event reaches the host, so `null` is the shape this classifier is tested with
+        // and never the shape it receives. Matching only on null left the documented unknown bucket
+        // unreachable in production: a service failure carrying no type collapsed into sdk_other,
+        // where it is indistinguishable from a type we simply have not catalogued yet.
+        //
+        // Asserted against the value EventRenderer actually produces rather than a copy of it, so
+        // this fails if that substitution changes and the two drift apart.
+        var renderer = new EventRenderer();
+        SessionErrored? rendered = null;
+        renderer.OnEvent = ev => { if (ev is SessionErrored e) rendered = e; };
+        renderer.Forward(new SessionErrorEvent { Data = null! });
+
+        Assert.NotNull(rendered);
+        Assert.Equal(
+            RecoveryFailure.Unknown,
+            AgentModeEntry.ClassifySdkFailure(rendered!.ErrorType));
     }
 
     [Fact]
