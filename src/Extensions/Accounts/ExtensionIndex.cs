@@ -230,10 +230,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["resource"]      = new("Resource", "resource", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with --resource-type and --scope.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-type"] = new("ResourceType", "resource-type", typeof(string), "Well-known resource type shortcut (e.g. arm, ms-graph, key-vault). Mutually exclusive with --resource and --scope.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["scope"]         = new("Scope", "scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with --resource and --resource-type.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tenant-id"]     = new("Tenant", "tenant-id", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tenant-id"]     = new("Tenant", "tenant-id", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: ["t", "tenant"], AllowedValues: []),
                 ["plaintext"]     = new("Plaintext", "plaintext", typeof(bool), "Emit the raw access token as plain text. By default the token is redacted in output.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["t"] = "tenant-id",
+                ["tenant"] = "tenant-id",
+            }
         );
 #endregion
 

@@ -49,6 +49,28 @@ public class GetAccessTokenCliBindingTests
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.Tenant);
     }
 
+    [Theory]
+    [InlineData("t")]
+    [InlineData("tenant")]
+    public void CliBinding_ClassicTenantSpellings_BindToTenant(string flag)
+    {
+        // Classic `az account get-access-token --tenant <id>` / `-t <id>` must keep working.
+        var metadata = new ExtensionIndex().GetCommandMetadata("account get-access-token", ClientType.CLI);
+        var processor = new GetAccessTokenProcessor();
+
+        CliBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object>
+            {
+                [flag] = Value("11111111-1111-1111-1111-111111111111"),
+            },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile());
+
+        Assert.Equal("11111111-1111-1111-1111-111111111111", processor.Tenant);
+    }
+
     [Fact]
     public void CliBinding_BindsMultipleScopes_ToStringArray()
     {
