@@ -40,7 +40,7 @@ public static class TokenScopeResolver
         int provided = (hasResource ? 1 : 0) + (hasResourceType ? 1 : 0) + (hasScopes ? 1 : 0);
         if (provided > 1)
         {
-            throw new ArgumentException(
+            throw AzclipsErrorException.UsageError(
                 "Specify at most one of a resource, a resource type, or a scope list - these inputs are mutually exclusive.");
         }
 
@@ -51,7 +51,7 @@ public static class TokenScopeResolver
             {
                 if (string.IsNullOrWhiteSpace(scope))
                 {
-                    throw new ArgumentException("Scope values must not be empty.", nameof(scopes));
+                    throw AzclipsErrorException.UsageError("Scope values must not be empty.");
                 }
                 normalized.Add(scope.Trim());
             }
@@ -62,14 +62,13 @@ public static class TokenScopeResolver
         {
             if (string.IsNullOrWhiteSpace(resourceTypeName))
             {
-                throw new ArgumentException("Resource type must not be empty.", nameof(resourceTypeName));
+                throw AzclipsErrorException.UsageError("Resource type must not be empty.");
             }
 
             if (!WellKnownResourceTypes.TryResolve(resourceTypeName, out var resolvedResource))
             {
-                throw new ArgumentException(
-                    $"Unknown resource type '{resourceTypeName}'. Known resource types: {string.Join(", ", WellKnownResourceTypes.Names)}.",
-                    nameof(resourceTypeName));
+                throw AzclipsErrorException.UsageError(
+                    $"Unknown resource type '{resourceTypeName}'. Known resource types: {string.Join(", ", WellKnownResourceTypes.Names)}.");
             }
             return [ToDefaultScope(resolvedResource)];
         }
@@ -78,7 +77,7 @@ public static class TokenScopeResolver
         {
             if (string.IsNullOrWhiteSpace(resource))
             {
-                throw new ArgumentException("Resource must not be empty.", nameof(resource));
+                throw AzclipsErrorException.UsageError("Resource must not be empty.");
             }
             return [ToDefaultScope(resource.Trim())];
         }

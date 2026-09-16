@@ -86,9 +86,8 @@ public sealed class ManagedIdentityCredential : TokenCredential
         // request cannot be honored - silently using only the first scope would drop the rest.
         if (scopes is { Length: > 1 })
         {
-            throw new ArgumentException(
-                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account.",
-                nameof(scopes));
+            throw AzclipsErrorException.UsageError(
+                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account.");
         }
 
         var scope = scopes is { Length: > 0 } ? scopes[0] : AuthConstants.ArmDefaultScope;

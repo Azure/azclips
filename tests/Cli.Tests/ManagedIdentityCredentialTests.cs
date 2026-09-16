@@ -64,7 +64,7 @@ public sealed class ManagedIdentityCredentialTests
     [Fact]
     public void ScopeToResource_ShouldThrow_WhenMultipleScopesProvided()
     {
-        var ex = Assert.Throws<System.ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             ManagedIdentityCredential.ScopeToResource(new[]
             {
                 "https://graph.microsoft.com/User.Read",

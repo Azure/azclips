@@ -69,7 +69,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             await _publisher.Publish(Events.ProcessorProcessAsyncStart);
 
             Profile profile = _profile
-                ?? throw new InvalidOperationException(
+                ?? throw AzclipsErrorException.UsageError(
                     "No signed-in context is available. Run 'login' (or set an active profile) before retrieving a token.");
 
             string? explicitTenant = string.IsNullOrWhiteSpace(Tenant) ? null : Tenant.Trim();
@@ -150,13 +150,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // tenant - so reject it rather than silently serve a different tenant than requested.
             if (string.IsNullOrEmpty(profile.TenantId))
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.UsageError(
                     $"Tenant '{explicitTenant}' cannot be honored for the current managed identity account, whose tenant is fixed by the account and cannot be overridden. Retry without specifying a tenant.");
             }
 
             if (!string.Equals(explicitTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.UsageError(
                     $"Tenant '{explicitTenant}' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('{profile.TenantId}').");
             }
         }

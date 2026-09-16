@@ -79,7 +79,7 @@ public class GetAccessTokenProcessorTests
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var processor = InitProcessor(new GetAccessTokenProcessor(), profile: null, out _);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class GetAccessTokenProcessorTests
             new GetAccessTokenProcessor { Tenant = "other-tenant" },
             ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
         Assert.Contains("not valid for the current account", ex.Message, StringComparison.Ordinal);
     }
 
@@ -112,7 +112,7 @@ public class GetAccessTokenProcessorTests
             new GetAccessTokenProcessor { Tenant = "requested-tenant" },
             ProfileWith(AuthMethod.ManagedIdentity, tenantId: ""), out _);
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
         Assert.Contains("cannot be honored", ex.Message, StringComparison.Ordinal);
     }
 

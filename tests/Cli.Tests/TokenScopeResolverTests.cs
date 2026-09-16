@@ -59,15 +59,16 @@ public class TokenScopeResolverTests
     [Fact]
     public void Resolve_ResourceAndScope_ThrowsMutualExclusivity()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve("https://vault.azure.net", null, ["https://graph.microsoft.com/.default"]));
         Assert.Contains("mutually exclusive", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, ex.ExitCode);
     }
 
     [Fact]
     public void Resolve_UnknownResourceType_Throws()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, "not-a-real-type", null));
         Assert.Contains("Unknown resource type", ex.Message, StringComparison.Ordinal);
     }
@@ -75,7 +76,7 @@ public class TokenScopeResolverTests
     [Fact]
     public void Resolve_EmptyScopeValue_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, null, ["  "]));
     }
 
@@ -84,7 +85,7 @@ public class TokenScopeResolverTests
     [InlineData("   ")]
     public void Resolve_EmptyResource_ThrowsInsteadOfDefaultingToArm(string resource)
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(resource, null, null));
         Assert.Contains("Resource must not be empty", ex.Message, StringComparison.Ordinal);
     }
@@ -94,7 +95,7 @@ public class TokenScopeResolverTests
     [InlineData("   ")]
     public void Resolve_EmptyResourceType_ThrowsInsteadOfDefaultingToArm(string resourceType)
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, resourceType, null));
         Assert.Contains("Resource type must not be empty", ex.Message, StringComparison.Ordinal);
     }
