@@ -310,9 +310,10 @@ public static class AgentModeEntry
     /// exit code 0. The error is checked first: if a turn failed and the user then stopped, the
     /// failure is the more useful signal and it happened first.</para>
     ///
-    /// <para>Callers pass <c>LastError ?? StartupError</c>. The fallback covers a session that
-    /// never got a turn past the error it started with; a session that did is no longer carrying
-    /// one, because <see cref="ChatAgent.SendAsync"/> clears it on the first completed turn.</para>
+    /// <para>Callers pass <see cref="ChatAgent.LastError"/> only. A session reaches here having
+    /// always sent at least one prompt, so a null there means the last turn completed and the
+    /// caller was helped — <see cref="ChatAgent.StartupError"/> must not override that, which is
+    /// why it is deliberately not consulted.</para>
     /// </remarks>
     internal static void ThrowIfSessionEndedInError(SessionErrored? terminalError, CancellationToken ct)
     {
