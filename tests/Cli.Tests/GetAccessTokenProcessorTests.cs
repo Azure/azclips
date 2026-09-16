@@ -75,11 +75,21 @@ public class GetAccessTokenProcessorTests
         new System.Net.NetworkCredential(string.Empty, secure).Password;
 
     [Fact]
-    public async Task ProcessAsync_NullProfile_Throws()
+    public async Task ProcessAsync_NullProfile_ThrowsWithCliSignInGuidance()
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var processor = InitProcessor(new GetAccessTokenProcessor(), profile: null, out _);
-        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Contains("az login", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NullProfile_PowerShellUsesConnectAzAccountGuidance()
+    {
+        InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
+        var processor = InitProcessor(new GetAccessTokenProcessor(), profile: null, out _);
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Contains("Connect-AzAccount", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -221,6 +231,29 @@ public class GetAccessTokenProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
         Assert.Contains("Connect-AzAccount -TenantId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_AcquisitionRaisesUsageError_PropagatesWithoutSignInWrapper()
+    {
+        // A managed-identity multi-scope request raises AzclipsErrorException.UsageError while the
+        // credential resolves the scope, i.e. from inside the acquisition call. The processor's
+        // sign-in-failure catch must not swallow that structured usage error and rewrap it as a
+        // misleading "could not acquire / run az login" message.
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(AzclipsErrorException.UsageError(
+                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account."));
+        InitDi(ClientType.CLI, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor { Scope = ["https://a/.default", "https://b/.default"] },
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Contains("single resource", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Could not acquire", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

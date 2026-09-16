@@ -68,9 +68,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         {
             await _publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            Profile profile = _profile
-                ?? throw AzclipsErrorException.UsageError(
-                    "No signed-in context is available. Run 'login' (or set an active profile) before retrieving a token.");
+            if (_profile is null)
+            {
+                var (signInCommand, _) = SignInGuidance();
+                throw AzclipsErrorException.UsageError(
+                    $"No signed-in context is available. Run '{signInCommand}' to sign in (or set an active profile), then retry.");
+            }
+            Profile profile = _profile;
 
             string? explicitTenant = string.IsNullOrWhiteSpace(Tenant) ? null : Tenant.Trim();
 
@@ -90,13 +94,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     cancellationToken: Token,
                     profile: profile);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException and not AzclipsErrorException)
             {
                 // Acquisition is silent (promptOnError: false), so translate a raw MSAL failure into
-                // actionable, surface-aware sign-in guidance.
-                var errorClientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-                string signInCommand = errorClientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
-                string tenantFlag = errorClientType == ClientType.PowerShell ? "-TenantId" : "--tenant-id";
+                // actionable, surface-aware sign-in guidance. Structured AzclipsErrorException usage
+                // errors (e.g. an unsupported multi-scope managed-identity request raised while
+                // resolving the scope) are excluded above so they surface their own message instead of
+                // this misleading sign-in error.
+                var (signInCommand, tenantFlag) = SignInGuidance();
                 throw new InvalidOperationException(
                     $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
                     + "You may not be signed in to that tenant, or it requires additional sign-in "
@@ -159,6 +164,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 throw AzclipsErrorException.UsageError(
                     $"Tenant '{explicitTenant}' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('{profile.TenantId}').");
             }
+        }
+
+        /// <summary>
+        /// Returns the sign-in command and tenant flag for the caller's surface (CLI <c>az login</c> /
+        /// <c>--tenant-id</c> vs PowerShell <c>Connect-AzAccount</c> / <c>-TenantId</c>) so error
+        /// guidance is actionable on either front end.
+        /// </summary>
+        private static (string SignInCommand, string TenantFlag) SignInGuidance()
+        {
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            return clientType == ClientType.PowerShell
+                ? ("Connect-AzAccount", "-TenantId")
+                : ("az login", "--tenant-id");
         }
 
         /// <summary>
