@@ -518,6 +518,56 @@ assert_equals "7.6" \
   "$(jq -r '.alpine_3_23_ps7_6.PowerShellVersion' <<<"$output")" "default versions used when unspecified"
 end_test
 
+start_test "accepts the latest native Windows hosted-agent alias alongside numeric versions"
+jq '.distributions[1].versions += [{"version": "latest"}]' "$WORK_DIR/powershell.json" \
+  >"$WORK_DIR/windows-latest.json" || exit 1
+output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
+  --config "$WORK_DIR/windows-latest.json" --skip-version-check --pool custom-linux)"
+assert_equals "0" "$?" "exit code"
+assert_equals "10" "$(jq -r 'length' <<<"$output")" "numeric and latest Windows legs"
+assert_equals "windows_latest_ps7_4_unsupported windows_latest_ps7_5_unsupported windows_latest_ps7_6" \
+  "$(jq -r '[keys_unsorted[] | select(startswith("windows_latest"))] | join(" ")' <<<"$output")" \
+  "latest Windows PowerShell versions"
+assert_equals "windows-2022 windows-2025 windows-latest" \
+  "$(jq -r '[.windows_2022_ps7_6.DistributionPool, .windows_2025_ps7_6.DistributionPool, .windows_latest_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
+  "native pools ignore the container pool override"
+assert_equals "native" "$(jq -r '.windows_latest_ps7_6.ValidationMode' <<<"$output")" "native execution"
+assert_equals "" "$(jq -r '.windows_latest_ps7_6.ContainerImage' <<<"$output")" "no container image"
+assert_equals "devops/scripts/packaging/powershell/windows/windows_install_script.ps1" \
+  "$(jq -r '.windows_latest_ps7_6.DistributionScript' <<<"$output")" "Windows bootstrap"
+assert_equals "10.0 false false" \
+  "$(jq -r '[.windows_latest_ps7_6 | .DotnetRuntimeVersion, .ContinueOnError, .TestInAlpha] | join(" ")' <<<"$output")" \
+  "configured latest is blocking and is not an automatically selected canary"
+end_test
+
+start_test "allows explicit pool overrides for the latest Windows alias"
+output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
+  --config "$WORK_DIR/windows-latest.json" --skip-version-check --pool-for windows=custom-windows)"
+assert_equals "0" "$?" "exit code"
+assert_equals "custom-windows" \
+  "$(jq -r '.windows_latest_ps7_6.DistributionPool' <<<"$output")" "explicit native pool override"
+end_test
+
+start_test "discovers PowerShell canaries on the latest Windows alias"
+output="$(run_with_github_tags $'v7.6.0\nv7.7.1' --config "$WORK_DIR/windows-latest.json")"
+assert_equals "0" "$?" "exit code"
+assert_equals "13" "$(jq -r 'length' <<<"$output")" "numeric and alias PowerShell canaries"
+assert_equals "windows-latest 11.0 true true" \
+  "$(jq -r '[.windows_latest_ps7_7_unsupported | .DistributionPool, .DotnetRuntimeVersion, .ContinueOnError, .TestInAlpha] | join(" ")' <<<"$output")" \
+  "discovered PowerShell remains unsupported on the latest Windows pool"
+end_test
+
+start_test "limited mode selects the latest Windows alias only when explicitly opted in"
+jq '.distributions[1].versions[-1].testInAlpha = true' "$WORK_DIR/windows-latest.json" \
+  >"$WORK_DIR/windows-latest-alpha.json" || exit 1
+output="$(run_with_github_tags $'v7.6.0\nv7.7.1' --config "$WORK_DIR/windows-latest-alpha.json" --limit-testing)"
+assert_equals "0" "$?" "exit code"
+assert_equals "windows_latest_ps7_4_unsupported windows_latest_ps7_5_unsupported windows_latest_ps7_6" \
+  "$(jq -r 'keys_unsorted | join(" ")' <<<"$output")" "only configured alias legs, without discovery"
+assert_equals '["true","true","false"]' "$(jq -c '[.[].ContinueOnError]' <<<"$output")" \
+  "configured PowerShell support policy is preserved"
+end_test
+
 start_test "powershell versions the modules cannot load are soft-fail legs"
 output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
   --config "$WORK_DIR/powershell.json" --skip-version-check)"
@@ -574,8 +624,8 @@ assert_equals "container,native" \
 assert_equals "macOS-15-arm64 macOS-15" \
   "$(jq -r '[.macos_arm64_15_ps7_6.DistributionPool, .macos_x64_15_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
   "macos pools"
-assert_equals "windows-2022 windows-2025" \
-  "$(jq -r '[.windows_2022_ps7_6.DistributionPool, .windows_2025_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
+assert_equals "windows-2022 windows-2025 windows-latest" \
+  "$(jq -r '[.windows_2022_ps7_6.DistributionPool, .windows_2025_ps7_6.DistributionPool, .windows_latest_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
   "windows pools"
 assert_equals "ubuntu" \
   "$(jq -r '.ubuntu_24_04_ps7_6.DistributionId' <<<"$output")" "ubuntu distribution id"
@@ -635,14 +685,41 @@ done
 for filter in \
   '.distributions[0].versions[0].version = 3.23' \
   '.distributions[0].versions[0].version = "latest"' \
+  '.distributions[0].powershellVersions = ["latest"]' \
   '.powershell.versions[0].version = 7.5' \
+  '.powershell.versions[0].version = "latest"' \
   '.powershell.defaultVersions = [7.6]' \
+  '.powershell.defaultVersions = ["latest"]' \
   '.powershell.versions[0].dotnetRuntime = 9.0' \
+  '.powershell.versions[0].dotnetRuntime = "latest"' \
   '.powershell.versions[0].dotnetRuntime = "net9.0"'; do
   start_test "rejects nonnumeric or nonstring versions: $filter"
   assert_rejected_config "$filter" "numeric version string"
   end_test
 done
+
+for value in '"windows-latest"' '"Latest"' '"preview"' 2025 null; do
+  start_test "rejects invalid native Windows version $value"
+  assert_rejected_config ".distributions[1].versions[0].version = $value" \
+    "numeric version strings" "$WORK_DIR/powershell.json"
+  end_test
+done
+
+start_test "does not extend the latest alias to native macOS versions"
+assert_rejected_config '.distributions[1].versions[0].version = "latest"' \
+  "numeric version strings" "$WORK_DIR/native.json"
+end_test
+
+start_test "does not extend the latest alias to container Windows versions"
+assert_rejected_config '.distributions[1].executionMode = "container"' \
+  "numeric version strings" "$WORK_DIR/windows-latest.json"
+end_test
+
+start_test "latest Windows still rejects container-registry version discovery"
+assert_rejected_config '.distributions[1].versionCheck = {
+  "enabled": true, "repository": "library/windows", "tagPattern": "^([0-9]+)$"
+}' "cannot enable version checking" "$WORK_DIR/windows-latest.json"
+end_test
 
 for field in \
   '.distributions[0].versions[0].testInAlpha' \

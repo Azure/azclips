@@ -327,9 +327,11 @@ validate_config_shape() {
             $id + ".titleSuffix must be a string.")
         | optional_bool("powershellVersionCheck"; $id)
         | check(.versions | nonempty_array; $id + ".versions must be a nonempty array.")
+        | (.family == "windows" and .executionMode == "native") as $native_windows
         | .versions |= map(
             check(type == "object"; $id + " version entries must be objects.")
-            | check(.version | version; $id + " versions must be numeric version strings.")
+            | check((.version | version) or ($native_windows and .version == "latest");
+                $id + " versions must be numeric version strings (or \"latest\" for native Windows).")
             | optional_bool("testInAlpha"; $id + " version"))
         | if has("powershellVersions") then
             check(.powershellVersions | nonempty_array; $id + ".powershellVersions must be a nonempty array.")
@@ -454,8 +456,8 @@ validate_config() {
     local version versions
     versions="$(jq_run -r '.versions[].version' <<<"$distribution")" || return 1
     while IFS= read -r version; do
-      [[ "$version" =~ $VERSION_PATTERN ]] ||
-        fail "Version '$version' of '$distribution_id' must contain only numeric components."
+      [[ "$version" =~ $VERSION_PATTERN || "$family:$execution_mode:$version" == "windows:native:latest" ]] ||
+        fail "Version '$version' of '$distribution_id' must contain only numeric components, except 'latest' for native Windows."
 
       while IFS= read -r powershell_version; do
         [ -n "$powershell_version" ] || continue
@@ -690,6 +692,8 @@ build_matrix() {
       done <<<"$powershell_versions"
 
       configured_versions="${configured_versions}${version} "
+      # Hosted-agent aliases do not participate in numeric release discovery.
+      [[ "$version" =~ $VERSION_PATTERN ]] || continue
       if [ -z "$latest_configured" ]; then
         latest_configured="$version"
       elif version_gt "$version" "$latest_configured"; then

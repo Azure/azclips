@@ -860,7 +860,8 @@ exit $LASTEXITCODE
     Assert-Equal $true ([regex]::IsMatch($stage, '(?m)- name: limit_ps_testing\r?\n  type: boolean\r?\n  default: false')) 'Release stages default to full coverage'
     $alpha = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/azclips-alpha-build.yml') -Raw
     Assert-Contains $alpha 'limit_ps_testing: false' 'Alpha temporarily runs the full matrix for PR validation'
-    Assert-Contains $job 'test_generate_ps_validation_matrix.sh' 'Matrix fixtures are wired into CI'
+    Assert-Equal $false ($job.Contains('test_generate_ps_validation_matrix.sh')) 'Azure Pipelines does not run the matrix self-test'
+    Assert-Contains $job 'bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh' 'Azure Pipelines still generates the validation matrix'
     Assert-Contains $job 'PSModuleLifecycleFixtures.ps1' 'Module fixtures are wired into CI'
     Assert-Contains $job 'PSSmokeFixtures.ps1' 'Smoke fixtures are wired into CI'
     Assert-Contains $job 'PSValidationPipelineFixtures.ps1' 'Pipeline fixtures are wired into CI'
@@ -888,6 +889,8 @@ exit $LASTEXITCODE
     $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/build-and-test.yml') -Raw
     Assert-Contains $job 'UsePythonVersion@0' 'Azure Pipelines provisions Python'
     Assert-Contains $workflow 'actions/setup-python@' 'GitHub Actions provisions Python'
+    Assert-Contains $workflow 'test_generate_ps_validation_matrix.sh' 'GitHub Actions retains the matrix self-test'
+    $requirements = 'devops/scripts/packaging/powershell/requirements.txt'
     foreach ($pipeline in @($job, $workflow))
     {
         Assert-Contains $pipeline 'PSSmokeFixtures.ps1' 'Both pipelines run the offline module smoke fixtures'
@@ -899,10 +902,10 @@ exit $LASTEXITCODE
         Assert-Equal $true ([regex]::IsMatch($pipeline, 'PSSmokeFixtures\.ps1\r?\n\s+(?:if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}|exit \$LASTEXITCODE)')) 'Smoke fixture native failures propagate in both pipelines'
         Assert-Contains $pipeline 'python3 -m venv "$tools_root"' 'YAML dependency uses an isolated environment'
         Assert-Contains $pipeline '"$tools_root/bin/python" -m pip install' 'YAML dependency uses the selected Python'
-        $requirements = 'devops/scripts/packaging/powershell/requirements.txt'
         Assert-Contains $pipeline $requirements 'Both pipelines use the pinned YAML dependency'
-        Assert-Equal $true ($pipeline.IndexOf($requirements) -lt $pipeline.IndexOf('test_generate_ps_validation_matrix.sh')) 'YAML dependency precedes matrix fixtures'
     }
+    Assert-Equal $true ($job.IndexOf($requirements) -lt $job.IndexOf('bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh')) 'Azure Pipelines provisions the YAML dependency before matrix generation'
+    Assert-Equal $true ($workflow.IndexOf($requirements) -lt $workflow.IndexOf('test_generate_ps_validation_matrix.sh')) 'GitHub Actions provisions the YAML dependency before matrix fixtures'
     Assert-Contains $job '##vso[task.prependpath]$tools_root/bin' 'Azure Pipelines exposes the YAML environment to later tasks'
     Assert-Contains $workflow 'echo "$tools_root/bin" >> "$GITHUB_PATH"' 'GitHub Actions exposes the YAML environment to later steps'
     Write-Host 'PASS: YAML dependency provisioning'

@@ -60,7 +60,12 @@ such as `7.6` install the latest available `7.6.*` tool package; the installed v
 is printed during bootstrap. `AzVersion` comes from `src/PS/Az/Az.psd1`.
 
 Keep version identifiers quoted (for example, `'7.6'`, `'10.0'`, and `'2025'`),
-and flags as YAML booleans (`true`/`false`). Use ordinary `#` comments rather than
+and flags as YAML booleans (`true`/`false`). Native Windows entries also accept
+`'latest'`, which expands `poolTemplate: 'windows-{version}'` to `windows-latest`.
+This configured alias follows the same PowerShell support policy as numeric
+Windows versions; it is not a discovered canary. All other distribution,
+PowerShell and .NET runtime versions must remain numeric strings.
+Use ordinary `#` comments rather than
 comment properties. The generator safely converts YAML to temporary JSON for its
 existing jq rules; its matrix output remains JSON for Azure Pipelines.
 Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
@@ -97,7 +102,9 @@ python3 -m pip install -r devops/scripts/packaging/powershell/requirements.txt
 ```
 
 Both CI workflows provision this environment before running matrix generation or
-its regression suite. Local Debian/Ubuntu hosts may also need the
+its regression suite. Azure DevOps runs the actual matrix generator without a
+separate matrix self-test step; the self-test remains available locally and runs
+in GitHub Actions. Local Debian/Ubuntu hosts may also need the
 `python3-venv` package to create the environment. Then run:
 
 ```bash

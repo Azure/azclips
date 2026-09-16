@@ -7,6 +7,7 @@
 - Compare all installed package payload files with their package SHA256 hashes, excluding NuGet transport metadata and the generated PSGetModuleInfo.xml. Check exact versions, import paths and expected commands in fresh bounded processes.
 - Preflight both baseline and target identities, including unregistered version directories. Reject preexisting exact versions. Cleanup only attempted identities in the preflight module roots, plus this transaction's repository and scratch directory.
 - Run Bootstrap, Dependencies, Upgrade, Install, Validate and Uninstall. Upgrade cleans itself before fresh Install and is gated on bootstrap, not successful dependency validation. A failed baseline preparation does not prevent the independent matrix from running.
+- Keep matrix-generator self-tests in local/GitHub runs rather than the Azure DevOps validation job. Native Windows entries accept the latest hosted-agent alias; container, PowerShell and .NET versions remain numeric.
 - Make Upgrade required for a successful schema-3 phase report and publish upgrade-tests.json with release selection, package provenance, operation outcomes and cleanup errors.
 
 ## Scope

@@ -5,3 +5,4 @@
 - [x] 3. Wire baseline preparation, artifact distribution, phase ordering, required outcomes and fixture execution into CI.
 - [x] 4. Add offline upgrade lifecycle/failure fixtures, run targeted regressions and update the operational documentation.
 - [x] 5. Fix hidden intermediate archive cleanup on Unix and cover hidden-file removal across platforms.
+- [x] 6. Remove the Azure DevOps matrix self-test step, retain local/GitHub fixtures, and accept the Windows latest hosted-agent alias in generation.

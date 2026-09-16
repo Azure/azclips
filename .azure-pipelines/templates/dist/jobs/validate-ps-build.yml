@@ -40,10 +40,6 @@ jobs:
       echo "##vso[task.prependpath]$tools_root/bin"
     displayName: Install PS Matrix YAML Dependency
 
-  - bash: |
-      bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
-    displayName: Test PS Validation Matrix
-
   - pwsh: |
       & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
