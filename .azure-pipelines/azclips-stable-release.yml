@@ -45,7 +45,7 @@ stages:
   - job: EnsureReleaseProject
     displayName: Ensure Release Project Context
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
@@ -80,7 +80,9 @@ stages:
     pr_number: auto
     sequence: auto
     ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
     windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
