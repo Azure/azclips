@@ -58,7 +58,7 @@ expect_install_failure() {
     echo "FAIL: $description unexpectedly succeeded"
     exit 1
   fi
-  if ! grep -Fq "$expected_message" <<<"$output"; then
+  if ! grep -Fq -e "$expected_message" <<<"$output"; then
     echo "FAIL: $description did not report the expected error"
     printf '%s\n' "$output" | sed -n '1,20p'
     exit 1
