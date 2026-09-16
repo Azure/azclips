@@ -98,13 +98,14 @@ distributions:
       enabled: false
 
   - id: windows
-    title: Windows Server
+    title: Windows
     family: windows
     executionMode: native
     poolTemplate: 'windows-{version}'
     versions:
       - version: '2022'
       - version: '2025'
+      - version: 'latest'
     powershellVersions:
       - '7.6'
     powershellVersionCheck: true

@@ -221,13 +221,45 @@ try
     $gallery = Join-Path $scratch 'valid-gallery'
     Expand-PSUpgradeArchive -ArchivePath $script:fixtureArchive -DestinationPath $gallery
     Assert-PSUpgradeGallery -GalleryPath $gallery -Version '0.1.2'
-    Assert-ReleaseFixture (@(Get-ChildItem -LiteralPath $gallery -File).Count -eq 5) 'Gallery is flat, complete and contains no intermediate tar.'
+    Assert-ReleaseFixture (@(Get-ChildItem -LiteralPath $gallery -File -Force).Count -eq 5) 'Gallery is flat, complete and contains no hidden intermediate tar.'
     Assert-ReleaseFixture ((Get-FileHash -LiteralPath (Join-Path $gallery 'Az.0.1.2.nupkg')).Hash -eq (Get-FileHash $rollup).Hash) 'Extracted package bytes are unchanged.'
     Assert-ReleaseFixtureThrows { Assert-PSUpgradeGallery -GalleryPath $gallery -Version '0.1.3' } 'selected Az version'
     $originalGallery = Get-ChildItem -LiteralPath $gallery -File | Get-FileHash | Select-Object Path, Hash | ConvertTo-Json -Compress
     Assert-ReleaseFixtureThrows { Expand-PSUpgradeArchive -ArchivePath $script:fixtureArchive -DestinationPath $gallery } 'already exists'
     Assert-ReleaseFixture ($originalGallery -ceq (Get-ChildItem -LiteralPath $gallery -File | Get-FileHash | Select-Object Path, Hash | ConvertTo-Json -Compress)) 'Existing extraction destinations are untouched.'
     Write-Host 'PASS: real tar/gzip and NuGet packages, SHA256 checks, flat gallery and selected rollup identity'
+    $count++
+
+    $hiddenGallery = Join-Path $scratch 'hidden-intermediate-gallery'
+    $script:hiddenCleanupCalls = 0
+    function Remove-Item
+    {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$LiteralPath, [switch]$Force)
+
+        Assert-ReleaseFixture ([IO.Path]::GetFileName($LiteralPath) -eq '.verified-bundle.tar') 'Only the owned intermediate archive is intercepted.'
+        if ($IsWindows)
+        {
+            # Unix marks dotfiles hidden automatically; reproduce that attribute on Windows.
+            [IO.File]::SetAttributes($LiteralPath, ([IO.File]::GetAttributes($LiteralPath) -bor [IO.FileAttributes]::Hidden))
+        }
+        Assert-ReleaseFixture (([IO.File]::GetAttributes($LiteralPath) -band [IO.FileAttributes]::Hidden) -ne 0) 'The actual cleanup command receives a hidden file.'
+        $script:hiddenCleanupCalls++
+        Microsoft.PowerShell.Management\Remove-Item @PSBoundParameters
+    }
+    try
+    {
+        Expand-PSUpgradeArchive -ArchivePath $script:fixtureArchive -DestinationPath $hiddenGallery
+    }
+    finally
+    {
+        Microsoft.PowerShell.Management\Remove-Item -LiteralPath Function:\Remove-Item
+    }
+    Assert-ReleaseFixture ($script:hiddenCleanupCalls -eq 1) 'Extraction cleans its owned intermediate archive exactly once.'
+    Assert-ReleaseFixture (-not (Test-Path -LiteralPath (Join-Path $hiddenGallery '.verified-bundle.tar'))) 'Hidden intermediate archive is removed after extraction.'
+    Assert-PSUpgradeGallery -GalleryPath $hiddenGallery -Version '0.1.2'
+    Assert-ReleaseFixture ((Get-FileHash -LiteralPath (Join-Path $hiddenGallery 'Az.0.1.2.nupkg')).Hash -eq (Get-FileHash -LiteralPath $rollup).Hash) 'Hidden-file cleanup preserves extracted package bytes.'
+    Write-Host 'PASS: real hidden-file cleanup without elevation on Windows and Unix'
     $count++
 
     $badEntries = @(
