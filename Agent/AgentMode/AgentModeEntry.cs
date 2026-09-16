@@ -150,6 +150,10 @@ public static class AgentModeEntry
             var interactive = agentOpts.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            // One check for both modes: RunChatLoopAsync returning at all means the loop finished,
+            // which is exactly the question ThrowIfSessionEndedInError answers. It used to be
+            // called at each of the loop's two exits, so a third exit would have skipped it.
+            ThrowIfSessionEndedInError(agent.LastError, cts.Token);
         }
     }
 
@@ -159,54 +163,89 @@ public static class AgentModeEntry
         Action disposeServices)
     {
         Activity? session = null;
+        // Pessimistic start: an exit added later that forgets to classify itself exports
+        // "unknown" instead of a value that looks correct. Unreachable in a passing run — every
+        // exit below assigns before the finally — so it is observable only when an assignment is
+        // deliberately removed, which is how the outcome tests are validated.
+        var outcome = RecoveryOutcome.Unknown;
         try
         {
-            // Resolving the lazy provider attaches the listener before the session starts.
-            var telemetry = getTelemetry();
-            session = telemetry.ActivitySource.StartActivity(
-                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
-            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+            try
+            {
+                // Inside the inner try on purpose: the outer catch(Exception) used to protect
+                // telemetry startup too — an unregistered service makes getTelemetry() throw, and
+                // the host prints "agent mode error: ..." and returns 1. Hoisting this setup above
+                // the catches would turn that handled failure into an unhandled crash.
+                // Resolving the lazy provider attaches the listener before the session starts.
+                var telemetry = getTelemetry();
+                session = telemetry.ActivitySource.StartActivity(
+                    "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+                session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
 
-            await runAgent(session);
-            session?.SetTag(TelemetryTags.RecoveryOutcome, "ok");
-            session?.SetStatus(ActivityStatusCode.Ok);
-            return 0;
-        }
-        catch (AgentSessionFailedException ex)
-        {
-            // Already surfaced at the point of failure as "✗ session.error [type] message";
-            // printing "agent mode error: ..." on top of it would report the same failure twice.
-            session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
-            // The SDK's classification (rate_limit, auth_failed, ...) is what says whether these
-            // failures are ours to fix or the service's. The message itself stays out: it can echo
-            // subscription ids, resource names, or the user's prompt.
-            session?.SetTag(TelemetryTags.RecoveryFailureReason, ex.ErrorType ?? "unknown");
-            session?.SetStatus(ActivityStatusCode.Error);
-            return 1;
-        }
-        catch (OperationCanceledException)
-        {
-            // Cancellation is not an error; ActivityStatusCode has no Cancelled member.
-            session?.SetTag(TelemetryTags.RecoveryOutcome, "cancelled");
-            return 130;
-        }
-        catch (Exception ex)
-        {
-            session?.SetTag(TelemetryTags.RecoveryOutcome, "error");
-            // Host-side failure rather than a model one: the exception type separates "our bug" from
-            // "the service refused us" once both land in the same error bucket.
-            session?.SetTag(TelemetryTags.RecoveryFailureReason, ex.GetType().Name);
-            session?.SetStatus(ActivityStatusCode.Error);
-            WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
-            return 1;
+                await runAgent(session);
+                outcome = RecoveryOutcome.Ok;
+                return 0;
+            }
+            catch (AgentSessionFailedException ex)
+            {
+                // Already surfaced at the point of failure as "✗ session.error [type] message";
+                // printing "agent mode error: ..." on top of it would report the same failure twice.
+                // The SDK's classification is what says whether these failures are ours to fix or
+                // the service's. The message itself stays out: it can echo subscription ids,
+                // resource names, or the user's prompt.
+                outcome = RecoveryOutcome.Error(ClassifySdkFailure(ex.ErrorType));
+                return 1;
+            }
+            catch (OperationCanceledException)
+            {
+                outcome = RecoveryOutcome.Cancelled;
+                return 130;
+            }
+            catch (Exception ex)
+            {
+                // Host-side failure rather than a model one: the split is what separates "our bug"
+                // from "the service refused us" once both land in the same error bucket.
+                outcome = RecoveryOutcome.Error(RecoveryFailure.HostFault);
+                WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
+                return 1;
+            }
+            finally
+            {
+                // INVARIANT: nested inside the disposal finally below so it runs FIRST. Terminal
+                // tags have to reach the activity before the TracerProvider is torn down; flattening
+                // these two drops every tag written here. `session` is null when StartActivity
+                // failed or telemetry is off, so each write is null-conditional and degrades to a
+                // no-op rather than throwing inside a finally.
+                session?.SetTag(TelemetryTags.RecoveryOutcome, outcome.Value);
+                if (outcome.FailureReason is { } reason)
+                    session?.SetTag(TelemetryTags.RecoveryFailureReason, reason);
+                if (outcome.Status is { } status)
+                    session?.SetStatus(status);
+            }
         }
         finally
         {
-            // Export terminal tags before service disposal tears down the TracerProvider.
             session?.Dispose();
             disposeServices();
         }
     }
+
+    /// <summary>
+    /// Maps the SDK's error type onto the closed <see cref="RecoveryFailure"/> vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// An allowlist rather than a passthrough: <c>ErrorType</c> is a service-chosen string with no
+    /// constants behind it, so exporting it verbatim makes the dimension unbounded and lets text we
+    /// do not control reach telemetry. Unlisted values become <c>sdk_other</c>, which is expected to
+    /// be common — it measures how much of that vocabulary we have not yet seen.
+    /// </remarks>
+    private static RecoveryFailure ClassifySdkFailure(string? errorType) => errorType switch
+    {
+        null             => RecoveryFailure.Unknown,
+        "rate_limit"     => RecoveryFailure.RateLimit,
+        "authentication" => RecoveryFailure.Authentication,
+        _                => RecoveryFailure.SdkOther,
+    };
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,
@@ -242,7 +281,6 @@ public static class AgentModeEntry
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
 
-            ThrowIfSessionEndedInError(agent.LastError, ct);
             return;
         }
 
@@ -285,8 +323,6 @@ public static class AgentModeEntry
 
             nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
         }
-
-        ThrowIfSessionEndedInError(agent.LastError, ct);
     }
 
     /// <summary>
@@ -294,6 +330,11 @@ public static class AgentModeEntry
     /// cancellation when the user asked to stop.
     /// </summary>
     /// <remarks>
+    /// <para>Called from one place, immediately after <c>RunChatLoopAsync</c> returns, because
+    /// "the loop finished" is the only condition it cares about and both of the loop's exits mean
+    /// exactly that. Calling it at each exit instead left a new exit path free to skip it
+    /// silently.</para>
+    ///
     /// <para><see cref="ChatAgent.LastError"/> is per-turn — <c>SendAsync</c> clears it on every new
     /// turn — so reading it once the loop has finished answers "did the session END in failure",
     /// not "did one ever occur". That is the right question for both modes: in one-shot the failed

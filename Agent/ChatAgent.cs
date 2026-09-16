@@ -46,7 +46,25 @@ public sealed class ChatAgent : IAsyncDisposable
 
     public string Model => _model;
 
-    public SessionErrored? LastError { get; private set; }
+    private SessionErrored? _lastError;
+
+    /// <summary>
+    /// The terminal SDK error reported during the current turn, or null if the turn is clean.
+    /// </summary>
+    /// <remarks>
+    /// <para>Written on the SDK's event-dispatch thread and read on the host thread, so both sides
+    /// go through <see cref="Volatile"/>: without a barrier the host is not guaranteed to observe
+    /// the handler's write at all, and a session the user watched fail exports
+    /// <c>recovery.outcome=ok</c>.</para>
+    ///
+    /// <para>Visibility is all this closes. The dispatch loop is not synchronised with the host's
+    /// turn boundaries, so an error queued during turn N-1 can still be delivered after turn N
+    /// cleared this field, attributing it to the wrong turn. That is not fixable here: the SDK's
+    /// error payload carries no turn identifier, and a handler stamping the turn it sees at
+    /// dispatch time would record the same wrong turn. Closing it needs turn correlation from the
+    /// SDK.</para>
+    /// </remarks>
+    public SessionErrored? LastError => Volatile.Read(ref _lastError);
 
     /// <summary>
     /// A session error that arrived before the first turn could start.
@@ -200,7 +218,7 @@ public sealed class ChatAgent : IAsyncDisposable
             {
                 if (ev is SessionErrored err)
                 {
-                    if (self is not null) self.LastError = err;
+                    if (self is not null) Volatile.Write(ref self._lastError, err);
                     else                  earlyError = err;
                     try { self?._activeTurnCts?.Cancel(); } catch { }
                 }
@@ -376,7 +394,7 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
-        LastError = null;
+        Volatile.Write(ref _lastError, null);
         Volatile.Write(ref _sendCalledClosingTool, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

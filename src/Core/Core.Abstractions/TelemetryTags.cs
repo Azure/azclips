@@ -47,12 +47,12 @@ public static class TelemetryTags
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
-    /// <summary>ok, cancelled, or error — the terminal Agent.Session outcome.</summary>
+    /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
     public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
     /// <summary>
-    /// Why recovery ended in error; absent otherwise. A classification only — the SDK's error type
-    /// for a model failure, or the exception type name for a host failure. Never the message, which
-    /// can echo subscription ids, resource names, or the user's own input.
+    /// Why recovery ended in error; absent otherwise. A closed classification only — see
+    /// <c>RecoveryFailure</c> for the value list. Never the message, which can echo subscription
+    /// ids, resource names, or the user's own input.
     /// </summary>
     public const string RecoveryFailureReason = PropertyTagPrefix + "recovery.failureReason";
     /// <summary>Why recovery did not run, on CLI.Activity.AiRecoverySkipped.</summary>
