@@ -391,7 +391,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // SendAsync is entered; publishing it after StartOperation and the turn-state resets left a
         // window where an abort found null, issued session.abort before session.send existed, and
         // the send then ran to completion uncancelled.
-        Interlocked.Exchange(ref _activeTurnCts, turnCts);
+        var displaced = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         try
         {
             using var send = _invocationContext.StartOperation("Agent.Send", turnCts.Token);
@@ -406,7 +406,13 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         finally
         {
-            Interlocked.CompareExchange(ref _activeTurnCts, null, turnCts);
+            // Restore what was displaced rather than clearing. Publishing before StartOperation is
+            // what closes the abort window, but it also means an overlapping SendAsync publishes its
+            // handle and only then gets rejected for the busy operation slot. Clearing on the way
+            // out would strip cancellation from the send that is still running — the rejected call
+            // would disarm the live one. In the ordinary case nothing was displaced and this
+            // restores null, exactly as before.
+            Interlocked.CompareExchange(ref _activeTurnCts, displaced, turnCts);
         }
     }
 

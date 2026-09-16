@@ -122,6 +122,55 @@ public sealed class SdkRecoveryHierarchyTests
     }
 
     [Fact]
+    public async Task RejectedOverlappingSend_LeavesTheLiveSendCancellable()
+    {
+        // SendAsync publishes its cancellation handle before reserving the single operation slot,
+        // because publishing later leaves an Esc window where an abort finds nothing. The cost of
+        // that order is this case: a second SendAsync publishes its own handle and only then gets
+        // rejected for the busy slot. If its exit path cleared the field instead of restoring what
+        // it displaced, the rejected call would disarm the send that is still running -- Esc and
+        // disposal would both go nowhere, and the turn would run to completion uncancelled.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var trace = new AgentTraceCapture();
+        await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
+        using var session = RecoveryTraceContext.StartSession(AgentTracing.Source, null, null);
+        using var context = new AgentInvocationContext(session);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var wait = AIFunctionFactory.Create(async (CancellationToken ct) =>
+        {
+            using var tool = ToolInvocationLog.Start("wait");
+            entered.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return "";
+        }, new AIFunctionFactoryOptions { Name = "wait" });
+        var client = new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(server.Url) });
+        ChatAgent agent;
+        using (context.StartOperation("Agent.Create"))
+        {
+            agent = await ChatAgent.ConnectAsync(client, new SessionConfig
+            {
+                SessionId = Guid.NewGuid().ToString(),
+                OnPermissionRequest = PermissionHandler.ApproveAll,
+                Tools = [wait],
+            }, "", null, context, timeout.Token);
+        }
+        await using var agentScope = agent;
+
+        var live = agent.SendAsync("hold the slot", timeout.Token);
+        await entered.Task.WaitAsync(timeout.Token);
+
+        var rejected = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => agent.SendAsync("overlap", timeout.Token));
+        Assert.Contains("one in-flight operation", rejected.Message);
+
+        // The live send must still answer to abort. Without the restore this hangs until the
+        // 15s budget expires, because the handle it would have cancelled was set to null.
+        await agent.AbortAsync(timeout.Token);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live).WaitAsync(timeout.Token);
+    }
+
+    [Fact]
     public async Task RealSdkCancellation_ReachesToolAndReleasesSendScope()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
