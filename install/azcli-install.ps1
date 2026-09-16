@@ -60,6 +60,7 @@ Write-Host "Package    : $Package ($stem)"
 Write-Host "Platform   : $assetLabel"
 
 $tmp = $null
+$stageRoot = $null
 try {
   if ($PSBoundParameters.ContainsKey('ArchivePath')) {
     if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
@@ -130,14 +131,29 @@ try {
   if ((Test-Path $InstallRoot) -and -not (Test-Path (Join-Path $InstallRoot 'az.exe')) -and (Get-ChildItem $InstallRoot -Force | Select-Object -First 1)) {
     throw "Install root '$InstallRoot' is not empty and does not look like an azcli install. Refusing to overwrite. Remove it and re-run."
   }
-  if (Test-Path $InstallRoot) { Remove-Item -Recurse -Force $InstallRoot }
-  New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
-  Expand-Archive -Path $archive -DestinationPath $InstallRoot -Force
-  if (-not (Test-Path (Join-Path $InstallRoot 'az.exe'))) {
-    throw "Extraction did not yield 'az.exe' under $InstallRoot."
+
+  $installParent = Split-Path -Parent ([System.IO.Path]::GetFullPath($InstallRoot))
+  New-Item -ItemType Directory -Path $installParent -Force | Out-Null
+  $stageRoot = Join-Path $installParent ".azcli-stage-$([System.Guid]::NewGuid())"
+  New-Item -ItemType Directory -Path $stageRoot | Out-Null
+  Expand-Archive -Path $archive -DestinationPath $stageRoot -Force
+  $stagedAzExe = Join-Path $stageRoot 'az.exe'
+  if (-not (Test-Path $stagedAzExe -PathType Leaf)) {
+    throw "Extraction did not yield 'az.exe'."
   }
+  & $stagedAzExe --help *> $null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Extracted 'az.exe --help' did not exit cleanly."
+  }
+
+  if (Test-Path $InstallRoot) { Remove-Item -Recurse -Force $InstallRoot }
+  Move-Item -Path $stageRoot -Destination $InstallRoot
+  $stageRoot = $null
 }
 finally {
+  if ($stageRoot) {
+    Remove-Item -Recurse -Force $stageRoot -ErrorAction SilentlyContinue
+  }
   if ($tmp) {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
   }
@@ -147,7 +163,6 @@ finally {
 Write-Host ""
 Write-Host "Installed to: $InstallRoot"
 $azExe = Join-Path $InstallRoot 'az.exe'
-& $azExe --help | Out-Null
 Write-Host "Verified: '$azExe --help' ran successfully."
 Write-Host ""
 Write-Host "Done. Installed in isolation - PATH was not modified (coexists with classic 'az')."

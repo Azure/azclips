@@ -152,8 +152,14 @@ expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI pa
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_profile_name"
 expect_install_failure "wrong runtime identifier" "does not match platform $ASSET_RID" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
+printf 'existing install sentinel\n' >"$SIM_ROOT/install/az"
 expect_install_failure "corrupt archive" "tar:" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"
+if [[ "$(cat "$SIM_ROOT/install/az")" != "existing install sentinel" ]]; then
+  echo "FAIL: corrupt archive modified the existing installation"
+  exit 1
+fi
+echo "  PASS: corrupt archive preserved the existing installation"
 rm -rf "$SIM_ROOT/invalid-archives"
 
 echo "classic az sentinel" >"$SIM_ROOT/classic-bin/az"

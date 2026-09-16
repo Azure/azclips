@@ -23,8 +23,16 @@ INSTALL_ROOT="${AZCLI_INSTALL_ROOT:-$HOME/.local/share/azcli}"
 # Internal only: --archive installs an exact local artifact for CI and
 # release-candidate validation before GitHub publication.
 ARCHIVE_PATH=""
+tmp=""
+stage_root=""
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+cleanup() {
+  [[ -z "$stage_root" ]] || rm -rf "$stage_root"
+  [[ -z "$tmp" ]] || rm -rf "$tmp"
+}
+trap cleanup EXIT
 
 usage() {
   sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
@@ -147,7 +155,6 @@ else
 
   # 5. Download via the authenticated gh session (handles private-repo access).
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
   gh release download "$tag" --repo "$REPO" --pattern "$chosen" --dir "$tmp" --clobber
   archive="$tmp/$chosen"
   [[ -f "$archive" ]] || die "Download did not produce the expected file: $archive"
@@ -157,22 +164,24 @@ fi
 if [[ -e "$INSTALL_ROOT" && ! -e "$INSTALL_ROOT/az" && -n "$(ls -A "$INSTALL_ROOT" 2>/dev/null)" ]]; then
   die "Install root '$INSTALL_ROOT' is not empty and does not look like an azcli install. Refusing to overwrite. Remove it and re-run."
 fi
+install_parent="$(dirname "$INSTALL_ROOT")"
+mkdir -p "$install_parent"
+stage_root="$(mktemp -d "$install_parent/.azcli-stage.XXXXXX")"
+tar -xzf "$archive" -C "$stage_root"
+chmod +x "$stage_root/az" 2>/dev/null || true
+[[ -f "$stage_root/az" ]] || die "Extraction did not yield an 'az' binary."
+"$stage_root/az" --help >/dev/null 2>&1 || die "Extracted 'az --help' did not exit cleanly."
+
 rm -rf "$INSTALL_ROOT"
-mkdir -p "$INSTALL_ROOT"
-tar -xzf "$archive" -C "$INSTALL_ROOT"
-chmod +x "$INSTALL_ROOT/az" 2>/dev/null || true
-[[ -f "$INSTALL_ROOT/az" ]] || die "Extraction did not yield an 'az' binary under $INSTALL_ROOT."
+mv "$stage_root" "$INSTALL_ROOT"
+stage_root=""
 
 # 7. Verify.
 az_bin="$INSTALL_ROOT/az"
 
 echo
 echo "Installed to: $INSTALL_ROOT"
-if "$az_bin" --help >/dev/null 2>&1; then
-  echo "Verified: '$az_bin --help' ran successfully."
-else
-  echo "Warning: '$az_bin --help' did not exit cleanly."
-fi
+echo "Verified: '$az_bin --help' ran successfully."
 
 echo
 echo "Done. Installed in isolation — PATH was not modified (coexists with classic 'az')."
