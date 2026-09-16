@@ -50,6 +50,16 @@ public class TokenScopeResolverTests
     }
 
     [Fact]
+    public void Resolve_EmptyScopeList_ThrowsInsteadOfDefaultingToArm()
+    {
+        // An explicitly supplied but empty scope list (e.g. `--scope` with no values, or `-Scope @()`)
+        // is an invalid required target, not "no target" - it must not silently fall back to ARM.
+        var ex = Assert.Throws<UsageErrorException>(() =>
+            TokenScopeResolver.Resolve(null, null, Array.Empty<string>()));
+        Assert.Contains("At least one scope", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Resolve_ScopeAlreadyDefault_NotDoubled()
     {
         var scopes = TokenScopeResolver.Resolve("https://vault.azure.net/.default", null, null);

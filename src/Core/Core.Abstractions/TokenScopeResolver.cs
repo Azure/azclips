@@ -35,7 +35,7 @@ public static class TokenScopeResolver
     {
         bool hasResource = resource is not null;
         bool hasResourceType = resourceTypeName is not null;
-        bool hasScopes = scopes is { Count: > 0 };
+        bool hasScopes = scopes is not null;
 
         int provided = (hasResource ? 1 : 0) + (hasResourceType ? 1 : 0) + (hasScopes ? 1 : 0);
         if (provided > 1)
@@ -46,7 +46,13 @@ public static class TokenScopeResolver
 
         if (hasScopes)
         {
-            var normalized = new List<string>(scopes!.Count);
+            if (scopes!.Count == 0)
+            {
+                throw AzclipsErrorException.UsageError(
+                    "At least one scope must be supplied with --scope/-Scope.");
+            }
+
+            var normalized = new List<string>(scopes.Count);
             foreach (var scope in scopes!)
             {
                 if (string.IsNullOrWhiteSpace(scope))
