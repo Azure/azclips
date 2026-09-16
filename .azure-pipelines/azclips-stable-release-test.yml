@@ -35,6 +35,8 @@ variables:
   value: azurecli3.azurecr.io
 - name: DockerPowerShellRepository
   value: public/azure-powershell-v3
+- name: DockerAzureServiceConnection
+  value: 'Azure CLI release'
 
 stages:
 - stage: Preflight
@@ -137,7 +139,7 @@ stages:
 - template: templates/dist/stages/publish-docker-to-acr.yml
   parameters:
     dependency_stage: VerifySignedDistribution
-    azure_subscription: $(AzureSubscription)
+    azure_subscription: ${{ variables.DockerAzureServiceConnection }}
     cli_registry_name: $(DockerCliRegistryName)
     cli_registry_server: $(DockerCliRegistryServer)
     cli_repository: $(DockerCliRepository)
