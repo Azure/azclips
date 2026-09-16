@@ -259,7 +259,8 @@ public sealed class SdkRecoveryHierarchyTests
                         result = new { };
                         break;
                     default:
-                        throw new InvalidOperationException($"Unexpected offline SDK request: {method}");
+                        throw new InvalidOperationException(
+                            $"Unexpected offline SDK request: {method} :: {request.GetRawText()}");
                 }
                 await ReplyAsync(stream, id, result);
             }
