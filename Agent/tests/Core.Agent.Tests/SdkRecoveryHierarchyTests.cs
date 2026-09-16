@@ -256,6 +256,12 @@ public sealed class SdkRecoveryHierarchyTests
                         continue;
                     case "session.destroy":
                     case "session.abort":
+                    // Teardown is not this test's subject, and the SDK's teardown sequence is not
+                    // frozen: session.detach appeared here only once ChatAgent.DisposeAsync started
+                    // cancelling the in-flight turn, which let disposal run to completion instead of
+                    // timing out part-way through. Answering the teardown verbs generically keeps a
+                    // span-parentage test from failing over the shape of a goodbye.
+                    case "session.detach":
                         result = new { };
                         break;
                     default:
