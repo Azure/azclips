@@ -69,11 +69,11 @@ machine="$(uname -m)"
 case "$os" in
   Linux)
     platform="linux"
+    libc_info=""
     if command -v ldd >/dev/null 2>&1; then
-      if ldd --version 2>&1 | grep -qi musl; then
-        platform="linux-musl"
-      fi
-    elif [[ -f /etc/alpine-release ]] || compgen -G '/lib/ld-musl-*.so.1' >/dev/null; then
+      libc_info="$(ldd --version 2>&1 || true)"
+    fi
+    if [[ -f /etc/alpine-release ]] || compgen -G '/lib/ld-musl-*.so.1' >/dev/null || grep -qi musl <<<"$libc_info"; then
       platform="linux-musl"
     fi
     ext="tar.gz"
