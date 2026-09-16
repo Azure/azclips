@@ -1,6 +1,6 @@
 ---
 title: CLI, PowerShell, and extension versioning
-summary: Contributor rules, CI protections, and stable-release version automation.
+description: Contributor rules, CI protections, and stable-release version automation.
 ---
 
 # CLI, PowerShell, and extension versioning
@@ -37,23 +37,29 @@ policy in the same PR that changes protected files.
 
 ## Stable release pipeline
 
-The `azclips-trigger-stable-release` pipeline has four phases:
+The `azclips-trigger-stable-release` pipeline has three stages:
 
-| Phase | Result |
+| Stage | Result |
 | --- | --- |
-| Choose release version | Calculates the next CLI and `Az` version from `patch`, `minor`, `major`, or `custom`. |
-| Select extensions | Compares extension C# source and all files under each PowerShell module directory with the latest stable tag. |
-| Align metadata | Updates project, module, dependency, and `Az` rollup versions together. |
-| Prepare release PR | Generates changelogs and opens `release/trigger-stable-release-<version>`. |
+| Preflight | Verifies that the pipeline is running in the release project. |
+| Trigger stable release | On a manual run, calculates the CLI and `Az` version, selects changed packageable extensions, aligns metadata, generates changelogs, and opens `release/trigger-stable-release-<version>`. |
+| Create stable tag | After the generated PR merges, validates its merge commit and creates the stable tag. |
 
-Extension versions are selected independently:
+Extension selection compares `*.cs` files under `src/Extensions/<Module>` and all files under
+non-`Az` PowerShell module directories with the latest stable tag. `src/PS/Az` does not select an
+extension; its rollup metadata is aligned separately.
+
+Packageable extension versions are selected independently:
 
 | Extension state | Version result |
 | --- | --- |
-| Changed existing extension | Patch bump. |
-| Existing extension that depends on a bumped module | Patch bump so its exact dependency can advance. |
-| New extension | Keep its declared initial version. |
-| Unchanged unrelated extension | No change. |
+| Changed existing packageable extension | Patch bump. |
+| Existing packageable extension that depends on a bumped module | Patch bump so its exact dependency can advance. |
+| New packageable extension | Keep its declared initial version. |
+| Unchanged unrelated packageable extension | No change. |
+
+When no stable tag exists, the first stable release treats every packageable extension as new. Each
+keeps its declared initial version while module and rollup dependency metadata is aligned.
 
 ### Example: Compute changed
 
@@ -68,27 +74,38 @@ patch release:
 | `src/Extensions/Compute/Extensions.Compute.csproj` | `Version`: `0.1.0` to `0.1.1`. |
 | `src/PS/Compute/Compute.psd1` | `ModuleVersion`: `0.1.0` to `0.1.1`; update `ReleaseNotes` when upcoming notes exist. |
 | `src/PS/Compute/ChangeLog.md` | If `## Upcoming Release` has notes, move them under `## Version 0.1.1`. |
-| `CHANGELOG.md` | Add the generated `0.1.3` release section, including Compute notes when present. |
+| `CHANGELOG.md` | Add `## v0.1.3 - <release timestamp>`, including merged PR notes and Compute notes when present. |
 | `src/Extensions/<Dependent>/Extensions.<Dependent>.csproj`, `src/PS/<Dependent>/<Dependent>.psd1`, and its `Az.psd1` entry | If present, patch-bump the exact dependent and align its Compute dependency and rollup version. |
 
 Compute uses its own patch sequence; it does not become `0.1.3` just because the CLI does.
 
-A matching extension project and module manifest identify a packageable extension. For each
-identified extension, a missing module changelog, missing `Az` rollup dependency, missing project
-version, or inconsistent unchanged-version metadata fails the pipeline.
+A matching extension project and module manifest identify a packageable extension. A missing module
+changelog, `Az` rollup dependency, or project version fails release preparation. Before updates,
+unchanged packageable extensions must already have aligned project, manifest, and rollup versions;
+after updates, all packageable extensions must be aligned.
 
 ## Generated release PR checks
 
-CI allowlists release changelogs, module manifests, the CLI project, and matching extension projects.
+The generated-release rules apply only to a same-repository PR authored by
+`x-engineering-agent[bot]`, titled `{DevOps} Trigger stable release <version>`, and using the matching
+`release/trigger-stable-release-<version>` branch.
+
+CI allowlists `CHANGELOG.md`, `src/CLI/Core.Cli.csproj`, matching extension projects, and each
+module's `ChangeLog.md` and matching `.psd1`, including `src/PS/Az/Az.psd1`. The checker validates
+the contents of `.csproj` files only; changelog and manifest paths are allowlisted but their contents
+are not compared for version alignment.
+
 An existing `.csproj` may change only direct version-property lines while preserving property names,
 property counts, and all non-version structure and content. Project renames, additions, deletions,
 and formatting or EOF-only changes outside direct version-property lines fail validation.
 
 ## After the release PR merges
 
-The main-branch tag stage checks the merged release commit again. Each changed extension project must
-contain exactly one `<Version>` replacement and no other change. If validation succeeds, the pipeline
-creates this immutable tag:
+The main-branch tag stage checks the merged release commit again. The CLI project must change at
+least one supported stable-version line (`Version` or `VersionPrefix`, `InformationalVersion`,
+`AssemblyVersion`, or `FileVersion`) and no other content. Each changed extension project must
+contain exactly one `<Version>` replacement and no other change. If validation succeeds, the
+pipeline creates this immutable tag:
 
 ```text
 v<major>.<minor>.<patch>.<UTC yyyyMMddTHHmmssZ>
