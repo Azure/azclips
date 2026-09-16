@@ -4,8 +4,7 @@
 
 .DESCRIPTION
   Downloads the latest signed release of the az CLI from a PRIVATE GitHub repo
-  using your authenticated GitHub CLI (gh) session, or installs an explicitly
-  supplied local archive without GitHub CLI or network access.
+  using your authenticated GitHub CLI (gh) session.
 
   The CLI is installed in isolation and PATH is NOT modified, so it coexists
   with the classic azure-cli.
@@ -15,14 +14,14 @@
 .EXAMPLE
   ./azcli-install.ps1
   ./azcli-install.ps1 -Package lean
-  ./azcli-install.ps1 -ArchivePath C:\artifacts\azcli-0.1.0-win-x64.zip
 #>
 [CmdletBinding()]
 param(
   [ValidateSet('lean', 'full')]
   [string]$Package = $(if ($env:AZCLI_PACKAGE) { $env:AZCLI_PACKAGE } else { 'full' }),
 
-  # Intended for CI and release-candidate validation before GitHub publication.
+  # Internal only: installs an exact local artifact for CI and release-candidate
+  # validation before GitHub publication.
   [string]$ArchivePath
 )
 

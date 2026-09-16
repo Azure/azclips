@@ -3,15 +3,13 @@
 # azcli installer (Linux / macOS)
 #
 # Downloads the latest signed release of the az CLI from the azcli GitHub repo,
-# or installs an explicitly supplied local archive for CI validation. Extracts
-# and installs the `az` command in isolation (PATH is NOT modified, so it
-# coexists with the classic azure-cli).
+# then extracts and installs the `az` command in isolation (PATH is NOT
+# modified, so it coexists with the classic azure-cli).
 #
 # Private-preview users only need read access to the repo and a logged-in `gh`.
 #
 # Usage:
-#   ./azcli-install.sh [--package lean|full] [--archive PATH]
-#   --archive PATH installs that archive without GitHub CLI or network access.
+#   ./azcli-install.sh [--package lean|full]
 #
 # Environment overrides: AZCLI_PACKAGE
 #
@@ -22,6 +20,8 @@ set -euo pipefail
 REPO="${AZCLI_REPO:-Azure/azclips}"
 PACKAGE="${AZCLI_PACKAGE:-full}"          # full | lean
 INSTALL_ROOT="${AZCLI_INSTALL_ROOT:-$HOME/.local/share/azcli}"
+# Internal only: --archive installs an exact local artifact for CI and
+# release-candidate validation before GitHub publication.
 ARCHIVE_PATH=""
 
 die() { echo "ERROR: $*" >&2; exit 1; }

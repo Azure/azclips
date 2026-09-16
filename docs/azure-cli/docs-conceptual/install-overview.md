@@ -15,7 +15,7 @@ The Azure CLI private preview ships as **azcli** — the `az` command-line tool 
 
 ## Install azcli (one command)
 
-Private-preview artifacts live in a **private** GitHub repo; your account has **read** access. By default, the installer uses your authenticated GitHub CLI (`gh`) session — no personal access tokens or manual asset URLs. You can instead install an archive you already have without `gh` or network access.
+Private-preview artifacts live in a **private** GitHub repo; your account has **read** access. The installer uses your authenticated GitHub CLI (`gh`) session — no personal access tokens or manual asset URLs.
 
 **Prerequisites** — install the [GitHub CLI](https://cli.github.com/) and sign in once:
 
@@ -50,7 +50,6 @@ gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: applic
 | Option (bash) | Option (PowerShell) | Default | Purpose |
 | --- | --- | --- | --- |
 | `--package lean\|full` | `-Package lean\|full` | `full` | Full = built-in + add-on extensions bundled; lean = built-in extensions only. |
-| `--archive PATH` | `-ArchivePath PATH` | — | Install a local archive without `gh` or network access. Its filename must match the selected package and the current platform. |
 
 Environment variable equivalent (bash and PowerShell): `AZCLI_PACKAGE`.
 
