@@ -105,7 +105,6 @@ distributions:
     versions:
       - version: '2022'
       - version: '2025'
-      - version: 'latest'
     powershellVersions:
       - '7.6'
     powershellVersionCheck: true
