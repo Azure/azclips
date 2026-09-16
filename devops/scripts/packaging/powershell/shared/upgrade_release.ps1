@@ -390,7 +390,7 @@ function Expand-PSUpgradeArchive
             finally { $reader.Dispose() }
         }
         finally { $tarStream.Dispose() }
-        Remove-Item -LiteralPath $tarPath -ErrorAction Stop
+        Remove-Item -LiteralPath $tarPath -Force -ErrorAction Stop
     }
     catch
     {

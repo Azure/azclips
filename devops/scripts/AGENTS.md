@@ -45,6 +45,8 @@ and imports, and cleans its own baseline/target state before fresh installation.
 `shared/upgrade_worker.ps1` isolates package-manager operations and module imports
 in bounded child processes. Offline upgrade fixtures must never install real Az
 modules into the developer's profile.
+Remove owned intermediate dotfiles with `-Force`; PowerShell treats them as hidden
+on Unix even when the current user created them.
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —
