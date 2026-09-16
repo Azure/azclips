@@ -1,10 +1,8 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: windows_arm64_pool
   type: string
-  default: 'pool-windows-2025-gen2-arm64'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot

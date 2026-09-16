@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: SourceProject
   type: string
   default: 'public'
@@ -28,10 +27,8 @@ parameters:
   default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
-  default: 'macOS-15-arm64'
 - name: macos_intel_pool
   type: string
-  default: 'macOS-15'
 
 jobs:
   - job: AnalyzeMacOS

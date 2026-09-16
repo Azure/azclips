@@ -7,7 +7,6 @@ parameters:
   default: Component Governance
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: depends_on
   type: object
   default: []
