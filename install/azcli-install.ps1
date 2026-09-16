@@ -28,6 +28,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if ($PSBoundParameters.ContainsKey('ArchivePath') -and [string]::IsNullOrWhiteSpace($ArchivePath)) {
+  throw 'ArchivePath requires a path.'
+}
+
 # Repo and InstallRoot are fixed. Their AZCLI_REPO / AZCLI_INSTALL_ROOT env
 # overrides exist for internal release testing only and are undocumented.
 $Repo = if ($env:AZCLI_REPO) { $env:AZCLI_REPO } else { 'Azure/azclips' }
@@ -58,7 +62,7 @@ Write-Host "Platform   : $assetLabel"
 
 $tmp = $null
 try {
-  if ($ArchivePath) {
+  if ($PSBoundParameters.ContainsKey('ArchivePath')) {
     if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
       throw "Archive was not found: $ArchivePath"
     }

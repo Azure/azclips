@@ -38,6 +38,7 @@ while [[ $# -gt 0 ]]; do
       PACKAGE="$2"; shift 2;;
     --archive)
       [[ $# -ge 2 ]] || die "--archive requires a path."
+      [[ -n "$2" ]] || die "--archive requires a path."
       ARCHIVE_PATH="$2"; shift 2;;
     -h|--help) usage;;
     *) die "Unknown argument: $1 (use --help)";;
@@ -60,9 +61,11 @@ machine="$(uname -m)"
 case "$os" in
   Linux)
     platform="linux"
-    if [[ -f /etc/alpine-release ]] ||
-       compgen -G '/lib/ld-musl-*.so.1' >/dev/null ||
-       { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; }; then
+    if command -v ldd >/dev/null 2>&1; then
+      if ldd --version 2>&1 | grep -qi musl; then
+        platform="linux-musl"
+      fi
+    elif [[ -f /etc/alpine-release ]] || compgen -G '/lib/ld-musl-*.so.1' >/dev/null; then
       platform="linux-musl"
     fi
     ext="tar.gz"

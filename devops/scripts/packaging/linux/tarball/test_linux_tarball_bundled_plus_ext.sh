@@ -54,7 +54,7 @@ expect_install_failure() {
   shift 2
   local output=""
 
-  if output=$(AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
+  if output=$(HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
     echo "FAIL: $description unexpectedly succeeded"
     exit 1
   fi
@@ -128,10 +128,11 @@ rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install" "$SIM_ROOT/invalid-archives" "$SIM_ROOT/classic-bin"
 
 archive_name="$(basename "$CLI_TAR_PATH")"
+archive_version_and_rid="${archive_name#"$ARTIFACT_STEM"-}"
 if [[ "$PACKAGE_PROFILE" == "lean" ]]; then
-  wrong_profile_name="${archive_name/azcli-lean-/azcli-}"
+  wrong_profile_name="$CLI_ARCHIVE_STEM-$archive_version_and_rid"
 else
-  wrong_profile_name="${archive_name/azcli-/azcli-lean-}"
+  wrong_profile_name="$CLI_LEAN_ARCHIVE_STEM-$archive_version_and_rid"
 fi
 case "$ASSET_RID" in
   *-x64) wrong_rid_name="${archive_name/%-x64.tar.gz/-arm64.tar.gz}" ;;
@@ -143,6 +144,8 @@ ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_rid_name"
 printf 'not a tar archive\n' >"$SIM_ROOT/invalid-archives/$archive_name"
 
 echo "[1/15] Reject invalid local archives"
+expect_install_failure "empty archive path" "--archive requires a path" \
+  --package "$PACKAGE_PROFILE" --archive ""
 expect_install_failure "missing archive" "Archive was not found" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/missing-$archive_name"
 expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI package" \
@@ -151,11 +154,12 @@ expect_install_failure "wrong runtime identifier" "does not match platform $ASSE
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
 expect_install_failure "corrupt archive" "tar:" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"
+rm -rf "$SIM_ROOT/invalid-archives"
 
 echo "classic az sentinel" >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
 
-AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
+HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
   --package "$PACKAGE_PROFILE" \
   --archive "$CLI_TAR_PATH"
 
@@ -271,7 +275,7 @@ fi
 echo ""
 echo "[7/15] Verify reinstall cleanly replaces the install root"
 touch "$SIM_ROOT/install/reinstall-sentinel"
-AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
+HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
   --package "$PACKAGE_PROFILE" \
   --archive "$CLI_TAR_PATH"
 if [[ -e "$SIM_ROOT/install/reinstall-sentinel" ]]; then
@@ -370,10 +374,11 @@ echo "[14/15] Verify Resources command no longer resolves"
 removed_command_output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
-   grep -Eqi "could not be found|extension.*(add|install)|install.*extension" <<<"$removed_command_output"; then
+   grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
   echo "  PASS: Removed Resources command reports the extension installation path"
 elif [[ "$PACKAGE_PROFILE" == "full" ]] &&
-     ! grep -Eqi "could not be found|extension.*(add|install)|install.*extension" <<<"$removed_command_output"; then
+     grep -Fq "[BundledExtensionLoader] Loaded 'Resources'" <<<"$removed_command_output" &&
+     ! grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
   echo "  PASS: Resources command fell back to the bundled full-package extension"
 else
   echo "  FAIL: az group list did not match the expected $PACKAGE_PROFILE profile behavior after removal"
