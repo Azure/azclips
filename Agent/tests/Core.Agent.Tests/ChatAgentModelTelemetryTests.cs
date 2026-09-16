@@ -409,6 +409,28 @@ public class ChatAgentModelTelemetryTests
             Data = new AssistantUsageData { Model = model, Initiator = initiator },
         };
 
+    [Fact]
+    public async Task ModelQuery_CancelledMidFlight_PropagatesCancellation()
+    {
+        // Covers the ordinary case: cancelling while the query is in flight must not be reported as
+        // a failed model lookup. It does NOT cover the narrower race the guard in the IOException
+        // catch exists for, where the transport dies and its IOException beats the token check —
+        // that ordering cannot be produced deterministically from here.
+        await using var runtime = new CopilotRuntimeStub { SelectedModel = "sdk-default" };
+        await using var rig = await CreateAgentAsync(runtime, initializeModel: false);
+        using var cts = new CancellationTokenSource();
+        // Disposing the stub here would deadlock: this callback runs on the stub's own serve loop,
+        // which Dispose awaits.
+        runtime.BeforeModelResponse = () =>
+        {
+            cts.Cancel();
+            return Task.CompletedTask;
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(TestTimeout));
+    }
+
     [Theory]
     [InlineData("session.start")]
     [InlineData("session.resume")]

@@ -96,6 +96,11 @@ internal sealed class AgentModelTelemetry
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
+            // A cancelled caller tears the transport down, so the failure it produces arrives here
+            // as an IOException rather than an OperationCanceledException. Re-raise it as
+            // cancellation instead of reporting a model lookup that merely failed, which would let
+            // InitializeAsync return normally and swallow the caller's stop.
+            ct.ThrowIfCancellationRequested();
             ReportUnavailable($"the startup model query failed ({ex.GetType().Name})");
         }
     }
@@ -112,3 +117,4 @@ internal sealed class AgentModelTelemetry
             _reportWarning($"GitHub model metadata is unavailable: {reason}. Recovery will continue; usage events may identify the model.");
     }
 }
+
