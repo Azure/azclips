@@ -29,7 +29,7 @@ public record AccessTokenResult
     [JsonPropertyName("expires_on")]
     public required long ExpiresOnUnixTime { get; init; }
 
-    /// <summary>The tenant (directory) ID the token was acquired for.</summary>
+    /// <summary>The tenant (directory) ID the token was acquired for. Empty for a managed identity account, whose profile does not carry a resolved tenant.</summary>
     [JsonPropertyName("tenant")]
     public required string TenantId { get; init; }
 
@@ -68,7 +68,7 @@ public record SecureAccessTokenResult
     [JsonPropertyName("expires_on")]
     public required long ExpiresOnUnixTime { get; init; }
 
-    /// <summary>The tenant (directory) ID the token was acquired for.</summary>
+    /// <summary>The tenant (directory) ID the token was acquired for. Empty for a managed identity account, whose profile does not carry a resolved tenant.</summary>
     [JsonPropertyName("tenant")]
     public required string TenantId { get; init; }
 

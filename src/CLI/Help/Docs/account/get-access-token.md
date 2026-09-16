@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Acquire an access token from the current signed-in context for a resource, a well-known resource type, or an explicit list of Microsoft Entra scopes. When no target is specified, a token for Azure Resource Manager (ARM) is returned. The token is protected by default and is not printed as plain text; pass --plaintext to print the raw token.
+Description: Acquire an access token from the current signed-in context for a resource, a well-known resource type, or an explicit list of Microsoft Entra scopes. When no target is specified, a token for Azure Resource Manager (ARM) is returned. The token value is redacted by default and is not returned. Pass --plaintext to obtain the raw token value.
 
 ### Get an access token for Azure Resource Manager (the default target)
 
