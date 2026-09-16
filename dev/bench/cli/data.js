@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789529836823,
+  "lastUpdate": 1789534399490,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -7350,6 +7350,48 @@ window.BENCHMARK_DATA = {
             "value": 2314954.949246231,
             "unit": "ns",
             "range": "± 96477.35625271064"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "93c9757b1d2a523420531b560cfae7e87657c6fe",
+          "message": "[Resources] `az group`: Support exists command (#894)\n\nResolves: https://github.com/Azure/CLIPS/issues/678",
+          "timestamp": "2026-09-16T12:26:10+08:00",
+          "tree_id": "4e0834385b7e766b24bb8c1aa602a581d9c5fece",
+          "url": "https://github.com/Azure/azclips/commit/93c9757b1d2a523420531b560cfae7e87657c6fe"
+        },
+        "date": 1789534396516,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2413005.2921348317,
+            "unit": "ns",
+            "range": "± 97866.82427207229"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2415195.9542536116,
+            "unit": "ns",
+            "range": "± 108026.18539076812"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2396400.5053116856,
+            "unit": "ns",
+            "range": "± 99000.31913364303"
           }
         ]
       }
