@@ -74,5 +74,6 @@ guide in the same PR so it stays accurate.
 - Change shared behavior in `templates/dist/**`, not by copy-pasting into entry pipelines.
 - Keep project guards, branch/tag validation, and secret-source patterns intact.
 - Match existing parameter naming (`ubuntu_pool`, `release_channel`, `source_artifact_name`, etc.) and pass pools through parameters.
+- Keep checkout tasks on the Azure Pipelines default of no automatic task retries.
 - Validate YAML changes: check indentation, template `parameters`/`variables` wiring, and `dependsOn`/`stageDependencies` references before committing.
 - Do not add new triggers or `pr:` scopes without confirming the intended project and channel.

@@ -62,7 +62,6 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: UseDotNet@2
     displayName: .NET SDK

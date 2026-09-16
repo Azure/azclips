@@ -28,7 +28,6 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 0
-      retryCountOnTaskFailure: 3
 
     - task: PowerShell@2
       displayName: Prepare Compliance Results Directory
