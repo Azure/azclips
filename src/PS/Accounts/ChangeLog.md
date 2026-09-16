@@ -17,10 +17,6 @@
 -->
 ## Upcoming Release
 
-* `Get-AzAccessToken`: Add cmdlet to acquire an access token for a resource, well-known resource type, or explicit scope list from the current signed-in context
-    - Token is returned as a SecureString by default; pass `-AsPlainText` to return the raw token as a plain string
-    - Output includes the token expiry as Unix time (`ExpiresOnUnixTime`) and the signed-in user ID
-
 ## Version 0.1.0
 
 * First preview
