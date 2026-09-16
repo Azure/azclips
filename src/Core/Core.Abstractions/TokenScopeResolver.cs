@@ -17,8 +17,8 @@ public static class TokenScopeResolver
     /// Resolves the supplied target inputs into a scope array.
     /// <list type="bullet">
     /// <item>At most one of <paramref name="resource"/>, <paramref name="resourceTypeName"/>, or
-    /// <paramref name="scopes"/> may be supplied; supplying more than one throws
-    /// <see cref="ArgumentException"/> (fail fast).</item>
+    /// <paramref name="scopes"/> may be supplied; supplying more than one raises a usage error
+    /// (<see cref="AzclipsErrorException"/> from <see cref="AzclipsErrorException.UsageError"/>).</item>
     /// <item>A resource URL resolves to the single scope <c>&lt;resource&gt;/.default</c>.</item>
     /// <item>A well-known resource-type shortcut resolves via
     /// <see cref="WellKnownResourceTypes"/> to its resource URL, then to a <c>.default</c> scope.</item>
@@ -30,7 +30,7 @@ public static class TokenScopeResolver
     /// <param name="resourceTypeName">A well-known resource-type shortcut (CLI or PS spelling).</param>
     /// <param name="scopes">One or more v2.0 scopes.</param>
     /// <returns>The resolved, non-empty scope array.</returns>
-    /// <exception cref="ArgumentException">More than one target input was supplied, or a supplied value was invalid.</exception>
+    /// <exception cref="AzclipsErrorException">A usage error (exit code 2): more than one target input was supplied, or a supplied value was invalid.</exception>
     public static string[] Resolve(string? resource, string? resourceTypeName, IReadOnlyList<string>? scopes)
     {
         bool hasResource = resource is not null;
@@ -92,7 +92,7 @@ public static class TokenScopeResolver
     /// slash of the resource is preserved (matching Azure CLI's <c>resource_to_scopes</c>), so
     /// <c>https://management.core.windows.net/</c> becomes
     /// <c>https://management.core.windows.net//.default</c> and
-    /// <c>https://managedhsm.azure.com</c> becomes <c>https://managedhsm.azure.com/.default</c>. An
+    /// <c>https://managedhsm.azure.net</c> becomes <c>https://managedhsm.azure.net/.default</c>. An
     /// existing <c>/.default</c> suffix is left intact.
     /// </summary>
     public static string ToDefaultScope(string resource)
