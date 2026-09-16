@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Xunit;
 
@@ -206,13 +207,54 @@ public class DataBoundaryResolverTests
         // The github provider never calls ARM, so its sessions have to be separable in telemetry
         // from a lookup that ran and failed — and from a tag that was dropped at export. Collapsing
         // them would make "unknown" mean two different things in the same column.
-        var skipped = DataBoundaryResult.NotApplicable("provider_github");
-        var failed = DataBoundaryResult.Failed("timeout", TenantId);
+        var skipped = DataBoundaryResult.NotApplicable(DataBoundaryFailure.ProviderGithub);
+        var failed = DataBoundaryResult.Failed(DataBoundaryFailure.ArmTimeout, TenantId);
 
         Assert.Equal(DataBoundary.NotApplicable, skipped.Boundary);
         Assert.Equal("not_applicable", skipped.TagValue);
         Assert.NotEqual(failed.TagValue, skipped.TagValue);
         Assert.Equal("provider_github", skipped.FailureReason);
+    }
+
+    [Theory]
+    // github is the only provider that legitimately skips the lookup.
+    [InlineData("github", "provider_github")]
+    [InlineData("GitHub", "provider_github")]
+    // Everything else that reaches here is a value startup is about to reject. The tag is written
+    // first, so a typo must not be filed as a GitHub session that ran.
+    [InlineData("gihub", "provider_unsupported")]
+    [InlineData("openai", "provider_unsupported")]
+    [InlineData("", "provider_unsupported")]
+    [InlineData(null, "provider_unsupported")]
+    internal void SkippedBoundary_SeparatesGithubFromAnUnsupportedProvider(
+        string? provider, string expectedReason)
+    {
+        var result = AgentModeEntry.SkippedBoundaryFor(new AgentOptions { Provider = provider! });
+
+        Assert.Equal(DataBoundary.NotApplicable, result.Boundary);
+        Assert.Equal(expectedReason, result.FailureReason);
+    }
+
+    [Fact]
+    internal void EveryFailureReason_HasADistinctWireForm()
+    {
+        // The vocabulary is closed by the compiler — Failed() takes an enum, so no call site can
+        // interpolate an exception type or a message into this dimension. What the compiler cannot
+        // catch is a new enum member with no wire form (Wire() throws) or one that duplicates an
+        // existing value, which would silently merge two causes into one bucket.
+        var seen = new Dictionary<string, DataBoundaryFailure>();
+
+        foreach (var reason in Enum.GetValues<DataBoundaryFailure>())
+        {
+            var wire = DataBoundaryResult.Failed(reason).FailureReason;
+
+            Assert.False(string.IsNullOrWhiteSpace(wire), $"{reason} has no wire form.");
+            Assert.Matches("^[a-z0-9_]+$", wire);
+            Assert.False(
+                seen.TryGetValue(wire!, out var owner),
+                $"{reason} and {owner} both emit '{wire}'.");
+            seen[wire!] = reason;
+        }
     }
 
     [Fact]
@@ -266,7 +308,7 @@ public class DataBoundaryResolverTests
         var result = await resolver.ResolveAsync();
 
         Assert.Equal(DataBoundary.Unknown, result.Boundary);
-        Assert.StartsWith("token_unavailable", result.FailureReason);
+        Assert.Equal("token_unavailable", result.FailureReason);
         Assert.Equal(0, handler.RequestCount);
     }
 
@@ -278,7 +320,7 @@ public class DataBoundaryResolverTests
         var result = await resolver.ResolveAsync();
 
         Assert.Equal(DataBoundary.Unknown, result.Boundary);
-        Assert.StartsWith("arm_request_failed", result.FailureReason);
+        Assert.Equal("arm_request_failed", result.FailureReason);
     }
 
     [Fact]

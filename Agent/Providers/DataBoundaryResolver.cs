@@ -117,18 +117,18 @@ internal sealed class DataBoundaryResolver
         }
         catch (OperationCanceledException)
         {
-            return DataBoundaryResult.Failed("timeout_reading_profile");
+            return DataBoundaryResult.Failed(DataBoundaryFailure.TimeoutReadingProfile);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return DataBoundaryResult.Failed($"profile_unavailable: {ex.GetType().Name}");
+            return DataBoundaryResult.Failed(DataBoundaryFailure.ProfileUnavailable);
         }
 
         // Signed out, or a profile with no tenant. Skip the call rather than issue one that is
         // certain to fail.
         if (string.IsNullOrWhiteSpace(tenantId))
         {
-            return DataBoundaryResult.Failed("no_active_tenant");
+            return DataBoundaryResult.Failed(DataBoundaryFailure.NoActiveTenant);
         }
 
         string? token;
@@ -155,17 +155,17 @@ internal sealed class DataBoundaryResolver
             }
             catch (OperationCanceledException)
             {
-                return DataBoundaryResult.Failed("timeout_acquiring_token", tenantId);
+                return DataBoundaryResult.Failed(DataBoundaryFailure.TimeoutAcquiringToken, tenantId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return DataBoundaryResult.Failed($"token_unavailable: {ex.GetType().Name}", tenantId);
+                return DataBoundaryResult.Failed(DataBoundaryFailure.TokenUnavailable, tenantId);
             }
         }
 
         if (string.IsNullOrEmpty(token))
         {
-            return DataBoundaryResult.Failed("token_unavailable", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.TokenUnavailable, tenantId);
         }
 
         var armStopwatch = Stopwatch.StartNew();
@@ -185,11 +185,11 @@ internal sealed class DataBoundaryResolver
             using var response = await _http
                 .SendAsync(request, HttpCompletionOption.ResponseContentRead, timeoutCts.Token)
                 .ConfigureAwait(false);
-
+            armStopwatch.Stop();
             if (!response.IsSuccessStatusCode)
             {
                 // The status alone is enough to triage; the body can name the scope, so it stays out.
-                return DataBoundaryResult.Failed($"arm_status_{(int)response.StatusCode}", tenantId);
+                return DataBoundaryResult.FailedWithArmStatus((int)response.StatusCode, tenantId);
             }
 
             var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
@@ -201,17 +201,20 @@ internal sealed class DataBoundaryResolver
         }
         catch (OperationCanceledException)
         {
-            return DataBoundaryResult.Failed("timeout", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.ArmTimeout, tenantId);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return DataBoundaryResult.Failed($"arm_request_failed: {ex.GetType().Name}", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.ArmRequestFailed, tenantId);
         }
         finally
         {
-            // Separate from the caller's total so the ARM round trip is visible on its own.
-            // Recorded on every path — a rejected or timed-out attempt still spends the user's
-            // wall clock.
+            // Separate from the caller's total so the ARM round trip is visible on its own. Stopped
+            // on the line after SendAsync returns rather than here, because everything after that —
+            // reading the buffered body into a string, parsing it — is local work, and telemetry.md
+            // promises this measures the ARM request alone. Still recorded on every path: a rejected
+            // or timed-out attempt spends the user's wall clock too, and on those paths the
+            // stopwatch is still running, which is why it is stopped here as well.
             armStopwatch.Stop();
             activity?.SetTag(TelemetryTags.RecoveryDataBoundaryArmElapsedMs, armStopwatch.ElapsedMilliseconds);
         }
@@ -221,7 +224,7 @@ internal sealed class DataBoundaryResolver
     {
         if (string.IsNullOrWhiteSpace(body))
         {
-            return DataBoundaryResult.Failed("empty_response", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.EmptyResponse, tenantId);
         }
 
         string? rawValue;
@@ -237,7 +240,7 @@ internal sealed class DataBoundaryResolver
             // catch — blaming the transport for what is actually a response-shape problem.
             if (root.ValueKind != JsonValueKind.Object)
             {
-                return DataBoundaryResult.Failed("malformed_response", tenantId);
+                return DataBoundaryResult.Failed(DataBoundaryFailure.MalformedResponse, tenantId);
             }
 
             // Same guard one level down: "properties" can legitimately be present as null or an
@@ -257,12 +260,12 @@ internal sealed class DataBoundaryResolver
         }
         catch (JsonException)
         {
-            return DataBoundaryResult.Failed("malformed_response", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.MalformedResponse, tenantId);
         }
 
         if (string.IsNullOrWhiteSpace(rawValue))
         {
-            return DataBoundaryResult.Failed("missing_data_boundary", tenantId);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.MissingDataBoundary, tenantId);
         }
 
         // A missing echo is treated the same as a wrong one: the point of the check is to prove the
@@ -271,12 +274,12 @@ internal sealed class DataBoundaryResolver
         if (string.IsNullOrWhiteSpace(responseTenantId)
             || !string.Equals(responseTenantId, tenantId, StringComparison.OrdinalIgnoreCase))
         {
-            return DataBoundaryResult.Failed("tenant_mismatch", tenantId, rawValue);
+            return DataBoundaryResult.Failed(DataBoundaryFailure.TenantMismatch, tenantId, rawValue);
         }
 
         var parsed = DataBoundaryResult.Parse(rawValue);
         return parsed == DataBoundary.Unknown
-            ? DataBoundaryResult.Failed("unrecognized_value", tenantId, rawValue)
+            ? DataBoundaryResult.Failed(DataBoundaryFailure.UnrecognizedValue, tenantId, rawValue)
             : DataBoundaryResult.Resolved(parsed, rawValue, tenantId);
     }
 }

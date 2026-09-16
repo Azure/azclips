@@ -101,11 +101,27 @@ block.
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
-| `properties.recovery.dataBoundary` | `Agent.Session`             | `eu`, `global`, `unknown`, or `not_applicable` — the caller tenant's ARM data boundary. `not_applicable` means the lookup was skipped because the provider is `github`; neither it nor `unknown` may be read as `global` |
+| `properties.recovery.dataBoundary` | `Agent.Session`             | `eu`, `global`, `unknown`, or `not_applicable` — the caller tenant's ARM data boundary. `not_applicable` means the lookup was skipped because the provider is not `builtin`; neither it nor `unknown` may be read as `global` |
 | `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for the `github` provider |
 | `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
-| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM request alone, success or failure. Absent when the lookup returned before reaching ARM |
-| `properties.recovery.dataBoundary.failureReason` | `Agent.DataBoundary` | Why the boundary is not resolved; absent otherwise. Fixed vocabulary, never a message |
+| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM request alone, success or failure — stopped when the response returns, so it excludes reading and parsing the body. Absent when the lookup returned before reaching ARM |
+| `properties.recovery.dataBoundary.failureReason` | `Agent.DataBoundary` | Why the boundary is not resolved; absent otherwise. Fixed vocabulary, never a message — see below |
+
+`failureReason` is closed: the emitting code takes a `DataBoundaryFailure` enum, so a value outside
+this set cannot be written. The one exception is `arm_status_<code>`, where the suffix is an HTTP
+status code.
+
+| Value | Meaning |
+| ----- | ------- |
+| `provider_github` | Provider is `github`; it never calls ARM, so no lookup was attempted |
+| `provider_unsupported` | Provider is neither `builtin` nor `github`. The tag is written before startup rejects the value, so this is a misconfiguration, not a session that ran |
+| `timeout_reading_profile` / `profile_unavailable` / `no_active_tenant` | Never reached the token: the profile read timed out, failed, or named no tenant |
+| `timeout_acquiring_token` / `token_unavailable` | Never reached ARM: no Azure token |
+| `arm_status_<code>` | ARM answered with a non-success status, e.g. `arm_status_429` |
+| `timeout` / `arm_request_failed` | The ARM call exceeded the lookup budget, or failed at the transport |
+| `empty_response` / `malformed_response` / `missing_data_boundary` | ARM answered, but not with a readable boundary |
+| `tenant_mismatch` | ARM answered for a different tenant than the one asked about |
+| `unrecognized_value` | ARM reported a boundary this build does not know; the raw value is kept in `recovery.dataBoundary.rawValue` |
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:

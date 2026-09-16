@@ -138,7 +138,7 @@ public static class AgentModeEntry
             // Copilot credential and never touches ARM, so asking those users for an Azure login
             // would be a regression. They skip the boundary lookup entirely for the same reason.
             AuthResult? azureAuth = null;
-            var dataBoundary = DataBoundaryResult.NotApplicable("provider_github");
+            var dataBoundary = SkippedBoundaryFor(agentOpts);
             if (agentOpts.IsBuiltinProvider)
             {
                 // Two network calls happen here, so each is timed where it is made. Timing the
@@ -225,6 +225,22 @@ public static class AgentModeEntry
             AzclipsServiceProvider.Dispose();
         }
     }
+
+    /// <summary>
+    /// The boundary value recorded when no lookup is made, i.e. the provider is not <c>builtin</c>.
+    /// </summary>
+    /// <remarks>
+    /// Two distinct reasons, not one. <c>github</c> deliberately skips ARM; anything else is a
+    /// configuration value that startup rejects moments later. Because this tag is written before
+    /// that rejection happens, collapsing them would file every provider typo in telemetry as a
+    /// GitHub session that ran — a claim that was never true. Extracted so the distinction is
+    /// directly testable rather than buried in a ternary at the call site.
+    /// </remarks>
+    internal static DataBoundaryResult SkippedBoundaryFor(AgentOptions options) =>
+        DataBoundaryResult.NotApplicable(
+            options.IsGithubProvider
+                ? DataBoundaryFailure.ProviderGithub
+                : DataBoundaryFailure.ProviderUnsupported);
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,

@@ -47,6 +47,13 @@ public sealed class AgentOptions
     [JsonIgnore]
     public bool IsBuiltinProvider =>
         string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
+
+    // Not the negation of IsBuiltinProvider. Both are false for an unsupported value, which is the
+    // point: telemetry written before startup validates the provider must not report a typo as a
+    // deliberate GitHub session.
+    [JsonIgnore]
+    public bool IsGithubProvider =>
+        string.Equals(Provider, "github", System.StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class InteractiveOptions
