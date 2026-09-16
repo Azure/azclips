@@ -101,27 +101,43 @@ block.
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
-| `properties.recovery.dataBoundary` | `Agent.Session`             | `eu`, `global`, `unknown`, or `not_applicable` — the caller tenant's ARM data boundary. `not_applicable` means the lookup was skipped because the provider is not `builtin`; neither it nor `unknown` may be read as `global` |
-| `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for the `github` provider |
+| `properties.recovery.dataBoundary` | `Agent.Session`, `Agent.DataBoundary` | The caller tenant's ARM data boundary, or why there is none — vocabulary below |
+| `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 | `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
-| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM round trip, success or failure: request, status, and body on the wire. Excludes the local work that follows — decoding and parsing the response. Absent when the lookup returned before reaching ARM |
-| `properties.recovery.dataBoundary.failureReason` | `Agent.DataBoundary` | Why the boundary is not resolved; absent otherwise. Fixed vocabulary, never a message — see below |
 
-`failureReason` is closed: the emitting code takes a `DataBoundaryFailure` enum, so a value outside
-this set cannot be written. The one exception is `arm_status_<code>`, where the suffix is an HTTP
-status code.
+`recovery.dataBoundary` is one field, not a boundary plus a separate reason. Every startup path
+records exactly one value, so it can never be half-written: either ARM's answer, or why there is
+none. Nothing branches on it yet — recording it is what this instrumentation is for. It is written
+once on `Agent.Session` by the startup path, and again on `Agent.DataBoundary` by the lookup itself
+whenever one ran.
+
+ARM's answer passes through, lowercased: `eu`, `global`, or any value ARM adds later. It is the only
+untrusted string in this dimension, so it is the only one sanitised — it must match
+`^[a-z0-9_-]{1,32}$` or it is recorded as `unexpected_value`. That is a check on shape, not on
+recognition: an unfamiliar but well-shaped value is reported as itself, because discovering one is
+the point of the probe. Every other value is closed by the compiler — the emitting code takes a
+`DataBoundaryUnavailable` enum, so a message or an exception type cannot be written here. The one
+exception is `arm_status_<code>`, where the suffix is an HTTP status code.
+
+**None of the no-answer values is a boundary**, and none of them may be read as `global`.
 
 | Value | Meaning |
 | ----- | ------- |
-| `provider_github` | Provider is `github`; it never calls ARM, so no lookup was attempted |
-| `provider_unsupported` | Provider is neither `builtin` nor `github`. The tag is written before startup rejects the value, so this is a misconfiguration, not a session that ran |
-| `timeout_reading_profile` / `profile_unavailable` / `no_active_tenant` | Never reached the token: the profile read timed out, failed, or named no tenant |
-| `timeout_acquiring_token` / `token_unavailable` | Never reached ARM: no Azure token |
+| `eu`, `global`, or another lowercase token | ARM's answer for the caller's tenant |
+| `skipped_github` | Provider is `github`; it never calls ARM, so no lookup was attempted |
+| `skipped_unsupported_provider` | Provider is neither `builtin` nor `github`. The boundary is recorded before startup rejects the value, so this is a misconfiguration, not a session that ran |
+| `no_tenant` | Nothing to ask ARM about: signed out, or the profile names no tenant |
+| `profile_unavailable` | The profile could not be read at all — a storage or permissions problem, not a signed-out user |
+| `timeout_profile` | The profile read exceeded the lookup budget |
+| `no_token` / `timeout_token` | Token acquisition ran and failed, or exceeded its budget |
 | `arm_status_<code>` | ARM answered with a non-success status, e.g. `arm_status_429` |
-| `timeout` / `arm_request_failed` | The ARM call exceeded the lookup budget, or failed at the transport |
-| `empty_response` / `malformed_response` / `missing_data_boundary` | ARM answered, but not with a readable boundary |
-| `tenant_mismatch` | ARM answered for a different tenant than the one asked about |
-| `unrecognized_value` | ARM reported a boundary this build does not know; the raw value is kept in `recovery.dataBoundary.rawValue` |
+| `timeout_arm` / `arm_failed` | The ARM call exceeded the lookup budget, or failed at the transport |
+| `unreadable` | ARM answered with success but no usable boundary: empty, malformed, or absent |
+| `tenant_mismatch` | ARM echoed a different tenant than the one asked about |
+| `tenant_unconfirmed` | ARM echoed no tenant at all, so the answer proves nothing about whose boundary it is. Distinct from `tenant_mismatch`, which is ARM answering about someone else |
+| `cancelled` | The caller's cancellation token was signalled — Ctrl+C during startup |
+| `unexpected_value` | ARM's value failed the shape check above |
+| `not_started` | Unreachable by design: the startup seam never throws, so an outcome is always classified. Seeing this means that contract broke |
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:

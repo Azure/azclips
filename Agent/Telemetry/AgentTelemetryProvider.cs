@@ -41,7 +41,7 @@ public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
         // in ActivityNameFilterTests — so every span it produces is dropped before export. Adding it
         // would buy instrumentation overhead on every agent HTTP call and no data. Outbound calls
         // that need timing carry it on their own allowlisted span instead, the way
-        // Agent.DataBoundary records armElapsedMs.
+        // Agent.DataBoundary records elapsedMs.
         foreach (var processor in filterProcessors)
         {
             builder.AddProcessor(processor);

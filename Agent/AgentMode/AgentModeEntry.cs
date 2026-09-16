@@ -125,54 +125,33 @@ public static class AgentModeEntry
             // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
 
-            // Acquire the Azure token once, here, and feed it to both consumers below.
+            // Acquire the Azure token once and observe the caller's ARM data boundary before the
+            // provider picks an endpoint. Nothing branches on the boundary yet: the builtin
+            // provider still calls one endpoint for everyone. Recording it now proves the lookup
+            // works and shows what it costs, so the change that routes EU traffic separately
+            // starts from measured behavior.
             //
-            // Ordering matters: this throws BuildAuthErrorMessage()'s actionable "run az login" on a
-            // signed-out or stale login, so the user sees it immediately instead of after a boundary
-            // lookup that was always going to fail. Sharing matters too — MsalAuthService builds a
+            // Sharing the token matters beyond the saved round trip — MsalAuthService builds a
             // fresh IPublicClientApplication and re-registers the on-disk token cache per call with
             // no synchronization, so one acquisition is both cheaper and the prerequisite for ever
             // running the lookup concurrently with agent startup.
-            //
-            // Only the builtin provider needs it: github authenticates the model with the user's own
-            // Copilot credential and never touches ARM, so asking those users for an Azure login
-            // would be a regression. They skip the boundary lookup entirely for the same reason.
-            AuthResult? azureAuth = null;
-            var dataBoundary = SkippedBoundaryFor(agentOpts);
-            if (agentOpts.IsBuiltinProvider)
-            {
-                // Two network calls happen here, so each is timed where it is made. Timing the
-                // acquisition from inside the resolver would miss it entirely on this path, since
-                // the resolver is handed a token rather than fetching one.
-                var tokenWatch = Stopwatch.StartNew();
-                try
-                {
-                    azureAuth = await BuiltinProviderConfig.AcquireAsync(agentOpts.Builtin, auth, cts.Token);
-                }
-                finally
-                {
-                    // In finally because a failed acquisition is the slow one — a dead refresh token
-                    // goes to the network before giving up, and that is the cost worth seeing.
-                    tokenWatch.Stop();
-                    session?.SetTag(TelemetryTags.RecoveryTokenElapsedMs, tokenWatch.ElapsedMilliseconds);
-                }
+            var startup = await AgentStartupBoundary.ResolveAsync(
+                agentOpts, auth, profileService, ResolverFactory, session, cts.Token);
 
-                // Observe the caller's ARM data boundary before the provider picks an endpoint.
-                // Nothing branches on it yet: the builtin provider still calls one endpoint for
-                // everyone. Recording it now proves the lookup works and shows what it costs, so the
-                // change that routes EU traffic separately starts from measured behavior. Never
-                // throws, so recovery proceeds unchanged whatever it reports.
-                dataBoundary = await new DataBoundaryResolver(auth, profileService)
-                    .ResolveAsync(azureAuth.AccessToken, cts.Token);
-            }
-
-            session?.SetTag(TelemetryTags.RecoveryDataBoundary, dataBoundary.TagValue);
+            // The only place this tag is written. Unconditional, because the seam never throws:
+            // there is no path from here to ChatAgent.CreateAsync that reaches it without a value.
+            session?.SetTag(TelemetryTags.RecoveryDataBoundary, startup.Boundary.Value);
             trace?.Note("data_boundary", new
             {
-                boundary = dataBoundary.TagValue,
-                rawValue = dataBoundary.RawValue,
-                failureReason = dataBoundary.FailureReason,
+                boundary = startup.Boundary.Value,
+                tenantMatched = startup.Boundary.TenantId is not null,
             });
+
+            var azureAuth = startup.Auth;
+            // Preserves today's behavior exactly: a signed-out user still gets
+            // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
+            // recovery still stops here — only now the outcome was recorded first.
+            startup.Failure?.Throw();
 
             ChatAgent agent;
             // Times Copilot SDK and stdio daemon startup.
@@ -227,20 +206,11 @@ public static class AgentModeEntry
     }
 
     /// <summary>
-    /// The boundary value recorded when no lookup is made, i.e. the provider is not <c>builtin</c>.
+    /// Builds the resolver the startup seam uses. A method group rather than a lambda at the call
+    /// site so the seam's tests can substitute a fake through the same parameter.
     /// </summary>
-    /// <remarks>
-    /// Two distinct reasons, not one. <c>github</c> deliberately skips ARM; anything else is a
-    /// configuration value that startup rejects moments later. Because this tag is written before
-    /// that rejection happens, collapsing them would file every provider typo in telemetry as a
-    /// GitHub session that ran — a claim that was never true. Extracted so the distinction is
-    /// directly testable rather than buried in a ternary at the call site.
-    /// </remarks>
-    internal static DataBoundaryResult SkippedBoundaryFor(AgentOptions options) =>
-        DataBoundaryResult.NotApplicable(
-            options.IsGithubProvider
-                ? DataBoundaryFailure.ProviderGithub
-                : DataBoundaryFailure.ProviderUnsupported);
+    private static IDataBoundaryResolver ResolverFactory(IProfileService profileService) =>
+        new DataBoundaryResolver(profileService);
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,

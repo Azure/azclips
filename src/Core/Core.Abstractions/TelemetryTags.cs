@@ -43,18 +43,22 @@ public static class TelemetryTags
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
-    /// <summary>eu, global, unknown, or not_applicable — the caller tenant's ARM data boundary.</summary>
+    /// <summary>
+    /// The caller tenant's ARM data boundary, or why there is none: <c>eu</c>, <c>global</c> or a
+    /// future ARM value, otherwise one of the closed no-answer values (e.g. <c>skipped_github</c>,
+    /// <c>no_tenant</c>, <c>arm_status_429</c>).
+    /// </summary>
     /// <remarks>
-    /// <c>not_applicable</c> is emitted for the github provider, whose traffic never reaches the
-    /// Microsoft endpoint, so the lookup is skipped rather than attempted. It is a telemetry state,
-    /// not a boundary: consumers must not treat it, or <c>unknown</c>, as <c>global</c>.
+    /// One field, so it can never be half-written: every startup path records exactly one value
+    /// here. A no-answer value is not a boundary — consumers must not read any of them as
+    /// <c>global</c>. Full vocabulary in <c>eng-docs/spec/telemetry.md</c>.
     /// </remarks>
     public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
     /// <summary>
     /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
     /// One acquisition serves both the model provider and the ARM data boundary lookup, so this is
-    /// the shared startup cost rather than something either one owns. Absent for the github
-    /// provider, which needs no Azure token.
+    /// the shared startup cost rather than something either one owns. Absent for any provider other
+    /// than builtin, which is the only one needing an Azure token.
     /// </summary>
     public const string RecoveryTokenElapsedMs = PropertyTagPrefix + "recovery.tokenElapsedMs";
     /// <summary>
@@ -63,14 +67,6 @@ public static class TelemetryTags
     /// <see cref="RecoveryTokenElapsedMs"/> — pair the two for the full startup probe.
     /// </summary>
     public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
-    /// <summary>
-    /// Wall-clock cost of the ARM request alone, recorded on success and failure alike. Absent when the
-    /// lookup returned before reaching ARM (no tenant, or no token). Subtracting it from
-    /// <see cref="RecoveryDataBoundaryElapsedMs"/> leaves the local profile read.
-    /// </summary>
-    public const string RecoveryDataBoundaryArmElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.armElapsedMs";
-    /// <summary>Short, non-sensitive reason the boundary came back unknown; absent otherwise.</summary>
-    public const string RecoveryDataBoundaryFailureReason = PropertyTagPrefix + "recovery.dataBoundary.failureReason";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";

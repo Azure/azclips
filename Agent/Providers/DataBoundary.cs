@@ -1,159 +1,164 @@
+using System.Text.RegularExpressions;
+
 namespace Core.Agent.Providers;
 
 /// <summary>
-/// The caller tenant's ARM data boundary, which decides where their prompts may be
-/// processed.
+/// Why a data boundary lookup has no boundary to report. The closed half of the
+/// <c>recovery.dataBoundary</c> vocabulary.
 /// </summary>
 /// <remarks>
-/// <see cref="Unknown"/> is deliberately distinct from <see cref="Global"/>. ARM reports
-/// <c>Global</c> for a tenant that has no boundary resource, which is a real answer, whereas
-/// Unknown means we never got one. Collapsing the two would let a lookup failure read as
-/// permission to process an EU tenant's data outside the EU once routing lands.
+/// An enum rather than strings at the call sites because this ships as a telemetry dimension:
+/// <c>eng-docs/spec/telemetry.md</c> promises a fixed vocabulary and never a message.
+/// Interpolating a caught exception's type into it would turn that promise into an open set —
+/// every new exception type the runtime throws becoming a new dimension value. Going through an
+/// enum makes that impossible to express rather than merely discouraged. The only no-answer value
+/// carrying a variable is <see cref="DataBoundaryResult.FromArmStatus"/>, whose range is the
+/// bounded set of HTTP status codes.
 /// </remarks>
-internal enum DataBoundary
+internal enum DataBoundaryUnavailable
 {
-    /// <summary>No authoritative answer: no tenant, a failed call, or an unrecognized value.</summary>
-    Unknown,
+    /// <summary>
+    /// Reserved, and unreachable by design: the startup seam promises never to throw, so the tag
+    /// is always written from a classified outcome. If this ever appears in real data, that
+    /// contract broke.
+    /// </summary>
+    NotStarted,
 
-    /// <summary>ARM reported <c>Global</c>, the default for a tenant with no boundary configured.</summary>
-    Global,
-
-    /// <summary>ARM reported <c>EU</c>; the tenant is opted into the EU Data Boundary.</summary>
-    Eu,
+    /// <summary>Provider is <c>github</c>, whose traffic goes to GitHub and never reaches ARM.</summary>
+    SkippedGithub,
 
     /// <summary>
-    /// The lookup does not apply to this session, so it was never attempted — today that means the
-    /// <c>github</c> provider, whose traffic goes to GitHub rather than the Microsoft endpoint.
+    /// Provider is neither <c>builtin</c> nor <c>github</c>. Startup rejects it moments later, but
+    /// the boundary is recorded first, so a typo needs a value of its own rather than borrowing the
+    /// one that means "this is a GitHub session".
     /// </summary>
-    /// <remarks>
-    /// A telemetry state, not a boundary. It exists so a deliberately skipped lookup is
-    /// distinguishable in the data from one that ran and failed (<see cref="Unknown"/>) and from a
-    /// tag that never survived export. It must never appear in a routing decision: when routing
-    /// lands, this and <see cref="Unknown"/> both have to be handled explicitly, and neither may
-    /// fall through to <see cref="Global"/>.
-    /// </remarks>
-    NotApplicable,
-}
+    SkippedUnsupportedProvider,
 
-/// <summary>
-/// The closed vocabulary for <see cref="DataBoundaryResult.FailureReason"/>.
-/// </summary>
-/// <remarks>
-/// An enum rather than strings at the call sites because <c>recovery.dataBoundary.failureReason</c>
-/// is a telemetry dimension: <c>eng-docs/spec/telemetry.md</c> promises a fixed vocabulary and never
-/// a message. Interpolating a caught exception's type into the reason silently turned that promise
-/// into an open set — every new exception type the runtime throws would become a new dimension
-/// value. Going through an enum makes that impossible to express instead of merely discouraged; the
-/// only reason carrying a variable is <see cref="DataBoundaryResult.FailedWithArmStatus"/>, whose
-/// range is the bounded set of HTTP status codes.
-/// </remarks>
-internal enum DataBoundaryFailure
-{
-    TimeoutReadingProfile,
+    /// <summary>No tenant to ask about: signed out, or the profile names none.</summary>
+    NoTenant,
+
+    /// <summary>
+    /// The profile could not be read at all. Distinct from <see cref="NoTenant"/> because the two
+    /// have different fixes: signed out is answered by <c>az login</c>, an unreadable profile is a
+    /// storage or permissions problem. Collapsing them would hide a broken install inside a
+    /// population of ordinary signed-out users.
+    /// </summary>
     ProfileUnavailable,
-    NoActiveTenant,
-    TimeoutAcquiringToken,
-    TokenUnavailable,
-    ArmRequestFailed,
-    ArmTimeout,
-    EmptyResponse,
-    MalformedResponse,
-    MissingDataBoundary,
-    TenantMismatch,
-    UnrecognizedValue,
 
-    /// <summary>The provider is explicitly <c>github</c>, which never calls ARM.</summary>
-    ProviderGithub,
+    /// <summary>Token acquisition ran and failed.</summary>
+    NoToken,
+
+    /// <summary>Token acquisition exceeded its budget.</summary>
+    TimeoutToken,
+
+    /// <summary>The profile read exceeded the lookup budget.</summary>
+    TimeoutProfile,
+
+    /// <summary>The ARM call exceeded the lookup budget.</summary>
+    TimeoutArm,
+
+    /// <summary>The ARM call failed at the transport.</summary>
+    ArmFailed,
+
+    /// <summary>ARM answered with success but no usable boundary: empty, malformed, or absent.</summary>
+    Unreadable,
+
+    /// <summary>ARM echoed a different tenant than the one asked about.</summary>
+    TenantMismatch,
 
     /// <summary>
-    /// The configured provider is neither <c>builtin</c> nor <c>github</c>. Startup rejects it
-    /// moments later, but the boundary tag is written first, so it needs a value of its own rather
-    /// than borrowing the one that means "this is a GitHub session".
+    /// ARM echoed no tenant at all. Split from <see cref="TenantMismatch"/> because an absent echo
+    /// is not an answer for someone else — it is no proof of ownership either way, and merging the
+    /// two would report a trimmed response as ARM contradicting us.
     /// </summary>
-    ProviderUnsupported,
+    TenantUnconfirmed,
+
+    /// <summary>The caller's token was signalled.</summary>
+    Cancelled,
+
+    /// <summary>ARM's value failed the sanitiser in <see cref="DataBoundaryResult.FromArm"/>.</summary>
+    UnexpectedValue,
 }
 
 /// <summary>Outcome of one data boundary lookup.</summary>
-/// <param name="Boundary">The parsed boundary.</param>
-/// <param name="RawValue">
-/// Exactly what ARM returned, kept even when parsing fails so telemetry surfaces a value we
-/// don't recognize yet rather than silently discarding it.
-/// </param>
-/// <param name="TenantId">The tenant the lookup was made for, when one was resolved.</param>
-/// <param name="FailureReason">
-/// A short, non-sensitive reason whenever <see cref="Boundary"/> is not a resolved boundary — set
-/// for both <see cref="DataBoundary.Unknown"/> (we tried and could not determine it) and
-/// <see cref="DataBoundary.NotApplicable"/> (we did not try). Null once a boundary is resolved.
-/// </param>
-internal readonly record struct DataBoundaryResult(
-    DataBoundary Boundary,
-    string? RawValue,
-    string? TenantId,
-    string? FailureReason)
+/// <remarks>
+/// One field, deliberately. A boundary plus a separate failure reason was two tags for one answer,
+/// and every startup path that wrote one without the other was a hole in the data that the type
+/// could not prevent. A single field cannot be half-written, so the holes stop being expressible.
+/// </remarks>
+internal readonly partial record struct DataBoundaryResult
 {
-    public static DataBoundaryResult Resolved(DataBoundary boundary, string? rawValue, string? tenantId) =>
-        new(boundary, rawValue, tenantId, FailureReason: null);
+    private DataBoundaryResult(string value, string? tenantId)
+    {
+        Value = value;
+        TenantId = tenantId;
+    }
 
-    public static DataBoundaryResult Failed(
-        DataBoundaryFailure reason, string? tenantId = null, string? rawValue = null) =>
-        new(DataBoundary.Unknown, rawValue, tenantId, Wire(reason));
+    /// <summary>The single recorded value: ARM's answer normalised, or why there is none.</summary>
+    public string Value { get; }
+
+    /// <summary>The tenant the lookup was made for, when one was resolved.</summary>
+    public string? TenantId { get; }
 
     /// <summary>
-    /// ARM answered, but not with success. The status is part of the reason because it is what
+    /// ARM answered. Its value passes through — <c>eu</c>, <c>global</c>, or whatever ARM adds
+    /// later — lowercased.
+    /// </summary>
+    /// <remarks>
+    /// This is the only untrusted string in the vocabulary, so it is the only one that is
+    /// sanitised: <see cref="NoAnswer"/> emits a closed enum's wire form and
+    /// <see cref="FromArmStatus"/> builds its value from an HTTP status code, both trusted by
+    /// construction and neither re-validated here.
+    ///
+    /// <para>What this rejects is shape, not meaning. A remote string landing in a telemetry
+    /// dimension is unbounded cardinality and a content-injection path, so anything outside the
+    /// shape we are willing to export becomes <c>unexpected_value</c>. An unfamiliar but
+    /// well-shaped value is passed through instead: discovering one is the reason this probe
+    /// exists.</para>
+    /// </remarks>
+    public static DataBoundaryResult FromArm(string? raw, string? tenantId)
+    {
+        var normalized = raw?.ToLowerInvariant();
+
+        return normalized is not null && PlausibleWireToken().IsMatch(normalized)
+            ? new DataBoundaryResult(normalized, tenantId)
+            : NoAnswer(DataBoundaryUnavailable.UnexpectedValue, tenantId);
+    }
+
+    /// <summary>There is no boundary, and this is why.</summary>
+    public static DataBoundaryResult NoAnswer(DataBoundaryUnavailable reason, string? tenantId = null) =>
+        new(Wire(reason), tenantId);
+
+    /// <summary>
+    /// ARM answered, but not with success. The status is part of the value because it is what
     /// separates "throttled" from "no permission" from "ARM is down", and its range is bounded.
     /// </summary>
-    public static DataBoundaryResult FailedWithArmStatus(int statusCode, string? tenantId) =>
-        new(DataBoundary.Unknown, RawValue: null, tenantId, $"arm_status_{statusCode}");
-
-    /// <summary>
-    /// The lookup was deliberately not attempted. Distinct from <see cref="Failed"/> so telemetry can
-    /// tell "does not apply" from "we tried and could not determine it".
-    /// </summary>
-    public static DataBoundaryResult NotApplicable(DataBoundaryFailure reason) =>
-        new(DataBoundary.NotApplicable, RawValue: null, TenantId: null, Wire(reason));
+    public static DataBoundaryResult FromArmStatus(int statusCode, string? tenantId) =>
+        new($"arm_status_{statusCode}", tenantId);
 
     /// <summary>Wire form of a reason. Exhaustive, so a new member cannot ship without one.</summary>
-    private static string Wire(DataBoundaryFailure reason) => reason switch
+    private static string Wire(DataBoundaryUnavailable reason) => reason switch
     {
-        DataBoundaryFailure.TimeoutReadingProfile => "timeout_reading_profile",
-        DataBoundaryFailure.ProfileUnavailable => "profile_unavailable",
-        DataBoundaryFailure.NoActiveTenant => "no_active_tenant",
-        DataBoundaryFailure.TimeoutAcquiringToken => "timeout_acquiring_token",
-        DataBoundaryFailure.TokenUnavailable => "token_unavailable",
-        DataBoundaryFailure.ArmRequestFailed => "arm_request_failed",
-        DataBoundaryFailure.ArmTimeout => "timeout",
-        DataBoundaryFailure.EmptyResponse => "empty_response",
-        DataBoundaryFailure.MalformedResponse => "malformed_response",
-        DataBoundaryFailure.MissingDataBoundary => "missing_data_boundary",
-        DataBoundaryFailure.TenantMismatch => "tenant_mismatch",
-        DataBoundaryFailure.UnrecognizedValue => "unrecognized_value",
-        DataBoundaryFailure.ProviderGithub => "provider_github",
-        DataBoundaryFailure.ProviderUnsupported => "provider_unsupported",
+        DataBoundaryUnavailable.NotStarted => "not_started",
+        DataBoundaryUnavailable.SkippedGithub => "skipped_github",
+        DataBoundaryUnavailable.SkippedUnsupportedProvider => "skipped_unsupported_provider",
+        DataBoundaryUnavailable.NoTenant => "no_tenant",
+        DataBoundaryUnavailable.ProfileUnavailable => "profile_unavailable",
+        DataBoundaryUnavailable.NoToken => "no_token",
+        DataBoundaryUnavailable.TimeoutToken => "timeout_token",
+        DataBoundaryUnavailable.TimeoutProfile => "timeout_profile",
+        DataBoundaryUnavailable.TimeoutArm => "timeout_arm",
+        DataBoundaryUnavailable.ArmFailed => "arm_failed",
+        DataBoundaryUnavailable.Unreadable => "unreadable",
+        DataBoundaryUnavailable.TenantMismatch => "tenant_mismatch",
+        DataBoundaryUnavailable.TenantUnconfirmed => "tenant_unconfirmed",
+        DataBoundaryUnavailable.Cancelled => "cancelled",
+        DataBoundaryUnavailable.UnexpectedValue => "unexpected_value",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "No wire form defined."),
     };
 
-    /// <summary>Lower-case wire form for tags and trace entries: <c>eu</c>, <c>global</c>, <c>not_applicable</c>, or <c>unknown</c>.</summary>
-    public string TagValue => Boundary switch
-    {
-        DataBoundary.Eu => "eu",
-        DataBoundary.Global => "global",
-        DataBoundary.NotApplicable => "not_applicable",
-        _ => "unknown",
-    };
-
-    /// <summary>
-    /// Maps an ARM <c>properties.dataBoundary</c> value. Only the two documented boundaries are
-    /// accepted; <c>NotDefined</c>, an empty value, and anything added later fall through to
-    /// Unknown so a new value is never mistaken for one we understand.
-    /// </summary>
-    public static DataBoundary Parse(string? rawValue)
-    {
-        if (string.Equals(rawValue, "EU", StringComparison.OrdinalIgnoreCase))
-            return DataBoundary.Eu;
-
-        if (string.Equals(rawValue, "Global", StringComparison.OrdinalIgnoreCase))
-            return DataBoundary.Global;
-
-        return DataBoundary.Unknown;
-    }
+    // 32 characters is well past any plausible boundary name and far short of anything that could
+    // carry a payload.
+    [GeneratedRegex("^[a-z0-9_-]{1,32}$")]
+    private static partial Regex PlausibleWireToken();
 }
