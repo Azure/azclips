@@ -60,9 +60,11 @@ public abstract class ConfigCommandBase : IProcessor
 
         if (includeDefaults)
         {
-            foreach (var entry in BuildDefaultEntries())
+            var valuesWithDefaults = await configurationService.ListConfigurationAsync(includeDefaults: true, cancellationToken: CancellationToken).ConfigureAwait(false);
+            foreach (var entry in valuesWithDefaults)
             {
-                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "default");
+                var source = fileValues.ContainsKey(entry.Key) ? "global config" : "default";
+                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, source);
             }
         }
 
@@ -242,63 +244,6 @@ public abstract class ConfigCommandBase : IProcessor
         }
     }
 
-    private static Dictionary<string, object?> BuildDefaultEntries()
-    {
-        var sectionDefaults = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["core"] = new CoreOptions(),
-            ["assemblyLoading"] = new AssemblyLoadingOptions(),
-            ["telemetry"] = new TelemetryOptions(),
-            ["agent"] = new AgentOptions(),
-            ["completion"] = new CompletionOptions(),
-            ["extensions"] = new ExtensionsOptions(),
-            ["clients"] = new ClientsOptions(),
-            ["defaults"] = new DefaultsOptions()
-        };
-
-        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadata in GetConfigurationSchema().GetAllKeys())
-        {
-            var segments = metadata.Key.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length == 0 || !sectionDefaults.TryGetValue(segments[0], out var sectionRoot))
-            {
-                continue;
-            }
-
-            defaults[metadata.Key] = GetNestedValue(sectionRoot, segments[1..]);
-        }
-
-        return defaults;
-    }
-
-    private static object? GetNestedValue(object root, IReadOnlyList<string> segments)
-    {
-        object? current = root;
-        foreach (var segment in segments)
-        {
-            if (current is null)
-            {
-                return null;
-            }
-
-            var property = current.GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(candidate => string.Equals(Normalize(candidate.Name), Normalize(segment), StringComparison.OrdinalIgnoreCase));
-            if (property is null)
-            {
-                return null;
-            }
-
-            current = property.GetValue(current);
-        }
-
-        return current;
-    }
-
-    private static string Normalize(string value)
-    {
-        return new string(value.Where(char.IsLetterOrDigit).ToArray());
-    }
 
     private static object? ConvertJsonValue(JsonValue jsonValue)
     {

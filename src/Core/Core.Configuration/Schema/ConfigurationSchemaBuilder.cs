@@ -11,9 +11,7 @@ internal static class ConfigurationSchemaBuilder
 {
     public static IReadOnlyList<ConfigurationKeyMetadata> BuildAll(Assembly assembly)
     {
-        var roots = assembly.GetTypes()
-            .Where(type => type.IsClass && type.GetCustomAttribute<ConfigurationSectionAttribute>() is { IncludeInSchema: true })
-            .OrderBy(type => type.FullName, StringComparer.Ordinal);
+        var roots = FindSchemaRoots(assembly);
 
         var metadata = roots.SelectMany(Build).ToList();
         var duplicate = metadata
@@ -25,6 +23,20 @@ internal static class ConfigurationSchemaBuilder
         }
 
         return metadata;
+    }
+
+    public static Dictionary<string, object?> BuildDefaultValues(Assembly assembly)
+    {
+        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rootType in FindSchemaRoots(assembly))
+        {
+            var rootPath = rootType.GetCustomAttribute<ConfigurationSectionAttribute>()!.Name;
+            var root = Activator.CreateInstance(rootType)
+                ?? throw new InvalidOperationException($"Could not create configuration options type '{rootType}'.");
+            VisitDefaults(root, rootType, rootPath, defaults);
+        }
+
+        return defaults;
     }
 
     public static IReadOnlyList<ConfigurationKeyMetadata> Build(Type rootType)
@@ -53,7 +65,7 @@ internal static class ConfigurationSchemaBuilder
                 {
                     Key = key,
                     Description = attribute.Description,
-                    DefaultValue = FormatDefault(property.GetValue(instance)),
+                    DefaultValue = attribute.IncludeDefault ? FormatDefault(property.GetValue(instance)) : null,
                     ValueType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType,
                     AllowedValues = attribute.AllowedValues,
                     ValidationPattern = attribute.ValidationPattern,
@@ -73,6 +85,33 @@ internal static class ConfigurationSchemaBuilder
                         ?? ToConfigName(property.Name);
                     Visit(child, property.PropertyType, Combine(path, section), metadata);
                 }
+            }
+        }
+    }
+
+    private static IEnumerable<Type> FindSchemaRoots(Assembly assembly) =>
+        assembly.GetTypes()
+            .Where(type => type.IsClass && type.GetCustomAttribute<ConfigurationSectionAttribute>() is { IncludeInSchema: true })
+            .OrderBy(type => type.FullName, StringComparer.Ordinal);
+
+    private static void VisitDefaults(object instance, Type type, string path, IDictionary<string, object?> defaults)
+    {
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetMethod is null || property.GetIndexParameters().Length != 0)
+                continue;
+
+            if (property.GetCustomAttribute<ConfigurationKeyAttribute>() is { } attribute)
+            {
+                defaults.Add(Combine(path, attribute.Key), property.GetValue(instance));
+                continue;
+            }
+
+            if (property.PropertyType.IsClass && property.PropertyType != typeof(string) && property.GetValue(instance) is { } child)
+            {
+                var section = property.GetCustomAttribute<ConfigurationSectionAttribute>()?.Name
+                    ?? ToConfigName(property.Name);
+                VisitDefaults(child, property.PropertyType, Combine(path, section), defaults);
             }
         }
     }

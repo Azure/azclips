@@ -8,10 +8,10 @@ namespace Core.Configuration.Options;
 [ConfigurationSection("assemblyLoading")]
 public sealed class AssemblyLoadingOptions
 {
-    [ConfigurationKey("installedExtensionsRoot", Description = "Root directory for extensions installed via `az extension add` (typically ~/.azclips/extensions).")]
+    [ConfigurationKey("installedExtensionsRoot", Description = "Root directory for extensions installed via `az extension add` (typically ~/.azclips/extensions).", IncludeDefault = false)]
     public string InstalledExtensionsRoot { get; set; } = GetDefaultInstalledExtensionsRoot();
 
-    [ConfigurationKey("extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.")]
+    [ConfigurationKey("extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.", IncludeDefault = false)]
     public string ExtensionFolderPrefix { get; set; } = GetDefaultExtensionFolderPrefix();
 
     /// <summary>

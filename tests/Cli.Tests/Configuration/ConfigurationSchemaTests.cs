@@ -32,6 +32,17 @@ public class ConfigurationSchemaTests
             key.AllowedValues);
     }
 
+    [Theory]
+    [InlineData("assemblyLoading.installedExtensionsRoot")]
+    [InlineData("assemblyLoading.extensionFolderPrefix")]
+    public void GetKeyMetadata_ShouldNotExposeDynamicRuntimeDefaults(string name)
+    {
+        var key = _schema.GetKeyMetadata(name);
+
+        Assert.NotNull(key);
+        Assert.Null(key.DefaultValue);
+    }
+
     [Fact]
     public void GetAllKeys_ShouldContainEveryCurrentConfigurationPath()
     {

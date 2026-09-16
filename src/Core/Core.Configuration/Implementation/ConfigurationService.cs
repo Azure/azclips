@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Options;
+using Core.Configuration.Schema;
 using Microsoft.Extensions.Configuration;
 
 namespace Core.Configuration.Implementation;
@@ -316,30 +317,7 @@ public sealed class ConfigurationService(
 
     private Dictionary<string, object?> BuildDefaultKeyValues()
     {
-        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        AddDefaults(defaults, new CoreOptions(), "core");
-        AddDefaults(defaults, new AssemblyLoadingOptions(), "assemblyLoading");
-        AddDefaults(defaults, new TelemetryOptions(), "telemetry");
-        AddDefaults(defaults, new AgentOptions(), "agent");
-        AddDefaults(defaults, new CompletionOptions(), "completion");
-        AddDefaults(defaults, new ExtensionsOptions(), "extensions");
-        AddDefaults(defaults, new ClientsOptions(), "clients");
-        AddDefaults(defaults, new DefaultsOptions(), "defaults");
-        return defaults;
-    }
-
-    private void AddDefaults<T>(IDictionary<string, object?> target, T options, string sectionName) where T : class
-    {
-        var node = JsonSerializer.SerializeToNode(options, _defaultFlattenSerializerOptions) as JsonObject;
-        if (node is null)
-        {
-            return;
-        }
-
-        foreach (var entry in Flatten(node, sectionName))
-        {
-            target[entry.Key] = entry.Value;
-        }
+        return ConfigurationSchemaBuilder.BuildDefaultValues(typeof(ConfigurationSectionAttribute).Assembly);
     }
 
     private Dictionary<string, object?> Flatten(JsonObject root, string? prefix = null)
