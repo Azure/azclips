@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789534399490,
+  "lastUpdate": 1789539359513,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -10124,6 +10124,48 @@ window.BENCHMARK_DATA = {
             "value": 2716310.0307847084,
             "unit": "ns",
             "range": "± 139232.29225387235"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24e62ed9e45bdb8ac47f9515125a7430af8befc2",
+          "message": "[Compute] `az vm stop`, `az vm deallocate`, `Stop-AzVM`: Support stop and deallocation VM commands (#842)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm stop`\n`az vm deallocate`\n`Stop-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nCLI:\n`az vm stop`\n`--ids`: Dummy serial placeholder implementation 🟠 \n`--name` / `--vm-name` / `-n`: ✅ \n`--resource-group`/ `-g`: ✅ \n`--no-wait`: blocked https://github.com/Azure/CLIPS/issues/883\n`--acquire-policy-token`: blocked\nhttps://github.com/Azure/CLIPS/issues/878\n`--change-reference`: blocked https://github.com/Azure/CLIPS/issues/878\n`--skip-shutdown`: ✅ \n\n`az vm deallocate`\n`--ids`: Dummy serial placeholder implementation 🟠 \n`--name` / `--vm-name` / `-n`: ✅ \n`--resource-group`/ `-g`: ✅ \n`--no-wait`: blocked https://github.com/Azure/CLIPS/issues/883\n`--acquire-policy-token`: blocked\nhttps://github.com/Azure/CLIPS/issues/878\n`--change-reference`: blocked https://github.com/Azure/CLIPS/issues/878\n`--force-deallocate`: ✅ \n`--hibernate`: ✅ \n\n`Stop-AzVM`\n`-Id`: ✅ \n`-Name`: ✅ \n`-ResourceGroup`: ✅ \n`-NoWait`: blocked https://github.com/Azure/CLIPS/issues/883\n`-Confirm`: ✅ \n`-WhatIf`: ✅ \n`-AsJob`: https://github.com/Azure/CLIPS/issues/876\n`-StayProvisioned`: ✅ \n`-Force`: ✅ \n\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`az vm stop --name <vm-name> --resource-group <rg-name>`\n`az vm deallocate --name <vm-name> --resource-group <rg-name>`\n`Stop-AzVM`\n`dotnet test .\\tests\\Scenario.Tests\\Scenario.Tests.csproj --filter\n\"FullyQualifiedName~VmLifecycleScenarioTests\"`\n\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-16T15:59:23+10:00",
+          "tree_id": "2d68568fb7d9f472f38f340b9c30dcf4e28a4042",
+          "url": "https://github.com/Azure/azclips/commit/24e62ed9e45bdb8ac47f9515125a7430af8befc2"
+        },
+        "date": 1789539355905,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2528200.5429201764,
+            "unit": "ns",
+            "range": "± 92769.67486139816"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 4931723.888303264,
+            "unit": "ns",
+            "range": "± 124320.01148841801"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2500435.322587145,
+            "unit": "ns",
+            "range": "± 110287.44790724518"
           }
         ]
       }
