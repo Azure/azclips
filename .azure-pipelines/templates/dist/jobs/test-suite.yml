@@ -24,5 +24,6 @@ jobs:
   - script: |
       set -euo pipefail
       dotnet restore azclips.slnx
-      dotnet test azclips.slnx -c Release --verbosity normal
+      dotnet build azclips.slnx -c Release --no-restore
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal
     displayName: Run Unit Tests
