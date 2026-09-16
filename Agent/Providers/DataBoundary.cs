@@ -78,6 +78,13 @@ internal enum DataBoundaryUnavailable
 
     /// <summary>ARM's value failed the sanitiser in <see cref="DataBoundaryResult.FromArm"/>.</summary>
     UnexpectedValue,
+
+    /// <summary>
+    /// The lookup threw despite contracting never to. Our own bug rather than an upstream one, and
+    /// kept distinct from every real outcome so it cannot hide inside a population of ordinary
+    /// failures.
+    /// </summary>
+    LookupFaulted,
 }
 
 /// <summary>Outcome of one data boundary lookup.</summary>
@@ -154,6 +161,7 @@ internal readonly partial record struct DataBoundaryResult
         DataBoundaryUnavailable.TenantUnconfirmed => "tenant_unconfirmed",
         DataBoundaryUnavailable.Cancelled => "cancelled",
         DataBoundaryUnavailable.UnexpectedValue => "unexpected_value",
+        DataBoundaryUnavailable.LookupFaulted => "lookup_faulted",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "No wire form defined."),
     };
 

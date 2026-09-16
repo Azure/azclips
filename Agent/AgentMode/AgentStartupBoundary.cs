@@ -66,19 +66,10 @@ internal static class AgentStartupBoundary
         }
 
         var tokenWatch = Stopwatch.StartNew();
+        AuthResult auth;
         try
         {
-            var auth = await BuiltinProviderConfig.AcquireAsync(options.Builtin, authService, ct).ConfigureAwait(false);
-            // Stopped here so the tag measures the acquisition alone; the boundary lookup that
-            // follows is timed separately on its own span. The finally still stops it, which is
-            // what covers the failure paths — and a dead refresh token going to the network before
-            // giving up is exactly the cost worth seeing.
-            tokenWatch.Stop();
-
-            var toResolver = auth.AccessToken;
-            using var resolver = resolverFactory(profileService);
-            var boundary = await resolver.ResolveAsync(toResolver, ct).ConfigureAwait(false);
-            return new StartupBoundary(boundary, auth, null);
+            auth = await BuiltinProviderConfig.AcquireAsync(options.Builtin, authService, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
         {
@@ -107,8 +98,38 @@ internal static class AgentStartupBoundary
         }
         finally
         {
+            // Stops here on every path, so the tag measures the acquisition alone — a dead refresh
+            // token going to the network before giving up is exactly the cost worth seeing. The
+            // lookup that follows is timed separately on its own span.
             tokenWatch.Stop();
             session?.SetTag(TelemetryTags.RecoveryTokenElapsedMs, tokenWatch.ElapsedMilliseconds);
+        }
+
+        // Past this line the token is real, so nothing below may be recorded as an auth failure and
+        // the token must reach the caller whatever happens. A single try around both halves made an
+        // ARM or factory fault report `no_token` and threw the acquired token away, so the caller
+        // re-acquired one it already had.
+        try
+        {
+            using var resolver = resolverFactory(profileService);
+            var boundary = await resolver.ResolveAsync(auth.AccessToken, ct).ConfigureAwait(false);
+            return new StartupBoundary(boundary, auth, null);
+        }
+        catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+        {
+            return new StartupBoundary(
+                DataBoundaryResult.NoAnswer(DataBoundaryUnavailable.Cancelled),
+                auth,
+                ExceptionDispatchInfo.Capture(ex));
+        }
+        catch (Exception)
+        {
+            // The resolver contracts never to throw, so reaching here means that contract broke —
+            // our bug, and not a reason to deny recovery the user already authenticated for. The
+            // boundary is observation-only today, so it is recorded as faulted and startup goes on;
+            // no failure is handed back to re-raise.
+            return new StartupBoundary(
+                DataBoundaryResult.NoAnswer(DataBoundaryUnavailable.LookupFaulted), auth, null);
         }
     }
 

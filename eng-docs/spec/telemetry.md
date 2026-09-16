@@ -137,6 +137,7 @@ exception is `arm_status_<code>`, where the suffix is an HTTP status code.
 | `tenant_unconfirmed` | ARM echoed no tenant at all, so the answer proves nothing about whose boundary it is. Distinct from `tenant_mismatch`, which is ARM answering about someone else |
 | `cancelled` | The caller's cancellation token was signalled — Ctrl+C during startup |
 | `unexpected_value` | ARM's value failed the shape check above |
+| `lookup_faulted` | The lookup threw despite contracting never to — our bug, not ARM's. The token was acquired and recovery continues; only the boundary is lost |
 | `not_started` | Unreachable by design: the startup seam never throws, so an outcome is always classified. Seeing this means that contract broke |
 
 The link is one-directional. The command trace closes before the recovery trace exists, so

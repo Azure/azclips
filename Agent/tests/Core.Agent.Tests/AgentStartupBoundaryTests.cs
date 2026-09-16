@@ -188,8 +188,40 @@ public class AgentStartupBoundaryTests
             $"{Invariant} The resolver threw.");
 
         Assert.NotNull(brokenAuth.Failure);
-        Assert.NotNull(brokenFactory.Failure);
-        Assert.NotNull(brokenResolver.Failure);
+
+        // A lookup fault is not an auth failure. Both reach the caller as a recorded boundary, but
+        // only the auth one denies recovery — the token is real in the other two, and the probe is
+        // observation-only, so nothing is handed back to re-raise.
+        Assert.Equal("no_token", brokenAuth.Boundary.Value);
+        Assert.Null(brokenAuth.Auth);
+
+        foreach (var (name, result) in new[] { ("factory", brokenFactory), ("resolver", brokenResolver) })
+        {
+            Assert.Equal("lookup_faulted", result.Boundary.Value);
+            Assert.NotNull(result.Auth);
+            Assert.Null(result.Failure);
+            Assert.Equal(CountingAuthService.IssuedToken, result.Auth!.AccessToken);
+            _ = name;
+        }
+    }
+
+    [Fact]
+    public async Task LookupFailure_KeepsTheAcquiredTokenAndDoesNotReportAnAuthFailure()
+    {
+        // A single try around acquisition and lookup filed an ARM or factory fault as `no_token`
+        // and dropped the token with it, so the caller re-acquired one it already held and the
+        // telemetry blamed authentication for something authentication had done correctly.
+        var auth = new CountingAuthService();
+
+        var startup = await AgentStartupBoundary.ResolveAsync(
+            Options(), auth, new StubProfileService(),
+            _ => new ThrowingResolver(), session: null, CancellationToken.None);
+
+        Assert.Equal("lookup_faulted", startup.Boundary.Value);
+        Assert.NotNull(startup.Auth);
+        Assert.Equal(CountingAuthService.IssuedToken, startup.Auth!.AccessToken);
+        Assert.Equal(1, auth.AcquireCount);
+        Assert.Null(startup.Failure);
     }
 
     private sealed class CountingResolverFactory

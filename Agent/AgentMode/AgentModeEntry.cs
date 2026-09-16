@@ -141,11 +141,12 @@ public static class AgentModeEntry
             // The only place this tag is written. Unconditional, because the seam never throws:
             // there is no path from here to ChatAgent.CreateAsync that reaches it without a value.
             session?.SetTag(TelemetryTags.RecoveryDataBoundary, startup.Boundary.Value);
-            trace?.Note("data_boundary", new
-            {
-                boundary = startup.Boundary.Value,
-                tenantMatched = startup.Boundary.TenantId is not null,
-            });
+            // One field, because the boundary value already says everything a second one could.
+            // An earlier draft also noted `tenantMatched: TenantId is not null`, which was a lie:
+            // TenantId is the tenant we asked about, so it stays populated through tenant_mismatch,
+            // tenant_unconfirmed, timeouts and ARM rejections — every one of which would have been
+            // filed as a confirmed match. Whether ARM agreed is in the value itself.
+            trace?.Note("data_boundary", new { boundary = startup.Boundary.Value });
 
             var azureAuth = startup.Auth;
             // Preserves today's behavior exactly: a signed-out user still gets
