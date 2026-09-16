@@ -12,7 +12,7 @@ namespace Cli.Tests;
 /// <summary>
 /// Behavioral tests for <see cref="GetAccessTokenProcessor"/>: tenant-compatibility validation for
 /// managed identity accounts, secure-by-default token rendering with per-surface plaintext opt-in
-/// (CLI <c>--plaintext</c> flag; PowerShell env var), and scope resolution flowing through to the
+/// (CLI <c>--plaintext</c> flag, PowerShell <c>-AsPlainText</c> switch), and scope resolution flowing through to the
 /// auth service.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
@@ -51,12 +51,12 @@ public class GetAccessTokenProcessorTests
         UserPrincipalName = "user@contoso.com",
     };
 
-    private static GetAccessTokenProcessor InitProcessor(GetAccessTokenProcessor processor, Profile? profile, out FakeOutputHandler output)
+    private static GetAccessTokenProcessor InitProcessor(GetAccessTokenProcessor processor, Profile? profile, out FakeOutputHandler output, CancellationToken publisherToken = default)
     {
         output = new FakeOutputHandler();
         var context = new ProcessorContext(
             new FakeHttpPipeline((_, _) => throw new NotSupportedException()),
-            new FakeEventPublisher(),
+            new FakeEventPublisher { Token = publisherToken },
             new FakeAuthHandler(profile),
             output,
             Profile: profile);
@@ -231,6 +231,73 @@ public class GetAccessTokenProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
         Assert.Contains("Connect-AzAccount -TenantId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ManagedIdentityAcquisitionFails_UsesIdentitySignInGuidance()
+    {
+        // A managed identity has no interactive, tenant-scoped sign-in (login rejects --identity with
+        // --tenant-id), so an MI acquisition failure must point at the identity path, not az login --tenant-id.
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("IMDS endpoint unavailable."));
+        InitDi(ClientType.CLI, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor(),
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("az login --identity", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--tenant-id", ex.Message, StringComparison.Ordinal);
+        // The underlying cause is preserved for diagnosis.
+        Assert.Contains("IMDS endpoint unavailable", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ManagedIdentityAcquisitionFails_PowerShellUsesConnectAzAccountIdentity()
+    {
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("IMDS endpoint unavailable."));
+        InitDi(ClientType.PowerShell, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor(),
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("Connect-AzAccount -Identity", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("-TenantId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ForwardsSessionCancellationTokenToAuthService()
+    {
+        // The session/stop token (published via the event publisher) must reach the MSAL acquisition so
+        // Ctrl+C / StopProcessing() cancels promptly instead of blocking on the auth/network call.
+        using var cts = new CancellationTokenSource();
+        CancellationToken captured = default;
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .Callback<string[]?, string?, bool, CancellationToken, Profile?>((_, _, _, ct, _) => captured = ct)
+            .ReturnsAsync(new AuthResult
+            {
+                AccessToken = "secret",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = Array.Empty<string>(),
+                TenantId = "tid",
+            });
+        InitDi(ClientType.CLI, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser), out _, cts.Token);
+        await processor.ProcessAsync();
+
+        Assert.Equal(cts.Token, captured);
     }
 
     [Fact]

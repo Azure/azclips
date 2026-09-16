@@ -52,7 +52,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         SerializedName = @"Plaintext")]
         public bool Plaintext { get; set; }
 
-        public CancellationToken Token => CancellationToken.None;
+        // Surfaces the session/stop token so a Ctrl+C or PowerShell StopProcessing() request reaches the
+        // underlying MSAL acquisition instead of blocking until the auth/network call times out. The event
+        // publisher carries the session's cancellation token (RuntimeEventBus.Token), so read it from there.
+        public CancellationToken Token => _publisher.Token;
 
         public Action Cancel => throw new NotImplementedException();
 
@@ -101,6 +104,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // errors (e.g. an unsupported multi-scope managed-identity request raised while
                 // resolving the scope) are excluded above so they surface their own message instead of
                 // this misleading sign-in error.
+                if (profile.AuthMethod == AuthMethod.ManagedIdentity)
+                {
+                    // A managed identity cannot be re-authenticated with an interactive, tenant-scoped
+                    // sign-in (login rejects --identity together with --tenant-id), so point at the
+                    // identity/environment path instead of the browser sign-in guidance below.
+                    string identitySignIn = ManagedIdentitySignInCommand();
+                    throw new InvalidOperationException(
+                        $"Could not acquire a managed identity access token for tenant '{targetTenant}'. {ex.Message} "
+                        + "Confirm a managed identity is available in this environment and is authorized for the "
+                        + $"requested resource. If the identity context needs to be re-established, run '{identitySignIn}', then retry.",
+                        ex);
+                }
+
                 var (signInCommand, tenantFlag) = SignInGuidance();
                 throw new InvalidOperationException(
                     $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
@@ -177,6 +193,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             return clientType == ClientType.PowerShell
                 ? ("Connect-AzAccount", "-TenantId")
                 : ("az login", "--tenant-id");
+        }
+
+        /// <summary>
+        /// Returns the managed-identity sign-in command for the caller's surface (CLI
+        /// <c>az login --identity</c> vs PowerShell <c>Connect-AzAccount -Identity</c>). A managed
+        /// identity has no interactive, tenant-scoped sign-in, so failure guidance for these accounts
+        /// must point at the identity path rather than <see cref="SignInGuidance"/>.
+        /// </summary>
+        private static string ManagedIdentitySignInCommand()
+        {
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            return clientType == ClientType.PowerShell
+                ? "Connect-AzAccount -Identity"
+                : "az login --identity";
         }
 
         /// <summary>
