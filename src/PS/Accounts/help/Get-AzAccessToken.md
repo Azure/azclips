@@ -89,7 +89,7 @@ Get-AzAccessToken -AsPlainText
 
 ### -AsPlainText
 
-Emit the raw access token as plain text. By default the token is redacted in output.
+Return the raw access token as a plain string. By default the token is returned as a SecureString (protected from display, but still readable programmatically).
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter

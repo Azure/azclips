@@ -1,13 +1,14 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 /// <summary>
 /// Retrieves an access token for a resource, well-known resource type, or explicit scope list from
-/// the current signed-in context. The token is redacted by default; pass <c>-AsPlainText</c> to emit
-/// the raw token as plain text.
+/// the current signed-in context. The token is returned as a <c>SecureString</c> by default; pass
+/// <c>-AsPlainText</c> to return the raw token as a plain string.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, CommandNoun, DefaultParameterSetName = "ResourceType")]
 [OutputType(typeof(SecureAccessTokenResult), typeof(AccessTokenResult))]
@@ -37,25 +38,7 @@ public class GetAccessTokenCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? ""),
-                    "AccessTokenError",
-                    ErrorCategory.NotSpecified,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
+        streams = CmdletOutputStreamsFactory.Create(this, "AccessTokenError", ErrorCategory.AuthenticationError);
         engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
