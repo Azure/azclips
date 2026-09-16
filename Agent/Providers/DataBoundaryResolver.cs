@@ -209,12 +209,14 @@ internal sealed class DataBoundaryResolver
         }
         finally
         {
-            // Separate from the caller's total so the ARM round trip is visible on its own. Stopped
-            // on the line after SendAsync returns rather than here, because everything after that —
-            // reading the buffered body into a string, parsing it — is local work, and telemetry.md
-            // promises this measures the ARM request alone. Still recorded on every path: a rejected
-            // or timed-out attempt spends the user's wall clock too, and on those paths the
-            // stopwatch is still running, which is why it is stopped here as well.
+            // Separate from the caller's total so the ARM round trip is visible on its own, and
+            // stopped on the line after SendAsync rather than here. ResponseContentRead means that
+            // call does not return until the body has arrived, so this covers the full round trip —
+            // request, status, body on the wire — and excludes only the local work that follows:
+            // decoding the buffered bytes into a string and parsing the JSON. Routing latency is
+            // what the user waits for, so the bytes belong inside it and the parse does not.
+            // Recorded on every path: a rejected or timed-out attempt spends that wall clock too,
+            // and on those paths the stopwatch is still running, hence the second Stop here.
             armStopwatch.Stop();
             activity?.SetTag(TelemetryTags.RecoveryDataBoundaryArmElapsedMs, armStopwatch.ElapsedMilliseconds);
         }

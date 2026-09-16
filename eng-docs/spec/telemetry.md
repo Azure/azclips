@@ -104,7 +104,7 @@ block.
 | `properties.recovery.dataBoundary` | `Agent.Session`             | `eu`, `global`, `unknown`, or `not_applicable` — the caller tenant's ARM data boundary. `not_applicable` means the lookup was skipped because the provider is not `builtin`; neither it nor `unknown` may be read as `global` |
 | `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for the `github` provider |
 | `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
-| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM request alone, success or failure — stopped when the response returns, so it excludes reading and parsing the body. Absent when the lookup returned before reaching ARM |
+| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM round trip, success or failure: request, status, and body on the wire. Excludes the local work that follows — decoding and parsing the response. Absent when the lookup returned before reaching ARM |
 | `properties.recovery.dataBoundary.failureReason` | `Agent.DataBoundary` | Why the boundary is not resolved; absent otherwise. Fixed vocabulary, never a message — see below |
 
 `failureReason` is closed: the emitting code takes a `DataBoundaryFailure` enum, so a value outside
