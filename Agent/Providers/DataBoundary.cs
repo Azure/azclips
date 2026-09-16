@@ -42,7 +42,11 @@ internal enum DataBoundary
 /// don't recognize yet rather than silently discarding it.
 /// </param>
 /// <param name="TenantId">The tenant the lookup was made for, when one was resolved.</param>
-/// <param name="FailureReason">A short, non-sensitive reason when <see cref="Boundary"/> is Unknown; otherwise null.</param>
+/// <param name="FailureReason">
+/// A short, non-sensitive reason whenever <see cref="Boundary"/> is not a resolved boundary — set
+/// for both <see cref="DataBoundary.Unknown"/> (we tried and could not determine it) and
+/// <see cref="DataBoundary.NotApplicable"/> (we did not try). Null once a boundary is resolved.
+/// </param>
 internal readonly record struct DataBoundaryResult(
     DataBoundary Boundary,
     string? RawValue,

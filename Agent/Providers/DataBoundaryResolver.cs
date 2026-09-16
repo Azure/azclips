@@ -140,10 +140,6 @@ internal sealed class DataBoundaryResolver
         }
         else
         {
-            // Timed separately from the ARM call: this is the expensive half when it runs at all,
-            // and on the normal path it does not run, so folding it into one number would make the
-            // lookup look costlier than it is.
-            var tokenStopwatch = Stopwatch.StartNew();
             try
             {
                 var auth = await _authService.AcquireTokenSilentlyAsync(
@@ -164,13 +160,6 @@ internal sealed class DataBoundaryResolver
             catch (Exception ex)
             {
                 return DataBoundaryResult.Failed($"token_unavailable: {ex.GetType().Name}", tenantId);
-            }
-            finally
-            {
-                // In finally so a failed or timed-out acquisition is measured too — those are the
-                // slow ones, and dropping them would flatter the numbers.
-                tokenStopwatch.Stop();
-                activity?.SetTag(TelemetryTags.RecoveryDataBoundaryTokenElapsedMs, tokenStopwatch.ElapsedMilliseconds);
             }
         }
 
@@ -291,3 +280,4 @@ internal sealed class DataBoundaryResolver
             : DataBoundaryResult.Resolved(parsed, rawValue, tenantId);
     }
 }
+

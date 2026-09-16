@@ -143,6 +143,29 @@ public class DataBoundaryResolverTests
     }
 
     [Fact]
+    public async Task Resolve_CallsTheDocumentedTenantScopedArmEndpoint()
+    {
+        // Every other test accepts any request the resolver makes, so a wrong verb, a stale api
+        // version, or a subscription prefix slipped into the path would leave them all green.
+        HttpMethod? method = null;
+        Uri? uri = null;
+        var handler = new FakeHandler(request =>
+        {
+            method = request.Method;
+            uri = request.RequestUri;
+            return (HttpStatusCode.OK, BoundaryPayload("EU"));
+        });
+        var resolver = new DataBoundaryResolver(new FakeAuthService(), new FakeProfileService(TenantId), new HttpClient(handler));
+
+        await resolver.ResolveAsync();
+
+        Assert.Equal(HttpMethod.Get, method);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries/default?api-version=2024-08-01",
+            uri?.ToString());
+    }
+
+    [Fact]
     public async Task Resolve_WithCallerSuppliedToken_SkipsTokenAcquisition()
     {
         // AgentModeEntry acquires an ARM-audience token for the builtin provider and hands it here.

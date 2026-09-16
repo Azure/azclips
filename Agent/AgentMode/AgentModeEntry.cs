@@ -141,7 +141,21 @@ public static class AgentModeEntry
             var dataBoundary = DataBoundaryResult.NotApplicable("provider_github");
             if (agentOpts.IsBuiltinProvider)
             {
-                azureAuth = await BuiltinProviderConfig.AcquireAsync(agentOpts.Builtin, auth, cts.Token);
+                // Two network calls happen here, so each is timed where it is made. Timing the
+                // acquisition from inside the resolver would miss it entirely on this path, since
+                // the resolver is handed a token rather than fetching one.
+                var tokenWatch = Stopwatch.StartNew();
+                try
+                {
+                    azureAuth = await BuiltinProviderConfig.AcquireAsync(agentOpts.Builtin, auth, cts.Token);
+                }
+                finally
+                {
+                    // In finally because a failed acquisition is the slow one — a dead refresh token
+                    // goes to the network before giving up, and that is the cost worth seeing.
+                    tokenWatch.Stop();
+                    session?.SetTag(TelemetryTags.RecoveryTokenElapsedMs, tokenWatch.ElapsedMilliseconds);
+                }
 
                 // Observe the caller's ARM data boundary before the provider picks an endpoint.
                 // Nothing branches on it yet: the builtin provider still calls one endpoint for

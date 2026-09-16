@@ -101,6 +101,11 @@ block.
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+| `properties.recovery.dataBoundary` | `Agent.Session`             | `eu`, `global`, `unknown`, or `not_applicable` — the caller tenant's ARM data boundary. `not_applicable` means the lookup was skipped because the provider is `github`; neither it nor `unknown` may be read as `global` |
+| `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for the `github` provider |
+| `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
+| `properties.recovery.dataBoundary.armElapsedMs` | `Agent.DataBoundary` | The ARM request alone, success or failure. Absent when the lookup returned before reaching ARM |
+| `properties.recovery.dataBoundary.failureReason` | `Agent.DataBoundary` | Why the boundary is not resolved; absent otherwise. Fixed vocabulary, never a message |
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:
@@ -193,3 +198,4 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 - **Flush on Dispose**: `TelemetryService.Dispose()` calls `ForceFlush()` which can block CLI exit
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
 - **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time
+

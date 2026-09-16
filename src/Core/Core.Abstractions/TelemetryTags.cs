@@ -43,23 +43,30 @@ public static class TelemetryTags
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
-    /// <summary>eu, global, or unknown — the caller tenant's ARM data boundary.</summary>
+    /// <summary>eu, global, unknown, or not_applicable — the caller tenant's ARM data boundary.</summary>
+    /// <remarks>
+    /// <c>not_applicable</c> is emitted for the github provider, whose traffic never reaches the
+    /// Microsoft endpoint, so the lookup is skipped rather than attempted. It is a telemetry state,
+    /// not a boundary: consumers must not treat it, or <c>unknown</c>, as <c>global</c>.
+    /// </remarks>
     public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
     /// <summary>
-    /// Wall-clock cost of the whole boundary lookup: profile read, token acquisition, ARM call, parse.
-    /// Pair with <see cref="RecoveryDataBoundaryTokenElapsedMs"/> and
-    /// <see cref="RecoveryDataBoundaryArmElapsedMs"/> to see which part dominates.
+    /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
+    /// One acquisition serves both the model provider and the ARM data boundary lookup, so this is
+    /// the shared startup cost rather than something either one owns. Absent for the github
+    /// provider, which needs no Azure token.
+    /// </summary>
+    public const string RecoveryTokenElapsedMs = PropertyTagPrefix + "recovery.tokenElapsedMs";
+    /// <summary>
+    /// Wall-clock cost of the data boundary lookup: profile read, ARM call, parse. Excludes the
+    /// token, which is acquired by the caller and timed by
+    /// <see cref="RecoveryTokenElapsedMs"/> — pair the two for the full startup probe.
     /// </summary>
     public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
     /// <summary>
-    /// Wall-clock cost of acquiring the ARM token. Absent when the caller supplied one, which is the
-    /// normal path — the builtin provider needs the same token anyway, so the lookup only pays this
-    /// when it acquires its own.
-    /// </summary>
-    public const string RecoveryDataBoundaryTokenElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.tokenElapsedMs";
-    /// <summary>
     /// Wall-clock cost of the ARM request alone, recorded on success and failure alike. Absent when the
-    /// lookup returned before reaching ARM (no tenant, or no token).
+    /// lookup returned before reaching ARM (no tenant, or no token). Subtracting it from
+    /// <see cref="RecoveryDataBoundaryElapsedMs"/> leaves the local profile read.
     /// </summary>
     public const string RecoveryDataBoundaryArmElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.armElapsedMs";
     /// <summary>Short, non-sensitive reason the boundary came back unknown; absent otherwise.</summary>
