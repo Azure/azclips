@@ -51,7 +51,6 @@ absolute_path() {
 OUT_ROOT="$(absolute_path "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(absolute_path "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
-SKIP_RUNTIME="${SKIP_RUNTIME:-false}"
 RID="${RID:-linux-x64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
@@ -110,14 +109,9 @@ echo "============================================"
 rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install"
 
-if [[ "$SKIP_RUNTIME" == "true" ]]; then
-  tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
-  chmod +x "$SIM_ROOT/install/az"
-else
-  AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
-    --package "$PACKAGE_PROFILE" \
-    --archive "$CLI_TAR_PATH"
-fi
+AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
+  --package "$PACKAGE_PROFILE" \
+  --archive "$CLI_TAR_PATH"
 
 AZ="$SIM_ROOT/install/az"
 
@@ -165,12 +159,6 @@ fi
 echo "PASS: Bundled extension folders are present"
 echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
-
-if [[ "$SKIP_RUNTIME" == "true" ]]; then
-  echo "NOTE: SKIP_RUNTIME=true, skipping Linux runtime execution checks."
-  echo "Result: Linux package layout validation succeeded."
-  exit 0
-fi
 
 echo ""
 echo "[1/7] CLI version (bundled install)"
