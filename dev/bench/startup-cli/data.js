@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789450788345,
+  "lastUpdate": 1789529911294,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -3864,6 +3864,48 @@ window.BENCHMARK_DATA = {
             "value": 233841810.82,
             "unit": "ns",
             "range": "± 2965429.2582077947"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "354c818ce34c7b6855b28aa5aef7978d99696961",
+          "message": "[CLI] Bold `--help` section headers on interactive terminals (#890)\n\n**Related command**\naz \\<group\\>, az \\<command\\>\n\n**Description**\nFollow-up from Azure/CLIPS#547 PR 1\n([Azure/azclips#858](https://github.com/Azure/azclips/pull/858)), which\nshipped `--help` section headers (`# COMMAND`, `# ARGUMENTS`, `# GLOBAL\nARGUMENTS`, etc.) as uppercase + `#`-prefixed plain text. This adds the\nbold weight the Figma spec also calls for.\n\nCloses https://github.com/Azure/CLIPS/issues/899\n\n- Section headers render bold on an interactive terminal.\n- Bold is suppressed whenever the stream is redirected/piped, `NO_COLOR`\nis set, `TERM=dumb`, or `core.output.color` is configured `Never` ΓÇö\nreusing `Core.Runtime.ColorPolicy.ShouldEmitColor`, the same function\nthat already gates `jsonc`/`yamlc` colorization and structured-error\ncolor, rather than a bespoke check.\n- `FORCE_COLOR` and `core.output.color=Always` intentionally override\nterminal detection and force bold, matching existing `jsonc`/`yamlc`\nbehavior.\n- Only the header text itself is wrapped in escape codes; the content\nbeneath each header is unaffected.\n- No change to header casing, layout, or the docs-export pipeline\n(`Azclips.Cli.Export`/`Azclips.Help.Tool` render from the markdown\ncorpus, not through `RuntimeHelpRenderer`, so they're unaffected by\nconstruction).\n\n**Testing Guide**\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug`\n- `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj -c\nDebug`\n- `./artifacts/Debug/Core.Cli/az.exe vm` ΓÇö headers bold on an\ninteractive terminal\n- `./artifacts/Debug/Core.Cli/az.exe vm | cat` ΓÇö plain text\n(redirected)\n- `NO_COLOR=1 ./artifacts/Debug/Core.Cli/az.exe vm` ΓÇö plain text\n\n**History Notes**\n[CLI] `az <group>`/`az <command>`: Bold `--help` section headers on\ninteractive terminals",
+          "timestamp": "2026-09-16T11:40:00+10:00",
+          "tree_id": "e91825c2ed32d8e3a48f0745d99efd48d8490536",
+          "url": "https://github.com/Azure/azclips/commit/354c818ce34c7b6855b28aa5aef7978d99696961"
+        },
+        "date": 1789529908527,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 238038710.81,
+            "unit": "ns",
+            "range": "± 2348977.448904788"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 239689326.87,
+            "unit": "ns",
+            "range": "± 2456266.6818741336"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 237078313.15,
+            "unit": "ns",
+            "range": "± 2607313.2092613797"
           }
         ]
       }
