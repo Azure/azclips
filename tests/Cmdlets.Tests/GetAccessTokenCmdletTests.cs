@@ -62,7 +62,7 @@ public class GetAccessTokenCmdletTests
 
         Assert.Equal(
             ["https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Mail.Read"],
-            processor.Scope);
+            processor.Scope!);
     }
 
     [Fact]

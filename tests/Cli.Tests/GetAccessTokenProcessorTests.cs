@@ -262,6 +262,6 @@ public class GetAccessTokenProcessorTests
         string[]? capturedScopes = null;
         InitDi(ClientType.CLI, AuthReturning("secret", (s, _) => capturedScopes = s).Object);
         await RunAsync(new GetAccessTokenProcessor { ResourceType = "key-vault", Plaintext = true }, ProfileWith(AuthMethod.Browser));
-        Assert.Equal(["https://vault.azure.net/.default"], capturedScopes);
+        Assert.Equal(["https://vault.azure.net/.default"], capturedScopes!);
     }
 }
