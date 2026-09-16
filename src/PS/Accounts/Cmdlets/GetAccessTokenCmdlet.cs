@@ -22,6 +22,7 @@ public class GetAccessTokenCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(ParameterSetName = "Resource", Mandatory = true)]
+    [Alias("Resource", "ResourceUri")]
     public string? ResourceUrl { get; set; }
 
     [Parameter(ParameterSetName = "ResourceType", Mandatory = false)]

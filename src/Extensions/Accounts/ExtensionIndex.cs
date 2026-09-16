@@ -118,13 +118,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.GetAccessTokenProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ResourceUrl"]      = new("Resource", "ResourceUrl", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with -ResourceTypeName and -Scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceUrl"]      = new("Resource", "ResourceUrl", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with -ResourceTypeName and -Scope.", IsRequired: false, Aliases: ["Resource", "ResourceUri"], AllowedValues: []),
                 ["ResourceTypeName"] = new("ResourceType", "ResourceTypeName", typeof(string), "Well-known resource type shortcut (e.g. Arm, MSGraph, KeyVault). Mutually exclusive with -ResourceUrl and -Scope.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Scope"]            = new("Scope", "Scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with -ResourceUrl and -ResourceTypeName.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TenantId"]         = new("Tenant", "TenantId", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AsPlainText"]      = new("Plaintext", "AsPlainText", typeof(bool), "Return the raw access token as a plain string. By default the token is returned as a SecureString.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["Resource"]    = "ResourceUrl",
+                ["ResourceUri"] = "ResourceUrl",
+            }
         );
 #endregion
 

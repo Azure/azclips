@@ -116,7 +116,9 @@ The resource URL (Microsoft Entra v1.0) to acquire the token for, for example `h
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Resource
+- ResourceUri
 ParameterSets:
 - Name: Resource
   Position: Named

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
@@ -71,5 +72,31 @@ public class GetAccessTokenCmdletTests
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzAccessToken", ClientType.PowerShell);
         var parameter = Assert.Single(metadata.Parameters.Values, p => p.Name == nameof(GetAccessTokenProcessor.Plaintext));
         Assert.Equal("AsPlainText", parameter.InvocationName);
+    }
+
+    // Azure PowerShell's Get-AzAccessToken accepts -Resource and -ResourceUri as aliases for
+    // -ResourceUrl, so the PS binder resolves them via [Alias] on the cmdlet property. A missing
+    // alias silently breaks migrated scripts at bind time, so the cmdlet carries both and the
+    // command metadata mirrors them for generated help.
+    [Fact]
+    public void PowerShellSurface_ResourceUrl_ExposesClassicResourceAliases()
+    {
+        var alias = (AliasAttribute?)typeof(GetAccessTokenCmdlet)
+            .GetProperty(nameof(GetAccessTokenCmdlet.ResourceUrl))!
+            .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
+            .SingleOrDefault();
+
+        Assert.NotNull(alias);
+        Assert.Contains("Resource", alias!.AliasNames);
+        Assert.Contains("ResourceUri", alias.AliasNames);
+
+        var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzAccessToken", ClientType.PowerShell);
+        var resourceParam = metadata.Parameters["ResourceUrl"];
+        Assert.Contains("Resource", resourceParam.Aliases);
+        Assert.Contains("ResourceUri", resourceParam.Aliases);
+
+        // Mirror the aliases in the command-level alias map too, matching the sibling Connect-AzAccount surface.
+        Assert.Equal("ResourceUrl", metadata.ParameterAliases["Resource"]);
+        Assert.Equal("ResourceUrl", metadata.ParameterAliases["ResourceUri"]);
     }
 }
