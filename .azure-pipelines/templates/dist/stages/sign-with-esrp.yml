@@ -245,7 +245,6 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 1
-      retryCountOnTaskFailure: 3
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed Windows Artifacts

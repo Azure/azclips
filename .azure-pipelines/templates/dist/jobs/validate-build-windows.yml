@@ -48,7 +48,6 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: DownloadPipelineArtifact@2
     displayName: Get Windows Dist
