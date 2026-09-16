@@ -110,12 +110,19 @@ echo "============================================"
 rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install"
 
-tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
-chmod +x "$SIM_ROOT/install/az"
+if [[ "$SKIP_RUNTIME" == "true" ]]; then
+  tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
+  chmod +x "$SIM_ROOT/install/az"
+else
+  AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
+    --package "$PACKAGE_PROFILE" \
+    --archive "$CLI_TAR_PATH"
+fi
+
 AZ="$SIM_ROOT/install/az"
 
-if [[ ! -f "$AZ" ]]; then
-  echo "FAIL: az binary not found in extracted tarball"
+if [[ ! -x "$AZ" ]]; then
+  echo "FAIL: az executable not found in installed payload"
   exit 1
 fi
 
