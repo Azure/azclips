@@ -43,6 +43,12 @@ public class WellKnownResourceTypesTests
     [InlineData("ResourceManager", "https://management.core.windows.net/")]
     [InlineData("ManagedHsm", "https://managedhsm.azure.net")]
     [InlineData("OperationalInsights", "https://api.loganalytics.io")]
+    [InlineData("AadGraph", "https://graph.windows.net/")]
+    [InlineData("DataLake", "https://datalake.azure.net/")]
+    [InlineData("OssRdbms", "https://ossrdbms-aad.database.windows.net")]
+    [InlineData("CommunicationEmail", "https://communication.azure.com")]
+    [InlineData("AppConfiguration", "https://azconfig.io")]
+    [InlineData("AnalysisServices", "https://region.asazure.windows.net")]
     public void TryResolve_PowerShellPascalCaseAlias_ResolvesToSameResource(string alias, string expected)
     {
         Assert.True(WellKnownResourceTypes.TryResolve(alias, out var url));
