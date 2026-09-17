@@ -211,7 +211,7 @@ public class RecordingSanitizerTests
 
         Assert.Equal(
             $"https://management.azure.com/subscriptions/sub/{operationPath}/sanitized-operation-token" +
-            "?api-version=2025-04-01&t=sanitized&c=sanitized&s=sanitized&h=hash",
+            "?api-version=2025-04-01&t=sanitized&c=sanitized&s=sanitized&h=sanitized",
             RecordingSanitizers.Default.Apply(input));
     }
 
