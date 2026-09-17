@@ -1,5 +1,5 @@
 using Core.Abstractions;
-using Core.Recording;
+using Tests.Recording;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Tests.Common.Recording;
 
