@@ -28,7 +28,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
  [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
  [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-AcceleratedNetworking]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AddProxyAgentExtension] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -63,6 +63,28 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -AddProxyAgentExtension
+
+Specifies whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- AddProxyAgentExt
 ParameterSets:
 - Name: (All)
   Position: Named

@@ -115,6 +115,15 @@ public class SecurityProfile
 {
     public UefiSettings? UefiSettings { get; set; }
     public string SecurityType { get; set; } = null!;
+    public ProxyAgentSettings? ProxyAgentSettings { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ProxyAgentSettings
+{
+    public bool? AddProxyAgentExtension { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

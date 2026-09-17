@@ -183,6 +183,55 @@ public class VmCreateOrchestrationTests
             => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/")).Request.Body!;
     }
 
+    [Fact]
+    public void AddProxyAgentExtension_IsAbsentByDefault_AndOptIn()
+    {
+        // Not supplied: proxyAgentSettings must not appear at all, so ARM keeps its own default.
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(s_cliArgs));
+        }
+        Assert.DoesNotContain("proxyAgentSettings", VmBody(record));
+
+        // Opt in via the full flag name.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. s_cliArgs, "--add-proxy-agent-extension", "true"]));
+        }
+        Assert.Contains("\"proxyAgentSettings\":{\"addProxyAgentExtension\":true}", VmBody(record));
+
+        // The short alias must bind to the same parameter, and false must be sent explicitly.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. s_cliArgs, "--add-proxy-agent-ext", "false"]));
+        }
+        Assert.Contains("\"proxyAgentSettings\":{\"addProxyAgentExtension\":false}", VmBody(record));
+
+        // PowerShell surface reaches the same payload.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+            var parameters = PsParameters();
+            parameters["AddProxyAgentExtension"] = true;
+            AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+        }
+        Assert.Contains("\"proxyAgentSettings\":{\"addProxyAgentExtension\":true}", VmBody(record));
+
+        static string VmBody(SessionRecord record)
+            => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));

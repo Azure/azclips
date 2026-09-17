@@ -28,6 +28,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public bool VTpmEnabled { get; set; } = true;
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
+        public bool AddProxyAgentExtension { get; set; } = false;
+
         protected override HttpMethod Method => HttpMethod.Put;
 
         protected override string CreateRequestUri() =>
@@ -72,6 +74,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         {
                             SecureBootEnabled = SecureBootEnabled,
                             VTpmEnabled = VTpmEnabled
+                        },
+                        ProxyAgentSettings = new ProxyAgentSettings
+                        {
+                            AddProxyAgentExtension = AddProxyAgentExtension
                         }
                     },
                     DiagnosticsProfile = new DiagnosticsProfile
@@ -85,7 +91,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         /*
         Yabo:
-            swagger says:         
+            swagger says:
             "x-ms-long-running-operation-options": {
                 "final-state-via": "location"
             }

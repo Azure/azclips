@@ -39,8 +39,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["SecureBootEnabled"]      = new("SecureBootEnabled", "SecureBootEnabled", typeof(bool), "Whether secure boot is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["VTpmEnabled"]            = new("VTpmEnabled", "VTpmEnabled", typeof(bool), "Whether vTPM is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["BootDiagnosticsEnabled"] = new("BootDiagnosticsEnabled", "BootDiagnosticsEnabled", typeof(bool), "Whether boot diagnostics is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AddProxyAgentExtension"] = new("AddProxyAgentExtension", "AddProxyAgentExtension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["AddProxyAgentExt"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["AddProxyAgentExt"] = "AddProxyAgentExtension" }
         );
         private static readonly CommandMetadata s_getVM_PS = new(
             Name: "GetVMProcessor",
@@ -134,8 +135,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["RuleDestinationAddressPrefixes"] = new("RuleDestinationAddressPrefixes", "RuleDestinationAddressPrefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AddProxyAgentExtension"]         = new("AddProxyAgentExtension", "AddProxyAgentExtension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["AddProxyAgentExt"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["AddProxyAgentExt"] = "AddProxyAgentExtension" }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
@@ -227,8 +229,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["secure-boot-enabled"]      = new("SecureBootEnabled", "secure-boot-enabled", typeof(bool), "Whether secure boot is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["vtpm-enabled"]             = new("VTpmEnabled", "vtpm-enabled", typeof(bool), "Whether vTPM is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["boot-diagnostics-enabled"] = new("BootDiagnosticsEnabled", "boot-diagnostics-enabled", typeof(bool), "Whether boot diagnostics is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["add-proxy-agent-extension"] = new("AddProxyAgentExtension", "add-proxy-agent-extension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["add-proxy-agent-ext"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["add-proxy-agent-ext"] = "add-proxy-agent-extension" }
         );
         private static readonly CommandMetadata s_getVM_CLI = new(
             Name: "GetVMProcessor",
@@ -368,8 +371,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["add-proxy-agent-extension"]        = new("AddProxyAgentExtension", "add-proxy-agent-extension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["add-proxy-agent-ext"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["add-proxy-agent-ext"] = "add-proxy-agent-extension" }
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()

@@ -86,6 +86,10 @@ public class NewVMCmdlet : PSCmdlet
     public SwitchParameter AcceleratedNetworking { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("AddProxyAgentExt")]
+    public SwitchParameter AddProxyAgentExtension { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -124,6 +128,7 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AddProxyAgentExtension)))         { parameters.Add("AddProxyAgentExtension", AddProxyAgentExtension.IsPresent); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

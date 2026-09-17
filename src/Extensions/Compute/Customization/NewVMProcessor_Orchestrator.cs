@@ -73,6 +73,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Network Arguments")]
         public bool AcceleratedNetworking { get; set; }
 
+        public bool AddProxyAgentExtension { get; set; } = false;
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
@@ -110,6 +112,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
                 p.NetworkInterfaceId = nic.Id;
+                p.AddProxyAgentExtension = AddProxyAgentExtension;
              });
             return await vmProcessor.SendAsync();
         }
