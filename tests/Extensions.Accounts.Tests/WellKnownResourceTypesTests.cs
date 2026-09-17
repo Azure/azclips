@@ -3,7 +3,7 @@
 
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 
-namespace Cli.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Unit tests for <see cref="WellKnownResourceTypes"/>. Locks in the source-verified union of Azure

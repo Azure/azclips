@@ -20,10 +20,10 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
-        <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+        <InternalsVisibleTo Include="Extensions.Accounts.Tests" Key="$(MSSharedLibPublicKey)" />
     </ItemGroup>
     <ItemGroup Condition="'$(Configuration)' != 'Release'">
-        <InternalsVisibleTo Include="Cli.Tests" />
+        <InternalsVisibleTo Include="Extensions.Accounts.Tests" />
     </ItemGroup>
 
     <ItemGroup>

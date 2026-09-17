@@ -4,7 +4,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 
-namespace Cli.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Unit tests for <see cref="TokenScopeResolver"/>. Verifies the resource / resource-type / scope
