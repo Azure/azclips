@@ -141,7 +141,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `$true` when the delete request is sent.
+Returns `$true` after the deployment record is deleted.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter

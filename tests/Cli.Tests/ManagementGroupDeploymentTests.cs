@@ -390,24 +390,107 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task Delete_NoWaitSendsSingleDeleteRequest()
+    public async Task Delete_NoWaitSendsExpectedRequestWithoutPollingOrOutput()
     {
-        HttpRequestMessage? sent = null;
+        HttpMethod? sentMethod = null;
+        string? sentUri = null;
+        bool hadContent = true;
         FakeHttpPipeline pipeline = new((request, _) =>
         {
-            sent = request;
+            sentMethod = request.Method;
+            sentUri = request.RequestUri!.AbsoluteUri;
+            hadContent = request.Content is not null;
             return new HttpResponseMessage(HttpStatusCode.Accepted);
         });
+        FakeOutputHandler output = new();
         RemoveManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new RemoveManagementGroupDeploymentProcessor { NoWait = true }, pipeline, new FakeOutputHandler());
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor { NoWait = true }, pipeline, output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "deployment_(blue)";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(HttpMethod.Delete, sentMethod);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Management/managementGroups/test-management-group/providers/Microsoft.Resources/deployments/deployment_%28blue%29?api-version=2025-04-01",
+            sentUri);
+        Assert.False(hadContent);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Delete_WaitsOnLocationUntilNoContentWithoutFetchingDeletedDeployment()
+    {
+        List<(HttpMethod Method, string Uri)> requests = [];
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!.AbsoluteUri));
+            if (requests.Count == 1)
+            {
+                HttpResponseMessage accepted = new(HttpStatusCode.Accepted);
+                accepted.Headers.Location = new Uri(
+                    "https://management.azure.com/operations/delete-1?api-version=2025-04-01");
+                return accepted;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        FakeOutputHandler output = new();
+        RemoveManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor(), pipeline, output);
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 
         await processor.ProcessAsync();
 
-        Assert.Equal(1, pipeline.SendCount);
-        Assert.Equal(HttpMethod.Delete, sent!.Method);
-        Assert.EndsWith("/deployments/test-deployment", sent.RequestUri!.AbsolutePath);
+        Assert.Collection(
+            requests,
+            request =>
+            {
+                Assert.Equal(HttpMethod.Delete, request.Method);
+                Assert.Contains("/deployments/test-deployment?api-version=2025-04-01", request.Uri);
+            },
+            request =>
+            {
+                Assert.Equal(HttpMethod.Get, request.Method);
+                Assert.Equal(
+                    "https://management.azure.com/operations/delete-1?api-version=2025-04-01",
+                    request.Uri);
+            });
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Delete_PollingFailureIsSurfacedWithoutOutput()
+    {
+        int sendCount = 0;
+        FakeHttpPipeline pipeline = new((_, _) =>
+        {
+            if (sendCount++ == 0)
+            {
+                HttpResponseMessage accepted = new(HttpStatusCode.Accepted);
+                accepted.Headers.Location = new Uri("https://management.azure.com/operations/delete-1");
+                return accepted;
+            }
+
+            return Json(
+                """{"error":{"code":"DeleteFailed","message":"The deployment could not be deleted."}}""",
+                HttpStatusCode.InternalServerError);
+        });
+        FakeOutputHandler output = new();
+        RemoveManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor(), pipeline, output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        HttpRequestException exception =
+            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.InternalServerError, exception.StatusCode);
+        Assert.Contains("DeleteFailed", exception.Message);
+        Assert.Equal(2, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
