@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789622136825,
+  "lastUpdate": 1789622141583,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -7856,6 +7856,48 @@ window.BENCHMARK_DATA = {
             "value": 298994612.65,
             "unit": "ns",
             "range": "± 4099526.8973609046"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "v-jileong@microsoft.com",
+            "name": "Jian Hui",
+            "username": "huiii99"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d7b60be452d575cd58179fd2e4d2a9688fc4e6fc",
+          "message": "[Network] Add virtual network support for CLI and PowerShell (#834)\n\n## Related command\n\n### Azure CLI\n- `az network vnet create`\n- `az network vnet show`\n- `az network vnet list`\n- `az network vnet delete`\n\n### Azure PowerShell\n- `New-AzVirtualNetwork`\n- `Get-AzVirtualNetwork`\n- `Remove-AzVirtualNetwork`\n\n<img width=\"697\" height=\"257\" alt=\"image (3)\"\nsrc=\"https://github.com/user-attachments/assets/c3bdea62-07bf-49af-8f28-34ae8b091429\"\n/>\n<img width=\"755\" height=\"332\" alt=\"image (1)\"\nsrc=\"https://github.com/user-attachments/assets/211283d1-85cd-4780-a654-332aab3c750d\"\n/>\n\n## Description\nThis PR migrates core VNet lifecycle management from legacy Azure CLI\nand Azure PowerShell into a new `Network` extension, closing\nhttps://github.com/Azure/CLIPS/issues/726. This is the foundational\nnetworking capability that traditional application deployments depend\non.\n\nProduced with the `migrate-clips-to-extensions-codegen-llm-hybrid`\nskill: TypeSpec codegen against `Microsoft.Network` `2025-07-01`, then\nhand-authored customization. Layout, naming, packaging and registration\nfollow the Compute/Identity extensions.\n\n### Included Components\n\n#### Network Extension\n\nAdded support under `src/Extensions/Network`:\n\n- `NewVirtualNetwork`\n- `GetVirtualNetwork`\n- `ListVirtualNetwork`\n- `DeleteVirtualNetwork`\n- `NetworkProcessorBase`\n- `ExtensionIndex`\n\n#### PowerShell Module\n\nAdded support under `src/PS/Network`:\n\n- `New-AzVirtualNetwork`\n- `Get-AzVirtualNetwork`\n- `Remove-AzVirtualNetwork`\n\n#### Documentation\n\nAdded CLI reference documentation under:\n\n```text\nsrc/CLI/Help/Docs/network\n```\n\n### Behavioral Notes\n\n#### Address Prefix Defaults\n\nWhen no address prefix is specified, VNet creation defaults to:\n\n```text\n10.0.0.0/16\n```\n\nto maintain compatibility with the existing Azure CLI experience.\n\nThe default is not applied when `--ipam-allocations` is provided.\n\n#### Long-Running Operations\n\n- Create and delete operations are implemented as ARM LROs.\n- Delete polling follows the operation-status endpoint and does not\nre-read the deleted resource.\n\n#### Pagination\n\n- `list` operations follow ARM `nextLink` pagination.\n\n#### Subnet Support\n\n`--subnets` / `-Subnet` exposes the same subnet configuration surface\nsupported by `New-AzVirtualNetworkSubnetConfig`.\n\nProperties without an equivalent Azure CLI or Azure PowerShell\nexperience are intentionally excluded.\n\n#### Short Aliases\n\nThe following aliases are preserved for compatibility:\n\n```text\n-g\n-n\n-l\n```\n\n### Out of Scope\n\nThis PR only covers create/show/list/delete operations defined in\nAzure/CLIPS#726.\n\nUpdate operations such as `Set-AzVirtualNetwork` will be implemented\nseparately.\n\n### Additional Changes\n\nThis PR also updates the recording framework:\n\n- `Core.Recording/RecordingSanitizers.cs`\n- `RecordPlaybackInterceptor.cs`\n\nThe changes sanitize ARM operation signatures during recording and\nplayback. Existing recording behavior remains unchanged, verified by\nrunning the full `Scenario.Tests` suite.\n\n## Testing Guide\n\n### Automated Testing\n\n#### Build\n\n```bash\ndotnet build azclips.slnx\n```\n\n✅ Passed\n\n<img width=\"958\" height=\"347\" alt=\"1\"\nsrc=\"https://github.com/user-attachments/assets/73c9eed1-cdc2-417f-b47a-23ee9c1c8a91\"\n/>\n\n\n#### CLI Tests\n\n```bash\ndotnet test tests/Cli.Tests/Cli.Tests.csproj\n```\n\n✅ 696 passed\n\nIncludes coverage for:\n\n- Request body generation\n- Subnet parsing\n- Tag casing\n- `$expand`\n- Delete polling behavior\n- Address-prefix defaults\n- IPAM scenarios\n- Short aliases\n\n<img width=\"959\" height=\"331\" alt=\"2\"\nsrc=\"https://github.com/user-attachments/assets/5bbe58b9-41f8-4c0e-a6cf-bd3bac731d66\"\n/>\n\n\n#### Scenario Tests\n\n```bash\ndotnet test tests/Scenario.Tests/Scenario.Tests.csproj\n```\n\n✅ Passed\n\n`VNetScenarioTests` validates create/show/list/delete flows for both\nAzure CLI and Azure PowerShell surfaces.\n\n<img width=\"959\" height=\"388\" alt=\"3\"\nsrc=\"https://github.com/user-attachments/assets/d89e3a59-9fad-4463-b86f-a3bf16301bf1\"\n/>\n\n\n#### Cmdlets Tests\n\n```bash\ndotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj\n```\n\n✅ 102 passed\n\n<img width=\"959\" height=\"419\" alt=\"4\"\nsrc=\"https://github.com/user-attachments/assets/dd1c0248-cf4d-4ebc-84db-dc925b6c29c8\"\n/>\n\n\n### Manual Validation\n\nRequires a real subscription and an **existing** resource group. Each\nscript creates and deletes only the virtual network; neither creates the\nresource group.\n\nBuild first:\n\n```bash\ndotnet build azclips.slnx\n```\n\n#### Azure CLI\n\n`./tests/Scripts/CLI/VNetCreate.sh`\n\n```bash\nAZ=./artifacts/Debug/Core.Cli/az        # az.exe on Windows\n$AZ login\n\n# Only if you do not have a resource group yet:\n$AZ group create --subscription-id <id> --name <rg> --location eastus\n\nSUBSCRIPTION_ID=<id> RESOURCE_GROUP=<rg> ./tests/Scripts/CLI/VNetCreate.sh\n```\n\n`SUBSCRIPTION_ID` and `RESOURCE_GROUP` otherwise fall back to the\nauthor's test values. `LOCATION`, `VNET_NAME`, and `SUBNET_NAME` are\nalso overridable.\n\n#### Azure PowerShell\n\n`./tests/Scripts/PS/VNetCreate.ps1`\n\nRun in a fresh `pwsh` session so an installed gallery `Az.Network`\nmodule cannot shadow the repo module.\n\n```powershell\nImport-Module ./src/PS/Accounts/Accounts.psd1\nConnect-AzAccount\nImport-Module ./src/PS/Network/Network.psd1\n\n# Only if you do not have a resource group yet:\nImport-Module ./src/PS/Resources/Resources.psd1\nNew-AzResourceGroup -SubscriptionId <id> -Name <rg> -Location eastus\n\n$env:AZCLIPS_SUBSCRIPTION_ID = '<id>'\n$env:AZCLIPS_RESOURCE_GROUP  = '<rg>'\n./tests/Scripts/PS/VNetCreate.ps1\n```\n\nBoth scripts:\n\n- Validate create/show/list/delete functionality\n- Clean up the VNet on failure\n- Leave the resource group unchanged\n\nThe final `show` / `Get` operation is expected to fail and serves as the\ndelete verification step.\n\n## History Notes\n\n[Network] az network vnet: Add create, show, list, delete\n[Network] Az.Network: Add New-AzVirtualNetwork, Get-AzVirtualNetwork,\nRemove-AzVirtualNetwork\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCopilot-Session: 23269dc5-77a2-4c27-b10c-861f7c645253",
+          "timestamp": "2026-09-17T14:49:56+10:00",
+          "tree_id": "bf76c2228fed725f0ff3aaac37726b171697a9b9",
+          "url": "https://github.com/Azure/azclips/commit/d7b60be452d575cd58179fd2e4d2a9688fc4e6fc"
+        },
+        "date": 1789622141390,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 388671977.1,
+            "unit": "ns",
+            "range": "± 118619820.13890894"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 409224750.81,
+            "unit": "ns",
+            "range": "± 98158060.75907819"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 341874108.61,
+            "unit": "ns",
+            "range": "± 32611566.787724044"
           }
         ]
       }
