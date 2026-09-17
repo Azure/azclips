@@ -58,8 +58,13 @@ case "$PACKAGE" in
   *) die "--package must be 'lean' or 'full'. Got: $PACKAGE";;
 esac
 
+# Normalize trailing separators so removal and replacement target the same path.
+while [[ "$INSTALL_ROOT" != "/" && "$INSTALL_ROOT" == */ ]]; do
+  INSTALL_ROOT="${INSTALL_ROOT%/}"
+done
+
 # Refuse obviously unsafe install roots (guards against a mis-set AZCLI_INSTALL_ROOT).
-case "${INSTALL_ROOT%/}" in
+case "$INSTALL_ROOT" in
   ""|"/"|"$HOME"|/root|/home|/Users|/usr|/etc|/var|/bin) die "Refusing to use unsafe install root: '$INSTALL_ROOT'." ;;
 esac
 

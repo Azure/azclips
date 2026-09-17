@@ -126,6 +126,7 @@ echo "============================================"
 
 rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install" "$SIM_ROOT/invalid-archives" "$SIM_ROOT/classic-bin"
+export AZCLIPS_HOME="$SIM_ROOT/home/.azclips"
 
 archive_name="$(basename "$CLI_TAR_PATH")"
 archive_version_and_rid="${archive_name#"$ARTIFACT_STEM"-}"

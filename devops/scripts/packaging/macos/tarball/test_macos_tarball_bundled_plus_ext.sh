@@ -123,6 +123,7 @@ echo "============================================"
 
 rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install" "$SIM_ROOT/invalid-archives" "$SIM_ROOT/classic-bin"
+export AZCLIPS_HOME="$SIM_ROOT/home/.azclips"
 
 runtime_supported=false
 if [[ "$(uname -s)" == "Darwin" ]]; then
