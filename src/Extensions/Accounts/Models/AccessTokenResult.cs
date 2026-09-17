@@ -20,14 +20,14 @@ public record AccessTokenResult
     [JsonPropertyName("accessToken")]
     public required string Token { get; init; }
 
-    /// <summary>The point in time when the access token expires.</summary>
-    [JsonPropertyName("expiresOn")]
-    [JsonConverter(typeof(AzureCliExpiresOnConverter))]
-    public required DateTimeOffset ExpiresOn { get; init; }
-
-    /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
+    /// <summary>
+    /// The point in time when the access token expires. On the CLI this is serialized as the epoch
+    /// field <c>expires_on</c> (seconds since 1970, matching classic <c>az account get-access-token</c>);
+    /// PowerShell surfaces it as a <see cref="DateTimeOffset"/> object.
+    /// </summary>
     [JsonPropertyName("expires_on")]
-    public required long ExpiresOnUnixTime { get; init; }
+    [JsonConverter(typeof(UnixTimeSecondsConverter))]
+    public required DateTimeOffset ExpiresOn { get; init; }
 
     /// <summary>The tenant (directory) ID the token was acquired for. Empty for a managed identity account, whose profile does not carry a resolved tenant.</summary>
     [JsonPropertyName("tenant")]
@@ -51,38 +51,27 @@ public record AccessTokenResult
 /// <summary>
 /// The result of a token-retrieval command with the token wrapped in a <see cref="SecureString"/>.
 /// This is the default PowerShell output shape (matching Azure PowerShell's protected token), so the
-/// raw token is not shown on screen but can still be read programmatically without re-running.
+/// raw token is not shown on screen but can still be read programmatically without re-running. This
+/// type is only ever returned to the PowerShell pipeline (never serialized as CLI JSON), so it carries
+/// no JSON serialization attributes; PowerShell surfaces each property by its .NET name.
 /// </summary>
 public record SecureAccessTokenResult
 {
     /// <summary>The access token, protected as a <see cref="SecureString"/>.</summary>
-    [JsonPropertyName("accessToken")]
     public required SecureString Token { get; init; }
 
-    /// <summary>The point in time when the access token expires.</summary>
-    [JsonPropertyName("expiresOn")]
-    [JsonConverter(typeof(AzureCliExpiresOnConverter))]
+    /// <summary>The point in time when the access token expires, surfaced as a <see cref="DateTimeOffset"/>.</summary>
     public required DateTimeOffset ExpiresOn { get; init; }
 
-    /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
-    [JsonPropertyName("expires_on")]
-    public required long ExpiresOnUnixTime { get; init; }
-
     /// <summary>The tenant (directory) ID the token was acquired for. Empty for a managed identity account, whose profile does not carry a resolved tenant.</summary>
-    [JsonPropertyName("tenant")]
     public required string TenantId { get; init; }
 
     /// <summary>The subscription ID associated with the request, if any.</summary>
-    [JsonPropertyName("subscription")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SubscriptionId { get; init; }
 
     /// <summary>The user principal name of the signed-in identity, if any (null for managed identity).</summary>
-    [JsonPropertyName("userId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
-    [JsonPropertyName("tokenType")]
     public string Type { get; init; } = "Bearer";
 }

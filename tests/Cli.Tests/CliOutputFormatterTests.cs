@@ -336,7 +336,6 @@ public class CliOutputFormatterTests
         {
             Token = "the-raw-token",
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
-            ExpiresOnUnixTime = 1_700_000_000,
             TenantId = "tid",
             // SubscriptionId and UserId left null on purpose to assert they are omitted.
         };
@@ -353,6 +352,8 @@ public class CliOutputFormatterTests
         Assert.False(doc.RootElement.TryGetProperty("token", out _));
         Assert.False(doc.RootElement.TryGetProperty("tenantId", out _));
         Assert.False(doc.RootElement.TryGetProperty("subscriptionId", out _));
+        // The deprecated local-time `expiresOn` string is not emitted; only the epoch `expires_on` remains.
+        Assert.False(doc.RootElement.TryGetProperty("expiresOn", out _));
         // Nullable subscription/userId are omitted when unset (classic az omits `subscription`).
         Assert.False(doc.RootElement.TryGetProperty("subscription", out _));
         Assert.False(doc.RootElement.TryGetProperty("userId", out _));
@@ -365,7 +366,6 @@ public class CliOutputFormatterTests
         {
             Token = "the-raw-token",
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
-            ExpiresOnUnixTime = 1_700_000_000,
             TenantId = "tid",
             SubscriptionId = "sub-1",
             UserId = "user@contoso.com",
@@ -380,25 +380,26 @@ public class CliOutputFormatterTests
     }
 
     [Fact]
-    public void FormatValue_AccessTokenResult_ExpiresOn_MatchesClassicCliLocalTimeFormat()
+    public void FormatValue_AccessTokenResult_ExpiresOn_EmittedAsWholeSecondEpoch()
     {
         var token = new AccessTokenResult
         {
             Token = "the-raw-token",
-            // Sub-second precision on purpose: classic az derives expiresOn from the integer epoch, so
-            // it is always whole seconds. The converter must truncate rather than leak the fraction.
+            // Sub-second precision on purpose: classic az emits `expires_on` as whole-second epoch, so
+            // the converter must truncate the fraction rather than round or leak it.
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000).AddTicks(1_512_345),
-            ExpiresOnUnixTime = 1_700_000_000,
             TenantId = "tid",
         };
 
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(token);
 
         using var doc = JsonDocument.Parse(result);
-        // Classic `az account get-access-token` emits `expiresOn` as a local-time string
-        // "yyyy-MM-dd HH:mm:ss.ffffff" with whole-second precision (deprecated, kept for compatibility).
-        var expiresOn = doc.RootElement.GetProperty("expiresOn").GetString();
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.000000$", expiresOn);
+        // Classic `az account get-access-token` emits `expires_on` as an integer epoch (seconds).
+        var expiresOn = doc.RootElement.GetProperty("expires_on");
+        Assert.Equal(JsonValueKind.Number, expiresOn.ValueKind);
+        Assert.Equal(1_700_000_000, expiresOn.GetInt64());
+        // The deprecated local-time `expiresOn` string is gone.
+        Assert.False(doc.RootElement.TryGetProperty("expiresOn", out _));
     }
 
     // ── Relaxed escaping: raw JSON strings stay human-readable ──────

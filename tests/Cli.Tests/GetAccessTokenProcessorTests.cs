@@ -171,12 +171,13 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_PopulatesUnixTimeExpiry()
+    public async Task ProcessAsync_PopulatesExpiry()
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var result = Assert.IsType<AccessTokenResult>(
             await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser)));
-        Assert.Equal(result.ExpiresOn.ToUnixTimeSeconds(), result.ExpiresOnUnixTime);
+        // The expiry flows through from the acquired token (AuthReturning sets it one hour out).
+        Assert.True(result.ExpiresOn > DateTimeOffset.UtcNow);
     }
 
     [Fact]

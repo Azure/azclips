@@ -220,7 +220,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private object RenderOutput(AuthResult authResult, string? subscription, string? userId)
         {
-            long expiresOnUnixTime = authResult.ExpiresOn.ToUnixTimeSeconds();
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
 
             if (clientType == ClientType.PowerShell && !Plaintext)
@@ -229,7 +228,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 {
                     Token = ToSecureString(authResult.AccessToken),
                     ExpiresOn = authResult.ExpiresOn,
-                    ExpiresOnUnixTime = expiresOnUnixTime,
                     TenantId = authResult.TenantId,
                     SubscriptionId = subscription,
                     UserId = userId,
@@ -241,7 +239,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             {
                 Token = redact ? AccessTokenResult.RedactedPlaceholder : authResult.AccessToken,
                 ExpiresOn = authResult.ExpiresOn,
-                ExpiresOnUnixTime = expiresOnUnixTime,
                 TenantId = authResult.TenantId,
                 SubscriptionId = subscription,
                 UserId = userId,
