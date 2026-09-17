@@ -99,53 +99,10 @@ public class CliExportFixturesTests : IClassFixture<CliExportFixture>
         using var expectedDoc = JsonDocument.Parse(expectedJson);
         using var actualDoc = JsonDocument.Parse(actualJson);
 
-        var difference = FindDifference(expectedDoc.RootElement, actualDoc.RootElement, "$" );
-
         Assert.True(
-            difference is null,
+            JsonElement.DeepEquals(expectedDoc.RootElement, actualDoc.RootElement),
             $"CLI export JSON drift on '{Path.GetFileName(expectedPath)}'. " +
-            $"First difference: {difference ?? "none"}. " +
-            "If intentional, refresh the fixture: pwsh build/Update-CliExportFixtures.ps1");
-    }
-
-    private static string? FindDifference(JsonElement expected, JsonElement actual, string path)
-    {
-        if (expected.ValueKind != actual.ValueKind)
-            return $"{path} expected kind {expected.ValueKind}, actual kind {actual.ValueKind}";
-
-        switch (expected.ValueKind)
-        {
-            case JsonValueKind.Object:
-                var expectedProperties = expected.EnumerateObject().ToDictionary(p => p.Name, StringComparer.Ordinal);
-                var actualProperties = actual.EnumerateObject().ToDictionary(p => p.Name, StringComparer.Ordinal);
-                foreach (var name in expectedProperties.Keys.Union(actualProperties.Keys, StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
-                {
-                    if (!expectedProperties.TryGetValue(name, out var expectedProperty))
-                        return $"{path}.{name} missing from expected, actual={actualProperties[name].Value.GetRawText()}";
-                    if (!actualProperties.TryGetValue(name, out var actualProperty))
-                        return $"{path}.{name} missing from actual, expected={expectedProperty.Value.GetRawText()}";
-                    var propertyDifference = FindDifference(expectedProperty.Value, actualProperty.Value, $"{path}.{name}");
-                    if (propertyDifference is not null)
-                        return propertyDifference;
-                }
-                return null;
-
-            case JsonValueKind.Array:
-                if (expected.GetArrayLength() != actual.GetArrayLength())
-                    return $"{path} expected length {expected.GetArrayLength()}, actual length {actual.GetArrayLength()}";
-                for (var index = 0; index < expected.GetArrayLength(); index++)
-                {
-                    var itemDifference = FindDifference(expected[index], actual[index], $"{path}[{index}]");
-                    if (itemDifference is not null)
-                        return itemDifference;
-                }
-                return null;
-
-            default:
-                return expected.GetRawText() == actual.GetRawText()
-                    ? null
-                    : $"{path} expected {expected.GetRawText()}, actual {actual.GetRawText()}";
-        }
+            $"If intentional, refresh the fixture: pwsh build/Update-CliExportFixtures.ps1");
     }
 }
 
