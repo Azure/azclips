@@ -160,6 +160,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_existsResourceGroup_CLI = new(
+            Name: "ExistsResourceGroupProcessor_Orchestrator",
+            InvocationName: "group exists",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExistsResourceGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ExistsResourceGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("ResourceGroupName", "name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: ["n", "resource-group", "g"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["resource-group"] = "name",
+                ["g"] = "name",
+            }
+        );
         private static readonly CommandMetadata s_listResourceGroup_CLI = new(
             Name: "ListResourceGroupProcessor",
             InvocationName: "group list",
@@ -265,6 +284,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["group create"]              = s_newResourceGroup_CLI,
+            ["group exists"]              = s_existsResourceGroup_CLI,
             ["group list"]                = s_listResourceGroup_CLI,
             ["group show"]                = s_getResourceGroup_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,

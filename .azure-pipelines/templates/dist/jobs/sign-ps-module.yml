@@ -3,7 +3,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: SourceProject
   type: string
   default: 'public'
@@ -60,7 +59,7 @@ jobs:
   - job: SignPowerShellModule
     displayName: Sign PowerShell Module Packages
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     timeoutInMinutes: 60
     variables:
     - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:

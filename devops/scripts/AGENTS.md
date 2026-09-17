@@ -65,6 +65,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Preserve env-var override points and script-relative path resolution.
 - Keep RID/output-root names aligned with `.azure-pipelines/templates/dist/variables/packaging.yml`.
 - Verify third-party archives against registry-provided checksums before extracting or executing them.
+- Validate SDK-bundled Copilot runtimes with their server contract (`--server --stdio`); they do not expose the user-facing CLI's `--version` command.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).
