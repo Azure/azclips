@@ -67,8 +67,7 @@ public class GroupExistsScenarioTests
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName,
-            "--yes"));
+            ResourceGroupName));
 
         AssertExists(
             host.RunCli(

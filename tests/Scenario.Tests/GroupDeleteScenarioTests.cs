@@ -69,8 +69,7 @@ public class GroupDeleteScenarioTests
             "--subscription-id",
             subscriptionId,
             "--name",
-            ResourceGroupName,
-            "--yes");
+            ResourceGroupName);
 
     private static IReadOnlyList<object> RunPowerShellCreate(ScenarioHost host, string subscriptionId) =>
         host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>

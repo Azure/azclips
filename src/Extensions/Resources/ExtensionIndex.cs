@@ -212,7 +212,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["subscription-id"]      = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["name"]                 = new("ResourceGroupName", "name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: ["n", "resource-group", "g"], AllowedValues: []),
                 ["force-deletion-types"] = new("ForceDeletionTypes", "force-deletion-types", typeof(string), "The resource type to force delete.", IsRequired: false, Aliases: ["f"], AllowedValues: ["Microsoft.Compute/virtualMachines", "Microsoft.Compute/virtualMachineScaleSets", "Microsoft.Databricks/workspaces"]),
-                ["yes"]                  = new("Yes", "yes", typeof(bool), "Confirm deletion without prompting.", IsRequired: true, Aliases: ["y"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -220,7 +219,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["resource-group"] = "name",
                 ["g"] = "name",
                 ["f"] = "force-deletion-types",
-                ["y"] = "yes",
             }
         );
         private static readonly CommandMetadata s_listResourceGroup_CLI = new(

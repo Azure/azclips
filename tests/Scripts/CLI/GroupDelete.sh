@@ -50,8 +50,7 @@ CREATED=1
 echo "=== [group delete] legacy aliases ==="
 "$AZ" group delete \
   --subscription-id "$SUBSCRIPTION_ID" \
-  -g "$RESOURCE_GROUP" \
-  -y
+  -g "$RESOURCE_GROUP"
 CREATED=0
 
 [[ "$("$AZ" group exists --subscription-id "$SUBSCRIPTION_ID" -n "$RESOURCE_GROUP")" == "false" ]]

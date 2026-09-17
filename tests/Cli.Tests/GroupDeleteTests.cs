@@ -24,10 +24,7 @@ public class GroupDeleteTests
         Assert.Equal(typeof(DeleteResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
         Assert.Equal(["n", "resource-group", "g"], metadata.Parameters["name"].Aliases);
         Assert.Equal(["f"], metadata.Parameters["force-deletion-types"].Aliases);
-        Assert.Equal(["y"], metadata.Parameters["yes"].Aliases);
-        Assert.True(metadata.Parameters["name"].IsRequired);
-        Assert.True(metadata.Parameters["yes"].IsRequired);
-        Assert.DoesNotContain("no-wait", metadata.Parameters);
+        Assert.True(metadata.Parameters["name"].IsRequired);        
         Assert.Equal(
             [
                 "Microsoft.Compute/virtualMachines",
@@ -56,7 +53,7 @@ public class GroupDeleteTests
     [InlineData("n")]
     [InlineData("resource-group")]
     [InlineData("g")]
-    public void CliBinding_BindsDeleteAliasesAndSwitches(string nameArgument)
+    public void CliBinding_BindsDeleteAliases(string nameArgument)
     {
         CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group delete", ClientType.CLI);
         var processor = (DeleteResourceGroupProcessor_Orchestrator)metadata.GetInstance();
@@ -68,7 +65,6 @@ public class GroupDeleteTests
             {
                 [nameArgument] = Value("test-rg"),
                 ["f"] = Value("Microsoft.Compute/virtualMachines"),
-                ["y"] = Switch(),
             },
             metadata.Parameters,
             metadata.ParameterAliases,
@@ -77,27 +73,6 @@ public class GroupDeleteTests
         Assert.Equal("test-rg", processor.ResourceGroupName);
         Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
         Assert.Equal("Microsoft.Compute/virtualMachines", processor.ForceDeletionTypes);
-        Assert.True(processor.Yes);
-    }
-
-    [Fact]
-    public void CliBinding_RequiresExplicitYes()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group delete", ClientType.CLI);
-        var processor = (DeleteResourceGroupProcessor_Orchestrator)metadata.GetInstance();
-
-        UsageErrorException exception = Assert.Throws<UsageErrorException>(() =>
-            CreateBinder().BindArgumentsToProcessor(
-                processor,
-                new Dictionary<string, object>
-                {
-                    ["name"] = Value("test-rg"),
-                },
-                metadata.Parameters,
-                metadata.ParameterAliases,
-                new Profile { SubscriptionId = TestSubscriptionId }));
-
-        Assert.True(exception.HasMissingRequiredParameters);
     }
 
     [Fact]
@@ -204,24 +179,6 @@ public class GroupDeleteTests
     }
 
     [Fact]
-    public async Task ProcessAsync_RejectsExplicitFalseYesValue()
-    {
-        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
-        DeleteResourceGroupProcessor_Orchestrator processor = CreateProcessor(
-            pipeline,
-            new FakeOutputHandler());
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroupName = "test-rg";
-        processor.Yes = false;
-
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => processor.ProcessAsync());
-
-        Assert.Contains("--yes", exception.Message);
-        Assert.Equal(0, pipeline.SendCount);
-    }
-
-    [Fact]
     public async Task ProcessAsync_PropagatesServiceFailure()
     {
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.InternalServerError));
@@ -246,8 +203,6 @@ public class GroupDeleteTests
     }
 
     private static List<List<string>> Value(string value) => [new() { value }];
-
-    private static List<List<string>> Switch() => [new()];
 
     private static DeleteResourceGroupProcessor_Orchestrator CreateProcessor(
         FakeHttpPipeline pipeline,

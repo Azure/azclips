@@ -8,15 +8,8 @@ public class DeleteResourceGroupProcessor_Orchestrator : DeleteResourceGroupProc
 {
     public string? Id { get; set; }
 
-    public bool Yes { get; set; } = true;
-
     protected override async Task BeforeProcessAsync()
     {
-        if (!Yes)
-        {
-            throw new InvalidOperationException("--yes must be specified as a true switch value.");
-        }
-
         bool hasName = !string.IsNullOrWhiteSpace(ResourceGroupName);
         bool hasId = !string.IsNullOrWhiteSpace(Id);
         if (hasName == hasId)
