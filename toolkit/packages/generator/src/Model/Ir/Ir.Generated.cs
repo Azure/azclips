@@ -2310,6 +2310,12 @@ public partial class PSParameterSetOverride
 
     [JsonPropertyName("helpMessage")]
     public string? HelpMessage { get; set; }
+
+    [JsonPropertyName("valueFromPipeline")]
+    public bool? ValueFromPipeline { get; set; }
+
+    [JsonPropertyName("valueFromPipelineByPropertyName")]
+    public bool? ValueFromPipelineByPropertyName { get; set; }
 }
 
 public partial class ParameterHints

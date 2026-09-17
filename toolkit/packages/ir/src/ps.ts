@@ -66,6 +66,8 @@ export type PSParameterSetOverride = {
   mandatory?: boolean | undefined;
   position?: number | undefined;
   helpMessage?: string | undefined;
+  valueFromPipeline?: boolean | undefined;
+  valueFromPipelineByPropertyName?: boolean | undefined;
 };
 
 export const PSParameterSetOverrideSchema: z.ZodType<PSParameterSetOverride> = z
@@ -73,6 +75,8 @@ export const PSParameterSetOverrideSchema: z.ZodType<PSParameterSetOverride> = z
     mandatory: z.boolean().optional(),
     position: z.number().int().optional(),
     helpMessage: z.string().min(1).optional(),
+    valueFromPipeline: z.boolean().optional(),
+    valueFromPipelineByPropertyName: z.boolean().optional(),
   })
   .strict();
 

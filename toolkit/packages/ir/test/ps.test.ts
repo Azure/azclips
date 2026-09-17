@@ -148,11 +148,15 @@ describe("PSParameterAttribute", () => {
       name: "resourceGroupName",
       sourceParameterId: paramId,
       parameterSets: {
-        Get: { mandatory: true },
-        List: { mandatory: false },
+        Get: { mandatory: true, valueFromPipeline: true },
+        List: { mandatory: false, valueFromPipelineByPropertyName: true },
       },
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.parameterSets?.Get?.valueFromPipeline).toBe(true);
+      expect(result.data.parameterSets?.List?.valueFromPipelineByPropertyName).toBe(true);
+    }
   });
 
   it("rejects a parameter-set override keyed by an empty string", () => {

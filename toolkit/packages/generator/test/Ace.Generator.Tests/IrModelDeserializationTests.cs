@@ -74,8 +74,8 @@ public sealed class IrModelDeserializationTests
                         "name": "Name",
                         "sourceParameterId": { "module": "M", "namespace": ["Contoso"], "name": "get.name" },
                         "parameterSets": {
-                          "Get": { "mandatory": true, "position": 0 },
-                          "GetViaIdentity": { "mandatory": false }
+                          "Get": { "mandatory": true, "position": 0, "valueFromPipeline": true },
+                          "GetViaIdentity": { "mandatory": false, "valueFromPipelineByPropertyName": true }
                         }
                       }
                     ],
@@ -100,7 +100,9 @@ public sealed class IrModelDeserializationTests
         Assert.Equal(2, parameter.ParameterSets!.Count);
         Assert.True(parameter.ParameterSets["Get"].Mandatory);
         Assert.Equal(0, parameter.ParameterSets["Get"].Position);
+        Assert.True(parameter.ParameterSets["Get"].ValueFromPipeline);
         Assert.False(parameter.ParameterSets["GetViaIdentity"].Mandatory);
+        Assert.True(parameter.ParameterSets["GetViaIdentity"].ValueFromPipelineByPropertyName);
     }
 
     [Fact]
