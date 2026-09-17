@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: esrp_require_windows_strong_name
   type: boolean
   default: false
@@ -10,7 +9,7 @@ jobs:
 - job: ValidateWindows
   displayName: Validate Signed Windows Payloads
   pool:
-    vmImage: ${{ parameters.windows_pool }}
+    name: ${{ parameters.windows_pool }}
   steps:
   - checkout: none
   - task: DownloadPipelineArtifact@2

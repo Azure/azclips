@@ -3,11 +3,57 @@
 
 using Core.Abstractions;
 using Core.Cli.Help;
+using Core.Runtime;
 
 namespace Cli.Tests;
 
+[Collection("Azclips Service Provider Tests")]
 public class RuntimeHelpDispatcherTests
 {
+    [Fact]
+    public void ShouldBoldHeaders_ShouldSuppressAnsiForArbitraryWriter()
+    {
+        using var output = new StringWriter();
+
+        Assert.False(RuntimeHelpDispatcher.ShouldBoldHeaders(output));
+    }
+
+    [Fact]
+    public void ShouldBoldHeaders_ShouldUseOutputPolicyForConsoleOut()
+    {
+        var originalNoColor = Environment.GetEnvironmentVariable("NO_COLOR");
+        try
+        {
+            Environment.SetEnvironmentVariable("NO_COLOR", "1");
+
+            Assert.False(RuntimeHelpDispatcher.ShouldBoldHeaders(Console.Out));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NO_COLOR", originalNoColor);
+        }
+    }
+
+    [Fact]
+    public void ShouldBoldHeaders_ShouldHonorForceColorForArbitraryWriterOnlyThroughPolicyInput()
+    {
+        var originalNoColor = Environment.GetEnvironmentVariable("NO_COLOR");
+        var originalForceColor = Environment.GetEnvironmentVariable("FORCE_COLOR");
+        try
+        {
+            Environment.SetEnvironmentVariable("NO_COLOR", null);
+            Environment.SetEnvironmentVariable("FORCE_COLOR", "1");
+
+            Assert.False(RuntimeHelpDispatcher.ShouldBoldHeaders(new StringWriter()));
+            Assert.True(ColorPolicy.ShouldEmitColor(targetIsRedirected: true));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NO_COLOR", originalNoColor);
+            Environment.SetEnvironmentVariable("FORCE_COLOR", originalForceColor);
+        }
+    }
+
     [Fact]
     public void TryResolveExtensionCore_ShouldPreferRootLeafOwner_WhenMultipleExtensionsShareVerb()
     {

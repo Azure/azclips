@@ -21,10 +21,7 @@ internal static class BundledDaemonResolver
     private static string? FindBundledExe()
     {
         var binaryName = OperatingSystem.IsWindows() ? "copilot.exe" : "copilot";
-        // The Copilot SDK stages native assets under portable OS/architecture
-        // RIDs even when CopilotCliBinaryPath points to a musl executable.
-        var rid = GetPortableRid()
-            ?? Path.GetFileName(RuntimeInformation.RuntimeIdentifier);
+        var rid = Path.GetFileName(RuntimeInformation.RuntimeIdentifier);
 
         // Path derived from AgentInstallLayout (packaged reads deps.json for the
         // referenced SDK version — a rolled-back build stays on its own version,
@@ -32,23 +29,5 @@ internal static class BundledDaemonResolver
         // runtimes/<rid>/native/ next to the exe.
         var path = Path.Combine(AgentInstallLayout.SdkNativeDir(rid), binaryName);
         return File.Exists(path) ? path : null;
-    }
-
-    private static string? GetPortableRid()
-    {
-        string os;
-        if (OperatingSystem.IsWindows()) os = "win";
-        else if (OperatingSystem.IsLinux()) os = "linux";
-        else if (OperatingSystem.IsMacOS()) os = "osx";
-        else return null;
-
-        var arch = RuntimeInformation.OSArchitecture switch
-        {
-            Architecture.X64 => "x64",
-            Architecture.Arm64 => "arm64",
-            _ => null,
-        };
-
-        return arch is null ? null : $"{os}-{arch}";
     }
 }
