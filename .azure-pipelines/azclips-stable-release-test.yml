@@ -21,8 +21,6 @@ variables:
   value: ${{ variables.esrp_service_connection }}
 - name: MacOSBundleId
   value: ${{ variables.macos_bundle_id }}
-- name: DockerVersion
-  value: '0.1.1'
 - name: DockerCliRegistryName
   value: azurecli3
 - name: DockerCliRegistryServer
@@ -55,18 +53,11 @@ stages:
         set -euo pipefail
 
         source_version="$(Build.SourceVersion)"
-        docker_version="$DOCKER_VERSION"
         echo "Build.SourceBranch=$(Build.SourceBranch)"
         echo "Build.SourceVersion=$source_version"
-        echo "Docker test version=$docker_version"
 
         if [[ "$(Build.Reason)" != "Manual" ]]; then
           echo "ERROR: azclips-stable-release-test must be started manually."
-          exit 1
-        fi
-
-        if [[ ! "$docker_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-          echo "ERROR: docker_version must be SemVer-like. Got: $docker_version"
           exit 1
         fi
 
@@ -75,14 +66,12 @@ stages:
           exit 1
         fi
       displayName: Validate Docker Test Input
-      env:
-        DOCKER_VERSION: $(DockerVersion)
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
-    artifact_version_override: $(DockerVersion)
+    artifact_version_override: auto
     bump_type: patch
-    release_channel: stable
+    release_channel: source
     release_date: auto
     pr_number: auto
     sequence: auto
@@ -91,6 +80,7 @@ stages:
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
+    build_docker_images: false
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -150,4 +140,3 @@ stages:
     signed_artifact_name: ${{ variables.SignedArtifactName }}
     publication_environment: azclips-container-test
     promote_aliases: false
-    release_version: $(DockerVersion)

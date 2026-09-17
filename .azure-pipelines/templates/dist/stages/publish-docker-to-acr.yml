@@ -48,15 +48,16 @@ parameters:
 - name: promote_aliases
   type: boolean
   default: true
-- name: release_version
-  type: string
-  default: auto
 
 stages:
 - stage: BuildSignedDockerImages
   displayName: Build Docker Images From Signed Artifacts
-  dependsOn: ${{ parameters.dependency_stage }}
+  dependsOn:
+  - ${{ parameters.dependency_stage }}
+  - Init
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildSignedDockerImages
     displayName: Docker Image From Signed Distribution
@@ -131,11 +132,7 @@ stages:
 
     - script: |
         set -euo pipefail
-        version="$RELEASE_VERSION"
-        if [[ "$version" == "auto" ]]; then
-          source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
-          version="${source_tag%.*T*Z}"
-        fi
+        version="$ARTIFACT_VERSION"
         if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
           echo "ERROR: Docker image build requires a SemVer-like release version. Got: $version"
           exit 1
@@ -220,7 +217,7 @@ stages:
         echo "##vso[task.setvariable variable=ReleaseDockerOutputRoot]$output_root/Release/docker"
       displayName: Build And Validate Docker Image From Signed Distribution
       env:
-        RELEASE_VERSION: ${{ parameters.release_version }}
+        ARTIFACT_VERSION: $(ArtifactVersion)
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Docker Image From Signed Distribution
@@ -231,9 +228,13 @@ stages:
 
 - stage: PublishDockerImagesToAcr
   displayName: Publish Docker Images To ACR
-  dependsOn: BuildSignedDockerImages
+  dependsOn:
+  - BuildSignedDockerImages
+  - Init
   condition: succeeded()
   lockBehavior: sequential
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - deployment: PublishDockerImages
     displayName: Publish Versioned Docker Images
@@ -294,11 +295,7 @@ stages:
               scriptLocation: inlineScript
               inlineScript: |
                 set -euo pipefail
-                version="$RELEASE_VERSION"
-                if [[ "$version" == "auto" ]]; then
-                  source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
-                  version="${source_tag%.*T*Z}"
-                fi
+                version="$ARTIFACT_VERSION"
                 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
                   echo "ERROR: Docker publication requires a SemVer-like release version. Got: $version"
                   exit 1
@@ -316,7 +313,7 @@ stages:
                 METADATA_ROOT="$(Build.ArtifactStagingDirectory)/docker-publish-metadata" \
                 "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
             env:
-              RELEASE_VERSION: ${{ parameters.release_version }}
+              ARTIFACT_VERSION: $(ArtifactVersion)
               CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
               CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
               CLI_REPOSITORY: ${{ parameters.cli_repository }}
@@ -333,8 +330,12 @@ stages:
 
 - stage: VerifyPublishedDockerImages
   displayName: Verify Published Docker Images
-  dependsOn: PublishDockerImagesToAcr
+  dependsOn:
+  - PublishDockerImagesToAcr
+  - Init
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: VerifyPublishedDockerImages
     displayName: Published Docker Image
@@ -417,11 +418,7 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           set -euo pipefail
-          version="$RELEASE_VERSION"
-          if [[ "$version" == "auto" ]]; then
-            source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
-            version="${source_tag%.*T*Z}"
-          fi
+          version="$ARTIFACT_VERSION"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
             echo "ERROR: Docker verification requires a SemVer-like release version. Got: $version"
             exit 1
@@ -460,7 +457,7 @@ stages:
           SMOKE_TEST_SCRIPT="${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh" \
           "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
       env:
-        RELEASE_VERSION: ${{ parameters.release_version }}
+        ARTIFACT_VERSION: $(ArtifactVersion)
         CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
         CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
         CLI_REPOSITORY: ${{ parameters.cli_repository }}
@@ -476,9 +473,13 @@ stages:
 
 - stage: PromoteDockerImagesInAcr
   displayName: Promote Docker Image Aliases In ACR
-  dependsOn: VerifyPublishedDockerImages
+  dependsOn:
+  - VerifyPublishedDockerImages
+  - Init
   condition: and(succeeded(), eq(${{ parameters.promote_aliases }}, true))
   lockBehavior: sequential
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - deployment: PromoteDockerImages
     displayName: Promote Verified Docker Images
@@ -513,11 +514,7 @@ stages:
               scriptLocation: inlineScript
               inlineScript: |
                 set -euo pipefail
-                version="$RELEASE_VERSION"
-                if [[ "$version" == "auto" ]]; then
-                  source_tag="${BUILD_SOURCEBRANCH#refs/tags/v}"
-                  version="${source_tag%.*T*Z}"
-                fi
+                version="$ARTIFACT_VERSION"
                 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
                   echo "ERROR: Docker promotion requires a SemVer-like release version. Got: $version"
                   exit 1
@@ -534,7 +531,7 @@ stages:
                 METADATA_ROOT="$(Pipeline.Workspace)/docker-publish-metadata" \
                 "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
             env:
-              RELEASE_VERSION: ${{ parameters.release_version }}
+              ARTIFACT_VERSION: $(ArtifactVersion)
               CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
               CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
               CLI_REPOSITORY: ${{ parameters.cli_repository }}

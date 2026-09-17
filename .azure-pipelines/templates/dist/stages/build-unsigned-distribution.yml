@@ -35,6 +35,9 @@ parameters:
 - name: ps_modules_artifact_name
   type: string
   default: 'PSModules'
+- name: build_docker_images
+  type: boolean
+  default: true
 
 stages:
 - template: init-resolve-version.yml
@@ -96,7 +99,7 @@ stages:
   - Init
   - BuildLinux
   - BuildPSModules
-  condition: succeeded()
+  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true))
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
@@ -183,7 +186,7 @@ stages:
   dependsOn:
   - Init
   - BuildDockerAzureLinux3
-  condition: succeeded()
+  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true))
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
@@ -230,14 +233,15 @@ stages:
   - Init
   - BuildCommon
   - BuildLinux
-  - BuildDockerAzureLinux3
+  - ${{ if eq(parameters.build_docker_images, true) }}:
+    - BuildDockerAzureLinux3
+    - ValidateDockerAzureLinux3
   - BuildWindows
   - BuildMacOS
   - Test
   - Benchmark
   - BuildPSModules
   - ValidateLinux
-  - ValidateDockerAzureLinux3
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -246,14 +250,18 @@ stages:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
-    BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
+    ${{ if eq(parameters.build_docker_images, true) }}:
+      BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
+      ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
+    ${{ else }}:
+      BuildDockerResult: Succeeded
+      ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
@@ -263,3 +271,4 @@ stages:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       final_artifact_name: ${{ parameters.final_artifact_name }}
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      build_docker_images: ${{ parameters.build_docker_images }}
