@@ -207,12 +207,24 @@ public class RecordingSanitizerTests
     {
         string input =
             $"https://management.azure.com/subscriptions/sub/{operationPath}/eyJvcGVyYXRpb24iOiJkZWxldGUifQ" +
-            "?api-version=2025-04-01&t=123&c=certificate&s=signature&h=hash";
+            "?api-version=2025-04-01&t=123" +
+            "&c=MIIIJjCCBw6gAwIBAgIQQsgxla0MeyJ7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMg" +
+            "&s=Blz4IZVMAkTzpNTUjsP8zQv1uMZtfae9SpLcvcPZG5V84IiPVF7WQjMHjWzZb9loHtpzZz4YATj8AJFpioUjog" +
+            "&h=ioXPznzzuuVJqWfXc5s8ANTF7pMECBSDdFeFtXBbTL4";
 
         Assert.Equal(
             $"https://management.azure.com/subscriptions/sub/{operationPath}/sanitized-operation-token" +
-            "?api-version=2025-04-01&t=sanitized&c=sanitized&s=sanitized&h=sanitized",
+            "?api-version=2025-04-01&t=123&c=[redacted]&s=[redacted]&h=[redacted]",
             RecordingSanitizers.Default.Apply(input));
+    }
+
+    /// <summary>Short query values keep their meaning; only the long opaque blobs are redacted.</summary>
+    [Theory]
+    [InlineData("https://example.com/api?s=eastus&h=1&c=abc")]
+    [InlineData("https://management.azure.com/x?api-version=2025-07-01&t=639244416561017720")]
+    public void DefaultSanitizers_DoNotRedactShortQueryValues(string uri)
+    {
+        Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
     }
 
     [Fact]

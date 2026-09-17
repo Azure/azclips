@@ -27,7 +27,7 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("bearer-token", "Bearer\\s+[^\\s\"']+", "Bearer [redacted]"),
             // ARM long-running operations return opaque polling tokens and signed query parameters.
             new RegexSanitizer("operation-token", @"(?<=/operation(?:results|statuses)/)[A-Za-z0-9_\-%.=]+", "sanitized-operation-token"),
-            new RegexSanitizer("operation-url-signature", @"(?<=[?&][tcsh]=)[A-Za-z0-9_\-%.=]+", "sanitized"),
+            new RegexSanitizer("operation-url-signature", @"(?<=[?&](?:c|s|h)=)[A-Za-z0-9_\-%.=]{40,}", "[redacted]"),
             // vm create carries the admin password in the request body
             new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded

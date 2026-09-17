@@ -46,7 +46,7 @@ RULES = {
     "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
     "operation URL signature": re.compile(
-        r"/operation(?:results|statuses)/.*(?:\\u0026|[?&])[tcsh]="
+        r"/operation(?:results|statuses)/.*(?:\\u0026|[?&])[csh]="
         r"(?!sanitized(?:\\u0026|&|\"|\\|$))[A-Za-z0-9_\-%.=]+",
         re.IGNORECASE),
     "client secret": re.compile(Q + "client_secret" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
