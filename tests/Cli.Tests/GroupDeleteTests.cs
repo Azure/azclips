@@ -123,8 +123,9 @@ public class GroupDeleteTests
     }
 
     [Fact]
-    public async Task ProcessAsync_PollsAcceptedResponseToCompletion()
+    public async Task ProcessAsync_PollsAsyncOperationWithoutFinalGet()
     {
+        var pollingUri = new Uri("https://management.azure.com/operations/delete-1");
         var requests = new List<(HttpMethod Method, Uri? Uri)>();
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
@@ -132,7 +133,7 @@ public class GroupDeleteTests
             if (requests.Count == 1)
             {
                 var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
-                accepted.Headers.Location = new Uri("https://management.azure.com/operations/delete-1");
+                accepted.Headers.TryAddWithoutValidation("Azure-AsyncOperation", pollingUri.AbsoluteUri);
                 return accepted;
             }
 
@@ -149,9 +150,9 @@ public class GroupDeleteTests
 
         await processor.ProcessAsync();
 
-        Assert.Equal(3, pipeline.SendCount);
+        Assert.Equal(2, pipeline.SendCount);
         Assert.Equal(HttpMethod.Delete, requests[0].Method);
-        Assert.All(requests.Skip(1), request => Assert.Equal(HttpMethod.Get, request.Method));
+        Assert.Equal((HttpMethod.Get, pollingUri), requests[1]);
     }
 
     [Fact]

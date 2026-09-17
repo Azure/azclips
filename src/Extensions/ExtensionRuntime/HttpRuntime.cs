@@ -37,7 +37,11 @@ public static class HttpRuntime
             HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
             await publisher.Publish(Events.TracingHttpResponseMessage, response);
             // declared final-state-via: location
-            var _finalUri = string.IsNullOrEmpty(getFinalUri(response)) ? _originalUri : getFinalUri(response);
+            var _finalUri = getFinalUri(response);
+            if (string.IsNullOrEmpty(_finalUri) && request.Method != HttpMethod.Delete)
+            {
+                _finalUri = _originalUri;
+            }
             var _asyncOperationUri = getAsyncOperationUri(response);
             var _locationUri = getLocationUri(response);
             var _operationLocationUri = getOperationLocationUri(response);

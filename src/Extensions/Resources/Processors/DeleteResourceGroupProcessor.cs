@@ -27,8 +27,7 @@ public class DeleteResourceGroupProcessor : ResourcesProcessorBase<object, objec
             : $"{uri}&forceDeletionTypes={Uri.EscapeDataString(ForceDeletionTypes)}";
     }
 
-    protected override Func<HttpResponseMessage, string?> GetFinalUri =>
-        response => response.GetFirstHeader("Location");
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
 
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri =>
         response => response.GetFirstHeader("Operation-Location");

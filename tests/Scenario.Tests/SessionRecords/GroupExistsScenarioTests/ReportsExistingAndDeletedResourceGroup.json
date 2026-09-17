@@ -31,13 +31,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "8a432757-a9d2-402d-ba94-44fe2c7e62fc"
+            "e8145792-060c-4842-9886-4cf24d01137e"
           ],
           "x-ms-correlation-request-id": [
-            "8a432757-a9d2-402d-ba94-44fe2c7e62fc"
+            "e8145792-060c-4842-9886-4cf24d01137e"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIASOUTHEAST:20260917T064054Z:8a432757-a9d2-402d-ba94-44fe2c7e62fc"
+            "AUSTRALIASOUTHEAST:20260917T073912Z:e8145792-060c-4842-9886-4cf24d01137e"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -49,10 +49,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 436B9E4A7CB14EEBA20893FA312A6987 Ref B: SYD281080705031 Ref C: 2026-09-17T06:40:49Z"
+            "Ref A: E93F5812571741A688C712AB0C07DA8D Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:05Z"
           ],
           "Date": [
-            "Thu, 17 Sep 2026 06:40:53 GMT"
+            "Thu, 17 Sep 2026 07:39:11 GMT"
           ]
         },
         "contentHeaders": {
@@ -88,13 +88,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "cc831b34-5b5a-4a27-9add-47ab4b09da41"
+            "9a9ea1bc-1934-4614-b55c-28b5b685b189"
           ],
           "x-ms-correlation-request-id": [
-            "cc831b34-5b5a-4a27-9add-47ab4b09da41"
+            "9a9ea1bc-1934-4614-b55c-28b5b685b189"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20260917T064055Z:cc831b34-5b5a-4a27-9add-47ab4b09da41"
+            "WESTUS2:20260917T073912Z:9a9ea1bc-1934-4614-b55c-28b5b685b189"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -106,10 +106,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 4371F4C9D9154BDCAB206FDECAA6381A Ref B: SYD281080705031 Ref C: 2026-09-17T06:40:54Z"
+            "Ref A: 44D265E4ECE442E4A848CD62B5EAD328 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:12Z"
           ],
           "Date": [
-            "Thu, 17 Sep 2026 06:40:54 GMT"
+            "Thu, 17 Sep 2026 07:39:11 GMT"
           ]
         },
         "contentHeaders": {
@@ -148,13 +148,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "3d0e0554-cb71-4616-932d-c20b40d29979"
+            "b86e75fd-c249-4991-a792-d260e3f73e7f"
           ],
           "x-ms-correlation-request-id": [
-            "3d0e0554-cb71-4616-932d-c20b40d29979"
+            "b86e75fd-c249-4991-a792-d260e3f73e7f"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20260917T064055Z:3d0e0554-cb71-4616-932d-c20b40d29979"
+            "WESTUS2:20260917T073913Z:b86e75fd-c249-4991-a792-d260e3f73e7f"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -166,10 +166,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 11FFEEFCD30540C09A2026F13FEBD748 Ref B: SYD281080705031 Ref C: 2026-09-17T06:40:55Z"
+            "Ref A: 9C8DE90C0560422382A973D2CC7F9FC1 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:12Z"
           ],
           "Date": [
-            "Thu, 17 Sep 2026 06:40:54 GMT"
+            "Thu, 17 Sep 2026 07:39:12 GMT"
           ]
         },
         "contentHeaders": {
@@ -202,13 +202,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "60c72641-ccea-491c-a6e3-a29628f79d46"
+            "971a2916-cd78-4aba-bcca-064854b0c827"
           ],
           "x-ms-correlation-request-id": [
-            "60c72641-ccea-491c-a6e3-a29628f79d46"
+            "971a2916-cd78-4aba-bcca-064854b0c827"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260917T064112Z:60c72641-ccea-491c-a6e3-a29628f79d46"
+            "AUSTRALIAEAST:20260917T073929Z:971a2916-cd78-4aba-bcca-064854b0c827"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -220,64 +220,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 6FAF4747D4EA4570BF74156E5AF5B869 Ref B: SYD281080705031 Ref C: 2026-09-17T06:41:10Z"
+            "Ref A: 08A89B6C36344988A29ECD9201594C40 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:28Z"
           ],
           "Date": [
-            "Thu, 17 Sep 2026 06:41:11 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": ""
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=sanitized\u0026c=sanitized\u0026s=sanitized\u0026h=sanitized",
-        "headers": {}
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-throttling-version": [
-            "v2"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-request-id": [
-            "f78d5ff4-3f51-4bab-be96-7c35ac6015c5"
-          ],
-          "x-ms-correlation-request-id": [
-            "f78d5ff4-3f51-4bab-be96-7c35ac6015c5"
-          ],
-          "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260917T064113Z:f78d5ff4-3f51-4bab-be96-7c35ac6015c5"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: A38FBAC73EEE45A188B056C55F2902EF Ref B: SYD281080705031 Ref C: 2026-09-17T06:41:12Z"
-          ],
-          "Date": [
-            "Thu, 17 Sep 2026 06:41:12 GMT"
+            "Thu, 17 Sep 2026 07:39:28 GMT"
           ]
         },
         "contentHeaders": {
@@ -313,13 +259,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "4dc3739c-4289-47e2-8f9d-5c7abd2544d0"
+            "94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
           ],
           "x-ms-correlation-request-id": [
-            "4dc3739c-4289-47e2-8f9d-5c7abd2544d0"
+            "94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIASOUTHEAST:20260917T064115Z:4dc3739c-4289-47e2-8f9d-5c7abd2544d0"
+            "AUSTRALIASOUTHEAST:20260917T073931Z:94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -331,10 +277,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 5EA7829D74FA4AE7BA93DD17FA26C17E Ref B: SYD281080705031 Ref C: 2026-09-17T06:41:13Z"
+            "Ref A: 53A80E5B4864450189F679EACAC4F88C Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:29Z"
           ],
           "Date": [
-            "Thu, 17 Sep 2026 06:41:14 GMT"
+            "Thu, 17 Sep 2026 07:39:30 GMT"
           ]
         },
         "contentHeaders": {
