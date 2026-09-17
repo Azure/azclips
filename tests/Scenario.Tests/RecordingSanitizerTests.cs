@@ -200,6 +200,21 @@ public class RecordingSanitizerTests
         Assert.Contains(expectedFragment, RecordingSanitizers.Default.Apply(input), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("operationresults")]
+    [InlineData("operationstatuses")]
+    public void DefaultSanitizers_ReplaceArmOperationTokensAndSignatures(string operationPath)
+    {
+        string input =
+            $"https://management.azure.com/subscriptions/sub/{operationPath}/eyJvcGVyYXRpb24iOiJkZWxldGUifQ" +
+            "?api-version=2025-04-01&t=123&c=certificate&s=signature&h=hash";
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/sub/{operationPath}/sanitized-operation-token" +
+            "?api-version=2025-04-01&t=sanitized&c=sanitized&s=sanitized&h=hash",
+            RecordingSanitizers.Default.Apply(input));
+    }
+
     [Fact]
     public void DefaultSanitizers_DropTheAzureOpenAiKeyHeader()
     {
