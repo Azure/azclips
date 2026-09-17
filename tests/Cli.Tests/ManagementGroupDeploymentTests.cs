@@ -327,24 +327,55 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task Cancel_SendsPostToCancelAction()
+    public async Task Cancel_SendsExpectedRequestAndProducesNoOutput()
     {
-        HttpRequestMessage? sent = null;
+        HttpMethod? sentMethod = null;
+        string? sentUri = null;
+        bool hadContent = true;
         FakeHttpPipeline pipeline = new((request, _) =>
         {
-            sent = request;
+            sentMethod = request.Method;
+            sentUri = request.RequestUri!.AbsoluteUri;
+            hadContent = request.Content is not null;
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         });
+        FakeOutputHandler output = new();
         CancelAtManagementGroupScopeDeploymentsProcessor processor =
-            CreateProcessor(new CancelAtManagementGroupScopeDeploymentsProcessor(), pipeline, new FakeOutputHandler());
+            CreateProcessor(new CancelAtManagementGroupScopeDeploymentsProcessor(), pipeline, output);
         processor.ManagementGroupId = "test-management-group";
-        processor.Name = "test-deployment";
+        processor.Name = "deployment_(blue)";
 
         await processor.ProcessAsync();
 
-        Assert.NotNull(sent);
-        Assert.Equal(HttpMethod.Post, sent.Method);
-        Assert.EndsWith("/deployments/test-deployment/cancel", sent.RequestUri!.AbsolutePath);
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(HttpMethod.Post, sentMethod);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Management/managementGroups/test-management-group/providers/Microsoft.Resources/deployments/deployment_%28blue%29/cancel?api-version=2025-04-01",
+            sentUri);
+        Assert.False(hadContent);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Cancel_ArmFailureIsSurfacedWithoutOutput()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json(
+                """{"error":{"code":"DeploymentNotActive","message":"The deployment is not active."}}""",
+                HttpStatusCode.Conflict));
+        FakeOutputHandler output = new();
+        CancelAtManagementGroupScopeDeploymentsProcessor processor =
+            CreateProcessor(new CancelAtManagementGroupScopeDeploymentsProcessor(), pipeline, output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        HttpRequestException exception =
+            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+        Assert.Contains("DeploymentNotActive", exception.Message);
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
