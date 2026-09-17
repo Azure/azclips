@@ -23,6 +23,10 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("authority-tenant-id", $"(?<=login\\.microsoftonline\\.com/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("tenant-id", $"(?<=\"tenantId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("principal-id", $"(?<=\"principalId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
+            // ARM async-operation URLs carry an opaque signed blob (c=certificate, s=signature,
+            // h=hash). It is not a credential, but it trips the JWT rule in the pre-merge secret
+            // scan and adds tens of kilobytes of churn to every recorded poll.
+            new RegexSanitizer("arm-operation-signature", "(?<=[?&](?:c|s|h)=)[A-Za-z0-9_\\-%.]{40,}", "[redacted]"),
             new RegexSanitizer("client-id", $"(?<=\"clientId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("bearer-token", "Bearer\\s+[^\\s\"']+", "Bearer [redacted]"),
             // vm create carries the admin password in the request body

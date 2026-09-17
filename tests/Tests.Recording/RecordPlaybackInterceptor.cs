@@ -149,7 +149,10 @@ public sealed class RecordPlaybackInterceptor(
             for (int i = 0; i < SessionRecord.Entries.Count; i++)
             {
                 var entry = SessionRecord.Entries[i];
-                if (!_consumed.Contains(i) && _matcher.Matches(entry.Request, snapshot))
+                // Sanitise the recorded side too. Sanitising is idempotent, so this is a no-op for
+                // entries recorded under the current rule set, and it keeps recordings captured
+                // before a rule was added replayable instead of forcing a re-record.
+                if (!_consumed.Contains(i) && _matcher.Matches(_sanitizers.Sanitize(entry.Request), snapshot))
                 {
                     _consumed.Add(i);
                     onConsumed?.Invoke(i);

@@ -35,6 +35,13 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         typeof(Microsoft.Azure.Azclips.Extensions.Identity.ExtensionIndex).Assembly,
         "identity",
         ["create", "list", "show", "update", "delete"]);
+
+    public static readonly ExtensionUnderTest Network = new(
+        "Network",
+        "Microsoft.Azure.Azclips.Extensions.Network",
+        typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
+        "network",
+        ["vnet create", "vnet show", "vnet list", "vnet delete"]);
 }
 
 /// <summary>

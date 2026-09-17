@@ -10,6 +10,7 @@
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/Identity/Extensions.Identity.csproj" />
+    <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
     <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <!-- The PowerShell surface's argument-parsing provider lives in the Accounts cmdlet module
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
