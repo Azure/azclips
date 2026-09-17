@@ -27,6 +27,31 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Remove-DirectoryWithRetry {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [int]$MaxAttempts = 10,
+
+    [int]$DelayMilliseconds = 500
+  )
+
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+      return
+    }
+    catch {
+      if ($attempt -eq $MaxAttempts) {
+        throw
+      }
+      Write-Verbose "Remove attempt $attempt failed for '$Path': $($_.Exception.Message)"
+      Start-Sleep -Milliseconds $DelayMilliseconds
+    }
+  }
+}
+
 if ($PSBoundParameters.ContainsKey('ArchivePath') -and [string]::IsNullOrWhiteSpace($ArchivePath)) {
   throw 'ArchivePath requires a path.'
 }
@@ -146,7 +171,7 @@ try {
     throw "Extracted 'az.exe --help' did not exit cleanly."
   }
 
-  if (Test-Path $InstallRoot) { Remove-Item -Recurse -Force $InstallRoot }
+  if (Test-Path $InstallRoot) { Remove-DirectoryWithRetry -Path $InstallRoot }
   Move-Item -Path $stageRoot -Destination $InstallRoot
   $stageRoot = $null
 }

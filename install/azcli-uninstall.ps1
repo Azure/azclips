@@ -16,6 +16,31 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Remove-DirectoryWithRetry {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [int]$MaxAttempts = 10,
+
+    [int]$DelayMilliseconds = 500
+  )
+
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+      return
+    }
+    catch {
+      if ($attempt -eq $MaxAttempts) {
+        throw
+      }
+      Write-Verbose "Remove attempt $attempt failed for '$Path': $($_.Exception.Message)"
+      Start-Sleep -Milliseconds $DelayMilliseconds
+    }
+  }
+}
+
 # InstallRoot is the fixed default; the AZCLI_INSTALL_ROOT env override is internal.
 $InstallRoot = if ($env:AZCLI_INSTALL_ROOT) { $env:AZCLI_INSTALL_ROOT } else { "$env:LOCALAPPDATA\Programs\azcli" }
 
@@ -30,7 +55,7 @@ Write-Host "Install root: $InstallRoot"
 # 1. Remove the install directory.
 if (Test-Path $InstallRoot) {
   if ((Test-Path (Join-Path $InstallRoot 'az.exe')) -or $Force) {
-    Remove-Item -Recurse -Force $InstallRoot
+    Remove-DirectoryWithRetry -Path $InstallRoot
     Write-Host "Removed $InstallRoot"
   }
   else {

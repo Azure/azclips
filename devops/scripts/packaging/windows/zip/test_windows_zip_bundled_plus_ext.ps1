@@ -37,7 +37,13 @@ function Assert-InstallFailure {
         if ($_.Exception.Message -like 'FAIL:*unexpectedly succeeded.*') {
             throw
         }
-        $failureText = $_ | Out-String
+        $exceptionMessages = @()
+        $currentException = $_.Exception
+        while ($null -ne $currentException) {
+            $exceptionMessages += $currentException.Message
+            $currentException = $currentException.InnerException
+        }
+        $failureText = (@($_ | Out-String) + $exceptionMessages) -join [Environment]::NewLine
         if ($failureText -notmatch $ExpectedPattern) {
             throw "FAIL: $Description did not report the expected error. Actual error: $failureText"
         }
@@ -392,13 +398,12 @@ if ($runRuntime) {
 
     Write-Host ''
     Write-Host '[9/15] Verify Resources appears in extension list JSON'
-    $listOutput = & $azExe extension list --output json 2>&1
+    $listOutput = & $azExe extension list --output json 2>$null
     $listExitCode = $LASTEXITCODE
-    $listText = $listOutput | Out-String
     if ($listExitCode -ne 0) {
         throw "FAIL: extension list exited with code $listExitCode."
     }
-    $listJson = ($listOutput | Where-Object { $_ -notmatch '^(VERBOSE|DEBUG|INFO):' }) -join [Environment]::NewLine
+    $listJson = $listOutput -join [Environment]::NewLine
     $listedResources = @($listJson | ConvertFrom-Json) | Where-Object packageId -eq 'Microsoft.Azure.Azclips.Extensions.Resources'
     if ($listedResources.Count -ne 1 -or [string]::IsNullOrWhiteSpace($listedResources[0].selectedVersion)) {
         throw 'FAIL: extension list JSON did not contain one Resources package with a selected version.'
@@ -407,12 +412,12 @@ if ($runRuntime) {
 
     Write-Host ''
     Write-Host '[10/15] Verify Resources appears in extension show JSON'
-    $showOutput = & $azExe extension show --name Resources --output json 2>&1
+    $showOutput = & $azExe extension show --name Resources --output json 2>$null
     $showExitCode = $LASTEXITCODE
     if ($showExitCode -ne 0) {
         throw "FAIL: extension show exited with code $showExitCode."
     }
-    $showJson = ($showOutput | Where-Object { $_ -notmatch '^(VERBOSE|DEBUG|INFO):' }) -join [Environment]::NewLine
+    $showJson = $showOutput -join [Environment]::NewLine
     $shownResources = $showJson | ConvertFrom-Json
     if ($shownResources.packageId -ne 'Microsoft.Azure.Azclips.Extensions.Resources' -or [string]::IsNullOrWhiteSpace($shownResources.location)) {
         throw 'FAIL: extension show JSON did not contain the Resources package and location.'
