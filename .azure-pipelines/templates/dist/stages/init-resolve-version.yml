@@ -19,7 +19,6 @@ parameters:
   default: 'auto'
 - name: ubuntu_pool
   type: string
-  default: 'pool-ubuntu-2204'
 
 stages:
 - stage: Init
@@ -34,7 +33,6 @@ stages:
       clean: true
       fetchDepth: 0
       persistCredentials: true
-      retryCountOnTaskFailure: 3
     - task: UseDotNet@2
       displayName: .NET SDK
       inputs:

@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'pool-ubuntu-2204'
 - name: final_artifact_name
   type: string
   default: 'Final_Build_Distribution'
@@ -18,7 +17,6 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 1
-    retryCountOnTaskFailure: 3
 
   - script: |
       echo "BuildCommon: $(BuildCommonResult)"

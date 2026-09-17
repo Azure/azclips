@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'pool-ubuntu-2204'
 - name: SourceProject
   type: string
   default: 'public'

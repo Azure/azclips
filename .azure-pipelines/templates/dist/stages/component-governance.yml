@@ -7,7 +7,6 @@ parameters:
   default: Component Governance
 - name: windows_pool
   type: string
-  default: 'pool-windows-2022'
 - name: depends_on
   type: object
   default: []
@@ -29,7 +28,6 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 0
-      retryCountOnTaskFailure: 3
 
     - task: PowerShell@2
       displayName: Prepare Compliance Results Directory
