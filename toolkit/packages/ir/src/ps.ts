@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, serializeId, type IRId } from "./id.js";
+import { idEquals, IRIdSchema, type IRId } from "./id.js";
 
 // ─── Shared sub-shapes ───────────────────────────────────────────────────
 
@@ -250,9 +250,8 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
     // A set is backed by one of the operations the command was merged from. Several sets may
     // share an operation (one operation fans out into base/Expanded/ViaIdentity variants), so
     // this is containment rather than a pairing.
-    const sourceIds = new Set(command.sourceOperationIds.map(serializeId));
     command.parameterSets.forEach((set, index) => {
-      if (!sourceIds.has(serializeId(set.sourceOperationId))) {
+      if (!command.sourceOperationIds.some((sourceId) => idEquals(sourceId, set.sourceOperationId))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["parameterSets", index, "sourceOperationId"],

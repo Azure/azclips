@@ -79,6 +79,26 @@ describe("PSCommandAttribute", () => {
     expect(result.error.issues[0]?.message).toMatch(/not in the command's sourceOperationIds/);
   });
 
+  it("compares claimed operations structurally instead of by serialized display text", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        sourceOperationIds: [{ module: "M", namespace: [], name: "A<[M2] x>" }],
+        parameterSets: [{
+          name: "CreateOrUpdate",
+          sourceOperationId: {
+            module: "M",
+            namespace: [],
+            name: "A",
+            typeArgs: [{ module: "M2", namespace: [], name: "x" }],
+          },
+        }],
+      }),
+    );
+    expect(result.success).toBe(false);
+    assert(!result.success);
+    expect(result.error.issues[0]?.path).toEqual(["parameterSets", 0, "sourceOperationId"]);
+  });
+
   it("accepts nested parameters that reference a declared set", () => {
     const result = PSCommandAttributeSchema.safeParse(
       command({

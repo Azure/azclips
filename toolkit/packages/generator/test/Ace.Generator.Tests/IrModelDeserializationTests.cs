@@ -49,6 +49,61 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
+    public void IRDocument_Ps_RoundTripsCommandsAndOpenParameterSetsMap()
+    {
+        IRDocument document = Parse<IRDocument>(
+            """
+            {
+              "schemaVersion": "0.8.0",
+              "sources": [
+                { "id": "M", "server": { "module": "M", "namespace": ["Contoso"], "name": "server" } }
+              ],
+              "ps": {
+                "commands": [
+                  {
+                    "verb": "Get",
+                    "noun": "AzWidget",
+                    "subject": "Widget",
+                    "supportsShouldProcess": false,
+                    "outputTypes": [],
+                    "parameterSets": [
+                      { "name": "Get", "sourceOperationId": { "module": "M", "namespace": ["Contoso"], "name": "get" } }
+                    ],
+                    "parameters": [
+                      {
+                        "name": "Name",
+                        "sourceParameterId": { "module": "M", "namespace": ["Contoso"], "name": "get.name" },
+                        "parameterSets": {
+                          "Get": { "mandatory": true, "position": 0 },
+                          "GetViaIdentity": { "mandatory": false }
+                        }
+                      }
+                    ],
+                    "defaultParameterSetName": "Get",
+                    "sourceOperationIds": [{ "module": "M", "namespace": ["Contoso"], "name": "get" }]
+                  }
+                ],
+                "modules": []
+              }
+            }
+            """);
+
+        IRDocument roundTripped = Parse<IRDocument>(JsonSerializer.Serialize(document, IrJson.Options));
+
+        PSCommandAttribute command = Assert.Single(roundTripped.Ps!.Commands);
+        Assert.Equal("Get", command.Verb);
+        Assert.Equal("AzWidget", command.Noun);
+        PSParameterAttribute parameter = Assert.Single(command.Parameters);
+        // The open map is the point of the test: a dictionary keyed by parameter-set name,
+        // not a fixed shape, so every key must survive the round trip untouched.
+        Assert.NotNull(parameter.ParameterSets);
+        Assert.Equal(2, parameter.ParameterSets!.Count);
+        Assert.True(parameter.ParameterSets["Get"].Mandatory);
+        Assert.Equal(0, parameter.ParameterSets["Get"].Position);
+        Assert.False(parameter.ParameterSets["GetViaIdentity"].Mandatory);
+    }
+
+    [Fact]
     public void IRId_AbsentInterface_IsNotInferredFromNamespace()
     {
         IRId id = Parse<IRId>(
