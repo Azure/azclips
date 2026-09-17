@@ -29,6 +29,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
         public bool AddProxyAgentExtension { get; set; } = false;
+        public bool AdditionalScheduledEvents { get; set; } = false;
 
         protected override HttpMethod Method => HttpMethod.Put;
 
@@ -79,6 +80,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         {
                             AddProxyAgentExtension = AddProxyAgentExtension
                         }
+                    },
+                    ScheduledEventsPolicy = new ScheduledEventsPolicy
+                    {
+                        ScheduledEventsAdditionalPublishingTargets = new ScheduledEventsAdditionalPublishingTargets
+                        {
+                            EventGridAndResourceGraph = new EventGridAndResourceGraph
+                            {
+                                Enable = AdditionalScheduledEvents
+                            }
+                        },
                     },
                     DiagnosticsProfile = new DiagnosticsProfile
                     {

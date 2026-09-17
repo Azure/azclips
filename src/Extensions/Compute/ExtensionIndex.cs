@@ -40,8 +40,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["VTpmEnabled"]            = new("VTpmEnabled", "VTpmEnabled", typeof(bool), "Whether vTPM is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["BootDiagnosticsEnabled"] = new("BootDiagnosticsEnabled", "BootDiagnosticsEnabled", typeof(bool), "Whether boot diagnostics is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AddProxyAgentExtension"] = new("AddProxyAgentExtension", "AddProxyAgentExtension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["AddProxyAgentExt"], AllowedValues: []),
+                ["AdditionalScheduledEvents"] = new("AdditionalScheduledEvents", "AdditionalScheduledEvents", typeof(bool), "The configuration parameter used while creating event grid and resource graph scheduled event setting.", IsRequired: false, Aliases: ["AdditionalEvents"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["AddProxyAgentExt"] = "AddProxyAgentExtension" }
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["AddProxyAgentExt"] = "AddProxyAgentExtension",
+                ["AdditionalEvents"] = "AdditionalScheduledEvents",
+            }
         );
         private static readonly CommandMetadata s_getVM_PS = new(
             Name: "GetVMProcessor",
@@ -136,8 +141,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AddProxyAgentExtension"]         = new("AddProxyAgentExtension", "AddProxyAgentExtension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["AddProxyAgentExt"], AllowedValues: []),
+                ["AdditionalScheduledEvents"] = new("AdditionalScheduledEvents", "AdditionalScheduledEvents", typeof(bool), "The configuration parameter used while creating event grid and resource graph scheduled event setting.", IsRequired: false, Aliases: ["AdditionalEvents"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["AddProxyAgentExt"] = "AddProxyAgentExtension" }
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["AddProxyAgentExt"] = "AddProxyAgentExtension",
+                ["AdditionalEvents"] = "AdditionalScheduledEvents",
+            }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
@@ -230,8 +240,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["vtpm-enabled"]             = new("VTpmEnabled", "vtpm-enabled", typeof(bool), "Whether vTPM is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["boot-diagnostics-enabled"] = new("BootDiagnosticsEnabled", "boot-diagnostics-enabled", typeof(bool), "Whether boot diagnostics is enabled.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["add-proxy-agent-extension"] = new("AddProxyAgentExtension", "add-proxy-agent-extension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["add-proxy-agent-ext"], AllowedValues: []),
+                ["additional-scheduled-events"] = new("AdditionalScheduledEvents", "additional-scheduled-events", typeof(bool), "The configuration parameter used while creating event grid and resource graph scheduled event setting.", IsRequired: false, Aliases: ["additional-events"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["add-proxy-agent-ext"] = "add-proxy-agent-extension" }
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["add-proxy-agent-ext"] = "add-proxy-agent-extension",
+                ["additional-events"] = "additional-scheduled-events",
+            }
         );
         private static readonly CommandMetadata s_getVM_CLI = new(
             Name: "GetVMProcessor",
@@ -372,8 +387,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["add-proxy-agent-extension"]        = new("AddProxyAgentExtension", "add-proxy-agent-extension", typeof(bool), "Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.", IsRequired: false, Aliases: ["add-proxy-agent-ext"], AllowedValues: []),
+                ["additional-scheduled-events"] = new("AdditionalScheduledEvents", "additional-scheduled-events", typeof(bool), "The configuration parameter used while creating event grid and resource graph scheduled event setting.", IsRequired: false, Aliases: ["additional-events"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["add-proxy-agent-ext"] = "add-proxy-agent-extension" }
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["add-proxy-agent-ext"] = "add-proxy-agent-extension",
+                ["additional-events"] = "additional-scheduled-events",
+            }
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()

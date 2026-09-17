@@ -232,6 +232,55 @@ public class VmCreateOrchestrationTests
             => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
     }
 
+    [Fact]
+    public void AdditionalScheduledEvents_IsOffByDefault_AndOptIn()
+    {
+        // Default is false and should still be sent explicitly in the VM payload.
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(s_cliArgs));
+        }
+        Assert.Contains("\"eventGridAndResourceGraph\":{\"enable\":false", VmBody(record));
+
+        // Opt in via the full flag name.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. s_cliArgs, "--additional-scheduled-events", "true"]));
+        }
+        Assert.Contains("\"eventGridAndResourceGraph\":{\"enable\":true", VmBody(record));
+
+        // The short alias must bind to the same parameter.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. s_cliArgs, "--additional-events", "false"]));
+        }
+        Assert.Contains("\"eventGridAndResourceGraph\":{\"enable\":false", VmBody(record));
+
+        // PowerShell surface reaches the same payload shape.
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+            var parameters = PsParameters();
+            parameters["AdditionalScheduledEvents"] = true;
+            AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+        }
+        Assert.Contains("\"eventGridAndResourceGraph\":{\"enable\":true", VmBody(record));
+
+        static string VmBody(SessionRecord record)
+            => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));

@@ -75,6 +75,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public bool AddProxyAgentExtension { get; set; } = false;
 
+        public bool AdditionalScheduledEvents { get; set; } = false;
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
@@ -113,6 +115,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminPassword = AdminPassword;
                 p.NetworkInterfaceId = nic.Id;
                 p.AddProxyAgentExtension = AddProxyAgentExtension;
+                p.AdditionalScheduledEvents = AdditionalScheduledEvents;
              });
             return await vmProcessor.SendAsync();
         }

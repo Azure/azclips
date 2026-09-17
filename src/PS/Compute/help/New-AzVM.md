@@ -28,7 +28,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
  [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
  [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-AcceleratedNetworking]
- [-AddProxyAgentExtension] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AddProxyAgentExtension] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>][-AdditionalScheduledEvents]
 ```
 
 ## ALIASES
@@ -85,6 +85,28 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - AddProxyAgentExt
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -AdditionalScheduledEvents
+
+The configuration parameter used while creating event grid and resource graph scheduled event setting.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- AdditionalEvents
 ParameterSets:
 - Name: (All)
   Position: Named
