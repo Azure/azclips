@@ -55,38 +55,13 @@ public abstract class ConfigCommandBase : IProcessor
     protected async Task<Dictionary<string, ConfigValueView>> GetResolvedEntriesAsync(bool includeDefaults)
     {
         var configurationService = GetConfigurationService();
-        var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false, cancellationToken: CancellationToken).ConfigureAwait(false);
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
-        if (includeDefaults)
+        var snapshot = await configurationService.ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
+        foreach (var entry in snapshot)
         {
-            var valuesWithDefaults = await configurationService.ListConfigurationAsync(includeDefaults: true, cancellationToken: CancellationToken).ConfigureAwait(false);
-            foreach (var entry in valuesWithDefaults)
-            {
-                var source = fileValues.ContainsKey(entry.Key) ? "global config" : "default";
-                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, source);
-            }
-        }
-
-        foreach (var entry in fileValues)
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "global config");
-        }
-
-        foreach (var entry in GetEnvironmentOverrides())
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "environment");
-        }
-
-        return entries;
-    }
-
-    protected static IDictionary<string, object?> GetEnvironmentOverrides()
-    {
-        var entries = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (envVarName, configKey) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
-        {
-            AddEnvironment(entries, envVarName, configKey);
+            if (includeDefaults || entry.Value.Source != "default")
+                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value.Value, entry.Value.Source);
         }
 
         return entries;

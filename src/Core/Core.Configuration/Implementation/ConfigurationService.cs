@@ -146,6 +146,53 @@ public sealed class ConfigurationService(
         return results;
     }
 
+    public async Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+        var configured = Flatten(root);
+        var result = new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in BuildDefaultKeyValues())
+        {
+            result[entry.Key] = new ConfigurationValue(entry.Key, entry.Value, "default");
+        }
+
+        foreach (var entry in configured)
+        {
+            result[entry.Key] = new ConfigurationValue(entry.Key, entry.Value, "global config");
+        }
+
+        foreach (var (environmentVariable, key) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentVariable);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                result[key] = new ConfigurationValue(key, ParseEnvironmentValue(value), "environment");
+            }
+        }
+
+        return result;
+    }
+
+    private object? ParseEnvironmentValue(string value)
+    {
+        try
+        {
+            var parsed = JsonNode.Parse(value);
+            return parsed switch
+            {
+                JsonValue jsonValue => ConvertNodeToValue(jsonValue),
+                null => null,
+                _ => parsed
+            };
+        }
+        catch (JsonException)
+        {
+            return value;
+        }
+    }
+
     public async Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);

@@ -115,6 +115,21 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ListConfigurationWithSourcesAsync_ShouldReturnOneSourceAwareSnapshot()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("core.logging.level", "debug");
+        var values = await service.ListConfigurationWithSourcesAsync();
+
+        Assert.Equal("debug", values["core.logging.level"].Value);
+        Assert.Equal("global config", values["core.logging.level"].Source);
+        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
+        Assert.Equal("default", values["agent.sessionStyle"].Source);
+    }
+
+    [Fact]
     public async Task ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured()
     {
         using var fixture = new TempConfigurationFixture();
