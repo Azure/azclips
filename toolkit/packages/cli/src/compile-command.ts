@@ -17,12 +17,14 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
-  CSHARP_GENERATOR_ID,
+  createRegistry,
+  CSHARP_STAGE,
+  FLATTEN_MODEL_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
-  type GeneratorConfig,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
+import { flattenModelStep } from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,
@@ -30,6 +32,18 @@ import {
   type StagedProject,
 } from "./staging.js";
 import { createHostRuntime } from "./runtime.js";
+
+/**
+ * Implementations this host supplies for the compiler's declared stages.
+ *
+ * This is fulfilment, not orchestration: the compiler's catalog owns where
+ * `flatten-model` sits and whether it runs by default, and the host only
+ * provides the code behind the id. `tsp-emit` and `csharp` need no entry — they
+ * are external stages driven through the host runtime.
+ */
+const STAGE_IMPLEMENTATIONS = createRegistry({
+  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+});
 
 /** Usage/help text for `ace compile`. */
 export function usage(): string {
@@ -42,7 +56,10 @@ export function usage(): string {
     "Options:",
     "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
     "  --config <path>        Path to a JSON file of generation-time settings,",
-    "                         loaded as CompileInput.config (CompileConfig) (optional)",
+    "                         loaded as CompileInput.config (CompileConfig) (optional).",
+    "                         Its 'pipeline' flips compiler-declared stages on or off,",
+    "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
+    "                         'stageOptions' configures them by stage id.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
@@ -110,25 +127,33 @@ export async function runCompile(args: string[]): Promise<number> {
   // The backbone is host-agnostic and never reads from disk, so the CLI loads
   // the file here as CompileInput.config (a CompileConfig). --api-version is
   // sugar for config.apiVersion and takes precedence when both are given.
-  let config: Record<string, unknown> | undefined;
+  let config: CompileConfig = {};
   if (configPath !== undefined) {
     const loaded = await loadConfig(configPath);
     if (loaded === undefined) return 2; // diagnostic already written
-    config = loaded;
+    config = loaded as CompileConfig;
   }
   if (apiVersionArg !== undefined) {
-    config = { ...(config ?? {}), apiVersion: apiVersionArg };
+    config = { ...config, apiVersion: apiVersionArg };
   }
-  // --generator optionally overrides the compiler's default back end. Left unset,
-  // the backbone defaults to its built-in `csharp` generator — generated code is
-  // the product, so the pipeline always ends in a generator. --root-namespace is a
-  // csharp option; supplying it (even without --generator) targets that default.
-  if (generatorArg !== undefined || rootNamespaceArg !== undefined) {
-    const generator: GeneratorConfig = {
-      use: generatorArg ?? CSHARP_GENERATOR_ID,
-      ...(rootNamespaceArg !== undefined ? { options: { rootNamespace: rootNamespaceArg } } : {}),
+  // Orchestration stays compiler-owned, so these flags do not assemble a
+  // pipeline: --generator turns a generator *stage* on, and --root-namespace
+  // configures it through that stage's options.
+  const generatorStage = generatorArg ?? CSHARP_STAGE;
+  if (generatorArg !== undefined) {
+    config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
+  }
+  if (rootNamespaceArg !== undefined) {
+    config = {
+      ...config,
+      stageOptions: {
+        ...config.stageOptions,
+        [generatorStage]: {
+          ...config.stageOptions?.[generatorStage],
+          rootNamespace: rootNamespaceArg,
+        },
+      },
     };
-    config = { ...(config ?? {}), generator };
   }
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
@@ -151,10 +176,11 @@ export async function runCompile(args: string[]): Promise<number> {
   const result = await compile(
     {
       entrypoint: staged.entrypoint,
-      ...(config !== undefined ? { config: config as CompileConfig } : {}),
+      config,
     },
     {
       runtime: createHostRuntime(),
+      registry: STAGE_IMPLEMENTATIONS,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },

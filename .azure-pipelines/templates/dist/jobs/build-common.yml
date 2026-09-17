@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -12,12 +11,11 @@ jobs:
   displayName: CLI Common Output
   timeoutInMinutes: 30
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: UseDotNet@2
     displayName: .NET SDK

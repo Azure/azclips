@@ -11,6 +11,8 @@ namespace Ace.Generator.Tests;
 /// processor per operation, that every file is syntactically valid C#, and spot-check the
 /// request shape (base generic, URI, body, LRO send override). Output lands in
 /// <c>artifacts/ElasticSan_Processors/</c> for eyeballing.
+/// The historical capture's semantics were migrated to IR 0.11.0. Newly introduced
+/// declaration/SDK flags use fixture defaults; they are not a re-emission of the source.
 /// </summary>
 public sealed class ElasticSanProcessorTests
 {
@@ -54,6 +56,27 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
+    public async Task Regrouped_Operations_Use_Source_Interface_Names()
+    {
+        (GenerationResult result, _) = await EmitAsync("ElasticSan_Processors_Interfaces");
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Diagnostics);
+        foreach (string name in new[]
+        {
+            "RestoreVolumeProcessor",
+            "PreBackupVolumeGroupsProcessor",
+            "PreRestoreVolumeGroupsProcessor",
+            "ListByElasticSanElasticSansProcessor",
+            "GetSnapshotsProcessor",
+            "ListSkusOperationGroupProcessor",
+        })
+        {
+            Assert.Contains(name, result.GeneratedClasses.Keys);
+        }
+    }
+
+    [Fact]
     public async Task Create_Processor_Has_Body_Uri_And_Lro_Send()
     {
         (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Create");
@@ -70,7 +93,8 @@ public sealed class ElasticSanProcessorTests
         Assert.Contains("CreateRequestBody() => Body;", create);
         // Request seams: PUT method + interpolated URI (host, path members, api-version).
         Assert.Contains("Method => HttpMethod.Put;", create);
-        Assert.Contains("https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{ElasticSanName}?api-version=", create);
+        // The endpoint is not baked in: it interpolates the base's seam, defaulted from IR.
+        Assert.Contains("{Endpoint}/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{ElasticSanName}?api-version=", create);
         // Long-running -> final-state hook (strict from IR finalStateVia=location) + send override.
         Assert.Contains("GetFinalUri => response => response.GetFirstHeader(\"Location\");", create);
         Assert.Contains("SendAsync() => SendAsyncLRO();", create);
@@ -100,7 +124,7 @@ public sealed class ElasticSanProcessorTests
         Assert.Contains("public partial class ListByResourceGroupElasticSansProcessor : ProcessorBase<object, ElasticSanList>", list);
         Assert.Contains("Method => HttpMethod.Get;", list);
         Assert.DoesNotContain("SendAsyncLRO", list);
-        // Selectors from IR itemsPath/nextLinkPath (PascalCased) + the override calling the helper.
+        // Selectors from IR response-body bindings (PascalCased) + the runtime helper override.
         Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
         Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
         Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);

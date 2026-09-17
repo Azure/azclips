@@ -19,7 +19,7 @@ public sealed class InfoConfigCommand : ConfigCommandBase
         if (KeysOnly)
         {
             var keys = schema.GetAllKeys().Select(key => key.Key).OrderBy(key => key, StringComparer.OrdinalIgnoreCase);
-            await WriteOutput(Serialize(keys), CancellationToken).ConfigureAwait(false);
+            await WriteOutput(SerializeAsJsonValue(keys), CancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -37,6 +37,6 @@ public sealed class InfoConfigCommand : ConfigCommandBase
                 key.ValidationPattern,
                 key.IsUri
             });
-        await WriteOutput(Serialize(metadata), CancellationToken).ConfigureAwait(false);
+        await WriteOutput(SerializeAsJsonValue(metadata), CancellationToken).ConfigureAwait(false);
     }
 }

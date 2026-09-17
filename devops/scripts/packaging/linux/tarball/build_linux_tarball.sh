@@ -59,6 +59,10 @@ if [[ "$RID" == "linux-x64" ]]; then
   ASSET_RID="$(read_artifact_config linux_x64_label linux-x64)"
 elif [[ "$RID" == "linux-arm64" ]]; then
   ASSET_RID="$(read_artifact_config linux_arm64_label linux-arm64)"
+elif [[ "$RID" == "linux-musl-x64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_x64_label linux-musl-x64)"
+elif [[ "$RID" == "linux-musl-arm64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_musl_arm64_label linux-musl-arm64)"
 fi
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then

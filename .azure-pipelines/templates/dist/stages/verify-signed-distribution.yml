@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: dependency_stage
   type: object
   default: 'AssembleSignedArtifacts'
@@ -32,7 +31,7 @@ stages:
   - job: VerifySignedDistribution
     displayName: Verify Signed Distribution Assets
     pool:
-      vmImage: ${{ parameters.ubuntu_pool }}
+      name: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: none
 
@@ -170,7 +169,7 @@ stages:
 
           for stem in azcli-lean azcli; do
             [[ "$base" == "$stem"-* ]] || continue
-            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+            for label in linux-musl-x64 linux-musl-arm64 linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
               [[ "$base" == *-"$label" ]] || continue
               version="${base#"$stem"-}"
               version="${version%-"$label"}"

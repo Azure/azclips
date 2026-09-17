@@ -3,6 +3,7 @@
 
 using Core.Cli.Parser;
 using Core.Cli.Version;
+using Core.Abstractions;
 using Core.Extensions;
 using Xunit;
 
@@ -28,7 +29,7 @@ public class GlobalArgParserTests
         Assert.Null(result.Version);
         Assert.Empty(result.Positional);
         Assert.False(result.Debug);
-        Assert.Equal(OutputFormat.Plain, result.Output);
+        Assert.Null(result.Output);
         Assert.False(result.NoCache);
     }
 
@@ -37,8 +38,9 @@ public class GlobalArgParserTests
     [Theory]
     [InlineData("--help")]
     [InlineData("-h")]
+    [InlineData("-help")]
     [InlineData("-?")]
-    [InlineData("?")]
+    [InlineData("--?")]
     [InlineData("help")]
     [InlineData("--HELP")]
     public void Parse_TopLevelHelpToken_YieldsRootHelp_WithoutBareFlag(string token)
@@ -80,15 +82,16 @@ public class GlobalArgParserTests
     }
 
     [Theory]
-    [InlineData("?")]
     [InlineData("-?")]
+    [InlineData("--?")]
     [InlineData("-h")]
     [InlineData("--help")]
+    [InlineData("-help")]
     public void Parse_HelpSubcommandSkipsHelpTokensInsteadOfTreatingThemAsPath(string helpToken)
     {
-        // Pre-refactor `StripHelpFlags` removed all help tokens (`?`, `-?`, `-h`, `--help`) from the
-        // tail of an `az help ...` subcommand invocation. `az help group ?` must yield group help
-        // for "group", not a bogus command-help request for "group ?".
+        // Pre-refactor `StripHelpFlags` removed all help tokens from the tail of an `az help ...`
+        // subcommand invocation. `az help group -?` must yield group help for "group", not a bogus
+        // command-help request for "group -?".
         var result = GlobalArgParser.Parse(new[] { "help", "group", helpToken });
 
         Assert.NotNull(result.Help);
@@ -104,6 +107,19 @@ public class GlobalArgParserTests
         Assert.Equal(new[] { "group" }, result.Help!.Path);
     }
 
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("-help")]
+    [InlineData("-?")]
+    [InlineData("--?")]
+    public void Parse_TrailingHelpFlagAliasOnGroup_YieldsGroupHelpPath(string helpToken)
+    {
+        var result = GlobalArgParser.Parse(new[] { "group", helpToken });
+
+        Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "group" }, result.Help!.Path);
+    }
+
     [Fact]
     public void Parse_TrailingHelpFlagOnCommand_YieldsCommandHelpPath()
     {
@@ -111,6 +127,39 @@ public class GlobalArgParserTests
 
         Assert.NotNull(result.Help);
         Assert.Equal(new[] { "group", "cmd" }, result.Help!.Path);
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-help")]
+    [InlineData("-?")]
+    [InlineData("--?")]
+    public void Parse_HelpFlagAfterCommandOption_YieldsCommandHelpPath(string helpToken)
+    {
+        var result = GlobalArgParser.Parse(new[] { "group", "list", "--subscription-id", "abc", helpToken });
+
+        Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "group", "list" }, result.Help!.Path);
+    }
+
+    [Fact]
+    public void Parse_BareQuestionMark_IsNotTreatedAsHelp()
+    {
+        // `?` was removed as a help alias; a future alias-list edit must not silently restore it.
+        var result = GlobalArgParser.Parse(new[] { "?" });
+
+        Assert.Null(result.Help);
+        Assert.Equal(new[] { "?" }, result.Positional);
+    }
+
+    [Fact]
+    public void Parse_BareQuestionMarkAsParameterValue_ReachesTheCommand()
+    {
+        var result = GlobalArgParser.Parse(new[] { "config", "get", "--key", "?" });
+
+        Assert.Null(result.Help);
+        Assert.Equal(new[] { "config", "get", "--key", "?" }, result.Positional);
     }
 
     [Fact]
@@ -228,25 +277,25 @@ public class GlobalArgParserTests
 
     [Theory]
     [InlineData("--output", "json", "json")]
-    [InlineData("--output", "plain", "plain")]
+    [InlineData("--output", "table", "table")]
     [InlineData("--OUTPUT", "JSON", "json")]
     public void Parse_OutputFlag_SpaceSeparated_ResolvesFormat(string flag, string value, string expected)
     {
         var result = GlobalArgParser.Parse(new[] { flag, value });
 
-        Assert.Equal(expected, result.Output.ToString().ToLowerInvariant());
+        Assert.Equal(expected, result.Output?.ToString().ToLowerInvariant());
         Assert.Empty(result.Positional);
     }
 
     [Theory]
     [InlineData("--output=json", "json")]
-    [InlineData("--output=plain", "plain")]
+    [InlineData("--output=yaml", "yaml")]
     [InlineData("--Output=Json", "json")]
     public void Parse_OutputFlag_EqualsForm_ResolvesFormat(string token, string expected)
     {
         var result = GlobalArgParser.Parse(new[] { token });
 
-        Assert.Equal(expected, result.Output.ToString().ToLowerInvariant());
+        Assert.Equal(expected, result.Output?.ToString().ToLowerInvariant());
         Assert.Empty(result.Positional);
     }
 
@@ -259,24 +308,48 @@ public class GlobalArgParserTests
         Assert.Equal(new[] { "group", "cmd" }, result.Positional);
     }
 
+    [Theory]
+    [InlineData("jsonc")]
+    [InlineData("table")]
+    [InlineData("tsv")]
+    [InlineData("yaml")]
+    [InlineData("yamlc")]
+    public void Parse_OutputFlag_AcceptsAllRealFormats(string value)
+    {
+        var result = GlobalArgParser.Parse(new[] { "--output", value });
+
+        Assert.Equal(value, result.Output?.ToString().ToLowerInvariant());
+    }
+
     [Fact]
     public void Parse_OutputFlagWithUnknownValue_ThrowsUsageError()
     {
         // Q1 decision: strict enum. Pre-refactor silently treated unknown values as "not json"
         // (== plain). The parser now surfaces the typo instead of hiding it.
-        var ex = Assert.Throws<AzclipsErrorException>(
-            () => GlobalArgParser.Parse(new[] { "--output", "yaml" }));
+        var ex = Assert.Throws<UsageErrorException>(
+            () => GlobalArgParser.Parse(new[] { "--output", "xml" }));
 
         Assert.Equal(2, ex.ExitCode);
         Assert.Contains("--output", ex.Message);
-        Assert.Contains("yaml", ex.Message);
+        Assert.Contains("xml", ex.Message);
     }
 
     [Fact]
     public void Parse_OutputEqualsUnknownValue_ThrowsUsageError()
     {
-        var ex = Assert.Throws<AzclipsErrorException>(
-            () => GlobalArgParser.Parse(new[] { "--output=table" }));
+        var ex = Assert.Throws<UsageErrorException>(
+            () => GlobalArgParser.Parse(new[] { "--output=xml" }));
+
+        Assert.Equal(2, ex.ExitCode);
+    }
+
+    [Fact]
+    public void Parse_OutputFlagWithPlainValue_ThrowsUsageError()
+    {
+        // `plain` was retired: it used to double as both the unspecified default and a real
+        // value, which is exactly the conflation this change resolves. No longer valid.
+        var ex = Assert.Throws<UsageErrorException>(
+            () => GlobalArgParser.Parse(new[] { "--output", "plain" }));
 
         Assert.Equal(2, ex.ExitCode);
     }
@@ -286,10 +359,44 @@ public class GlobalArgParserTests
     {
         // Pre-refactor: silently left in args (no strip, no error). Q1 direction: raise, same as
         // an unknown value — both are user typos.
-        var ex = Assert.Throws<AzclipsErrorException>(
+        var ex = Assert.Throws<UsageErrorException>(
             () => GlobalArgParser.Parse(new[] { "group", "--output" }));
 
         Assert.Equal(2, ex.ExitCode);
+    }
+
+    // ─── --query ─────────────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("--query", "[].name", "[].name")]
+    [InlineData("--QUERY", "[].name", "[].name")]
+    public void Parse_QueryFlag_SpaceSeparated_ResolvesExpression(string flag, string value, string expected)
+    {
+        var result = GlobalArgParser.Parse(new[] { flag, value });
+
+        Assert.Equal(expected, result.Query);
+        Assert.Empty(result.Positional);
+    }
+
+    [Theory]
+    [InlineData("--query=[].name", "[].name")]
+    [InlineData("--Query=[?contains(name, 'a')].name", "[?contains(name, 'a')].name")]
+    public void Parse_QueryFlag_EqualsForm_ResolvesExpression(string token, string expected)
+    {
+        var result = GlobalArgParser.Parse(new[] { token });
+
+        Assert.Equal(expected, result.Query);
+        Assert.Empty(result.Positional);
+    }
+
+    [Fact]
+    public void Parse_QueryFlagAtEndWithNoValue_ThrowsUsageError()
+    {
+        var ex = Assert.Throws<UsageErrorException>(
+            () => GlobalArgParser.Parse(new[] { "group", "--query" }));
+
+        Assert.Equal(2, ex.ExitCode);
+        Assert.Contains("--query", ex.Message);
     }
 
     // ─── --no-cache ──────────────────────────────────────────────────────────────────

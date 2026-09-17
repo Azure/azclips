@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+  </ItemGroup>
+
+</Project>

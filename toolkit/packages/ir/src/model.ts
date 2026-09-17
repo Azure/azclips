@@ -8,8 +8,8 @@
  *    nonsense combinations like `wrapperType` on a model-typed property at
  *    parse time, not at generator time.
  *
- *  - Polymorphism is closed, multi-level allowed, fallback throws on
- *    unknown discriminator values. A model may simultaneously be a base
+ *  - Model polymorphism records TypeSpec's discriminator dispatch map;
+ *    it does not impose a runtime fallback policy. A model may be a base
  *    (has `polymorphism`) and a child (has `parent` + `discriminatorValue`).
  *
  *  - Each model carries the *full denormalized* property list (own +
@@ -33,6 +33,7 @@ import {
   IRTypeRefPrimitiveSchema,
   IRTypeRefSchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
   type IRTypeRef,
   type IRTypeRefArray,
   type IRTypeRefDictionary,
@@ -40,13 +41,16 @@ import {
   type IRTypeRefModel,
   type IRTypeRefPrimitive,
   type IRTypeRefUnion,
+  type IRTypeRefDiscriminatedUnion,
 } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import {
   AccessKinds,
   UsageKinds,
+  VisibilityKinds,
   type IRAccess,
   type IRUsage,
+  type IRVisibility,
 } from "./primitives.js";
 import {
   CollectionPropertyHintsSchema,
@@ -62,15 +66,13 @@ import {
 // ─── Property visibility (lifecycle phases) ─────────────────────────────
 
 /**
- * Lifecycle visibility phase, mirroring TypeSpec's `TypeSpec.Lifecycle`
- * visibility class (`@visibility(Lifecycle.Read | Create | Update | Delete |
- * Query)`). ace preserves the full phase set instead of collapsing to
- * read/write-only, so downstream generators keep the source's create- vs
- * update-only distinction.
+ * Lifecycle visibility phase. Defined in `primitives.ts` (alongside the other
+ * closed sets) so `hints.ts` can reference it without an import cycle;
+ * re-exported here because this is where property visibility is consumed.
  */
-export type IRVisibility = "read" | "create" | "update" | "delete" | "query";
+export type { IRVisibility };
 
-export const IRVisibilitySchema = z.enum(["read", "create", "update", "delete", "query"]);
+export const IRVisibilitySchema = z.enum(VisibilityKinds);
 
 // ─── Shared property base ───────────────────────────────────────────────
 
@@ -153,7 +155,7 @@ export type IRPropertyEnum = IRPropertyCommon & {
 
 export type IRPropertyUnion = IRPropertyCommon & {
   typeKind: "union";
-  type: IRTypeRefUnion;
+  type: IRTypeRefUnion | IRTypeRefDiscriminatedUnion;
   rendering?: ValuePropertyHints | undefined;
 };
 
@@ -212,7 +214,7 @@ const IRPropertyEnumSchema = makePropertyVariant(
 
 const IRPropertyUnionSchema = makePropertyVariant(
   "union",
-  IRTypeRefUnionSchema,
+  z.union([IRTypeRefUnionSchema, IRTypeRefDiscriminatedUnionSchema]),
   ValuePropertyHintsSchema,
 );
 
@@ -232,7 +234,7 @@ export const IRPropertySchema = z.discriminatedUnion("typeKind", [
 export type IRPolymorphism = {
   /** Id of the property carrying the discriminator value (must live on THIS model or be inherited). */
   discriminator: IRId;
-  /** Immediate-level subtypes. Multi-level chains are walked, not duplicated here. */
+  /** Resolved dispatch targets, including indirect descendants across untagged intermediates. */
   subtypes: Array<{
     /** Discriminator value used to select this subtype. */
     value: string;
@@ -248,12 +250,11 @@ export const IRPolymorphismSchema: z.ZodType<IRPolymorphism> = z
       .array(
         z
           .object({
-            value: z.string().min(1),
+            value: z.string(),
             type: IRIdSchema,
           })
           .strict(),
-      )
-      .min(1),
+      ),
   })
   .strict();
 
@@ -264,7 +265,8 @@ export type IRModel = {
   name: string;
   /** Direct parent in the extends chain. Walk recursively for full ancestry. */
   parent?: IRId | undefined;
-  /** Set iff parent has `polymorphism`. The discriminator value for this child. */
+  /** The tag when an ancestor's discriminator selects this model with exactly one value.
+   * For multiple tag aliases, that ancestor's polymorphism.subtypes is authoritative. */
   discriminatorValue?: string | undefined;
   /** Set iff THIS model is a polymorphic base. */
   polymorphism?: IRPolymorphism | undefined;
@@ -296,7 +298,7 @@ export const IRModelSchema: z.ZodType<IRModel> = z
     id: IRIdSchema,
     name: z.string().min(1),
     parent: IRIdSchema.optional(),
-    discriminatorValue: z.string().min(1).optional(),
+    discriminatorValue: z.string().optional(),
     polymorphism: IRPolymorphismSchema.optional(),
     properties: z.array(IRPropertySchema),
     additionalProperties: IRTypeRefSchema.optional(),

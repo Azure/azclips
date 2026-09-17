@@ -16,16 +16,37 @@ public interface IHelpRenderer
 
 public sealed class RuntimeHelpRenderer : IHelpRenderer
 {
+    private const string Bold = "\u001b[1m";
+    private const string Reset = "\u001b[0m";
+
+    private readonly bool _boldHeaders;
+
+    public RuntimeHelpRenderer(bool boldHeaders = false)
+    {
+        _boldHeaders = boldHeaders;
+    }
+
+    private string SectionHeader(string title)
+    {
+        var header = $"# {title.ToUpperInvariant()}";
+        return _boldHeaders ? $"{Bold}{header}{Reset}" : header;
+    }
+
     public string[] RenderRoot(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
     {
         var lines = new List<string>
         {
-            "Groups:"
+            SectionHeader("Groups")
         };
 
-        foreach (var group in groups.OrderBy(static g => g.GroupPath, StringComparer.OrdinalIgnoreCase))
+        var ordered = groups.OrderBy(static g => g.GroupPath, StringComparer.OrdinalIgnoreCase).ToArray();
+        for (var i = 0; i < ordered.Length; i++)
         {
-            lines.Add($"    {group.GroupPath} : {group.Summary}");
+            if (i > 0)
+            {
+                lines.Add(string.Empty);
+            }
+            AppendNameAndSummary(lines, ordered[i].GroupPath, ordered[i].Summary);
         }
 
         return [.. lines];
@@ -35,38 +56,45 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
     {
         var lines = new List<string>
         {
-            "Group",
-            $"    az {group.GroupPath} : {group.Summary}",
-            string.Empty
+            SectionHeader("Group"),
         };
+        AppendNameAndSummary(lines, $"az {group.GroupPath}", group.Summary);
+        lines.Add(string.Empty);
 
         if (group.Subgroups.Count > 0)
         {
-            lines.Add("Subgroups:");
-            foreach (var subgroup in group.Subgroups)
+            lines.Add(SectionHeader("Subgroups"));
+            for (var i = 0; i < group.Subgroups.Count; i++)
             {
-                var subgroupSummary = string.IsNullOrWhiteSpace(subgroup.Summary)
-                    ? string.Empty
-                    : $" : {subgroup.Summary}";
-                lines.Add($"    {subgroup.Name}{subgroupSummary}");
+                if (i > 0)
+                {
+                    lines.Add(string.Empty);
+                }
+                var subgroup = group.Subgroups[i];
+                AppendNameAndSummary(lines, subgroup.Name, subgroup.Summary);
             }
             lines.Add(string.Empty);
         }
 
-        lines.Add("Commands:");
+        lines.Add(SectionHeader("Commands"));
 
         if (group.Commands.Count == 0)
         {
-            lines.Add("    (none)");
+            lines.Add("(none)");
         }
         else
         {
-            foreach (var command in group.Commands)
+            for (var i = 0; i < group.Commands.Count; i++)
             {
+                if (i > 0)
+                {
+                    lines.Add(string.Empty);
+                }
+                var command = group.Commands[i];
                 var tags = command.Tags.Length == 0
                     ? string.Empty
                     : $" [{string.Join(",", command.Tags)}]";
-                lines.Add($"    {command.Name}{tags} : {command.Summary}");
+                AppendNameAndSummary(lines, $"{command.Name}{tags}", command.Summary);
             }
         }
 
@@ -79,21 +107,26 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
     {
         var lines = new List<string>
         {
-            "Command",
-            $"    az {command.CommandPath} : {command.Summary}",
-            string.Empty,
+            SectionHeader("Command"),
         };
+        AppendNameAndSummary(lines, $"az {command.CommandPath}", command.Summary);
+        lines.Add(string.Empty);
 
         AppendParameterSections(lines, command.Parameters);
 
         if (command.Examples.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("Examples");
-            foreach (var example in command.Examples)
+            lines.Add(SectionHeader("Examples"));
+            for (var i = 0; i < command.Examples.Count; i++)
             {
-                lines.Add($"    {example.Title}");
-                lines.Add($"        {example.Command}");
+                if (i > 0)
+                {
+                    lines.Add(string.Empty);
+                }
+                var example = command.Examples[i];
+                lines.Add($"{i + 1}. {example.Title}");
+                lines.Add(example.Command);
             }
         }
 
@@ -102,16 +135,34 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    private static void AppendGlobalArguments(List<string> lines)
+    private static void AppendNameAndSummary(List<string> lines, string name, string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            lines.Add(name);
+            return;
+        }
+
+        lines.Add($"{name}:");
+        lines.Add(summary);
+    }
+
+    private void AppendGlobalArguments(List<string> lines)
     {
         lines.Add(string.Empty);
-        lines.Add("Global Arguments");
-        foreach (var flag in KnownGlobalFlags.All)
+        lines.Add(SectionHeader("Global Arguments"));
+        for (var i = 0; i < KnownGlobalFlags.All.Count; i++)
         {
+            if (i > 0)
+            {
+                lines.Add(string.Empty);
+            }
+            var flag = KnownGlobalFlags.All[i];
             var aliases = flag.Aliases.Count == 0
                 ? string.Empty
                 : " " + string.Join(" ", flag.Aliases);
-            lines.Add($"    {flag.Name}{aliases} : {flag.Summary}");
+            lines.Add($"{flag.Name}{aliases}:");
+            lines.Add(flag.Summary);
         }
     }
 
@@ -119,12 +170,12 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
     // alphabetical order. Sections with no params are skipped. When Parameters is empty, the
     // single "Arguments" header + "(none)" placeholder is emitted (preserves prior behavior for
     // no-param commands like `az logout`).
-    private static void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
+    private void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
     {
         if (parameters.Count == 0)
         {
-            lines.Add("Arguments");
-            lines.Add("    (none)");
+            lines.Add(SectionHeader("Arguments"));
+            lines.Add("(none)");
             return;
         }
 
@@ -161,25 +212,32 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         }
     }
 
-    private static void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
+    private void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
     {
         if (leadingBlank)
         {
             lines.Add(string.Empty);
         }
-        lines.Add(header);
-        foreach (var parameter in bucket)
+        lines.Add(SectionHeader(header));
+        for (var i = 0; i < bucket.Count; i++)
         {
+            if (i > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            var parameter = bucket[i];
             var aliases = parameter.Aliases.Length == 0
                 ? string.Empty
                 : $" -{string.Join(" -", parameter.Aliases)}";
             var required = parameter.Required ? " [Required]" : string.Empty;
-            lines.Add($"    --{parameter.Name}{aliases}{required} : {parameter.Description}");
+            lines.Add($"--{parameter.Name}{aliases}{required}:");
+            lines.Add(parameter.Description);
 
             if (!string.IsNullOrEmpty(parameter.ValueSources))
             {
                 var suffix = parameter.ValueSources.EndsWith('.') ? string.Empty : ".";
-                lines.Add($"        Values from: {parameter.ValueSources}{suffix}");
+                lines.Add($"Values from: {parameter.ValueSources}{suffix}");
             }
         }
     }

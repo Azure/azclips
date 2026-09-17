@@ -72,7 +72,7 @@ public class ExtensionDispatcher //: IParser
                 // Verb is known to discovery → leaf typo, not a missing package.
                 if (_leafIndex.Value.HasVerb(verb))
                 {
-                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
                 }
 
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
@@ -142,7 +142,7 @@ public class ExtensionDispatcher //: IParser
             // here. Mirrors the verb-only fallback above.
             if (_leafIndex.Value.IsCommandGroup(verb, string.Join(" ", nonFlagLeadingArgs)))
             {
-                throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs, args.Skip(1).ToArray());
             }
         }
 

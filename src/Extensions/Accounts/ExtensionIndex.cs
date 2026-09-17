@@ -25,22 +25,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["TenantId"]       = new("TenantId", "TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["Subscription"], AllowedValues: []),
+                ["TenantId"]       = new("TenantId", "TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: ["Tenant"], AllowedValues: []),
+                ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: ["DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication"], AllowedValues: []),
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Profile"]        = new("Profile", "Profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with -OutProfile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Identity"]       = new("Identity", "Identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["MSI", "ManagedIdentity", "ManagedService"], AllowedValues: []),
-                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: ["AccountId"], AllowedValues: []),
+                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ObjectId"]       = new("ObjectId", "ObjectId", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceId"]     = new("ResourceId", "ResourceId", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
-                ["MSI"] = "Identity",
+                ["Subscription"]           = "SubscriptionId",
+                ["Tenant"]                 = "TenantId",
+                ["DeviceCode"]             = "UseDeviceCode",
+                ["DeviceAuth"]             = "UseDeviceCode",
+                ["Device"]                 = "UseDeviceCode",
+                ["UseDeviceAuthentication"] = "UseDeviceCode",
+                ["MSI"]                    = "Identity",
+                ["ManagedService"]         = "Identity",
                 ["ManagedIdentity"] = "Identity",
-                ["ManagedService"] = "Identity",
-                ["AccountId"] = "ClientId",
             }
         );
         private static readonly CommandMetadata psLogout = new(
@@ -115,8 +120,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tenant-id"]       = new("TenantId", "tenant-id", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["s", "subscription"], AllowedValues: []),
+                ["tenant-id"]       = new("TenantId", "tenant-id", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: ["t", "tenant"], AllowedValues: []),
                 ["use-device-code"] = new("UseDeviceCode", "use-device-code", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["out-profile"]     = new("OutProfile", "out-profile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with --profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["profile"]         = new("Profile", "profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with --out-profile).", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -127,7 +132,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             },
             ParameterAliases: new Dictionary<string, string>
             {
-                ["i"] = "identity",
+                ["s"]            = "subscription-id",
+                ["subscription"] = "subscription-id",
+                ["t"]            = "tenant-id",
+                ["tenant"]       = "tenant-id",
+                ["i"]            = "identity",
             }
         );
         private static readonly CommandMetadata cliLogout = new(

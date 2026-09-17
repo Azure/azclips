@@ -21,6 +21,18 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetKeyMetadata_ShouldReturnCliSimpleOutputFormat_WithTsvDefault()
+    {
+        var key = _schema.GetKeyMetadata("clients.cli.output.simpleFormat");
+
+        Assert.NotNull(key);
+        Assert.Equal("tsv", key.DefaultValue);
+        Assert.Equal(
+            _schema.GetKeyMetadata("clients.cli.output.format")!.AllowedValues,
+            key.AllowedValues);
+    }
+
+    [Fact]
     public void IsKnownKey_ShouldReturnFalse_ForUnknownKey()
     {
         var known = _schema.IsKnownKey("core.notARealKey");

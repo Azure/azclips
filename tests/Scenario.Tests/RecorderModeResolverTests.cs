@@ -1,4 +1,4 @@
-using Core.Recording;
+using Tests.Recording;
 
 namespace Scenario.Tests;
 

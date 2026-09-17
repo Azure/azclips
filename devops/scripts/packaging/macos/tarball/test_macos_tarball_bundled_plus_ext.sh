@@ -114,6 +114,12 @@ if [[ ! -f "$AZ" ]]; then
   exit 1
 fi
 
+COPILOT="$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/$RID/native/copilot"
+if [[ ! -x "$COPILOT" ]]; then
+  echo "FAIL: Bundled Copilot CLI is not executable at the agent resolver path: $COPILOT"
+  exit 1
+fi
+
 if [[ ! -f "$SIM_ROOT/install/NOTICE" ]]; then
   echo "FAIL: NOTICE file missing from extracted tarball"
   exit 1
@@ -145,6 +151,7 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Conf
 fi
 
 echo "PASS: Bundled extension folders are present"
+echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -180,7 +187,7 @@ if [[ "$is_runnable" != "true" ]]; then
 fi
 
 echo ""
-echo "[1/5] CLI version (bundled install)"
+echo "[1/7] CLI version (bundled install)"
 if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
   echo "FAIL: az --version exited with a non-zero status"
   printf '%s\n' "$version_output" | sed -n '1,20p'
@@ -193,7 +200,7 @@ fi
 printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
-echo "[2/5] CLI help (bundled install)"
+echo "[2/7] CLI help (bundled install)"
 if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
   echo "FAIL: az --help exited with a non-zero status"
   printf '%s\n' "$help_output" | sed -n '1,20p'
@@ -206,7 +213,41 @@ fi
 printf '%s\n' "$help_output" | sed -n '1,20p'
 
 echo ""
-echo "[3/5] Verify built-in extension manager is available"
+echo "[3/7] Verify bundled Copilot CLI daemon starts"
+copilot_stdout="$SIM_ROOT/copilot.stdout"
+copilot_stderr="$SIM_ROOT/copilot.stderr"
+copilot_timeout="$SIM_ROOT/copilot.timeout"
+HOME="$SIM_ROOT/home" "$COPILOT" --server --stdio </dev/null >"$copilot_stdout" 2>"$copilot_stderr" &
+copilot_pid=$!
+(
+  sleep 15
+  if kill -0 "$copilot_pid" 2>/dev/null; then
+    touch "$copilot_timeout"
+    kill "$copilot_pid" 2>/dev/null || true
+  fi
+) &
+copilot_watchdog_pid=$!
+if wait "$copilot_pid"; then
+  copilot_exit_code=0
+else
+  copilot_exit_code=$?
+fi
+kill "$copilot_watchdog_pid" 2>/dev/null || true
+wait "$copilot_watchdog_pid" 2>/dev/null || true
+if [[ -f "$copilot_timeout" ]]; then
+  echo "FAIL: Bundled Copilot CLI daemon did not stop within 15 seconds"
+  sed -n '1,20p' "$copilot_stdout" "$copilot_stderr"
+  exit 1
+fi
+if [[ "$copilot_exit_code" -ne 0 ]]; then
+  echo "FAIL: Bundled Copilot CLI daemon exited with code $copilot_exit_code"
+  sed -n '1,20p' "$copilot_stdout" "$copilot_stderr"
+  exit 1
+fi
+echo "  PASS: Bundled Copilot CLI daemon started and stopped cleanly"
+
+echo ""
+echo "[4/7] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
@@ -220,7 +261,7 @@ else
 fi
 
 echo ""
-echo "[4/5] Verify bundled Config commands work"
+echo "[5/7] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
@@ -233,7 +274,7 @@ else
 fi
 
 echo ""
-echo "[5/5] Install Resources extension and verify command resolves"
+echo "[6/7] Install Resources extension via 'extension add'"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
@@ -246,7 +287,10 @@ if ! echo "$output" | grep -q "installedExtensionPath"; then
   echo "  FAIL: Resources extension install output did not include installed path"
   exit 1
 fi
+echo "  PASS: Resources extension installed"
 
+echo ""
+echo "[7/7] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then
