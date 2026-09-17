@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Abstractions;
+using Core.Abstractions;
+
+namespace Microsoft.Azure.Azclips.Extensions.Accounts;
 
 /// <summary>
 /// Resolves the three mutually-exclusive token-target inputs — a v1.0 resource URL, a well-known
@@ -9,7 +11,7 @@ namespace Core.Abstractions;
 /// <see cref="IAuthService.AcquireTokenSilentlyAsync"/>. Shared by both the CLI and PowerShell front
 /// ends so identical inputs produce identical scopes across the CLI and PowerShell surfaces.
 /// </summary>
-public static class TokenScopeResolver
+internal static class TokenScopeResolver
 {
     private const string DefaultScopeSuffix = "/.default";
 

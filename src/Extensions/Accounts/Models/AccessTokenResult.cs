@@ -4,7 +4,7 @@
 using System.Security;
 using System.Text.Json.Serialization;
 
-namespace Core.Abstractions;
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 /// <summary>
 /// The result of a token-retrieval command with the token as a plain string. Used for CLI output

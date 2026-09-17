@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Core.Abstractions;
+namespace Microsoft.Azure.Azclips.Extensions.Accounts;
 
 /// <summary>
 /// The unified set of well-known resource-type shortcuts for token retrieval, shared by both the
@@ -30,7 +30,7 @@ namespace Core.Abstractions;
 /// Lookup is case-insensitive and accepts both the CLI kebab-case spelling (e.g. <c>ms-graph</c>)
 /// and the PowerShell PascalCase spelling (e.g. <c>MSGraph</c>).
 /// </remarks>
-public static class WellKnownResourceTypes
+internal static class WellKnownResourceTypes
 {
     /// <summary>The canonical shortcut name for Azure Resource Manager, used as the default target.</summary>
     public const string Arm = "arm";

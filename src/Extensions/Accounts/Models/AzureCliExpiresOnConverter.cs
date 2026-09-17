@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Core.Abstractions;
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 /// <summary>
 /// Serializes a <see cref="DateTimeOffset"/> as Azure CLI's legacy <c>expiresOn</c> string

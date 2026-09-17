@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Globalization;
 using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
 namespace Cli.Tests;
 
@@ -331,7 +332,7 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_AccessTokenResult_UsesCliJsonFieldNames()
     {
-        var token = new Core.Abstractions.AccessTokenResult
+        var token = new AccessTokenResult
         {
             Token = "the-raw-token",
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
@@ -360,7 +361,7 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_AccessTokenResult_EmitsSubscriptionAndUserId_WhenPresent()
     {
-        var token = new Core.Abstractions.AccessTokenResult
+        var token = new AccessTokenResult
         {
             Token = "the-raw-token",
             ExpiresOn = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
@@ -381,7 +382,7 @@ public class CliOutputFormatterTests
     [Fact]
     public void FormatValue_AccessTokenResult_ExpiresOn_MatchesClassicCliLocalTimeFormat()
     {
-        var token = new Core.Abstractions.AccessTokenResult
+        var token = new AccessTokenResult
         {
             Token = "the-raw-token",
             // Sub-second precision on purpose: classic az derives expiresOn from the integer epoch, so

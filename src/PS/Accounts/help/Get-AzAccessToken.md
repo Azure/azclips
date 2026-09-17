@@ -205,11 +205,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Core.Abstractions.SecureAccessTokenResult
+### Microsoft.Azure.Azclips.Extensions.Accounts.Models.SecureAccessTokenResult
 
 The default output: the token as a SecureString, plus its expiry (as a DateTimeOffset and as Unix time), tenant ID, subscription ID, user ID, and token type.
 
-### Core.Abstractions.AccessTokenResult
+### Microsoft.Azure.Azclips.Extensions.Accounts.Models.AccessTokenResult
 
 Returned when -AsPlainText is specified: the token as a plain string, plus the same metadata.
 

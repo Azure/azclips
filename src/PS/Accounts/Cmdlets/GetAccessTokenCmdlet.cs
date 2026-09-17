@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 /// <c>-AsPlainText</c> to return the raw token as a plain string.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, CommandNoun, DefaultParameterSetName = "ResourceType")]
-[OutputType(typeof(SecureAccessTokenResult), typeof(AccessTokenResult))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Accounts.Models.SecureAccessTokenResult", "Microsoft.Azure.Azclips.Extensions.Accounts.Models.AccessTokenResult")]
 public class GetAccessTokenCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "AccessToken";
