@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789712972468,
+  "lastUpdate": 1789713053713,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10168,6 +10168,48 @@ window.BENCHMARK_DATA = {
             "value": 1795115.298709157,
             "unit": "ns",
             "range": "± 45986.838867306295"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb424216ce3f81068ab34d042123522dd70684dd",
+          "message": "[CLI] Handle human-readable errors when default output is JSON (#922)\n\n## Summary\nFix the default-JSON interactive error path so terminal users still get\nhuman-readable errors and help guidance instead of a JSON blob mixed\nwith help text.\n\nFixes https://github.com/Azure/CLIPS/issues/925\n\n## Problem\nWhen `clients.cli.output.format = json` is the configured default, CLI\nvalidation errors in interactive terminal use still behave like\nmachine-readable output. That is a poor UX for humans and mixes\nstructured JSON with human help output.\n\n## Fix\n- keep human-readable error rendering for interactive terminals unless\nthe user explicitly requested JSON/jsonc\n- preserve structured output for explicit JSON output requests and\nredirected/piped stderr\n- add focused regression tests for the policy\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nErrorHelpPolicyTests`",
+          "timestamp": "2026-09-18T04:54:25Z",
+          "tree_id": "e038b665ba5201fa25911fa047ca7cceb356d0da",
+          "url": "https://github.com/Azure/azclips/commit/bb424216ce3f81068ab34d042123522dd70684dd"
+        },
+        "date": 1789713050526,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1824660.5996358488,
+            "unit": "ns",
+            "range": "± 49193.91727185096"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1849680.8009728414,
+            "unit": "ns",
+            "range": "± 45262.03886739445"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1797884.5967351873,
+            "unit": "ns",
+            "range": "± 55829.58173708378"
           }
         ]
       }
