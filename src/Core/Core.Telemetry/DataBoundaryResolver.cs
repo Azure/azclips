@@ -12,7 +12,7 @@ namespace Core.Telemetry;
 /// This lets telemetry exporters choose the correct Aria endpoint (EU vs Global)
 /// without requiring DI.
 /// </summary>
-internal static class DataBoundaryResolver
+public static class DataBoundaryResolver
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,11 +33,54 @@ internal static class DataBoundaryResolver
                 return false;
 
             var boundary = DataBoundaryCache.Get(tenantId);
-            return string.Equals(boundary, "EU", StringComparison.OrdinalIgnoreCase);
+            return DataBoundaryRouting.IsEu(boundary);
         }
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the boundary for a known tenant, using the file cache first and calling
+    /// the supplied token provider only on cache miss.
+    /// </summary>
+    public static async Task<string?> ResolveAndCacheAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return null;
+
+        var cached = DataBoundaryCache.Get(tenantId);
+        if (!string.IsNullOrWhiteSpace(cached))
+            return DataBoundaryRouting.Normalize(cached);
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(timeout);
+
+        try
+        {
+            var token = await accessTokenProvider(timeoutCts.Token).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
+                return null;
+
+            var boundary = await DataBoundaryService
+                .GetDataBoundaryAsync(token, timeoutCts.Token)
+                .ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(boundary))
+                return null;
+
+            var normalized = DataBoundaryRouting.Normalize(boundary);
+            DataBoundaryCache.Set(tenantId, normalized);
+            return normalized;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -74,6 +117,33 @@ internal static class DataBoundaryResolver
         }
 
         return null;
+    }
+
+    private static bool TokenMatchesTenant(string token, string tenantId)
+    {
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2)
+                return false;
+
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+
+            var json = Convert.FromBase64String(payload);
+            using var doc = JsonDocument.Parse(json);
+
+            return doc.RootElement.TryGetProperty("tid", out var tidElement) &&
+                   string.Equals(tidElement.GetString(), tenantId, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>Minimal DTO for profile deserialization.</summary>

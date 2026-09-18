@@ -47,6 +47,8 @@ internal class FileExporter : BaseExporter<Activity>
                     Status = activity.Status.ToString(),
                     StatusDescription = activity.StatusDescription,
                     Kind = activity.Kind.ToString(),
+                    TenantId = TelemetryRoutingContext.TenantId,
+                    DataBoundary = TelemetryRoutingContext.DataBoundary,
                     Tags = activity.TagObjects,
                     Events = GetEvents(activity),
                     Resource = GetResource(activity)

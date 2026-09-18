@@ -89,9 +89,6 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
             ["Kind"] = activity.Kind.ToString(),
         };
 
-        if (!string.IsNullOrEmpty(activity.StatusDescription))
-            scope["StatusDescription"] = activity.StatusDescription;
-
         if (activity.ParentSpanId != default)
             scope["ParentSpanId"] = activity.ParentSpanId.ToString();
 

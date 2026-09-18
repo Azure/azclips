@@ -15,7 +15,10 @@ namespace Core.Telemetry;
 /// </summary>
 internal static class TelemetryExporters
 {
-    internal static void AddTraceExporters(TracerProviderBuilder builder, IReadOnlyList<TelemetryTarget> targets)
+    internal static void AddTraceExporters(
+        TracerProviderBuilder builder,
+        IReadOnlyList<TelemetryTarget> targets,
+        string? dataBoundary = null)
     {
         foreach (var target in targets)
         {
@@ -27,7 +30,10 @@ internal static class TelemetryExporters
         // others (including unknown/missing) → Global endpoint.
         if (targets.Contains(TelemetryTarget.Remote))
         {
-            var isEu = DataBoundaryResolver.IsEuDataBoundary();
+            var effectiveBoundary = dataBoundary ?? TelemetryRoutingContext.DataBoundary;
+            var isEu = effectiveBoundary is null
+                ? DataBoundaryResolver.IsEuDataBoundary()
+                : DataBoundaryRouting.IsEu(effectiveBoundary);
             var connectionString = isEu
                 ? WellKnownEndpoints.AriaEuConnectionString
                 : WellKnownEndpoints.AriaConnectionString;

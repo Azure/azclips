@@ -22,6 +22,7 @@ namespace Core.Cli;
 
 public class Program
 {
+    private static readonly TimeSpan DataBoundaryResolveTimeout = TimeSpan.FromSeconds(3);
     private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
     // Forwards the user's real cwd to the agent (whose working dir we override to
     // the install dir for probing). Read by EnvironmentProber on the agent side by
@@ -49,7 +50,7 @@ public class Program
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            TelemetryUpload.RunPending(SilentArmTokenProvider.TryAcquire);
+            TelemetryUpload.RunPending();
             return 0;
         }
 
@@ -97,6 +98,8 @@ public class Program
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
+
+        await InitializeTelemetryRoutingAsync(_cancellationTokenSource.Token);
 
         Activity? activity = null;
 
@@ -296,6 +299,41 @@ public class Program
                 return Task.CompletedTask;
             }
         );
+    }
+
+    private static async Task InitializeTelemetryRoutingAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+            var profile = await profileService.GetActiveProfileAsync(cancellationToken);
+            var tenantId = profile?.TenantId;
+            if (string.IsNullOrWhiteSpace(tenantId))
+                return;
+
+            TelemetryRoutingContext.Set(tenantId, null);
+            var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
+                tenantId,
+                async tokenCancellationToken =>
+                {
+                    var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+                    var result = await authService.AcquireTokenSilentlyAsync(
+                        scopes: null,
+                        tenantId: tenantId,
+                        promptOnError: false,
+                        cancellationToken: tokenCancellationToken,
+                        profile: profile);
+                    return result.AccessToken;
+                },
+                DataBoundaryResolveTimeout,
+                cancellationToken);
+
+            TelemetryRoutingContext.Set(tenantId, boundary);
+        }
+        catch
+        {
+            // Best effort: missing routing metadata falls back to Global on upload.
+        }
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
