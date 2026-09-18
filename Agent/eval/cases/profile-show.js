@@ -1,10 +1,10 @@
 module.exports = {
-  description: "profile show → plan must add --active (regression from PR #556)",
+  description: 'profile active-flag typo -> show the active profile',
   vars: {
     case_id: 'profile-show-active',
     command_group: 'profile',
     goal: 'Show the active profile without changing authentication or profiles.',
-    command: 'profile show',
+    command: 'profile show --actve',
   },
   assert: [
     {
@@ -18,10 +18,8 @@ module.exports = {
           {
             command: 'az profile show',
             match: 'all',
-            requiredArguments: ['--active'],
             booleanArguments: ['--active'],
-            argumentValues: { '--active': true },
-            forbiddenArguments: ['--name'],
+            forbiddenArguments: ['--name', '--actve'],
           },
         ],
       },
@@ -30,7 +28,11 @@ module.exports = {
       type: 'javascript',
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
-      config: { allowedCommands: ['az profile show'] },
+      config: {
+        allowedCommands: ['az profile show'],
+        allowedArguments: ['--active'],
+        booleanArguments: ['--active'],
+      },
     },
   ],
 };

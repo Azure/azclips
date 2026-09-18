@@ -42,7 +42,7 @@ because the active profile supplies it.
 
 | Stable ID | Goal and stimulus | Deterministic acceptance |
 | --- | --- | --- |
-| `profile-show-active` | Show the active profile after an incomplete profile-show request. | The active switch is true, no mutually exclusive name is added, and no profile/authentication state is changed. |
+| `profile-show-active` | Show the active profile after an `--actve` typo. | Use the CLI's default-active behavior or a valid explicit active switch, without named selection, unknown flags, or profile/authentication changes. |
 | `vm-create-long-flags` | Correct the unsupported short flags while preserving the requested VM name and existing group. | Correct create command, required values present, user values retained, no unsupported short flags, and unknown password represented by a declared placeholder. |
 | `deployment-template-recovery` | Correct an invalid deploy command while preserving the supplied local template and existing group. | Correct group deployment command, original name/group/template retained, valid scope, and no added resource operation or destructive Complete mode. |
 
@@ -53,8 +53,10 @@ scenario to a real error condition rather than penalizing valid CLI behavior.
 ## Assertion responsibilities
 
 `command-set` checks required value-taking arguments, boolean switches, exact user
-values, supported equivalent path forms, and prohibited flags. For the profile
-case, `--active` is a declared boolean and its value must be true.
+values, supported equivalent path forms, and prohibited flags. Current CLI
+`profile show` defaults to the active profile when no name is supplied, so the
+old missing-selection stimulus is no longer an error. The reference now uses a
+flag typo and accepts the supported implicit or explicit active selection.
 
 `plan-contract` limits the reference plan to its intended operation, validates
 the recorded subscription context, and rejects a fabricated or undeclared secret.
@@ -69,8 +71,8 @@ not a license to omit an otherwise unresolved required value.
 
 The offline tests exercise the same assertion functions used by Promptfoo.
 
-- Profile: accept the active switch; reject no selection, false selection,
-  mutually exclusive naming, and an added remove operation.
+- Profile: accept default-active and valid explicit selection; reject invalid
+  flags/boolean values, named selection, help-only output, and added removal.
 - VM: accept complete long flags and a declared password placeholder; reject
   missing values, changed user input, short flags, invented passwords, and wrong
   explicit subscriptions.

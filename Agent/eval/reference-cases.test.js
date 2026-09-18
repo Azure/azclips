@@ -37,14 +37,22 @@ test('the three reference cases use only deterministic assertions and stable ide
   }
 });
 
-test('profile reference accepts the active switch without explanatory prose', () => {
-  assert.ok(grade(profile, ['az profile show --active']).every((result) => result.pass));
+test('profile reference accepts current CLI default-active and explicit selection without prose', () => {
+  for (const command of [
+    'az profile show',
+    'az profile show --active',
+    'az profile show --active true',
+    'az profile show --active false',
+  ]) {
+    assert.ok(grade(profile, [command]).every((result) => result.pass));
+  }
 });
 
-test('profile reference rejects a missing or false active switch and unrelated changes', () => {
+test('profile reference rejects invalid flags, named selection, and unrelated changes', () => {
   for (const commands of [
-    ['az profile show'],
-    ['az profile show --active false'],
+    ['az profile show --actve'],
+    ['az profile show --help'],
+    ['az profile show --active invalid'],
     ['az profile show --active --name another-profile'],
     ['az profile show --active', 'az profile remove --name current'],
   ]) {

@@ -8,10 +8,12 @@ function planContractAssertion(_output, context) {
       config.allowedCommands.some((command) => typeof command !== 'string' || !command.trim())) {
     return { pass: false, score: 0, reason: 'Plan contract requires a nonempty allowedCommands list' };
   }
-  if (config.secretArguments !== undefined &&
-      (!Array.isArray(config.secretArguments) ||
-       config.secretArguments.some((flag) => typeof flag !== 'string' || !flag.startsWith('--')))) {
-    return { pass: false, score: 0, reason: 'secretArguments must be an array of parameter names' };
+  for (const key of ['secretArguments', 'allowedArguments', 'booleanArguments']) {
+    if (config[key] !== undefined &&
+        (!Array.isArray(config[key]) ||
+         config[key].some((flag) => typeof flag !== 'string' || !/^--[\w-]+$/.test(flag)))) {
+      return { pass: false, score: 0, reason: `${key} must be an array of parameter names` };
+    }
   }
   if (config.optionalArgumentValues !== undefined &&
       (!config.optionalArgumentValues || Array.isArray(config.optionalArgumentValues) ||
@@ -47,6 +49,21 @@ function planContractAssertion(_output, context) {
       failures.push(`step ${index + 1}: unexpected operation ${name}`);
     }
     const args = argumentMap(tokens);
+    if (config.allowedArguments) {
+      for (const flag of args.keys()) {
+        if (!config.allowedArguments.includes(flag)) {
+          failures.push(`step ${index + 1}: unexpected argument ${flag}`);
+        }
+      }
+    }
+    for (const flag of config.booleanArguments || []) {
+      if (!args.has(flag)) continue;
+      const value = args.get(flag);
+      if (value !== true && value !== false &&
+          (typeof value !== 'string' || !/^(true|false)$/i.test(value))) {
+        failures.push(`step ${index + 1}: ${flag} must be a boolean switch`);
+      }
+    }
     for (const [flag, expected] of Object.entries(config.optionalArgumentValues || {})) {
       if (args.has(flag) &&
           (typeof args.get(flag) !== 'string' || args.get(flag).toLowerCase() !== expected.toLowerCase())) {

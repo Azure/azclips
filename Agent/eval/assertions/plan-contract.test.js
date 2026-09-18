@@ -72,6 +72,8 @@ test('invalid configuration and unparseable plan commands fail explicitly', () =
   assert.equal(evaluate(plan, { allowedCommands: [] }).pass, false);
   assert.equal(evaluate(plan, { allowedCommands: [null] }).pass, false);
   assert.equal(evaluate(plan, { secretArguments: 'not-an-array' }).pass, false);
+  assert.equal(evaluate(plan, { allowedArguments: [null] }).pass, false);
+  assert.equal(evaluate(plan, { booleanArguments: ['--'] }).pass, false);
   assert.equal(evaluate(plan, { optionalArgumentValues: [] }).pass, false);
   assert.equal(evaluate(plan, { validateSubscription: 'false' }).pass, false);
   assert.equal(evaluate({ steps: [{ cmd: 'az deployment group create --name "unterminated' }] }).pass, false);
