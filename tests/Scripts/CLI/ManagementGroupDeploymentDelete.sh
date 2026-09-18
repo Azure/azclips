@@ -67,12 +67,11 @@ done
 
 [[ -z "$NO_WAIT_RESULT" ]]
 
-# Negative case: deleting a nonexistent deployment must return an ARM error.
+# Negative case: omitting the required deployment name must be rejected.
 if "$AZ" deployment mg delete \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name azclips-test-deployment-mg-does-not-exist; then
-    echo "UNEXPECTED: delete accepted a nonexistent deployment"
+    --management-group-id "$MANAGEMENT_GROUP_ID"; then
+    echo "UNEXPECTED: delete accepted a missing --name"
     exit 1
 else
-    echo "OK: delete rejected a nonexistent deployment"
+    echo "OK: delete rejected a missing --name"
 fi

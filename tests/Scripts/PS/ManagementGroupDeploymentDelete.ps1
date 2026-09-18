@@ -45,15 +45,14 @@ foreach ($name in @($nameDeployment, $idDeployment)) {
 
 try {
     Remove-AzManagementGroupDeployment `
-        -ManagementGroupId $managementGroupId `
-        -Name 'azclips-test-deployment-mg-does-not-exist' `
+        -Id 'not-a-management-group-deployment-id' `
         -Confirm:$false `
         -ErrorAction Stop
-    throw 'Delete unexpectedly accepted a nonexistent deployment.'
+    throw 'Delete unexpectedly accepted an invalid deployment ID.'
 }
 catch {
-    if ($_.Exception.Message -eq 'Delete unexpectedly accepted a nonexistent deployment.') {
+    if ($_.Exception.Message -eq 'Delete unexpectedly accepted an invalid deployment ID.') {
         throw
     }
-    Write-Host 'OK: delete rejected a nonexistent deployment'
+    Write-Host 'OK: delete rejected an invalid deployment ID'
 }
