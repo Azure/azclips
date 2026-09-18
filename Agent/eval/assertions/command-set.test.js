@@ -190,10 +190,10 @@ for (const [argument, value] of [
   });
 }
 
-test('keeps the profile case compatible with its explicitly declared boolean switch', () => {
+test('keeps the profile case compatible with default-active and explicit boolean selection', () => {
   assert.deepEqual(profileConfig.expectedCommandSet[0].booleanArguments, ['--active']);
   assert.equal(run({ plan: { steps: [{ cmd: 'az profile show --active' }] } }, profileConfig).pass, true);
-  assert.equal(run({ plan: { steps: [{ cmd: 'az profile show' }] } }, profileConfig).pass, false);
+  assert.equal(run({ plan: { steps: [{ cmd: 'az profile show' }] } }, profileConfig).pass, true);
 });
 
 test('does not infer a required boolean switch from an expected true value', () => {
