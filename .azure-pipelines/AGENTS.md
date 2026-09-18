@@ -16,7 +16,7 @@ guide in the same PR so it stays accurate.
 ## Entry Pipelines
 | File | Trigger | Project | Purpose |
 | --- | --- | --- | --- |
-| `azclips-alpha-build.yml` | PR to any branch (`pr: '*'`, autoCancel) + daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`, for Component Governance) | public | PR validation + unsigned build (`release_channel: pr-alpha`). |
+| `azclips-alpha-build.yml` | PR to any branch (`pr: '*'`, autoCancel) + daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`, for Component Governance) | public | PR validation + unsigned build (`release_channel: pr-alpha`) + offline Agent evaluation harness tests. |
 | `azclips-beta-build.yml` | CI on `main` (batched) | public | Unsigned beta build; optional `sign_beta` param adds a `sign-beta` build tag. |
 | `azclips-beta-sign.yml` | Pipeline resource `betaBuild` tagged `sign-beta` | release | ESRP-signs a completed beta build, verifies, runs component governance. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
@@ -40,6 +40,12 @@ guide in the same PR so it stays accurate.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
+
+The alpha entry pipeline also includes `templates/dist/stages/agent-evaluation.yml`.
+Its independent `AgentEvaluationChecks` stage uses the named Windows pool and runs
+only offline Node/PowerShell harness tests. It does not sign in to Azure, call a
+model, or upload evaluation results. Full Agent evaluation remains a local workflow
+until the Agent has an officially supported unattended authentication path.
 
 ## Projects & Context Guards
 - **`public`** — PR (`pr-alpha`) and `beta` builds. No ESRP access.

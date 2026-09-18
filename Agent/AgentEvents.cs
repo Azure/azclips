@@ -23,7 +23,15 @@ public abstract record AgentEvent(DateTimeOffset At);
 public sealed record LlmFirstToken(TimeSpan TimeToFirstToken, DateTimeOffset At) : AgentEvent(At);
 
 /// <summary>One LLM round-trip just completed (text + tool_calls finalized).</summary>
-public sealed record LlmTurnCompleted(int InputTokens, int OutputTokens, int CachedTokens, TimeSpan Elapsed, DateTimeOffset At)
+public sealed record LlmTurnCompleted(
+    string Model,
+    int InputTokens,
+    int OutputTokens,
+    int CachedTokens,
+    int ReasoningTokens,
+    int CacheWriteTokens,
+    TimeSpan Elapsed,
+    DateTimeOffset At)
     : AgentEvent(At);
 
 // ── Tool events (path-agnostic) ───────────────────────────────────────

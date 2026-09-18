@@ -64,10 +64,41 @@ public class EventRendererSnapshotTests
                 InputTokens = 1500,
                 OutputTokens = 42,
                 CacheReadTokens = 1200,
+                ReasoningTokens = 8,
+                CacheWriteTokens = 64,
             }
         });
 
         SnapshotAssert.Matches("event-renderer-happy-path", capture.ToTranscript());
+    }
+
+    [Fact]
+    public void Usage_PreservesReasoningAndCacheWriteTokens()
+    {
+        AgentEvent? emitted = null;
+        var renderer = new EventRenderer { OnEvent = ev => emitted = ev };
+
+        renderer.Forward(new AssistantTurnStartEvent { Data = new AssistantTurnStartData { TurnId = "t1" } });
+        renderer.Forward(new AssistantUsageEvent
+        {
+            Data = new AssistantUsageData
+            {
+                Model = "test-model",
+                InputTokens = 1500,
+                OutputTokens = 42,
+                CacheReadTokens = 1200,
+                ReasoningTokens = 8,
+                CacheWriteTokens = 64,
+            }
+        });
+
+        var usage = Assert.IsType<LlmTurnCompleted>(emitted);
+        Assert.Equal("test-model", usage.Model);
+        Assert.Equal(1500, usage.InputTokens);
+        Assert.Equal(42, usage.OutputTokens);
+        Assert.Equal(1200, usage.CachedTokens);
+        Assert.Equal(8, usage.ReasoningTokens);
+        Assert.Equal(64, usage.CacheWriteTokens);
     }
 
     [Fact]

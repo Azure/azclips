@@ -1,0 +1,105 @@
+# Agent evaluation
+
+TL;DR: run the packaged Agent locally and add `-Upload` to submit the Promptfoo artifact to the evaluation UI.
+
+## Local setup
+
+Use PowerShell 7 and Node.js 24. The Agent executable must come from a full package
+built from the source revision you intend to evaluate.
+
+Install dependencies once:
+
+```powershell
+Set-Location Agent\eval
+npm ci --legacy-peer-deps
+```
+
+The builtin Agent model uses AZCLIPS's own Azure sign-in. The judge and uploader
+use the separate classic Azure CLI sign-in below; signing in to one CLI does not
+sign in to the other.
+
+Use classic Azure CLI to complete the one-time interactive browser login for the evaluation API:
+
+```powershell
+$env:AZURE_CORE_ENABLE_BROKER_ON_WINDOWS = 'false'
+& "$env:ProgramFiles\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" login `
+  --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47 `
+  --scope api://d70aaaba-e3a4-4746-bbd3-15ebcd9cb454/access_as_user
+```
+
+The signed-in user must have the `Evaluation.Submit` app role on `azclis-evaluation`.
+Token retrieval is bounded to 60 seconds; complete interactive sign-in separately
+if the uploader reports that the CLI timed out or requires interaction.
+On Windows the helper resolves classic Azure CLI from its standard installation,
+including case-insensitive environment variables. It never falls back to bare
+`az`, which can invoke the AZCLIPS Agent instead of acquiring a token. On other
+platforms, set `AZCLIPS_EVALUATION_AZURE_CLI` to the explicit classic CLI executable.
+
+## Run and upload
+
+Build and install the intended source revision using the repository packaging
+scripts before running the wrapper. It does not build or update the executable,
+and an older installed package does not become current when source files change.
+Use a full packaged installation, not the unstaged debug CLI layout:
+
+```powershell
+Set-Location <repository-root>
+.\Agent\eval\run-evaluation.ps1 `
+  -AzclipsExe "$env:LOCALAPPDATA\Programs\azcli-dev\az.exe" `
+  -Upload
+```
+
+The wrapper uses the package-local Promptfoo version, runs the configured suite
+without Promptfoo caching, restores temporary Agent configuration and the
+`AZCLIPS_EXE` environment variable, and prints the artifact path and evaluation UI
+URL. Promptfoo telemetry and update checks are disabled during evaluation, without
+changing AZCLIPS telemetry settings, and their environment overrides are restored
+afterwards. Configuration restoration is attempted for every changed setting,
+even if one restore fails.
+
+Each invocation uses a unique artifact and trace path by default. An explicit
+`-OutputPath` must not already exist: the wrapper never overwrites a previous
+result or uploads it after a new evaluation fails. Missing, invalid, or empty
+artifacts and configuration-restoration failures are errors.
+
+Quality failures still produce an artifact and can be uploaded with `-Upload`;
+the wrapper preserves Promptfoo's nonzero exit code. Process failures such as a
+timeout or a missing executable are execution errors, not ordinary quality
+scores. Upload failures are reported explicitly.
+
+Upload metadata identifies the current checkout or CI source revision, not the
+provenance of an arbitrary executable. Verify that `-AzclipsExe` points to the
+package built from that revision before publishing a baseline. Local source
+metadata can be supplied explicitly with `AZCLIPS_EVALUATION_BRANCH`,
+`AZCLIPS_EVALUATION_COMMIT`, and `AZCLIPS_EVALUATION_ENVIRONMENT` when the build
+source is known independently.
+
+## Offline validation and CI
+
+```powershell
+Set-Location Agent\eval
+npm test
+```
+
+These tests use local fixtures and mocks; they do not sign in to Azure, call
+models, or upload results. PowerShell is required for the wrapper lifecycle tests.
+
+The alpha pipeline runs the same offline tests on its shared named Windows pool.
+Full model evaluation and upload are intentionally not enabled in CI while
+AZCLIPS lacks a supported service-principal login path for the builtin Agent.
+No unsupported login command or Azure service connection is used by the offline
+stage.
+
+The uploader supports PR, push, manual, and scheduled Azure Pipelines metadata.
+PR runs use the PR source commit rather than a synthetic merge commit; other
+runs use `BUILD_SOURCEBRANCH` and `BUILD_SOURCEVERSION`. Its existing
+`AzurePipelinesCredential` support is independent of the blocked Agent login.
+
+## Deterministic command assertions
+
+`requiredArguments` requires a nonempty argument value by default. Declare
+boolean switches such as `--active` in `booleanArguments` to allow a bare switch.
+An explicit boolean in `argumentValues` is still checked. `argumentValues` and
+`pathArguments` preserve exact values and the supported equivalent path forms;
+`match: all` checks every matching command, while `match: any` requires one match.
+Invalid assertion configuration or an unparseable command fails explicitly.

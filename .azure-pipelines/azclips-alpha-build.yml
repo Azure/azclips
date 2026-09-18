@@ -42,3 +42,7 @@ stages:
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
+
+- template: templates/dist/stages/agent-evaluation.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}

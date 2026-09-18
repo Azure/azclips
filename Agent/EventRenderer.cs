@@ -116,9 +116,12 @@ public sealed class EventRenderer
             case AssistantUsageEvent usage:
                 var turnElapsed = Stopwatch.GetElapsedTime(_turnStartTs);
                 OnEvent?.Invoke(new LlmTurnCompleted(
+                    Model: usage.Data?.Model ?? "unknown",
                     InputTokens: (int)(usage.Data?.InputTokens ?? 0),
                     OutputTokens: (int)(usage.Data?.OutputTokens ?? 0),
                     CachedTokens: (int)(usage.Data?.CacheReadTokens ?? 0),
+                    ReasoningTokens: (int)(usage.Data?.ReasoningTokens ?? 0),
+                    CacheWriteTokens: (int)(usage.Data?.CacheWriteTokens ?? 0),
                     Elapsed: turnElapsed,
                     At: DateTimeOffset.UtcNow));
                 break;
