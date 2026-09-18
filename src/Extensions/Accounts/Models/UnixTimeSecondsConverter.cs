@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -15,7 +16,8 @@ public sealed class UnixTimeSecondsConverter : JsonConverter<DateTimeOffset>
 {
     public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.String && long.TryParse(reader.GetString(), out var fromString))
+        if (reader.TokenType == JsonTokenType.String &&
+            long.TryParse(reader.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var fromString))
         {
             return DateTimeOffset.FromUnixTimeSeconds(fromString);
         }
