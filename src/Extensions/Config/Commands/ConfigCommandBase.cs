@@ -57,7 +57,6 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected async Task<Dictionary<string, ConfigValueView>> GetResolvedEntriesAsync(bool includeDefaults)
     {
-        var configurationService = GetConfigurationService();
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
         var snapshot = await GetSourceAwareConfigurationService().ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
