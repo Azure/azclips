@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789622087420,
+  "lastUpdate": 1789696010737,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10000,6 +10000,48 @@ window.BENCHMARK_DATA = {
             "value": 1359591.6612870276,
             "unit": "ns",
             "range": "± 28645.241902221434"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6c0576acd4a61aecd275de6c309f19f3443b8e6e",
+          "message": "[Resources] `az group`: Support delete commands (#896)\n\nResolves: https://github.com/Azure/CLIPS/issues/911\nIncludes:\n- PS & CLI support for Group Delete.\n- Help Documentation\n- Scenario Tests (includes missing Group Exists tests)\n- Script Tests\n\nNote: delete confirmation and --yes are out of scope for this PR\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-18T09:25:49+08:00",
+          "tree_id": "8ca1e5f280abedc4bdd023e9e2b785af4de124b3",
+          "url": "https://github.com/Azure/azclips/commit/6c0576acd4a61aecd275de6c309f19f3443b8e6e"
+        },
+        "date": 1789696007016,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1538056.4350121852,
+            "unit": "ns",
+            "range": "± 35038.84349758166"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1544144.6243386243,
+            "unit": "ns",
+            "range": "± 39947.50453577762"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1479566.6340668297,
+            "unit": "ns",
+            "range": "± 33201.33226113314"
           }
         ]
       }
