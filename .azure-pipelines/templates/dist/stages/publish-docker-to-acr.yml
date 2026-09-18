@@ -359,7 +359,7 @@ stages:
           RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3-lean
+          TagSuffix: azurelinux3.0-lean
         cli_azurelinux3_lean_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
@@ -367,7 +367,7 @@ stages:
           RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3-lean
+          TagSuffix: azurelinux3.0-lean
         cli_azurelinux3_full_amd64:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
@@ -375,7 +375,7 @@ stages:
           RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3-full
+          TagSuffix: azurelinux3.0-full
         cli_azurelinux3_full_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
@@ -383,7 +383,7 @@ stages:
           RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3-full
+          TagSuffix: azurelinux3.0-full
         powershell_azurelinux3_amd64:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
@@ -391,7 +391,7 @@ stages:
           RegistryName: ${{ parameters.powershell_registry_name }}
           RegistryServer: ${{ parameters.powershell_registry_server }}
           ImageRepository: ${{ parameters.powershell_repository }}
-          TagSuffix: azurelinux3
+          TagSuffix: azurelinux-3.0
         powershell_azurelinux3_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
@@ -399,7 +399,7 @@ stages:
           RegistryName: ${{ parameters.powershell_registry_name }}
           RegistryServer: ${{ parameters.powershell_registry_server }}
           ImageRepository: ${{ parameters.powershell_repository }}
-          TagSuffix: azurelinux3
+          TagSuffix: azurelinux-3.0
     pool:
       name: $(Pool)
     steps:

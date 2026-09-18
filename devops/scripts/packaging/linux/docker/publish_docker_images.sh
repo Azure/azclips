@@ -285,13 +285,15 @@ if [[ "$ACTION" == "promote" ]]; then
   promotion_complete=false
   trap rollback_aliases EXIT
   use_registry "$CLI_REGISTRY_NAME" "$CLI_REGISTRY_SERVER"
-  promote_alias "$CLI_REPOSITORY" azurelinux3-lean azurelinux3-lean
-  promote_alias "$CLI_REPOSITORY" latest-lean azurelinux3-lean
-  promote_alias "$CLI_REPOSITORY" azurelinux3-full azurelinux3-full
-  promote_alias "$CLI_REPOSITORY" latest-full azurelinux3-full
+  promote_alias "$CLI_REPOSITORY" azurelinux3.0-lean azurelinux3.0-lean
+  promote_alias "$CLI_REPOSITORY" latest-lean azurelinux3.0-lean
+  promote_alias "$CLI_REPOSITORY" azurelinux3.0-full azurelinux3.0-full
+  promote_alias "$CLI_REPOSITORY" latest-full azurelinux3.0-full
+  promote_alias "$CLI_REPOSITORY" azurelinux3.0 azurelinux3.0
+  promote_alias "$CLI_REPOSITORY" latest azurelinux3.0
   use_registry "$POWERSHELL_REGISTRY_NAME" "$POWERSHELL_REGISTRY_SERVER"
-  promote_alias "$POWERSHELL_REPOSITORY" azurelinux3 azurelinux3
-  promote_alias "$POWERSHELL_REPOSITORY" latest azurelinux3
+  promote_alias "$POWERSHELL_REPOSITORY" azurelinux-3.0 azurelinux-3.0
+  promote_alias "$POWERSHELL_REPOSITORY" latest azurelinux-3.0
   promotion_complete=true
   trap - EXIT
   exit 0
@@ -319,8 +321,9 @@ publish_image() {
   local artifact_name="$1"
   local local_repository="$2"
   local repository="$3"
-  local tag_suffix="$4"
-  local expected_arch="$5"
+  local local_tag_suffix="$4"
+  local tag_suffix="$5"
+  local expected_arch="$6"
   local artifact_dir="$ARTIFACT_ROOT/$artifact_name"
 
   mapfile -t archives < <(find "$artifact_dir" -maxdepth 2 -type f -name '*.tar' | sort)
@@ -330,7 +333,7 @@ publish_image() {
     exit 1
   fi
 
-  local local_tag="$local_repository:$VERSION-$tag_suffix"
+  local local_tag="$local_repository:$VERSION-$local_tag_suffix"
   local remote_tag="$REGISTRY_SERVER/$repository:$VERSION-$tag_suffix"
   docker load --input "${archives[0]}"
 
@@ -399,23 +402,26 @@ publish_manifest() {
 }
 
 use_registry "$CLI_REGISTRY_NAME" "$CLI_REGISTRY_SERVER"
-publish_image Release_Docker_CLI_AzureLinux3_Lean_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-lean-amd64 amd64
-publish_image Release_Docker_CLI_AzureLinux3_Lean_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-lean-arm64 arm64
-publish_image Release_Docker_CLI_AzureLinux3_Full_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-full-amd64 amd64
-publish_image Release_Docker_CLI_AzureLinux3_Full_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-full-arm64 arm64
+publish_image Release_Docker_CLI_AzureLinux3_Lean_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-lean-amd64 azurelinux3.0-lean-amd64 amd64
+publish_image Release_Docker_CLI_AzureLinux3_Lean_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-lean-arm64 azurelinux3.0-lean-arm64 arm64
+publish_image Release_Docker_CLI_AzureLinux3_Full_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-full-amd64 azurelinux3.0-full-amd64 amd64
+publish_image Release_Docker_CLI_AzureLinux3_Full_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-full-arm64 azurelinux3.0-full-arm64 arm64
 
-publish_manifest "$CLI_REPOSITORY" azurelinux3-lean \
-  "$VERSION-azurelinux3-lean-amd64" \
-  "$VERSION-azurelinux3-lean-arm64"
-publish_manifest "$CLI_REPOSITORY" azurelinux3-full \
-  "$VERSION-azurelinux3-full-amd64" \
-  "$VERSION-azurelinux3-full-arm64"
+publish_manifest "$CLI_REPOSITORY" azurelinux3.0-lean \
+  "$VERSION-azurelinux3.0-lean-amd64" \
+  "$VERSION-azurelinux3.0-lean-arm64"
+publish_manifest "$CLI_REPOSITORY" azurelinux3.0-full \
+  "$VERSION-azurelinux3.0-full-amd64" \
+  "$VERSION-azurelinux3.0-full-arm64"
+publish_manifest "$CLI_REPOSITORY" azurelinux3.0 \
+  "$VERSION-azurelinux3.0-full-amd64" \
+  "$VERSION-azurelinux3.0-full-arm64"
 
 use_registry "$POWERSHELL_REGISTRY_NAME" "$POWERSHELL_REGISTRY_SERVER"
-publish_image Release_Docker_PowerShell_AzureLinux3_Amd64 azclips-powershell "$POWERSHELL_REPOSITORY" azurelinux3-amd64 amd64
-publish_image Release_Docker_PowerShell_AzureLinux3_Arm64 azclips-powershell "$POWERSHELL_REPOSITORY" azurelinux3-arm64 arm64
-publish_manifest "$POWERSHELL_REPOSITORY" azurelinux3 \
-  "$VERSION-azurelinux3-amd64" \
-  "$VERSION-azurelinux3-arm64"
+publish_image Release_Docker_PowerShell_AzureLinux3_Amd64 azclips-powershell "$POWERSHELL_REPOSITORY" azurelinux3-amd64 azurelinux-3.0-amd64 amd64
+publish_image Release_Docker_PowerShell_AzureLinux3_Arm64 azclips-powershell "$POWERSHELL_REPOSITORY" azurelinux3-arm64 azurelinux-3.0-arm64 arm64
+publish_manifest "$POWERSHELL_REPOSITORY" azurelinux-3.0 \
+  "$VERSION-azurelinux-3.0-amd64" \
+  "$VERSION-azurelinux-3.0-arm64"
 
 sha256sum "$digest_file" > "$METADATA_ROOT/image-digests.txt.sha256"
