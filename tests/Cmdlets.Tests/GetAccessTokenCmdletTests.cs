@@ -99,4 +99,32 @@ public class GetAccessTokenCmdletTests
         Assert.Equal("ResourceUrl", metadata.ParameterAliases["Resource"]);
         Assert.Equal("ResourceUrl", metadata.ParameterAliases["ResourceUri"]);
     }
+
+    // Get-AzAccessToken parity: -ResourceTypeName accepts the PowerShell PascalCase resource-type names
+    // via [ValidateSet] (suggest + validate, the repo's usual convention). This guard keeps the set in
+    // lockstep with the resolver: every value must resolve, and together they must cover exactly the same
+    // resources as the canonical kebab list, so adding/removing/mistyping a name fails CI.
+    [Fact]
+    public void PowerShellSurface_ResourceTypeName_ValidateSet_MatchesResolver()
+    {
+        var validateSet = (ValidateSetAttribute?)typeof(GetAccessTokenCmdlet)
+            .GetProperty(nameof(GetAccessTokenCmdlet.ResourceTypeName))!
+            .GetCustomAttributes(typeof(ValidateSetAttribute), inherit: true)
+            .SingleOrDefault();
+
+        Assert.NotNull(validateSet);
+        Assert.True(validateSet!.IgnoreCase, "IgnoreCase should be set so case variants (e.g. msgraph) bind.");
+
+        string Resolve(string name)
+        {
+            Assert.True(WellKnownResourceTypes.TryResolve(name, out var url), $"'{name}' should resolve.");
+            return url;
+        }
+
+        var offered = validateSet.ValidValues.Select(Resolve).ToHashSet();
+        var known = WellKnownResourceTypes.Names.Select(Resolve).ToHashSet();
+
+        Assert.Equal(known, offered);
+        Assert.Equal(WellKnownResourceTypes.Names.Length, validateSet.ValidValues.Count);
+    }
 }

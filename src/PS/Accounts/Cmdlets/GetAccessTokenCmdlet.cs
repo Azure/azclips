@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -26,6 +29,16 @@ public class GetAccessTokenCmdlet : PSCmdlet
     public string? ResourceUrl { get; set; }
 
     [Parameter(ParameterSetName = "ResourceType", Mandatory = false)]
+    // Suggest + validate the PowerShell PascalCase resource-type names, giving Get-AzAccessToken parity
+    // and using the repo's usual [ValidateSet] convention. IgnoreCase lets case variants through; the
+    // CLI kebab spellings (e.g. ms-graph) are intentionally not accepted on the PowerShell surface (the
+    // CLI surface enforces those via its AllowedValues). The shared TokenScopeResolver still understands
+    // both spellings, so each front end feeds it its own vocabulary. A test in Cmdlets.Tests keeps this
+    // set in lockstep with the resolver's known resource types.
+    [ValidateSet(
+        "Arm", "AadGraph", "MSGraph", "Batch", "DataLake", "OssRdbms", "Media", "KeyVault",
+        "Storage", "Synapse", "ManagedHsm", "CommunicationEmail", "Attestation", "AppConfiguration",
+        "AnalysisServices", "OperationalInsights", IgnoreCase = true)]
     public string? ResourceTypeName { get; set; }
 
     [Parameter(ParameterSetName = "Scope", Mandatory = true)]

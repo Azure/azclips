@@ -7,9 +7,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts;
 /// The unified set of well-known resource-type shortcuts for token retrieval, shared by both the
 /// CLI (<c>--resource-type</c>) and PowerShell (<c>-ResourceTypeName</c>) front ends. This is the
 /// union of Azure CLI's shortcut list and Azure PowerShell's shortcut list, so the same shortcut
-/// name resolves to the same resource regardless of front end.
+/// resolves to the same resource whichever front end asked.
 /// </summary>
 /// <remarks>
+/// This resolver is surface-agnostic and understands <b>both</b> spellings (see <see cref="Lookup"/>),
+/// but each front end enforces only its own vocabulary at the edge: the CLI accepts the kebab-case
+/// names (via <c>AllowedValues</c> in the command metadata), and PowerShell accepts the PascalCase
+/// names (via <c>[ValidateSet]</c> on <c>Get-AzAccessToken</c>). This mirrors the classic tools, where
+/// <c>az</c> takes kebab-case and <c>Get-AzAccessToken</c> takes PascalCase. Because the resolver knows
+/// both, each surface simply feeds it its own spelling.
+///
 /// The resource URLs below are <b>public-cloud</b> values, verified against source:
 /// <list type="bullet">
 /// <item>CLI shortcuts + URLs: <c>azure-cli-core/azure/cli/core/cloud.py</c> (AzurePublicCloud) and
@@ -27,71 +34,66 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts;
 /// data-plane path upstream (not its <c>ResourceNameMap</c>); the standard public-cloud storage
 /// resource is used here.
 ///
-/// Lookup is case-insensitive and accepts both the CLI kebab-case spelling (e.g. <c>ms-graph</c>)
-/// and the PowerShell PascalCase spelling (e.g. <c>MSGraph</c>).
+/// <see cref="Lookup"/> is case-insensitive and accepts both the CLI kebab-case spelling (e.g.
+/// <c>ms-graph</c>) and the PowerShell PascalCase spelling (e.g. <c>MSGraph</c>).
 /// </remarks>
 internal static class WellKnownResourceTypes
 {
     /// <summary>The canonical shortcut name for Azure Resource Manager, used as the default target.</summary>
     public const string Arm = "arm";
 
-    // Canonical shortcut name -> resource URL (public cloud). A token scope is derived as
-    // "<resource>/.default" by TokenScopeResolver.
-    private static readonly IReadOnlyDictionary<string, string> Canonical = new Dictionary<string, string>
-    {
-        [Arm]                   = "https://management.core.windows.net/",
-        ["aad-graph"]           = "https://graph.windows.net/",
-        ["ms-graph"]            = "https://graph.microsoft.com/",
-        ["batch"]               = "https://batch.core.windows.net/",
-        ["data-lake"]           = "https://datalake.azure.net/",
-        ["oss-rdbms"]           = "https://ossrdbms-aad.database.windows.net",
-        ["media"]               = "https://rest.media.azure.net",
-        ["key-vault"]           = "https://vault.azure.net",
-        ["storage"]             = "https://storage.azure.com/",
-        ["synapse"]             = "https://dev.azuresynapse.net",
-        ["managed-hsm"]         = "https://managedhsm.azure.net",
-        ["communication-email"] = "https://communication.azure.com",
-        ["attestation"]         = "https://attest.azure.net",
-        ["app-configuration"]   = "https://azconfig.io",
-        ["analysis-services"]   = "https://region.asazure.windows.net", // NB: the literal "region" is the fixed AAD resource ID Az uses (not a placeholder to substitute) - passed verbatim, matches azure-powershell.
-        ["operational-insights"] = "https://api.loganalytics.io",
-    };
+    // Single source of truth: one row per well-known resource type carrying its CLI kebab-case spelling,
+    // its PowerShell PascalCase spelling, and the public-cloud resource URL. A token scope is derived as
+    // "<resource>/.default" by TokenScopeResolver. Adding a type is a single row here; the two spellings
+    // and the URL stay in lockstep by construction, so there is no parallel list to keep in sync. Both
+    // spellings resolve on either front end (matching is case-insensitive).
+    private static readonly (string Kebab, string Pascal, string Resource)[] All =
+    [
+        (Arm,                    "Arm",                "https://management.core.windows.net/"),
+        ("aad-graph",            "AadGraph",           "https://graph.windows.net/"),
+        ("ms-graph",             "MSGraph",            "https://graph.microsoft.com/"),
+        ("batch",                "Batch",              "https://batch.core.windows.net/"),
+        ("data-lake",            "DataLake",           "https://datalake.azure.net/"),
+        ("oss-rdbms",            "OssRdbms",           "https://ossrdbms-aad.database.windows.net"), // CLI-only shortcut; no upstream PowerShell spelling.
+        ("media",                "Media",              "https://rest.media.azure.net"),             // CLI-only shortcut; no upstream PowerShell spelling.
+        ("key-vault",            "KeyVault",           "https://vault.azure.net"),
+        ("storage",              "Storage",            "https://storage.azure.com/"),               // Data-plane resource id upstream; standard public-cloud storage resource used here.
+        ("synapse",              "Synapse",            "https://dev.azuresynapse.net"),
+        ("managed-hsm",          "ManagedHsm",         "https://managedhsm.azure.net"),
+        ("communication-email",  "CommunicationEmail", "https://communication.azure.com"),
+        ("attestation",          "Attestation",        "https://attest.azure.net"),
+        ("app-configuration",    "AppConfiguration",   "https://azconfig.io"),
+        ("analysis-services",    "AnalysisServices",   "https://region.asazure.windows.net"),       // NB: the literal "region" is the fixed AAD resource id Az uses (not a placeholder to substitute) - passed verbatim, matches azure-powershell.
+        ("operational-insights", "OperationalInsights", "https://api.loganalytics.io"),
+    ];
 
-    // Additional spellings/aliases (mainly the PowerShell PascalCase names) mapped to the canonical
-    // key above. The canonical keys themselves are also accepted; matching is case-insensitive.
-    private static readonly IReadOnlyDictionary<string, string> Aliases = new Dictionary<string, string>
-    {
-        ["resourcemanager"]     = Arm,
-        ["aadgraph"]            = "aad-graph",
-        ["msgraph"]             = "ms-graph",
-        ["datalake"]            = "data-lake",
-        ["ossrdbms"]            = "oss-rdbms",
-        ["keyvault"]            = "key-vault",
-        ["managedhsm"]          = "managed-hsm",
-        ["communicationemail"]  = "communication-email",
-        ["appconfiguration"]    = "app-configuration",
-        ["analysisservices"]    = "analysis-services",
-        ["operationalinsights"] = "operational-insights",
-    };
+    // Extra accepted spellings that are neither the kebab nor the PascalCase name above. Kept minimal:
+    // only genuine synonyms live here. "ResourceManager" is an additional PowerShell spelling for arm
+    // (it is accepted but not advertised in completion, matching azure-powershell).
+    private static readonly (string Alias, string Kebab)[] ExtraAliases =
+    [
+        ("ResourceManager", Arm),
+    ];
 
     private static readonly IReadOnlyDictionary<string, string> Lookup = BuildLookup();
 
     private static IReadOnlyDictionary<string, string> BuildLookup()
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (name, resource) in Canonical)
+        foreach (var (kebab, pascal, resource) in All)
         {
-            map[name] = resource;
+            map[kebab] = resource;
+            map[pascal] = resource;
         }
-        foreach (var (alias, canonical) in Aliases)
+        foreach (var (alias, kebab) in ExtraAliases)
         {
-            map[alias] = Canonical[canonical];
+            map[alias] = map[kebab];
         }
         return map;
     }
 
-    /// <summary>The canonical shortcut names (kebab-case), for help text and completion.</summary>
-    public static IEnumerable<string> Names => Canonical.Keys;
+    /// <summary>The canonical shortcut names (kebab-case), for CLI help text and tab completion.</summary>
+    public static string[] Names { get; } = [.. All.Select(e => e.Kebab)];
 
     /// <summary>
     /// Attempts to resolve a well-known resource-type shortcut (in either CLI or PowerShell spelling)

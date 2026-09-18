@@ -91,4 +91,20 @@ public class GetAccessTokenCliBindingTests
             ["https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Mail.Read"],
             processor.Scope!);
     }
+
+    // The CLI resource-type parameter advertises its known values via AllowedValues, which drives shell
+    // tab completion (the completion generator reads AllowedValues, not the C# type) and is enforced by
+    // CLI parsing (kebab spellings only). PowerShell enforces its PascalCase spellings separately via a
+    // [ValidateSet] on the cmdlet (covered in Cmdlets.Tests), so the PowerShell metadata carries no
+    // AllowedValues.
+    [Fact]
+    public void ResourceType_AdvertisesAllowedValues_ForCliCompletion()
+    {
+        var cli = new ExtensionIndex().GetCommandMetadata("account get-access-token", ClientType.CLI);
+        var cliValues = cli.Parameters["resource-type"].AllowedValues;
+        Assert.NotEmpty(cliValues);
+        Assert.Contains("arm", cliValues);
+        Assert.Contains("ms-graph", cliValues);
+        Assert.Contains("key-vault", cliValues);
+    }
 }

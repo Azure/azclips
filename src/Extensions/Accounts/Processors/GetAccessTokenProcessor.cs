@@ -58,7 +58,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         // publisher carries the session's cancellation token (RuntimeEventBus.Token), so read it from there.
         public CancellationToken Token => _publisher.Token;
 
-        public Action Cancel => throw new NotImplementedException();
+        // Delegates a Ctrl+C / StopProcessing() request to the session's cancellation action so it reaches
+        // the in-flight MSAL acquisition, matching how Token above surfaces the session's cancellation token.
+        public Action Cancel => _publisher.Cancel;
 
         public IProcessor Init(ProcessorContext context)
         {
@@ -70,77 +72,85 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         public async Task ProcessAsync()
         {
-            await _publisher.Publish(Events.ProcessorProcessAsyncStart);
-
-            if (_profile is null)
-            {
-                var (signInCommand, _) = SignInGuidance();
-                throw AzclipsErrorException.UsageError(
-                    $"No signed-in context is available. Run '{signInCommand}' to sign in (or set an active profile), then retry.");
-            }
-            Profile profile = _profile;
-
-            string? explicitTenant = string.IsNullOrWhiteSpace(Tenant) ? null : Tenant.Trim();
-
-            ValidateTenantCompatibility(profile, explicitTenant);
-
-            string[] scopes = TokenScopeResolver.Resolve(Resource, ResourceType, Scope);
-
-            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            string targetTenant = explicitTenant ?? profile.TenantId;
-            AuthResult authResult;
             try
             {
-                authResult = await authService.AcquireTokenSilentlyAsync(
-                    scopes,
-                    targetTenant,
-                    promptOnError: false,
-                    cancellationToken: Token,
-                    profile: profile);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException and not AzclipsErrorException)
-            {
-                // Acquisition is silent (promptOnError: false), so translate a raw MSAL failure into
-                // actionable, surface-aware sign-in guidance. Structured AzclipsErrorException usage
-                // errors (e.g. an unsupported multi-scope managed-identity request raised while
-                // resolving the scope) are excluded above so they surface their own message instead of
-                // this misleading sign-in error.
-                if (profile.AuthMethod == AuthMethod.ManagedIdentity)
+                await _publisher.Publish(Events.ProcessorProcessAsyncStart);
+
+                if (_profile is null)
                 {
-                    // A managed identity cannot be re-authenticated with an interactive, tenant-scoped
-                    // sign-in (login rejects --identity together with --tenant-id), so point at the
-                    // identity/environment path instead of the browser sign-in guidance below.
-                    string identitySignIn = ManagedIdentitySignInCommand();
+                    var (signInCommand, _) = SignInGuidance();
+                    throw AzclipsErrorException.UsageError(
+                        $"No signed-in context is available. Run '{signInCommand}' to sign in (or set an active profile), then retry.");
+                }
+                Profile profile = _profile;
+
+                string? explicitTenant = string.IsNullOrWhiteSpace(Tenant) ? null : Tenant.Trim();
+
+                ValidateTenantCompatibility(profile, explicitTenant);
+
+                string[] scopes = TokenScopeResolver.Resolve(Resource, ResourceType, Scope);
+
+                var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+                string targetTenant = explicitTenant ?? profile.TenantId;
+                AuthResult authResult;
+                try
+                {
+                    authResult = await authService.AcquireTokenSilentlyAsync(
+                        scopes,
+                        targetTenant,
+                        promptOnError: false,
+                        cancellationToken: Token,
+                        profile: profile);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException and not AzclipsErrorException)
+                {
+                    // Acquisition is silent (promptOnError: false), so translate a raw MSAL failure into
+                    // actionable, surface-aware sign-in guidance. Structured AzclipsErrorException usage
+                    // errors (e.g. an unsupported multi-scope managed-identity request raised while
+                    // resolving the scope) are excluded above so they surface their own message instead of
+                    // this misleading sign-in error.
+                    if (profile.AuthMethod == AuthMethod.ManagedIdentity)
+                    {
+                        // A managed identity cannot be re-authenticated with an interactive, tenant-scoped
+                        // sign-in (login rejects --identity together with --tenant-id), so point at the
+                        // identity/environment path instead of the browser sign-in guidance below.
+                        string identitySignIn = ManagedIdentitySignInCommand();
+                        throw new InvalidOperationException(
+                            $"Could not acquire a managed identity access token for tenant '{targetTenant}'. {ex.Message} "
+                            + "Confirm a managed identity is available in this environment and is authorized for the "
+                            + $"requested resource. If the identity context needs to be re-established, run '{identitySignIn}', then retry.",
+                            ex);
+                    }
+
+                    var (signInCommand, tenantFlag) = SignInGuidance();
                     throw new InvalidOperationException(
-                        $"Could not acquire a managed identity access token for tenant '{targetTenant}'. {ex.Message} "
-                        + "Confirm a managed identity is available in this environment and is authorized for the "
-                        + $"requested resource. If the identity context needs to be re-established, run '{identitySignIn}', then retry.",
+                        $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
+                        + "You may not be signed in to that tenant, or it requires additional sign-in "
+                        + "(for example, multifactor authentication or a conditional access policy). "
+                        + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
                         ex);
                 }
 
-                var (signInCommand, tenantFlag) = SignInGuidance();
-                throw new InvalidOperationException(
-                    $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
-                    + "You may not be signed in to that tenant, or it requires additional sign-in "
-                    + "(for example, multifactor authentication or a conditional access policy). "
-                    + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
-                    ex);
+                // get-access-token operates in the active profile's context, so the reported subscription
+                // always comes from that profile. Unlike classic `az` (which caches every subscription at
+                // login and can resolve an arbitrary --subscription to its owning tenant offline), AzCLIPS
+                // keeps only the single active profile, so there is no --subscription input to honor here;
+                // switch subscription with login/profile set, which resolves the owning tenant correctly.
+                string? subscription = string.IsNullOrEmpty(profile.SubscriptionId) ? null : profile.SubscriptionId;
+
+                string? userId = !string.IsNullOrEmpty(profile.UserPrincipalName)
+                    ? profile.UserPrincipalName
+                    : authResult.UserPrincipalName;
+
+                await _writeOutput(RenderOutput(authResult, subscription, userId));
             }
-
-            // get-access-token operates in the active profile's context, so the reported subscription
-            // always comes from that profile. Unlike classic `az` (which caches every subscription at
-            // login and can resolve an arbitrary --subscription to its owning tenant offline), AzCLIPS
-            // keeps only the single active profile, so there is no --subscription input to honor here;
-            // switch subscription with login/profile set, which resolves the owning tenant correctly.
-            string? subscription = string.IsNullOrEmpty(profile.SubscriptionId) ? null : profile.SubscriptionId;
-
-            string? userId = !string.IsNullOrEmpty(profile.UserPrincipalName)
-                ? profile.UserPrincipalName
-                : authResult.UserPrincipalName;
-
-            await _writeOutput(RenderOutput(authResult, subscription, userId));
-
-            await _publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            finally
+            {
+                // Publish the paired end event on every exit path (including the throws above) so the
+                // engine's telemetry span opened by ProcessorProcessAsyncStart is always disposed, matching
+                // the try/finally pattern used by the base REST processors.
+                await _publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            }
         }
 
         /// <summary>
