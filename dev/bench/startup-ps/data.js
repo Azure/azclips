@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789622144051,
+  "lastUpdate": 1789708425443,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -3384,6 +3384,42 @@ window.BENCHMARK_DATA = {
             "value": 289911127.67,
             "unit": "ns",
             "range": "± 5481692.446405798"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b51b4fba63b3df691c091d1621840793ab939585",
+          "message": "{Config} Generate schema metadata from options (#889)\n\nRefactors configuration schema metadata so settings are declared beside\nthe typed options that own them, while preserving the existing schema\nAPI, key paths, defaults, validation, and binding behavior.\n\n## What changed\n\nCloses Azure/CLIPS#623\n\n- Added property metadata for configuration keys and section metadata\nfor root option types.\n- Added a recursive schema builder for nested options and dotted\nconfiguration paths.\n- Removed the duplicated flat schema list and the separate section-name\nmap.\n- Preserved the existing `clients.powershell` path casing explicitly.\n- Kept PowerShell configuration binding covered by regression tests.\n\n## Testing\n\n- Full solution build passed.\n- CLI configuration tests: 66 passed.\n- PowerShell cmdlet tests: 105 passed.\n- Full CLI test suite: 837 passed, 0 failed, 8 skipped.\n- Added a complete flattened-key regression test for the current schema\nsurface.\n\n## History Notes\n\n{Config} Generate configuration schema metadata from typed options\nwithout changing public settings.",
+          "timestamp": "2026-09-18T04:01:17Z",
+          "tree_id": "30d1415f26d0b99a8f8387bc1172b8144652970a",
+          "url": "https://github.com/Azure/azclips/commit/b51b4fba63b3df691c091d1621840793ab939585"
+        },
+        "date": 1789708425323,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 289053393.43,
+            "unit": "ns",
+            "range": "± 8335352.400515646"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 276866709.36,
+            "unit": "ns",
+            "range": "± 8444312.696355524"
           }
         ]
       }
