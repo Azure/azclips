@@ -148,7 +148,6 @@ public sealed class ConfigurationService(
 
     public async Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
     {
-        await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
         var configured = Flatten(root);
         var result = new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase);
