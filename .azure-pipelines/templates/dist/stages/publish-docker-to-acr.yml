@@ -48,6 +48,9 @@ parameters:
 - name: promote_aliases
   type: boolean
   default: true
+- name: enable_azure_cli_bootstrap
+  type: boolean
+  default: false
 
 stages:
 - stage: BuildSignedDockerImages
@@ -256,6 +259,13 @@ stages:
               "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
             displayName: Install Docker
 
+          - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
+            - script: |
+                set -euo pipefail
+                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+              displayName: Install Azure CLI
+
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Lean Amd64 Image
             inputs:
@@ -404,6 +414,13 @@ stages:
         "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
       displayName: Install Docker
 
+    - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
+      - script: |
+          set -euo pipefail
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+        displayName: Install Azure CLI
+
     - task: DownloadPipelineArtifact@2
       displayName: Download Docker Image Digests
       inputs:
@@ -499,6 +516,13 @@ stages:
               chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
               "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
             displayName: Install Docker
+
+          - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
+            - script: |
+                set -euo pipefail
+                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+                "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
+              displayName: Install Azure CLI
 
           - task: DownloadPipelineArtifact@2
             displayName: Download Docker Image Digests
