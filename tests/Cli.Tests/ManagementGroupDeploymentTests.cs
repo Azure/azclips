@@ -518,18 +518,56 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task Export_WritesTemplateInsteadOfResponseEnvelope()
+    public async Task Export_SendsExpectedRequestAndWritesTemplateOnly()
     {
+        HttpMethod? sentMethod = null;
+        string? sentUri = null;
+        bool hadContent = true;
         FakeOutputHandler output = new();
         ExportTemplateAtManagementGroupScopeDeploymentsProcessor processor =
-            CreateProcessor(new ExportTemplateAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
-                Json("""{"template":{"contentVersion":"1.0.0.0","resources":[]}}""")), output);
+            CreateProcessor(new ExportTemplateAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((request, _) =>
+            {
+                sentMethod = request.Method;
+                sentUri = request.RequestUri!.AbsoluteUri;
+                hadContent = request.Content is not null;
+                return Json("""{"template":{"contentVersion":"1.0.0.0","resources":[]}}""");
+            }), output);
         processor.ManagementGroupId = "test-management-group";
-        processor.Name = "test-deployment";
+        processor.Name = "deployment_(blue)";
 
         await processor.ProcessAsync();
 
-        Assert.IsType<System.Text.Json.JsonElement>(Assert.Single(output.WrittenValues));
+        Assert.Equal(HttpMethod.Post, sentMethod);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Management/managementGroups/test-management-group/providers/Microsoft.Resources/deployments/deployment_%28blue%29/exportTemplate?api-version=2025-04-01",
+            sentUri);
+        Assert.False(hadContent);
+        System.Text.Json.JsonElement template =
+            Assert.IsType<System.Text.Json.JsonElement>(Assert.Single(output.WrittenValues));
+        Assert.Equal("1.0.0.0", template.GetProperty("contentVersion").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, template.GetProperty("resources").ValueKind);
+    }
+
+    [Fact]
+    public async Task Export_ArmFailureIsSurfacedWithoutOutput()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json(
+                """{"error":{"code":"DeploymentNotFound","message":"The deployment was not found."}}""",
+                HttpStatusCode.NotFound));
+        FakeOutputHandler output = new();
+        ExportTemplateAtManagementGroupScopeDeploymentsProcessor processor =
+            CreateProcessor(new ExportTemplateAtManagementGroupScopeDeploymentsProcessor(), pipeline, output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "missing-deployment";
+
+        HttpRequestException exception =
+            await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
+        Assert.Contains("DeploymentNotFound", exception.Message);
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
