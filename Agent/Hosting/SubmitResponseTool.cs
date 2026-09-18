@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
@@ -13,9 +14,9 @@ namespace Core.Agent.Hosting;
 ///   • failed    — tried but couldn't finish (message = human-readable reason)
 ///
 /// The host recognizes the call in OnPreToolUse and renders the final outcome.
-/// Argument validation (status enum, message-required rules) lives in the hook,
-/// not this method body, so the LLM gets a deny + correction prompt rather than
-/// a framework stack trace. This body only logs the call.
+/// The schema advertises the status enum. The hook still validates status and
+/// message-required rules before invocation, so invalid arguments receive a
+/// deny + correction prompt. This body only logs the call.
 /// </summary>
 public sealed class SubmitResponseTool
 {
@@ -39,13 +40,25 @@ public sealed class SubmitResponseTool
 
     [Description("Terminate the session with a final outcome.")]
     private static string SubmitResponseImpl(
-        [Description("Session outcome: 'completed' | 'rejected' | 'failed'.")]
-        string status,
+        [Description("Session outcome.")]
+        SubmitStatus status,
         [Description("For 'completed': only add a message if it carries critical information NOT already in the plan or needsUserInput — otherwise leave it empty (don't repeat the plan). For 'rejected': required, must start with OUT_OF_SCOPE_. For 'failed': required, a short human-readable reason.")]
         string? message = null)
     {
-        using var scope = ToolInvocationLog.Start("submit_response", $"status={status}");
-        scope.SetResult(string.IsNullOrEmpty(message) ? status : $"{status}: {message}");
+        var wireStatus = status.ToString().ToLowerInvariant();
+        using var scope = ToolInvocationLog.Start("submit_response", $"status={wireStatus}");
+        scope.SetResult(string.IsNullOrEmpty(message) ? wireStatus : $"{wireStatus}: {message}");
         return "session terminated";
     }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<SubmitStatus>))]
+public enum SubmitStatus
+{
+    [JsonStringEnumMemberName("completed")]
+    Completed,
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+    [JsonStringEnumMemberName("failed")]
+    Failed,
 }

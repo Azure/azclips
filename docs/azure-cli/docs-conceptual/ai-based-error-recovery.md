@@ -100,6 +100,13 @@ az config set --key agent.sessionStyle --value oneshot
 
 ## Frequently asked questions
 
+### How are recovery plans validated?
+
+The Agent's `propose_plan` tool schema requires at least one issue and one step.
+The `submit_response` schema advertises the outcomes `completed`, `rejected`, and `failed`.
+The host still validates the tool arguments and retains the existing approval checks before
+any command can run.
+
 ### What does AI-based error recovery do?
 
 AI-based error recovery analyzes command failures and provides:

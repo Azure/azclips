@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
@@ -16,7 +17,8 @@ namespace Core.Agent.Hosting;
 ///   • steps         — the ordered commands to fix it
 ///   • placeholders  — secrets only the user knows (rendered with &lt;name&gt;)
 ///   • defaults      — flags the agent chose/derived (rendered from the command's real token)
-/// Argument validation lives in the hook, so this body only logs.
+/// The schema advertises non-empty issues and steps; the hook still validates
+/// the full plan before approval. This body only logs.
 /// </summary>
 public sealed class ProposePlanTool
 {
@@ -43,9 +45,11 @@ public sealed class ProposePlanTool
 
     [Description("Propose a fix (issues + steps) for user review before running commands.")]
     private static string ProposePlanImpl(
-        [Description("What went wrong: a list of short plain-text points, one string per point. Each point states one reason the command failed or one fact the user should know (e.g. \"The -g short flag isn't supported — use --resource-group\"). At least one point.")]
+        [Description("What went wrong: a list of short plain-text points, one string per point. Each point states one reason the command failed or one fact the user should know (e.g. \"The -g short flag isn't supported — use --resource-group\").")]
+        [MinLength(1)]
         IReadOnlyList<string> issues,
-        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command: (1) use <flag-name> as a placeholder in the parameter value for secret flags whose value you don't know, e.g. --admin-password <admin-password>; (2) put the real parameter value in the cmd for a value you chose (a common region, a moderate VM size) or a name you derived, e.g. `<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`.), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
+        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command: (1) use <flag-name> as a placeholder in the parameter value for secret flags whose value you don't know, e.g. --admin-password <admin-password>; (2) put the real parameter value in the cmd for a value you chose (a common region, a moderate VM size) or a name you derived, e.g. `<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`.), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too).")]
+        [MinLength(1)]
         IReadOnlyList<StepMeta> steps,
         [Description("Optional. Secret flags only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: flag (as written in your step's cmd, e.g. --admin-password) + description (one short phrase telling the user what to fill in). List flags you added or modified; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<UserInputNeed>? placeholders = null,
