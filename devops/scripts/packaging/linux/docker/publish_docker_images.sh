@@ -11,12 +11,6 @@ POWERSHELL_REGISTRY_SERVER="${POWERSHELL_REGISTRY_SERVER:?ERROR: POWERSHELL_REGI
 POWERSHELL_REPOSITORY="${POWERSHELL_REPOSITORY:-public/azure-powershell-v3}"
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-}"
 METADATA_ROOT="${METADATA_ROOT:-}"
-PUBLICATION_ID="${PUBLICATION_ID:-${BUILD_BUILDID:-manual}}"
-
-if [[ ! "$PUBLICATION_ID" =~ ^[A-Za-z0-9_.-]+$ ]]; then
-  echo "ERROR: PUBLICATION_ID contains unsupported characters: '$PUBLICATION_ID'."
-  exit 1
-fi
 
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
   echo "ERROR: VERSION must be SemVer-like. Got: '$VERSION'."
@@ -93,16 +87,6 @@ tag_exists() {
   fi
   echo "ERROR: Unexpected tag lookup result for '$repository:$tag': '$tag_count'."
   exit 1
-}
-
-remove_tag_if_present() {
-  local repository="$1"
-  local tag="$2"
-  if tag_exists "$repository" "$tag"; then
-    az acr repository untag \
-      --name "$REGISTRY_NAME" \
-      --image "$repository:$tag"
-  fi
 }
 
 lock_versioned_tag() {
@@ -331,36 +315,6 @@ mkdir -p "$METADATA_ROOT"
 digest_file="$METADATA_ROOT/image-digests.txt"
 : > "$digest_file"
 
-cleanup_publication_candidates() {
-  local status=$?
-  local index cleanup_failed=false
-  trap - EXIT
-  set +e
-  for ((index=${#publication_candidate_tags[@]} - 1; index >= 0; index--)); do
-    if ! az acr repository untag \
-      --name "${publication_candidate_registry_names[$index]}" \
-      --image "${publication_candidate_repositories[$index]}:${publication_candidate_tags[$index]}"; then
-      echo "ERROR: Failed to remove publication candidate '${publication_candidate_repositories[$index]}:${publication_candidate_tags[$index]}'." >&2
-      cleanup_failed=true
-    fi
-  done
-  if [[ "$status" -eq 0 && "$cleanup_failed" == "true" ]]; then
-    status=1
-  fi
-  exit "$status"
-}
-
-register_publication_candidate() {
-  publication_candidate_registry_names+=("$REGISTRY_NAME")
-  publication_candidate_repositories+=("$1")
-  publication_candidate_tags+=("$2")
-}
-
-publication_candidate_registry_names=()
-publication_candidate_repositories=()
-publication_candidate_tags=()
-trap cleanup_publication_candidates EXIT
-
 publish_image() {
   local artifact_name="$1"
   local local_repository="$2"
@@ -412,20 +366,7 @@ publish_image() {
   fi
 
   if tag_exists "$repository" "$VERSION-$tag_suffix"; then
-    local candidate_tag="$VERSION-$tag_suffix-candidate-$PUBLICATION_ID"
-    local candidate_ref="$REGISTRY_SERVER/$repository:$candidate_tag"
-    local candidate_digest existing_digest
-    remove_tag_if_present "$repository" "$candidate_tag"
-    register_publication_candidate "$repository" "$candidate_tag"
-    docker tag "$local_tag" "$candidate_ref"
-    docker push "$candidate_ref"
-    candidate_digest="$(tag_digest "$repository" "$candidate_tag")"
-    existing_digest="$(tag_digest "$repository" "$VERSION-$tag_suffix")"
-    if [[ "$candidate_digest" != "$existing_digest" ]]; then
-      echo "ERROR: Existing immutable image '$remote_tag' has digest '$existing_digest', but the current signed build produced '$candidate_digest'."
-      exit 1
-    fi
-    echo "Verified existing immutable versioned image '$remote_tag' against the current signed build."
+    echo "Versioned image '$remote_tag' already exists. Keeping the existing image."
     record_digest "$repository" "$VERSION-$tag_suffix"
     lock_versioned_tag "$repository" "$VERSION-$tag_suffix"
     return
@@ -444,18 +385,7 @@ publish_manifest() {
   local tag_suffix="$2"
   shift 2
   if tag_exists "$repository" "$VERSION-$tag_suffix"; then
-    local candidate_tag="$VERSION-$tag_suffix-candidate-$PUBLICATION_ID"
-    local candidate_digest existing_digest
-    remove_tag_if_present "$repository" "$candidate_tag"
-    register_publication_candidate "$repository" "$candidate_tag"
-    create_manifest "$repository" "$candidate_tag" "$@"
-    candidate_digest="$(tag_digest "$repository" "$candidate_tag")"
-    existing_digest="$(tag_digest "$repository" "$VERSION-$tag_suffix")"
-    if [[ "$candidate_digest" != "$existing_digest" ]]; then
-      echo "ERROR: Existing immutable manifest '$REGISTRY_SERVER/$repository:$VERSION-$tag_suffix' has digest '$existing_digest', but the current signed build produced '$candidate_digest'."
-      exit 1
-    fi
-    echo "Verified existing immutable versioned manifest '$REGISTRY_SERVER/$repository:$VERSION-$tag_suffix'."
+    echo "Versioned manifest '$REGISTRY_SERVER/$repository:$VERSION-$tag_suffix' already exists. Keeping the existing manifest."
   else
     create_manifest "$repository" "$VERSION-$tag_suffix" "$@"
     if ! lock_new_versioned_tag "$repository" "$VERSION-$tag_suffix"; then
