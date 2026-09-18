@@ -32,6 +32,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.CloudName,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
+        TelemetryTags.DataBoundary,
 
         // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
         "http.method",

@@ -1,10 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
-using Core.Telemetry;
 
 namespace Core.Engine.Tests;
 
@@ -60,17 +60,10 @@ public class ExecutionSessionSeamTests
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            RoutingContext = new NoopTelemetryRoutingContext(),
+            TagDataBoundary = _ => { },
             ResolveDataBoundaryAsync = (_, _) => Task.FromResult<string?>(null),
         };
         return session;
-    }
-
-    /// <summary>No-op stand-in so RunAsync/Run's direct RoutingContext.Set(...) calls don't NRE.</summary>
-    private sealed class NoopTelemetryRoutingContext : ITelemetryRoutingContext
-    {
-        public void Set(string? tenantId, string? dataBoundary) { }
-        public (string? TenantId, string? DataBoundary) Current => (null, null);
     }
 
     // The engine publishes Events.ProcessorAcquired at the lifecycle seam: after the command
@@ -122,23 +115,36 @@ public class ExecutionSessionSeamTests
         Assert.True(SeamStubProcessor.WasExecuted);
     }
 
-    // Regression coverage for the AsyncLocal propagation bug: a write to an AsyncLocal-backed
-    // ITelemetryRoutingContext made inside an awaited helper/event subscriber is discarded once
-    // that helper returns — it never becomes visible to code that runs later in a DIFFERENT
-    // method. RunAsync/Run must call RoutingContext.Set(...) directly in their own bodies. These
-    // tests use a real AsyncLocal-backed context and a genuinely-yielding resolver (a real
-    // Task.Delay, mirroring real token-acquisition/ARM network calls) — the exact shape that
-    // broke the original (event-subscriber-based) design.
+    // Regression coverage for the "root activity created/disposed by a different flow than the
+    // one that resolves routing" bug: PowerShell cmdlets create the root Activity, then call
+    // session.Run() (whose actual work happens on a forked worker task via ExecuteProcessorAsync)
+    // and dispose the root only after Run() returns. A write to AsyncLocal-backed ambient state
+    // made on that forked flow never propagates back to the cmdlet's own flow — so routing must
+    // be recorded by tagging the root Activity object directly (an ordinary shared heap
+    // reference), which stays visible to the caller regardless of which flow performs the
+    // mutation. These tests hold a reference to the root Activity from OUTSIDE RunAsync (playing
+    // the role of the calling cmdlet) and assert on it AFTER RunAsync returns, with a genuinely
+    // yielding resolver (a real Task.Delay, mirroring real token-acquisition/ARM network calls).
     [Fact]
-    public async Task RunAsync_MakesResolvedDataBoundary_VisibleToProcessorProcessAsync()
+    public async Task RunAsync_TagsCallersRootActivity_WithResolvedDataBoundary()
     {
-        RoutingCaptureProcessor.Observed = null;
-        var routingContext = new AsyncLocalTelemetryRoutingContext();
+        using var source = new ActivitySource(nameof(RunAsync_TagsCallersRootActivity_WithResolvedDataBoundary));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        // Played by the "caller" (e.g. a PowerShell cmdlet): creates the root Activity before
+        // invoking the session, and inspects it only after the session call returns.
+        using var rootActivity = source.StartActivity("TestRoot", ActivityKind.Server);
+        Assert.NotNull(rootActivity);
 
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
-        var index = new RoutingCaptureStubIndex();
+        var index = new SeamStubIndex();
 
         using var session = new ExecutionSession(ClientType.CLI, invocation, streams)
         {
@@ -147,35 +153,44 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            RoutingContext = routingContext,
+            TagDataBoundary = boundary =>
+            {
+                var root = Activity.Current;
+                while (root?.Parent is not null) root = root.Parent;
+                root?.SetTag(TelemetryTags.DataBoundary, boundary);
+            },
             ResolveDataBoundaryAsync = async (_, cancellationToken) =>
             {
-                // Genuine yield — mirrors the real MSAL/ARM network calls that broke the
-                // original design (a Set() made inside a nested awaited callback never
-                // flowed back to the caller once that callback returned).
+                // Genuine yield — mirrors the real MSAL/ARM network call that broke the
+                // original AsyncLocal-based design.
                 await Task.Delay(5, cancellationToken);
                 return "EU";
             },
         };
 
-        RoutingCaptureProcessor.Reader = () => routingContext.Current;
-
         await session.RunAsync();
 
-        Assert.Equal(("tenant-1", "EU"), RoutingCaptureProcessor.Observed);
+        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
     }
 
     [Fact]
-    public async Task RunAsync_ClearsRoutingContext_WhenNoProfileIsResolved()
+    public async Task RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved()
     {
-        RoutingCaptureProcessor.Observed = null;
-        var routingContext = new AsyncLocalTelemetryRoutingContext();
-        routingContext.Set("stale-tenant", "EU"); // simulate a value left over from elsewhere
+        using var source = new ActivitySource(nameof(RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var rootActivity = source.StartActivity("TestRoot", ActivityKind.Server);
+        Assert.NotNull(rootActivity);
 
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
-        var index = new RoutingCaptureStubIndex();
+        var index = new SeamStubIndex();
 
         using var session = new ExecutionSession(ClientType.CLI, invocation, streams)
         {
@@ -184,57 +199,12 @@ public class ExecutionSessionSeamTests
             BindProcessor = (processor, _, _, _, _) => processor,
             ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
             CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
-            RoutingContext = routingContext,
+            TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),
             ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Should not be called when no profile is resolved."),
         };
 
-        RoutingCaptureProcessor.Reader = () => routingContext.Current;
-
         await session.RunAsync();
 
-        Assert.Equal((null, null), RoutingCaptureProcessor.Observed);
-    }
-
-    private sealed class AsyncLocalTelemetryRoutingContext : ITelemetryRoutingContext
-    {
-        private readonly AsyncLocal<(string? TenantId, string? DataBoundary)> _state = new();
-
-        public void Set(string? tenantId, string? dataBoundary) => _state.Value = (tenantId, dataBoundary);
-
-        public (string? TenantId, string? DataBoundary) Current => _state.Value;
-    }
-
-    private sealed class RoutingCaptureProcessor : IProcessor
-    {
-        public static Func<(string? TenantId, string? DataBoundary)>? Reader;
-        public static (string? TenantId, string? DataBoundary)? Observed;
-
-        public IProcessor Init(ProcessorContext context) => this;
-
-        public Task ProcessAsync()
-        {
-            Observed = Reader?.Invoke();
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class RoutingCaptureStubIndex : IExtensionIndex
-    {
-        private static readonly CommandMetadata Meta = new(
-            Name: "RoutingCaptureStub",
-            InvocationName: "x",
-            Aliases: new List<string>(),
-            FullName: typeof(RoutingCaptureProcessor).FullName!,
-            AssemblyName: typeof(RoutingCaptureProcessor).Assembly.GetName().Name!,
-            ProcessorType: typeof(RoutingCaptureProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>());
-
-        public CommandMetadata GetCommandMetadata(string name, ClientType clientType) => Meta;
-        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
-            => new Dictionary<string, CommandMetadata> { ["x"] = Meta };
-        public IEnumerable<string> GetCommandKeys(ClientType clientType) => new[] { "x" };
-        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => new[] { Meta };
-        public IReadOnlyList<string> GetVerbs() => new[] { "seam" };
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
     }
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 using Core.Telemetry;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -89,13 +90,12 @@ public class AriaActivityExporterTests
     }
 
     [Fact]
-    public void Export_RoutesDynamically_WhenConstructedWithRoutingContext()
+    public void Export_RoutesDynamically_BasedOnPerActivityDataBoundaryTag()
     {
         // Arrange — one long-lived exporter instance, as PowerShell's singleton
         // TracerProvider would build it, serving commands with different boundaries
         // over its lifetime instead of freezing the destination at construction time.
-        var routingContext = new FakeTelemetryRoutingContext();
-        var exporter = new AriaActivityExporter(routingContext);
+        var exporter = new AriaActivityExporter();
         var source = new ActivitySource("AriaDynamicRoutingTest");
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource("AriaDynamicRoutingTest")
@@ -103,19 +103,22 @@ public class AriaActivityExporterTests
 
         using var provider = builder.Build()!;
 
-        // Act — a Global command, then an EU command, on the same exporter instance.
-        routingContext.Set(tenantId: null, dataBoundary: "Global");
+        // Act — a Global command, then an EU command, on the same exporter instance. The
+        // destination is resolved per exported Activity from its own DataBoundary tag (set
+        // directly on the activity here — production code tags the root activity the same
+        // way via ITelemetryService.AddTag), not from ambient async-local state.
         using (var activity = source.StartActivity("DynamicGlobalCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
             activity.SetTag("command", "dynamic-routing-global");
+            activity.SetTag(TelemetryTags.DataBoundary, "Global");
         }
 
-        routingContext.Set(tenantId: null, dataBoundary: "EU");
         using (var activity = source.StartActivity("DynamicEuCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
             activity.SetTag("command", "dynamic-routing-eu");
+            activity.SetTag(TelemetryTags.DataBoundary, "EU");
         }
 
         // Assert — both routes flush successfully from the one exporter instance.
@@ -124,14 +127,5 @@ public class AriaActivityExporterTests
         _output.WriteLine($"Flush result: {flushed}");
 
         Assert.True(flushed, "ForceFlush should succeed for both Global and EU exports from one long-lived exporter");
-    }
-
-    private sealed class FakeTelemetryRoutingContext : ITelemetryRoutingContext
-    {
-        private (string? TenantId, string? DataBoundary) _current;
-
-        public void Set(string? tenantId, string? dataBoundary) => _current = (tenantId, dataBoundary);
-
-        public (string? TenantId, string? DataBoundary) Current => _current;
     }
 }

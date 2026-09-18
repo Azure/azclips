@@ -241,13 +241,8 @@ namespace Core.Engine
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
                 }
-                // Data-boundary resolution and ITelemetryRoutingContext.Set(...) deliberately do NOT
-                // live here: this subscriber runs as a nested async callback (invoked through
-                // IEventBus.Publish, itself awaited by CreateProcessorContext), and an AsyncLocal
-                // write made inside a callback like this is discarded once the callback returns —
-                // it never becomes visible to ExecutionSession.RunAsync/Run's own subsequent code.
-                // See ExecutionSession.RunAsync/Run, which set the routing context directly in
-                // their own method bodies instead.
+                // Data-boundary resolution/tagging lives in ExecutionSession.RunAsync/Run
+                // instead of here — see TagDataBoundary's remarks on ExecutionSession.
             });
 
             return subscriber;

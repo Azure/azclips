@@ -13,12 +13,10 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private readonly ITraceDirectoryProvider _traceDirectory;
-    private readonly ITelemetryRoutingContext? _routingContext;
 
-    public FileTelemetrySender(ITraceDirectoryProvider traceDirectory, ITelemetryRoutingContext? routingContext = null)
+    public FileTelemetrySender(ITraceDirectoryProvider traceDirectory)
     {
         _traceDirectory = traceDirectory;
-        _routingContext = routingContext;
     }
 
     public void ConfigureExporter(TracerProviderBuilder builder)
@@ -26,6 +24,6 @@ public class FileTelemetrySender : ITelemetrySender
         // Resolved per export, so the destination can differ between exports from one sender.
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
-                new FileExporter(_traceDirectory.GetTraceDirectory(), _routingContext)));
+                new FileExporter(_traceDirectory.GetTraceDirectory())));
     }
 }

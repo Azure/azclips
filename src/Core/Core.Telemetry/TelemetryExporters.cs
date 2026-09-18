@@ -18,8 +18,7 @@ internal static class TelemetryExporters
     internal static void AddTraceExporters(
         TracerProviderBuilder builder,
         IReadOnlyList<TelemetryTarget> targets,
-        string? dataBoundary = null,
-        ITelemetryRoutingContext? liveRoutingContext = null)
+        string? dataBoundary = null)
     {
         foreach (var target in targets)
         {
@@ -33,14 +32,14 @@ internal static class TelemetryExporters
         {
             // dataBoundary supplied: the caller already knows the destination for this
             // exporter's whole lifetime (buffered replay of an already-partitioned group) —
-            // build a fixed-destination exporter. Otherwise, when liveRoutingContext is
-            // supplied, this exporter may live across many command invocations with
-            // different tenants/boundaries (e.g. PowerShell's singleton TracerProvider) —
-            // build a dynamic-destination exporter that re-checks the boundary per export.
+            // build a fixed-destination exporter. Otherwise build a dynamic-destination
+            // exporter, since this exporter may live across many command invocations with
+            // different tenants/boundaries (e.g. PowerShell's singleton TracerProvider) — it
+            // resolves the boundary per exported Activity from that Activity's own tag.
             AriaActivityExporter exporter;
-            if (dataBoundary is null && liveRoutingContext is not null)
+            if (dataBoundary is null)
             {
-                exporter = new AriaActivityExporter(liveRoutingContext);
+                exporter = new AriaActivityExporter();
             }
             else
             {

@@ -6,7 +6,6 @@ using System.Threading.Channels;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
-using Core.Telemetry;
 
 namespace Core.Engine;
 
@@ -28,15 +27,21 @@ internal class ExecutionSession : ISession
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
     /// <summary>
     /// Resolves the ARM data boundary (EU/Global) for a resolved profile. Pure \u2014 does not
-    /// write to <see cref="RoutingContext"/> itself; see <see cref="RoutingContext"/>'s remarks.
+    /// tag any Activity itself; see <see cref="TagDataBoundary"/>'s remarks.
     /// </summary>
     internal Func<Profile, CancellationToken, Task<string?>> ResolveDataBoundaryAsync { get; set; } = null!;
     /// <summary>
-    /// Set directly by <see cref="RunAsync"/>/<see cref="Run"/> (never from a nested awaited
-    /// helper or event subscriber) \u2014 an AsyncLocal-backed write only remains visible to code
-    /// that runs later in the SAME method body; it is discarded once a callee method returns.
+    /// Tags the current root Activity with the resolved data boundary (see
+    /// <c>ITelemetryService.AddTag</c>, which walks to the root and calls
+    /// <c>Activity.SetTag</c>). Deliberately Activity-tag-based rather than AsyncLocal-based:
+    /// this is called from <see cref="RunAsync"/>/<see cref="Run"/>'s own worker flow, which may
+    /// be a different async flow than whichever caller created (and will later dispose/export)
+    /// the root Activity \u2014 e.g. PowerShell cmdlets create the root before calling
+    /// <see cref="Run"/> and dispose it after. An AsyncLocal write made here would never
+    /// propagate back to that caller once this method returns, but SetTag mutates the SAME
+    /// shared Activity object the caller holds a reference to, so it's visible regardless.
     /// </summary>
-    internal ITelemetryRoutingContext RoutingContext { get; set; } = null!;
+    internal Action<string?> TagDataBoundary { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
@@ -75,18 +80,12 @@ internal class ExecutionSession : ISession
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
 
-        // Resolved and set directly here, in RunAsync's own body \u2014 not in a nested awaited
-        // helper \u2014 so the write is visible to processor.ProcessAsync() below. See
-        // RoutingContext's remarks for why this can't be extracted into a shared async helper.
+        // Tags the root Activity directly (shared heap object mutation) rather than writing to
+        // AsyncLocal-backed ambient state — see TagDataBoundary's remarks.
         if (Profile is not null)
         {
-            RoutingContext.Set(Profile.TenantId, null);
             var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-            RoutingContext.Set(Profile.TenantId, boundary);
-        }
-        else
-        {
-            RoutingContext.Set(null, null);
+            TagDataBoundary(boundary);
         }
 
         await EventBus.Publish(Events.ProcessorAcquired);
@@ -133,17 +132,16 @@ internal class ExecutionSession : ISession
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
 
-                // See RunAsync's identical block: must stay inline in this local function's own
-                // body so the write is visible to processor.ProcessAsync() below.
+                // Tags the root Activity directly — see TagDataBoundary's remarks. This is
+                // exactly the case that mechanism exists for: this local function runs as a
+                // separate forked flow from Run()'s caller (the PowerShell cmdlet, which
+                // created the root Activity before calling Run() and disposes/exports it after
+                // Run() returns) — an AsyncLocal write here would never be visible to that
+                // caller, but tagging the shared Activity object is.
                 if (Profile is not null)
                 {
-                    RoutingContext.Set(Profile.TenantId, null);
                     var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-                    RoutingContext.Set(Profile.TenantId, boundary);
-                }
-                else
-                {
-                    RoutingContext.Set(null, null);
+                    TagDataBoundary(boundary);
                 }
 
                 await EventBus.Publish(Events.ProcessorAcquired);

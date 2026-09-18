@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Exporter.OneCollector;
@@ -16,12 +17,16 @@ namespace Core.Telemetry;
 /// </summary>
 /// <remarks>
 /// Must be wired via <see cref="SimpleActivityExportProcessor"/>, not a batching processor.
-/// The dynamic-destination constructor reads <see cref="ITelemetryRoutingContext.Current"/>
-/// inside <see cref="Export"/> to pick the endpoint for that call — this is only correct
-/// because Simple processors call Export synchronously, inline, on the very async flow that
-/// ended the Activity (the same flow that set the routing context for that command). A
-/// batching processor flushes on its own background timer, whose ambient AsyncLocal context
-/// has nothing to do with whichever command originally produced each buffered Activity.
+/// The dynamic-destination constructor resolves the endpoint per exported Activity by reading
+/// <see cref="TelemetryTags.DataBoundary"/> off that Activity's own tag (walking up its parent
+/// chain to the root, since the tag is set once on the root — see
+/// <see cref="Core.Abstractions.TelemetryTags.DataBoundary"/>). This is deliberately NOT read
+/// from ambient async-local state: the boundary is often resolved on a different async flow
+/// than the one that created the root activity (e.g. PowerShell's <c>ExecutionSession.Run()</c>
+/// resolves it on a forked worker task, while the cmdlet's own flow disposes the root), and a
+/// write to AsyncLocal-backed state made on that forked flow would never be visible back on the
+/// disposing flow. Activity tags don't have this problem: they mutate a shared heap object that
+/// any code holding a reference to the same Activity (or its descendants) can see.
 /// </remarks>
 internal sealed class AriaActivityExporter : BaseExporter<Activity>
 {
@@ -30,7 +35,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     private readonly ILogger _globalLogger;
     private readonly ILoggerFactory? _euLoggerFactory;
     private readonly ILogger? _euLogger;
-    private readonly ITelemetryRoutingContext? _routingContext;
+    private readonly bool _dynamicRouting;
 
     /// <summary>
     /// Fixed-destination constructor. Every batch this instance exports goes to the single
@@ -46,15 +51,16 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
 
     /// <summary>
     /// Dynamic-destination constructor. Builds both the Global and EU loggers up front and
-    /// selects between them per export call by reading <paramref name="routingContext"/>.
-    /// Required for an exporter built once and reused across many command invocations that
-    /// may carry different tenants/boundaries over its lifetime (PowerShell's singleton
-    /// TracerProvider) — the fixed-destination constructor would freeze whatever boundary
-    /// was ambient at construction (module import) time and never re-check it.
+    /// selects between them per exported Activity, by reading that Activity's own
+    /// <see cref="TelemetryTags.DataBoundary"/> tag (see type-level remarks). Required for an
+    /// exporter built once and reused across many command invocations that may carry different
+    /// tenants/boundaries over its lifetime (PowerShell's singleton TracerProvider) — the
+    /// fixed-destination constructor would freeze whatever boundary was ambient at construction
+    /// (module import) time and never re-check it.
     /// </summary>
-    public AriaActivityExporter(ITelemetryRoutingContext routingContext)
+    public AriaActivityExporter()
     {
-        _routingContext = routingContext ?? throw new ArgumentNullException(nameof(routingContext));
+        _dynamicRouting = true;
         _globalLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaConnectionString, null);
         _globalLogger = _globalLoggerFactory.CreateLogger("Azclips");
         _euLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
@@ -80,16 +86,16 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
 
     public override ExportResult Export(in Batch<Activity> batch)
     {
-        // Resolved once per Export call (not once per exporter instance) so a long-lived
-        // exporter still reflects each ambient invocation's boundary correctly. Safe only
-        // under SimpleActivityExportProcessor — see the type-level remarks.
-        var logger = SelectLogger();
-
         foreach (var activity in batch)
         {
             // Skip HTTP instrumentation spans — only export application-level spans.
             if (activity.Source.Name == "System.Net.Http")
                 continue;
+
+            // Resolved per activity (not once per Export call): each activity in principle
+            // could belong to a different invocation/boundary, and this exporter instance may
+            // be reused across many invocations (PowerShell's singleton TracerProvider).
+            var logger = SelectLogger(activity);
 
             using (logger.BeginScope(BuildScope(activity)))
             {
@@ -107,14 +113,31 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         return ExportResult.Success;
     }
 
-    private ILogger SelectLogger()
+    private ILogger SelectLogger(Activity activity)
     {
-        if (_routingContext is null || _euLogger is null)
+        if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        return DataBoundaryRouting.IsEu(_routingContext.Current.DataBoundary)
+        return DataBoundaryRouting.IsEu(ResolveDataBoundary(activity))
             ? _euLogger
             : _globalLogger;
+    }
+
+    /// <summary>
+    /// Walks from <paramref name="activity"/> up through its parents to find the
+    /// <see cref="TelemetryTags.DataBoundary"/> tag — set once on the root by whichever flow
+    /// resolved it (see type-level remarks). Independent of ambient <see cref="Activity.Current"/>,
+    /// which may already differ by the time an exporter runs (Activity.Stop() restores Current
+    /// to the parent before OnEnd/Export is invoked).
+    /// </summary>
+    private static string? ResolveDataBoundary(Activity activity)
+    {
+        for (var current = activity; current is not null; current = current.Parent)
+        {
+            if (current.GetTagItem(TelemetryTags.DataBoundary) is string boundary && !string.IsNullOrEmpty(boundary))
+                return boundary;
+        }
+        return null;
     }
 
     protected override bool OnShutdown(int timeoutMilliseconds)

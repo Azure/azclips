@@ -26,7 +26,6 @@ namespace Core.Engine
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
-        ITelemetryRoutingContext telemetryRoutingContext,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
@@ -59,7 +58,7 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
-            session.RoutingContext = telemetryRoutingContext;
+            session.TagDataBoundary = boundary => telemetryService.AddTag(TelemetryTags.DataBoundary, boundary);
             session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
         }
@@ -173,10 +172,9 @@ namespace Core.Engine
 
         /// <summary>
         /// Resolves the ARM data boundary (EU/Global) for a profile's tenant. Pure: returns the
-        /// resolved value instead of writing it to <see cref="ITelemetryRoutingContext"/> itself,
-        /// because a write to that AsyncLocal-backed state made inside this awaited method would
-        /// not flow back to the caller once this method returns. Callers (ExecutionSession's own
-        /// RunAsync/Run) must call <c>RoutingContext.Set(...)</c> directly in their own method body.
+        /// resolved value instead of tagging any Activity itself. Callers (ExecutionSession's own
+        /// RunAsync/Run) must call <c>TagDataBoundary(...)</c> directly in their own method body —
+        /// see <see cref="ExecutionSession.TagDataBoundary"/> remarks for why.
         /// </summary>
         private Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken) =>
             DataBoundaryResolver.ResolveAndCacheAsync(

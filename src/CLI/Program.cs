@@ -99,15 +99,6 @@ public class Program
             _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
-        // Set() is called directly here, in Main's own body — not inside a separately-awaited
-        // helper — because a write to the AsyncLocal-backed ITelemetryRoutingContext made inside
-        // an awaited callee never propagates back to the caller once that callee returns (proven
-        // empirically: this holds even when the callee's Set() call is its very last statement,
-        // and even when the awaited call completes synchronously). ResolveTelemetryRoutingAsync
-        // is a pure function that only computes and returns the value; it never calls Set().
-        var (routedTenantId, routedBoundary) = await ResolveTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
-        AzclipsServiceProvider.GetRequiredService<ITelemetryRoutingContext>().Set(routedTenantId, routedBoundary);
-
         Activity? activity = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
@@ -127,6 +118,17 @@ public class Program
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
                 performance.Replay(_telemetryService);
             }
+
+            // Tags the root activity directly (SetTag mutates a shared heap object) rather than
+            // writing to AsyncLocal-backed ambient state, so the tag is visible to whichever
+            // code later disposes/exports this activity in Main's own finally block, regardless
+            // of which nested awaited call resolved it. This is a best-effort early resolution
+            // (from raw args, before command parsing) so startup spans are routed correctly too;
+            // ExecutionSession.RunAsync below re-resolves and re-tags from the bound --profile
+            // once it's known, which is authoritative for the command's own spans.
+            var (routedTenantId, routedBoundary) = await ResolveTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
+            if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
+            if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
 
             GlobalArgs globalArgs;
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
