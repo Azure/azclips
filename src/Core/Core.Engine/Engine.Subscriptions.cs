@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Telemetry;
 using Core.Runtime;
 using System.Diagnostics;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -11,6 +12,8 @@ namespace Core.Engine
 {
     public partial class Engine
     {
+        private static readonly TimeSpan DataBoundaryResolveTimeout = TimeSpan.FromSeconds(3);
+
         // session subscribes messages first, then each service
         private IEventSubscriber SubscribeAll(IEventSubscriber subscriber)
         {
@@ -229,14 +232,29 @@ namespace Core.Engine
                     activity.Dispose();
             });
 
-            subscriber.Subscribe(Events.ProcessorContextCreated, (data) =>
+            subscriber.Subscribe(Events.ProcessorContextCreated, async (data) =>
             {
                 var evt = (EventData)data;
                 if (evt.Payload is Profile profile)
                 {
+                    TelemetryRoutingContext.Set(profile.TenantId, null);
                     telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
+                    var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
+                        profile.TenantId,
+                        async cancellationToken =>
+                        {
+                            var result = await authService.AcquireTokenSilentlyAsync(
+                                scopes: null,
+                                tenantId: profile.TenantId,
+                                promptOnError: false,
+                                cancellationToken: cancellationToken,
+                                profile: profile);
+                            return result.AccessToken;
+                        },
+                        DataBoundaryResolveTimeout);
+                    TelemetryRoutingContext.Set(profile.TenantId, boundary);
                 }
             });
 

@@ -30,14 +30,7 @@ internal static class TelemetryExporters
         // others (including unknown/missing) → Global endpoint.
         if (targets.Contains(TelemetryTarget.Remote))
         {
-            var effectiveBoundary = dataBoundary ?? TelemetryRoutingContext.DataBoundary;
-            var isEu = effectiveBoundary is null
-                ? DataBoundaryResolver.IsEuDataBoundary()
-                : DataBoundaryRouting.IsEu(effectiveBoundary);
-            var connectionString = isEu
-                ? WellKnownEndpoints.AriaEuConnectionString
-                : WellKnownEndpoints.AriaConnectionString;
-            var endpoint = isEu ? WellKnownEndpoints.AriaEuEndpoint : null;
+            var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary);
             builder.AddProcessor(new SimpleActivityExportProcessor(
                 new AriaActivityExporter(connectionString, endpoint)));
         }
@@ -62,6 +55,18 @@ internal static class TelemetryExporters
         {
             throw new ArgumentOutOfRangeException(nameof(target), target, null);
         }
+    }
+
+    internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
+    {
+        var effectiveBoundary = dataBoundary ?? TelemetryRoutingContext.DataBoundary;
+        var isEu = effectiveBoundary is null
+            ? DataBoundaryResolver.IsEuDataBoundary()
+            : DataBoundaryRouting.IsEu(effectiveBoundary);
+
+        return isEu
+            ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
+            : (WellKnownEndpoints.AriaConnectionString, null);
     }
 }
 

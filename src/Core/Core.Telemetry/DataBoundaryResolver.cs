@@ -51,6 +51,21 @@ public static class DataBoundaryResolver
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        return await ResolveAndCacheAsync(
+            tenantId,
+            accessTokenProvider,
+            DataBoundaryService.GetDataBoundaryAsync,
+            timeout,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task<string?> ResolveAndCacheAsync(
+        string? tenantId,
+        Func<CancellationToken, Task<string?>> accessTokenProvider,
+        Func<string, CancellationToken, Task<string?>> dataBoundaryProvider,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(tenantId))
             return null;
 
@@ -67,9 +82,7 @@ public static class DataBoundaryResolver
             if (string.IsNullOrEmpty(token) || !TokenMatchesTenant(token, tenantId))
                 return null;
 
-            var boundary = await DataBoundaryService
-                .GetDataBoundaryAsync(token, timeoutCts.Token)
-                .ConfigureAwait(false);
+            var boundary = await dataBoundaryProvider(token, timeoutCts.Token).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(boundary))
                 return null;

@@ -13,7 +13,7 @@ namespace Core.Telemetry;
 /// </summary>
 internal static class DataBoundaryCache
 {
-    private static readonly string CachePath = Path.Combine(
+    private static string CachePath => Path.Combine(
         HomePaths.GetDefaultLocalAppDataRoot(),
         HomePaths.DataBoundaryCacheFileName);
 
@@ -29,10 +29,11 @@ internal static class DataBoundaryCache
     {
         try
         {
-            if (!File.Exists(CachePath))
+            var cachePath = CachePath;
+            if (!File.Exists(cachePath))
                 return null;
 
-            var json = File.ReadAllText(CachePath);
+            var json = File.ReadAllText(cachePath);
             var cache = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
             if (cache is not null && cache.TryGetValue(tenantId, out var value))
                 return value;
@@ -52,10 +53,15 @@ internal static class DataBoundaryCache
     {
         try
         {
+            var cachePath = CachePath;
+            var dir = Path.GetDirectoryName(cachePath)!;
+            Directory.CreateDirectory(dir);
+
+            using var cacheLock = TryAcquireLock(cachePath);
             Dictionary<string, string> cache;
-            if (File.Exists(CachePath))
+            if (File.Exists(cachePath))
             {
-                var json = File.ReadAllText(CachePath);
+                var json = File.ReadAllText(cachePath);
                 cache = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
                         ?? new Dictionary<string, string>();
             }
@@ -66,13 +72,33 @@ internal static class DataBoundaryCache
 
             cache[tenantId] = dataBoundary;
 
-            var dir = Path.GetDirectoryName(CachePath)!;
-            Directory.CreateDirectory(dir);
-            File.WriteAllText(CachePath, JsonSerializer.Serialize(cache, JsonOptions));
+            var tempPath = Path.Combine(
+                dir,
+                $"{Path.GetFileName(cachePath)}.{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(cache, JsonOptions));
+            File.Move(tempPath, cachePath, overwrite: true);
         }
         catch
         {
             // Best effort — cache write failure is non-fatal.
+        }
+    }
+
+    private static FileStream TryAcquireLock(string cachePath)
+    {
+        var lockPath = cachePath + ".lock";
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(20);
+            }
         }
     }
 }

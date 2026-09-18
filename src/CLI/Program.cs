@@ -99,7 +99,7 @@ public class Program
             _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
-        await InitializeTelemetryRoutingAsync(_cancellationTokenSource.Token);
+        await InitializeTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
 
         Activity? activity = null;
 
@@ -301,12 +301,15 @@ public class Program
         );
     }
 
-    private static async Task InitializeTelemetryRoutingAsync(CancellationToken cancellationToken)
+    private static async Task InitializeTelemetryRoutingAsync(string[] args, CancellationToken cancellationToken)
     {
         try
         {
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-            var profile = await profileService.GetActiveProfileAsync(cancellationToken);
+            var profileName = TryGetProfileOverride(args);
+            var profile = string.IsNullOrWhiteSpace(profileName)
+                ? await profileService.GetActiveProfileAsync(cancellationToken)
+                : await profileService.GetProfileAsync(profileName, cancellationToken);
             var tenantId = profile?.TenantId;
             if (string.IsNullOrWhiteSpace(tenantId))
                 return;
@@ -334,6 +337,21 @@ public class Program
         {
             // Best effort: missing routing metadata falls back to Global on upload.
         }
+    }
+
+    internal static string? TryGetProfileOverride(string[] args)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (arg.StartsWith("--profile=", StringComparison.OrdinalIgnoreCase))
+                return arg["--profile=".Length..];
+
+            if (string.Equals(arg, "--profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+
+        return null;
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
