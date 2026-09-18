@@ -102,8 +102,9 @@ public class GetAccessTokenCmdletTests
 
     // Get-AzAccessToken parity: -ResourceTypeName accepts the PowerShell PascalCase resource-type names
     // via [ValidateSet] (suggest + validate, the repo's usual convention). This guard keeps the set in
-    // lockstep with the resolver: every value must resolve, and together they must cover exactly the same
-    // resources as the canonical kebab list, so adding/removing/mistyping a name fails CI.
+    // lockstep with the resolver: every advertised name resolves, the set includes every PowerShell
+    // spelling the resolver knows plus the ResourceManager alias, and it excludes the CLI-only shortcuts,
+    // so adding/removing/mistyping a name fails CI.
     [Fact]
     public void PowerShellSurface_ResourceTypeName_ValidateSet_MatchesResolver()
     {
@@ -115,19 +116,21 @@ public class GetAccessTokenCmdletTests
         Assert.NotNull(validateSet);
         Assert.True(validateSet!.IgnoreCase, "IgnoreCase should be set so case variants (e.g. msgraph) bind.");
 
-        string Resolve(string name)
+        // Every advertised name must resolve.
+        foreach (var name in validateSet.ValidValues)
         {
-            Assert.True(WellKnownResourceTypes.TryResolve(name, out var url), $"'{name}' should resolve.");
-            return url;
+            Assert.True(WellKnownResourceTypes.TryResolve(name, out _), $"ValidateSet name '{name}' should resolve.");
         }
 
-        var offered = validateSet.ValidValues.Select(Resolve).ToHashSet();
-        var known = WellKnownResourceTypes.Names.Select(Resolve).ToHashSet();
-
-        // The set must cover exactly the canonical resources. Extra PascalCase aliases (e.g.
-        // ResourceManager) are allowed as long as they resolve onto one of those resources, so the
-        // PowerShell surface never advertises a name the resolver would then reject.
-        Assert.Equal(known, offered);
+        // The PowerShell set advertises every PascalCase spelling the resolver knows (completeness) plus
+        // the ResourceManager alias, and excludes the CLI-only shortcuts (oss-rdbms / media), which have
+        // no PowerShell spelling. This keeps Get-AzAccessToken aligned with Azure PowerShell's list.
+        foreach (var psName in WellKnownResourceTypes.PowerShellNames)
+        {
+            Assert.Contains(psName, validateSet.ValidValues);
+        }
         Assert.Contains("ResourceManager", validateSet.ValidValues);
+        Assert.DoesNotContain("OssRdbms", validateSet.ValidValues);
+        Assert.DoesNotContain("Media", validateSet.ValidValues);
     }
 }

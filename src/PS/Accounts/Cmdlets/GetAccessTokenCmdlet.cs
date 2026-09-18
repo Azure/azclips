@@ -31,15 +31,16 @@ public class GetAccessTokenCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "ResourceType", Mandatory = false)]
     // Suggest + validate the PowerShell PascalCase resource-type names, giving Get-AzAccessToken parity
     // and using the repo's usual [ValidateSet] convention. This includes ResourceManager, the classic
-    // Az PowerShell alias for Arm, so the resolver's accepted names are not rejected here. IgnoreCase
-    // lets case variants through; the CLI kebab spellings (e.g. ms-graph) are intentionally not accepted
-    // on the PowerShell surface (the CLI surface enforces those via its AllowedValues). The shared
-    // TokenScopeResolver still understands both spellings, so each front end feeds it its own vocabulary.
-    // A test in Cmdlets.Tests keeps this set in lockstep with the resolver's known resource types.
+    // Az PowerShell alias for Arm, so the resolver's accepted names are not rejected here. It excludes the
+    // CLI-only shortcuts (oss-rdbms, media), which have no PowerShell spelling upstream. IgnoreCase lets
+    // case variants through; the CLI kebab spellings (e.g. ms-graph) are not accepted on the PowerShell
+    // surface (the CLI surface enforces those via its AllowedValues). The shared TokenScopeResolver
+    // resolves each surface's spelling. A test in Cmdlets.Tests keeps this set in lockstep with the
+    // resolver's PowerShell names.
     [ValidateSet(
-        "Arm", "ResourceManager", "AadGraph", "MSGraph", "Batch", "DataLake", "OssRdbms", "Media",
-        "KeyVault", "Storage", "Synapse", "ManagedHsm", "CommunicationEmail", "Attestation",
-        "AppConfiguration", "AnalysisServices", "OperationalInsights", IgnoreCase = true)]
+        "Arm", "ResourceManager", "AadGraph", "MSGraph", "Batch", "DataLake", "KeyVault", "Storage",
+        "Synapse", "ManagedHsm", "CommunicationEmail", "Attestation", "AppConfiguration",
+        "AnalysisServices", "OperationalInsights", IgnoreCase = true)]
     public string? ResourceTypeName { get; set; }
 
     [Parameter(ParameterSetName = "Scope", Mandatory = true)]

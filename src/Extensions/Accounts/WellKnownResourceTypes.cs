@@ -43,19 +43,19 @@ internal static class WellKnownResourceTypes
     public const string Arm = "arm";
 
     // Single source of truth: one row per well-known resource type carrying its CLI kebab-case spelling,
-    // its PowerShell PascalCase spelling, and the public-cloud resource URL. A token scope is derived as
-    // "<resource>/.default" by TokenScopeResolver. Adding a type is a single row here; the two spellings
-    // and the URL stay in lockstep by construction, so there is no parallel list to keep in sync. Both
-    // spellings resolve on either front end (matching is case-insensitive).
-    private static readonly (string Kebab, string Pascal, string Resource)[] All =
+    // its PowerShell PascalCase spelling (null for CLI-only shortcuts), and the public-cloud resource URL.
+    // A token scope is derived as "<resource>/.default" by TokenScopeResolver. Adding a type is a single
+    // row here. The CLI surface uses the kebab names and the PowerShell surface uses the PascalCase names,
+    // so a row with a null Pascal spelling is offered on the CLI only.
+    private static readonly (string Kebab, string? Pascal, string Resource)[] All =
     [
         (Arm,                    "Arm",                "https://management.core.windows.net/"),
         ("aad-graph",            "AadGraph",           "https://graph.windows.net/"),
         ("ms-graph",             "MSGraph",            "https://graph.microsoft.com/"),
         ("batch",                "Batch",              "https://batch.core.windows.net/"),
         ("data-lake",            "DataLake",           "https://datalake.azure.net/"),
-        ("oss-rdbms",            "OssRdbms",           "https://ossrdbms-aad.database.windows.net"), // CLI-only shortcut; no upstream PowerShell spelling.
-        ("media",                "Media",              "https://rest.media.azure.net"),             // CLI-only shortcut; no upstream PowerShell spelling.
+        ("oss-rdbms",            null,                 "https://ossrdbms-aad.database.windows.net"), // CLI-only shortcut; no upstream PowerShell spelling, so not offered on the PS surface.
+        ("media",                null,                 "https://rest.media.azure.net"),             // CLI-only shortcut; no upstream PowerShell spelling, so not offered on the PS surface.
         ("key-vault",            "KeyVault",           "https://vault.azure.net"),
         ("storage",              "Storage",            "https://storage.azure.com/"),               // Data-plane resource id upstream; standard public-cloud storage resource used here.
         ("synapse",              "Synapse",            "https://dev.azuresynapse.net"),
@@ -68,8 +68,8 @@ internal static class WellKnownResourceTypes
     ];
 
     // Extra accepted spellings that are neither the kebab nor the PascalCase name above. Kept minimal:
-    // only genuine synonyms live here. "ResourceManager" is an additional PowerShell spelling for arm
-    // (it is accepted but not advertised in completion, matching azure-powershell).
+    // only genuine synonyms live here. "ResourceManager" is an additional PowerShell spelling for arm,
+    // advertised on the PowerShell surface (matching Azure PowerShell) alongside "Arm".
     private static readonly (string Alias, string Kebab)[] ExtraAliases =
     [
         ("ResourceManager", Arm),
@@ -83,7 +83,10 @@ internal static class WellKnownResourceTypes
         foreach (var (kebab, pascal, resource) in All)
         {
             map[kebab] = resource;
-            map[pascal] = resource;
+            if (pascal is not null)
+            {
+                map[pascal] = resource;
+            }
         }
         foreach (var (alias, kebab) in ExtraAliases)
         {
@@ -94,6 +97,13 @@ internal static class WellKnownResourceTypes
 
     /// <summary>The canonical shortcut names (kebab-case), for CLI help text and tab completion.</summary>
     public static string[] Names { get; } = [.. All.Select(e => e.Kebab)];
+
+    /// <summary>
+    /// The PowerShell PascalCase spellings (only the rows that have one). CLI-only shortcuts such as
+    /// oss-rdbms and media have no PowerShell spelling and are excluded, matching Azure PowerShell's
+    /// resource-name list. Used to keep the Get-AzAccessToken -ResourceTypeName ValidateSet in lockstep.
+    /// </summary>
+    public static string[] PowerShellNames { get; } = [.. All.Where(e => e.Pascal is not null).Select(e => e.Pascal!)];
 
     /// <summary>
     /// Attempts to resolve a well-known resource-type shortcut (in either CLI or PowerShell spelling)

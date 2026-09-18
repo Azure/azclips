@@ -148,7 +148,22 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Arm
+- ResourceManager
+- AadGraph
+- MSGraph
+- Batch
+- DataLake
+- KeyVault
+- Storage
+- Synapse
+- ManagedHsm
+- CommunicationEmail
+- Attestation
+- AppConfiguration
+- AnalysisServices
+- OperationalInsights
 HelpMessage: ''
 ```
 

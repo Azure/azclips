@@ -45,7 +45,6 @@ public class WellKnownResourceTypesTests
     [InlineData("OperationalInsights", "https://api.loganalytics.io")]
     [InlineData("AadGraph", "https://graph.windows.net/")]
     [InlineData("DataLake", "https://datalake.azure.net/")]
-    [InlineData("OssRdbms", "https://ossrdbms-aad.database.windows.net")]
     [InlineData("CommunicationEmail", "https://communication.azure.com")]
     [InlineData("AppConfiguration", "https://azconfig.io")]
     [InlineData("AnalysisServices", "https://region.asazure.windows.net")]
@@ -73,5 +72,17 @@ public class WellKnownResourceTypesTests
     {
         Assert.False(WellKnownResourceTypes.TryResolve(name, out var url));
         Assert.Equal(string.Empty, url);
+    }
+
+    // oss-rdbms and media are CLI-only shortcuts, so their PascalCase spellings must not be advertised as
+    // PowerShell names (Azure PowerShell's resource-name map contains neither). Note the kebab spelling
+    // still resolves, and "media" also resolves case-insensitively as "Media" since they differ only by
+    // case; the guarantee that matters is that neither is offered on the PowerShell surface.
+    [Theory]
+    [InlineData("OssRdbms")]
+    [InlineData("Media")]
+    public void PowerShellNames_ExcludeCliOnlyShortcuts(string cliOnlyPascalSpelling)
+    {
+        Assert.DoesNotContain(cliOnlyPascalSpelling, WellKnownResourceTypes.PowerShellNames);
     }
 }
