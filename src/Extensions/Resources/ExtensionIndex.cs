@@ -29,6 +29,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_removeResourceGroup_PS = new(
+            Name: "DeleteResourceGroupProcessor_Orchestrator",
+            InvocationName: "Remove-AzResourceGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteResourceGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.DeleteResourceGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("ResourceGroupName", "Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: ["ResourceGroupName"], AllowedValues: []),
+                ["Id"]                = new("Id", "Id", typeof(string), "The resource group ID.", IsRequired: false, Aliases: ["ResourceGroupId", "ResourceId"], AllowedValues: []),
+                ["ForceDeletionType"] = new("ForceDeletionTypes", "ForceDeletionType", typeof(string), "The resource types to force delete.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["ResourceGroupName"] = "Name",
+                ["ResourceGroupId"] = "Id",
+                ["ResourceId"] = "Id",
+            }
+        );
         private static readonly CommandMetadata s_getResourceGroup_PS = new(
             Name: "GetResourceGroupProcessor",
             InvocationName: "Get-AzResourceGroup_Get",
@@ -179,6 +200,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["g"] = "name",
             }
         );
+        private static readonly CommandMetadata s_deleteResourceGroup_CLI = new(
+            Name: "DeleteResourceGroupProcessor_Orchestrator",
+            InvocationName: "group delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteResourceGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.DeleteResourceGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]      = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]                 = new("ResourceGroupName", "name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: ["n", "resource-group", "g"], AllowedValues: []),
+                ["force-deletion-types"] = new("ForceDeletionTypes", "force-deletion-types", typeof(string), "The resource type to force delete.", IsRequired: false, Aliases: ["f"], AllowedValues: ["Microsoft.Compute/virtualMachines", "Microsoft.Compute/virtualMachineScaleSets", "Microsoft.Databricks/workspaces"]),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["resource-group"] = "name",
+                ["g"] = "name",
+                ["f"] = "force-deletion-types",
+            }
+        );
         private static readonly CommandMetadata s_listResourceGroup_CLI = new(
             Name: "ListResourceGroupProcessor",
             InvocationName: "group list",
@@ -270,6 +312,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzResourceGroup"]      = s_newResourceGroup_PS,
+            ["Remove-AzResourceGroup"]   = s_removeResourceGroup_PS,
             ["Get-AzResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
@@ -284,6 +327,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["group create"]              = s_newResourceGroup_CLI,
+            ["group delete"]              = s_deleteResourceGroup_CLI,
             ["group exists"]              = s_existsResourceGroup_CLI,
             ["group list"]                = s_listResourceGroup_CLI,
             ["group show"]                = s_getResourceGroup_CLI,
