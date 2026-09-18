@@ -618,8 +618,8 @@ public class ManagementGroupDeploymentTests
                 """{"status":"Succeeded","properties":{"changes":[{"resourceId":"/test","changeType":"NoChange"}]}}""");
         });
         FakeOutputHandler output = new();
-        NewManagementGroupDeploymentWhatIfProcessor processor = CreateProcessor(
-            new NewManagementGroupDeploymentWhatIfProcessor(),
+        NewManagementGroupDeploymentWhatIfProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentWhatIfProcessor_Orchestrator(),
             pipeline,
             output);
 
@@ -656,7 +656,7 @@ public class ManagementGroupDeploymentTests
                 validate.Location = "eastus";
                 validate.TemplateObject = new { contentVersion = "1.0.0.0", resources = Array.Empty<object>() };
                 break;
-            case NewManagementGroupDeploymentWhatIfProcessor whatIf:
+            case NewManagementGroupDeploymentWhatIfProcessor_Orchestrator whatIf:
                 whatIf.ManagementGroupId = "test-management-group";
                 whatIf.Name = "test-deployment";
                 whatIf.Location = "eastus";

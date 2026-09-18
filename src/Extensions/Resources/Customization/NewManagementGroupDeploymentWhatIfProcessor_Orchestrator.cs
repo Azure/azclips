@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Customization;
 
-public class NewManagementGroupDeploymentWhatIfProcessor
+public class NewManagementGroupDeploymentWhatIfProcessor_Orchestrator
     : WhatIfAtManagementGroupScopeDeploymentsProcessor, IManagementGroupDeploymentInput
 {
     public object? TemplateObject { get; set; }

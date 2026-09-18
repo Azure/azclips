@@ -12,7 +12,7 @@ using ListManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extension
 using StopManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor;
 using RemoveManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Customization.RemoveManagementGroupDeploymentProcessor_Orchestrator;
 using ExportManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor;
-using NewManagementGroupDeploymentWhatIfProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Customization.NewManagementGroupDeploymentWhatIfProcessor;
+using NewManagementGroupDeploymentWhatIfProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Customization.NewManagementGroupDeploymentWhatIfProcessor_Orchestrator;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -585,12 +585,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             }
         );
         private static readonly CommandMetadata s_newManagementGroupDeploymentWhatIf_CLI = new(
-            Name: nameof(NewManagementGroupDeploymentWhatIfProcessor),
+            Name: nameof(NewManagementGroupDeploymentWhatIfProcessor_Orchestrator),
             InvocationName: "deployment mg what-if",
             Aliases: [],
-            FullName: typeof(NewManagementGroupDeploymentWhatIfProcessor).FullName!,
+            FullName: typeof(NewManagementGroupDeploymentWhatIfProcessor_Orchestrator).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(NewManagementGroupDeploymentWhatIfProcessor),
+            ProcessorType: typeof(NewManagementGroupDeploymentWhatIfProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
