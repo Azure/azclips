@@ -5,10 +5,13 @@ using Core.Abstractions;
 
 namespace Core.Configuration.Options;
 
+[ConfigurationSection("assemblyLoading")]
 public sealed class AssemblyLoadingOptions
 {
+    [ConfigurationKey("installedExtensionsRoot", Description = "Root directory for extensions installed via `az extension add` (typically ~/.azclips/extensions).", IncludeDefault = false)]
     public string InstalledExtensionsRoot { get; set; } = GetDefaultInstalledExtensionsRoot();
 
+    [ConfigurationKey("extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.", IncludeDefault = false)]
     public string ExtensionFolderPrefix { get; set; } = GetDefaultExtensionFolderPrefix();
 
     /// <summary>
@@ -17,6 +20,7 @@ public sealed class AssemblyLoadingOptions
     /// Test/benchmark hook; set via the <c>--no-cache</c> CLI flag or
     /// <c>AZCLIPS_NO_EXTENSION_CACHE</c> environment variable.
     /// </summary>
+    [ConfigurationKey("bypassExtensionCache", Description = "Skip the per-process ALC cache and reload extensions on every dispatch (benchmark/test hook).")]
     public bool BypassExtensionCache { get; set; }
 
     private static string GetDefaultInstalledExtensionsRoot()

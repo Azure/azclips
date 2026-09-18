@@ -159,7 +159,8 @@ The required sign-in depends on the configured AI provider:
 
 ### Which model powers this feature?
 
-AI-based error recovery uses a built-in AI model (GPT-5.4).
+AI-based error recovery uses `gpt-5.4-mini` by default with the built-in provider.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 You can also configure Azure CLI to use your GitHub Copilot subscription:
 
