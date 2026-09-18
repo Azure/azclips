@@ -44,11 +44,17 @@ because the active profile supplies it.
 | --- | --- | --- |
 | `profile-show-active` | Show the active profile after an `--actve` typo. | Use the CLI's default-active behavior or a valid explicit active switch, without named selection, unknown flags, or profile/authentication changes. |
 | `vm-create-long-flags` | Correct the unsupported short flags while preserving the requested VM name and existing group. | Correct create command, required values present, user values retained, no unsupported short flags, and unknown password represented by a declared placeholder. |
-| `deployment-template-recovery` | Correct an invalid deploy command while preserving the supplied local template and existing group. | Correct group deployment command, original name/group/template retained, valid scope, and no added resource operation or destructive Complete mode. |
+| `deployment-template-recovery` | Correct the `deployment group creat` typo while preserving the supplied operation name, local template, and existing group. | Correct group deployment command, original operation name/group/template retained, valid scope, and no added resource operation or destructive Complete mode. |
 
 Verify the failing inputs against the target version's live catalog before a
 baseline run. If a future CLI supports the previously invalid input, update the
 scenario to a real error condition rather than penalizing valid CLI behavior.
+
+The deployment input deliberately stays within the `deployment group` command
+family. The former `deploy web app --name ...` input was ambiguous: a valid plan
+could interpret that name as the web app resource name and choose a different
+deployment operation name. The corrected stimulus makes the name's meaning
+explicit instead of weakening the exact-value assertion after a model response.
 
 ## Assertion responsibilities
 

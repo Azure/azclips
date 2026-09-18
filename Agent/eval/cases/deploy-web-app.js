@@ -1,12 +1,12 @@
 const resourceGroup = process.env.AZCLIPS_EVALUATION_RESOURCE_GROUP || 'azclips-test-rg';
 
 module.exports = {
-  description: 'invalid deploy command with a known web app template → plan uses deployment group create',
+  description: 'deployment group subcommand typo with a known template -> plan uses create',
   vars: {
     case_id: 'deployment-template-recovery',
     command_group: 'deployment',
-    goal: 'Deploy the supplied template to the existing group using the active subscription.',
-    command: `deploy web app --resource-group ${resourceGroup} --name azclips-eval-web --template-file fixtures/web-app.bicep`,
+    goal: 'Preserve the supplied deployment operation name and template when correcting the subcommand.',
+    command: `deployment group creat --resource-group ${resourceGroup} --name azclips-eval-web --template-file fixtures/web-app.bicep`,
   },
   assert: [
     {

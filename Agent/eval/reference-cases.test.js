@@ -35,6 +35,8 @@ test('the three reference cases use only deterministic assertions and stable ide
     assert.ok(scenario.vars.command_group);
     assert.ok(scenario.assert.every((assertion) => assertion.type === 'javascript'));
   }
+  assert.match(profile.vars.command, /^profile show --actve$/);
+  assert.match(deployment.vars.command, /^deployment group creat --resource-group /);
 });
 
 test('profile reference accepts current CLI default-active and explicit selection without prose', () => {
