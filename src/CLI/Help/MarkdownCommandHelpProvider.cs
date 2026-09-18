@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Cli.Help;
 
 /// <summary>
@@ -90,17 +92,16 @@ public static class MarkdownCommandHelpProvider
         }
 
         // Dev-loop: prefer source markdown when running against a repo checkout.
-        var repoRoot = FindRepoRoot();
-        if (repoRoot != null)
+        foreach (var root in ExtensionDiscoveryPaths.GetHelpRoots(AppContext.BaseDirectory))
         {
-            var source = ProbeCandidates(HelpPaths.CliHelpDocsRoot(repoRoot), folder, segments);
-            if (source != null)
+            var candidate = ProbeCandidates(root, folder, segments);
+            if (candidate != null)
             {
-                return source;
+                return candidate;
             }
         }
 
-        return ProbeCandidates(Path.Combine(AppContext.BaseDirectory, "help"), folder, segments);
+        return null;
     }
 
     private static bool IsSafeSegment(string segment)
@@ -144,20 +145,4 @@ public static class MarkdownCommandHelpProvider
         return File.Exists(groupPath) ? groupPath : null;
     }
 
-    private static string? FindRepoRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current != null)
-        {
-            var solutionPath = Path.Combine(current.FullName, "azclips.slnx");
-            if (File.Exists(solutionPath))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        return null;
-    }
 }

@@ -10,6 +10,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
+using Core.Agent.Tools.Env;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Sku;
@@ -142,6 +143,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IProfileService profileService,
+        IConfigurationService configurationService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -194,7 +196,7 @@ public sealed class ChatAgent : IAsyncDisposable
             });
             sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
-                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, azExePath, approvalSink,
+                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         finally
@@ -211,6 +213,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IProfileService profileService,
+        IConfigurationService configurationService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -234,7 +237,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // Nothing to pin at startup; wire only the background refresher here.
         refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
-        var helpTools = new HelpTools(azExePath, invocationContext.StartToolActivity);
+        var helpTools = new HelpTools(azExePath, configurationService, invocationContext.StartToolActivity);
         var skuTools = new AvailableLocationsTool(auth, profileService, activityCreator: invocationContext.StartToolActivity);
         var oneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive);
         // One-shot ends on the first valid plan (or on submit_response when there is
@@ -277,7 +280,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
+            azExePath, profileService, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
             builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
@@ -336,6 +339,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SubmitResponseTool submitTool,
         ProposePlanTool planTool,
         string azExePath,
+        IProfileService profileService,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
         SessionState state,
@@ -403,7 +407,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
@@ -425,7 +429,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnUserPromptSubmitted = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
                     return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
                 },
             },

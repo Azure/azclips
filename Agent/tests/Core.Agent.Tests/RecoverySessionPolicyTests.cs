@@ -99,7 +99,7 @@ public class RecoverySessionPolicyTests
         options.Provider = "github";
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "offline test", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
-            new HelpTools("unused-az"), new AvailableLocationsTool(auth, profiles, http),
+            new HelpTools("unused-az", new AgentTestConfiguration()), new AvailableLocationsTool(auth, profiles, http),
             new SubmitResponseTool(), new ProposePlanTool(), "unused-az", approval, new EventRenderer(),
             new SessionState { IsOneShot = !settings.IsInteractive }, null,
             settings.IsInteractive ? "inline" : "oneshot",

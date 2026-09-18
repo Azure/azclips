@@ -12,7 +12,7 @@ public static class HomePaths
     public const string DefaultHomeDirectoryName = ".azclips";
 
     /// <summary>
-    /// Points every azclips home path (config, extensions, profiles, auth context, traces) at one
+    /// Points every azclips home path (config, extensions, profiles, auth context, traces, agent cache) at one
     /// directory instead of the per-user defaults. Scenario tests use it to isolate a run from the
     /// developer's real state; unset means the normal split defaults below.
     /// </summary>

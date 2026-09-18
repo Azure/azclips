@@ -17,7 +17,7 @@ assembly `azclips-agent`).
 > `eng-docs/spec/ARCHITECTURE.md` describes the agent as *"Azure OpenAI Integration — CloudAgent
 > with GPT-4o-mini"* driven by an `AgentEngine`/`OrchestratorEngine`
 > (`eng-docs/spec/ARCHITECTURE.md:9`, `:20`). **That document is stale.** The shipping agent is
-> built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.0`,
+> built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.13`,
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
 > `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
@@ -284,7 +284,7 @@ flowchart TB
 | ----------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
 | `propose_plan`          | `Agent/Tools/ProposePlanTool.cs:21`             | Structured fix (issues / steps / placeholders / defaults); host renders it |
 | `submit_response`       | `Agent/Tools/SubmitResponseTool.cs:20`          | Terminal outcome: `completed` / `rejected` (`OUT_OF_SCOPE_*`) / `failed` |
-| `list_commands` / `get_command` | `Agent/Tools/Help/HelpTools.cs:19`       | Read the embedded help corpus (`HelpIndex.json`, `HelpManifest.json`)   |
+| `list_commands` / `get_command` | `Agent/Tools/Help/HelpTools.cs`       | Read a validated local catalog; `get_command` still takes one `name`   |
 | `find_resources` / `get_resource_tree` / `get_resource_details` | `Agent/Tools/Cache/CachedResourceTools.cs:15` | Query the local ARM cache; `get_resource_details` can fetch live ARM props |
 | `available_locations`   | `Agent/Tools/Sku/AvailableLocationsTool.cs:26`  | Given a VM SKU, list regions where it's available (SkuNotAvailable recovery) |
 
@@ -293,6 +293,64 @@ renders each part as its own styled block; argument validation lives in the hook
 body only logs (`ProposePlanTool.cs:44`). `submit_response`'s status enum and message rules are
 likewise validated in the hook so the model gets a correction prompt instead of a stack trace
 (`SubmitResponseTool.cs:40`).
+
+### Direct-read help catalog
+
+Help lookups should not start another CLI process on every tool call.
+`HelpTools` and `az agent tool help [--name <name>]` therefore share
+`HelpCatalogProvider.ListJsonAsync` / `GetJsonAsync`. The public result remains the
+baseline camelCase `HelpIndex`, single `HelpCommand`, or `not_found` object with
+suggestions; the catalog header is never returned to the model. `get_command`
+still accepts one string `name`, including case-insensitive PowerShell names
+(`Agent/Tools/Help/HelpCatalogProvider.cs:53`, `Agent/Tools/Help/HelpLookup.cs:22`).
+
+| Catalog state | Behavior |
+| --- | --- |
+| Fresh | Validate the on-disk inputs and read JSON in process; no `az` subprocess. |
+| Missing, stale, or corrupt | Attempt regeneration once, then require a valid, matching artifact. Concurrent calls on the same provider share regeneration. |
+| Expected generation/read failure | Return an explicit `help_catalog_*` error; never substitute an empty catalog or reuse stale help. A later call can retry. Unexpected defects propagate to the host's error handling. |
+
+The default is **on-demand generation**, not a prewarmed installation.
+`az agent tool help generate` uses the current `IAssemblyLoadingService` discovery
+and `ExtensionHelpManifestBuilder`, preserving installed-version selection and
+registry pins. Failed extension loads abort generation rather than publishing
+partial help as complete. CLI help regenerates in process; the standalone agent
+invokes that generation command only when needed
+(`Agent/Commands/Processors/HelpGenerateProcessor.cs:30`,
+`Agent/Commands/Processors/HelpProcessor.cs:16`).
+
+`IAssemblyLoadingService.LoadAllExtensions` documents `null` as no discovered
+extensions, so that result legitimately produces an empty catalog. A discovery
+exception does not produce or stamp a catalog
+(`src/Core/Core.Abstractions/IAssemblyLoadingService.cs`,
+`src/Core/Core.AssemblyLoading/AssemblyLoadingService.cs`).
+
+Generated envelopes live in `~/.azclips/agent-cache/` (or
+`$AZCLIPS_HOME/agent-cache/`). Readers also recognize matching envelopes beside
+the CLI, in its packaged Agent extension directory, and in the development
+`Core.Agent` output. Existing unwrapped help-export artifacts remain unchanged
+and are not treated as a fresh cache
+(`Agent/Tools/Help/HelpCatalogProvider.cs`, `ArtifactDirectories`;
+`src/CLI/Help/HelpArtifactWriter.cs`, `WriteArtifacts`).
+
+`InstalledExtensionSet.Read` fingerprints the shared bundled roots, configured
+`assemblyLoading.installedExtensionsRoot` / prefix, version directories, DLL and
+NuGet file sizes/write times, registry contents, CLI version, and authored help
+files. This is conservative invalidation, **not a duplicate of the loader's
+SemVer/pin selection**. Adds, removals, version changes, rebuilds, configuration
+path changes, and pin changes invalidate the next read. Generation verifies the
+stamp again before publishing; publishers share a cancellable, cross-process file
+lock, and each artifact is replaced atomically
+(`Agent/Tools/Help/InstalledExtensionSet.cs:21`,
+`src/Core/Core.Abstractions/ExtensionDiscoveryPaths.cs`,
+`src/CLI/Help/HelpArtifactWriter.cs`, `WriteCatalog` / `AcquireCatalogLock`).
+
+For performance comparisons, report **cold/regeneration and warm reads
+separately** using the same complete CLI/Agent build, SDK, model, effort, profile,
+and extension set. Removing recurring subprocesses is not evidence that a
+first-run catalog build is free; no live latency result is implied by the
+offline contract tests (`Agent/tests/Core.Agent.Tests/HelpCatalogProviderTests.cs`,
+`Agent/tests/Core.Agent.Tests/DirectReadCommandTests.cs`).
 
 ### ARM resource cache tools
 
@@ -363,14 +421,29 @@ always-on in `ConsoleAgentRenderer`, independent of tracing (`TraceAgentRenderer
 
 ## Environment probes & hooks
 
-Before the model's first turn (and on each user prompt), `EnvironmentProber` builds an
-`EnvironmentSnapshot` injected as additional context (`SessionHooks.OnSessionStart`/
-`OnUserPromptSubmitted`, `Agent/ChatAgent.cs:255`). The prober reports OS, shell, cwd, SSH
+Before the model's first turn (and on each user prompt), `EnvSnapshotProvider.GetJsonAsync`
+builds a live `EnvironmentSnapshot` **in process**, without running `az agent tool env`
+or reading a separate snapshot file. The CLI env command uses the same provider
+(`Agent/Tools/Env/EnvSnapshotProvider.cs:14`, `Agent/Commands/Processors/EnvProcessor.cs`).
+The JSON is injected by `SessionHooks.OnSessionStart` / `OnUserPromptSubmitted`
+(`Agent/ChatAgent.cs`, `BuildBaseSessionConfig`). The prober reports OS, shell, cwd, SSH
 session, browser availability, stdin interactivity, and **whether the user is signed in** — the
 latter by reading the **active profile** from `IProfileService`
-(`Agent/Probes/EnvironmentProber.cs:28`). This is the direct link to the
+(`Agent/Tools/Env/EnvironmentProber.cs`, `ProbeAsync`). This is the direct link to the
 [Configuration & Profile Management](./configuration-profiles.md) subsystem: the agent knows
 the signed-in subscription because it reads the same active profile the engine resolves.
+
+Each hook reads the supplied profile service again, so switching profiles or signing
+out is visible on the next turn. The reported version belongs to the target CLI,
+not the standalone agent executable, and the flavor remains `cli`. Read errors are
+explicit `environment_snapshot_failed` objects rather than fabricated signed-out
+snapshots; cancellation and unexpected programming faults propagate. Only expected
+file/access/JSON failures (including the existing profile-read wrapper) are converted
+to error objects. Existing context formatting suppresses error
+objects, while successful snapshots retain the CLI-boundary reminder, failed-command
+help, and signed-out login-help prefetch
+(`Agent/Tools/Env/EnvSnapshotProvider.cs:14`, `Agent/Common/EnvSnapshotFormatter.cs`,
+`Agent/ChatAgent.cs`, `BuildBaseSessionConfig`).
 
 `PlaceholderDetector` (`Agent/Hooks/PlaceholderDetector.cs:6`) is the single hook module — a
 set of regexes (`<name>`, <code v-pre>{{...}}</code>, `YOUR_*`, `*-PLACEHOLDER`) used by the pre-tool gate to
@@ -389,15 +462,15 @@ via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 
 ## References
 
-- `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.0, `net10.0`, prompt/help content copy
+- `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.13, `net10.0`, prompt content copy
 - `Agent/BundledDaemonResolver.cs` — RID → `runtimes/<rid>/native/copilot`
 - `Agent/ChatAgent.cs` — daemon client, turn contract, `OnPreToolUse` gate, provider selection, prompt loading
 - `Agent/Tools/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools
-- `Agent/Tools/Help/HelpTools.cs` (+ `HelpIndex.json`, `HelpManifest.json`) — help corpus tools
+- `Agent/Tools/Help/HelpTools.cs`, `HelpCatalogProvider.cs`, `InstalledExtensionSet.cs` — direct-read help tools
 - `Agent/Tools/Cache/ResourceCache.cs`, `CachedResourceTools.cs`, `ArmDetailsClient.cs`, `AuthServiceTokenCredential.cs` — ARM cache + live details
 - `Agent/Tools/Sku/AvailableLocationsTool.cs` — SKU/location recovery
 - `Agent/Hosting/ConsoleApprovalPrompt.cs`, `ConsoleAgentRenderer.cs`, `AbortKeyWatcher.cs`, `SpinnerService.cs`, `TraceAgentRenderer.cs`
-- `Agent/Probes/EnvironmentProber.cs`, `Agent/Hooks/PlaceholderDetector.cs`
+- `Agent/Tools/Env/EnvSnapshotProvider.cs`, `EnvironmentProber.cs`, `Agent/Hooks/PlaceholderDetector.cs`
 - `Agent/prompts/oneshot.md`, `inline.md`, `tui.md`
 - `TUI/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
 - `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.recovery.trigger` (trigger, style, history size), `agent.provider`, `builtin` model

@@ -153,7 +153,7 @@ public sealed class AgentRuntimeLifecycleTests
         var sawHostStop = false;
         var config = new SessionConfig
         {
-            Tools = [new HelpTools("must-not-run", context.StartToolActivity).GetCommand],
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), context.StartToolActivity).GetCommand],
         };
         config.Hooks = new SessionHooks
         {

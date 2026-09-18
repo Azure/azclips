@@ -2,8 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Cli.Help;
-using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
+using Core.Agent.Tools.Help;
 using Xunit;
 
 namespace Core.Agent.Tests;

@@ -9,9 +9,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core.Agent.csproj" />
     <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
-    <!-- HelpLookup lives in the Agent.Commands extension; referenced for its
-         public FindCommand / FindSuggestions unit coverage. -->
+    <!-- Exercise the production catalog generator and command registration. -->
     <ProjectReference Include="..\..\Commands\Agent.Commands.csproj" />
+    <ProjectReference Include="..\..\..\src\CLI\Core.Cli.csproj" />
+    <ProjectReference Include="..\..\..\tests\Fixtures\SharedAlpha\Azclips.Tests.Fixtures.SharedAlpha.csproj" />
+    <ProjectReference Include="..\..\..\tests\Fixtures\SharedBeta\Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,4 +25,3 @@
   </ItemGroup>
 
 </Project>
-
