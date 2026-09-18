@@ -28,7 +28,7 @@ internal static class FailedCommandHelp
 
         try
         {
-            // Same JSON the LLM's get_command returns. On a hit it's the parameter
+            // Same JSON as one entry of the LLM's get_command results. On a hit it's the parameter
             // table — inject it. On any error payload (not_found, shell_out_timeout,
             // shell_out_spawn_failed, missing_name, ...) skip injection: the verb
             // we extracted wasn't a real command, or the shell-out to

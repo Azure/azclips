@@ -100,6 +100,14 @@ az config set --key agent.sessionStyle --value oneshot
 
 ## Frequently asked questions
 
+### How does the Agent look up command help?
+
+The Agent can request help for several commands in one `get_command` tool call.
+It supplies a `names` array and receives a `results` array in the same order, with
+each command's help or an individual lookup error. This reduces tool round-trips;
+each lookup still uses the existing CLI help backend. Host-side prefetching of the
+failed command's help remains a single-command lookup.
+
 ### What does AI-based error recovery do?
 
 AI-based error recovery analyzes command failures and provides:
