@@ -15,6 +15,13 @@ const fakeAzclips = String.raw`
 $ErrorActionPreference = 'Stop'
 $root = $env:AZCLIPS_EVAL_TEST_ROOT
 $scenario = Get-Content (Join-Path $root 'scenario.json') -Raw | ConvertFrom-Json
+if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
+    $signedIn = $scenario.signedOut -ne $true
+    $subscription = if ($scenario.missingSubscription) { '' } else { '11111111-1111-4111-8111-111111111111' }
+    @{ signedIn = $signedIn; subscriptionId = $subscription } | ConvertTo-Json -Compress
+    $global:LASTEXITCODE = 0
+    return
+}
 $statePath = Join-Path $root 'state.json'
 $state = Get-Content $statePath -Raw | ConvertFrom-Json -AsHashtable
 $operation = $args[1]
@@ -57,11 +64,17 @@ $scenario = Get-Content (Join-Path $root 'scenario.json') -Raw | ConvertFrom-Jso
 $env:AZCLIPS_EXE = 'original-executable'
 $env:PROMPTFOO_DISABLE_TELEMETRY = 'false'
 $env:PROMPTFOO_DISABLE_UPDATE = 'false'
+$env:AZCLIPS_EVALUATION_SIGNED_IN = 'original-signed-in'
+$env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = 'original-subscription'
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
     if ($env:PROMPTFOO_DISABLE_TELEMETRY -ne 'true' -or $env:PROMPTFOO_DISABLE_UPDATE -ne 'true') {
         throw 'Promptfoo telemetry and update checks must be disabled during evaluation'
+    }
+    if ($env:AZCLIPS_EVALUATION_SIGNED_IN -ne 'true' -or
+        $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID -ne '11111111-1111-4111-8111-111111111111') {
+        throw 'Expected the actual active-profile context'
     }
     $outputIndex = [array]::IndexOf([object[]]$args, '--output') + 1
     $output = $args[$outputIndex]
@@ -105,6 +118,8 @@ catch {
     exitCode = $exitCode
     telemetry = $env:PROMPTFOO_DISABLE_TELEMETRY
     update = $env:PROMPTFOO_DISABLE_UPDATE
+    signedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
+    subscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 } |
     ConvertTo-Json | Set-Content (Join-Path $root 'summary.json')
 exit $exitCode
@@ -160,6 +175,8 @@ test('wrapper produces a fresh artifact and restores configuration and environme
   assert.equal(result.summary.executable, 'original-executable');
   assert.equal(result.summary.telemetry, 'false');
   assert.equal(result.summary.update, 'false');
+  assert.equal(result.summary.signedIn, 'original-signed-in');
+  assert.equal(result.summary.subscriptionId, 'original-subscription');
   assert.deepEqual(result.configuration, initialConfig);
   assert.equal(result.calls.length, 1);
   assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
@@ -230,3 +247,13 @@ test('wrapper attempts remaining restores and blocks upload after a restore fail
   assert.equal(result.summary.executable, 'original-executable');
   assert.equal(result.calls.includes('upload'), false);
 });
+
+for (const option of ['signedOut', 'missingSubscription']) {
+  test(`wrapper rejects ${option} before changing configuration or calling a model`, (context) => {
+    const result = runWrapper(context, { [option]: true });
+    assert.equal(result.status, 1);
+    assert.match(result.summary.error, /requires an Azure-signed-in active profile/);
+    assert.deepEqual(result.configuration, initialConfig);
+    assert.deepEqual(result.calls, []);
+  });
+}

@@ -1,6 +1,9 @@
 module.exports = {
   description: "profile show → plan must add --active (regression from PR #556)",
   vars: {
+    case_id: 'profile-show-active',
+    command_group: 'profile',
+    goal: 'Show the active profile without changing authentication or profiles.',
     command: 'profile show',
   },
   assert: [
@@ -17,19 +20,17 @@ module.exports = {
             match: 'all',
             requiredArguments: ['--active'],
             booleanArguments: ['--active'],
+            argumentValues: { '--active': true },
+            forbiddenArguments: ['--name'],
           },
         ],
       },
     },
     {
-      type: 'llm-rubric',
-      value: [
-        'Grade the error-recovery PLAN below against these anchors.',
-        'PASS only if ALL hold:',
-        '(1) It explains `profile show` needs a profile name or `--active`.',
-        'Command and argument correctness are checked separately by a deterministic assertion. Do not grade them here.',
-        'Reply PASS or FAIL + one sentence why.',
-      ].join('\n'),
+      type: 'javascript',
+      value: 'file://assertions/plan-contract.js:planContractAssertion',
+      metric: 'plan-contract',
+      config: { allowedCommands: ['az profile show'] },
     },
   ],
 };

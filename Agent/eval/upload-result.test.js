@@ -5,6 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 const {
   acquireAuthorization,
+  modelDimensions,
   registerEvaluationArtifact,
   sourceContext,
 } = require('./upload-result');
@@ -219,8 +220,39 @@ test('registers schema, run metadata, and artifact in order', async (context) =>
   assert.equal(metadata.commit, pipelineEnvironment.SYSTEM_PULLREQUEST_SOURCECOMMITID);
   assert.equal(metadata.runAt, '2026-08-14T01:02:03.000Z');
   assert.deepEqual(metadata.dimensions.model, ['gpt-5.4-mini']);
+  assert.deepEqual(metadata.dimensions.judgeModel, []);
   assert.equal(
     result.dashboardUrl,
     'https://evaluation.example/evaluations?project=azclips&evalId=00000000-0000-4000-8000-000000000123',
   );
+});
+
+test('does not report a judge model merely because a provider or environment default exists', () => {
+  const dimensions = modelDimensions({
+    results: { results: [{ response: { metadata: { models: ['target-model'] } } }] },
+    config: { defaultTest: { options: { provider: { config: { deployment: 'unused-judge' } } } } },
+  }, { EVAL_JUDGE_MODEL: 'also-unused' });
+  assert.deepEqual(dimensions, { models: ['target-model'], judgeModels: [] });
+});
+
+test('reports configured models only for grading results that actually contain an LLM rubric', () => {
+  const dimensions = modelDimensions({
+    results: {
+      results: [
+        { gradingResult: { componentResults: [{ assertion: { type: 'llm-rubric' } }] } },
+        {
+          testCase: { options: { provider: { config: { deployment: 'case-judge' } } } },
+          gradingResult: { componentResults: [{ assertion: { type: 'llm-rubric' } }] },
+        },
+      ],
+    },
+    config: { defaultTest: { options: { provider: { config: { deployment: 'default-judge' } } } } },
+  });
+  assert.deepEqual(dimensions.judgeModels, ['case-judge', 'default-judge']);
+});
+
+test('does not invent the model name for an unconfigured LLM grading result', () => {
+  assert.deepEqual(modelDimensions({
+    results: { results: [{ gradingResult: { assertion: { type: 'llm-rubric' } } }] },
+  }, {}).judgeModels, []);
 });

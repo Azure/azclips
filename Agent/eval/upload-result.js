@@ -119,6 +119,11 @@ function uniqueStrings(values) {
     .map((value) => value.trim()))].sort();
 }
 
+function hasLlmRubric(result) {
+  return result?.assertion?.type === 'llm-rubric' ||
+    (Array.isArray(result?.componentResults) && result.componentResults.some(hasLlmRubric));
+}
+
 function modelDimensions(artifact, env = process.env) {
   const results = artifact.results?.results || [];
   const models = uniqueStrings(results.flatMap((result) =>
@@ -126,9 +131,12 @@ function modelDimensions(artifact, env = process.env) {
       ? result.response.metadata.models
       : [result.response?.metadata?.model],
   ));
-  const judgeModels = uniqueStrings([
-    env.EVAL_JUDGE_MODEL || 'gpt-5.4-mini',
-  ]);
+  const judgeModels = uniqueStrings(results.filter((result) => hasLlmRubric(result.gradingResult))
+    .map((result) =>
+      result.testCase?.options?.provider?.config?.deployment ||
+      artifact.config?.defaultTest?.options?.provider?.config?.deployment ||
+      env.EVAL_JUDGE_MODEL,
+    ));
   return { models, judgeModels };
 }
 

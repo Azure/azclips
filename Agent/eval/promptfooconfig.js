@@ -10,10 +10,16 @@ const runContext = {
   branch: process.env.EVAL_BRANCH || 'local',
   run_at: process.env.EVAL_RUN_AT || 'local',
   flavor: process.env.AZURECLI_FLAVOR || 'azure cli',
+  signed_in: process.env.AZCLIPS_EVALUATION_SIGNED_IN === 'true',
+  subscription_id: process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || '',
 };
 
+if (!runContext.signed_in || !runContext.subscription_id) {
+  throw new Error('Run the reference suite through run-evaluation.ps1 with a signed-in active profile.');
+}
+
 module.exports = {
-  description: 'azclips agent plan eval (PoC)',
+  description: 'AZCLIPS Agent reference plans: deterministic contracts',
   prompts: [
     {
       raw: runtimePrompt.content,
@@ -28,16 +34,6 @@ module.exports = {
   ],
   defaultTest: {
     vars: runContext,
-    options: {
-      provider: {
-        id: 'file://judge/judge-azure.js',
-        config: {
-          endpoint: 'https://cli-copilot.openai.azure.com',
-          deployment: 'gpt-5.4-mini',
-          apiVersion: '2024-12-01-preview',
-        },
-      },
-    },
   },
   tests: [profileShow, vmCreateShortFlags, deployWebApp],
 };

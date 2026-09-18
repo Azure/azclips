@@ -49,11 +49,21 @@ function Get-ConfigurationSnapshot([string] $Key) {
     }
 }
 
+$runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
+$subscriptionId = [guid]::Empty
+if ($runtimeEnvironment.signedIn -ne $true -or
+    -not [guid]::TryParse($runtimeEnvironment.subscriptionId, [ref]$subscriptionId) -or
+    $subscriptionId -eq [guid]::Empty) {
+    throw 'The reference suite requires an Azure-signed-in active profile with a subscription.'
+}
+
 $snapshots = @{}
 $evaluationExitCode = 1
 $previousAzclipsExe = $env:AZCLIPS_EXE
 $previousPromptfooTelemetry = $env:PROMPTFOO_DISABLE_TELEMETRY
 $previousPromptfooUpdate = $env:PROMPTFOO_DISABLE_UPDATE
+$previousSignedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
+$previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $runFailure = $null
 $restoreFailures = [Collections.Generic.List[string]]::new()
 try {
@@ -67,6 +77,8 @@ try {
     $env:AZCLIPS_EXE = $AzclipsExe
     $env:PROMPTFOO_DISABLE_TELEMETRY = 'true'
     $env:PROMPTFOO_DISABLE_UPDATE = 'true'
+    $env:AZCLIPS_EVALUATION_SIGNED_IN = 'true'
+    $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $subscriptionId.ToString()
 
     Push-Location $PSScriptRoot
     try {
@@ -102,6 +114,8 @@ finally {
     $env:AZCLIPS_EXE = $previousAzclipsExe
     $env:PROMPTFOO_DISABLE_TELEMETRY = $previousPromptfooTelemetry
     $env:PROMPTFOO_DISABLE_UPDATE = $previousPromptfooUpdate
+    $env:AZCLIPS_EVALUATION_SIGNED_IN = $previousSignedIn
+    $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $previousSubscriptionId
 }
 
 if ($runFailure -or $restoreFailures.Count -gt 0) {
