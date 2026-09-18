@@ -129,6 +129,8 @@ stages:
 - template: templates/dist/stages/publish-docker-to-acr.yml
   parameters:
     dependency_stage: VerifySignedDistribution
+    amd64_pool: pool-ubuntu-latest-multi-core
+    arm64_pool: ess-1eshp-arm64-ubuntu
     azure_subscription: ${{ variables.DockerAzureServiceConnection }}
     cli_registry_name: $(DockerCliRegistryName)
     cli_registry_server: $(DockerCliRegistryServer)
