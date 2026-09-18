@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "resourceGroupName": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "azclips-nested-rg-deployment",
+      "subscriptionId": "[parameters('subscriptionId')]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": []
+        }
+      }
+    }
+  ]
+}
