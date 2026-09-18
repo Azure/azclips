@@ -704,8 +704,8 @@ public class ManagementGroupDeploymentTests
     {
         FakeHttpPipeline pipeline = new((_, _) =>
             Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
-        WaitManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new WaitManagementGroupDeploymentProcessor { Created = true, Interval = 1, Timeout = 1 }, pipeline, new FakeOutputHandler());
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new WaitManagementGroupDeploymentProcessor_Orchestrator { Created = true, Interval = 1, Timeout = 1 }, pipeline, new FakeOutputHandler());
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 
@@ -719,8 +719,8 @@ public class ManagementGroupDeploymentTests
     {
         FakeHttpPipeline pipeline = new((_, _) =>
             Json("""{"error":{"code":"DeploymentNotFound"}}""", HttpStatusCode.NotFound));
-        WaitManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new WaitManagementGroupDeploymentProcessor { Deleted = true }, pipeline, new FakeOutputHandler());
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new WaitManagementGroupDeploymentProcessor_Orchestrator { Deleted = true }, pipeline, new FakeOutputHandler());
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 

@@ -11,7 +11,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Customization;
 
-public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<object, object>
+public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProcessorBase<object, object>
 {
     public string ManagementGroupId { get; set; } = string.Empty;
 
