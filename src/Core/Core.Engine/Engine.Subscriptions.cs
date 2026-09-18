@@ -237,7 +237,7 @@ namespace Core.Engine
                 var evt = (EventData)data;
                 if (evt.Payload is Profile profile)
                 {
-                    TelemetryRoutingContext.Set(profile.TenantId, null);
+                    telemetryRoutingContext.Set(profile.TenantId, null);
                     telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
@@ -254,7 +254,7 @@ namespace Core.Engine
                             return result.AccessToken;
                         },
                         DataBoundaryResolveTimeout);
-                    TelemetryRoutingContext.Set(profile.TenantId, boundary);
+                    telemetryRoutingContext.Set(profile.TenantId, boundary);
                 }
             });
 

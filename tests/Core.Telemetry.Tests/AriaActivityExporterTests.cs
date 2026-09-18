@@ -87,4 +87,51 @@ public class AriaActivityExporterTests
         Assert.True(flushed, "ForceFlush should succeed — OneCollector should accept the payload");
         _output.WriteLine("Done! Check Aria/Kusto for table Azclips_CommandExecution (EU)");
     }
+
+    [Fact]
+    public void Export_RoutesDynamically_WhenConstructedWithRoutingContext()
+    {
+        // Arrange — one long-lived exporter instance, as PowerShell's singleton
+        // TracerProvider would build it, serving commands with different boundaries
+        // over its lifetime instead of freezing the destination at construction time.
+        var routingContext = new FakeTelemetryRoutingContext();
+        var exporter = new AriaActivityExporter(routingContext);
+        var source = new ActivitySource("AriaDynamicRoutingTest");
+        var builder = Sdk.CreateTracerProviderBuilder()
+            .AddSource("AriaDynamicRoutingTest")
+            .AddProcessor(new SimpleActivityExportProcessor(exporter));
+
+        using var provider = builder.Build()!;
+
+        // Act — a Global command, then an EU command, on the same exporter instance.
+        routingContext.Set(tenantId: null, dataBoundary: "Global");
+        using (var activity = source.StartActivity("DynamicGlobalCommand", ActivityKind.Server))
+        {
+            Assert.NotNull(activity);
+            activity.SetTag("command", "dynamic-routing-global");
+        }
+
+        routingContext.Set(tenantId: null, dataBoundary: "EU");
+        using (var activity = source.StartActivity("DynamicEuCommand", ActivityKind.Server))
+        {
+            Assert.NotNull(activity);
+            activity.SetTag("command", "dynamic-routing-eu");
+        }
+
+        // Assert — both routes flush successfully from the one exporter instance.
+        _output.WriteLine("Flushing dynamically-routed Global then EU activities...");
+        var flushed = provider.ForceFlush(timeoutMilliseconds: 15_000);
+        _output.WriteLine($"Flush result: {flushed}");
+
+        Assert.True(flushed, "ForceFlush should succeed for both Global and EU exports from one long-lived exporter");
+    }
+
+    private sealed class FakeTelemetryRoutingContext : ITelemetryRoutingContext
+    {
+        private (string? TenantId, string? DataBoundary) _current;
+
+        public void Set(string? tenantId, string? dataBoundary) => _current = (tenantId, dataBoundary);
+
+        public (string? TenantId, string? DataBoundary) Current => _current;
+    }
 }

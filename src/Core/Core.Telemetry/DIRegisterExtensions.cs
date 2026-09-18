@@ -25,6 +25,7 @@ public static class DIRegisterExtensions
         services.AddSingleton<ITelemetryActivityNameFilter, DefaultTelemetryActivityNameFilter>();
         services.AddSingleton<BaseProcessor<Activity>, DefaultActivityNameFilterProcessor>();
         services.AddSingleton<BaseProcessor<Activity>, DefaultTelemetryPropertyFilterProcessor>();
+        services.AddSingleton<ITelemetryRoutingContext, TelemetryRoutingContext>();
         return services;
     }
 }

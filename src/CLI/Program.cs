@@ -305,6 +305,7 @@ public class Program
     {
         try
         {
+            var routingContext = AzclipsServiceProvider.GetRequiredService<ITelemetryRoutingContext>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var profileName = TryGetProfileOverride(args);
             var profile = string.IsNullOrWhiteSpace(profileName)
@@ -314,7 +315,7 @@ public class Program
             if (string.IsNullOrWhiteSpace(tenantId))
                 return;
 
-            TelemetryRoutingContext.Set(tenantId, null);
+            routingContext.Set(tenantId, null);
             var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
                 tenantId,
                 async tokenCancellationToken =>
@@ -331,7 +332,7 @@ public class Program
                 DataBoundaryResolveTimeout,
                 cancellationToken);
 
-            TelemetryRoutingContext.Set(tenantId, boundary);
+            routingContext.Set(tenantId, boundary);
         }
         catch
         {

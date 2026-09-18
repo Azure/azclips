@@ -7,6 +7,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
+using Core.Telemetry;
 
 namespace Core.Engine
 {
@@ -25,6 +26,7 @@ namespace Core.Engine
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
+        ITelemetryRoutingContext telemetryRoutingContext,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,

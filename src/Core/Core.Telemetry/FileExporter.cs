@@ -15,12 +15,14 @@ namespace Core.Telemetry;
 internal class FileExporter : BaseExporter<Activity>
 {
     private readonly string _rootDirectory;
+    private readonly ITelemetryRoutingContext? _routingContext;
     private string? _filePath;
     private readonly object _lock = new();
 
-    public FileExporter(string rootDirectory)
+    public FileExporter(string rootDirectory, ITelemetryRoutingContext? routingContext = null)
     {
         _rootDirectory = rootDirectory ?? throw new ArgumentNullException(nameof(rootDirectory));
+        _routingContext = routingContext;
     }
 
     public override ExportResult Export(in Batch<Activity> batch)
@@ -31,6 +33,8 @@ internal class FileExporter : BaseExporter<Activity>
 
             // Single pass: a Batch<Activity> backed by a circular buffer dequeues as it is
             // enumerated, so the file path is taken from the first activity on the way past.
+            var (routingTenantId, routingDataBoundary) = _routingContext?.Current ?? (null, null);
+
             foreach (var activity in batch)
             {
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
@@ -47,8 +51,8 @@ internal class FileExporter : BaseExporter<Activity>
                     Status = activity.Status.ToString(),
                     StatusDescription = activity.StatusDescription,
                     Kind = activity.Kind.ToString(),
-                    TenantId = TelemetryRoutingContext.TenantId,
-                    DataBoundary = TelemetryRoutingContext.DataBoundary,
+                    TenantId = routingTenantId,
+                    DataBoundary = routingDataBoundary,
                     Tags = activity.TagObjects,
                     Events = GetEvents(activity),
                     Resource = GetResource(activity)

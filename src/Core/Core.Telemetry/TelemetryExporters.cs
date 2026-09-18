@@ -18,7 +18,8 @@ internal static class TelemetryExporters
     internal static void AddTraceExporters(
         TracerProviderBuilder builder,
         IReadOnlyList<TelemetryTarget> targets,
-        string? dataBoundary = null)
+        string? dataBoundary = null,
+        ITelemetryRoutingContext? liveRoutingContext = null)
     {
         foreach (var target in targets)
         {
@@ -30,9 +31,24 @@ internal static class TelemetryExporters
         // others (including unknown/missing) → Global endpoint.
         if (targets.Contains(TelemetryTarget.Remote))
         {
-            var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary);
-            builder.AddProcessor(new SimpleActivityExportProcessor(
-                new AriaActivityExporter(connectionString, endpoint)));
+            // dataBoundary supplied: the caller already knows the destination for this
+            // exporter's whole lifetime (buffered replay of an already-partitioned group) —
+            // build a fixed-destination exporter. Otherwise, when liveRoutingContext is
+            // supplied, this exporter may live across many command invocations with
+            // different tenants/boundaries (e.g. PowerShell's singleton TracerProvider) —
+            // build a dynamic-destination exporter that re-checks the boundary per export.
+            AriaActivityExporter exporter;
+            if (dataBoundary is null && liveRoutingContext is not null)
+            {
+                exporter = new AriaActivityExporter(liveRoutingContext);
+            }
+            else
+            {
+                var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary);
+                exporter = new AriaActivityExporter(connectionString, endpoint);
+            }
+
+            builder.AddProcessor(new SimpleActivityExportProcessor(exporter));
         }
 
         builder.SetSampler(new AlwaysOnSampler());
@@ -59,10 +75,9 @@ internal static class TelemetryExporters
 
     internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
     {
-        var effectiveBoundary = dataBoundary ?? TelemetryRoutingContext.DataBoundary;
-        var isEu = effectiveBoundary is null
+        var isEu = dataBoundary is null
             ? DataBoundaryResolver.IsEuDataBoundary()
-            : DataBoundaryRouting.IsEu(effectiveBoundary);
+            : DataBoundaryRouting.IsEu(dataBoundary);
 
         return isEu
             ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
