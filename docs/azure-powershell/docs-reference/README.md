@@ -42,6 +42,7 @@ and examples.
 - [New-AzResourceGroupDeploymentWhatIf][19]
 - [Remove-AzResourceGroupDeployment][22]
 - [Stop-AzResourceGroupDeployment][21]
+- [Test-AzResourceGroupDeployment][23]
 
 <!-- updated link references -->
 
@@ -67,3 +68,4 @@ and examples.
 [20]: ../../../src/PS/Resources/help/Get-AzResourceGroupDeployment.md
 [21]: ../../../src/PS/Resources/help/Stop-AzResourceGroupDeployment.md
 [22]: ../../../src/PS/Resources/help/Remove-AzResourceGroupDeployment.md
+[23]: ../../../src/PS/Resources/help/Test-AzResourceGroupDeployment.md
