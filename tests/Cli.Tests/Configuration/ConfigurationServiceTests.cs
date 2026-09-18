@@ -27,6 +27,19 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripPowerShellOutputFormat()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        Assert.Equal("object", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+
+        await service.SetConfigurationAsync("clients.powershell.output.format", "json");
+
+        Assert.Equal("json", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+    }
+
+    [Fact]
     public async Task DeleteConfigurationAsync_ShouldPruneEmptyParents()
     {
         using var fixture = new TempConfigurationFixture();

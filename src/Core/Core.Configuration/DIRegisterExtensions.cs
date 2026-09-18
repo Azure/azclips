@@ -23,8 +23,7 @@ public static class DIRegisterExtensions
             {
                 var configurationService = services.GetRequiredService<IConfigurationService>();
                 return configurationService as ISourceAwareConfigurationService
-                    ?? throw new InvalidOperationException(
-                        $"The registered {nameof(IConfigurationService)} must also implement {nameof(ISourceAwareConfigurationService)}.");
+                    ?? new SourceAwareConfigurationServiceAdapter(configurationService);
             });
     }
 }
