@@ -24,17 +24,39 @@ public class ExecutionSessionSeamTests
         }
     }
 
+    private sealed class ReportedHttpFailureProcessor : IProcessor
+    {
+        private IEventPublisher publisher = null!;
+
+        public IProcessor Init(ProcessorContext context)
+        {
+            publisher = context.Publisher;
+            return this;
+        }
+
+        public async Task ProcessAsync()
+        {
+            await publisher.Publish(Events.ResourceOperationFailed, "not found");
+            throw new HttpRequestException("not found", inner: null, statusCode: System.Net.HttpStatusCode.NotFound);
+        }
+    }
+
     private sealed class SeamStubIndex : IExtensionIndex
     {
-        private static readonly CommandMetadata Meta = new(
-            Name: "SeamStub",
-            InvocationName: "x",
-            Aliases: new List<string>(),
-            FullName: typeof(SeamStubProcessor).FullName!,
-            AssemblyName: typeof(SeamStubProcessor).Assembly.GetName().Name!,
-            ProcessorType: typeof(SeamStubProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>());
+        private readonly CommandMetadata Meta;
+
+        public SeamStubIndex(Type processorType)
+        {
+            Meta = new CommandMetadata(
+                Name: "SeamStub",
+                InvocationName: "x",
+                Aliases: new List<string>(),
+                FullName: processorType.FullName!,
+                AssemblyName: processorType.Assembly.GetName().Name!,
+                ProcessorType: processorType,
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>());
+        }
 
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType) => Meta;
         public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
@@ -44,13 +66,13 @@ public class ExecutionSessionSeamTests
         public IReadOnlyList<string> GetVerbs() => new[] { "seam" };
     }
 
-    private static ExecutionSession CreateSession(ClientType clientType)
+    private static ExecutionSession CreateSession(ClientType clientType, Type? processorType = null)
     {
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
 
-        var index = new SeamStubIndex();
+        var index = new SeamStubIndex(processorType ?? typeof(SeamStubProcessor));
         var session = new ExecutionSession(clientType, invocation, streams)
         {
             GetExtensionVersion = () => string.Empty,
@@ -110,5 +132,21 @@ public class ExecutionSessionSeamTests
         Assert.Equal(1, acquiredCount);
         Assert.False(executedAtAcquire);
         Assert.True(SeamStubProcessor.WasExecuted);
+    }
+
+    [Fact]
+    public void Run_DoesNotRethrow_ReportedHttpFailure_ForPowerShell()
+    {
+        using var session = CreateSession(ClientType.PowerShell, typeof(ReportedHttpFailureProcessor));
+
+        session.Run();
+    }
+
+    [Fact]
+    public void Run_Rethrows_ReportedHttpFailure_ForCli()
+    {
+        using var session = CreateSession(ClientType.CLI, typeof(ReportedHttpFailureProcessor));
+
+        Assert.Throws<HttpRequestException>(session.Run);
     }
 }
