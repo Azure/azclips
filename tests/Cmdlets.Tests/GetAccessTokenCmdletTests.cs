@@ -124,7 +124,10 @@ public class GetAccessTokenCmdletTests
         var offered = validateSet.ValidValues.Select(Resolve).ToHashSet();
         var known = WellKnownResourceTypes.Names.Select(Resolve).ToHashSet();
 
+        // The set must cover exactly the canonical resources. Extra PascalCase aliases (e.g.
+        // ResourceManager) are allowed as long as they resolve onto one of those resources, so the
+        // PowerShell surface never advertises a name the resolver would then reject.
         Assert.Equal(known, offered);
-        Assert.Equal(WellKnownResourceTypes.Names.Length, validateSet.ValidValues.Count);
+        Assert.Contains("ResourceManager", validateSet.ValidValues);
     }
 }
