@@ -78,10 +78,14 @@ internal static class ConfigurationSchemaBuilder
 
             if (property.PropertyType.IsClass && property.PropertyType != typeof(string))
             {
+                var sectionAttribute = property.GetCustomAttribute<ConfigurationSectionAttribute>();
+                if (sectionAttribute is { IncludeInSchema: false })
+                    continue;
+
                 var child = property.GetValue(instance);
                 if (child is not null)
                 {
-                    var section = property.GetCustomAttribute<ConfigurationSectionAttribute>()?.Name
+                    var section = sectionAttribute?.Name
                         ?? ToConfigName(property.Name);
                     Visit(child, property.PropertyType, Combine(path, section), metadata);
                 }
@@ -109,7 +113,11 @@ internal static class ConfigurationSchemaBuilder
 
             if (property.PropertyType.IsClass && property.PropertyType != typeof(string) && property.GetValue(instance) is { } child)
             {
-                var section = property.GetCustomAttribute<ConfigurationSectionAttribute>()?.Name
+                var sectionAttribute = property.GetCustomAttribute<ConfigurationSectionAttribute>();
+                if (sectionAttribute is { IncludeInSchema: false })
+                    continue;
+
+                var section = sectionAttribute?.Name
                     ?? ToConfigName(property.Name);
                 VisitDefaults(child, property.PropertyType, Combine(path, section), defaults);
             }

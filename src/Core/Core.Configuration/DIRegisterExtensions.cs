@@ -19,6 +19,12 @@ public static class DIRegisterExtensions
             .AddSingleton<IConfigurationSchema, ConfigurationSchema>()
             .AddSingleton<ConfigurationService>()
             .AddSingleton<IConfigurationService>(services => services.GetRequiredService<ConfigurationService>())
-            .AddSingleton<ISourceAwareConfigurationService>(services => services.GetRequiredService<ConfigurationService>());
+            .AddSingleton<ISourceAwareConfigurationService>(services =>
+            {
+                var configurationService = services.GetRequiredService<IConfigurationService>();
+                return configurationService as ISourceAwareConfigurationService
+                    ?? throw new InvalidOperationException(
+                        $"The registered {nameof(IConfigurationService)} must also implement {nameof(ISourceAwareConfigurationService)}.");
+            });
     }
 }

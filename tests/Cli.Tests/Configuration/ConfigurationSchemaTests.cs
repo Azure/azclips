@@ -44,6 +44,14 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetAllKeys_ShouldNotExposeNestedExcludedSections()
+    {
+        var keys = _schema.GetAllKeys();
+
+        Assert.DoesNotContain(keys, key => key.Key.StartsWith("benchmark.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void GetAllKeys_ShouldContainEveryCurrentConfigurationPath()
     {
         var expected = new[]
