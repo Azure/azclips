@@ -124,7 +124,7 @@ jobs:
     name: Run CLI benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=azclips-benchmark-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=myjobprefix-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
 
     strategy:
       fail-fast: false
@@ -168,7 +168,8 @@ jobs:
     name: Run PS benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=azclips-benchmark-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=myjobprefix-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
@@ -211,7 +212,8 @@ jobs:
     name: Run STARTUP benchmarks
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.run_startup == 'true'
-    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=azclips-benchmark-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh-ae, "JobId=myjobprefix-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
