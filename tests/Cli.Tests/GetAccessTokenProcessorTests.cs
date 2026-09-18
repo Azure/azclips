@@ -42,7 +42,7 @@ public class GetAccessTokenProcessorTests
         AzclipsServiceProvider.Initialize(clientType);
     }
 
-    private static Profile ProfileWith(AuthMethod method, string tenantId = "tid") => new()
+    private static Profile ProfileWith(AuthMethod method, string tenantId = "tid", string? managedIdentityId = null) => new()
     {
         Name = "p",
         TenantId = tenantId,
@@ -50,6 +50,7 @@ public class GetAccessTokenProcessorTests
         CloudName = "AzureCloud",
         AuthMethod = method,
         UserPrincipalName = "user@contoso.com",
+        ManagedIdentityId = managedIdentityId,
     };
 
     private static GetAccessTokenProcessor InitProcessor(GetAccessTokenProcessor processor, Profile? profile, out FakeOutputHandler output, CancellationToken publisherToken = default)
@@ -273,6 +274,44 @@ public class GetAccessTokenProcessorTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
         Assert.Contains("Connect-AzAccount -Identity", ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("-TenantId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UserAssignedManagedIdentityFails_CliGuidanceCarriesClientIdSelector()
+    {
+        // A user-assigned managed identity is selected by a stored client id. The recovery guidance must
+        // carry that selector so re-establishing the context targets the same identity, not system-assigned.
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("IMDS endpoint unavailable."));
+        InitDi(ClientType.CLI, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor(),
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant",
+                managedIdentityId: "MSIClient@11111111-1111-1111-1111-111111111111"), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("az login --identity --client-id 11111111-1111-1111-1111-111111111111", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UserAssignedManagedIdentityFails_PowerShellGuidanceCarriesResourceIdSelector()
+    {
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("IMDS endpoint unavailable."));
+        InitDi(ClientType.PowerShell, auth.Object);
+
+        var processor = InitProcessor(
+            new GetAccessTokenProcessor(),
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant",
+                managedIdentityId: "MSIResource@/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi"), out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.Contains("Connect-AzAccount -Identity -ResourceId /subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -114,7 +114,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                         // A managed identity cannot be re-authenticated with an interactive, tenant-scoped
                         // sign-in (login rejects --identity together with --tenant-id), so point at the
                         // identity/environment path instead of the browser sign-in guidance below.
-                        string identitySignIn = ManagedIdentitySignInCommand();
+                        string identitySignIn = ManagedIdentitySignInCommand(profile);
                         throw new InvalidOperationException(
                             $"Could not acquire a managed identity access token for tenant '{targetTenant}'. {ex.Message} "
                             + "Confirm a managed identity is available in this environment and is authorized for the "
@@ -212,12 +212,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// identity has no interactive, tenant-scoped sign-in, so failure guidance for these accounts
         /// must point at the identity path rather than <see cref="SignInGuidance"/>.
         /// </summary>
-        private static string ManagedIdentitySignInCommand()
+        private static string ManagedIdentitySignInCommand(Profile profile)
         {
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            return clientType == ClientType.PowerShell
-                ? "Connect-AzAccount -Identity"
-                : "az login --identity";
+            bool isPowerShell = clientType == ClientType.PowerShell;
+            string command = isPowerShell ? "Connect-AzAccount -Identity" : "az login --identity";
+
+            // A user-assigned managed identity is selected by a stored client/object/resource id. Carry
+            // that selector into the guidance so re-establishing the context targets the same identity,
+            // instead of falling back to the system-assigned identity (which could restore a different
+            // account). System-assigned profiles have no selector and use the bare command.
+            var (idType, idValue) = ManagedIdentityIdCodec.Parse(profile.ManagedIdentityId);
+            if (string.IsNullOrEmpty(idValue))
+            {
+                return command;
+            }
+
+            string? selectorFlag = idType switch
+            {
+                ManagedIdentityIdType.ClientId => isPowerShell ? "-ClientId" : "--client-id",
+                ManagedIdentityIdType.ObjectId => isPowerShell ? "-ObjectId" : "--object-id",
+                ManagedIdentityIdType.ResourceId => isPowerShell ? "-ResourceId" : "--resource-id",
+                _ => null,
+            };
+
+            return selectorFlag is null ? command : $"{command} {selectorFlag} {idValue}";
         }
 
         /// <summary>
