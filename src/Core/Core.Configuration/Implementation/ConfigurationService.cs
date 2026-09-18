@@ -15,17 +15,11 @@ namespace Core.Configuration.Implementation;
 public sealed class ConfigurationService(
     Core.Configuration.Abstractions.IConfigurationProvider provider,
     IConfigurationSchema schema,
-    IConfigurationValidator validator) : IConfigurationService
+    IConfigurationValidator validator) : IConfigurationService, ISourceAwareConfigurationService
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         WriteIndented = true
-    };
-
-    private readonly JsonSerializerOptions _defaultFlattenSerializerOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()

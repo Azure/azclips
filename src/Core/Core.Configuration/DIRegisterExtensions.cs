@@ -17,6 +17,8 @@ public static class DIRegisterExtensions
             .AddSingleton<IConfigurationProvider, FileConfigurationProvider>()
             .AddSingleton<IConfigurationValidator, DefaultConfigurationValidator>()
             .AddSingleton<IConfigurationSchema, ConfigurationSchema>()
-            .AddSingleton<IConfigurationService, ConfigurationService>();
+            .AddSingleton<ConfigurationService>()
+            .AddSingleton<IConfigurationService>(services => services.GetRequiredService<ConfigurationService>())
+            .AddSingleton<ISourceAwareConfigurationService>(services => services.GetRequiredService<ConfigurationService>());
     }
 }

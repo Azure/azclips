@@ -35,6 +35,9 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationService GetConfigurationService() => AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
+    protected static ISourceAwareConfigurationService GetSourceAwareConfigurationService() =>
+        AzclipsServiceProvider.GetRequiredService<ISourceAwareConfigurationService>();
+
     /// <summary>
     /// Normalizes a configuration key by replacing colons with dots and removing empty entries.
     /// Ensures consistent key handling across CLI and PowerShell inputs (dot vs colon notation).
@@ -57,7 +60,7 @@ public abstract class ConfigCommandBase : IProcessor
         var configurationService = GetConfigurationService();
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
-        var snapshot = await configurationService.ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
+        var snapshot = await GetSourceAwareConfigurationService().ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
         foreach (var entry in snapshot)
         {
             if (includeDefaults || entry.Value.Source != "default")

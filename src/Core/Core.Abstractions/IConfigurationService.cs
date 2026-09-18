@@ -13,8 +13,6 @@ public interface IConfigurationService
 
     Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default);
-
     Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default);
 
     string GetConfigFilePath();

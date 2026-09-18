@@ -220,7 +220,7 @@ public class ConfigurationServiceTests
 
         public TestConfigurationProvider Provider { get; }
 
-        public IConfigurationService CreateService()
+        public ConfigurationService CreateService()
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
