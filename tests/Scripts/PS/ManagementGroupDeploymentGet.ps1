@@ -1,35 +1,28 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-param(
-    [Parameter(Mandatory)]
-    [string] $ManagementGroupId,
-    [string] $Location = 'eastus'
-)
+$managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01'
+$managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
+$deploymentName = 'azclips-test-deployment-mg-create'
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
-$name = "azclips-mg-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
-$template = New-TemporaryFile
+if ((Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $deploymentName).Name -ne $deploymentName) {
+    throw 'Show did not return the deployment.'
+}
+
+if ($deploymentName -notin (Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId).Name) {
+    throw 'List did not return the deployment.'
+}
 
 try {
-    Import-Module (Join-Path $repoRoot 'src\PS\Accounts\Accounts.psd1') -Force
-    Import-Module (Join-Path $repoRoot 'src\PS\Resources\Resources.psd1') -Force
-
-    '{"$schema":"https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{},"resources":[]}' |
-        Set-Content -Path $template -NoNewline
-    New-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId -Name $name `
-        -Location $Location -TemplateFile $template -Confirm:$false | Out-Null
-
-    if ((Get-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId -Name $name).Name -ne $name) {
-        throw 'Show did not return the deployment.'
-    }
-    if ($name -notin (Get-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId).Name) {
-        throw 'List did not return the deployment.'
-    }
+    Get-AzManagementGroupDeployment `
+        -ManagementGroupId $managementGroupId `
+        -Name 'azclips-test-deployment-mg-does-not-exist' `
+        -ErrorAction Stop
+    throw 'Show unexpectedly found a nonexistent deployment.'
 }
-finally {
-    Invoke-AzRestMethod -Method DELETE `
-        -Uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Resources/deployments/$name`?api-version=2025-04-01" |
-        Out-Null
-    Remove-Item $template -Force -ErrorAction SilentlyContinue
+catch {
+    if ($_.Exception.Message -eq 'Show unexpectedly found a nonexistent deployment.') {
+        throw
+    }
+    Write-Host 'OK: show rejected a nonexistent deployment'
 }

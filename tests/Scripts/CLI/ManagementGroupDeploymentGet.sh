@@ -1,26 +1,40 @@
 #!/usr/bin/env bash
+# Management group scope deployment show/list - CLI
+#
+# Prereqs: run ManagementGroupDeploymentCreate.sh first.
+# Usage: ./tests/Scripts/CLI/ManagementGroupDeploymentGet.sh
 set -euo pipefail
-
-: "${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
-NAME="azclips-mg-$(date +%s)"
-TEMPLATE="$(mktemp)"
 
-cleanup() {
-    "$AZ" rest --method DELETE \
-        --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$AZCLIPS_MANAGEMENT_GROUP_ID/providers/Microsoft.Resources/deployments/$NAME?api-version=2025-04-01" >/dev/null 2>&1 || true
-    rm -f "$TEMPLATE"
-}
-trap cleanup EXIT
+"$AZ" config set --key agent.enabled --value false
 
-printf '%s\n' '{"$schema":"https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#","contentVersion":"1.0.0.0","parameters":{},"resources":[]}' >"$TEMPLATE"
-"$AZ" deployment mg create --management-group-id "$AZCLIPS_MANAGEMENT_GROUP_ID" --name "$NAME" \
-    --location "${AZCLIPS_LOCATION:-eastus}" --template-file "$TEMPLATE" >/dev/null
+MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
+DEPLOYMENT_NAME=azclips-test-deployment-mg-create
 
-"$AZ" deployment mg show --management-group-id "$AZCLIPS_MANAGEMENT_GROUP_ID" --name "$NAME" |
-    grep -q "\"name\": \"$NAME\""
-"$AZ" deployment mg list --management-group-id "$AZCLIPS_MANAGEMENT_GROUP_ID" |
-    grep -q "\"name\": \"$NAME\""
+SHOW_NAME=$("$AZ" deployment mg show \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --name "$DEPLOYMENT_NAME" \
+    --query name \
+    --output tsv)
+echo "show deployment -> $SHOW_NAME"
+[[ "$SHOW_NAME" == "$DEPLOYMENT_NAME" ]]
+
+LIST_NAME=$("$AZ" deployment mg list \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --query "[?name=='$DEPLOYMENT_NAME'].name | [0]" \
+    --output tsv)
+echo "list deployment -> $LIST_NAME"
+[[ "$LIST_NAME" == "$DEPLOYMENT_NAME" ]]
+
+# Negative case: showing a nonexistent deployment must return an ARM error.
+if "$AZ" deployment mg show \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --name azclips-test-deployment-mg-does-not-exist; then
+    echo "UNEXPECTED: show found a nonexistent deployment"
+    exit 1
+else
+    echo "OK: show rejected a nonexistent deployment"
+fi
