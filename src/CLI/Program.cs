@@ -99,7 +99,14 @@ public class Program
             _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
-        await InitializeTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
+        // Set() is called directly here, in Main's own body — not inside a separately-awaited
+        // helper — because a write to the AsyncLocal-backed ITelemetryRoutingContext made inside
+        // an awaited callee never propagates back to the caller once that callee returns (proven
+        // empirically: this holds even when the callee's Set() call is its very last statement,
+        // and even when the awaited call completes synchronously). ResolveTelemetryRoutingAsync
+        // is a pure function that only computes and returns the value; it never calls Set().
+        var (routedTenantId, routedBoundary) = await ResolveTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
+        AzclipsServiceProvider.GetRequiredService<ITelemetryRoutingContext>().Set(routedTenantId, routedBoundary);
 
         Activity? activity = null;
 
@@ -301,11 +308,10 @@ public class Program
         );
     }
 
-    private static async Task InitializeTelemetryRoutingAsync(string[] args, CancellationToken cancellationToken)
+    private static async Task<(string? TenantId, string? Boundary)> ResolveTelemetryRoutingAsync(string[] args, CancellationToken cancellationToken)
     {
         try
         {
-            var routingContext = AzclipsServiceProvider.GetRequiredService<ITelemetryRoutingContext>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var profileName = TryGetProfileOverride(args);
             var profile = string.IsNullOrWhiteSpace(profileName)
@@ -313,9 +319,8 @@ public class Program
                 : await profileService.GetProfileAsync(profileName, cancellationToken);
             var tenantId = profile?.TenantId;
             if (string.IsNullOrWhiteSpace(tenantId))
-                return;
+                return (null, null);
 
-            routingContext.Set(tenantId, null);
             var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
                 tenantId,
                 async tokenCancellationToken =>
@@ -332,11 +337,12 @@ public class Program
                 DataBoundaryResolveTimeout,
                 cancellationToken);
 
-            routingContext.Set(tenantId, boundary);
+            return (tenantId, boundary);
         }
         catch
         {
             // Best effort: missing routing metadata falls back to Global on upload.
+            return (null, null);
         }
     }
 

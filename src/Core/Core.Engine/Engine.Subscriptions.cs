@@ -232,30 +232,22 @@ namespace Core.Engine
                     activity.Dispose();
             });
 
-            subscriber.Subscribe(Events.ProcessorContextCreated, async (data) =>
+            subscriber.Subscribe(Events.ProcessorContextCreated, (data) =>
             {
                 var evt = (EventData)data;
                 if (evt.Payload is Profile profile)
                 {
-                    telemetryRoutingContext.Set(profile.TenantId, null);
                     telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
-                    var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
-                        profile.TenantId,
-                        async cancellationToken =>
-                        {
-                            var result = await authService.AcquireTokenSilentlyAsync(
-                                scopes: null,
-                                tenantId: profile.TenantId,
-                                promptOnError: false,
-                                cancellationToken: cancellationToken,
-                                profile: profile);
-                            return result.AccessToken;
-                        },
-                        DataBoundaryResolveTimeout);
-                    telemetryRoutingContext.Set(profile.TenantId, boundary);
                 }
+                // Data-boundary resolution and ITelemetryRoutingContext.Set(...) deliberately do NOT
+                // live here: this subscriber runs as a nested async callback (invoked through
+                // IEventBus.Publish, itself awaited by CreateProcessorContext), and an AsyncLocal
+                // write made inside a callback like this is discarded once the callback returns —
+                // it never becomes visible to ExecutionSession.RunAsync/Run's own subsequent code.
+                // See ExecutionSession.RunAsync/Run, which set the routing context directly in
+                // their own method bodies instead.
             });
 
             return subscriber;

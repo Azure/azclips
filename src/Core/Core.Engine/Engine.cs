@@ -59,6 +59,8 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
+            session.RoutingContext = telemetryRoutingContext;
+            session.ResolveDataBoundaryAsync = ResolveDataBoundaryAsync;
             return session;
         }
 
@@ -168,6 +170,29 @@ namespace Core.Engine
             }
             return profile;
         }
+
+        /// <summary>
+        /// Resolves the ARM data boundary (EU/Global) for a profile's tenant. Pure: returns the
+        /// resolved value instead of writing it to <see cref="ITelemetryRoutingContext"/> itself,
+        /// because a write to that AsyncLocal-backed state made inside this awaited method would
+        /// not flow back to the caller once this method returns. Callers (ExecutionSession's own
+        /// RunAsync/Run) must call <c>RoutingContext.Set(...)</c> directly in their own method body.
+        /// </summary>
+        private Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken) =>
+            DataBoundaryResolver.ResolveAndCacheAsync(
+                profile.TenantId,
+                async tokenCancellationToken =>
+                {
+                    var result = await authService.AcquireTokenSilentlyAsync(
+                        scopes: null,
+                        tenantId: profile.TenantId,
+                        promptOnError: false,
+                        cancellationToken: tokenCancellationToken,
+                        profile: profile);
+                    return result.AccessToken;
+                },
+                DataBoundaryResolveTimeout,
+                cancellationToken);
 
         /// <summary>
         /// Releases the unmanaged resources used by Engine and optionally releases managed resources.

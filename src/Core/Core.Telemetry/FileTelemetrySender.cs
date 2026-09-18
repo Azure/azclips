@@ -13,9 +13,9 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private readonly ITraceDirectoryProvider _traceDirectory;
-    private readonly ITelemetryRoutingContext _routingContext;
+    private readonly ITelemetryRoutingContext? _routingContext;
 
-    public FileTelemetrySender(ITraceDirectoryProvider traceDirectory, ITelemetryRoutingContext routingContext)
+    public FileTelemetrySender(ITraceDirectoryProvider traceDirectory, ITelemetryRoutingContext? routingContext = null)
     {
         _traceDirectory = traceDirectory;
         _routingContext = routingContext;

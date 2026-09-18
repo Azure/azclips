@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
+using Core.Telemetry;
 
 namespace Core.Engine;
 
@@ -25,6 +26,17 @@ internal class ExecutionSession : ISession
     internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
+    /// <summary>
+    /// Resolves the ARM data boundary (EU/Global) for a resolved profile. Pure \u2014 does not
+    /// write to <see cref="RoutingContext"/> itself; see <see cref="RoutingContext"/>'s remarks.
+    /// </summary>
+    internal Func<Profile, CancellationToken, Task<string?>> ResolveDataBoundaryAsync { get; set; } = null!;
+    /// <summary>
+    /// Set directly by <see cref="RunAsync"/>/<see cref="Run"/> (never from a nested awaited
+    /// helper or event subscriber) \u2014 an AsyncLocal-backed write only remains visible to code
+    /// that runs later in the SAME method body; it is discarded once a callee method returns.
+    /// </summary>
+    internal ITelemetryRoutingContext RoutingContext { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
@@ -62,6 +74,21 @@ internal class ExecutionSession : ISession
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
+
+        // Resolved and set directly here, in RunAsync's own body \u2014 not in a nested awaited
+        // helper \u2014 so the write is visible to processor.ProcessAsync() below. See
+        // RoutingContext's remarks for why this can't be extracted into a shared async helper.
+        if (Profile is not null)
+        {
+            RoutingContext.Set(Profile.TenantId, null);
+            var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
+            RoutingContext.Set(Profile.TenantId, boundary);
+        }
+        else
+        {
+            RoutingContext.Set(null, null);
+        }
+
         await EventBus.Publish(Events.ProcessorAcquired);
         await processor.ProcessAsync();
     }
@@ -105,6 +132,20 @@ internal class ExecutionSession : ISession
             {
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
+
+                // See RunAsync's identical block: must stay inline in this local function's own
+                // body so the write is visible to processor.ProcessAsync() below.
+                if (Profile is not null)
+                {
+                    RoutingContext.Set(Profile.TenantId, null);
+                    var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
+                    RoutingContext.Set(Profile.TenantId, boundary);
+                }
+                else
+                {
+                    RoutingContext.Set(null, null);
+                }
+
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
             }
