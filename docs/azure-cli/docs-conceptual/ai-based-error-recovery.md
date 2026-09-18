@@ -63,9 +63,11 @@ fails. You don't need to specify a per-command option.
 
 ## Configure the AI provider
 
-By default, AI-based error recovery uses Microsoft's built-in AI provider.
+By default, AI-based error recovery uses Microsoft's built-in AI provider with `gpt-5.4-mini`.
+An explicit `agent.builtin.modelId` setting overrides this default.
 
 Alternatively, you can configure Azure CLI to use your GitHub Copilot subscription.
+The built-in model default does not change the model selected by the GitHub Copilot provider.
 
 Use the built-in provider:
 

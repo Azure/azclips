@@ -143,6 +143,66 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public void GetConfiguration_ShouldDefaultBuiltinModelToMini_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var options = fixture.CreateService().GetConfiguration<AgentOptions>();
+
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
+    }
+
+    [Theory]
+    [InlineData("gpt-5.4")]
+    [InlineData("custom-deployment")]
+    public async Task GetConfiguration_ShouldPreserveExplicitBuiltinModel(string model)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("agent.builtin.modelId", model);
+
+        Assert.Equal(model, service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal(model, values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task DeleteConfigurationAsync_ShouldRestoreBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "gpt-5.4");
+
+        await service.DeleteConfigurationAsync("agent.builtin.modelId");
+
+        Assert.Equal("gpt-5.4-mini", service.GetConfiguration<AgentOptions>().Builtin.ModelId);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldPreserveGithubProviderSelection()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.provider", "github");
+
+        Assert.Equal("github", service.GetConfiguration<AgentOptions>().Provider);
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+        Assert.Equal("github", values["agent.provider"]);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportBuiltinModelDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var values = await fixture.CreateService().ListConfigurationAsync(includeDefaults: true);
+
+        Assert.Equal("gpt-5.4-mini", values["agent.builtin.modelId"]);
+    }
+
+    [Fact]
     public void GetConfiguration_ShouldDefaultCompletionEnabled_OnEmptyConfig()
     {
         using var fixture = new TempConfigurationFixture();
@@ -253,4 +313,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

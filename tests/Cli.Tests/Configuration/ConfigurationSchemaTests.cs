@@ -41,6 +41,16 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetKeyMetadata_ShouldDefaultBuiltinModelToMini()
+    {
+        var key = _schema.GetKeyMetadata("agent.builtin.modelId");
+
+        Assert.NotNull(key);
+        Assert.Equal("gpt-5.4-mini", key.DefaultValue);
+        Assert.Equal(typeof(string), key.ValueType);
+    }
+
+    [Fact]
     public void ValidateKey_ShouldRejectUnknownKey_WhenForceIsFalse()
     {
         var validator = new DefaultConfigurationValidator(_schema);
