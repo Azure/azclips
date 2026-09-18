@@ -66,6 +66,53 @@ public class ConfigCliTests
 
     }
 
+    [Theory]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    public void ConfigCommands_ShouldExposeAgentReasoningEffortAndRestoreMedium(string effort)
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var defaultOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        Assert.Contains("agent.reasoningEffort = medium [default]", defaultOutput.Single());
+
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
+        Assert.Contains("agent.reasoningEffort = medium [default]", listOutput.Single());
+
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
+        Assert.Contains("agent.reasoningEffort", infoOutput.Single());
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", effort]);
+
+        var configuredOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        Assert.Contains($"agent.reasoningEffort = {effort} [global config]", configuredOutput.Single());
+
+        fixture.ExecuteCli(["config", "delete", "--key", "agent.reasoningEffort"]);
+
+        var resetOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        Assert.Contains("agent.reasoningEffort = medium [default]", resetOutput.Single());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectInvalidAgentReasoningEffort_EvenWithForce(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "extreme"];
+        if (force)
+        {
+            args = [.. args, "--force"];
+        }
+
+        var exception = Assert.Throws<ArgumentException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("Value 'extreme' is not allowed for 'agent.reasoningEffort'.", exception.Message);
+        var output = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
+        Assert.Contains("agent.reasoningEffort = medium [default]", output.Single());
+    }
+
     [Fact]
     public void CliInvocation_ShouldSupportPositionalKeyAndValue()
     {
@@ -553,4 +600,3 @@ public class ConfigCliTests
         }
     }
 }
-

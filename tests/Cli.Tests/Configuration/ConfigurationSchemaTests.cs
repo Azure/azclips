@@ -121,6 +121,18 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetKeyMetadata_ShouldDescribeAgentReasoningEffort()
+    {
+        var key = _schema.GetKeyMetadata("agent.reasoningEffort");
+
+        Assert.NotNull(key);
+        Assert.Equal(typeof(string), key.ValueType);
+        Assert.Equal("medium", key.DefaultValue);
+        Assert.Equal(new AgentOptions().ReasoningEffort, key.DefaultValue);
+        Assert.Equal(new[] { "low", "medium", "high" }, key.AllowedValues);
+    }
+
+    [Fact]
     public void ValidateValue_ShouldRejectNonBoolValue_ForCompletionEnabled()
     {
         var validator = new DefaultConfigurationValidator(_schema);

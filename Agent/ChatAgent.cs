@@ -214,28 +214,10 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
-        var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
-
-        string resolvedModel;
-        switch (options.Provider?.ToLowerInvariant())
-        {
-            case "builtin":
-                resolvedModel = options.Builtin.ModelId;
-                sessionConfig.Model = resolvedModel;
-                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
-                break;
-
-            case "github":
-                resolvedModel = string.Empty;
-                break;
-
-            default:
-                throw new ArgumentException(
-                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
-                    nameof(options));
-        }
+        var sessionConfig = await BuildSessionConfigAsync(
+            options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct).ConfigureAwait(false);
+        var resolvedModel = sessionConfig.Model ?? string.Empty;
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
@@ -257,7 +239,9 @@ public sealed class ChatAgent : IAsyncDisposable
         "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
-    private static SessionConfig BuildBaseSessionConfig(
+    internal static async Task<SessionConfig> BuildSessionConfigAsync(
+        AgentOptions options,
+        IAuthService auth,
         string systemPrompt,
         CachedResourceTools cacheTools,
         HelpTools helpTools,
@@ -272,6 +256,14 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         CancellationToken ct)
     {
+        var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
+        if (reasoningEffort is not ("low" or "medium" or "high"))
+        {
+            throw new ArgumentException(
+                $"Value '{options.ReasoningEffort}' is not allowed for 'agent.reasoningEffort'. Expected: low | medium | high.",
+                nameof(options));
+        }
+
         // Customize the SDK's default system message. Our oneshot/inline prompt
         // REPLACES the identity section so it leads the message (the agent knows
         // it's the azclips error-recovery agent up front, not after the SDK's
@@ -297,11 +289,12 @@ public sealed class ChatAgent : IAsyncDisposable
             sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
         }
 
-        return new SessionConfig
+        var sessionConfig = new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
+            ReasoningEffort = reasoningEffort,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
@@ -355,6 +348,24 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             OnEvent = eventRenderer.Forward,
         };
+
+        switch (options.Provider?.ToLowerInvariant())
+        {
+            case "builtin":
+                sessionConfig.Model = options.Builtin.ModelId;
+                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                break;
+
+            case "github":
+                break;
+
+            default:
+                throw new ArgumentException(
+                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
+                    nameof(options));
+        }
+
+        return sessionConfig;
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {

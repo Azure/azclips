@@ -16,6 +16,8 @@ public sealed class AgentOptions
     // stays in a chat loop until the user exits or the escape valve trips.
     public string SessionStyle { get; set; } = "oneshot";
 
+    public string ReasoningEffort { get; set; } = "medium";
+
     // Interactive-only display settings. Meaningless in oneshot (which prints no
     // tool events at all), hence namespaced under interactive.
     public InteractiveOptions Interactive { get; set; } = new();
