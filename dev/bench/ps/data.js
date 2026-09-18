@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789712904606,
+  "lastUpdate": 1789712972468,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11178,6 +11178,54 @@ window.BENCHMARK_DATA = {
             "value": 1650591.3612851081,
             "unit": "ns",
             "range": "± 38303.99647560068"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb424216ce3f81068ab34d042123522dd70684dd",
+          "message": "[CLI] Handle human-readable errors when default output is JSON (#922)\n\n## Summary\nFix the default-JSON interactive error path so terminal users still get\nhuman-readable errors and help guidance instead of a JSON blob mixed\nwith help text.\n\nFixes https://github.com/Azure/CLIPS/issues/925\n\n## Problem\nWhen `clients.cli.output.format = json` is the configured default, CLI\nvalidation errors in interactive terminal use still behave like\nmachine-readable output. That is a poor UX for humans and mixes\nstructured JSON with human help output.\n\n## Fix\n- keep human-readable error rendering for interactive terminals unless\nthe user explicitly requested JSON/jsonc\n- preserve structured output for explicit JSON output requests and\nredirected/piped stderr\n- add focused regression tests for the policy\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nErrorHelpPolicyTests`",
+          "timestamp": "2026-09-18T04:54:25Z",
+          "tree_id": "e038b665ba5201fa25911fa047ca7cceb356d0da",
+          "url": "https://github.com/Azure/azclips/commit/bb424216ce3f81068ab34d042123522dd70684dd"
+        },
+        "date": 1789712969589,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 1904910.7437059416,
+            "unit": "ns",
+            "range": "± 50663.54824316648"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 1984154.1042047532,
+            "unit": "ns",
+            "range": "± 44561.069240694174"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 1870279.4548022598,
+            "unit": "ns",
+            "range": "± 50391.190109118215"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 1776697.8440609137,
+            "unit": "ns",
+            "range": "± 44410.412592495835"
           }
         ]
       }
