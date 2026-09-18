@@ -403,8 +403,8 @@ public class ManagementGroupDeploymentTests
             return new HttpResponseMessage(HttpStatusCode.Accepted);
         });
         FakeOutputHandler output = new();
-        RemoveManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new RemoveManagementGroupDeploymentProcessor { NoWait = true }, pipeline, output);
+        RemoveManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor_Orchestrator { NoWait = true }, pipeline, output);
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "deployment_(blue)";
 
@@ -437,8 +437,8 @@ public class ManagementGroupDeploymentTests
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         });
         FakeOutputHandler output = new();
-        RemoveManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new RemoveManagementGroupDeploymentProcessor(), pipeline, output);
+        RemoveManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor_Orchestrator(), pipeline, output);
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 
@@ -479,8 +479,8 @@ public class ManagementGroupDeploymentTests
                 HttpStatusCode.InternalServerError);
         });
         FakeOutputHandler output = new();
-        RemoveManagementGroupDeploymentProcessor processor =
-            CreateProcessor(new RemoveManagementGroupDeploymentProcessor(), pipeline, output);
+        RemoveManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new RemoveManagementGroupDeploymentProcessor_Orchestrator(), pipeline, output);
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 

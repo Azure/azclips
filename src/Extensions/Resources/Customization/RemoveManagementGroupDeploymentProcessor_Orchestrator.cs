@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Customization;
 
-public class RemoveManagementGroupDeploymentProcessor
+public class RemoveManagementGroupDeploymentProcessor_Orchestrator
     : DeleteAtManagementGroupScopeDeploymentsProcessor
 {
     public bool NoWait { get; set; }
