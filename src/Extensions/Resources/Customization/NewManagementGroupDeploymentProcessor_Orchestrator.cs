@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class NewManagementGroupDeploymentProcessor
+public class NewManagementGroupDeploymentProcessor_Orchestrator
     : CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor, IManagementGroupDeploymentInput
 {
     public object? TemplateObject { get; set; }

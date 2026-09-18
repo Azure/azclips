@@ -23,8 +23,8 @@ public class ManagementGroupDeploymentTests
                 : """{"properties":{"provisioningState":"Succeeded"}}""");
         });
         FakeOutputHandler output = new();
-        NewManagementGroupDeploymentProcessor processor = CreateProcessor(
-            new NewManagementGroupDeploymentProcessor { NoWait = true },
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator { NoWait = true },
             pipeline,
             output);
 
@@ -50,8 +50,8 @@ public class ManagementGroupDeploymentTests
     {
         FakeHttpPipeline pipeline = new((_, _) =>
             Json("""{"error":{"code":"InvalidTemplate","message":"Template is invalid."}}"""));
-        NewManagementGroupDeploymentProcessor processor = CreateProcessor(
-            new NewManagementGroupDeploymentProcessor { NoWait = true },
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator { NoWait = true },
             pipeline,
             new FakeOutputHandler());
 
@@ -72,8 +72,8 @@ public class ManagementGroupDeploymentTests
             return Json("""{"properties":{"provisioningState":"Succeeded"}}""");
         });
         FakeOutputHandler output = new();
-        TestManagementGroupDeploymentProcessor processor = CreateProcessor(
-            new TestManagementGroupDeploymentProcessor(),
+        TestManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new TestManagementGroupDeploymentProcessor_Orchestrator(),
             pipeline,
             output);
 
@@ -98,13 +98,13 @@ public class ManagementGroupDeploymentTests
 
         switch (processor)
         {
-            case NewManagementGroupDeploymentProcessor create:
+            case NewManagementGroupDeploymentProcessor_Orchestrator create:
                 create.ManagementGroupId = "test-management-group";
                 create.Name = "test-deployment";
                 create.Location = "eastus";
                 create.TemplateObject = new { contentVersion = "1.0.0.0", resources = Array.Empty<object>() };
                 break;
-            case TestManagementGroupDeploymentProcessor validate:
+            case TestManagementGroupDeploymentProcessor_Orchestrator validate:
                 validate.ManagementGroupId = "test-management-group";
                 validate.Name = "test-deployment";
                 validate.Location = "eastus";

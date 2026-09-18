@@ -37,7 +37,7 @@ public class ManagementGroupDeploymentTests
         }
     }
 
-    private sealed class TestProcessor : NewManagementGroupDeploymentProcessor
+    private sealed class TestProcessor : NewManagementGroupDeploymentProcessor_Orchestrator
     {
         public Task PrepareAsync() => BeforeProcessAsync();
 

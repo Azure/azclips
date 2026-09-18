@@ -5,7 +5,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class TestManagementGroupDeploymentProcessor
+public class TestManagementGroupDeploymentProcessor_Orchestrator
     : ValidateAtManagementGroupScopeDeploymentsProcessor, IManagementGroupDeploymentInput
 {
     public object? TemplateObject { get; set; }

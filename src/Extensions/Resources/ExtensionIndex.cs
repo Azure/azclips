@@ -5,8 +5,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Abstractions;
-using NewManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor;
-using TestManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestManagementGroupDeploymentProcessor;
+using NewManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor_Orchestrator;
+using TestManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestManagementGroupDeploymentProcessor_Orchestrator;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -128,12 +128,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newManagementGroupDeployment_PS = new(
-            Name: nameof(NewManagementGroupDeploymentProcessor),
+            Name: nameof(NewManagementGroupDeploymentProcessor_Orchestrator),
             InvocationName: "New-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: typeof(NewManagementGroupDeploymentProcessor).FullName!,
+            FullName: typeof(NewManagementGroupDeploymentProcessor_Orchestrator).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(NewManagementGroupDeploymentProcessor),
+            ProcessorType: typeof(NewManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
@@ -155,12 +155,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_testManagementGroupDeployment_PS = new(
-            Name: nameof(TestManagementGroupDeploymentProcessor),
+            Name: nameof(TestManagementGroupDeploymentProcessor_Orchestrator),
             InvocationName: "Test-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: typeof(TestManagementGroupDeploymentProcessor).FullName!,
+            FullName: typeof(TestManagementGroupDeploymentProcessor_Orchestrator).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(TestManagementGroupDeploymentProcessor),
+            ProcessorType: typeof(TestManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", true, [], []),
@@ -359,12 +359,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newManagementGroupDeployment_CLI = new(
-            Name: nameof(NewManagementGroupDeploymentProcessor),
+            Name: nameof(NewManagementGroupDeploymentProcessor_Orchestrator),
             InvocationName: "deployment mg create",
             Aliases: [],
-            FullName: typeof(NewManagementGroupDeploymentProcessor).FullName!,
+            FullName: typeof(NewManagementGroupDeploymentProcessor_Orchestrator).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(NewManagementGroupDeploymentProcessor),
+            ProcessorType: typeof(NewManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
@@ -383,12 +383,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_testManagementGroupDeployment_CLI = new(
-            Name: nameof(TestManagementGroupDeploymentProcessor),
+            Name: nameof(TestManagementGroupDeploymentProcessor_Orchestrator),
             InvocationName: "deployment mg validate",
             Aliases: [],
-            FullName: typeof(TestManagementGroupDeploymentProcessor).FullName!,
+            FullName: typeof(TestManagementGroupDeploymentProcessor_Orchestrator).FullName!,
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(TestManagementGroupDeploymentProcessor),
+            ProcessorType: typeof(TestManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
