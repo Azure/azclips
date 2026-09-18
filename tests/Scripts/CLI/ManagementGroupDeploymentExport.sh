@@ -32,7 +32,13 @@ OUTPUT="$("$AZ" deployment mg export \
 
 grep -Eqi '"contentVersion"[[:space:]]*:[[:space:]]*"1.0.0.0"' <<<"$OUTPUT"
 grep -Eqi '"resources"[[:space:]]*:[[:space:]]*\[' <<<"$OUTPUT"
-if grep -Eqi '"template"[[:space:]]*:' <<<"$OUTPUT"; then
+
+HAS_ENVELOPE=$("$AZ" deployment mg export \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --name "$DEPLOYMENT_NAME" \
+    --query "contains(keys(@), 'template')" \
+    --output tsv)
+if [[ "${HAS_ENVELOPE,,}" == "true" ]]; then
     echo "Export returned the response envelope instead of the template." >&2
     exit 1
 fi
