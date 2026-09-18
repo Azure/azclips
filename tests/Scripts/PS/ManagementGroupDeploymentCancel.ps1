@@ -1,31 +1,29 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Cancels an existing running management-group deployment and waits for Canceled.
-# Add -UseId to exercise the resource-ID parameter set.
-param(
-    [Parameter(Mandatory)]
-    [string] $ManagementGroupId,
-    [Parameter(Mandatory)]
-    [string] $Name,
-    [switch] $UseId
-)
+$subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
+$resourceGroup = 'azclips-mg-test-rg'
+$managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01'
+$managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
+$deploymentName = 'azclips-test-deployment-mg-cancel'
+$templateFile = Join-Path $PSScriptRoot '..\Bicep\management-group-nested-empty.json'
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
-Import-Module (Join-Path $repoRoot 'src\PS\Accounts\Accounts.psd1') -Force
-Import-Module (Join-Path $repoRoot 'src\PS\Resources\Resources.psd1') -Force
+New-AzManagementGroupDeployment `
+    -ManagementGroupId $managementGroupId `
+    -Name $deploymentName `
+    -Location eastus `
+    -TemplateFile $templateFile `
+    -subscriptionId $subscriptionId `
+    -resourceGroupName $resourceGroup `
+    -NoWait `
+    -Confirm:$false |
+    Out-Null
 
-if ($UseId) {
-    $id = "/providers/Microsoft.Management/managementGroups/$ManagementGroupId/providers/Microsoft.Resources/deployments/$Name"
-    $result = Stop-AzManagementGroupDeployment -Id $id -PassThru -Confirm:$false
-}
-else {
-    $result = Stop-AzManagementGroupDeployment `
-        -ManagementGroupId $ManagementGroupId `
-        -Name $Name `
-        -PassThru `
-        -Confirm:$false
-}
+$result = Stop-AzManagementGroupDeployment `
+    -ManagementGroupId $managementGroupId `
+    -Name $deploymentName `
+    -PassThru `
+    -Confirm:$false
 
 if ($result -ne $true) {
     throw 'Cancel did not return $true with -PassThru.'
@@ -33,10 +31,11 @@ if ($result -ne $true) {
 
 $deadline = (Get-Date).AddSeconds(120)
 do {
-    $deployment = Get-AzManagementGroupDeployment -ManagementGroupId $ManagementGroupId -Name $Name
+    $deployment = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $deploymentName
     $state = $deployment.Properties.ProvisioningState
     if ($state -eq 'Canceled') {
-        return
+        Write-Host "cancel provisioningState -> $state"
+        break
     }
     if ($state -in @('Failed', 'Succeeded')) {
         throw "Deployment reached terminal state '$state' instead of 'Canceled'."
@@ -44,4 +43,21 @@ do {
     Start-Sleep -Seconds 5
 } while ((Get-Date) -lt $deadline)
 
-throw "Deployment did not reach 'Canceled' within 120 seconds. Last state: '$state'."
+if ($state -ne 'Canceled') {
+    throw "Deployment did not reach 'Canceled' within 120 seconds. Last state: '$state'."
+}
+
+try {
+    Stop-AzManagementGroupDeployment `
+        -ManagementGroupId $managementGroupId `
+        -Name 'azclips-test-deployment-mg-does-not-exist' `
+        -Confirm:$false `
+        -ErrorAction Stop
+    throw 'Cancel unexpectedly accepted a nonexistent deployment.'
+}
+catch {
+    if ($_.Exception.Message -eq 'Cancel unexpectedly accepted a nonexistent deployment.') {
+        throw
+    }
+    Write-Host 'OK: cancel rejected a nonexistent deployment'
+}
