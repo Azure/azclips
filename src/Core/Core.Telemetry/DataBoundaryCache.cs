@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Core.Abstractions;
 
@@ -11,8 +12,20 @@ namespace Core.Telemetry;
 /// Stored at <c>{LocalAppData}/.azclips/data-boundary-cache.json</c> as a
 /// <c>Dictionary&lt;string, string&gt;</c> (tenantId → boundary).
 /// </summary>
+/// <remarks>
+/// Backed by an in-process memory cache in front of the file: <see cref="Get"/> is now called
+/// on every command invocation that carries a profile (see <c>ExecutionSession</c>'s data
+/// boundary tagging), and a long-lived process — PowerShell's module import, or a benchmark
+/// harness looping many invocations — would otherwise re-read and re-parse the JSON file from
+/// disk on every single command. The memory cache is keyed by (cache file path, tenantId), not
+/// tenantId alone, so switching the effective home root (e.g. tests overriding
+/// <see cref="HomePaths.HomeOverrideVariable"/> per test) does not leak a cached value from one
+/// root into another.
+/// </remarks>
 internal static class DataBoundaryCache
 {
+    private static readonly ConcurrentDictionary<(string CachePath, string TenantId), string> MemoryCache = new();
+
     private static string CachePath => Path.Combine(
         HomePaths.GetDefaultLocalAppDataRoot(),
         HomePaths.DataBoundaryCacheFileName);
@@ -27,16 +40,22 @@ internal static class DataBoundaryCache
     /// </summary>
     internal static string? Get(string tenantId)
     {
+        var cachePath = CachePath;
+        if (MemoryCache.TryGetValue((cachePath, tenantId), out var memoryValue))
+            return memoryValue;
+
         try
         {
-            var cachePath = CachePath;
             if (!File.Exists(cachePath))
                 return null;
 
             var json = File.ReadAllText(cachePath);
             var cache = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
             if (cache is not null && cache.TryGetValue(tenantId, out var value))
+            {
+                MemoryCache[(cachePath, tenantId)] = value;
                 return value;
+            }
         }
         catch
         {
@@ -51,9 +70,9 @@ internal static class DataBoundaryCache
     /// </summary>
     internal static void Set(string tenantId, string dataBoundary)
     {
+        var cachePath = CachePath;
         try
         {
-            var cachePath = CachePath;
             var dir = Path.GetDirectoryName(cachePath)!;
             Directory.CreateDirectory(dir);
 
@@ -81,6 +100,12 @@ internal static class DataBoundaryCache
         catch
         {
             // Best effort — cache write failure is non-fatal.
+        }
+        finally
+        {
+            // Populate the memory cache even if the file write above failed — this process
+            // already knows the answer for the rest of its lifetime either way.
+            MemoryCache[(cachePath, tenantId)] = dataBoundary;
         }
     }
 
