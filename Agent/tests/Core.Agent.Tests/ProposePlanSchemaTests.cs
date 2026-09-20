@@ -9,18 +9,6 @@ namespace Core.Agent.Tests;
 
 public sealed class ProposePlanSchemaTests
 {
-    [Theory]
-    [InlineData(SubmitStatus.Completed, "completed")]
-    [InlineData(SubmitStatus.Rejected, "rejected")]
-    [InlineData(SubmitStatus.Failed, "failed")]
-    public void SubmitStatus_round_trips_lowercase_wire_values(SubmitStatus status, string wireValue)
-    {
-        var json = JsonSerializer.Serialize(status);
-
-        Assert.Equal($"\"{wireValue}\"", json);
-        Assert.Equal(status, JsonSerializer.Deserialize<SubmitStatus>(json));
-    }
-
     [Fact]
     public void SubmitResponse_schema_requires_status_and_advertises_only_legal_values()
     {
@@ -83,12 +71,6 @@ public sealed class ProposePlanSchemaTests
         var result = await new ProposePlanTool().ProposePlan.InvokeAsync(ToArguments(arguments));
 
         Assert.Equal("plan submitted for user review", JsonSerializer.SerializeToElement(result).GetString());
-    }
-
-    [Fact]
-    public void SubmitStatus_rejects_an_unknown_wire_value()
-    {
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SubmitStatus>("\"done\""));
     }
 
     private static AIFunctionArguments ToArguments(object arguments) =>

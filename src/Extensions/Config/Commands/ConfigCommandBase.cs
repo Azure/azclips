@@ -35,6 +35,9 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationService GetConfigurationService() => AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
+    protected static ISourceAwareConfigurationService GetSourceAwareConfigurationService() =>
+        AzclipsServiceProvider.GetRequiredService<ISourceAwareConfigurationService>();
+
     /// <summary>
     /// Normalizes a configuration key by replacing colons with dots and removing empty entries.
     /// Ensures consistent key handling across CLI and PowerShell inputs (dot vs colon notation).
@@ -54,37 +57,13 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected async Task<Dictionary<string, ConfigValueView>> GetResolvedEntriesAsync(bool includeDefaults)
     {
-        var configurationService = GetConfigurationService();
-        var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false, cancellationToken: CancellationToken).ConfigureAwait(false);
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
-        if (includeDefaults)
+        var snapshot = await GetSourceAwareConfigurationService().ListConfigurationWithSourcesAsync(CancellationToken).ConfigureAwait(false);
+        foreach (var entry in snapshot)
         {
-            foreach (var entry in BuildDefaultEntries())
-            {
-                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "default");
-            }
-        }
-
-        foreach (var entry in fileValues)
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "global config");
-        }
-
-        foreach (var entry in GetEnvironmentOverrides())
-        {
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "environment");
-        }
-
-        return entries;
-    }
-
-    protected static IDictionary<string, object?> GetEnvironmentOverrides()
-    {
-        var entries = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (envVarName, configKey) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
-        {
-            AddEnvironment(entries, envVarName, configKey);
+            if (includeDefaults || entry.Value.Source != "default")
+                entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value.Value, entry.Value.Source);
         }
 
         return entries;
@@ -242,63 +221,6 @@ public abstract class ConfigCommandBase : IProcessor
         }
     }
 
-    private static Dictionary<string, object?> BuildDefaultEntries()
-    {
-        var sectionDefaults = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["core"] = new CoreOptions(),
-            ["assemblyLoading"] = new AssemblyLoadingOptions(),
-            ["telemetry"] = new TelemetryOptions(),
-            ["agent"] = new AgentOptions(),
-            ["completion"] = new CompletionOptions(),
-            ["extensions"] = new ExtensionsOptions(),
-            ["clients"] = new ClientsOptions(),
-            ["defaults"] = new DefaultsOptions()
-        };
-
-        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadata in GetConfigurationSchema().GetAllKeys())
-        {
-            var segments = metadata.Key.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length == 0 || !sectionDefaults.TryGetValue(segments[0], out var sectionRoot))
-            {
-                continue;
-            }
-
-            defaults[metadata.Key] = GetNestedValue(sectionRoot, segments[1..]);
-        }
-
-        return defaults;
-    }
-
-    private static object? GetNestedValue(object root, IReadOnlyList<string> segments)
-    {
-        object? current = root;
-        foreach (var segment in segments)
-        {
-            if (current is null)
-            {
-                return null;
-            }
-
-            var property = current.GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(candidate => string.Equals(Normalize(candidate.Name), Normalize(segment), StringComparison.OrdinalIgnoreCase));
-            if (property is null)
-            {
-                return null;
-            }
-
-            current = property.GetValue(current);
-        }
-
-        return current;
-    }
-
-    private static string Normalize(string value)
-    {
-        return new string(value.Where(char.IsLetterOrDigit).ToArray());
-    }
 
     private static object? ConvertJsonValue(JsonValue jsonValue)
     {

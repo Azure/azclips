@@ -3,6 +3,7 @@ using Core.Agent;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using GitHub.Copilot;
+using Microsoft.Extensions.AI;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -118,6 +119,28 @@ public class PlanGateTests
         Assert.NotNull(result);
         Assert.Equal("allow", result!.PermissionDecision);
         Assert.True(state.SubmitRendered);
+    }
+
+    [Theory]
+    [InlineData("Completed", null)]
+    [InlineData("COMPLETED", null)]
+    [InlineData("Rejected", "OUT_OF_SCOPE_test")]
+    [InlineData("REJECTED", "OUT_OF_SCOPE_test")]
+    [InlineData("Failed", "test failure")]
+    [InlineData("FAILED", "test failure")]
+    public async Task Accepted_status_casing_can_bind_after_the_hook_closes_the_turn(string status, string? message)
+    {
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+        var arguments = new { status, message };
+
+        var gate = await RunHookAsync(Input("submit_response", arguments), state, approval);
+
+        Assert.Equal("allow", gate?.PermissionDecision);
+        Assert.True(state.SubmittedThisTurn);
+        var result = await new SubmitResponseTool().SubmitResponse.InvokeAsync(
+            new AIFunctionArguments(JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(arguments))!));
+        Assert.Equal("session terminated", JsonSerializer.SerializeToElement(result).GetString());
     }
 
     [Fact]

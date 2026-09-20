@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
@@ -41,24 +41,14 @@ public sealed class SubmitResponseTool
     [Description("Terminate the session with a final outcome.")]
     private static string SubmitResponseImpl(
         [Description("Session outcome.")]
-        SubmitStatus status,
+        [AllowedValues("completed", "rejected", "failed")]
+        string status,
         [Description("For 'completed': only add a message if it carries critical information NOT already in the plan or needsUserInput — otherwise leave it empty (don't repeat the plan). For 'rejected': required, must start with OUT_OF_SCOPE_. For 'failed': required, a short human-readable reason.")]
         string? message = null)
     {
-        var wireStatus = status.ToString().ToLowerInvariant();
+        var wireStatus = status.ToLowerInvariant();
         using var scope = ToolInvocationLog.Start("submit_response", $"status={wireStatus}");
         scope.SetResult(string.IsNullOrEmpty(message) ? wireStatus : $"{wireStatus}: {message}");
         return "session terminated";
     }
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter<SubmitStatus>))]
-public enum SubmitStatus
-{
-    [JsonStringEnumMemberName("completed")]
-    Completed,
-    [JsonStringEnumMemberName("rejected")]
-    Rejected,
-    [JsonStringEnumMemberName("failed")]
-    Failed,
 }
