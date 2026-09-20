@@ -3,7 +3,4 @@
 
 namespace Core.Abstractions;
 
-public sealed class CompletionOptions
-{
-    public bool Enabled { get; set; } = true;
-}
+public sealed record ConfigurationValue(string Key, object? Value, string Source);

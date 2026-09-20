@@ -32,6 +32,44 @@ public class ConfigurationSchemaTests
             key.AllowedValues);
     }
 
+    [Theory]
+    [InlineData("assemblyLoading.installedExtensionsRoot")]
+    [InlineData("assemblyLoading.extensionFolderPrefix")]
+    public void GetKeyMetadata_ShouldNotExposeDynamicRuntimeDefaults(string name)
+    {
+        var key = _schema.GetKeyMetadata(name);
+
+        Assert.NotNull(key);
+        Assert.Null(key.DefaultValue);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldNotExposeNestedExcludedSections()
+    {
+        var keys = _schema.GetAllKeys();
+
+        Assert.DoesNotContain(keys, key => key.Key.StartsWith("benchmark.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldContainEveryCurrentConfigurationPath()
+    {
+        var expected = new[]
+        {
+            "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId", "agent.builtin.scope",
+            "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.reasoningEffort", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
+            "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
+            "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
+            "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
+            "defaults.acr", "defaults.group", "defaults.location", "defaults.vm", "defaults.vmss", "defaults.web",
+            "extensions.resources.arm.apiVersionOverride", "telemetry.enabled"
+        };
+
+        var actual = _schema.GetAllKeys().Select(key => key.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(expected.OrderBy(key => key, StringComparer.Ordinal), actual);
+    }
+
     [Fact]
     public void IsKnownKey_ShouldReturnFalse_ForUnknownKey()
     {
@@ -128,8 +166,19 @@ public class ConfigurationSchemaTests
         Assert.NotNull(key);
         Assert.Equal(typeof(string), key.ValueType);
         Assert.Equal("medium", key.DefaultValue);
+        Assert.True(key.IsRequired);
         Assert.Equal(new AgentOptions().ReasoningEffort, key.DefaultValue);
         Assert.Equal(new[] { "low", "medium", "high" }, key.AllowedValues);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldPreserveNullForOptionalKeys()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        Assert.True(validator.ValidateValue("defaults.group", null).IsValid);
+        Assert.True(validator.ValidateValue("experimental.optional", null).IsValid);
+        Assert.False(validator.ValidateValue("agent.reasoningEffort", null).IsValid);
     }
 
     [Fact]

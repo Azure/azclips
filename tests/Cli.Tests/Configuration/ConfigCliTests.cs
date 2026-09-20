@@ -113,6 +113,25 @@ public class ConfigCliTests
         Assert.Contains("agent.reasoningEffort = medium [default]", output.Single());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfigCommands_ShouldRejectNullEffortWithoutReplacingExistingValue(bool force)
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", "high"]);
+        string[] args = ["config", "set", "--key", "agent.reasoningEffort", "--value", "null"];
+        if (force)
+            args = [.. args, "--force"];
+
+        var error = Assert.Throws<ArgumentException>(() => fixture.ExecuteCli(args));
+
+        Assert.Contains("agent.reasoningEffort", error.Message);
+        Assert.Contains("cannot be null", error.Message);
+        Assert.Contains("agent.reasoningEffort = high [global config]",
+            fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]).Single());
+    }
+
     [Fact]
     public void CliInvocation_ShouldSupportPositionalKeyAndValue()
     {

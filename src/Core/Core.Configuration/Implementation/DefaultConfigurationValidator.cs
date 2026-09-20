@@ -42,7 +42,9 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
         if (value is null)
         {
-            return ValidationResult.Success();
+            return metadata.IsRequired
+                ? ValidationResult.Failure($"Value for '{key}' cannot be null.")
+                : ValidationResult.Success();
         }
 
         if (metadata.ValueType is not null && !IsCompatibleType(metadata.ValueType, value))
