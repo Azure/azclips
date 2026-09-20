@@ -22,7 +22,6 @@ namespace Core.Cli;
 
 public class Program
 {
-    private static readonly TimeSpan DataBoundaryResolveTimeout = TimeSpan.FromSeconds(3);
     private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
     // Forwards the user's real cwd to the agent (whose working dir we override to
     // the install dir for probing). Read by EnvironmentProber on the agent side by
@@ -126,7 +125,11 @@ public class Program
             // (from raw args, before command parsing) so startup spans are routed correctly too;
             // ExecutionSession.RunAsync below re-resolves and re-tags from the bound --profile
             // once it's known, which is authoritative for the command's own spans.
-            var (routedTenantId, routedBoundary) = await ResolveTelemetryRoutingAsync(args, _cancellationTokenSource.Token);
+            var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
+                AzclipsServiceProvider.GetRequiredService<IProfileService>(),
+                AzclipsServiceProvider.GetRequiredService<IAuthService>(),
+                TryGetProfileOverride(args),
+                _cancellationTokenSource.Token);
             if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
             if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
 
@@ -308,44 +311,6 @@ public class Program
                 return Task.CompletedTask;
             }
         );
-    }
-
-    private static async Task<(string? TenantId, string? Boundary)> ResolveTelemetryRoutingAsync(string[] args, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-            var profileName = TryGetProfileOverride(args);
-            var profile = string.IsNullOrWhiteSpace(profileName)
-                ? await profileService.GetActiveProfileAsync(cancellationToken)
-                : await profileService.GetProfileAsync(profileName, cancellationToken);
-            var tenantId = profile?.TenantId;
-            if (string.IsNullOrWhiteSpace(tenantId))
-                return (null, null);
-
-            var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
-                tenantId,
-                async tokenCancellationToken =>
-                {
-                    var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-                    var result = await authService.AcquireTokenSilentlyAsync(
-                        scopes: null,
-                        tenantId: tenantId,
-                        promptOnError: false,
-                        cancellationToken: tokenCancellationToken,
-                        profile: profile);
-                    return result.AccessToken;
-                },
-                DataBoundaryResolveTimeout,
-                cancellationToken);
-
-            return (tenantId, boundary);
-        }
-        catch
-        {
-            // Best effort: missing routing metadata falls back to Global on upload.
-            return (null, null);
-        }
     }
 
     internal static string? TryGetProfileOverride(string[] args)

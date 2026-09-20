@@ -189,7 +189,7 @@ namespace Core.Engine
                         profile: profile);
                     return result.AccessToken;
                 },
-                DataBoundaryResolveTimeout,
+                TelemetryRoutingResolver.DefaultTimeout,
                 cancellationToken);
 
         /// <summary>

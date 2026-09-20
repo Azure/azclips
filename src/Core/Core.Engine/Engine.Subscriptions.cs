@@ -12,8 +12,6 @@ namespace Core.Engine
 {
     public partial class Engine
     {
-        private static readonly TimeSpan DataBoundaryResolveTimeout = TimeSpan.FromSeconds(3);
-
         // session subscribes messages first, then each service
         private IEventSubscriber SubscribeAll(IEventSubscriber subscriber)
         {
