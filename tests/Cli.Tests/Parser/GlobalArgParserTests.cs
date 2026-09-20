@@ -64,6 +64,16 @@ public class GlobalArgParserTests
     }
 
     [Fact]
+    public void Parse_HelpFlagInCommandNameValue_IsStillClassifiedAsHelp()
+    {
+        var result = GlobalArgParser.Parse(
+            new[] { "agent", "tool", "help", "--name", "--help" });
+
+        Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "agent", "tool", "help" }, result.Help.Path);
+    }
+
+    [Fact]
     public void Parse_HelpSubcommandWithGroupAndCommand_YieldsFullPath()
     {
         var result = GlobalArgParser.Parse(new[] { "help", "group", "cmd" });

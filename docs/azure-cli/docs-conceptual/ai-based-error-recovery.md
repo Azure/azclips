@@ -104,7 +104,8 @@ az config set --key agent.sessionStyle --value oneshot
 
 The Agent can request help for several commands in one `get_command` tool call.
 It supplies a `names` array and receives a `results` array in the same order, with
-each command's help or an individual lookup error. This reduces tool round-trips;
+each command's help or an individual lookup error. Non-JSON or non-object responses become
+an `invalid_help_response` entry without discarding the other results. This reduces tool round-trips;
 each lookup still uses the existing CLI help backend. Host-side prefetching of the
 failed command's help remains a single-command lookup.
 

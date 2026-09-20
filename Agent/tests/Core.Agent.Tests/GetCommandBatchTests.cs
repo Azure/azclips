@@ -98,6 +98,31 @@ public sealed class GetCommandBatchTests
         Assert.Equal("missing_name", result.GetProperty("error").GetString());
     }
 
+    [Theory]
+    [InlineData("# COMMAND\naz agent tool help\n")]
+    [InlineData("")]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("42")]
+    [InlineData("\"help text\"")]
+    public async Task Invalid_backend_output_is_an_individual_error_without_losing_valid_results(string output)
+    {
+        var tools = new HelpTools("fixture-az", (_, args, _) =>
+            Task.FromResult(args[^1] == "--help"
+                ? output
+                : JsonSerializer.Serialize(new { cliName = args[^1] })));
+
+        var result = await InvokeAsync(tools.GetCommand,
+            new { names = new[] { "group list", "--help", "vm create" } });
+        var entries = result.GetProperty("results");
+
+        Assert.Equal(3, entries.GetArrayLength());
+        Assert.Equal("group list", entries[0].GetProperty("cliName").GetString());
+        Assert.Equal("invalid_help_response", entries[1].GetProperty("error").GetString());
+        Assert.Equal("--help", entries[1].GetProperty("name").GetString());
+        Assert.Equal("vm create", entries[2].GetProperty("cliName").GetString());
+    }
+
     [Fact]
     public async Task Null_name_is_a_per_item_error_without_invoking_the_backend()
     {

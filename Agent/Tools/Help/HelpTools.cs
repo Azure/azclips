@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text;
+using System.Text.Json;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Shell;
 using Microsoft.Extensions.AI;
@@ -114,7 +115,7 @@ public sealed class HelpTools
                 return CancelledBatch(scope);
 
             if (i > 0) results.Append(',');
-            results.Append(result);
+            results.Append(ValidateLookupResult(names[i], result));
         }
         results.Append("]}");
         scope.SetResult($"{names.Count} result(s)");
@@ -125,6 +126,27 @@ public sealed class HelpTools
         string.IsNullOrWhiteSpace(name)
             ? Task.FromResult("{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}")
             : _invokeAz(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct);
+
+    private static string ValidateLookupResult(string name, string result)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(result);
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
+                return result;
+        }
+        catch (JsonException)
+        {
+            // Invalid output belongs to this lookup, not the rest of the batch.
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            error = "invalid_help_response",
+            name,
+            hint = "The command help lookup did not return a JSON object.",
+        });
+    }
 
     private static string CancelledBatch(ToolInvocationLog.Scope scope)
     {
