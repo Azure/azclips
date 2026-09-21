@@ -136,9 +136,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      # - uses: actions/setup-dotnet@v4
-      #   with:
-      #     global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -180,9 +180,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      # - uses: actions/setup-dotnet@v4
-      #   with:
-      #     global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -221,9 +221,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      # - uses: actions/setup-dotnet@v4
-      #   with:
-      #     global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
