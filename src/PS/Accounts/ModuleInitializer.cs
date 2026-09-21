@@ -29,7 +29,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
             });
-            Core.Recording.RecordingHook.TryRegister();
             AzclipsServiceProvider.Initialize(ClientType.PowerShell);
         }
 

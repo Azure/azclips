@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.0'
+ModuleVersion = '0.1.1'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -81,7 +81,9 @@ PrivateData = @{
         ProjectUri = 'https://github.com/Azure/azclips'
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Refactored Microsoft Graph command customization and extension integration.
+'@
 
     } # End of PSData hashtable
 

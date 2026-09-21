@@ -22,6 +22,7 @@ namespace Core.Abstractions
         /// <param name="parameterAliases">Dictionary of parameter aliases.</param>
         /// <param name="profile">The profile to use for default values.</param>
         /// <returns>The processor instance with bound arguments.</returns>
+        /// <exception cref="AzclipsErrorException">Thrown when argument validation fails.</exception>
         /// <exception cref="ArgumentException">Thrown when argument parsing or binding fails.</exception>
         IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile);
     }

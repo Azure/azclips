@@ -47,6 +47,9 @@ Build the solution first:
 # Optional: alias az so you can test without full path
 Set-Alias az <path-to>\az.exe
 
+# Optional: choose your preferred PSReadLine completion style yourself
+Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+
 # Test completions
 az <Tab>                              # top-level groups
 <path-to>\az.exe <Tab>                # path-qualified also works
@@ -84,6 +87,7 @@ az vm create --<Tab>  # parameters
 
 - The scripts auto-detect azclips vs old Azure CLI using the output of `az --completion-candidates`: azclips returns lowercase word lists (or empty when disabled); old Azure CLI returns error text containing uppercase letters (or empty via stderr suppression). The detection result is cached per exe per session.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
+- The PowerShell script registers native argument completions and chains through the existing `TabExpansion2` fallback; it does not change PSReadLine key bindings.
 - **No external dependencies** for bash/zsh (no `jq` required).
 
 ## Toggling Completion
@@ -111,6 +115,6 @@ _azGetCompletions "az group " 9
 | File | Purpose |
 |---|---|
 | `CompletionGenerator.cs` | `--completions` (JSON) and `--completion-candidates` (plain text) handlers; builds completion data from extension metadata |
-| `az.completions.ps1` | PowerShell completer; queries `az --completions` (JSON) + `TabExpansion2` override |
+| `az.completions.ps1` | PowerShell native argument completer; queries `az --completions` (JSON), preserves existing `TabExpansion2` fallback, and does not change PSReadLine key bindings |
 | `az.completions.bash` | Bash completer; queries `az --completion-candidates` (plain text, no jq) |
 | `az.completions.zsh` | Native zsh completer using `compdef`; queries `az --completion-candidates` (plain text, no jq) |

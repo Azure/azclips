@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Cli.Help;
+using Core.Cli.Parser;
 
 namespace Azclips.Help.Tool.Validation
 {
@@ -28,6 +29,7 @@ namespace Azclips.Help.Tool.Validation
             "--help", "-h",
             "--debug",
             "--output",
+            "--query",
         };
 
         // Matches a bash/sh fenced code block. Captures the body for line-by-line scanning.
@@ -184,10 +186,20 @@ namespace Azclips.Help.Tool.Validation
 
             if (command is null)
             {
-                var attempted = commandTokens.Count == 0 ? "<root>" : string.Join(' ', commandTokens);
+                // A bare group is a valid CLI invocation (it renders group help) but not a useful
+                // example, so examples are still required to invoke a command.
+                if (commandTokens.Count == 0)
+                {
+                    report.AddError(
+                        ProblemIds.CLI_L1_UnknownCommand,
+                        $"'{groupName}' is a command group, not a command. Examples must invoke a command such as 'az {groupName} <command>'.",
+                        locator);
+                    return;
+                }
+
                 report.AddError(
                     ProblemIds.CLI_L1_UnknownCommand,
-                    $"Unknown command path 'az {groupName} {attempted}'. No matching command in the '{groupName}' extension.",
+                    $"Unknown command path 'az {groupName} {string.Join(' ', commandTokens)}'. No matching command in the '{groupName}' extension.",
                     locator);
                 return;
             }
@@ -492,7 +504,7 @@ namespace Azclips.Help.Tool.Validation
             return char.IsLetter(token[1]);
         }
 
-        /// <summary>Recognised CLI help-flag forms; kept in sync with <c>ExtensionDispatcher.s_helpFlags</c>.</summary>
+        /// <summary>Recognised CLI help-flag forms from the runtime global flag definition.</summary>
         /// <remarks>
         /// Bare <c>help</c> is intentionally excluded even though the runtime accepts <c>az help</c>
         /// at the top level — the intrinsic <c>az help</c> shape is handled upstream by
@@ -501,10 +513,11 @@ namespace Azclips.Help.Tool.Validation
         /// (e.g. <c>az agent tool help</c>).
         /// </remarks>
         private static bool IsHelpFlag(string token)
-            => token.Equals("--help", StringComparison.Ordinal)
-            || token.Equals("-h", StringComparison.Ordinal)
-            || token.Equals("-?", StringComparison.Ordinal)
-            || token.Equals("?", StringComparison.Ordinal);
+            => KnownGlobalFlags.All
+                .First(flag => flag.Name.Equals("--help", StringComparison.OrdinalIgnoreCase))
+                .Aliases
+                .Append("--help")
+                .Contains(token, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent

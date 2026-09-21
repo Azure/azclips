@@ -1,10 +1,8 @@
 /**
  * Enums.
  *
- * TypeSpec enums map cleanly: a name, a value type (string or numeric),
- * and a closed list of members. We don't model open enums here — the
- * project's polymorphism story is closed, and open enums would need
- * their own "unknown value" fallback design.
+ * TypeSpec enums map to a name, a value type (string or numeric), known
+ * members, and whether values outside that set are accepted.
  */
 
 import { z } from "zod";
@@ -34,6 +32,8 @@ export type IREnum = {
   id: IRId;
   name: string;
   valueType: "string" | "number";
+  /** True when the declared members are exhaustive; false for extensible enums. */
+  isFixed: boolean;
   members: IREnumMember[];
   /**
    * The source (IRSource.id) this enum was declared in. Library-shared
@@ -56,6 +56,7 @@ export const IREnumSchema: z.ZodType<IREnum> = z
     id: IRIdSchema,
     name: z.string().min(1),
     valueType: z.enum(["string", "number"]),
+    isFixed: z.boolean(),
     members: z.array(IREnumMemberSchema).min(1),
     source: z.string().min(1),
     docs: z.string().optional(),

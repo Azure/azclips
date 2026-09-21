@@ -61,17 +61,20 @@ jobs:
           filters: |
             shared:
               - 'src/Core/**'
-              - 'src/CLI/**'
+              - 'src/CLI/*'
+              - 'src/CLI/!(Help)/**'
+              - 'src/CLI/Help/*'
+              - 'src/CLI/Help/!(Docs)/**'
               - 'tests/Benchmark/*.cs'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
               - 'tests/Benchmark/PS/PSBenchmarkBase.cs'
               - 'tests/Benchmark/PS/PSManifestStager.cs'
               - 'tests/Common/**'
+              - '.github/workflows/benchmark.yml'
               - 'global.json'
               - 'azclips.slnx'
               - 'Shared.props'
-              - '.github/workflows/benchmark.yml'
               - '.github/scripts/detect-benchmark-changes.sh'
             startup:
               - 'tests/Benchmark/Startup/**'

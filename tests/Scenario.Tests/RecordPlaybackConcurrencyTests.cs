@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions.Runtime;
-using Core.Recording;
+using Tests.Recording;
 
 namespace Scenario.Tests;
 

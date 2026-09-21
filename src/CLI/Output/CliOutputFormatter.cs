@@ -3,6 +3,7 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Core.Cli.Output;
@@ -47,14 +48,109 @@ internal static class CliOutputFormatter
     /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
     /// does not consult the policy itself -- callers gate it.
     /// </param>
-    internal static string FormatValue(object? value, OutputFormat format = OutputFormat.Json, bool colorPolicyAllowsColor = false)
+    internal static string FormatValue(
+        object? value,
+        OutputFormat format = OutputFormat.Json,
+        bool colorPolicyAllowsColor = false,
+        string? query = null)
     {
-        if (value is null)
-            return string.Empty;
+        if (TryFormatWithoutRendering(value, query, out var raw))
+            return raw;
 
-        if (value is string s)
-            return s;
+        var json = ComputeJson(value, query);
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
+    }
 
+    /// <summary>
+    /// Like <see cref="FormatValue(object?, OutputFormat, bool, string?)"/>, but picks between two
+    /// format defaults based on the final (post-query) result shape: <paramref name="simpleFormat"/>
+    /// for a scalar (string/number/bool/null), <paramref name="complexFormat"/> for an object/array.
+    /// Used only for command results -- errors and <c>az version</c> always use a single fixed format.
+    /// </summary>
+    internal static string FormatValue(
+        object? value,
+        OutputFormat complexFormat,
+        OutputFormat simpleFormat,
+        bool colorPolicyAllowsColor,
+        string? query)
+    {
+        if (TryFormatWithoutRendering(value, query, out var raw))
+            return raw;
+
+        var json = ComputeJson(value, query);
+        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor);
+    }
+
+    /// <summary>
+    /// Handles the cases that bypass format-specific rendering entirely and always print the raw
+    /// value verbatim: <c>null</c>, a bare string, an already-serialized <see cref="SerializedJson"/>,
+    /// or a primitive/decimal -- but only when there's no <paramref name="query"/> to apply first.
+    /// </summary>
+    private static bool TryFormatWithoutRendering(object? value, string? query, out string result)
+    {
+        if (query is null)
+        {
+            switch (value)
+            {
+                case null:
+                    result = string.Empty;
+                    return true;
+                case string s:
+                    result = s;
+                    return true;
+                case SerializedJson serializedJson:
+                    result = serializedJson.Value;
+                    return true;
+            }
+
+            var type = value.GetType();
+            if (type.IsPrimitive || type == typeof(decimal))
+            {
+                result = JsonSerializer.Serialize(value, type, s_jsonOptions);
+                return true;
+            }
+        }
+
+        result = string.Empty;
+        return false;
+    }
+
+    private static string ComputeJson(object? value, string? query)
+    {
+        var json = value switch
+        {
+            null => "null",
+            SerializedJson rawJson => rawJson.Value,
+            string text => JsonSerializer.Serialize(text, typeof(string), s_jsonOptions),
+            _ => SerializeToJson(value),
+        };
+
+        return query is null ? json : JmesPathEvaluator.Transform(json, query);
+    }
+
+    /// <summary>Scalar (string/number/bool/null) results use <paramref name="simpleFormat"/>; object/array results use <paramref name="complexFormat"/>.</summary>
+    internal static OutputFormat SelectFormat(string json, OutputFormat complexFormat, OutputFormat simpleFormat) =>
+        IsScalarJsonLiteral(json) ? simpleFormat : complexFormat;
+
+
+    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
+    {
+        if (format is OutputFormat.Jsonc && IsScalarJsonLiteral(json))
+            return json;
+
+        return format switch
+        {
+            OutputFormat.Table => TableFormatter.Format(json),
+            OutputFormat.Tsv => TsvFormatter.Format(json),
+            OutputFormat.Yaml => YamlFormatter.Format(json),
+            OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
+            OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
+            _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
+        };
+    }
+
+    private static string SerializeToJson(object value)
+    {
         // Primitives and decimals go through JsonSerializer so bool renders as lowercase
         // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
         // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
@@ -69,17 +165,19 @@ internal static class CliOutputFormatter
         // bugs early. A fallback to ToString() is not useful here because it would most
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
-        var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+        return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+    }
 
-        return format switch
-        {
-            OutputFormat.Table => TableFormatter.Format(json),
-            OutputFormat.Tsv => TsvFormatter.Format(json),
-            OutputFormat.Yaml => YamlFormatter.Format(json),
-            OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
-            OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
-            _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
-        };
+    /// <summary>
+    /// Classifies by the first non-whitespace character rather than parsing the whole document --
+    /// valid JSON only starts with <c>{</c>/<c>[</c> for an object/array, so this is enough to tell
+    /// scalar from complex without an extra O(n) parse on every result (the format-specific
+    /// renderers below do their own parse only when they actually need the DOM).
+    /// </summary>
+    private static bool IsScalarJsonLiteral(string json)
+    {
+        var trimmed = json.AsSpan().TrimStart();
+        return trimmed.IsEmpty || trimmed[0] is not ('{' or '[');
     }
 
     private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>

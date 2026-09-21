@@ -47,7 +47,7 @@ public static class KnownGlobalFlags
             Action: new BoolToggleAction(static b => b.Debug = true)),
         new KnownGlobalFlag(
             Name: "--help",
-            Aliases: ["-h"],
+            Aliases: ["-h", "-help", "-?", "--?"],
             Summary: "Show help for the command or group and exit.",
             Default: null,
             Choices: null,
@@ -66,5 +66,12 @@ public static class KnownGlobalFlags
             Default: "json",
             Choices: "json, jsonc, table, tsv, yaml, yamlc",
             Action: new OutputFormatAction()),
+        new KnownGlobalFlag(
+            Name: "--query",
+            Aliases: Array.Empty<string>(),
+            Summary: "JMESPath query string to filter/project the command result before rendering.",
+            Default: null,
+            Choices: null,
+            Action: new QueryAction()),
     ];
 }

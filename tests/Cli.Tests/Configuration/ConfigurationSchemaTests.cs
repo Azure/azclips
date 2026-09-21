@@ -21,6 +21,56 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void GetKeyMetadata_ShouldReturnCliSimpleOutputFormat_WithTsvDefault()
+    {
+        var key = _schema.GetKeyMetadata("clients.cli.output.simpleFormat");
+
+        Assert.NotNull(key);
+        Assert.Equal("tsv", key.DefaultValue);
+        Assert.Equal(
+            _schema.GetKeyMetadata("clients.cli.output.format")!.AllowedValues,
+            key.AllowedValues);
+    }
+
+    [Theory]
+    [InlineData("assemblyLoading.installedExtensionsRoot")]
+    [InlineData("assemblyLoading.extensionFolderPrefix")]
+    public void GetKeyMetadata_ShouldNotExposeDynamicRuntimeDefaults(string name)
+    {
+        var key = _schema.GetKeyMetadata(name);
+
+        Assert.NotNull(key);
+        Assert.Null(key.DefaultValue);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldNotExposeNestedExcludedSections()
+    {
+        var keys = _schema.GetAllKeys();
+
+        Assert.DoesNotContain(keys, key => key.Key.StartsWith("benchmark.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldContainEveryCurrentConfigurationPath()
+    {
+        var expected = new[]
+        {
+            "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId", "agent.builtin.scope",
+            "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
+            "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",
+            "clients.cli.output.format", "clients.cli.output.simpleFormat", "clients.powershell.output.format", "completion.enabled",
+            "core.engine.extensionIndexCacheSize", "core.http.maxRetries", "core.http.maxRetriesFor429", "core.logging.level", "core.output.color",
+            "defaults.acr", "defaults.group", "defaults.location", "defaults.vm", "defaults.vmss", "defaults.web",
+            "extensions.resources.arm.apiVersionOverride", "telemetry.enabled"
+        };
+
+        var actual = _schema.GetAllKeys().Select(key => key.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(expected.OrderBy(key => key, StringComparer.Ordinal), actual);
+    }
+
+    [Fact]
     public void IsKnownKey_ShouldReturnFalse_ForUnknownKey()
     {
         var known = _schema.IsKnownKey("core.notARealKey");

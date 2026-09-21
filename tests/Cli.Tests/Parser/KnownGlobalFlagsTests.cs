@@ -20,10 +20,13 @@ public class KnownGlobalFlagsTests
     {
         foreach (var flag in KnownGlobalFlags.All)
         {
-            // --output requires a value; help flags are classified into Help but stay in Positional.
-            var input = flag.Name == "--output"
-                ? new[] { flag.Name, "json" }
-                : new[] { flag.Name };
+            // Value-taking flags need a synthetic value; help flags are classified into Help but stay in Positional.
+            var input = flag.Name switch
+            {
+                "--output" => new[] { flag.Name, "json" },
+                "--query" => new[] { flag.Name, "[].name" },
+                _ => new[] { flag.Name },
+            };
 
             var result = GlobalArgParser.Parse(input);
 
@@ -45,5 +48,19 @@ public class KnownGlobalFlagsTests
     public void KnownGlobalFlags_ContainsExpectedFlagName(string expectedName)
     {
         Assert.Contains(KnownGlobalFlags.All, flag => flag.Name == expectedName);
+    }
+
+    [Fact]
+    public void HelpAliases_AreDeclaredOnHelpFlag()
+    {
+        var help = Assert.Single(KnownGlobalFlags.All, flag => flag.Name == "--help");
+
+        Assert.Equal(new[] { "-h", "-help", "-?", "--?" }, help.Aliases);
+    }
+
+    [Fact]
+    public void KnownGlobalFlags_ContainsQueryFlag()
+    {
+        Assert.Contains(KnownGlobalFlags.All, flag => flag.Name == "--query");
     }
 }

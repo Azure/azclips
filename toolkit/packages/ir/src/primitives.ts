@@ -61,6 +61,21 @@ export const AccessKinds = ["public", "internal"] as const;
 export type IRAccess = (typeof AccessKinds)[number];
 
 /**
+ * Lifecycle visibility phases, mirroring TypeSpec's `TypeSpec.Lifecycle`
+ * visibility class (`@visibility(Lifecycle.Read | Create | Update | Delete |
+ * Query)`). ace preserves the full phase set instead of collapsing to
+ * read/write-only, so downstream generators keep the source's create- vs
+ * update-only distinction.
+ *
+ * Lives here rather than beside `IRModel` so that both `model.ts` (for
+ * `IRProperty.visibility`) and `hints.ts` (for a flattened member's
+ * intersected phases) can name the closed set without an import cycle.
+ */
+export const VisibilityKinds = ["read", "create", "update", "delete", "query"] as const;
+
+export type IRVisibility = (typeof VisibilityKinds)[number];
+
+/**
  * Data-flow usage flags, decoded from TCGC's numeric `UsageFlags` bitfield
  * (core/derived `@usage`). A type may carry several at once (e.g. a model used
  * in both a request and a response is `["input", "output", "json"]`). ace owns

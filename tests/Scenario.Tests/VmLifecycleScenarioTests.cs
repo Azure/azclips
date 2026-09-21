@@ -1,17 +1,17 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;
 
 /// <summary>
-/// The virtual machine lifecycle: create, show, start, delete, driven through the real
-/// dispatcher/binder and ARM request pipeline. Two virtual machines are created so both delete
+/// The virtual machine lifecycle: create, show, stop, deallocate, start, delete, driven through the
+/// real dispatcher/binder and ARM request pipeline. Two virtual machines are created so both delete
 /// shapes are covered: a plain delete, and one with <c>--force-deletion</c>/<c>-ForceDeletion</c>,
 /// which adds the <c>forceDeletion</c> query parameter. Record mode runs the CLI surface against
-/// live Azure and rewrites the recording; playback replays the committed recording on both
-/// surfaces without credentials.
+/// live Azure and rewrites the recording; playback replays the committed recording on both surfaces
+/// without credentials.
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmLifecycleScenarioTests
@@ -29,9 +29,9 @@ public class VmLifecycleScenarioTests
     private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute];
 
     [Fact]
-    public void CreateShowStartDeleteVirtualMachine()
+    public void CreateShowStopDeallocateStartDeleteVirtualMachine()
     {
-        var recording = SessionRecordFiles.OpenSession(typeof(VmLifecycleScenarioTests), nameof(CreateShowStartDeleteVirtualMachine));
+        var recording = SessionRecordFiles.OpenSession(typeof(VmLifecycleScenarioTests), nameof(CreateShowStopDeallocateStartDeleteVirtualMachine));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -42,6 +42,8 @@ public class VmLifecycleScenarioTests
             RunGroupCreate(host, subscriptionId);
             AssertVm(RunCreate(host, subscriptionId, VmName, "1"), VmName);
             AssertVm(RunShow(host, subscriptionId, VmName), VmName);
+            AssertActionCompleted(RunStop(host, subscriptionId, VmName));
+            AssertActionCompleted(RunDeallocate(host, subscriptionId, VmName));
             AssertActionCompleted(RunStart(host, subscriptionId, VmName));
             AssertVm(RunCreate(host, subscriptionId, ForceDeleteVmName, "2"), ForceDeleteVmName);
             AssertActionCompleted(RunDelete(host, subscriptionId, VmName));
@@ -55,6 +57,8 @@ public class VmLifecycleScenarioTests
             RunGroupCreate(cli, SubscriptionId);
             AssertVm(RunCreate(cli, SubscriptionId, VmName, "1"), VmName, SubscriptionId);
             AssertVm(RunShow(cli, SubscriptionId, VmName), VmName, SubscriptionId);
+            AssertActionCompleted(RunStop(cli, SubscriptionId, VmName));
+            AssertActionCompleted(RunDeallocate(cli, SubscriptionId, VmName));
             AssertActionCompleted(RunStart(cli, SubscriptionId, VmName));
             AssertVm(RunCreate(cli, SubscriptionId, ForceDeleteVmName, "2"), ForceDeleteVmName, SubscriptionId);
             AssertActionCompleted(RunDelete(cli, SubscriptionId, VmName));
@@ -66,6 +70,12 @@ public class VmLifecycleScenarioTests
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, VmName, "1"), extension: "Compute"), VmName, SubscriptionId);
             AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId, VmName), extension: "Compute"), VmName, SubscriptionId);
+
+            // Stop-AzVM spans both REST operations the CLI splits across two commands, so these two
+            // invocations replay the requests `vm stop` and `vm deallocate` recorded, in that order:
+            // -StayProvisioned selects powerOff, and the default branch deallocates.
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: true), extension: "Compute"));
+            AssertActionCompleted(ps.RunPowerShell("Stop-AzVM", PsStopParameters(SubscriptionId, VmName, stayProvisioned: false), extension: "Compute"));
 
             // -Id exercises the orchestrator's resource-id path; it resolves to the same
             // subscription/resource group/name, so it replays the request the CLI recorded.
@@ -116,6 +126,18 @@ public class VmLifecycleScenarioTests
             "--name", vmName,
             "--resource-group", ResourceGroupName);
 
+    private static IReadOnlyList<object> RunStop(ScenarioHost host, string subscriptionId, string vmName) =>
+        host.RunCli("vm", "stop",
+            "--subscription-id", subscriptionId,
+            "--name", vmName,
+            "--resource-group", ResourceGroupName);
+
+    private static IReadOnlyList<object> RunDeallocate(ScenarioHost host, string subscriptionId, string vmName) =>
+        host.RunCli("vm", "deallocate",
+            "--subscription-id", subscriptionId,
+            "--name", vmName,
+            "--resource-group", ResourceGroupName);
+
     private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string vmName) =>
         host.RunCli("vm", "delete",
             "--subscription-id", subscriptionId,
@@ -160,6 +182,20 @@ public class VmLifecycleScenarioTests
         ["ResourceGroupName"] = ResourceGroupName,
     };
 
+    /// <summary>
+    /// Stop-AzVM addressing plus the switch that selects the REST operation: <c>-StayProvisioned</c>
+    /// powers the VM off, and its absence deallocates.
+    /// </summary>
+    private static Dictionary<string, object> PsStopParameters(string subscriptionId, string vmName, bool stayProvisioned)
+    {
+        var parameters = PsVmParameters(subscriptionId, vmName);
+        if (stayProvisioned)
+        {
+            parameters["StayProvisioned"] = true;
+        }
+        return parameters;
+    }
+
     private static string VmId(string subscriptionId, string vmName) =>
         $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}";
 
@@ -176,9 +212,9 @@ public class VmLifecycleScenarioTests
     }
 
     /// <summary>
-    /// start and delete are body-less actions. The long-running operation's final GET can surface an
-    /// operation-status payload, so the assertion is that the command completed and returned no
-    /// virtual machine model rather than an exact output count.
+    /// stop, deallocate, start, and delete are body-less actions. The long-running operation's final
+    /// GET can surface an operation-status payload, so the assertion is that the command completed
+    /// and returned no virtual machine model rather than an exact output count.
     /// </summary>
     private static void AssertActionCompleted(IReadOnlyList<object> outputs) =>
         Assert.DoesNotContain(outputs, output => output is VirtualMachine);

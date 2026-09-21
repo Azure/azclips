@@ -39,14 +39,34 @@ public sealed class RuntimeHelpDispatcher
     private readonly IExtensionRegistryStore _registryStore;
 
     public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
+        : this(engine, streams, registryStore, output: null)
+    {
+    }
+
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore, TextWriter? output)
         : this(
             engine,
             ExtensionHintTable.Default,
-            new RuntimeHelpRenderer(),
-            Console.Out,
+            new RuntimeHelpRenderer(ShouldBoldHeaders(output)),
+            output ?? Console.Out,
             streams,
             registryStore)
     {
+    }
+
+    internal static bool ShouldBoldHeaders(TextWriter? output)
+    {
+        if (ReferenceEquals(output, Console.Error))
+        {
+            return ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        }
+
+        if (output is null || ReferenceEquals(output, Console.Out))
+        {
+            return ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        }
+
+        return false;
     }
 
     internal RuntimeHelpDispatcher(

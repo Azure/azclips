@@ -17,6 +17,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
     public List<string> SubnetIds { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
+    public bool AcceleratedNetworking { get; set; }
 
     protected override HttpMethod Method => HttpMethod.Put;
 
@@ -30,7 +31,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
             Location = Location,
             Properties = new NetworkInterfaceProperties
             {
-                EnableAcceleratedNetworking = true,
+                EnableAcceleratedNetworking = AcceleratedNetworking,
                 EnableIPForwarding = false,
                 NetworkSecurityGroup = string.IsNullOrEmpty(NetworkSecurityGroupId)
                     ? null

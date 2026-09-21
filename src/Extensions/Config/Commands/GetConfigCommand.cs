@@ -24,8 +24,8 @@ public sealed class GetConfigCommand : ConfigCommandBase
         // Check for exact match first (leaf value)
         if (entries.TryGetValue(normalizedKey, out var entry))
         {
-            var output = Json
-                ? Serialize(entry)
+            object output = Json
+                ? SerializeAsJsonValue(entry)
                 : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
 
             await WriteOutput(output, CancellationToken).ConfigureAwait(false);
@@ -45,8 +45,8 @@ public sealed class GetConfigCommand : ConfigCommandBase
 
         // Reconstruct nested object from matching entries
         var nested = ReconstructNestedObject(normalizedKey, matchingEntries);
-        var sectionOutput = Json
-            ? Serialize(nested)
+        object sectionOutput = Json
+            ? SerializeAsJsonValue(nested)
             : FormatNestedAsTable(nested);
 
         await WriteOutput(sectionOutput, CancellationToken).ConfigureAwait(false);

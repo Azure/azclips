@@ -17,7 +17,7 @@ public sealed class ProjectStubTests
     {
         var writer = new ArtifactWriter(scenario);
         await new CSharpClientGenerator().GenerateAsync(
-            new IRDocument { SchemaVersion = "0.6.0", Models = [], Operations = [] },
+            new IRDocument { SchemaVersion = "0.7.0", Models = [], Operations = [] },
             new GeneratorOptions { RootNamespace = RootNamespace },
             writer.WriteAsync);
         return writer.Files.ProjectFile();

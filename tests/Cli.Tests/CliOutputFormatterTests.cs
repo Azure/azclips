@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using System.Globalization;
+using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 
 namespace Cli.Tests;
@@ -39,6 +41,109 @@ public class CliOutputFormatterTests
     {
         var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null);
         Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToStructuredJsonValue_WithoutDoubleEncoding()
+    {
+        var json = "[{\"name\":\"rg1\"},{\"name\":\"rg2\"}]";
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new SerializedJson(json), OutputFormat.Json, query: "[].name");
+
+        Assert.Equal("[\"rg1\",\"rg2\"]", result);
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("42")]
+    public void FormatValue_ShouldPreserveOrdinaryStringType_WhenQueryIsApplied(string value)
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(value, OutputFormat.Json, query: "@");
+
+        Assert.Equal(JsonSerializer.Serialize(value), result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRecognizeJsonNumber_IndependentOfCurrentCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+            using var document = JsonDocument.Parse("1.5");
+
+            var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+                document.RootElement.Clone(), OutputFormat.Jsonc, colorPolicyAllowsColor: true, query: "@");
+
+            Assert.Equal("1.5", result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [Fact]
+    public void FormatValue_ShouldApplyQueryToNullValue_WhenQueryIsPresent()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(null, OutputFormat.Json, query: "@");
+
+        Assert.Equal("null", result);
+    }
+
+    // ── Simple vs. complex format selection (#835) ────────────────────
+
+    [Theory]
+    [InlineData("null", OutputFormat.Tsv)]
+    [InlineData("\"rg1\"", OutputFormat.Tsv)]
+    [InlineData("42", OutputFormat.Tsv)]
+    [InlineData("true", OutputFormat.Tsv)]
+    [InlineData("{\"name\":\"rg1\"}", OutputFormat.Table)]
+    [InlineData("[{\"name\":\"rg1\"}]", OutputFormat.Table)]
+    public void SelectFormat_ShouldChooseByJsonShape(string json, OutputFormat expected)
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.SelectFormat(json, complexFormat: OutputFormat.Table, simpleFormat: OutputFormat.Tsv);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldUseSimpleFormat_WhenQueryNarrowsResultToScalar()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new[] { new { name = "rg1" } },
+            complexFormat: OutputFormat.Json,
+            simpleFormat: OutputFormat.Tsv,
+            colorPolicyAllowsColor: false,
+            query: "[0].name");
+
+        Assert.Equal("rg1", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldUseComplexFormat_WhenQueryResultIsStillAnArray()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new[] { new { name = "rg1" }, new { name = "rg2" } },
+            complexFormat: OutputFormat.Json,
+            simpleFormat: OutputFormat.Tsv,
+            colorPolicyAllowsColor: false,
+            query: "[].name");
+
+        Assert.Equal("[\"rg1\",\"rg2\"]", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldUseComplexFormat_WhenNoQueryIsApplied()
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new { name = "rg1" },
+            complexFormat: OutputFormat.Yaml,
+            simpleFormat: OutputFormat.Tsv,
+            colorPolicyAllowsColor: false,
+            query: null);
+
+        Assert.Equal("name: rg1", result);
     }
 
     // ── Primitives ───────────────────────────────────────────────────

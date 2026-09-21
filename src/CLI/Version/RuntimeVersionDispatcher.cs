@@ -4,6 +4,8 @@
 using System.Text;
 using Core.Abstractions;
 using Core.Cli.Output;
+using Core.Cli.Parser;
+using Core.Extensions;
 
 namespace Core.Cli.Version;
 
@@ -34,15 +36,26 @@ internal sealed class RuntimeVersionDispatcher
         _output = output ?? throw new ArgumentNullException(nameof(output));
     }
 
-    public int Render(VersionOutputFormat format)
+    public int Render(VersionOutputFormat format, string? query = null)
     {
         var info = VersionInformationProvider.Gather(_configurationService);
 
-        var rendered = format == VersionOutputFormat.Text
-            ? FormatText(info)
-            : CliOutputFormatter.FormatValue(info);
+        if (format == VersionOutputFormat.Text)
+        {
+            if (query is not null)
+            {
+                throw AzclipsErrorException.UsageError(
+                    "--query is not supported with `az --version`; use `az version --query ...` instead.",
+                    new Dictionary<string, object?> { ["flag"] = "--query", ["format"] = "text" });
+            }
 
-       _output.WriteLine(rendered);
+            var rendered = FormatText(info);
+            _output.WriteLine(rendered);
+            return 0;
+        }
+
+        var renderedJson = CliOutputFormatter.FormatValue(info, OutputFormat.Json, query: query);
+        _output.WriteLine(renderedJson);
         return 0;
     }
 

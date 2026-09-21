@@ -3,7 +3,7 @@
 
 using Tests.Common.Utilities;
 
-using Core.Recording;
+using Tests.Recording;
 
 namespace Tests.Common.Recording;
 
