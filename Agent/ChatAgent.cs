@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
@@ -113,7 +114,8 @@ public sealed class ChatAgent : IAsyncDisposable
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string? failedCommand = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        RecoverySessionSettings? recoverySettings = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         var sdkLogger = logger ?? NullLogger.Instance;
@@ -134,7 +136,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, ct, recoverySettings).ConfigureAwait(false);
         }
         catch
         {
@@ -155,7 +157,8 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         SpinnerService? spinner,
         string? failedCommand,
-        CancellationToken ct)
+        CancellationToken ct,
+        RecoverySessionSettings? recoverySettings)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
@@ -206,7 +209,11 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !options.IsInteractive,
+            IsOneShot = !(recoverySettings?.IsInteractive ?? options.IsInteractive),
+            IsManualRecovery = recoverySettings?.Trigger == RecoveryTrigger.Manual,
+            AllowedManualTools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
+                .Concat(submitTool.All).Concat(planTool.All)
+                .Select(tool => tool.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
@@ -311,7 +318,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
-            AvailableTools = null,
+            AvailableTools = state.IsManualRecovery ? state.AllowedManualTools.ToList() : null,
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(input, azExePath, approvalSink, state, ct),
@@ -345,6 +352,10 @@ public sealed class ChatAgent : IAsyncDisposable
             OnPermissionRequest = async (req, invocation) =>
             {
                 var toolName = (req as PermissionRequestCustomTool)?.ToolName;
+                if (state.IsManualRecovery)
+                {
+                    return ResolveManualPermission(toolName, state.AllowedManualTools);
+                }
                 // Cache tools are read-only — silently approve. Bash + every
                 // other built-in mutator goes through the user prompt.
                 if (toolName is not null && PreToolUseHook.IsReadOnlyCacheTool(toolName))
@@ -356,6 +367,12 @@ public sealed class ChatAgent : IAsyncDisposable
             OnEvent = eventRenderer.Forward,
         };
     }
+
+    internal static PermissionDecision ResolveManualPermission(string? toolName, IReadOnlySet<string> allowedTools) =>
+        toolName is not null && allowedTools.Contains(toolName)
+            ? PermissionDecision.ApproveOnce()
+            : PermissionDecision.Reject(feedback: "Explicit troubleshooting does not execute commands or request interactive approval.");
+
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
         LastError = null;

@@ -28,6 +28,33 @@ internal static class GlobalArgParser
 {
     private const string HelpSubcommand = "help";
 
+    // Routing must work even when a global value is invalid, so utility failures stay
+    // local and never become a new saved failure of the command being diagnosed.
+    internal static bool IsCommandInvocation(IReadOnlyList<string> args, string command)
+    {
+        var help = false;
+        for (var i = 0; i < args.Count; i++)
+        {
+            var token = args[i];
+            if (MatchKnownFlag(token)?.Action is { } action)
+            {
+                if (action.TakesValue && !token.Contains('='))
+                    i++;
+                continue;
+            }
+
+            if (!help && token.Equals(HelpSubcommand, StringComparison.OrdinalIgnoreCase))
+            {
+                help = true;
+                continue;
+            }
+
+            return token.Equals(command, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.
     /// Per-token flag recognition dispatches through <see cref="KnownGlobalFlags.All"/>; the

@@ -8,8 +8,9 @@ description: Learn how AI-based error recovery in Azure CLI analyzes command fai
 AI-based error recovery is a built-in capability in Azure CLI that helps you resolve command
 failures more efficiently.
 
-When an `az` command fails, Azure CLI uses an integrated AI model to analyze the error and provide
-guided troubleshooting instead of displaying only raw or cryptic error messages.
+When enabled, Azure CLI saves command failures in a private encrypted history on your machine.
+The original error remains visible. Use `az troubleshoot` when you want an integrated AI model to
+analyze a saved failure and provide guided troubleshooting.
 
 The AI model can:
 
@@ -58,8 +59,87 @@ View the current setting:
 az config get --key agent.enabled
 ```
 
-After you enable the feature, AI-based error recovery runs automatically whenever an `az` command
-fails. You don't need to specify a per-command option.
+Enabling the feature does **not** automatically call AI. After a failure is securely saved, the CLI
+prints a hint containing its record ID:
+
+```text
+To troubleshoot this error with AI, run: az troubleshoot --id <failure-id>
+```
+
+If secure persistence fails, the CLI reports that it could not save the record and does not print
+an unusable ID. The original error and exit code remain unchanged.
+
+## Analyze a saved failure
+
+Analyze the latest saved failure:
+
+```azurecli
+az troubleshoot
+```
+
+List saved failures and choose a specific one:
+
+```azurecli
+az troubleshoot --list --output table
+az troubleshoot --id <failure-id>
+```
+
+Shell Tab completion after `--id` offers saved IDs. Omitting `--id` selects the most recently saved
+failure. An unknown or evicted ID is an error; it never silently selects a different record.
+
+Explicit troubleshooting always uses **one-shot**: it returns an AI plan but does not execute the
+suggested commands or enter an approval/chat loop. It remains available whenever `agent.enabled`
+is true, regardless of the automatic recovery settings. `--output` and `--query` apply to `--list`,
+not to the AI plan display.
+
+The list and ID completion are local-only operations and remain available for old records when
+`agent.enabled` is false. They do not start AI or perform Azure authentication. Tab completion
+uses only record IDs and timestamps, without unlocking the protected key store.
+
+## Enable automatic recovery separately
+
+Automatic recovery is disabled by default. To also start AI after eligible command failures:
+
+```azurecli
+az config set --key agent.autoRecovery.enabled --value true
+```
+
+Turn it off without disabling explicit troubleshooting:
+
+```azurecli
+az config set --key agent.autoRecovery.enabled --value false
+```
+
+> [!IMPORTANT]
+> This is a change from the previous default. Existing users who only configured
+> `agent.enabled=true` must also enable `agent.autoRecovery.enabled` to continue automatic recovery.
+> Well-known structured CLI errors still do not trigger automatic AI; you can select them manually.
+
+## Local encrypted failure history
+
+The history belongs to the current **local operating-system user**, not to a shared service.
+It retains complete received command arguments and original error details, which can include
+credentials. The data is encrypted with a key protected by Windows DPAPI, macOS Keychain, or
+Linux Keyring. If protected storage is unavailable, the CLI reports the failure and never falls
+back to plaintext. No Azure login is required just to save local history.
+
+The history is kept in the local azclips data directory and respects `AZCLIPS_HOME`. The default
+limit is the latest **10** records:
+
+```azurecli
+az config set --key agent.failureHistory.maxEntries --value 10
+```
+
+The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
+records on the next successful history write; listing and completion do not prune. Later successful
+commands neither remove old failures nor mark them resolved. Turning off `agent.enabled` stops new
+records and AI calls but leaves existing records in place.
+
+> [!NOTE]
+> Local encryption protects stored data; it does not redact the diagnostic input supplied to AI.
+> Explicit analysis sends the selected record's original command and error to your configured
+> provider, not the entire history. Only use this feature with input you are permitted to send
+> to that provider. Existing opt-in diagnostic agent traces have their own data-handling behavior.
 
 ## Configure the AI provider
 
@@ -81,10 +161,11 @@ Use GitHub Copilot:
 az config set --key agent.provider --value github
 ```
 
-## Choose the interaction style
+## Choose the automatic interaction style
 
-By default, AI-based error recovery uses a one-shot experience that generates a recovery plan and
-then exits.
+When automatic recovery is enabled, its default interaction style is one-shot: generate a recovery
+plan and exit. `agent.sessionStyle` controls only this automatic flow; explicit `az troubleshoot`
+always stays one-shot.
 
 To use a multi-turn interactive session that remains open until you type `exit`, run:
 
@@ -147,8 +228,9 @@ az config set --key agent.enabled --value true
 
 ### Does it require authentication?
 
-Yes. You must be signed in to use AI-based error recovery. If you aren't signed in, only the
-original error output is displayed.
+AI analysis requires the configured provider's authentication. Local history recording, listing,
+and ID completion do not require Azure sign-in. If analysis cannot authenticate, it reports an
+actionable error without deleting the selected failure.
 
 The required sign-in depends on the configured AI provider:
 
@@ -179,18 +261,25 @@ telemetry for the command that failed. The trace records:
 
 - How long recovery ran, and how long each phase took
 - How many conversation turns and tool calls occurred
-- The configured AI provider and interaction style
+- The configured AI provider and the effective interaction style for this invocation
+- Whether recovery was explicitly requested or automatically triggered
 - The model name and the exit code
 - A reference to the failed command's trace, so the two can be correlated
 
 It does **not** record your prompts, the error text, the model's response, or the values
 of any command parameters.
 
+Generating a plan is not evidence that you adopted it or that the original problem was repaired.
+This feature does not track subsequent commands to infer plan adoption or execution success.
+
 To turn all of it off:
 
 ```azurecli
 az config set --key telemetry.enabled --value false
 ```
+
+This setting disables telemetry, not the separately encrypted local history. Use `agent.enabled=false`
+to stop new history records and AI calls.
 
 Separately, if you want a local record of the model input and output for debugging or auditing, enable tracing:
 

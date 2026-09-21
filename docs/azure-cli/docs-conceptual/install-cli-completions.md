@@ -64,7 +64,12 @@ Add-Content -LiteralPath $PROFILE '. "$env:LOCALAPPDATA\Programs\azcli\completio
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
 az vm create --<Tab>  # parameters
+az troubleshoot --id <Tab>  # saved failure IDs
 ```
+
+Failure IDs are queried afresh, separately from the cached command tree. These suggestions contain
+only IDs and timestamps: they do not start AI, call Azure, decrypt error details, or unlock the
+local key store. Use `az troubleshoot --list` to view the saved-command summaries.
 
 ## Turn completion on or off
 

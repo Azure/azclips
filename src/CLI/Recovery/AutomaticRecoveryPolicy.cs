@@ -1,0 +1,23 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+using Core.Abstractions.Recovery;
+
+namespace Core.Cli.Recovery;
+
+internal static class AutomaticRecoveryPolicy
+{
+    internal static bool ShouldStart(AgentOptions options, bool inAgentMode, bool inputRedirected, bool outputRedirected)
+    {
+        if (!options.Enabled)
+            return false;
+        if (options.AutoRecovery is null)
+            throw new ArgumentException("agent.autoRecovery must contain a valid enabled setting.", nameof(options));
+        if (!options.AutoRecovery.Enabled || inAgentMode)
+            return false;
+
+        var settings = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Automatic);
+        return !settings.IsInteractive || (!inputRedirected && !outputRedirected);
+    }
+}

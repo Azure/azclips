@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Agent;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
@@ -47,6 +48,13 @@ public static class AgentModeEntry
         TraceAgentRenderer? trace = null;
         try
         {
+            var request = await ManualRecoveryInput.ReadAsync(args, cts.Token);
+            if (request is not null)
+            {
+                failedCommand = request.Failure.FailedCommand;
+                errorText = request.Failure.ErrorText;
+            }
+
             // Constructing the provider builds the TracerProvider and attaches the
             // listener every span here depends on. DI singletons are lazy, so this
             // resolve is what triggers it. The container disposes it in the finally,
@@ -59,19 +67,29 @@ public static class AgentModeEntry
             using var session = telemetry.ActivitySource.StartActivity(
                 "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
             session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+            if (request is not null)
+            {
+                session?.SetTag(TelemetryTags.TenantId, request.TenantId);
+                session?.SetTag(TelemetryTags.DataBoundary, request.DataBoundary);
+            }
 
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
-            session?.SetTag(TelemetryTags.RecoverySessionStyle, agentOpts.SessionStyle);
+            if (request is not null && !agentOpts.Enabled)
+                throw new InvalidOperationException("Agent features are disabled. Enable agent.enabled before troubleshooting.");
+            var recoverySettings = RecoverySessionSettings.Resolve(
+                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic);
+            session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryTrigger, request is null ? "automatic" : "manual");
             session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
-            var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
+            var entrypoint  = recoverySettings.IsInteractive ? "inline" : "oneshot";
             // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
-            var quiet = !agentOpts.IsInteractive;
+            var quiet = !recoverySettings.IsInteractive;
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
@@ -137,7 +155,8 @@ public static class AgentModeEntry
                     entrypoint: entrypoint,
                     spinner: spinner,
                     failedCommand: failedCommand,
-                    ct: cts.Token);
+                    ct: cts.Token,
+                    recoverySettings: recoverySettings);
             }
             await using var agentScope = agent;
             agentRef = agent;
@@ -145,15 +164,27 @@ public static class AgentModeEntry
             // outcome, ConsoleAgentRenderer drops any trailing prose the model
             // streams past the terminator — independent of whether tracing is on.
             agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
-            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = agentOpts.SessionStyle });
+            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = recoverySettings.SessionStyle });
 
-            var firstPrompt = string.IsNullOrWhiteSpace(errorText)
-                ? $"I tried `{failedCommand}` but it failed. Help me fix it."
-                : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
+            var firstPrompt = request is not null
+                ? ManualRecoveryInput.BuildPrompt(request.Failure)
+                : string.IsNullOrWhiteSpace(errorText)
+                    ? $"I tried `{failedCommand}` but it failed. Help me fix it."
+                    : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 
-            var interactive = agentOpts.IsInteractive;
+            var interactive = recoverySettings.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            if (request is not null)
+            {
+                var hasResult = agent.SubmitRendered || agent.HasPendingPlan;
+                var exit = GetManualExitCode(agent.LastError, cts.Token, hasResult);
+                if (!hasResult && agent.LastError is null && !cts.IsCancellationRequested)
+                    WriteColor(ConsoleColor.Red, "AI diagnosis ended without a recovery plan or final response.");
+                session?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :
+                    exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
+                return exit;
+            }
             session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
@@ -172,6 +203,10 @@ public static class AgentModeEntry
             AzclipsServiceProvider.Dispose();
         }
     }
+
+    internal static int GetManualExitCode(
+        SessionErrored? terminalError, CancellationToken cancellationToken, bool hasResult = true) =>
+        terminalError is not null ? 1 : cancellationToken.IsCancellationRequested ? 130 : hasResult ? 0 : 1;
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,

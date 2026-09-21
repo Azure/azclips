@@ -16,6 +16,8 @@ internal sealed class SessionState
     // oneshot: single turn, plan then submit_response closes. interactive: plan is
     // approved via y/n and execution proceeds, then submit_response closes.
     public bool IsOneShot { get; set; }
+    public bool IsManualRecovery { get; set; }
+    public IReadOnlySet<string> AllowedManualTools { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     // Set when any plan was rendered this session. Informational only —
     // submit_response is the sole terminator, so this no longer ends the turn.

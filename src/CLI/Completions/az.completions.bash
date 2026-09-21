@@ -10,6 +10,8 @@
 # Uppercase in stdout marks the binary as non-azclips. The result is cached per exe.
 # Completions are cached for the current shell session and invalidated if the resolved exe path
 # changes (e.g., after an update) or if the config file changes.
+# Saved failure IDs use `--completion-values troubleshoot --id [prefix]` afresh
+# on every Tab press, separately from the static command-candidate cache.
 # To refresh manually, run: _az_clear_cache
 
 # Resolve config path once at source time.
@@ -91,6 +93,23 @@ _az_query_candidates() {
     _az_cache_key="$cache_key"
 }
 
+# ID output is untrusted: require a successful query containing only complete GUIDs.
+_az_query_troubleshoot_ids() {
+    _az_query_result=""
+    local exe="$1" prefix="$2"
+    [[ -n "$exe" && "$_az_not_azclips" != "$exe" ]] || return 1
+    [[ "$prefix" =~ ^[0-9a-fA-F]{0,32}$ ]] || return 1
+
+    local raw candidate
+    raw="$("$exe" --completion-values troubleshoot --id "$prefix" 2>/dev/null)" || return 1
+    raw="${raw//$'\r'/}"
+    [[ "$raw" =~ ^[[:space:]0-9a-fA-F]*$ ]] || return 1
+    for candidate in $raw; do
+        [[ "$candidate" =~ ^[0-9a-fA-F]{32}$ && "$candidate" != 00000000000000000000000000000000 ]] || return 1
+    done
+    _az_query_result="$raw"
+}
+
 # Session cache (persists until exe path/config stamp/context changes).
 _az_cache_candidates=""
 _az_cache_exe=""
@@ -100,6 +119,7 @@ _az_query_result=""
 _az_not_azclips=""
 
 _az_completions() {
+    COMPREPLY=()
     # Resolve the actual exe from what the user typed
     local exe=""
     local typed_cmd="${COMP_WORDS[0]}"
@@ -124,6 +144,29 @@ _az_completions() {
         cword=$COMP_CWORD
     }
 
+    local completing_id=false id_prefix="" completion_prefix=""
+    if [[ "${words[1]}" == [tT][rR][oO][uU][bB][lL][eE][sS][hH][oO][oO][tT] ]] && (( cword > 1 )); then
+        if [[ "$cur" == --[iI][dD]=* ]]; then
+            completing_id=true
+            id_prefix="${cur#*=}"
+            completion_prefix="${cur%%=*}="
+        elif [[ "$prev" == --[iI][dD] ]]; then
+            completing_id=true
+            [[ "$cur" != "=" ]] && id_prefix="$cur"
+        elif [[ "$prev" == "=" && "${words[cword-2]}" == --[iI][dD] ]]; then
+            completing_id=true
+            id_prefix="$cur"
+        fi
+    fi
+    if $completing_id; then
+        _az_query_troubleshoot_ids "$exe" "$id_prefix" || return
+        local id
+        for id in $_az_query_result; do
+            COMPREPLY+=("$completion_prefix$id")
+        done
+        return
+    fi
+
     # Build the command path: the leading run of non-flag words after the exe,
     # excluding the word currently being completed. The CLI walks this path through
     # the command tree, so command groups of any depth resolve (top-level groups,
@@ -145,7 +188,7 @@ _az_completions() {
     local -a used_params=()
     for ((i=1; i<cword; i++)); do
         if [[ "${words[i]}" == --* ]]; then
-            used_params+=("${words[i]}")
+            used_params+=("${words[i]%%=*}")
         fi
     done
 

@@ -1,8 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
+using Core.Cli.Help;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
@@ -83,6 +86,97 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
+    /// Handles <c>az --completion-values troubleshoot --id [prefix] [--json]</c>.
+    /// Reads only the ID/timestamp index, without discovery, decryption, or AI.
+    /// Values are queried on every completion request rather than cached with the command tree.
+    /// </summary>
+    public static Task<int?> TryHandleValuesAsync(string[] args, ClientType clientType)
+        => TryHandleValuesAsync(
+            args,
+            IsCompletionEnabled,
+            () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
+            Console.Out,
+            Console.Error);
+
+    internal static async Task<int?> TryHandleValuesAsync(
+        string[] args,
+        Func<bool> isCompletionEnabled,
+        Func<IFailureHistoryStore> historyProvider,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken = default)
+    {
+        if (args.Length == 0 || args[0] != "--completion-values")
+        {
+            return null;
+        }
+
+        var json = args[^1].Equals("--json", StringComparison.OrdinalIgnoreCase);
+        var valueEnd = args.Length - (json ? 1 : 0);
+        var prefix = valueEnd == 4 ? args[3] : string.Empty;
+        if (valueEnd is not (3 or 4) ||
+            !args[1].Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase) ||
+            !args[2].Equals("--id", StringComparison.OrdinalIgnoreCase) ||
+            prefix.Length > 32 || !prefix.All(char.IsAsciiHexDigit))
+        {
+            await error.WriteLineAsync(
+                "Invalid completion request. Use az --completion-values troubleshoot --id [hex-prefix] [--json].");
+            return 2;
+        }
+
+        if (!isCompletionEnabled())
+        {
+            if (json)
+            {
+                await output.WriteLineAsync("[]");
+            }
+            return 0;
+        }
+
+        IReadOnlyList<FailureHistoryEntry> index;
+        try
+        {
+            index = await historyProvider().ReadIndexAsync(cancellationToken)
+                ?? throw new InvalidDataException("The failure history index is missing.");
+        }
+        catch (Exception ex) when (ex is FailureHistoryException or IOException or UnauthorizedAccessException
+            or System.Security.SecurityException or JsonException or InvalidOperationException or OperationCanceledException)
+        {
+            // Store diagnostics may contain local paths or record content; never echo them to the shell.
+            await error.WriteLineAsync("Unable to read the local failure history index for completion.");
+            return 1;
+        }
+
+        var values = index
+            .Where(entry => entry is not null && IsFailureId(entry.Id) &&
+                entry.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(entry => entry.OccurredAtUtc)
+            .ThenBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(entry =>
+            {
+                var value = entry.Id.ToLowerInvariant();
+                var timestamp = entry.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+                var label = $"{value} ({timestamp})";
+                return new { value, label, description = label };
+            })
+            .ToArray();
+
+        if (json)
+        {
+            await output.WriteLineAsync(JsonSerializer.Serialize(values));
+        }
+        else if (values.Length > 0)
+        {
+            await output.WriteLineAsync(string.Join('\n', values.Select(entry => entry.value)));
+        }
+        return 0;
+    }
+
+    private static bool IsFailureId(string? id)
+        => id is { Length: 32 } && Guid.TryParseExact(id, "N", out var parsed) && parsed != Guid.Empty;
+
+    /// <summary>
     /// Resolves the configuration service and reports whether shell tab-completion
     /// is enabled. Isolated so the DI lookup can fail independently of the config read.
     /// </summary>
@@ -141,17 +235,7 @@ internal static class CompletionGenerator
     {
         // Verb ownership requires discovery; filter output post-hoc.
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
-        var filteredCommands = discoveredCommands
-            .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
-                || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrWhiteSpace(subcommand))
-        {
-            var requestedKey = $"{commandGroupName} {subcommand}";
-            filteredCommands = filteredCommands.Where(kvp => kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
-        }
-
-        var tree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
+        var tree = CreateCompletionTree(discoveredCommands, commandGroupName, subcommand);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -164,7 +248,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
-        var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
+        var tree = CreateCompletionTree(discoveredCommands);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -194,7 +278,7 @@ internal static class CompletionGenerator
         {
             // Level 0: top-level group names from full discovery.
             var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
-            var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
+            var fullTree = CreateCompletionTree(allCommands);
             Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
             return 0;
         }
@@ -225,7 +309,7 @@ internal static class CompletionGenerator
         var candidates = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (invocationName, meta) in commands)
+        foreach (var (invocationName, meta) in IncludeIntrinsicCommands(commands))
         {
             var tokens = invocationName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (!IsPrefix(pathContext, tokens))
@@ -258,6 +342,57 @@ internal static class CompletionGenerator
 
         candidates.Sort(StringComparer.OrdinalIgnoreCase);
         return candidates;
+    }
+
+    internal static Dictionary<string, object> CreateCompletionTree(
+        IEnumerable<KeyValuePair<string, CommandMetadata>> commands,
+        string? commandGroupName = null,
+        string? subcommand = null)
+    {
+        var completionCommands = IncludeIntrinsicCommands(commands);
+        var scopedToVerb = !string.IsNullOrEmpty(commandGroupName);
+        if (scopedToVerb)
+        {
+            completionCommands = completionCommands.Where(kvp =>
+                kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase) ||
+                kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(subcommand))
+            {
+                var requestedKey = $"{commandGroupName} {subcommand}";
+                completionCommands = completionCommands.Where(kvp =>
+                    kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        return BuildCompletionTree(completionCommands, scopedToVerb);
+    }
+
+    private static IEnumerable<KeyValuePair<string, CommandMetadata>> IncludeIntrinsicCommands(
+        IEnumerable<KeyValuePair<string, CommandMetadata>> commands)
+    {
+        foreach (var command in commands)
+        {
+            if (!command.Key.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return command;
+            }
+        }
+
+        // This command belongs to the CLI, not an installed Agent extension.
+        yield return new(IntrinsicVerbs.Troubleshoot, new CommandMetadata(
+            Name: IntrinsicVerbs.Troubleshoot,
+            InvocationName: IntrinsicVerbs.Troubleshoot,
+            Aliases: [],
+            FullName: IntrinsicVerbs.Troubleshoot,
+            AssemblyName: string.Empty,
+            ProcessorType: typeof(CompletionGenerator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"] = new("id", "Id", typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["list"] = new("list", "List", typeof(bool), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()));
     }
 
     /// <summary>

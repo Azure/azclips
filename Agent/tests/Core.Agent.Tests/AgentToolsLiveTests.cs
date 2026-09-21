@@ -92,16 +92,18 @@ public class AgentToolsLiveTests
         Assert.True(az is not null,
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
-        // Snapshot the two config keys we must flip, so we can restore the user's
+        // Snapshot the config keys we must flip, so we can restore the user's
         // installed config exactly — a post-install smoke test must not leave the
         // machine mutated. Restore happens in finally regardless of outcome.
         var savedEnabled = await SnapshotConfigAsync(az!, "agent.enabled");
+        var savedAutomatic = await SnapshotConfigAsync(az!, "agent.autoRecovery.enabled");
         var savedStyle = await SnapshotConfigAsync(az!, "agent.sessionStyle");
         try
         {
             // The agent subprocess only spawns when agent.enabled=true and the
             // session style is oneshot (interactive needs a TTY we don't have here).
             await RunAsync(az!, "config", "set", "--key", "agent.enabled", "--value", "true");
+            await RunAsync(az!, "config", "set", "--key", "agent.autoRecovery.enabled", "--value", "true");
             await RunAsync(az!, "config", "set", "--key", "agent.sessionStyle", "--value", "oneshot");
 
             var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
@@ -126,6 +128,7 @@ public class AgentToolsLiveTests
         finally
         {
             await RestoreConfigAsync(az!, "agent.enabled", savedEnabled);
+            await RestoreConfigAsync(az!, "agent.autoRecovery.enabled", savedAutomatic);
             await RestoreConfigAsync(az!, "agent.sessionStyle", savedStyle);
         }
     }

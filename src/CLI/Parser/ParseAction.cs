@@ -16,6 +16,8 @@ namespace Core.Cli.Parser;
 /// </summary>
 public abstract class ParseAction
 {
+    public virtual bool TakesValue => false;
+
     /// <summary>
     /// Called when <paramref name="args"/>[<paramref name="index"/>] matched this flag's name
     /// or one of its aliases. Returns the number of tokens consumed (typically 1 for boolean
@@ -54,6 +56,7 @@ internal sealed class BoolToggleAction : ParseAction
 /// </summary>
 internal sealed class OutputFormatAction : ParseAction
 {
+    public override bool TakesValue => true;
     private static string Choices => KnownGlobalFlags.All.First(f => f.Name == "--output").Choices!;
 
     public override int Apply(GlobalArgsBuilder builder, ReadOnlySpan<string> args, int index)
@@ -104,6 +107,7 @@ internal sealed class OutputFormatAction : ParseAction
 /// </summary>
 internal sealed class QueryAction : ParseAction
 {
+    public override bool TakesValue => true;
     public override int Apply(GlobalArgsBuilder builder, ReadOnlySpan<string> args, int index)
     {
         var token = args[index];

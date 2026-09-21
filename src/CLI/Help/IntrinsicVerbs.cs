@@ -31,10 +31,12 @@ public static class IntrinsicVerbs
 {
     /// <summary>Canonical name of the <c>version</c> intrinsic (<c>az version</c> / <c>az --version</c>).</summary>
     public const string Version = "version";
+    public const string Troubleshoot = "troubleshoot";
 
     private static readonly IReadOnlyList<IntrinsicVerb> s_all =
     [
         new IntrinsicVerb(Version, AllowFlagForm: true),
+        new IntrinsicVerb(Troubleshoot, AllowFlagForm: false),
     ];
 
     private static readonly IReadOnlyDictionary<string, IntrinsicVerb> s_byName =
@@ -42,6 +44,25 @@ public static class IntrinsicVerbs
 
     /// <summary>All intrinsic host verbs and their metadata (the single source of truth).</summary>
     public static IReadOnlyList<IntrinsicVerb> All => s_all;
+
+    internal static RuntimeHelpCommand CreateHelp(string canonicalVerb)
+    {
+        var markdown = MarkdownCommandHelpProvider.Get(canonicalVerb, string.Empty);
+        var parameters = canonicalVerb == Troubleshoot
+            ? new[]
+            {
+                new RuntimeHelpParameter("id", [], false, "Analyze the saved failure with this ID. Omit to use the latest record.",
+                    "Saved failure ID.", [], "Default", false, false),
+                new RuntimeHelpParameter("list", [], false, "List saved failures without calling AI. Cannot be combined with --id.",
+                    "List saved failures.", [], "Default", false, false),
+            }
+            : Array.Empty<RuntimeHelpParameter>();
+        return new(
+            canonicalVerb, markdown.Summary, markdown.Description, parameters,
+            markdown.Examples.Where(example => !example.IsPowerShell)
+                .Select(example => new RuntimeHelpExample(example.Title, example.Command)).ToArray(),
+            []);
+    }
 
     /// <summary>
     /// Resolves the canonical intrinsic verb for a group token. The bare verb (<c>version</c>) is

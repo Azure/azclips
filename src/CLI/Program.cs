@@ -3,12 +3,14 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Output;
 using Core.Cli.Parser;
+using Core.Cli.Recovery;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
 using Core.Configuration.Options;
@@ -39,11 +41,13 @@ public class Program
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
+    private static string? _lastStreamError;
 
     private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
+        _lastStreamError = null;
         var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -83,6 +87,10 @@ public class Program
 
         // Post-DI utility modes: completion generation needs the container to resolve
         // IEngine, but still returns before the root activity starts — no telemetry.
+        int? valuesExit = await CompletionGenerator.TryHandleValuesAsync(args, _clientType);
+        if (valuesExit.HasValue)
+            return valuesExit.Value;
+
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
@@ -90,6 +98,9 @@ public class Program
         int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
+
+        if (GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot))
+            return await TroubleshootCommand.RunAsync(args, _cancellationTokenSource.Token);
 
         using (performance.Measure("AzureCLI.Startup.Services"))
         {
@@ -205,8 +216,12 @@ public class Program
         }
         catch (HttpRequestException ex)
         {
+            if (!string.Equals(_lastStreamError, ex.Message, StringComparison.Ordinal))
+                _logger?.Error(ex.Message);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed);
 
             return await StopRootThenFallbackAsync(
                 activity,
@@ -225,24 +240,29 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
+                EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
         }
         catch (AzclipsErrorException ex)
         {
+            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
+                EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
 
             // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
+            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -252,6 +272,8 @@ public class Program
 
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
+            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed);
 
             return await StopRootThenFallbackAsync(
                 activity,
@@ -285,7 +307,8 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
-                ConsoleSink.Error(value?.ToString() ?? string.Empty);
+                _lastStreamError = value?.ToString() ?? string.Empty;
+                ConsoleSink.Error(_lastStreamError);
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>
@@ -401,7 +424,9 @@ public class Program
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
+    internal static void EmitStructuredError(
+        AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor,
+        CommandInvocation? invocation, FailureCaptureResult? failure = null)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
@@ -409,15 +434,19 @@ public class Program
 
         if (format is OutputFormat.Json or OutputFormat.Jsonc)
         {
-            var payload = new
+            var payload = new Dictionary<string, object?>
             {
-                error = new
+                ["error"] = new
                 {
                     code = ex.Code,
                     message,
                     details = ex.Details,
                 },
             };
+            if (failure?.Recovery is { } recovery)
+                payload["recovery"] = recovery;
+            if (failure?.Warning is { } warning)
+                payload["recoveryWarning"] = warning;
             var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
             {
                 WriteIndented = true,
@@ -429,6 +458,42 @@ public class Program
         {
             ConsoleSink.Error($"[{ex.Code}] {message}");
         }
+    }
+
+    private static Task<FailureCaptureResult> CaptureFailureAsync(
+        string[] args, string[] positional, Exception error, int exitCode,
+        CommandInvocation? invocation, Activity? activity) =>
+        FailureCapture.SaveAsync(
+            args, JoinShellQuoted(positional), error, exitCode, invocation?.CommandName, activity,
+            () => _configurationService!.GetConfiguration<AgentOptions>(),
+            () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
+            Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
+            _cancellationTokenSource.Token);
+
+    internal static void EmitRecoveryDiagnostic(
+        FailureCaptureResult result, OutputFormat format, bool color,
+        bool structuredErrorAlreadyWritten = false)
+    {
+        if (result.Recovery is null && result.Warning is null)
+            return;
+        if (format is OutputFormat.Json or OutputFormat.Jsonc)
+        {
+            if (structuredErrorAlreadyWritten)
+                return;
+            var payload = new Dictionary<string, object?>();
+            if (result.Recovery is { } recovery)
+                payload["recovery"] = recovery;
+            if (result.Warning is { } warning)
+                payload["recoveryWarning"] = warning;
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            Console.Error.WriteLine(format == OutputFormat.Jsonc && color ? JsonColorizer.Colorize(json) : json);
+            return;
+        }
+
+        if (result.Warning is not null)
+            ConsoleSink.Warn(result.Warning);
+        if (result.ShowHint && result.Entry is not null)
+            Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot --id {result.Entry.Id}");
     }
 
     /// <summary>
@@ -494,6 +559,7 @@ public class Program
 
         // Null when telemetry is off and no recovery span exists. Leave the variable
         // absent in that case rather than setting it to an empty string.
+        psi.Environment.Remove(RecoveryTraceparentEnvVar);
         if (!string.IsNullOrEmpty(recoveryTraceparent))
             psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
 
@@ -521,7 +587,9 @@ public class Program
         {
             var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             agentOptions = config.GetConfiguration<AgentOptions>();
-            if (!agentOptions.Enabled)
+            if (!AutomaticRecoveryPolicy.ShouldStart(
+                agentOptions, Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
+                Console.IsInputRedirected, Console.IsOutputRedirected))
             {
                 return 1;
             }
@@ -529,26 +597,6 @@ public class Program
         catch (Exception ex)
         {
             _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
-            return 1;
-        }
-
-        // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
-        // = interactive keeps a chat loop that reads y/n approvals and prompts from
-        // the terminal, so a non-TTY (CI, a pipe, an unattended script) would hang or
-        // spew; surface the original error instead. oneshot proposes a plan and exits
-        // without any approval turn, so it's safe (and useful) even when stdio is
-        // redirected — don't gate it. Inlined (not the agent's ConsoleEnvironment
-        // helper) so Core.Cli stays decoupled from Core.Agent — same TTY semantics.
-        if (agentOptions.IsInteractive &&
-            (Console.IsInputRedirected || Console.IsOutputRedirected))
-        {
-            return 1;
-        }
-
-        // Recursion guard: a failed az invoked by powershell from inside an
-        // already-running agent process must NOT spawn another agent.
-        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
-        {
             return 1;
         }
 
@@ -570,6 +618,7 @@ public class Program
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
         }
         recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
+        recovery?.SetTag(TelemetryTags.RecoveryTrigger, "automatic");
         recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
 
         try
@@ -640,7 +689,7 @@ public class Program
     internal static string GetCommandGroupFromArgs(string[] args) =>
         args.Length == 0 || args[0].StartsWith('-') ? string.Empty : args[0];
 
-    private static string? FindAgentExe()
+    internal static string? FindAgentExe()
     {
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
@@ -666,7 +715,7 @@ public class Program
     /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
-    private static void SpawnTelemetryUploader()
+    internal static void SpawnTelemetryUploader()
     {
         try
         {

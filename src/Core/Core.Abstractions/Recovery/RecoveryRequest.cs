@@ -12,6 +12,7 @@ public enum RecoveryTrigger
 public sealed record RecoveryRequest
 {
     public const int CurrentSchemaVersion = 1;
+    public const string InputPipeArgument = "--recovery-input";
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public RecoveryTrigger Trigger { get; init; } = RecoveryTrigger.Manual;

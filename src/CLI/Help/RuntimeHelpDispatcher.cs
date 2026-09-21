@@ -106,6 +106,11 @@ public sealed class RuntimeHelpDispatcher
         }
 
         var verb = path[0];
+        if (IntrinsicVerbs.TryResolve(verb, out _) && path.Count == 1 &&
+            TryRenderIntrinsicHelp(verb, out var hostExitCode))
+        {
+            return hostExitCode;
+        }
         // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
 
@@ -194,19 +199,7 @@ public sealed class RuntimeHelpDispatcher
             return false;
         }
 
-        var markdown = MarkdownCommandHelpProvider.Get(canonicalVerb, string.Empty);
-        var examples = markdown.Examples
-            .Where(static example => !example.IsPowerShell)
-            .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
-            .ToList();
-
-        var command = new RuntimeHelpCommand(
-            CommandPath: canonicalVerb,
-            Summary: markdown.Summary,
-            Description: markdown.Description,
-            Parameters: [],
-            Examples: examples,
-            Tags: []);
+        var command = IntrinsicVerbs.CreateHelp(canonicalVerb);
 
         WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
         return true;

@@ -96,6 +96,9 @@ block.
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
+| `properties.recovery.trigger`      | recovery / `Agent.Session`  | `manual` or `automatic`                         |
+| `properties.recovery.requestTraceId` | manual recovery root       | Trace id of the new troubleshoot invocation     |
+| `properties.recovery.requestSpanId`  | manual recovery root       | Root span id of the new troubleshoot invocation |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
@@ -115,6 +118,21 @@ The agent's `ActivitySource` is named `CLI`, matching the CLI's. `FileExporter` 
 `service.name` from `ActivitySource.Name` and `TraceUploader` rebuilds parent/child edges
 only within a service-name group, so any other name would detach the agent's spans from
 their parent on upload.
+
+Explicit troubleshooting creates a new recovery attempt. Its `command.traceId`/`command.spanId`
+refer to the saved original failure when available; the request identifiers refer to the new
+`troubleshoot` invocation. Historical identifiers are correlation only, not an instruction to
+resume an ended parent span. The effective session style is always `oneshot` for manual recovery,
+even when the configured automatic style is `interactive`.
+
+The current tenant and `dataBoundary` routing metadata accompany the manual process handoff and
+are applied to the agent session before its child activities begin. Traceparent does not itself
+carry these routing tags. Local history listing and value completion bypass telemetry startup
+and its profile/auth/data-boundary network resolution.
+
+The encrypted history and the private process-input pipe are not telemetry sources. Do not attach
+raw arguments, error details, input payloads, or encryption keys to activities. One-shot completion
+does not establish plan adoption, successful execution, or resolution of the original failure.
 
 
 ### HTTP Tags (Auto-instrumented)
