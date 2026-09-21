@@ -51,6 +51,12 @@ The matrix generator accepts `latest` only for native Windows OS versions, not
 for container, PowerShell or .NET versions. Keep hosted-agent aliases out of
 numeric version comparisons. Matrix self-tests run locally and in GitHub Actions;
 Azure DevOps retains generation and module validation without that self-test step.
+The repository matrix pins Windows 2022 and 2025; standalone fixtures cover
+`windows-latest` alias support without adding that moving image to production.
+The generator preserves `DistributionPool` and also emits routing fields:
+`DistributionPoolName` is the configured `pool-*` name with an empty
+`DistributionVmImage`, or `Azure Pipelines` with the hosted image label.
+Apply this routing after global and per-distribution overrides.
 
 ## Path Resolution Convention (Bash)
 Scripts resolve their own location and derive roots from it, allowing env-var overrides —

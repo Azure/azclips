@@ -590,6 +590,13 @@ emit_entry() {
     pool="$override"
   fi
 
+  # Shared pipeline configuration uses pool-* for named pools, not hosted images.
+  local pool_name="Azure Pipelines" vm_image="$pool"
+  if [[ "${pool,,}" == pool-* ]]; then
+    pool_name="$pool"
+    vm_image=""
+  fi
+
   local unsupported_suffix=""
   [ "$unsupported" = "true" ] && unsupported_suffix=" (unsupported)"
   matrix_key="$(get_matrix_key "$distribution_id" "$version" "$powershell_version" "$unsupported")" || return 1
@@ -605,6 +612,8 @@ emit_entry() {
     --arg script "$distribution_script" \
     --arg mode "$execution_mode" \
     --arg pool "$pool" \
+    --arg pool_name "$pool_name" \
+    --arg vm_image "$vm_image" \
     --arg powershell "$powershell_version" \
     --arg az "$az_module_version" \
     --arg runtime "$dotnet_runtime" \
@@ -618,6 +627,8 @@ emit_entry() {
         DistributionFamily: $family,
         DistributionScript: $script,
         DistributionPool: $pool,
+        DistributionPoolName: $pool_name,
+        DistributionVmImage: $vm_image,
         ValidationMode: $mode,
         PowerShellVersion: $powershell,
         AzVersion: $az,

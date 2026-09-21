@@ -246,7 +246,7 @@ function Read-Condition
         if (-not $Variables.ContainsKey($name)) { throw "Unknown condition variable: $name" }
         return $Variables[$name]
     }
-    $match = [regex]::Match($remaining, '^parameters\.([A-Za-z]+)')
+    $match = [regex]::Match($remaining, '^parameters\.([A-Za-z_]+)')
     if ($match.Success)
     {
         $Position.Value += $match.Length
@@ -291,6 +291,7 @@ function Read-Condition
         'or' { return $arguments.Contains($true) }
         'eq' { return $arguments[0] -eq $arguments[1] }
         'ne' { return $arguments[0] -ne $arguments[1] }
+        'startsWith' { return $arguments[0].StartsWith($arguments[1], [StringComparison]::OrdinalIgnoreCase) }
         'in' { return $arguments.GetRange(1, $arguments.Count - 1).Contains($arguments[0]) }
         default { throw "Unsupported condition function: $functionName" }
     }
@@ -821,6 +822,33 @@ exit $LASTEXITCODE
     Assert-Contains $matrixJob '- PreparePowerShellUpgradeBaseline' 'Matrix waits for the frozen upgrade baseline'
     Assert-Contains $matrixJob "condition: and(not(canceled()), in(dependencies.GeneratePowerShellValidationMatrix.result, 'Succeeded', 'SucceededWithIssues'))" 'Baseline preparation failure does not suppress independent validation'
     $baselineJob = [regex]::Match($job, '(?ms)^- job: PreparePowerShellUpgradeBaseline\r?\n(?<body>.*?)(?=^- job:|\z)').Groups['body'].Value
+    foreach ($preparationJob in $preMatrixJob, $baselineJob)
+    {
+        $poolBlock = [regex]::Match($preparationJob, '(?ms)^  pool:\r?\n(?<body>.*?)(?=^  steps:)').Groups['body'].Value
+        $branches = [regex]::Matches($poolBlock,
+            '(?m)^    \$\{\{ (?<selector>if (?<expression>.+)|else) \}\}:\r?\n      (?<key>name|vmImage): (?<value>.+)\r?$')
+        Assert-Equal 2 $branches.Count 'Preparation jobs distinguish named pools from hosted images'
+        foreach ($poolValue in 'pool-ubuntu-2204', 'POOL-ubuntu-2204', 'ubuntu-latest', 'ubuntu-24.04')
+        {
+            $selected = $null
+            foreach ($branch in $branches)
+            {
+                if ($branch.Groups['selector'].Value -eq 'else' -or
+                    (Test-Condition $branch.Groups['expression'].Value @{ 'parameters.ubuntu_pool' = $poolValue }))
+                {
+                    $selected = $branch
+                    break
+                }
+            }
+            $expectedKey = if ($poolValue -like 'pool-*') { 'name' } else { 'vmImage' }
+            Assert-Equal $expectedKey $selected.Groups['key'].Value "Preparation pool routing for $poolValue"
+            Assert-Equal '${{ parameters.ubuntu_pool }}' $selected.Groups['value'].Value.Trim() 'Pool selection preserves the caller value'
+        }
+    }
+    Assert-Equal $true ([regex]::IsMatch($matrixJob, '(?m)^  pool:\r?\n    name: \$\(DistributionPoolName\)\r?\n    vmImage: \$\(DistributionVmImage\)\r?$')) 'Matrix uses separate agent-pool and hosted-image fields'
+    Assert-Equal $false ($matrixJob.Contains('vmImage: $(DistributionPool)')) 'Raw named pool values never become image labels'
+    Write-Host 'PASS: named and hosted pool routing for preparation and matrix jobs'
+    $count++
     Assert-Contains $baselineJob 'persistCredentials: true' 'Private release download uses built-in checkout authentication'
     Assert-Contains $baselineJob '-UseCheckoutCredentials' 'Authentication stays in baseline preparation'
     Assert-Contains $baselineJob 'git config --local --unset-all $header' 'Persisted credentials are removed after acquisition'

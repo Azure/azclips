@@ -122,6 +122,14 @@ Windows/macOS entries use their platform bootstrap and must not enable container
 registry discovery. Use `--pool` for container host overrides and `--pool-for
 <id>=<image>` for a particular native platform.
 
+Pool values beginning with `pool-` are named Azure DevOps pools, such as
+`pool-ubuntu-2204`; other values retain hosted-image semantics, such as
+`ubuntu-latest`, `windows-2025`, and `macOS-15-arm64`. The preparation jobs and
+generated matrix both honor this distinction. Matrix output retains
+`DistributionPool` for diagnostics and separately emits `DistributionPoolName`
+and `DistributionVmImage` for routing. Named pools have an empty image field;
+hosted images use the `Azure Pipelines` pool.
+
 ## Validation artifacts
 
 The pre-matrix job publishes `Validate_PS_Smoke_Coverage` once. Its

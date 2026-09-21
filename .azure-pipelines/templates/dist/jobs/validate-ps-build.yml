@@ -19,7 +19,10 @@ jobs:
 - job: GeneratePowerShellValidationMatrix
   displayName: Generate PS Validation Matrix
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    ${{ if startsWith(parameters.ubuntu_pool, 'pool-') }}:
+      name: ${{ parameters.ubuntu_pool }}
+    ${{ else }}:
+      vmImage: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true
@@ -90,7 +93,10 @@ jobs:
 - job: PreparePowerShellUpgradeBaseline
   displayName: Prepare Released PowerShell Upgrade Baseline
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    ${{ if startsWith(parameters.ubuntu_pool, 'pool-') }}:
+      name: ${{ parameters.ubuntu_pool }}
+    ${{ else }}:
+      vmImage: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: self
     clean: true
@@ -142,7 +148,8 @@ jobs:
   strategy:
     matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
   pool:
-    vmImage: $(DistributionPool)
+    name: $(DistributionPoolName)
+    vmImage: $(DistributionVmImage)
   steps:
   - checkout: self
     clean: true

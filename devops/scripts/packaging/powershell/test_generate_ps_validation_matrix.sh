@@ -471,6 +471,35 @@ assert_equals "ubuntu-latest" \
   "$(jq -r '.alpine_3_23_ps7_6.DistributionPool' <<<"$output")" "other pools untouched"
 end_test
 
+start_test "named container pools are not hosted image labels"
+output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
+  --config "$WORK_DIR/native.json" --skip-version-check --pool pool-ubuntu-2204)"
+assert_equals "0" "$?" "exit code"
+assert_equals "pool-ubuntu-2204" \
+  "$(jq -r '.alpine_3_23_ps7_6.DistributionPoolName' <<<"$output")" "named Linux pool"
+assert_equals "" \
+  "$(jq -r '.alpine_3_23_ps7_6.DistributionVmImage' <<<"$output")" "named pool has no image label"
+assert_equals "pool-ubuntu-2204" \
+  "$(jq -r '.alpine_3_23_ps7_6.DistributionPool' <<<"$output")" "diagnostic pool preserved"
+assert_equals "Azure Pipelines" \
+  "$(jq -r '.macos_arm64_15_ps7_6.DistributionPoolName' <<<"$output")" "macOS remains hosted"
+assert_equals "macOS-15-arm64" \
+  "$(jq -r '.macos_arm64_15_ps7_6.DistributionVmImage' <<<"$output")" "macOS image preserved"
+end_test
+
+start_test "routing applies after per-distribution overrides"
+output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
+  --config "$WORK_DIR/native.json" --skip-version-check --pool pool-ubuntu-2204 \
+  --pool-for alpine=ubuntu-24.04 --pool-for macos_arm64=pool-macos-arm64)"
+assert_equals "0" "$?" "exit code"
+assert_equals "Azure Pipelines|ubuntu-24.04" \
+  "$(jq -r '.alpine_3_23_ps7_6 | [.DistributionPoolName, .DistributionVmImage] | join("|")' <<<"$output")" \
+  "explicit hosted override wins over named default"
+assert_equals "pool-macos-arm64|" \
+  "$(jq -r '.macos_arm64_15_ps7_6 | [.DistributionPoolName, .DistributionVmImage] | join("|")' <<<"$output")" \
+  "explicit native named pool"
+end_test
+
 start_test "rejects version checking on native distributions"
 jq '(.distributions[] | select(.id == "macos_arm64") | .versionCheck) =
   { "enabled": true, "repository": "library/macos", "tagPattern": "^([0-9]+)$" }' \
@@ -510,6 +539,9 @@ assert_equals "Windows Server 2025 on PowerShell 7.6" \
   "$(jq -r '.windows_2025_ps7_6.DistributionName' <<<"$output")" "supported windows title"
 assert_equals "windows-2025" \
   "$(jq -r '.windows_2025_ps7_6.DistributionPool' <<<"$output")" "windows pool template"
+assert_equals "Azure Pipelines|windows-2025" \
+  "$(jq -r '.windows_2025_ps7_6 | [.DistributionPoolName, .DistributionVmImage] | join("|")' <<<"$output")" \
+  "Windows hosted routing is preserved"
 assert_equals "windows" \
   "$(jq -r '.windows_2025_ps7_6.DistributionId' <<<"$output")" "windows distribution id"
 assert_equals "devops/scripts/packaging/powershell/windows/windows_install_script.ps1" \
@@ -624,8 +656,8 @@ assert_equals "container,native" \
 assert_equals "macOS-15-arm64 macOS-15" \
   "$(jq -r '[.macos_arm64_15_ps7_6.DistributionPool, .macos_x64_15_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
   "macos pools"
-assert_equals "windows-2022 windows-2025 windows-latest" \
-  "$(jq -r '[.windows_2022_ps7_6.DistributionPool, .windows_2025_ps7_6.DistributionPool, .windows_latest_ps7_6.DistributionPool] | join(" ")' <<<"$output")" \
+assert_equals "windows-2022 windows-2025" \
+  "$(jq -r '[.[] | select(.DistributionId == "windows") | .DistributionPool] | unique | join(" ")' <<<"$output")" \
   "windows pools"
 assert_equals "ubuntu" \
   "$(jq -r '.ubuntu_24_04_ps7_6.DistributionId' <<<"$output")" "ubuntu distribution id"
