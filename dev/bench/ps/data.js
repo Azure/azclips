@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789963643047,
+  "lastUpdate": 1789972982104,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11532,6 +11532,54 @@ window.BENCHMARK_DATA = {
             "value": 2126091.0939419614,
             "unit": "ns",
             "range": "± 64169.478248045554"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83f27105bebeb1619b06b4871b9d970d186530d5",
+          "message": "[Resources] `az group`: Support update command (#929)\n\n**Description**\n- Added CLI support for az group update (part of\nhttps://github.com/Azure/CLIPS/issues/910) *Note: PS support will come\nin a future PR\n- Added CLI docs\n- Added Unit, Script and Scenario Tests\n- Refactored Identity `JsonUpdateHelper` logic to a reusable class for\nGroup Update support\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-21T14:23:52+08:00",
+          "tree_id": "6d3f576c5c765abf44a58353b2838f461df86a3c",
+          "url": "https://github.com/Azure/azclips/commit/83f27105bebeb1619b06b4871b9d970d186530d5"
+        },
+        "date": 1789972978931,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2241263.075989783,
+            "unit": "ns",
+            "range": "± 75666.73574586028"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2300395.5568396724,
+            "unit": "ns",
+            "range": "± 77678.71685276506"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2194209.967948718,
+            "unit": "ns",
+            "range": "± 73403.5219125305"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2134371.8641557344,
+            "unit": "ns",
+            "range": "± 67453.75350323421"
           }
         ]
       }
