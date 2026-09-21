@@ -75,7 +75,7 @@ internal sealed class FakeHttpPipeline : IRuntimeHttpPipeline
 
 internal sealed class FakeEventPublisher : IEventPublisher
 {
-    public CancellationToken Token => CancellationToken.None;
+    public CancellationToken Token { get; init; } = CancellationToken.None;
     public Action Cancel => () => { };
 
     /// <summary>Event ids published through this publisher, in order, for assertions.</summary>
