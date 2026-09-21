@@ -16,7 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { IR_SCHEMA_VERSION, idEquals, parseIR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, idEquals, parseIR, parseTransformedIR, type IR } from "@azure-client-engine/ir";
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
@@ -87,6 +87,21 @@ beforeAll(() => {
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
+
+/**
+ * Parse a captured snapshot, whichever phase it belongs to.
+ *
+ * The document changes shape partway through the sequence: snapshots up to
+ * `create-command` are `IR`, and from it onward `TransformedIR`. Both roots are
+ * strict, so the wrong parser rejects — which is the point, and why this picks by
+ * content rather than assuming a position.
+ */
+function parseSnapshot(file: string): IR {
+  const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
+  return typeof raw === "object" && raw !== null && "commands" in raw
+    ? parseTransformedIR(raw)
+    : parseIR(raw);
+}
 
 describe("ace: dispatch", () => {
   it("prints usage and exits 0 with no args", async () => {
@@ -300,7 +315,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const captures = walkFiles(join(outDir, "ir")).filter((file) => file.endsWith(".json"));
     expect(captures.length).toBeGreaterThan(0);
     for (const file of captures) {
-      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      const ir = parseSnapshot(file);
       expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
       const upload = ir.operations.find((operation) => operation.name === "upload");
       const document = upload?.requestBody?.multipart?.parts.find((part) => part.name === "documents");
@@ -334,7 +349,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const irFiles = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
     expect(irFiles.length).toBeGreaterThan(0);
     for (const file of irFiles) {
-      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      const ir = parseSnapshot(file);
       expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
       expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
       expect(ir.operations.some((o) => o.name === "list")).toBe(true);
@@ -411,7 +426,8 @@ describe("ace compile: stage toggles", () => {
 
     const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
     expect(captures.length).toBeGreaterThan(1);
-    const ir = parseIR(JSON.parse(readFileSync(captures.sort().at(-1)!, "utf8")));
+    // The last snapshot is the command projection — the document the generator sees.
+    const ir = parseSnapshot(captures.sort().at(-1)!);
     const create = ir.operations.find((o) => o.name === "create");
     expect(create?.requestBody?.rendering?.parameters?.length).toBeGreaterThan(0);
   });
@@ -433,10 +449,15 @@ describe("ace compile: stage toggles", () => {
     ]);
     expect(code).toBe(0);
 
-    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
-    expect(captures).toHaveLength(1);
-    const ir = parseIR(JSON.parse(readFileSync(captures[0]!, "utf8")));
-    expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(true);
+    // Emit and the command projection still snapshot; only flattening is gone.
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
+    expect(captures).toHaveLength(2);
+    for (const capture of captures) {
+      const ir = parseSnapshot(capture);
+      expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(
+        true,
+      );
+    }
   });
 
   it("rejects a config that names a stage the compiler does not declare", async () => {

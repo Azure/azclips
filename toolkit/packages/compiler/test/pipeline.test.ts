@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
   TSP_EMIT_STAGE,
   compile,
@@ -75,14 +76,22 @@ const reportingGenerator = (name: string): Generator => ({
 /**
  * Fulfil the shipped catalog's optional stages so a test exercises orchestration
  * rather than tripping over unimplemented ones.
+ *
+ * Overrides are merged per kind, not substituted: a test that replaces one
+ * transform still gets implementations for the others, so adding a stage to the
+ * catalog does not silently break every test that names a different one.
  */
 function defaults(overrides: Partial<Parameters<typeof createRegistry>[0]> = {}): CompileOptions {
   return {
     emit: petsEmit,
     registry: createRegistry({
-      transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }) },
-      generators: { [CSHARP_STAGE]: () => noopGenerator },
-      ...overrides,
+      transforms: {
+        [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }),
+        [CREATE_COMMAND_STAGE]: () => ({ name: CREATE_COMMAND_STAGE, run: (ir) => ir }),
+        ...overrides.transforms,
+      },
+      generators: { [CSHARP_STAGE]: () => noopGenerator, ...overrides.generators },
+      ...(overrides.emitters !== undefined ? { emitters: overrides.emitters } : {}),
     }),
   };
 }
@@ -109,7 +118,10 @@ describe("orchestration: the emit stage", () => {
       {
         registry: createRegistry({
           emitters: { [TSP_EMIT_STAGE]: () => petsEmit },
-          transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }) },
+          transforms: {
+            [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }),
+            [CREATE_COMMAND_STAGE]: () => ({ name: "y", run: (ir) => ir }),
+          },
           generators: { [CSHARP_STAGE]: () => noopGenerator },
         }),
       },
@@ -146,7 +158,12 @@ describe("orchestration: config toggles", () => {
     });
     expect(result.success).toBe(true);
     expect(seen).toEqual([FLATTEN_MODEL_STAGE]);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
+    // Every IR-producing stage snapshots; generate stages take a position but emit none.
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      FLATTEN_MODEL_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
   });
 
   it("skips a stage the config turns off, and the sequence closes up", async () => {
@@ -170,7 +187,7 @@ describe("orchestration: config toggles", () => {
     expect(ran).toBe(false);
     // csharp still ran — it simply moved up the sequence.
     expect(result.files.has(`${CSHARP_STAGE}.txt`)).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, CREATE_COMMAND_STAGE]);
   });
 
   it("fails when an enabled stage has no implementation", async () => {

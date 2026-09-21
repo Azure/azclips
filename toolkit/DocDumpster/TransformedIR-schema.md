@@ -1,0 +1,339 @@
+# The TransformedIR schema
+
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.12.0"`. _(2026-09-21)_
+>
+> Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
+> transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
+> covers the emitter↔transformer contract.
+>
+> The Zod source in `packages/ir/src/command.ts`, `dialect.ts`, `target.ts`, and
+> `ir.ts` is authoritative.
+
+## What it is
+
+`TransformedIR` is `IR` **plus** the two things a generator cannot work without:
+
+```ts
+TransformedIR = IR & {
+  commands: IRCommand[]   // required
+  target:   IRTarget      // required
+}
+```
+
+Two roots rather than one optional field, because the boundaries genuinely differ:
+the emitter *cannot* produce commands and must not reference them; the generator
+*cannot run* without them. Making both required turns "the command stage never ran"
+into a validation failure at the generator boundary instead of a null dereference
+inside it.
+
+```
+IR ──flatten-model──▶ IR ──create-command──▶ TransformedIR ──ps/cli transforms──▶ TransformedIR ──▶ C#
+                                             └──────────────── this document ────────────────┘
+```
+
+| | |
+|---|---|
+| **Produced by** | the `create-command` stage (`@azure-client-engine/transformers`) |
+| **Consumed by** | client transforms (`ps`, `cli`, …) and every generator |
+| **Validated by** | `parseTransformedIR` / `safeParseTransformedIR`, called at the generate boundary |
+| **Enforced by** | the catalog: `csharp` declares `requires: ["create-command"]`, so disabling the projection is a plan-time config error |
+
+Both roots are `.strict()`, so they reject each other's documents — `parseIR` on a
+transformed document fails with *"Unrecognized key(s): 'commands', 'target'"*. That
+is deliberate: it makes the phase detectable rather than assumed.
+
+## Why commands exist
+
+`IROperation` is wire truth; `IRCommand` is a **processor**. Everything the
+generator would otherwise infer is decided once, here:
+
+- the **parameter surface** — previously a union of path/query/header/body computed
+  inside the C# generator, and the only thing client transforms can annotate;
+- the **request path**, as ordered segments instead of a template the generator
+  string-replaces `{wireName}` in;
+- **pagination paths**, resolved to property ids instead of wire segments the
+  generator PascalCases and hopes match;
+- the **surface types** the processor's generics are built from;
+- **names**, resolved with collisions settled.
+
+Commands are a **projection beside** operations, never a replacement:
+`IR.operations` is carried through untouched and every step points back at the
+operation it projects, so a captured document can always be traced to wire truth.
+
+Commands live **flat at the root**. Array order is not meaningful — group by
+`id.group` / `id.action`, never by position.
+
+## Identity
+
+```ts
+IRCommandId = {
+  module:   string   // IRSource.id of the primary operation
+  group:    string   // declaring interface, or the namespace tail
+  action:   string   // what it does: Get, Create, Update
+  variant?: string   // which input surface within the action
+}
+```
+
+Four axes, which is why this is **not an `IRId`**: that has three usable slots
+(`module`, `interface`, `name`), and two sibling commands over one action collide on
+all three. Unlike an `IRId` it is **synthesized** — a command has no declaration
+site — so the transform that creates commands owns its uniqueness.
+
+Deliberately **config-independent**: namespace, project name, and directories are
+placement (`IRTarget`), not identity. Changing the root namespace must not churn
+every command's identity, and with it every captured-IR diff.
+
+| helper | |
+|---|---|
+| `commandKey(id)` | structural key over all four axes |
+| `commandActionKey(id)` | key over `(module, group, action)` — **every sibling variant shares it** |
+
+Siblings are therefore found by an id comparison ignoring `variant`, never by
+parsing a name. A *variant* is a **surface** axis, not a behavioral one: siblings
+share internals and differ in what they expose. Sequencing is `template`'s job.
+
+> **Known gap.** `group` is an interface *name*, so the same interface name under
+> two namespaces derives the same identity. `create-command` reports
+> `duplicate-command-identity` (error) and skips rather than emitting an invalid
+> document.
+
+## The command
+
+```ts
+IRCommand = {
+  id, name              // `name` = resolved C# type stem, unique document-wide
+  template              // "atomic" | "getPut"
+  server                // IRId into IR.servers — decides which generated base it derives from
+  steps                 // IRCommandStep[], in order
+  parameters            // the whole processor surface, in emission order
+  surface               // the processor's generic arguments
+  access?, docs?, summary?
+  dialect?              // per-client presentation; absent until a client transform runs
+}
+```
+
+### Templates and steps
+
+`template` is a **processor template** and a property of the *command*, not of any
+operation — operations are solely operations; the template knows what to do with the
+list. It defines a positional contract over `steps`, validated by arity:
+
+| template | steps | meaning |
+|---|---|---|
+| `atomic` | 1 | one call |
+| `getPut` | 2 | `[read, write]` — the GET's response seeds the PUT's body |
+
+A multi-operation command is a **sequence**, not one request with extra responses:
+
+```ts
+IRCommandStep = {
+  operation      // IRId back-reference into IR.operations
+  request
+  responses      // ≥ 1, success and error
+  longRunning?   // per step — in a getPut the write may be long-running, the read not
+  pagination?
+}
+```
+
+`atomic` is simply `steps.length === 1`; the shape does not special-case it. The
+cost is one nesting level for the common case (`steps[0].request.path`), accepted so
+that sequencing never has to be inferred from a flat list.
+
+### Request
+
+```ts
+IRCommandRequest = {
+  method
+  path:    IRCommandUriSegment[]   // { kind:"literal", text } | { kind:"parameter", parameter }
+  query:   IRCommandWireEntry[]    // { wireName, value }
+  headers: IRCommandWireEntry[]
+  body?:   { type?, contentType?, multipart?, projected, docs?, summary? }
+}
+```
+
+`IRCommandValue` is `{ kind:"parameter", parameter }` or `{ kind:"literal", text }`,
+where `parameter` is a command parameter's **`name`** (unique within the command, and
+already the text the generator interpolates).
+
+- **The endpoint is absent by design.** It belongs to the command's `server`, and the
+  generated base owns it so one override redirects a whole extension.
+- **The API version is a literal**, in `query` or `headers` per its stamp — *not* a
+  parameter. The IR was emitted *at* a version, so the models correspond to it; a
+  caller override would mismatch model and wire.
+- **`body.type` is optional** for the same reason as `IRRequestBody`: a multipart
+  tuple's whole shape is in `multipart.parts`. A `superRefine` enforces "type
+  required unless multipart tuple".
+- **`body.projected`** says the flat `parameters` fully cover the body, so the
+  payload member can leave the public surface instead of duplicating every one of
+  them. A decision, not a generator inference.
+
+### Parameters
+
+```ts
+IRCommandParameter = {
+  name              // final C#-facing member, unique within the command
+  source            // path | query | header  → { parameter: IRId }
+                    // body                   → { path: IRId[] }  (crosses nesting hops)
+  type              // carried, not resolved through `source`
+  required          // whether THIS command requires it — narrower than the declaration
+  nullable, defaultValue?, collectionFormat?, format?, access?
+  docs?, summary?, dialect?
+}
+```
+
+One flat list covering path, query, header, and body — the single annotation target
+for client transforms, and the thing that did not exist anywhere before.
+
+- **`type` is duplicated deliberately.** That redundancy *is* the projection: the
+  generator emits a member without a lookup.
+- **`source` resolves back to the declaration**, which is what lets a client
+  transform read facts it must not rewrite — enum values, docs, visibility.
+- **Protocol headers** (`Content-Type`, `Accept`) are carried but marked
+  `access: "internal"`: the request needs them, no client should surface them.
+- **There is no `apiVersion` source kind** — see above.
+
+### Surface
+
+```ts
+IRCommandSurface = { request?, response?, output?, paginated }
+```
+
+**A step holds behavior; the surface holds the processor's generics.** The two
+coincide for `atomic`; a template defines its own rule otherwise — a `getPut` sends
+the write's body but constructs it from the read's response, and an LRO's steps
+declare a 202 while `response` is what the processor ultimately returns.
+
+`paginated` is *stated, not derived*: the generator asks one question — "do I emit
+the pagination override?" — and would otherwise have to scan steps to answer a
+question about the surface. *How* to page stays on the step.
+
+**Error types are deliberately absent.** The error model is selected at runtime from
+the status code, so a type parameter could only document what might be thrown —
+which is why the processor base needs no `TError` generics.
+
+### Pagination
+
+```ts
+IRCommandPagination = { itemType, itemsPath: IRId[], nextLinkPath?, nextLinkVerb? }
+```
+
+Member-**id** paths into the response model, resolved once here by walking wire
+segments against the model's `wireName`s. `IRPageableSemantics` records wire paths,
+which leaves the generator PascalCasing each segment and hoping it matches an emitted
+member — a heuristic made fragile by flattening's renames.
+
+## Dialects
+
+Per-client presentation — how one command is *spoken* by one client.
+
+```ts
+IRCommandDialect          = { ps?: PsCommandDialect,   cli?: CliCommandDialect }
+IRCommandParameterDialect = { ps?: PsParameterDialect, cli?: CliParameterDialect }
+```
+
+**Dialects live on commands and their parameters, and nowhere else.** Models are
+client-neutral: they are output shapes that serialize themselves. Hints on models and
+properties shape the emitted **C# type**; dialects shape the **client surface**. That
+bounds growth at `clients × {command, parameter}` rather than `clients × node kinds`.
+
+Each client's type spreads `clientDialectFields` — the **intersection**
+(`name`, `aliases`, `hidden`, `description`), never the union. A field enters the
+base only when no client can do without it; otherwise it goes in that client's own
+type.
+
+The member set is **closed**: adding a client edits this file plus its schema and
+transform, which that client needs regardless — and a closed shape generates far
+better C# POCOs than an open map.
+
+`dialect` is **absent** until a client transform runs. `create-command` writes none:
+it knows nothing about clients.
+
+> These are skeletons. `PsCommandDialect` carries `verb`, `noun`,
+> `defaultParameterSet`, `supportsShouldProcess`; `PsParameterDialect` carries
+> `parameterSets[]` of `PsParameterSetMembership` (per-set `mandatory`, `position`,
+> pipeline flags), mirroring one `[Parameter(...)]` attribute each. `CliCommandDialect`
+> carries `path[]`; `CliParameterDialect` carries `flag`, `shorthand`, `group`.
+
+## Target
+
+```ts
+IRTarget = {
+  rootNamespace: string[]
+  projectName:   string
+  directories:   { models: string, processors: string }
+}
+```
+
+Resolved once, at transform time, from generation-time configuration — not by the
+generator. A namespace or project name is a *decision*, and decisions belong in the
+IR where a captured document can show them.
+
+Document-level rather than per-command because models, the processor base, and the
+project file all need placement. Anything that genuinely varies per command stays on
+the command.
+
+## Validation
+
+Per command (`IRCommandSchema.superRefine`):
+
+- step count matches the template's arity;
+- parameter names are unique within the command;
+- every path/query/header hole resolves to a declared parameter — otherwise the
+  generator would emit uncompilable code;
+- `dialect.ps.defaultParameterSet` names a set some parameter declares;
+- `surface.paginated` implies some step carries `pagination`.
+
+Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server rules:
+
+- every `command.server` resolves into `IR.servers`;
+- every `steps[].operation` resolves into `IR.operations`;
+- `name` is unique document-wide (it is the generated C# type stem);
+- `commandKey(id)` is unique.
+
+## Consuming it
+
+```ts
+const document = safeParseTransformedIR(ir);
+if (!document.success) { /* report; do not spawn the generator */ }
+```
+
+That is what `createCsharpGenerator` does before spawning the out-of-process host,
+turning "the command stage never ran" or "the projection is malformed" into a
+diagnostic at the boundary.
+
+A step can state its phase in its own type:
+
+```ts
+createCommandStep(): TransformStep<IR, TransformedIR>
+psTransformStep():   TransformStep<TransformedIR, TransformedIR>   // reads ir.commands, no cast
+```
+
+The orchestrator erases these parameters — it threads the widest document type, and
+*ordering* is what actually guarantees a phase, via `StageDescriptor.requires`.
+Nothing forces a step's declared phase and its catalog `requires` to agree; that
+stays review discipline, like the additive-after-generate rule.
+
+## Codegen
+
+> **Pending, and the one thing still blocking a C# consumer.**
+> `emit-json-schema.mjs` currently roots the JSON Schema at `IRSchema`, so
+> `Ir.Generated.cs` contains **no `IRCommand`, dialect, or `IRTarget` POCOs** — the
+> C# generator cannot yet read anything in this document.
+>
+> The fix is to emit from `TransformedIRSchema` and register the new types as
+> definitions. `Ir.Generated.cs` then roots at the transformed document with `IR`'s
+> types as shared definitions; because the generator only ever reads a transformed
+> document, it needs no second root and `AceIrModelGen` stays single-rooted.
+
+```
+packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ──AceIrModelGen──▶  Ir.Generated.cs
+```
+
+Two things to remember when that lands:
+
+- **`.superRefine` rules do not cross into JSON Schema**, and therefore not into C#.
+  Everything under [Validation](#validation) is Zod-side only; the C# generator must
+  not assume it has been checked unless the pipeline called `parseTransformedIR`.
+- **`zodToJsonSchema` collapses structurally identical types.** If `PsCommandDialect`
+  and `CliCommandDialect` ever carry the same fields, they will generate as one C#
+  type — the same way `IRModel.rendering` once generated as `OperationHints?`.

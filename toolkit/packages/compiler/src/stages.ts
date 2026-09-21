@@ -66,6 +66,7 @@ export interface StageDescriptor {
 
 export const TSP_EMIT_STAGE = "tsp-emit";
 export const FLATTEN_MODEL_STAGE = "flatten-model";
+export const CREATE_COMMAND_STAGE = "create-command";
 export const CSHARP_STAGE = "csharp";
 
 /**
@@ -75,7 +76,13 @@ export const CSHARP_STAGE = "csharp";
 export const STAGE_CATALOG: readonly StageDescriptor[] = [
   { id: TSP_EMIT_STAGE, kind: "emit", default: "mandatory" },
   { id: FLATTEN_MODEL_STAGE, kind: "transform", default: "on" },
-  { id: CSHARP_STAGE, kind: "generate", default: "on" },
+  // Projects operations into commands, producing the `TransformedIR` every
+  // generator consumes. The document phase changes here: stages before this one
+  // see `IR`, stages after it see commands and a resolved target.
+  { id: CREATE_COMMAND_STAGE, kind: "transform", default: "on" },
+  // Declared rather than assumed: without commands the generator has nothing to
+  // emit, so disabling the projection is a config error instead of a crash.
+  { id: CSHARP_STAGE, kind: "generate", default: "on", requires: [CREATE_COMMAND_STAGE] },
 ];
 
 /** One stage of the resolved sequence. */

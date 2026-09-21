@@ -20,11 +20,12 @@ import {
   createRegistry,
   CSHARP_STAGE,
   FLATTEN_MODEL_STAGE,
+  CREATE_COMMAND_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import { flattenModelStep } from "@azure-client-engine/transformers";
+import { createCommandStep, flattenModelStep } from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,
@@ -42,7 +43,10 @@ import { createHostRuntime } from "./runtime.js";
  * are external stages driven through the host runtime.
  */
 const STAGE_IMPLEMENTATIONS = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+  transforms: {
+    [FLATTEN_MODEL_STAGE]: flattenModelStep,
+    [CREATE_COMMAND_STAGE]: createCommandStep,
+  },
 });
 
 /** Usage/help text for `ace compile`. */

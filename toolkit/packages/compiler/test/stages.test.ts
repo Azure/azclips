@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
@@ -39,25 +40,25 @@ const codes = (diagnostics: CompilerDiagnostic[]): string[] =>
   diagnostics.map((d) => d.code.replace("@azure-client-engine/compiler/", ""));
 
 describe("stage planner: the shipped catalog", () => {
-  it("plans emit -> flatten-model -> csharp with nothing configured", () => {
+  it("plans the whole shipped sequence with nothing configured", () => {
     const { sequence, diagnostics } = plan({});
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
     expect(sequence!.emit.descriptor.id).toBe(TSP_EMIT_STAGE);
   });
 
   it("closes the sequence when a middle stage is disabled", () => {
     const { sequence, diagnostics } = plan({ [FLATTEN_MODEL_STAGE]: false });
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
   });
 
   it("numbers stages by their position in the enabled sequence", () => {
     const { sequence } = plan({});
-    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2]);
+    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3]);
     // Disabling a stage renumbers what is left; it leaves no hole behind.
     const { sequence: trimmed } = plan({ [FLATTEN_MODEL_STAGE]: false });
-    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1]);
+    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1, 2]);
   });
 
   it("warns when no generate stage is enabled, since the run writes nothing", () => {
@@ -96,6 +97,7 @@ describe("stage planner: the shipped catalog", () => {
     expect(order(plan({ extra: true }, catalog).sequence)).toEqual([
       TSP_EMIT_STAGE,
       FLATTEN_MODEL_STAGE,
+      CREATE_COMMAND_STAGE,
       CSHARP_STAGE,
       "extra",
     ]);
