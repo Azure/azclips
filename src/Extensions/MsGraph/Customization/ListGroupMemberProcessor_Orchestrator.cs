@@ -2,17 +2,23 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Convenience orchestrator wrapping the atomic <see cref="ListGroupMemberProcessor"/>. Accepts
-    /// a group object ID, display-name prefix, or exact display name via
-    /// <see cref="GroupDisplayName"/>, resolves that to a single object ID, then delegates to the
-    /// atomic. The atomic itself only accepts an object ID.
+    /// Convenience orchestrator over the atomic <see cref="ListGroupMemberProcessor"/>. Accepts a
+    /// group object ID, display-name prefix, or exact display name via <see cref="GroupDisplayName"/>,
+    /// resolves it to a single object ID, then lists that group's members. The atomic itself only
+    /// accepts an object ID.
     /// </summary>
-    public class ListGroupMemberProcessor_Orchestrator : GraphProcessorBase<object, DirectoryObjectList>
+    /// <remarks>
+    /// Extends the atomic so the inherited <c>ProcessAsync</c> owns the whole lifecycle: Graph auth
+    /// installs in <c>BeforeProcessAsync</c>, then resolution runs inside the overridden
+    /// <see cref="SendAsync"/>, which the base wraps between the ProcessorProcessAsync start and end
+    /// events. A resolution failure therefore still emits the paired end event, and the envelope
+    /// unwrap plus @odata.nextLink pagination (inherited from the atomic) run unchanged.
+    /// </remarks>
+    public class ListGroupMemberProcessor_Orchestrator : ListGroupMemberProcessor
     {
         [ArgumentInfo(
             Required = false,
@@ -26,62 +32,13 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"GroupDisplayName")]
         public string? GroupDisplayName { get; set; }
 
-        [ArgumentInfo(
-            Required = false,
-            Description = @"OData $filter expression.",
-            SerializedName = @"Filter")]
-        public string? Filter { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"Properties to return.",
-            SerializedName = @"Select")]
-        public string[]? Select { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"Related properties to include in the response.",
-            SerializedName = @"Expand")]
-        public string[]? Expand { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"OData $orderby values.",
-            SerializedName = @"Orderby")]
-        public string[]? Orderby { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"OData $search expression. Requires ConsistencyLevel eventual.",
-            SerializedName = @"Search")]
-        public string? Search { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"Set to 'eventual' to enable advanced query features such as $search, $count, or $orderby on non-indexed properties.",
-            SerializedName = @"ConsistencyLevel")]
-        public string? ConsistencyLevel { get; set; }
-
-        public override async Task ProcessAsync()
+        internal override async Task<HttpResponseMessage> SendAsync()
         {
-            // Install the Graph auth override up front: the group-resolution requests below run
-            // before the atomic does, so they need the Graph audience token already in place.
-            await BeforeProcessAsync();
-
-            string groupId = await ResolveGroupAsync();
-
-            ListGroupMemberProcessor atomic = CreateExtendedProcessor<ListGroupMemberProcessor>(p =>
-            {
-                p.GroupId = groupId;
-                p.Filter = Filter;
-                p.Select = Select;
-                p.Expand = Expand;
-                p.Orderby = Orderby;
-                p.Search = Search;
-                p.ConsistencyLevel = ConsistencyLevel;
-            });
-            // Full pipeline: unwraps the OData envelope and follows @odata.nextLink. Do not swap for SendAsync.
-            await atomic.ProcessAsync();
+            // Resolve inside the transport step so it runs within the base ProcessAsync start/end
+            // lifecycle. Graph auth is already installed by the inherited BeforeProcessAsync, so the
+            // resolution requests below acquire a Graph audience token.
+            GroupId = await ResolveGroupAsync();
+            return await base.SendAsync();
         }
 
         private async Task<string> ResolveGroupAsync()

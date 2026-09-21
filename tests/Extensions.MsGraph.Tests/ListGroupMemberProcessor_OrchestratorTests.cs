@@ -123,4 +123,25 @@ public class ListGroupMemberProcessor_OrchestratorTests
         Assert.DoesNotContain("startswith", listUri);
         Assert.DoesNotContain("Marketing", listUri);
     }
+
+    [Fact]
+    public async Task ProcessAsync_WhenResolutionFails_StillPublishesProcessorProcessAsyncEnd()
+    {
+        // Resolution runs inside the base ProcessAsync start/end lifecycle, so a failure must still
+        // emit the paired end event rather than escaping the processor span.
+        var publishedEvents = new List<string>();
+        var publisher = new Mock<IEventPublisher>();
+        publisher.Setup(p => p.Publish(It.IsAny<string>()))
+            .Callback<string>(publishedEvents.Add)
+            .Returns(Task.CompletedTask);
+
+        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
+        var orch = new ListGroupMemberProcessor_Orchestrator();
+        orch.WithCapturingContext(pipeline, publisher.Object);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.ProcessAsync());
+
+        Assert.Contains(Events.ProcessorProcessAsyncEnd, publishedEvents);
+        Assert.Empty(pipeline.Sent);
+    }
 }
