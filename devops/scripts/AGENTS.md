@@ -31,7 +31,10 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
 PowerShell validation's `run_ps_validation_phase.ps1` runs both dependency suites
-before returning the first failing exit code. `invoke_ps_validation_step.ps1`
+before returning the first failing exit code. The isolated PowerShell 7.5 runtime
+probe installs both .NET 9 core and Windows Desktop runtimes on Windows; Unix
+requires only the core runtime. Neither installation modifies the primary SDK.
+`invoke_ps_validation_step.ps1`
 publishes successful bootstrap/installation prerequisites so independent phases
 can continue after failures without clearing their recorded outcomes.
 The shared `module_definitions.ps1` reader normalizes known bare source names and

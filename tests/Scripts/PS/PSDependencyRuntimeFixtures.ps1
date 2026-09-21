@@ -176,6 +176,12 @@ try
         {
             Assert-RuntimeFixture ($Arguments -contains '9.0') 'Older .NET provision requests runtime channel 9.0.'
             Assert-RuntimeFixture (($Arguments -join ' ') -match 'dotnet9') 'Installer destination is private dotnet9 scratch.'
+            $runtimeFlag = if ($IsWindows) { '-Runtime' } else { '--runtime' }
+            $runtimeKind = $Arguments[[array]::IndexOf($Arguments, $runtimeFlag) + 1]
+            $allowedRuntimes = if ($IsWindows) { @('dotnet', 'windowsdesktop') } else { @('dotnet') }
+            Assert-RuntimeFixture ($runtimeKind -in $allowedRuntimes) 'Runtime installer selects a supported platform framework.'
+            if ($script:runtimeFixtureMode -eq 'RuntimeInstallFailure') { return New-RuntimeFixtureResult -ExitCode 1 -StdErr 'Runtime install failed' }
+            if ($runtimeKind -eq 'windowsdesktop' -and $script:runtimeFixtureMode -eq 'DesktopInstallFailure') { return New-RuntimeFixtureResult -ExitCode 1 -StdErr 'Desktop runtime install failed' }
             return New-RuntimeFixtureResult
         }
         if ($decoded -match 'PowerShellVersion =')
@@ -222,6 +228,11 @@ try
     $reports = Join-Path $scratch 'reports'
     $report = Invoke-PSRuntimeValidation @parameters -ReportRoot $reports
     Assert-RuntimeFixture ($report.status -eq 'Succeeded' -and $report.cases.Count -eq 5) 'All five runtime cases execute with strict expected rejections.'
+    $runtimeFlag = if ($IsWindows) { '-Runtime' } else { '--runtime' }
+    $installedRuntimes = @($script:runtimeFixtureCalls | Where-Object { $_.Arguments -contains $runtimeFlag } |
+        ForEach-Object { $_.Arguments[[array]::IndexOf($_.Arguments, $runtimeFlag) + 1] })
+    $expectedRuntimes = if ($IsWindows) { 'dotnet,windowsdesktop' } else { 'dotnet' }
+    Assert-RuntimeFixture (($installedRuntimes -join ',') -eq $expectedRuntimes) 'Provision every required framework once before launching the older PowerShell tool.'
     $persisted = Get-Content (Join-Path $reports 'runtime-dependencies.json') -Raw | ConvertFrom-Json
     Assert-RuntimeFixture ($persisted.status -eq 'Succeeded' -and $persisted.completedAt) 'Aggregate result persists.'
     foreach ($case in $persisted.cases)
@@ -240,13 +251,15 @@ try
     Write-Host 'PASS: complete offline orchestration, optional reporting, separate logs and private environment contract'
     $count++
 
-    foreach ($mode in 'UnexpectedSuccess', 'UnrelatedFailure', 'Timeout', 'ProvisionFailure', 'WrongOlderVersion', 'AmbientOlderRuntime', 'UnsupportedTarget', 'InstallerSuccess', 'ManifestUnrelated')
+    $failureModes = @('UnexpectedSuccess', 'UnrelatedFailure', 'Timeout', 'ProvisionFailure', 'RuntimeInstallFailure', 'WrongOlderVersion', 'AmbientOlderRuntime', 'UnsupportedTarget', 'InstallerSuccess', 'ManifestUnrelated')
+    if ($IsWindows) { $failureModes += 'DesktopInstallFailure' }
+    foreach ($mode in $failureModes)
     {
         $script:runtimeFixtureMode = $mode
         Assert-RuntimeFixtureThrows { Invoke-PSRuntimeValidation @parameters -ReportRoot $reports } 'runtime dependency validation failed'
         $persisted = Get-Content (Join-Path $reports 'runtime-dependencies.json') -Raw | ConvertFrom-Json
         Assert-RuntimeFixture ($persisted.status -eq 'Failed') "$mode must persist a failed aggregate."
-        if ($mode -in 'ProvisionFailure', 'WrongOlderVersion', 'AmbientOlderRuntime')
+        if ($mode -in 'ProvisionFailure', 'RuntimeInstallFailure', 'DesktopInstallFailure', 'WrongOlderVersion', 'AmbientOlderRuntime')
         {
             Assert-RuntimeFixture (($persisted.cases | Where-Object name -eq 'older-installer-rejection').status -eq 'Failed') 'Provisioning failure cannot count as installer rejection.'
         }

@@ -464,16 +464,21 @@ $ErrorActionPreference = 'Stop'
             }
             if ($IsWindows)
             {
-                $result = Invoke-RuntimeCommand $case $PwshPath @('-NoLogo', '-NoProfile', '-NonInteractive', '-File', $installer,
-                    '-Runtime', 'dotnet', '-Channel', '9.0', '-InstallDir', $oldRoot, '-Architecture', $state.Runtime.Architecture.ToLowerInvariant(), '-NoPath') $primaryEnvironment
+                # The Windows PowerShell tool needs both shared frameworks in its isolated runtime root.
+                foreach ($runtimeKind in 'dotnet', 'windowsdesktop')
+                {
+                    $result = Invoke-RuntimeCommand $case $PwshPath @('-NoLogo', '-NoProfile', '-NonInteractive', '-File', $installer,
+                        '-Runtime', $runtimeKind, '-Channel', '9.0', '-InstallDir', $oldRoot, '-Architecture', $state.Runtime.Architecture.ToLowerInvariant(), '-NoPath') $primaryEnvironment
+                    Assert-PSRuntimeResult $result Success
+                }
             }
             else
             {
                 $bash = (Get-Command bash -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
                 $result = Invoke-RuntimeCommand $case $bash @($installer, '--runtime', 'dotnet', '--channel', '9.0',
                     '--install-dir', $oldRoot, '--architecture', $state.Runtime.Architecture.ToLowerInvariant(), '--no-path') $primaryEnvironment
+                Assert-PSRuntimeResult $result Success
             }
-            Assert-PSRuntimeResult $result Success
             $dotnet = Join-Path $DotnetRootPath $(if ($IsWindows) { 'dotnet.exe' } else { 'dotnet' })
             # Use a private NuGet configuration and caches, not caller feeds or user tool installations.
             $nugetConfig = Join-Path $scratch 'NuGet.Config'
