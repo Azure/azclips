@@ -36,7 +36,7 @@ public class TelemetryService : ITelemetryService
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default)
     {
-        if (!IsTelemetryEnabled() || TelemetrySuppressionScope.IsSuppressed) return null;
+        if (!IsTelemetryEnabled()) return null;
 
         // parentContext: default keeps the ambient Activity.Current parenting the
         // two-argument overload gives us; only the start timestamp is being added.

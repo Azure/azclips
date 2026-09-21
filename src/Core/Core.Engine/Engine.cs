@@ -8,6 +8,7 @@ using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
 using Core.Telemetry;
+using OpenTelemetry;
 
 namespace Core.Engine
 {
@@ -176,16 +177,23 @@ namespace Core.Engine
         /// RunAsync/Run) must call <c>TagDataBoundary(...)</c> directly in their own method body —
         /// see <see cref="ExecutionSession.TagDataBoundary"/> remarks for why.
         /// </summary>
-        private Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken) =>
-            DataBoundaryResolver.ResolveAndCacheAsync(
+        private async Task<string?> ResolveDataBoundaryAsync(Profile profile, CancellationToken cancellationToken)
+        {
+            // Suppresses ALL instrumentation (both our own TelemetryService-created spans and
+            // OpenTelemetry's HTTP auto-instrumentation) for the two network calls this makes
+            // (token acquisition, then the ARM data-boundary query) — both would otherwise end
+            // and export before the boundary they're used to discover is known, so
+            // AriaActivityExporter would fall back to routing them to Global even for an EU
+            // tenant. SuppressInstrumentationScope is the OpenTelemetry SDK's own mechanism
+            // (used e.g. by ZipkinExporter to avoid self-tracing) — AsyncLocal-backed, so this
+            // is safe forward propagation into the awaited call below, same as elsewhere in
+            // this codebase; it's checked by every ActivitySource's sampler, so it covers HTTP
+            // client instrumentation too, unlike a custom check inside TelemetryService alone.
+            using var _ = SuppressInstrumentationScope.Begin();
+            return await DataBoundaryResolver.ResolveAndCacheAsync(
                 profile.TenantId,
                 async tokenCancellationToken =>
                 {
-                    // Suppressed: this token acquisition's own MsalAuthService.AcquireTokenSilentlyAsync
-                    // span would otherwise end (and export) before the boundary it's being used to
-                    // discover is known, so AriaActivityExporter would fall back to routing it to
-                    // Global even for an EU tenant. See TelemetrySuppressionScope's remarks.
-                    using var _ = TelemetrySuppressionScope.Enter();
                     var result = await authService.AcquireTokenSilentlyAsync(
                         scopes: null,
                         tenantId: profile.TenantId,
@@ -196,6 +204,7 @@ namespace Core.Engine
                 },
                 TelemetryRoutingResolver.DefaultTimeout,
                 cancellationToken);
+        }
 
         /// <summary>
         /// Releases the unmanaged resources used by Engine and optionally releases managed resources.

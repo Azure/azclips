@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using OpenTelemetry;
 
 namespace Core.Telemetry;
 
@@ -49,15 +50,16 @@ public static class TelemetryRoutingResolver
             if (string.IsNullOrWhiteSpace(tenantId))
                 return (null, null);
 
+            // Suppresses ALL instrumentation (both TelemetryService-created spans and OpenTelemetry's
+            // HTTP auto-instrumentation) for the two network calls this makes (token acquisition, then
+            // the ARM data-boundary query) — both would otherwise end and export before the boundary
+            // they're used to discover is known, so AriaActivityExporter would fall back to routing
+            // them to Global even for an EU tenant. See Engine.ResolveDataBoundaryAsync's remarks.
+            using var _ = SuppressInstrumentationScope.Begin();
             var boundary = await DataBoundaryResolver.ResolveAndCacheAsync(
                 tenantId,
                 async tokenCancellationToken =>
                 {
-                    // Suppressed: this token acquisition's own MsalAuthService.AcquireTokenSilentlyAsync
-                    // span would otherwise end (and export) before the boundary it's being used to
-                    // discover is known, so AriaActivityExporter would fall back to routing it to
-                    // Global even for an EU tenant. See TelemetrySuppressionScope's remarks.
-                    using var _ = TelemetrySuppressionScope.Enter();
                     var result = await authService.AcquireTokenSilentlyAsync(
                         scopes: null,
                         tenantId: tenantId,

@@ -122,51 +122,6 @@ public class TelemetryServiceEnabledGateTests : IDisposable
         Assert.NotNull(second);
     }
 
-    [Fact]
-    public void StartActivity_WhenSuppressed_ReturnsNull()
-    {
-        _config.Enabled = true;
-
-        using (TelemetrySuppressionScope.Enter())
-        {
-            using var activity = _telemetryService.StartActivity("test.op");
-            Assert.Null(activity);
-        }
-    }
-
-    [Fact]
-    public void StartActivity_AfterSuppressionScopeDisposed_ReturnsActivity()
-    {
-        _config.Enabled = true;
-
-        using (TelemetrySuppressionScope.Enter())
-        {
-            Assert.Null(_telemetryService.StartActivity("suppressed.op"));
-        }
-
-        using var activity = _telemetryService.StartActivity("test.op");
-        Assert.NotNull(activity);
-    }
-
-    [Fact]
-    public void StartActivity_WhenSuppressionScopeNested_RestoresOuterSuppressionOnInnerDispose()
-    {
-        _config.Enabled = true;
-
-        using (TelemetrySuppressionScope.Enter())
-        {
-            using (TelemetrySuppressionScope.Enter())
-            {
-                Assert.Null(_telemetryService.StartActivity("inner.op"));
-            }
-
-            // Outer scope is still active after the inner one is disposed.
-            Assert.Null(_telemetryService.StartActivity("still-suppressed.op"));
-        }
-
-        Assert.NotNull(_telemetryService.StartActivity("unsuppressed.op"));
-    }
-
     /// <summary>Minimal ITelemetryProvider exposing a caller-supplied ActivitySource.</summary>
     private sealed class StubTelemetryProvider : ITelemetryProvider
     {
