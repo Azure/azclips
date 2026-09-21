@@ -25,19 +25,27 @@ public sealed class ServerReferenceTests
 
     private static IROperation Operation(string name, IRId server) => new()
     {
-        Id = new IRId { Module = "First", Name = name },
+        Id = OperationId(name),
         Name = name,
         Source = "First",
         Server = server,
         PathTemplate = "/widgets",
     };
 
+    private static IRId OperationId(string name) => new() { Module = "First", Name = name };
+
+    /// <summary>
+    /// One operation and the command projected from it. The generator reads commands, so the
+    /// server reference under test lives on the command; the operation is carried alongside as
+    /// the wire truth the command points back at.
+    /// </summary>
     private static IRDocument Document(IRId? reference = null) => new()
     {
-        SchemaVersion = "0.8.0",
+        SchemaVersion = "0.12.0",
         Sources = [new IRSource { Id = "First", Server = ServerId() }],
         Servers = [Definition(ServerId())],
-        Operations = [Operation("get", reference ?? ServerId())],
+        Operations = [Operation("get", ServerId())],
+        Commands = [Commands.Atomic("Get", reference ?? ServerId(), OperationId("get"))],
     };
 
     private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(IRDocument ir)
@@ -78,12 +86,12 @@ public sealed class ServerReferenceTests
         GeneratorDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal("ace-generator/" + code, diagnostic.Code);
-        Assert.Contains("get", diagnostic.Message);
+        Assert.Contains("Get", diagnostic.Message);
         Assert.DoesNotContain("GetProcessor", result.GeneratedClasses.Keys);
     }
 
     [Fact]
-    public async Task Operations_Resolve_Distinct_And_Shared_Servers_Across_Sources()
+    public async Task Commands_Resolve_Distinct_And_Shared_Servers_Across_Sources()
     {
         IRDocument ir = Document();
         ir.Sources =
@@ -98,13 +106,14 @@ public sealed class ServerReferenceTests
         ];
         IROperation second = Operation("getSecond", ServerId("Second"));
         second.Source = "Second";
-        ir.Operations =
+        ir.Operations = [Operation("getFirst", ServerId()), second, Operation("listFirst", ServerId()), Operation("crossSource", ServerId("Second"))];
+        ir.Commands =
         [
-            Operation("getFirst", ServerId()),
-            second,
-            Operation("listFirst", ServerId()),
-            // The operation's explicit reference wins even when its source points elsewhere.
-            Operation("crossSource", ServerId("Second")),
+            Commands.Atomic("GetFirst", ServerId(), OperationId("getFirst")),
+            Commands.Atomic("GetSecond", ServerId("Second"), OperationId("getSecond")),
+            Commands.Atomic("ListFirst", ServerId(), OperationId("listFirst")),
+            // The command's explicit reference wins even when its source points elsewhere.
+            Commands.Atomic("CrossSource", ServerId("Second"), OperationId("crossSource")),
         ];
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -154,35 +163,37 @@ public sealed class ServerReferenceTests
         };
         IROperation operation = ir.Operations[0];
         operation.PathTemplate = "/accounts/{account}/widgets/{widget}";
-        operation.PathParameters =
+
+        // The command carries the resolved request: segments, not a template, and an
+        // api-version pinned as a literal rather than surfaced as an input.
+        ir.Commands =
         [
-            new IRParameter
-            {
-                Name = "accountName",
-                WireName = "account",
-                Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-            },
-            new IRParameter
-            {
-                Name = "widgetName",
-                WireName = "widget",
-                Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-            },
-        ];
-        operation.ApiVersion = new IRApiVersionStamp
-        {
-            Location = IRApiVersionStampLocation.Query,
-            ParameterName = "api-version",
-            Value = "2026-01-01",
-        };
-        operation.QueryParameters =
-        [
-            new IRParameter
-            {
-                Name = "pageSize",
-                WireName = "$top",
-                Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 },
-            },
+            Commands.Atomic(
+                "Get",
+                ServerId(),
+                OperationId("get"),
+                path:
+                [
+                    Commands.Literal("/accounts/"),
+                    Commands.Param("AccountName"),
+                    Commands.Literal("/widgets/"),
+                    Commands.Param("WidgetName"),
+                ],
+                query:
+                [
+                    Commands.Pinned("api-version", "2026-01-01"),
+                    Commands.Supplied("$top", "PageSize"),
+                ],
+                parameters:
+                [
+                    Commands.Parameter("AccountName", Commands.FromPath(OperationId("p.account"))),
+                    Commands.Parameter("WidgetName", Commands.FromPath(OperationId("p.widget"))),
+                    Commands.Parameter(
+                        "PageSize",
+                        Commands.FromQuery(OperationId("p.top")),
+                        new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 },
+                        required: false),
+                ]),
         ];
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -266,7 +277,9 @@ public sealed class ServerReferenceTests
     public async Task Missing_Reference_Does_Not_Fall_Back_To_Source_Server()
     {
         IRDocument ir = Document();
-        ir.Operations[0].Server = null!;
+        // The generator reads the *command's* reference; an operation's is wire truth it never
+        // consults, which is the point — a command does not inherit its source's server.
+        ir.Commands[0].Server = null!;
 
         (GenerationResult result, _) = await RunAsync(ir);
 

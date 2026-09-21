@@ -59,7 +59,8 @@ public sealed class ElasticSanModelTests
         // Spot-check a known model carries its properties + wire names (looked up
         // by class name, not a hardcoded path).
         string volume = writer.Files.Source(result, "VolumeProperties");
-        Assert.Contains("namespace Azure.ElasticSan.Models", volume);
+        // Placement comes from the document's target, which outranks the option above.
+        Assert.Contains("namespace Microsoft.ElasticSan.Models", volume);
         Assert.Contains("public partial class VolumeProperties", volume);
         Assert.Contains("[JsonPropertyName(", volume);
     }

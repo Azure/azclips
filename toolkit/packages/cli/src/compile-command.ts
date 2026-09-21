@@ -69,7 +69,7 @@ export function usage(): string {
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
     "                         The spec is staged under <out-dir>/source before compiling.",
     "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
-    "  --root-namespace <ns>  Root C# namespace for the generator (generator option).",
+    "  --root-namespace <ns>  Root C# namespace and project name for the generated extension.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -142,18 +142,22 @@ export async function runCompile(args: string[]): Promise<number> {
   }
   // Orchestration stays compiler-owned, so these flags do not assemble a
   // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // configures it through that stage's options.
+  // configures the stage that resolves placement.
   const generatorStage = generatorArg ?? CSHARP_STAGE;
   if (generatorArg !== undefined) {
     config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
   }
   if (rootNamespaceArg !== undefined) {
+    // Placement is resolved at transform time, into `IRTarget` — so the flag feeds
+    // the command projection, not the generator. Routing it to the generator would
+    // be silently ignored: the generator reads the document's target and falls back
+    // to its own option only when a document carries none.
     config = {
       ...config,
       stageOptions: {
         ...config.stageOptions,
-        [generatorStage]: {
-          ...config.stageOptions?.[generatorStage],
+        [CREATE_COMMAND_STAGE]: {
+          ...config.stageOptions?.[CREATE_COMMAND_STAGE],
           rootNamespace: rootNamespaceArg,
         },
       },

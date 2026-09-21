@@ -43,9 +43,9 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
     {
         context.CancellationToken.ThrowIfCancellationRequested();
 
-        string ns = context.Options.RootNamespace + ".Processors";
+        string ns = context.Placement.ProcessorsNamespace;
         yield return new GeneratedFile(
-            $"Processors/{BaseTypeName}.cs",
+            context.Placement.ProcessorFile(BaseTypeName),
             Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir)),
             BaseTypeName);
     }

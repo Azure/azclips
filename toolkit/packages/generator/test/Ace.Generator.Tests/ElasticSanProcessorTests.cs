@@ -32,13 +32,13 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task Emits_A_Processor_File_Per_Ir_Operation()
+    public async Task Emits_A_Processor_File_Per_Command()
     {
         IRDocument ir = LoadIr();
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
-        // One processor per operation, plus the shared ProcessorBase.
-        Assert.Equal(ir.Operations.Count + 1, writer.Files.ProcessorSources().Count());
+        // One processor per command, plus the shared ProcessorBase.
+        Assert.Equal(ir.Commands.Count + 1, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task Regrouped_Operations_Use_Source_Interface_Names()
+    public async Task Commands_Are_Named_From_Their_Group_And_Action()
     {
         (GenerationResult result, _) = await EmitAsync("ElasticSan_Processors_Interfaces");
 
@@ -64,7 +64,7 @@ public sealed class ElasticSanProcessorTests
         Assert.Empty(result.Diagnostics);
         foreach (string name in new[]
         {
-            "RestoreVolumeProcessor",
+            "RestoreVolumeElasticSanProcessor",
             "PreBackupVolumeGroupsProcessor",
             "PreRestoreVolumeGroupsProcessor",
             "ListByElasticSanElasticSansProcessor",
@@ -88,8 +88,9 @@ public sealed class ElasticSanProcessorTests
         Assert.Contains("public string SubscriptionId { get; set; }", create);
         Assert.Contains("public string ResourceGroupName { get; set; }", create);
         Assert.Contains("public string ElasticSanName { get; set; }", create);
-        // Single request-body member handed back by the CreateRequestBody seam.
-        Assert.Contains("public ElasticSan? Body { get; set; }", create);
+        // The body is projected onto flat members, so the payload leaves the public surface —
+        // otherwise it would duplicate every one of them.
+        Assert.Contains("internal ElasticSan? Body { get; set; }", create);
         Assert.Contains("CreateRequestBody() => Body;", create);
         // Request seams: PUT method + interpolated URI (host, path members, api-version).
         Assert.Contains("Method => HttpMethod.Put;", create);

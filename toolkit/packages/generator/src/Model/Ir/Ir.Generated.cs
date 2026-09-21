@@ -71,6 +71,107 @@ public enum IRAuthSchemeHttpScheme
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandAccess
+{
+    [JsonStringEnumMemberName("public")]
+    Public,
+    [JsonStringEnumMemberName("internal")]
+    Internal
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandPaginationNextLinkVerb
+{
+    [JsonStringEnumMemberName("GET")]
+    GET,
+    [JsonStringEnumMemberName("POST")]
+    POST
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandParameterAccess
+{
+    [JsonStringEnumMemberName("public")]
+    Public,
+    [JsonStringEnumMemberName("internal")]
+    Internal
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandParameterCollectionFormat
+{
+    [JsonStringEnumMemberName("csv")]
+    Csv,
+    [JsonStringEnumMemberName("multi")]
+    Multi,
+    [JsonStringEnumMemberName("tsv")]
+    Tsv,
+    [JsonStringEnumMemberName("ssv")]
+    Ssv,
+    [JsonStringEnumMemberName("pipes")]
+    Pipes
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandParameterFormat
+{
+    [JsonStringEnumMemberName("date-time")]
+    DateTime,
+    [JsonStringEnumMemberName("date")]
+    Date,
+    [JsonStringEnumMemberName("time")]
+    Time,
+    [JsonStringEnumMemberName("duration")]
+    Duration,
+    [JsonStringEnumMemberName("uri")]
+    Uri,
+    [JsonStringEnumMemberName("uuid")]
+    Uuid,
+    [JsonStringEnumMemberName("ip-address")]
+    IpAddress,
+    [JsonStringEnumMemberName("hostname")]
+    Hostname,
+    [JsonStringEnumMemberName("arm-id")]
+    ArmId,
+    [JsonStringEnumMemberName("base64")]
+    Base64,
+    [JsonStringEnumMemberName("base64url")]
+    Base64url,
+    [JsonStringEnumMemberName("byte-stream")]
+    ByteStream,
+    [JsonStringEnumMemberName("password")]
+    Password
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandRequestMethod
+{
+    [JsonStringEnumMemberName("GET")]
+    GET,
+    [JsonStringEnumMemberName("PUT")]
+    PUT,
+    [JsonStringEnumMemberName("POST")]
+    POST,
+    [JsonStringEnumMemberName("DELETE")]
+    DELETE,
+    [JsonStringEnumMemberName("PATCH")]
+    PATCH,
+    [JsonStringEnumMemberName("HEAD")]
+    HEAD,
+    [JsonStringEnumMemberName("OPTIONS")]
+    OPTIONS
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRCommandTemplate
+{
+    [JsonStringEnumMemberName("atomic")]
+    Atomic,
+    [JsonStringEnumMemberName("getPut")]
+    GetPut
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IRDiscriminatedUnionEnvelope
 {
     [JsonStringEnumMemberName("object")]
@@ -459,6 +560,48 @@ public enum SerializationHintOmitWhen
     Default
 }
 
+public partial class CliCommandDialect
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyList<string>? Aliases { get; set; }
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<string> Path { get; set; } = [];
+}
+
+public partial class CliParameterDialect
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyList<string>? Aliases { get; set; }
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("flag")]
+    public string Flag { get; set; } = default !;
+
+    [JsonPropertyName("shorthand")]
+    public string? Shorthand { get; set; }
+
+    [JsonPropertyName("group")]
+    public string? Group { get; set; }
+}
+
 public partial class ClientApiHint
 {
     [JsonPropertyName("name")]
@@ -610,6 +753,305 @@ public partial class IRAuthSchemeOpenIdConnect : IRAuthScheme
     public string OpenIdConnectUrl { get; set; } = default !;
 }
 
+public partial class IRCommand
+{
+    [JsonPropertyName("id")]
+    public IRCommandId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("template")]
+    public IRCommandTemplate Template { get; set; }
+
+    [JsonPropertyName("server")]
+    public IRId Server { get; set; } = default !;
+
+    [JsonPropertyName("steps")]
+    public IReadOnlyList<IRCommandStep> Steps { get; set; } = [];
+
+    [JsonPropertyName("parameters")]
+    public IReadOnlyList<IRCommandParameter> Parameters { get; set; } = [];
+
+    [JsonPropertyName("surface")]
+    public IRCommandSurface Surface { get; set; } = default !;
+
+    [JsonPropertyName("access")]
+    public IRCommandAccess? Access { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("dialect")]
+    public IRCommandDialect? Dialect { get; set; }
+}
+
+public partial class IRCommandDialect
+{
+    [JsonPropertyName("ps")]
+    public PsCommandDialect? Ps { get; set; }
+
+    [JsonPropertyName("cli")]
+    public CliCommandDialect? Cli { get; set; }
+}
+
+public partial class IRCommandId
+{
+    [JsonPropertyName("module")]
+    public string Module { get; set; } = default !;
+
+    [JsonPropertyName("group")]
+    public string Group { get; set; } = default !;
+
+    [JsonPropertyName("action")]
+    public string Action { get; set; } = default !;
+
+    [JsonPropertyName("variant")]
+    public string? Variant { get; set; }
+}
+
+public partial class IRCommandPagination
+{
+    [JsonPropertyName("itemType")]
+    public IRTypeRef ItemType { get; set; } = default !;
+
+    [JsonPropertyName("itemsPath")]
+    public IReadOnlyList<IRId> ItemsPath { get; set; } = [];
+
+    [JsonPropertyName("nextLinkPath")]
+    public IReadOnlyList<IRId>? NextLinkPath { get; set; }
+
+    [JsonPropertyName("nextLinkVerb")]
+    public IRCommandPaginationNextLinkVerb? NextLinkVerb { get; set; }
+}
+
+public partial class IRCommandParameter
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("source")]
+    public IRCommandParameterSource Source { get; set; } = default !;
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("collectionFormat")]
+    public IRCommandParameterCollectionFormat? CollectionFormat { get; set; }
+
+    [JsonPropertyName("format")]
+    public IRCommandParameterFormat? Format { get; set; }
+
+    [JsonPropertyName("access")]
+    public IRCommandParameterAccess? Access { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("dialect")]
+    public IRCommandParameterDialect? Dialect { get; set; }
+}
+
+public partial class IRCommandParameterDialect
+{
+    [JsonPropertyName("ps")]
+    public PsParameterDialect? Ps { get; set; }
+
+    [JsonPropertyName("cli")]
+    public CliParameterDialect? Cli { get; set; }
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRCommandParameterSourcePath), "path")]
+[JsonDerivedType(typeof(IRCommandParameterSourceQuery), "query")]
+[JsonDerivedType(typeof(IRCommandParameterSourceHeader), "header")]
+[JsonDerivedType(typeof(IRCommandParameterSourceBody), "body")]
+public abstract partial class IRCommandParameterSource
+{
+}
+
+public partial class IRCommandParameterSourceBody : IRCommandParameterSource
+{
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRId> Path { get; set; } = [];
+}
+
+public partial class IRCommandParameterSourceHeader : IRCommandParameterSource
+{
+    [JsonPropertyName("parameter")]
+    public IRId Parameter { get; set; } = default !;
+}
+
+public partial class IRCommandParameterSourcePath : IRCommandParameterSource
+{
+    [JsonPropertyName("parameter")]
+    public IRId Parameter { get; set; } = default !;
+}
+
+public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
+{
+    [JsonPropertyName("parameter")]
+    public IRId Parameter { get; set; } = default !;
+}
+
+public partial class IRCommandRequest
+{
+    [JsonPropertyName("method")]
+    public IRCommandRequestMethod Method { get; set; }
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<IRCommandUriSegment> Path { get; set; } = [];
+
+    [JsonPropertyName("query")]
+    public IReadOnlyList<IRCommandWireEntry> Query { get; set; } = [];
+
+    [JsonPropertyName("headers")]
+    public IReadOnlyList<IRCommandWireEntry> Headers { get; set; } = [];
+
+    [JsonPropertyName("body")]
+    public IRCommandRequestBody? Body { get; set; }
+}
+
+public partial class IRCommandRequestBody
+{
+    [JsonPropertyName("type")]
+    public IRTypeRef? Type { get; set; }
+
+    [JsonPropertyName("contentType")]
+    public string? ContentType { get; set; }
+
+    [JsonPropertyName("multipart")]
+    public IRMultipartBody? Multipart { get; set; }
+
+    [JsonPropertyName("projected")]
+    public bool Projected { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
+public partial class IRCommandResponse
+{
+    [JsonPropertyName("statusCodes")]
+    public IReadOnlyList<IRStatusCode> StatusCodes { get; set; } = [];
+
+    [JsonPropertyName("type")]
+    public IRTypeRef? Type { get; set; }
+
+    [JsonPropertyName("contentType")]
+    public string? ContentType { get; set; }
+
+    [JsonPropertyName("multipart")]
+    public IRMultipartBody? Multipart { get; set; }
+
+    [JsonPropertyName("headers")]
+    public IReadOnlyList<IRResponseHeader>? Headers { get; set; }
+
+    [JsonPropertyName("isError")]
+    public bool IsError { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+}
+
+public partial class IRCommandStep
+{
+    [JsonPropertyName("operation")]
+    public IRId Operation { get; set; } = default !;
+
+    [JsonPropertyName("request")]
+    public IRCommandRequest Request { get; set; } = default !;
+
+    [JsonPropertyName("responses")]
+    public IReadOnlyList<IRCommandResponse> Responses { get; set; } = [];
+
+    [JsonPropertyName("longRunning")]
+    public IRLongRunningSemantics? LongRunning { get; set; }
+
+    [JsonPropertyName("pagination")]
+    public IRCommandPagination? Pagination { get; set; }
+}
+
+public partial class IRCommandSurface
+{
+    [JsonPropertyName("request")]
+    public IRTypeRef? Request { get; set; }
+
+    [JsonPropertyName("response")]
+    public IRTypeRef? Response { get; set; }
+
+    [JsonPropertyName("output")]
+    public IRTypeRef? Output { get; set; }
+
+    [JsonPropertyName("paginated")]
+    public bool Paginated { get; set; }
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRCommandUriSegmentLiteral), "literal")]
+[JsonDerivedType(typeof(IRCommandUriSegmentParameter), "parameter")]
+public abstract partial class IRCommandUriSegment
+{
+}
+
+public partial class IRCommandUriSegmentLiteral : IRCommandUriSegment
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = default !;
+}
+
+public partial class IRCommandUriSegmentParameter : IRCommandUriSegment
+{
+    [JsonPropertyName("parameter")]
+    public string Parameter { get; set; } = default !;
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRCommandValueParameter), "parameter")]
+[JsonDerivedType(typeof(IRCommandValueLiteral), "literal")]
+public abstract partial class IRCommandValue
+{
+}
+
+public partial class IRCommandValueLiteral : IRCommandValue
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = default !;
+}
+
+public partial class IRCommandValueParameter : IRCommandValue
+{
+    [JsonPropertyName("parameter")]
+    public string Parameter { get; set; } = default !;
+}
+
+public partial class IRCommandWireEntry
+{
+    [JsonPropertyName("wireName")]
+    public string WireName { get; set; } = default !;
+
+    [JsonPropertyName("value")]
+    public IRCommandValue Value { get; set; } = default !;
+}
+
 public partial class IRDiscriminatedUnion
 {
     [JsonPropertyName("id")]
@@ -683,6 +1125,12 @@ public partial class IRDocument
 
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
+
+    [JsonPropertyName("target")]
+    public IRTarget Target { get; set; } = default !;
 }
 
 public partial class IREnum
@@ -1665,6 +2113,27 @@ public partial class IRStatusCodeRange : IRStatusCode
     public int End { get; set; }
 }
 
+public partial class IRTarget
+{
+    [JsonPropertyName("rootNamespace")]
+    public IReadOnlyList<string> RootNamespace { get; set; } = [];
+
+    [JsonPropertyName("projectName")]
+    public string ProjectName { get; set; } = default !;
+
+    [JsonPropertyName("directories")]
+    public IRTargetDirectories Directories { get; set; } = default !;
+}
+
+public partial class IRTargetDirectories
+{
+    [JsonPropertyName("models")]
+    public string Models { get; set; } = default !;
+
+    [JsonPropertyName("processors")]
+    public string Processors { get; set; } = default !;
+}
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(IRTypeRefPrimitive), "primitive")]
 [JsonDerivedType(typeof(IRTypeRefModel), "model")]
@@ -1765,6 +2234,69 @@ public partial class ParameterHints
 
     [JsonPropertyName("docs")]
     public DocsHint? Docs { get; set; }
+}
+
+public partial class PsCommandDialect
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyList<string>? Aliases { get; set; }
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("verb")]
+    public string Verb { get; set; } = default !;
+
+    [JsonPropertyName("noun")]
+    public string Noun { get; set; } = default !;
+
+    [JsonPropertyName("defaultParameterSet")]
+    public string? DefaultParameterSet { get; set; }
+
+    [JsonPropertyName("supportsShouldProcess")]
+    public bool? SupportsShouldProcess { get; set; }
+}
+
+public partial class PsParameterDialect
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyList<string>? Aliases { get; set; }
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("parameterSets")]
+    public IReadOnlyList<PsParameterSetMembership>? ParameterSets { get; set; }
+}
+
+public partial class PsParameterSetMembership
+{
+    [JsonPropertyName("set")]
+    public string? Set { get; set; }
+
+    [JsonPropertyName("mandatory")]
+    public bool Mandatory { get; set; }
+
+    [JsonPropertyName("position")]
+    public int? Position { get; set; }
+
+    [JsonPropertyName("valueFromPipeline")]
+    public bool? ValueFromPipeline { get; set; }
+
+    [JsonPropertyName("valueFromPipelineByPropertyName")]
+    public bool? ValueFromPipelineByPropertyName { get; set; }
 }
 
 public partial class RequestBodyHints

@@ -101,10 +101,36 @@ public sealed class FlatteningTests
         if (withOperation)
         {
             ir.Operations = [Operation()];
+            ir.Commands = [Command()];
         }
 
         return ir;
     }
+
+    /// <summary>
+    /// The projected command for <see cref="Operation()"/>: a PUT whose body is covered by flat
+    /// members, so the generator hides <c>Body</c> and emits views over it.
+    /// </summary>
+    private static IRCommand Command(IReadOnlyList<IRCommandParameter>? parameters = null) =>
+        Commands.Atomic(
+            "Create",
+            ServerId(),
+            Id("create"),
+            method: IRCommandRequestMethod.PUT,
+            path: [Commands.Literal("/things")],
+            body: Commands.Body(Id("Thing"), projected: true),
+            surface: Commands.Surface(request: new IRTypeRefModel { Id = Id("Thing") }),
+            parameters: parameters ??
+            [
+                Commands.Parameter(
+                    "Size",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.size")),
+                    new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int64 }),
+                Commands.Parameter(
+                    "SkuName",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    required: false),
+            ]);
 
     private static IROperation Operation(IReadOnlyList<FlattenedParameter>? parameters = null) => new()
     {
@@ -227,6 +253,15 @@ public sealed class FlatteningTests
                     Path = [Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")],
                     Required = false,
                 },
+            ]),
+        ];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "ThingSkuName",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    required: false),
             ]),
         ];
 
@@ -374,6 +409,15 @@ public sealed class FlatteningTests
                     Path = [Id("Thing.properties"), Id("ThingProperties.missing")],
                     Required = false,
                 },
+            ]),
+        ];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "Ghost",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.missing")),
+                    required: false),
             ]),
         ];
 

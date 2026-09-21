@@ -30,7 +30,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        string ns = context.Options.RootNamespace + ".Models";
+        string ns = context.Placement.ModelsNamespace;
         foreach (IRModel model in context.Ir.Models)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -45,7 +45,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
             }
 
             string typeName = model.Name.Identifier();
-            yield return new GeneratedFile($"Models/{typeName}.cs", Emit(context, ns, typeName, model), typeName);
+            yield return new GeneratedFile(context.Placement.ModelFile(typeName), Emit(context, ns, typeName, model), typeName);
         }
     }
 
