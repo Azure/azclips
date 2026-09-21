@@ -167,6 +167,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_updateResourceGroup_CLI = new(
+            Name: "UpdateResourceGroupProcessor_Orchestrator",
+            InvocationName: "group update",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.UpdateResourceGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.UpdateResourceGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("ResourceGroupName", "name", typeof(string), "Name of resource group.", IsRequired: true, Aliases: ["n", "resource-group", "g"], AllowedValues: []),
+                ["tags"]            = new("TagsInput", "tags", typeof(string[]), "Space-separated tags in key[=value] format. Use an empty string to clear existing tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["set"]             = new("Set", "set", typeof(string[]), "Update a property by specifying a property path and value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["force-string"]    = new("ForceString", "force-string", typeof(bool), "Preserve string literals when using --set instead of attempting to convert them to JSON.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["resource-group"] = "name",
+                ["g"] = "name",
+            }
+        );
         private static readonly CommandMetadata s_getResourceGroup_CLI = new(
             Name: "GetResourceGroupProcessor",
             InvocationName: "group show",
@@ -331,6 +353,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["group exists"]              = s_existsResourceGroup_CLI,
             ["group list"]                = s_listResourceGroup_CLI,
             ["group show"]                = s_getResourceGroup_CLI,
+            ["group update"]              = s_updateResourceGroup_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).

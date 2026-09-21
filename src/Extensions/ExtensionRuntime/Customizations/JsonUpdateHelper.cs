@@ -4,11 +4,11 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 
-namespace Microsoft.Azure.Azclips.Extensions.Identity.Customization;
+namespace Microsoft.Azure.Azclips.ExtensionRuntime;
 
-internal static class IdentityJsonPatchHelper
+public static class JsonUpdateHelper
 {
-    internal static void MergePatch(JsonObject target, JsonObject patch)
+    public static void MergePatch(JsonObject target, JsonObject patch)
     {
         foreach (var property in patch)
         {
@@ -23,7 +23,7 @@ internal static class IdentityJsonPatchHelper
         }
     }
 
-    internal static void ApplyGenericUpdate(JsonObject target, string[]? set, string[]? add, string[]? remove, bool forceString)
+    public static void ApplyGenericUpdate(JsonObject target, string[]? set, string[]? add, string[]? remove, bool forceString)
     {
         foreach (string expression in set ?? [])
         {
@@ -73,7 +73,7 @@ internal static class IdentityJsonPatchHelper
         }
     }
 
-    internal static void RemovePaths(JsonObject target, params string[] paths)
+    public static void RemovePaths(JsonObject target, params string[] paths)
     {
         foreach (string path in paths)
         {
@@ -96,6 +96,11 @@ internal static class IdentityJsonPatchHelper
         if (forceString)
         {
             return JsonValue.Create(value);
+        }
+
+        if (value.Equals("null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
         }
 
         if (bool.TryParse(value, out bool boolValue))

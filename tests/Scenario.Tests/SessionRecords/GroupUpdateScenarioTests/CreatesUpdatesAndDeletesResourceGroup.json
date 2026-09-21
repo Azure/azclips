@@ -1,0 +1,365 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "GroupUpdateScenarioTests/CreatesUpdatesAndDeletesResourceGroup"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+          ],
+          "x-ms-correlation-request-id": [
+            "d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260921T025756Z:d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: D74F3028D33E4B68A8CE205EE97ABA6E Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:52Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:57:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "52a3d38c-d382-41d4-9002-f83a85f6d26f"
+          ],
+          "x-ms-correlation-request-id": [
+            "52a3d38c-d382-41d4-9002-f83a85f6d26f"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260921T025759Z:52a3d38c-d382-41d4-9002-f83a85f6d26f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0FE2C66F2B114405A9D9D703C63AA6F9 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:56Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:57:58 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
+          ],
+          "x-ms-correlation-request-id": [
+            "3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260921T025759Z:3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E46CBDD5280D469496C14A13B76F81F1 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:59Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:57:58 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022,\u0022CostCenter\u0022:\u0022042\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "21fef36c-e097-4fd3-83a7-6a64186832a5"
+          ],
+          "x-ms-correlation-request-id": [
+            "21fef36c-e097-4fd3-83a7-6a64186832a5"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260921T025801Z:21fef36c-e097-4fd3-83a7-6a64186832a5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: C2F96EB9512A47B59B6CED3040A598D2 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:59Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:58:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022,\u0022CostCenter\u0022:\u0022042\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255562817875212\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "1d767989-232c-4af9-b337-985268ea0d12"
+          ],
+          "x-ms-correlation-request-id": [
+            "1d767989-232c-4af9-b337-985268ea0d12"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260921T025801Z:1d767989-232c-4af9-b337-985268ea0d12"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AC219FCD3770434AB00F3F619B514CE1 Ref B: SYD281080711062 Ref C: 2026-09-21T02:58:01Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:58:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255562817875212\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "1575a6ee-bf9b-464b-998e-406d2501ed1c"
+          ],
+          "x-ms-correlation-request-id": [
+            "1575a6ee-bf9b-464b-998e-406d2501ed1c"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260921T025817Z:1575a6ee-bf9b-464b-998e-406d2501ed1c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B0BE6F3BC7114F87BD1FF5131AE5DB03 Ref B: SYD281080711062 Ref C: 2026-09-21T02:58:16Z"
+          ],
+          "Date": [
+            "Mon, 21 Sep 2026 02:58:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}
