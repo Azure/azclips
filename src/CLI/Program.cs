@@ -115,23 +115,30 @@ public class Program
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
+
+                // Tags the root activity directly (SetTag mutates a shared heap object) rather
+                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
+                // whichever code later disposes/exports this activity in Main's own finally
+                // block, regardless of which nested awaited call resolved it. This is a
+                // best-effort early resolution (from raw args, before command parsing).
+                // MUST run before performance.Replay below: Replay creates and immediately
+                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
+                // exports synchronously on Dispose — so if those activities were replayed
+                // before the root carries a DataBoundary tag, they'd export untagged, get
+                // normalized to Global by TraceUploader, and leak an EU profile's startup
+                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
+                // re-resolves and re-tags from the bound --profile once it's known, which is
+                // authoritative for the command's own spans.
+                var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
+                    AzclipsServiceProvider.GetRequiredService<IProfileService>(),
+                    AzclipsServiceProvider.GetRequiredService<IAuthService>(),
+                    TryGetProfileOverride(args),
+                    _cancellationTokenSource.Token);
+                if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
+                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+
                 performance.Replay(_telemetryService);
             }
-
-            // Tags the root activity directly (SetTag mutates a shared heap object) rather than
-            // writing to AsyncLocal-backed ambient state, so the tag is visible to whichever
-            // code later disposes/exports this activity in Main's own finally block, regardless
-            // of which nested awaited call resolved it. This is a best-effort early resolution
-            // (from raw args, before command parsing) so startup spans are routed correctly too;
-            // ExecutionSession.RunAsync below re-resolves and re-tags from the bound --profile
-            // once it's known, which is authoritative for the command's own spans.
-            var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
-                AzclipsServiceProvider.GetRequiredService<IProfileService>(),
-                AzclipsServiceProvider.GetRequiredService<IAuthService>(),
-                TryGetProfileOverride(args),
-                _cancellationTokenSource.Token);
-            if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
-            if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
 
             GlobalArgs globalArgs;
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
