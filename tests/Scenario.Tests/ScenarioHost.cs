@@ -20,7 +20,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Resources",
         typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
         "group",
-        ["", "create", "delete", "exists", "show", "list"]);
+        ["", "create", "delete", "exists", "show", "list", "update"]);
 
     public static readonly ExtensionUnderTest Compute = new(
         "Compute",
