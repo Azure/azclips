@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
@@ -59,6 +60,8 @@ public class ExecutionSessionSeamTests
             ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
                 (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+            TagDataBoundary = _ => { },
+            ResolveDataBoundaryAsync = (_, _) => Task.FromResult<string?>(null),
         };
         return session;
     }
@@ -110,5 +113,98 @@ public class ExecutionSessionSeamTests
         Assert.Equal(1, acquiredCount);
         Assert.False(executedAtAcquire);
         Assert.True(SeamStubProcessor.WasExecuted);
+    }
+
+    // Regression coverage for the "root activity created/disposed by a different flow than the
+    // one that resolves routing" bug: PowerShell cmdlets create the root Activity, then call
+    // session.Run() (whose actual work happens on a forked worker task via ExecuteProcessorAsync)
+    // and dispose the root only after Run() returns. A write to AsyncLocal-backed ambient state
+    // made on that forked flow never propagates back to the cmdlet's own flow — so routing must
+    // be recorded by tagging the root Activity object directly (an ordinary shared heap
+    // reference), which stays visible to the caller regardless of which flow performs the
+    // mutation. These tests hold a reference to the root Activity from OUTSIDE RunAsync (playing
+    // the role of the calling cmdlet) and assert on it AFTER RunAsync returns, with a genuinely
+    // yielding resolver (a real Task.Delay, mirroring real token-acquisition/ARM network calls).
+    [Fact]
+    public async Task RunAsync_TagsCallersRootActivity_WithResolvedDataBoundary()
+    {
+        using var source = new ActivitySource(nameof(RunAsync_TagsCallersRootActivity_WithResolvedDataBoundary));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        // Played by the "caller" (e.g. a PowerShell cmdlet): creates the root Activity before
+        // invoking the session, and inspects it only after the session call returns.
+        using var rootActivity = source.StartActivity("TestRoot", ActivityKind.Server);
+        Assert.NotNull(rootActivity);
+
+        OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
+        var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
+        var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
+        var index = new SeamStubIndex();
+
+        using var session = new ExecutionSession(ClientType.CLI, invocation, streams)
+        {
+            GetExtensionVersion = () => string.Empty,
+            CacheGetOrAdd = (_, _, _) => index,
+            BindProcessor = (processor, _, _, _, _) => processor,
+            ResolveProfileAsync = (_) => Task.FromResult<Profile?>(new Profile { TenantId = "tenant-1", SubscriptionId = "sub-1" }),
+            CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+            TagDataBoundary = boundary =>
+            {
+                var root = Activity.Current;
+                while (root?.Parent is not null) root = root.Parent;
+                root?.SetTag(TelemetryTags.DataBoundary, boundary);
+            },
+            ResolveDataBoundaryAsync = async (_, cancellationToken) =>
+            {
+                // Genuine yield — mirrors the real MSAL/ARM network call that broke the
+                // original AsyncLocal-based design.
+                await Task.Delay(5, cancellationToken);
+                return "EU";
+            },
+        };
+
+        await session.RunAsync();
+
+        Assert.Equal("EU", rootActivity.GetTagItem(TelemetryTags.DataBoundary));
+    }
+
+    [Fact]
+    public async Task RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved()
+    {
+        using var source = new ActivitySource(nameof(RunAsync_DoesNotTagRootActivity_WhenNoProfileIsResolved));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var rootActivity = source.StartActivity("TestRoot", ActivityKind.Server);
+        Assert.NotNull(rootActivity);
+
+        OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
+        var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
+        var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
+        var index = new SeamStubIndex();
+
+        using var session = new ExecutionSession(ClientType.CLI, invocation, streams)
+        {
+            GetExtensionVersion = () => string.Empty,
+            CacheGetOrAdd = (_, _, _) => index,
+            BindProcessor = (processor, _, _, _, _) => processor,
+            ResolveProfileAsync = (_) => Task.FromResult<Profile?>(null),
+            CreateProcessorContext = (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+            TagDataBoundary = _ => Assert.Fail("Should not be called when no profile is resolved."),
+            ResolveDataBoundaryAsync = (_, _) => throw new InvalidOperationException("Should not be called when no profile is resolved."),
+        };
+
+        await session.RunAsync();
+
+        Assert.Null(rootActivity.GetTagItem(TelemetryTags.DataBoundary));
     }
 }

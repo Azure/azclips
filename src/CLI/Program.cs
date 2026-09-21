@@ -115,6 +115,28 @@ public class Program
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
+
+                // Tags the root activity directly (SetTag mutates a shared heap object) rather
+                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
+                // whichever code later disposes/exports this activity in Main's own finally
+                // block, regardless of which nested awaited call resolved it. This is a
+                // best-effort early resolution (from raw args, before command parsing).
+                // MUST run before performance.Replay below: Replay creates and immediately
+                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
+                // exports synchronously on Dispose — so if those activities were replayed
+                // before the root carries a DataBoundary tag, they'd export untagged, get
+                // normalized to Global by TraceUploader, and leak an EU profile's startup
+                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
+                // re-resolves and re-tags from the bound --profile once it's known, which is
+                // authoritative for the command's own spans.
+                var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
+                    AzclipsServiceProvider.GetRequiredService<IProfileService>(),
+                    AzclipsServiceProvider.GetRequiredService<IAuthService>(),
+                    TryGetProfileOverride(args),
+                    _cancellationTokenSource.Token);
+                if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
+                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+
                 performance.Replay(_telemetryService);
             }
 
@@ -299,6 +321,32 @@ public class Program
                 return Task.CompletedTask;
             }
         );
+    }
+
+    internal static string? TryGetProfileOverride(string[] args)
+    {
+        // Normalized the same way ExtensionParser does (TrimStart('-')): the real parser
+        // treats any leading-dash form as an option marker, so `-profile`/`--profile`/
+        // `---profile` are all equivalent. Matching only "--profile" here would miss a
+        // valid `-profile eu-profile` invocation, causing this early best-effort pass to
+        // resolve the active profile instead of the explicit override — routing startup
+        // telemetry (and anything replayed before ExecutionSession's later, authoritative
+        // resolution) to the wrong tenant/boundary.
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (!arg.StartsWith("-", StringComparison.Ordinal))
+                continue;
+
+            var option = arg.TrimStart('-');
+            if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
+                return option["profile=".Length..];
+
+            if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+
+        return null;
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.

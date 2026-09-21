@@ -29,7 +29,13 @@ public static class TelemetryTags
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string AuthType = "authType";
+    public const string CloudName = "cloudName";
     public const string Mode = "mode";
+    /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
+    /// directly on the root activity (see ITelemetryService.AddTag) rather than read from
+    /// ambient async-local state, so it stays correct even when resolved from a different
+    /// async flow than the one that created/disposes the root (e.g. PowerShell's Run()).</summary>
+    public const string DataBoundary = "dataBoundary";
     /// <summary>cold or warm — whether this was the first module import in the process.</summary>
     public const string ImportKind = "importKind";
 

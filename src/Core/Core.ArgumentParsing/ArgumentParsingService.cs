@@ -53,10 +53,15 @@ namespace Core.ArgumentParsing
             {
                 if (value != null)
                 {
-                    // Convert.ChangeType cannot target Nullable<T>; unwrap so nullable
-                    // processor parameters (e.g. bool?) bind instead of throwing.
+                    // Values already assignable to the target type (e.g. a string[] for a collection
+                    // parameter such as --scope/-Scope) must be assigned directly: Convert.ChangeType
+                    // only handles IConvertible scalars and throws for arrays and other collections.
+                    // It also cannot target Nullable<T>, so the fallback converts to the underlying
+                    // type; SetValue re-boxes that into the nullable property.
                     var targetType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-                    var convertedValue = Convert.ChangeType(value, targetType);
+                    var convertedValue = propertyInfo.PropertyType.IsInstanceOfType(value)
+                        ? value
+                        : Convert.ChangeType(value, targetType);
                     propertyInfo.SetValue(processor, convertedValue);
                 }
                 else
