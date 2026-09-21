@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789963520996,
+  "lastUpdate": 1789963584207,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11442,6 +11442,54 @@ window.BENCHMARK_DATA = {
             "value": 1984607.7311229946,
             "unit": "ns",
             "range": "± 50098.01692698079"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a29148a6c144236e7b3e5d9155246c810188f8b9",
+          "message": "[Accounts] `az account get-access-token` / `Get-AzAccessToken`: Add token retrieval (#851)\n\n# `az account get-access-token` / `Get-AzAccessToken`: add token\nretrieval\n\nAdds a token-retrieval command to the Accounts module on **both** front\nends —\nthe CLI `az account get-access-token` and the PowerShell\n`Get-AzAccessToken`\ncmdlet — sharing one processor, one scope resolver, and one well-known\nresource-type map so identical inputs produce identical tokens on either\nsurface.\n\nThe command acquires an access token from the current signed-in profile\nfor a\nresource, a well-known resource type, or an explicit Microsoft Entra\nscope list,\ndefaulting to Azure Resource Manager when no target is given.\n\n---\n\n## Capabilities\n\n**Token targets** — mutually exclusive; defaults to Azure Resource\nManager (ARM)\nwhen no target is given:\n\n| Target | CLI flag | PowerShell parameter | Value | Token version |\n|---|---|---|---|---|\n| Resource URL | `--resource` | `-ResourceUrl` | a resource URL (e.g.\n`https://vault.azure.net`) | v1.0 |\n| Resource-type shortcut | `--resource-type` | `-ResourceTypeName` | a\nwell-known name (e.g. `ms-graph`), resolved via the shared map | v1.0 |\n| Explicit scopes | `--scope` | `-Scope` | one or more Microsoft Entra\nscopes | v2.0 |\n\n**Unified well-known resource-type map** — both front ends resolve\nshortcuts\nthrough one shared table (the union of Azure CLI's and Azure\nPowerShell's\nshortcut names, each verified against the `azure-cli` and\n`azure-powershell`\nsources), so the same shortcut resolves to the same resource on both\nsurfaces.\nEach front end uses its own ecosystem's spelling: the CLI takes the\nkebab-case\nnames (`ms-graph`) and PowerShell takes the PascalCase names\n(`MSGraph`). The\ntwo CLI-only shortcuts (`oss-rdbms`, `media`) are offered on the CLI\nonly, since\nAzure PowerShell has no spelling for them.\n\n**Secure by default** — the raw token is never emitted unless the caller\nexplicitly opts in:\n- **CLI** — the token is redacted to a placeholder string unless\n`--plaintext`\nis passed. The CLI has no `SecureString`, so the default output is a\nplain\n**redaction placeholder, not a usable protected object** the way\nPowerShell's\n  is — pass `--plaintext` when a script actually needs the token value.\n- **PowerShell** — the token is returned as a `SecureString` by default\n(still\n  programmatically usable), or as a plain string with `-AsPlainText`.\n\n**Tenant-compatibility validation** — an explicit tenant that does not\nmatch a\nmanaged-identity account's own (fixed) tenant is rejected up front with\na clear\nerror, instead of silently returning a token for a different tenant.\n\n---\n\n## Differences from classic `az account get-access-token`\n\nThis command is designed as a drop-in for classic `az` scripts, but it\nmakes a\nfew **deliberate** departures. Anyone porting from classic `az` should\nread this\nlist.\n\n### 1. Secure by default (biggest behavioral change)\nClassic `az` always prints the raw bearer token in its JSON output. This\ncommand\ndoes **not**:\n- **CLI:** the token is **redacted** (`\"<redacted - rerun with\n--plaintext to reveal>\"`) unless you pass `--plaintext`.\n- **PowerShell:** the token is returned as a **`SecureString`** unless\nyou pass `-AsPlainText` (matching Azure PowerShell's\n`Get-AzAccessToken`).\n\nThe secure-by-default guarantee is expressed the way each ecosystem\nexpects, so\ntokens don't leak into logs, transcripts, or shell history by accident.\n\n### 2. No `--subscription` input\nClassic `az` accepts `--subscription` and honors it by looking the\nsubscription\nup in a **login-time cache of every subscription and its owning\ntenant**, then\nacquiring a token for that tenant. AzCLIPS keeps only a **single active\nprofile**\nand maintains no offline subscription catalog, and — because an access\ntoken is\nscoped to a **tenant + resource**, never to a subscription — a\nsubscription input\ncould only ever relabel the output without changing the token.\n\nRather than accept a misleading input, **there is no subscription\nparameter**.\nThe output still reports the **active profile's** subscription (which\nthe token\nis genuinely scoped to). To target a different subscription, switch it\nwith\n`login` / `profile set`, which resolve the owning tenant correctly.\n\n### 3. `--tenant-id` instead of `--tenant`\nClassic `az` uses `--tenant`. This command uses **`--tenant-id`** to\nmatch the\nAzCLIPS `login` command's convention (PowerShell uses `-TenantId`,\nmatching Az\nPowerShell). No `--tenant` alias is provided. A tenant is honored when\nyou have\naccess to it; if you're not signed in to it, acquisition fails cleanly\n(see\nerror handling below) rather than returning a wrong-tenant token.\n\n### 4. Extra `userId` field in the output\nThe output carries a `userId` field (the signed-in identity) that\nclassic `az`\ndoes not emit, so scripts don't need a second `az account show` call. It\nis\nomitted when unavailable (e.g. managed identity).\n\n### 5. Structured usage errors with a dedicated exit code\nInvalid input (mutually exclusive targets, unknown or empty resource\ntype, empty\nresource, empty scope, a managed-identity tenant mismatch or multi-scope\nrequest)\nraises a **structured usage error**: exit code **2**, a\n`{ \"error\": { \"code\": \"UsageError\", \"message\": ... } }` JSON body, and a\n`--help` hint — and it skips the AI-fallback recovery lane. Classic `az`\nsurfaces\na generic `CLIError`.\n\n### 6. Actionable, surface-aware sign-in guidance\nBecause acquisition is silent (it never pops a browser), requesting a\ntoken for a\ntenant you're not signed in to fails with an actionable message that\nnames the\ntarget tenant and the exact command to fix it — `az login --tenant-id\n<id>` on\nthe CLI, `Connect-AzAccount -TenantId <id>` in PowerShell. The same\nguidance is\nused when there's no active profile. (User identity is masked in the\nerror.)\n\n### 7. No deprecated `expiresOn` string\nClassic `az` emits a deprecated `expiresOn` local-time string alongside\nthe\nepoch `expires_on`. This command returns **only** the epoch\n`expires_on`, which\nis unambiguous (UTC seconds) and avoids the local-time parsing pitfalls\nof the\nold field. Scripts reading `expires_on` are unaffected.\n\n---\n\n## What matches classic `az` (intentional parity)\n\n- **Output JSON field names:** `accessToken`, `expires_on` (epoch\nseconds),\n  `tenant`, optional `subscription` (omitted when absent), `tokenType`.\n- **Three mutually-exclusive targets:** `--resource` (v1.0 URL) /\n`--resource-type` (shortcut) / `--scope` (v2.0), defaulting to **ARM**.\n- **Scope derivation:** `<resource>/.default`, preserving the resource's\ntrailing\nslash exactly like classic's `resource_to_scopes` (so ARM resolves to a\n  double-slash `.default` scope).\n- **Well-known resource-type shortcuts:** the CLI accepts the kebab-case\nnames\n(e.g. `arm`, `ms-graph`, `key-vault`) and PowerShell accepts the\nPascalCase\nnames (e.g. `Arm`, `MSGraph`, `KeyVault`), each matching its classic\ntool. The\nCLI-only shortcuts `oss-rdbms` and `media` are not offered on the\nPowerShell\n  surface, since Azure PowerShell has no spelling for them.\n- **Managed identity:** rejects a non-current tenant, same as classic.\n\n---\n\n## Output shape reference\n\nCLI (`--output json`):\n```json\n{\n  \"accessToken\": \"<redacted - rerun with --plaintext to reveal>\",\n  \"expires_on\": 1789524795,\n  \"tenant\": \"<tenant-id>\",\n  \"subscription\": \"<subscription-id>\",\n  \"userId\": \"user@contoso.com\",\n  \"tokenType\": \"Bearer\"\n}\n```\nPowerShell returns the same data as an object whose default `Token` is a\n`SecureString`; `-AsPlainText` returns the raw string.\n\n---\n\n## Testing\n\nUnit + binding tests span three projects, so run them at the solution\nlevel\n(`dotnet test`) or test each project individually:\n\n- **`tests/Extensions.Accounts.Tests`** — the scope resolver and the\nwell-known\nresource-type map (the CLI kebab and PowerShell PascalCase name lists\nare\n  validated separately).\n- **`tests/Cli.Tests`** — the processor (secure-by-default rendering,\nmanaged-identity tenant validation, usage-error routing, sign-in\nguidance), the\n  CLI JSON contract, and the shared-binder collection-parameter path.\n- **`tests/Cmdlets.Tests`** — the PowerShell binding and the\n`-ResourceTypeName`\n  ValidateSet.\n\nPlus:\n- A PowerShell smoke script exercising every parameter set,\nsecure-by-default vs\n`-AsPlainText`, and the resolver/validation error paths (fails the run\non a\n  broken contract).\n- Manually verified end-to-end on both surfaces against a real signed-in\nprofile.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-21T13:42:25+10:00",
+          "tree_id": "7d91b0639fdceb79a75fc8b8ea120e57ea573a30",
+          "url": "https://github.com/Azure/azclips/commit/a29148a6c144236e7b3e5d9155246c810188f8b9"
+        },
+        "date": 1789963580739,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2209436.8276668084,
+            "unit": "ns",
+            "range": "± 70885.54667899336"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2304814.2115505994,
+            "unit": "ns",
+            "range": "± 79870.25610372887"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2172027.8224738305,
+            "unit": "ns",
+            "range": "± 71159.39911348766"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2126091.0939419614,
+            "unit": "ns",
+            "range": "± 64169.478248045554"
           }
         ]
       }
