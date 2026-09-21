@@ -29,7 +29,8 @@ namespace Core.Engine
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
-        IHttpPipelineService httpPipelineService) : IEngine
+        IHttpPipelineService httpPipelineService,
+        SensitiveHttpClient? sensitiveHttpClient = null) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -113,7 +114,7 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
+                new HttpClientFactory(httpClient, sensitiveHttpClient),
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {

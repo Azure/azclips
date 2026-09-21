@@ -21,9 +21,9 @@ public class SetSecretCommand : SetSecretProcessor
         SecretCommandInputs.ValidateName(SecretName);
         if ((Value is null ? 0 : 1) + (SecureValue is null ? 0 : 1) + (File is null ? 0 : 1) != 1)
             throw new ArgumentException("Specify exactly one secret value source: value, file or SecureString.");
-        SecretAttributesEnabled = SecretCommandInputs.ParseEnabled(Enabled);
-        SecretAttributesExpires = SecretCommandInputs.ParseTime(Expires);
-        SecretAttributesNotBefore = SecretCommandInputs.ParseTime(NotBefore);
+        if (Enabled is not null) SecretAttributesEnabled = SecretCommandInputs.ParseEnabled(Enabled);
+        if (Expires is not null) SecretAttributesExpires = SecretCommandInputs.ParseTime(Expires);
+        if (NotBefore is not null) SecretAttributesNotBefore = SecretCommandInputs.ParseTime(NotBefore);
         Tags = SecretCommandInputs.ParseTags(TagsInput) ?? Tags;
         await base.BeforeProcessAsync();
         if (File is not null)
@@ -93,11 +93,12 @@ public class UpdateSecretCommand : UpdateSecretProcessor
     {
         SecretCommandInputs.ValidateName(SecretName);
         SecretCommandInputs.ValidateVersion(SecretVersion);
-        if (Enabled is null && Expires is null && NotBefore is null && TagsInput is null && ContentType is null)
+        if (Enabled is null && Expires is null && NotBefore is null && TagsInput is null && ContentType is null &&
+            SecretAttributesEnabled is null && SecretAttributesExpires is null && SecretAttributesNotBefore is null && Tags is null)
             throw new ArgumentException("Specify at least one attribute, content type or tag update.");
-        SecretAttributesEnabled = SecretCommandInputs.ParseEnabled(Enabled);
-        SecretAttributesExpires = SecretCommandInputs.ParseTime(Expires);
-        SecretAttributesNotBefore = SecretCommandInputs.ParseTime(NotBefore);
+        if (Enabled is not null) SecretAttributesEnabled = SecretCommandInputs.ParseEnabled(Enabled);
+        if (Expires is not null) SecretAttributesExpires = SecretCommandInputs.ParseTime(Expires);
+        if (NotBefore is not null) SecretAttributesNotBefore = SecretCommandInputs.ParseTime(NotBefore);
         Tags = SecretCommandInputs.ParseTags(TagsInput) ?? Tags;
         return base.BeforeProcessAsync();
     }
@@ -129,12 +130,11 @@ public class RemoveSecretCommand : DeleteSecretProcessor
 
 public class ListSecretsCommand : GetSecretsProcessor
 {
-    public int PageSize { get; set; } = 25;
+    public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
 
     protected override Task BeforeProcessAsync()
     {
         SecretCommandInputs.ValidatePageSize(PageSize);
-        Maxresults = PageSize;
         return base.BeforeProcessAsync();
     }
 
@@ -148,13 +148,12 @@ public class ListSecretsCommand : GetSecretsProcessor
 
 public class ListSecretVersionsCommand : GetSecretVersionsProcessor
 {
-    public int PageSize { get; set; } = 25;
+    public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
 
     protected override Task BeforeProcessAsync()
     {
         SecretCommandInputs.ValidateName(SecretName);
         SecretCommandInputs.ValidatePageSize(PageSize);
-        Maxresults = PageSize;
         return base.BeforeProcessAsync();
     }
 

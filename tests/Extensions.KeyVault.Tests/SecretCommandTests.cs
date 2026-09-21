@@ -14,6 +14,84 @@ public class SecretCommandTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task InheritedAttributesArePreserved(bool update)
+    {
+        KeyVaultDataPlaneProcessorBase command = update
+            ? new UpdateSecretCommand
+            {
+                SecretName = "test", SecretAttributesEnabled = false,
+                SecretAttributesNotBefore = 1700000000, SecretAttributesExpires = 1800000000,
+                Tags = new Dictionary<string, string> { ["source"] = "inherited" }
+            }
+            : new SetSecretCommand
+            {
+                SecretName = "test", Value = "fixture", SecretAttributesEnabled = false,
+                SecretAttributesNotBefore = 1700000000, SecretAttributesExpires = 1800000000,
+                Tags = new Dictionary<string, string> { ["source"] = "inherited" }
+            };
+        Initialize(command, "{}", async request =>
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            var attributes = body.RootElement.GetProperty("attributes");
+            Assert.False(attributes.GetProperty("enabled").GetBoolean());
+            Assert.Equal(1700000000, attributes.GetProperty("nbf").GetInt32());
+            Assert.Equal(1800000000, attributes.GetProperty("exp").GetInt32());
+            Assert.Equal("inherited", body.RootElement.GetProperty("tags").GetProperty("source").GetString());
+        });
+        await command.ProcessAsync();
+    }
+
+    [Fact]
+    public async Task InheritedEmptyTagsAreAnUpdate()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Tags = new Dictionary<string, string>() };
+        Initialize(command, "{}", async request =>
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.Empty(body.RootElement.GetProperty("tags").EnumerateObject());
+        });
+        await command.ProcessAsync();
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    public async Task ListsRespectInheritedPageSize(bool versions, int? pageSize)
+    {
+        KeyVaultDataPlaneProcessorBase command = versions
+            ? new ListSecretVersionsCommand { SecretName = "test", Maxresults = pageSize }
+            : new ListSecretsCommand { Maxresults = pageSize };
+        Initialize(command, "{\"value\":[]}", request =>
+        {
+            Assert.Equal(pageSize.HasValue, request.RequestUri!.Query.Contains("maxresults="));
+            if (pageSize.HasValue) Assert.Contains("maxresults=1", request.RequestUri.Query);
+            return Task.CompletedTask;
+        });
+        await command.ProcessAsync();
+    }
+
+    [Fact]
+    public async Task ExplicitConvenienceInputOverridesOnlyThatAttribute()
+    {
+        var command = new UpdateSecretCommand
+        {
+            SecretName = "test", SecretAttributesEnabled = false, Enabled = "true",
+            SecretAttributesExpires = 1800000000
+        };
+        Initialize(command, "{}", async request =>
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.True(body.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
+            Assert.Equal(1800000000, body.RootElement.GetProperty("attributes").GetProperty("exp").GetInt32());
+        });
+        await command.ProcessAsync();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task SecureInputPreservesEmbeddedNullAndUnicode(bool withMetadata)
     {
         const string value = "fixture\0\u00e9";

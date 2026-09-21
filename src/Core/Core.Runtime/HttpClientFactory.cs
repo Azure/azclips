@@ -13,17 +13,30 @@ namespace Core.Runtime
     /// </summary>
     public class HttpClientFactory : ISendAsyncTerminalFactory, ISendAsync
     {
-        HttpClient client;
-        private static readonly HttpClient SensitiveClient = new(new HttpClientHandler { AllowAutoRedirect = false });
+        private readonly HttpClient client;
+        private readonly SensitiveHttpClient? sensitiveClient;
 
         public HttpClientFactory() : this(new HttpClient())
         {
         }
 
-        public HttpClientFactory(HttpClient client) => this.client = client;
+        public HttpClientFactory(HttpClient client) : this(client, null)
+        {
+        }
+
+        public HttpClientFactory(HttpClient client, SensitiveHttpClient? sensitiveClient)
+        {
+            this.client = client ?? throw new ArgumentNullException(nameof(client));
+            this.sensitiveClient = sensitiveClient;
+        }
 
         public ISendAsync Create() => this;
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) =>
-            (request.HasSensitiveDiagnostics() ? SensitiveClient : client).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callback.Token);
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback)
+        {
+            HttpClient transport = request.HasSensitiveDiagnostics()
+                ? sensitiveClient ?? throw new InvalidOperationException("The host must configure a no-redirect SensitiveHttpClient before sending sensitive requests.")
+                : client;
+            return transport.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callback.Token);
+        }
     }
 }

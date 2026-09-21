@@ -112,6 +112,7 @@ internal sealed class ScenarioHost : IDisposable
             if (backendHandler is not null)
             {
                 services.AddSingleton(new HttpClient(backendHandler));
+                services.AddSingleton(new Core.Runtime.SensitiveHttpClient(backendHandler));
             }
 
             // Each surface binds arguments with its real provider; that binding difference

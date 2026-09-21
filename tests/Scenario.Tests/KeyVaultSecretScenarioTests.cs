@@ -41,9 +41,9 @@ public class KeyVaultSecretScenarioTests
         Add("PUT", $"/secrets/test?{Version}", Bundle);
         Add("GET", $"/secrets/test/?{Version}", Bundle);
         Add("GET", $"/secrets/test/?{Version}", Bundle);
-        Add("GET", $"/secrets?{Version}&maxresults=25", Page("one", $"{Root}/secrets?{Version}&skiptoken=next"));
+        Add("GET", $"/secrets?{Version}", Page("one", $"{Root}/secrets?{Version}&skiptoken=next"));
         Add("GET", $"/secrets?{Version}&skiptoken=next", Page("two"));
-        Add("GET", $"/secrets/test/versions?{Version}&maxresults=25", Page("version1"));
+        Add("GET", $"/secrets/test/versions?{Version}", Page("version1"));
         Add("PATCH", $"/secrets/test/?{Version}", Bundle);
         Add("DELETE", $"/secrets/test?{Version}", "{\"value\":\"fixture-value\",\"recoveryId\":\"recovery\"}");
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
@@ -112,13 +112,47 @@ public class KeyVaultSecretScenarioTests
         {
             Entries = [new SessionRecordEntry
             {
-                Request = new RecordedRequest { Method = "GET", Uri = $"{Root}/secrets?{Version}&maxresults=25" },
+                Request = new RecordedRequest { Method = "GET", Uri = $"{Root}/secrets?{Version}" },
                 Response = new RecordedResponse { StatusCode = 200, Body = Page("one", next) }
             }]
         };
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
         using var host = new ScenarioHost(ClientType.CLI, interceptor, extensions: [ExtensionUnderTest.KeyVault]);
-        Assert.ThrowsAny<Exception>(() => host.RunCli("keyvault", "secret", "list", "--vault-name", "fixture"));
+        var error = Assert.ThrowsAny<Exception>(() => host.RunCli("keyvault", "secret", "list", "--vault-name", "fixture"));
+        Assert.Contains("selected vault's secrets endpoint", error.ToString());
         Assert.Single(interceptor.Sent);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void EngineUsesInjectedSensitiveTransport(ClientType clientType)
+    {
+        using var backend = new VaultBackend();
+        var record = new SessionRecord();
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(clientType, interceptor, backendHandler: backend, extensions: [ExtensionUnderTest.KeyVault]);
+        var output = clientType == ClientType.CLI
+            ? host.RunCli("keyvault", "secret", "show", "--vault-name", "fixture", "--name", "test")
+            : host.RunPowerShell("Get-AzKeyVaultSecret_Get", new Dictionary<string, object> { ["VaultName"] = "fixture", ["SecretName"] = "test" });
+        Assert.Equal(1, backend.Calls);
+        Assert.IsType<SecretMetadata>(Assert.Single(output));
+        Assert.Single(record.Entries);
+        Assert.DoesNotContain("fixture-value", JsonSerializer.Serialize(record));
+    }
+
+    private sealed class VaultBackend : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            Calls++;
+            Assert.Equal("fixture.vault.azure.net", request.RequestUri!.Host);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                RequestMessage = request, Content = new StringContent(Bundle)
+            });
+        }
     }
 }
