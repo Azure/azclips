@@ -56,6 +56,7 @@ public class ConfigurationSchemaTests
     {
         var expected = new[]
         {
+            "agent.autoRecovery.enabled", "agent.failureHistory.maxEntries",
             "agent.builtin.apiVersion", "agent.builtin.endpoint", "agent.builtin.modelId", "agent.builtin.scope",
             "agent.enabled", "agent.interactive.verbose", "agent.provider", "agent.sessionStyle", "agent.trace.enabled", "agent.trace.path",
             "assemblyLoading.bypassExtensionCache", "assemblyLoading.extensionFolderPrefix", "assemblyLoading.installedExtensionsRoot",

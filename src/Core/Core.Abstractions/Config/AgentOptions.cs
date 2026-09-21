@@ -14,10 +14,10 @@ public sealed class AgentOptions
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
     public BuiltinProviderOptions Builtin { get; set; } = new();
+    public AutoRecoveryOptions AutoRecovery { get; set; } = new();
+    public FailureHistoryOptions FailureHistory { get; set; } = new();
 
-    // oneshot: agent proposes a fix and exits (az-CLI-like). interactive: agent
-    // stays in a chat loop until the user exits or the escape valve trips.
-    [ConfigurationKey("sessionStyle", Description = "Agent interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", AllowedValues = ["oneshot", "interactive"])]
+    [ConfigurationKey("sessionStyle", Description = "Automatic recovery interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop). Explicit troubleshoot requests always use oneshot.", AllowedValues = ["oneshot", "interactive"])]
     public string SessionStyle { get; set; } = "oneshot";
 
     // Interactive-only display settings. Meaningless in oneshot (which prints no
@@ -34,6 +34,18 @@ public sealed class AgentOptions
     // "interactive" literal doesn't drift across call sites.
     public bool IsInteractive =>
         string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class AutoRecoveryOptions
+{
+    [ConfigurationKey("enabled", Description = "Automatically start AI recovery after eligible command failures. Requires agent.enabled. Off by default; explicit troubleshoot requests do not require this switch.")]
+    public bool Enabled { get; set; } = false;
+}
+
+public sealed class FailureHistoryOptions
+{
+    [ConfigurationKey("maxEntries", Description = "Maximum encrypted failure records retained for the current local user. Must be positive. A lower limit takes effect on the next successful history write.", Minimum = 1)]
+    public int MaxEntries { get; set; } = 10;
 }
 
 public sealed class InteractiveOptions

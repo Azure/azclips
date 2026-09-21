@@ -29,6 +29,7 @@ public static class HomePaths
     public const string ProfilesFileName = "profiles.json";
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
+    public const string FailureHistoryDirectoryName = "failure-history";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
@@ -78,4 +79,7 @@ public static class HomePaths
 
     public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);
+
+    public static string GetDefaultFailureHistoryDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), FailureHistoryDirectoryName);
 }
