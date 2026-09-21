@@ -26,7 +26,7 @@ namespace Core.Cli
 
         public object ConvertToType(string propertyName, string value, Type targetType)
         {
-            loggingService.Verbose($"Converting property '{propertyName}' with value '{value}' to type '{targetType.Name}'");
+            loggingService.Verbose($"Converting property '{propertyName}' to type '{targetType.Name}'");
             switch (targetType)
             {
                 case var t when t == typeof(string):

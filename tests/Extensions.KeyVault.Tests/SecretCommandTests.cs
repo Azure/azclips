@@ -1,0 +1,144 @@
+using System.Net;
+using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Runtime.Handler;
+using Microsoft.Azure.Azclips.Extensions.KeyVault.Customization;
+using Microsoft.Azure.Azclips.Extensions.KeyVault.Processors;
+using Moq;
+
+namespace Extensions.KeyVault.Tests;
+
+public class SecretCommandTests
+{
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SecureInputPreservesEmbeddedNullAndUnicode(bool withMetadata)
+    {
+        const string value = "fixture\0\u00e9";
+        using var secure = new System.Security.SecureString();
+        foreach (char character in value) secure.AppendChar(character);
+        var command = new SetSecretCommand { SecretName = "test", SecureValue = secure };
+        if (withMetadata) command.ContentType = "text/plain";
+        Initialize(command, "{}", async request =>
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.Equal(value, body.RootElement.GetProperty("value").GetString());
+        });
+        await command.ProcessAsync();
+        Assert.Null(command.Value);
+        Assert.Null(command.SecureValue);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FileInputPreservesTrailingNewline(bool withMetadata)
+    {
+        string file = Path.GetTempFileName();
+        try
+        {
+            await System.IO.File.WriteAllTextAsync(file, "fixture-value\n");
+            var command = new SetSecretCommand { SecretName = "test", File = file };
+            if (withMetadata) command.ContentType = "text/plain";
+            Initialize(command, "{}", async request =>
+            {
+                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+                Assert.Equal("fixture-value\n", body.RootElement.GetProperty("value").GetString());
+            });
+            await command.ProcessAsync();
+        }
+        finally { System.IO.File.Delete(file); }
+    }
+
+    [Fact]
+    public async Task SetSendsValueButReturnsOnlyMetadata()
+    {
+        var command = new SetSecretCommand { SecretName = "test", Value = "private-fixture", Enabled = "false" };
+        string? requestBody = null;
+        var output = Initialize(command, "{\"value\":\"private-fixture\",\"id\":\"fixture-id\"}", async request =>
+        {
+            requestBody = await request.Content!.ReadAsStringAsync();
+            Assert.Equal(HttpMethod.Put, request.Method);
+        });
+        await command.ProcessAsync();
+        using var json = JsonDocument.Parse(requestBody!);
+        Assert.Equal("private-fixture", json.RootElement.GetProperty("value").GetString());
+        Assert.False(json.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
+        Assert.False(json.RootElement.GetProperty("attributes").TryGetProperty("exp", out _));
+        Assert.DoesNotContain("private-fixture", JsonSerializer.Serialize(output));
+        Assert.IsType<SecretMetadata>(Assert.Single(output));
+        Assert.Null(command.Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShowRequiresOptInToReturnPlaintext(bool plaintext)
+    {
+        var command = new ShowSecretCommand { SecretName = "test", SecretVersion = "version1", AsPlainText = plaintext };
+        var output = Initialize(command, "{\"value\":\"private-fixture\"}", request =>
+        {
+            Assert.EndsWith("/secrets/test/version1?api-version=2025-07-01", request.RequestUri!.AbsoluteUri);
+            return Task.CompletedTask;
+        });
+        await command.ProcessAsync();
+        if (plaintext) Assert.Equal("private-fixture", Assert.Single(output));
+        else Assert.IsType<SecretMetadata>(Assert.Single(output));
+    }
+
+    [Fact]
+    public async Task UpdateDoesNotSendValueOrUnspecifiedAttributes()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Enabled = "false" };
+        Initialize(command, "{}", async request =>
+        {
+            Assert.Equal(HttpMethod.Patch, request.Method);
+            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.False(json.RootElement.TryGetProperty("value", out _));
+            Assert.False(json.RootElement.TryGetProperty("tags", out _));
+            Assert.False(json.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
+            Assert.Single(json.RootElement.GetProperty("attributes").EnumerateObject());
+        });
+        await command.ProcessAsync();
+    }
+
+    [Fact]
+    public async Task DeleteRequiresConfirmationAndPreservesRecoveryMetadata()
+    {
+        var command = new RemoveSecretCommand { SecretName = "test" };
+        int requests = 0;
+        var output = Initialize(command, "{\"value\":\"private-fixture\",\"recoveryId\":\"recovery\",\"deletedDate\":123}", request =>
+        {
+            requests++;
+            Assert.Equal(HttpMethod.Delete, request.Method);
+            return Task.CompletedTask;
+        });
+        await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
+        Assert.Equal(0, requests);
+        command.Yes = true;
+        await command.ProcessAsync();
+        Assert.Equal("recovery", Assert.IsType<SecretMetadata>(Assert.Single(output)).RecoveryId);
+        Assert.DoesNotContain("private-fixture", JsonSerializer.Serialize(output));
+    }
+
+    private static List<object> Initialize(KeyVaultDataPlaneProcessorBase command, string body, Func<HttpRequestMessage, Task> inspect)
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher.Object))
+            .Returns(async (HttpRequestMessage request, IEventPublisher _) =>
+            {
+                await inspect(request);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body), RequestMessage = request };
+            });
+        var output = new List<object>();
+        command.VaultName = "fixture";
+        command.Init(new ProcessorContext(pipeline.Object, publisher.Object, new AuthHandler(),
+            new OutputHandler { WriteOutput = (value, _) => { output.Add(value); return Task.CompletedTask; } },
+            new Profile { TenantId = "fixture-tenant" }));
+        return output;
+    }
+}

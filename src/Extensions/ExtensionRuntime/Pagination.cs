@@ -49,6 +49,11 @@ public static class Pagination
                     }
                     catch (JsonException)
                     {
+                        if (request.HasSensitiveDiagnostics())
+                        {
+                            await publisher.Publish(Events.ResponseInvalidJson, "Response has invalid JSON. Sensitive details omitted.");
+                            throw new InvalidOperationException("Failed to deserialize the response. Sensitive details omitted.");
+                        }
                         await publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
                         throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TBody).Name}. Raw body: {rawBody}");
                     }

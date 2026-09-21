@@ -51,7 +51,7 @@ public class KeyVaultDataPlaneProcessorBaseTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task FoundationRejectsExecutionBeforeNetworkOrOutput(bool hasProfile)
+    public async Task MissingProfileOrVaultRejectsExecutionBeforeNetworkOrOutput(bool hasProfile)
     {
         var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
         var publisher = CreatePublisher();
@@ -62,7 +62,10 @@ public class KeyVaultDataPlaneProcessorBaseTests
         processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, authHandler,
             new OutputHandler { WriteOutput = (value, _) => { output.Add(value); return Task.CompletedTask; } }, profile));
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => processor.ProcessAsync());
+        if (hasProfile)
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
 
         pipeline.VerifyNoOtherCalls();
         Assert.Empty(output);

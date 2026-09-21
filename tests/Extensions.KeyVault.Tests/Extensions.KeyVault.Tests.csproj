@@ -12,5 +12,6 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Extensions\KeyVault\Extensions.KeyVault.csproj" />
         <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+        <ProjectReference Include="..\Tests.Recording\Tests.Recording.csproj" />
     </ItemGroup>
 </Project>

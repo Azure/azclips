@@ -15,6 +15,11 @@ namespace Scenario.Tests;
 /// <summary>The extension a scenario drives: its short name, index assembly, and CLI leaves.</summary>
 internal sealed record ExtensionUnderTest(string Name, string PackageId, System.Reflection.Assembly Assembly, string Verb, string[] Leaves)
 {
+    public static readonly ExtensionUnderTest KeyVault = new(
+        "KeyVault", "Microsoft.Azure.Azclips.Extensions.KeyVault",
+        typeof(Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex).Assembly,
+        "keyvault", ["secret set", "secret show", "secret list", "secret list-versions", "secret set-attributes", "secret delete"]);
+
     public static readonly ExtensionUnderTest Resources = new(
         "Resources",
         "Microsoft.Azure.Azclips.Extensions.Resources",

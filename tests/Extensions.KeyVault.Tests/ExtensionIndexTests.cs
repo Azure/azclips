@@ -8,13 +8,18 @@ public class ExtensionIndexTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public void FoundationExposesNoCommands(ClientType clientType)
+    public void BothFrontendsExposeSixCustomizedOperations(ClientType clientType)
     {
         var index = new ExtensionIndex();
 
-        Assert.Empty(index.GetCommandTable(clientType));
-        Assert.Empty(index.GetAllCommands(clientType));
-        Assert.Empty(index.GetCommandKeys(clientType));
+        Assert.Equal(6, index.GetCommandTable(clientType).Count);
+        Assert.All(index.GetAllCommands(clientType), metadata =>
+        {
+            Assert.Contains(".Customization", metadata.ProcessorType.Namespace!);
+            foreach (var parameter in metadata.Parameters.Values)
+                Assert.NotNull(metadata.ProcessorType.GetProperty(parameter.Name));
+        });
+        Assert.Equal(6, index.GetCommandKeys(clientType).Count());
         Assert.Throws<KeyNotFoundException>(() => index.GetCommandMetadata("not-implemented", clientType));
     }
 }
