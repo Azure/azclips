@@ -25,7 +25,6 @@ public static class HomePaths
     public const string ConfigFileName = "config.json";
     public const string TraceDirectoryName = "traces";
     public const string ArmCacheDirectoryName = "arm-cache";
-    public const string AuthContextFileName = "context.json";
     public const string ProfilesFileName = "profiles.json";
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
@@ -72,9 +71,6 @@ public static class HomePaths
 
         return Path.Combine(local, DefaultHomeDirectoryName);
     }
-
-    public static string GetDefaultAuthContextFilePath(string? localApplicationDataPath = null)
-        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AuthContextFileName);
 
     public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);

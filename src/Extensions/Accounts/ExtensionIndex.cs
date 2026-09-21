@@ -32,7 +32,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Profile"]        = new("Profile", "Profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with -OutProfile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Identity"]       = new("Identity", "Identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["MSI", "ManagedIdentity", "ManagedService"], AllowedValues: []),
-                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ServicePrincipal"] = new("ServicePrincipal", "ServicePrincipal", typeof(bool), "Login as a service principal using a federated (OIDC) token.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["FederatedToken"] = new("FederatedToken", "FederatedToken", typeof(string), "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.", IsRequired: false, Aliases: ["ClientAssertion"], AllowedValues: []),
+                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with -ServicePrincipal.", IsRequired: false, Aliases: ["AccountId", "ApplicationId"], AllowedValues: []),
                 ["ObjectId"]       = new("ObjectId", "ObjectId", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceId"]     = new("ResourceId", "ResourceId", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
@@ -47,6 +49,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["MSI"]                    = "Identity",
                 ["ManagedService"]         = "Identity",
                 ["ManagedIdentity"] = "Identity",
+                ["AccountId"] = "ClientId",
+                ["ApplicationId"] = "ClientId",
+                ["ClientAssertion"] = "FederatedToken",
             }
         );
         private static readonly CommandMetadata psLogout = new(
@@ -148,7 +153,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["out-profile"]     = new("OutProfile", "out-profile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with --profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["profile"]         = new("Profile", "profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with --out-profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["identity"]        = new("Identity", "identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["i"], AllowedValues: []),
-                ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["service-principal"] = new("ServicePrincipal", "service-principal", typeof(bool), "Login as a service principal using a federated (OIDC) token.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["federated-token"] = new("FederatedToken", "federated-token", typeof(string), "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["object-id"]       = new("ObjectId", "object-id", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-id"]     = new("ResourceId", "resource-id", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
