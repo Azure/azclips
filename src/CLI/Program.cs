@@ -322,13 +322,24 @@ public class Program
 
     internal static string? TryGetProfileOverride(string[] args)
     {
+        // Normalized the same way ExtensionParser does (TrimStart('-')): the real parser
+        // treats any leading-dash form as an option marker, so `-profile`/`--profile`/
+        // `---profile` are all equivalent. Matching only "--profile" here would miss a
+        // valid `-profile eu-profile` invocation, causing this early best-effort pass to
+        // resolve the active profile instead of the explicit override — routing startup
+        // telemetry (and anything replayed before ExecutionSession's later, authoritative
+        // resolution) to the wrong tenant/boundary.
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
-            if (arg.StartsWith("--profile=", StringComparison.OrdinalIgnoreCase))
-                return arg["--profile=".Length..];
+            if (!arg.StartsWith("-", StringComparison.Ordinal))
+                continue;
 
-            if (string.Equals(arg, "--profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            var option = arg.TrimStart('-');
+            if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
+                return option["profile=".Length..];
+
+            if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
                 return args[i + 1];
         }
 

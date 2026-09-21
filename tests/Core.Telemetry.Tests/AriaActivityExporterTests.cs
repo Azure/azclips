@@ -160,4 +160,35 @@ public class AriaActivityExporterTests
         // The child's own tag must still be present and win over any same-named ancestor tag.
         Assert.Equal("child-op", scope["command"]);
     }
+
+    [Fact]
+    public void BuildScope_DoesNotMergeDisallowedAncestorTags_IntoChildActivityScope()
+    {
+        // DefaultTelemetryPropertyFilterProcessor only strips disallowed tags off an Activity
+        // when THAT Activity's own OnEnd fires — the root is still open (not yet disposed) when
+        // a child exports, so its tags have not been filtered yet. BuildScope's parent-chain
+        // merge must apply the same allowlist itself, or a disallowed tag temporarily sitting on
+        // the root (e.g. URL/path data, which the allowlist explicitly excludes) would leak into
+        // every child's exported record before the root's own filtering ever runs.
+        using var source = new ActivitySource(nameof(BuildScope_DoesNotMergeDisallowedAncestorTags_IntoChildActivityScope));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var root = source.StartActivity("root", ActivityKind.Server);
+        Assert.NotNull(root);
+        root.SetTag(TelemetryTags.TenantId, "tenant-1");
+        root.SetTag("http.url", "https://management.azure.com/subscriptions/secret-sub-id");
+
+        using var child = source.StartActivity("child");
+        Assert.NotNull(child);
+
+        var scope = AriaActivityExporter.BuildScope(child);
+
+        Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
+        Assert.False(scope.ContainsKey("http.url"), "Disallowed ancestor tag must not be merged into the child's scope.");
+    }
 }
