@@ -543,6 +543,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_exportResourceGroupDeploymentTemplate_CLI = new(
+            Name: "ExportResourceGroupDeploymentTemplateProcessor",
+            InvocationName: "deployment group export",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportResourceGroupDeploymentTemplateProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ExportResourceGroupDeploymentTemplateProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_saveResourceGroupDeploymentTemplate_PS = new(
+            Name: "SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",
+            InvocationName: "Save-AzResourceGroupDeploymentTemplate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.SaveResourceGroupDeploymentTemplateProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: ["ResourceGroup"], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment whose template to save.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Path"]              = new("Path", "Path", typeof(string), "The output path of the template file. A directory receives '<deployment name>.json'; any other path is used as the file name and gains a '.json' extension when it lacks one. Defaults to the current directory.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Force"]             = new("Force", "Force", typeof(bool), "Overwrite the destination file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["ResourceGroup"] = "ResourceGroupName",
+                ["DeploymentName"] = "Name",
+            }
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -558,6 +594,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzResourceGroupDeployment_List"] = s_listResourceGroupDeployment_PS,
             ["Stop-AzResourceGroupDeployment"] = s_stopResourceGroupDeployment_PS,
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
+            ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -581,6 +618,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment group list"]     = s_listResourceGroupDeployment_CLI,
             ["deployment group cancel"]   = s_stopResourceGroupDeployment_CLI,
             ["deployment group delete"]   = s_removeResourceGroupDeployment_CLI,
+            ["deployment group export"]   = s_exportResourceGroupDeploymentTemplate_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
