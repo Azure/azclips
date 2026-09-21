@@ -51,4 +51,24 @@ public class TelemetryExportersTests
         using var provider = builder.Build();
         Assert.NotNull(provider);
     }
+
+    [Fact]
+    public void ResolveAriaExporter_ReturnsEuEndpoint_ForEuBoundary()
+    {
+        var exporter = TelemetryExporters.ResolveAriaExporter("EU");
+
+        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
+    }
+
+    [Theory]
+    [InlineData("Global")]
+    [InlineData("unknown")]
+    public void ResolveAriaExporter_ReturnsGlobalEndpoint_ForNonEuBoundary(string? dataBoundary)
+    {
+        var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
+
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
+        Assert.Null(exporter.Endpoint);
+    }
 }

@@ -26,6 +26,9 @@ public static class HomePaths
     public const string TraceDirectoryName = "traces";
     public const string ArmCacheDirectoryName = "arm-cache";
     public const string AuthContextFileName = "context.json";
+    public const string ProfilesFileName = "profiles.json";
+    public const string ActiveProfileFileName = "active-profile";
+    public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
