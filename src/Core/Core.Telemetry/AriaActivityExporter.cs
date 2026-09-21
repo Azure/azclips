@@ -157,7 +157,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         base.Dispose(disposing);
     }
 
-    private static Dictionary<string, object?> BuildScope(Activity activity)
+    internal static Dictionary<string, object?> BuildScope(Activity activity)
     {
         var scope = new Dictionary<string, object?>
         {
@@ -172,8 +172,20 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (activity.ParentSpanId != default)
             scope["ParentSpanId"] = activity.ParentSpanId.ToString();
 
-        foreach (var tag in activity.TagObjects)
-            scope[tag.Key] = tag.Value;
+        // Child activities do not inherit parent tags in System.Diagnostics.Activity — merge
+        // the resolved parent-chain tags (root-to-leaf order, so a child's own tag wins on a
+        // name collision) into the scope, so a child's Aria record still carries the root's
+        // TenantId/DataBoundary/SubscriptionId metadata. FileExporter does the equivalent via
+        // its own per-tag ResolveTag walk for persisted traces.
+        var chain = new Stack<Activity>();
+        for (var current = activity; current is not null; current = current.Parent)
+            chain.Push(current);
+
+        while (chain.TryPop(out var current))
+        {
+            foreach (var tag in current.TagObjects)
+                scope[tag.Key] = tag.Value;
+        }
 
         return scope;
     }

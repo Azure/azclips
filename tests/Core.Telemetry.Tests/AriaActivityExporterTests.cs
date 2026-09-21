@@ -128,4 +128,36 @@ public class AriaActivityExporterTests
 
         Assert.True(flushed, "ForceFlush should succeed for both Global and EU exports from one long-lived exporter");
     }
+
+    [Fact]
+    public void BuildScope_MergesParentChainTags_IntoChildActivityScope()
+    {
+        // TenantId/DataBoundary/SubscriptionId are tagged once on the root Activity (see
+        // ITelemetryService.AddTag) — child activities do NOT inherit tags in
+        // System.Diagnostics.Activity, so BuildScope must walk the parent chain itself,
+        // otherwise a child's Aria record silently loses the root's routing/identity metadata.
+        using var source = new ActivitySource(nameof(BuildScope_MergesParentChainTags_IntoChildActivityScope));
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => ReferenceEquals(s, source),
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var root = source.StartActivity("root", ActivityKind.Server);
+        Assert.NotNull(root);
+        root.SetTag(TelemetryTags.TenantId, "tenant-1");
+        root.SetTag(TelemetryTags.DataBoundary, "EU");
+
+        using var child = source.StartActivity("child");
+        Assert.NotNull(child);
+        child.SetTag("command", "child-op");
+
+        var scope = AriaActivityExporter.BuildScope(child);
+
+        Assert.Equal("tenant-1", scope[TelemetryTags.TenantId]);
+        Assert.Equal("EU", scope[TelemetryTags.DataBoundary]);
+        // The child's own tag must still be present and win over any same-named ancestor tag.
+        Assert.Equal("child-op", scope["command"]);
+    }
 }
