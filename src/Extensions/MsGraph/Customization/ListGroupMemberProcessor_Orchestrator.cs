@@ -62,8 +62,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        internal override async Task<HttpResponseMessage> SendAsync()
+        public override async Task ProcessAsync()
         {
+            // Install the Graph auth override up front: the group-resolution requests below run
+            // before the atomic does, so they need the Graph audience token already in place.
+            await BeforeProcessAsync();
+
             string groupId = await ResolveGroupAsync();
 
             ListGroupMemberProcessor atomic = CreateExtendedProcessor<ListGroupMemberProcessor>(p =>
@@ -76,7 +80,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 p.Search = Search;
                 p.ConsistencyLevel = ConsistencyLevel;
             });
-            return await atomic.SendAsync();
+            // Full pipeline: unwraps the OData envelope and follows @odata.nextLink. Do not swap for SendAsync.
+            await atomic.ProcessAsync();
         }
 
         private async Task<string> ResolveGroupAsync()
