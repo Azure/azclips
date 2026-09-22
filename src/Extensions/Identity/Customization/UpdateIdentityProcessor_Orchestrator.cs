@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 using Microsoft.Azure.Azclips.Extensions.Identity.Processors;
 
@@ -137,9 +138,9 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
             JsonObject? patchBody = await ReadResponseBodyAsync<JsonObject>(response);
             if (patchBody is not null)
             {
-                IdentityJsonPatchHelper.MergePatch(patchBody, BuildPatchBody());
-                IdentityJsonPatchHelper.ApplyGenericUpdate(patchBody, Set, Add, Remove, ParseForceString());
-                IdentityJsonPatchHelper.RemovePaths(patchBody, ReadOnlyIdentityPatchBodyPaths);
+                JsonUpdateHelper.MergePatch(patchBody, BuildPatchBody());
+                JsonUpdateHelper.ApplyGenericUpdate(patchBody, Set, Add, Remove, ParseForceString());
+                JsonUpdateHelper.RemovePaths(patchBody, ReadOnlyIdentityPatchBodyPaths);
             }
             patchBodyOverride = patchBody;
         }

@@ -19,7 +19,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  TWEAK_IR_STAGE,
   TSP_EMIT_STAGE,
   compile,
   createRegistry,
@@ -32,7 +34,7 @@ import {
   type TransformStep,
 } from "../src/index.js";
 
-import { parseIR, type IR } from "@azure-client-engine/ir";
+import { parseIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
 
 const PETS_IR: IR = parseIR(
   JSON.parse(
@@ -75,14 +77,23 @@ const reportingGenerator = (name: string): Generator => ({
 /**
  * Fulfil the shipped catalog's optional stages so a test exercises orchestration
  * rather than tripping over unimplemented ones.
+ *
+ * Overrides are merged per kind, not substituted: a test that replaces one
+ * transform still gets implementations for the others, so adding a stage to the
+ * catalog does not silently break every test that names a different one.
  */
 function defaults(overrides: Partial<Parameters<typeof createRegistry>[0]> = {}): CompileOptions {
   return {
     emit: petsEmit,
     registry: createRegistry({
-      transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }) },
-      generators: { [CSHARP_STAGE]: () => noopGenerator },
-      ...overrides,
+      transforms: {
+        [TWEAK_IR_STAGE]: () => ({ name: TWEAK_IR_STAGE, run: (ir) => ir }),
+        [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }),
+        [CREATE_COMMAND_STAGE]: () => ({ name: CREATE_COMMAND_STAGE, run: (ir) => ir }),
+        ...overrides.transforms,
+      },
+      generators: { [CSHARP_STAGE]: () => noopGenerator, ...overrides.generators },
+      ...(overrides.emitters !== undefined ? { emitters: overrides.emitters } : {}),
     }),
   };
 }
@@ -109,7 +120,11 @@ describe("orchestration: the emit stage", () => {
       {
         registry: createRegistry({
           emitters: { [TSP_EMIT_STAGE]: () => petsEmit },
-          transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }) },
+          transforms: {
+            [TWEAK_IR_STAGE]: () => ({ name: "w", run: (ir) => ir }),
+            [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }),
+            [CREATE_COMMAND_STAGE]: () => ({ name: "y", run: (ir) => ir }),
+          },
           generators: { [CSHARP_STAGE]: () => noopGenerator },
         }),
       },
@@ -146,7 +161,13 @@ describe("orchestration: config toggles", () => {
     });
     expect(result.success).toBe(true);
     expect(seen).toEqual([FLATTEN_MODEL_STAGE]);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
+    // Every IR-producing stage snapshots; generate stages take a position but emit none.
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
+      FLATTEN_MODEL_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
   });
 
   it("skips a stage the config turns off, and the sequence closes up", async () => {
@@ -170,7 +191,11 @@ describe("orchestration: config toggles", () => {
     expect(ran).toBe(false);
     // csharp still ran — it simply moved up the sequence.
     expect(result.files.has(`${CSHARP_STAGE}.txt`)).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
   });
 
   it("fails when an enabled stage has no implementation", async () => {
@@ -421,6 +446,67 @@ describe("orchestration: the linear sequence", () => {
     expect(names("tsp-emit")).toContain("Pet");
     expect(names("early")).toContain("Early");
     expect(names("late")).toContain("Late");
+  });
+});
+
+describe("orchestration: what a generator accepts", () => {
+  /** A generator that narrows, recording whether it ever ran. */
+  const picky = (ran: { value: boolean }, accept: boolean): Generator<TransformedIR> => ({
+    name: "picky",
+    accepts: (ir) =>
+      accept
+        ? { success: true, data: ir as TransformedIR }
+        : { success: false, error: { issues: [{ path: ["commands"], message: "Required" }] } },
+    generate: () => { ran.value = true; },
+  });
+
+  it("rejects a document the generator cannot render, naming the stage", async () => {
+    // The pipeline carries one `IR` and a generate stage may sit anywhere, so this is
+    // the only point where a backend's real input requirement can be established.
+    const ran = { value: false };
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({ generators: { [CSHARP_STAGE]: () => picky(ran, false) } }),
+    });
+
+    expect(result.success).toBe(false);
+    const diagnostic = result.diagnostics.find(
+      (d) => d.code === "@azure-client-engine/compiler/invalid-generator-input",
+    );
+    expect(diagnostic).toBeDefined();
+    // Names the backend and the stage whose position produced the document, since
+    // that is what a reader needs to find the transform that did not run.
+    expect(diagnostic!.message).toContain("'picky'");
+    expect(diagnostic!.message).toContain(`'${CSHARP_STAGE}'`);
+    expect(diagnostic!.message).toContain("commands: Required");
+    // Rejected before dispatch, so the backend never sees the document.
+    expect(ran.value).toBe(false);
+  });
+
+  it("runs the generator once its document is accepted", async () => {
+    const ran = { value: false };
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({ generators: { [CSHARP_STAGE]: () => picky(ran, true) } }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(ran.value).toBe(true);
+  });
+
+  it("passes the document through untouched when a generator declares no requirement", async () => {
+    // A backend happy with a bare `IR` omits `accepts` entirely; nothing is checked
+    // and nothing is copied on its behalf.
+    let seen: unknown;
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({
+        generators: {
+          [CSHARP_STAGE]: () => ({ name: "plain", generate: (ir) => { seen = ir; } }),
+        },
+      }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(seen).toBe(result.ir);
   });
 });
 

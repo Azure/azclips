@@ -52,7 +52,7 @@ public delegate ValueTask RemoveHandler(
 /// <remarks>
 /// This is the C# counterpart to the backbone's TypeScript <c>Generator</c> seam.
 /// The IR is expected to be already validated against its schema version; callers
-/// should gate on <see cref="IRDocument.SchemaVersion"/>.
+/// should gate on <see cref="TransformedIR.SchemaVersion"/>.
 /// </remarks>
 public interface IClientGenerator
 {
@@ -77,7 +77,7 @@ public interface IClientGenerator
     /// <param name="cancellationToken">Cooperative cancellation.</param>
     /// <returns>The run's diagnostics and emitted-file count (files themselves are streamed).</returns>
     Task<GenerationResult> GenerateAsync(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions options,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,

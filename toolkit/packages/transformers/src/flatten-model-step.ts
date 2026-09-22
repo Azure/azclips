@@ -25,12 +25,15 @@
 
 import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
 import {
+  idKey,
+  indexIR,
   serializeId,
   type FlattenedMember,
   type FlattenedParameter,
   type HttpMethod,
   type IR,
   type IRId,
+  type IRIndex,
   type IRModel,
   type IRProperty,
   type IRPropertyObject,
@@ -93,10 +96,8 @@ interface PassContext {
   readonly ir: IR;
   readonly options: ResolvedOptions;
   readonly report: Report;
-  /** `serializeId(model.id)` → model. */
-  readonly modelsById: ReadonlyMap<string, IRModel>;
-  /** `serializeId(property.id)` → the property's logical name, for name fallbacks. */
-  readonly propertyNames: ReadonlyMap<string, string>;
+  /** Shared identity lookup, built once for the whole step. */
+  readonly index: IRIndex;
 }
 
 interface SubPass {
@@ -133,9 +134,8 @@ export function flattenModelStep(options: Record<string, unknown> = {}): Transfo
         options: option,
         report: (severity, code, message) =>
           context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        ...indexIR(ir),
-      };
-      for (const subPass of SUB_PASSES) subPass.run(pass);
+        index: indexIR(ir),
+      };      for (const subPass of SUB_PASSES) subPass.run(pass);
       return ir;
     },
   };
@@ -146,18 +146,6 @@ const SUB_PASSES: readonly SubPass[] = [
   { name: "flatten-models", run: flattenModels },
   { name: "project-body-params", run: projectBodyParameters },
 ];
-
-function indexIR(ir: IR): Pick<PassContext, "modelsById" | "propertyNames"> {
-  const modelsById = new Map<string, IRModel>();
-  const propertyNames = new Map<string, string>();
-  for (const model of ir.models) {
-    modelsById.set(serializeId(model.id), model);
-    for (const property of model.properties) {
-      propertyNames.set(serializeId(property.id), property.name);
-    }
-  }
-  return { modelsById, propertyNames };
-}
 
 // ─── Sub-pass 1: flatten models ─────────────────────────────────────────
 
@@ -172,7 +160,7 @@ function flattenModels(pass: PassContext): void {
   }
 
   for (const model of pass.ir.models) {
-    const memberNodes = members.get(serializeId(model.id));
+    const memberNodes = members.get(idKey(model.id));
     if (memberNodes === undefined || memberNodes.length === 0) continue;
     model.rendering = { ...model.rendering, flattened: memberNodes.map(toFlattenedMember) };
   }
@@ -193,7 +181,7 @@ function resolveModel(
   states: Map<string, InlineState>,
   members: Map<string, MemberNode[]>,
 ): boolean {
-  const key = serializeId(model.id);
+  const key = idKey(model.id);
   const state = states.get(key);
   if (state === "visited") return true;
   if (state === "unvisited") return false;
@@ -208,7 +196,8 @@ function resolveModel(
     );
     return false;
   }
-  if (pass.options.noInline.has(model.name) || pass.options.noInline.has(key)) {
+  // `noInline` is user-facing config, so it matches the display form, not the key.
+  if (pass.options.noInline.has(model.name) || pass.options.noInline.has(serializeId(model.id))) {
     states.set(key, "unvisited");
     return false;
   }
@@ -221,7 +210,7 @@ function resolveModel(
     // model can be hoisted — a dictionary is an open map with no fixed members.
     if (property.typeKind !== "object" || property.type.kind !== "model") continue;
     if (property.rendering?.flatten?.into === "never") continue;
-    const target = pass.modelsById.get(serializeId(property.type.id));
+    const target = pass.index.model(property.type.id);
     if (target === undefined) {
       pass.report(
         "warning",
@@ -233,7 +222,7 @@ function resolveModel(
     }
     if (!resolveModel(pass, target, [...stack, model.id], states, members)) continue;
 
-    const childMembers = members.get(serializeId(target.id)) ?? [];
+    const childMembers = members.get(idKey(target.id)) ?? [];
     const childCount = renderableCount(target, childMembers);
     if (childCount === 0) continue;
 
@@ -322,7 +311,7 @@ function projectBodyParameters(pass: PassContext): void {
     if (body.type === undefined || body.type.kind !== "model") continue;
     if (body.rendering?.flatten?.into === "never") continue;
 
-    const model = pass.modelsById.get(serializeId(body.type.id));
+    const model = pass.index.model(body.type.id);
     if (model === undefined) {
       pass.report(
         "warning",
@@ -425,7 +414,7 @@ function nameOptions(components: readonly string[], leafTypeName?: string): stri
 
 /** Rebuild name alternatives for an already-published member from its path. */
 function nameOptionsForPath(pass: PassContext, path: readonly IRId[]): string[] {
-  return nameOptions(path.map((id) => pass.propertyNames.get(serializeId(id)) ?? id.name));
+  return nameOptions(path.map((id) => pass.index.property(id)?.name ?? id.name));
 }
 
 /** First unused candidate, else `<preferred>2`, `<preferred>3`, ... */
