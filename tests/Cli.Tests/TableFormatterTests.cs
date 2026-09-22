@@ -105,4 +105,15 @@ public class TableFormatterTests
         Assert.Contains("True", result);
         Assert.Contains("False", result);
     }
+
+    [Fact]
+    public void Format_ShouldConstrainColumnsToTerminalWidth()
+    {
+        var json = """[{"name":"resource-group-with-a-long-name","location":"eastus"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 30);
+
+        Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 30, line));
+        Assert.Contains("...", result);
+    }
 }

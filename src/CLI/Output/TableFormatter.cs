@@ -13,20 +13,20 @@ namespace Core.Cli.Output;
 /// </summary>
 internal static class TableFormatter
 {
-    internal static string Format(string json)
+    internal static string Format(string json, int? terminalWidth = null)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
         return root.ValueKind switch
         {
-            JsonValueKind.Array => FormatArray(root),
-            JsonValueKind.Object => FormatObject(root),
+            JsonValueKind.Array => FormatArray(root, terminalWidth),
+            JsonValueKind.Object => FormatObject(root, terminalWidth),
             _ => JsonCellRenderer.Render(root),
         };
     }
 
-    private static string FormatArray(JsonElement array)
+    private static string FormatArray(JsonElement array, int? terminalWidth)
     {
         var items = array.EnumerateArray().ToList();
         if (items.Count == 0)
@@ -40,14 +40,14 @@ internal static class TableFormatter
             var rows = items
                 .Select(item => headers.Select(h => item.TryGetProperty(h, out var v) ? JsonCellRenderer.Render(v) : string.Empty).ToArray())
                 .ToList();
-            return RenderColumns(rows, headers);
+            return RenderColumns(rows, headers, terminalWidth);
         }
 
         // Array of scalars (or mixed/complex items): single column, no header.
-        return RenderColumns(items.Select(item => new[] { JsonCellRenderer.Render(item) }).ToList(), headers: null);
+        return RenderColumns(items.Select(item => new[] { JsonCellRenderer.Render(item) }).ToList(), headers: null, terminalWidth: terminalWidth);
     }
 
-    private static string FormatObject(JsonElement obj)
+    private static string FormatObject(JsonElement obj, int? terminalWidth)
     {
         // Single object: 2-column key/value table, one row per scalar property (nested object/
         // array properties are dropped entirely, matching classic az).
@@ -55,10 +55,10 @@ internal static class TableFormatter
             .Where(p => p.Value.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
             .Select(p => new[] { p.Name, JsonCellRenderer.Render(p.Value) })
             .ToList();
-        return RenderColumns(rows, headers: null);
+        return RenderColumns(rows, headers: null, terminalWidth: terminalWidth);
     }
 
-    private static string RenderColumns(List<string[]> rows, string[]? headers)
+    private static string RenderColumns(List<string[]> rows, string[]? headers, int? terminalWidth)
     {
         var columnCount = headers?.Length ?? (rows.Count > 0 ? rows[0].Length : 0);
         if (columnCount == 0)
@@ -76,6 +76,8 @@ internal static class TableFormatter
             }
         }
 
+        widths = ConstrainWidths(widths, terminalWidth);
+
         var lines = new List<string>();
         if (headers is not null)
         {
@@ -86,8 +88,42 @@ internal static class TableFormatter
         return string.Join("\n", lines);
     }
 
-    // Pads every cell to its column's width except the last, which is left untrimmed to avoid
-    // trailing whitespace on each line.
+    private static int[] ConstrainWidths(int[] widths, int? terminalWidth)
+    {
+        if (terminalWidth is not > 0)
+            return widths;
+
+        var availableWidth = Math.Max(widths.Length, terminalWidth.Value - 2 * (widths.Length - 1));
+        var constrained = widths.ToArray();
+
+        while (constrained.Sum() > availableWidth)
+        {
+            var widestColumn = Array.IndexOf(constrained, constrained.Max());
+            if (constrained[widestColumn] <= 1)
+                break;
+
+            constrained[widestColumn]--;
+        }
+
+        return constrained;
+    }
+
+    // Pads every cell to its column's width except the last, which avoids trailing whitespace.
     private static string RenderRow(string[] cells, int[] widths) =>
-        string.Join("  ", cells.Select((cell, i) => i == cells.Length - 1 ? cell : cell.PadRight(widths[i])));
+        string.Join("  ", cells.Select((cell, i) =>
+        {
+            var rendered = Truncate(cell, widths[i]);
+            return i == cells.Length - 1 ? rendered : rendered.PadRight(widths[i]);
+        }));
+
+    private static string Truncate(string value, int width)
+    {
+        if (value.Length <= width)
+            return value;
+
+        if (width <= 3)
+            return value[..width];
+
+        return value[..(width - 3)] + "...";
+    }
 }

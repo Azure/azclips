@@ -274,13 +274,32 @@ public class Program
         }
     }
 
+    private static int? GetTerminalWidth()
+    {
+        if (Console.IsOutputRedirected)
+            return null;
+
+        try
+        {
+            var width = Console.WindowWidth;
+            return width > 0 ? width : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
+            ? GetTerminalWidth()
+            : null;
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
