@@ -251,4 +251,19 @@ describe("invalid paging without @list", () => {
     `);
     expect(program.diagnostics.filter((d) => d.severity === "error").map((d) => d.code)).toContain(code);
   });
+
+  it("does not demand @pageItems from a response that cannot carry it", () => {
+    // A shared parameter alias carrying a paging marker gets spread across many
+    // operations, paged or not. When such an operation returns an opaque body — raw
+    // bytes the client deserializes itself — there is no property `@pageItems` could
+    // go on, so reporting it names a defect the spec has no way to fix.
+    expect(
+      diagnostics.filter((d) => d.code === "missing-paging-items"),
+    ).toEqual([]);
+    expect(operation("opaqueWithMarker").semantics?.pageable).toBeUndefined();
+    // The marker survives as an ordinary parameter; only the paging claim is dropped.
+    expect(
+      operation("opaqueWithMarker").queryParameters.some((p) => p.wireName === "marker"),
+    ).toBe(true);
+  });
 });

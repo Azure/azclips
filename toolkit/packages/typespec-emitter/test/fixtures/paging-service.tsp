@@ -191,3 +191,19 @@ op startPagesBasic(): {
 
 @get @route("/ordinary")
 op ordinary(): Item;
+
+/**
+ * A shared parameter alias carrying a paging marker, spread onto an operation whose
+ * body is opaque. The client deserializes the payload itself, so there is no property
+ * `@pageItems` could be placed on.
+ */
+alias SharedMarker = {
+  @continuationToken
+  @query
+  marker?: string;
+};
+
+@get @route("/opaque")
+op opaqueWithMarker(...SharedMarker): {
+  @body body: bytes;
+};
