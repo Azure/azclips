@@ -8,6 +8,9 @@
     "resourceGroupName": {
       "type": "string"
     },
+    "runId": {
+      "type": "string"
+    },
     "forceUpdateTag": {
       "type": "string",
       "defaultValue": "[utcNow()]"
@@ -17,7 +20,7 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
-      "name": "azclips-cancel-delay",
+      "name": "[format('azclips-cancel-{0}', parameters('runId'))]",
       "subscriptionId": "[parameters('subscriptionId')]",
       "resourceGroup": "[parameters('resourceGroupName')]",
       "properties": {
@@ -28,6 +31,9 @@
         "parameters": {
           "forceUpdateTag": {
             "value": "[parameters('forceUpdateTag')]"
+          },
+          "runId": {
+            "value": "[parameters('runId')]"
           }
         },
         "template": {
@@ -36,13 +42,16 @@
           "parameters": {
             "forceUpdateTag": {
               "type": "string"
+            },
+            "runId": {
+              "type": "string"
             }
           },
           "resources": [
             {
               "type": "Microsoft.Resources/deploymentScripts",
               "apiVersion": "2023-08-01",
-              "name": "azclips-cancel-delay",
+              "name": "[format('azclips-cancel-{0}', parameters('runId'))]",
               "location": "[resourceGroup().location]",
               "kind": "AzureCLI",
               "properties": {

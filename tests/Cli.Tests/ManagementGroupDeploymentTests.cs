@@ -357,6 +357,16 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public void Cancel_CliMetadataMapsAdvertisedShortAliases()
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata("deployment mg cancel", ClientType.CLI);
+
+        Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+    }
+
+    [Fact]
     public async Task Cancel_ArmFailureIsSurfacedWithoutOutput()
     {
         FakeHttpPipeline pipeline = new((_, _) =>

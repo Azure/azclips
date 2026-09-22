@@ -16,19 +16,42 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 SUBSCRIPTION_ID=f758ac53-3e63-4317-a956-0997793808d7
 RESOURCE_GROUP=azclips-mg-test-rg
 MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
-DEPLOYMENT_NAME=azclips-test-deployment-mg-cancel
+RUN_ID="$(date +%s)"
+DEPLOYMENT_NAME="azclips-test-deployment-mg-cancel-$RUN_ID"
 
 "$AZ" deployment mg create \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --name "$DEPLOYMENT_NAME" \
     --location eastus \
     --template-file "$BICEP_DIR/management-group-cancel.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" runId="\"$RUN_ID\"" \
     --no-wait
 
+ACTIVE=false
+for _ in {1..24}; do
+    STATE=$("$AZ" deployment mg show \
+        --management-group-id "$MANAGEMENT_GROUP_ID" \
+        --name "$DEPLOYMENT_NAME" \
+        --query properties.provisioningState \
+        --output tsv)
+    if [[ "$STATE" == "Accepted" || "$STATE" == "Running" ]]; then
+        ACTIVE=true
+        break
+    fi
+    if [[ "$STATE" == "Failed" || "$STATE" == "Succeeded" || "$STATE" == "Canceled" ]]; then
+        echo "Deployment reached '$STATE' before cancellation could start." >&2
+        exit 1
+    fi
+    sleep 1
+done
+if [[ "$ACTIVE" != true ]]; then
+    echo "Deployment did not enter an active state before cancellation." >&2
+    exit 1
+fi
+
 CANCEL_OUTPUT="$("$AZ" deployment mg cancel \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$DEPLOYMENT_NAME")"
+    -m "$MANAGEMENT_GROUP_ID" \
+    -n "$DEPLOYMENT_NAME")"
 
 if [[ -n "$(printf '%s' "$CANCEL_OUTPUT" | tr -d '[:space:]')" ]]; then
     echo "Cancel unexpectedly produced output: $CANCEL_OUTPUT" >&2
