@@ -76,30 +76,43 @@ internal static class TableFormatter
             }
         }
 
-        widths = ConstrainWidths(widths, terminalWidth);
+        var separatorWidth = GetSeparatorWidth(columnCount, terminalWidth);
+        widths = ConstrainWidths(widths, terminalWidth, separatorWidth);
 
         var lines = new List<string>();
         if (headers is not null)
         {
-            lines.Add(RenderRow(headers, widths));
-            lines.Add(string.Join("  ", widths.Select(w => new string('-', w))));
+            lines.Add(RenderRow(headers, widths, separatorWidth));
+            lines.Add(string.Join(new string(' ', separatorWidth), widths.Select(w => new string('-', w))));
         }
-        lines.AddRange(rows.Select(row => RenderRow(row, widths)));
+        lines.AddRange(rows.Select(row => RenderRow(row, widths, separatorWidth)));
         return string.Join("\n", lines);
     }
 
-    private static int[] ConstrainWidths(int[] widths, int? terminalWidth)
+    private static int GetSeparatorWidth(int columnCount, int? terminalWidth)
+    {
+        if (terminalWidth is null or <= 0)
+            return 2;
+
+        var twoSpaceMinimum = columnCount + 2 * (columnCount - 1);
+        if (terminalWidth >= twoSpaceMinimum)
+            return 2;
+
+        return terminalWidth >= columnCount ? 1 : 0;
+    }
+
+    private static int[] ConstrainWidths(int[] widths, int? terminalWidth, int separatorWidth)
     {
         if (terminalWidth is not > 0)
             return widths;
 
-        var availableWidth = Math.Max(widths.Length, terminalWidth.Value - 2 * (widths.Length - 1));
+        var availableWidth = Math.Max(0, terminalWidth.Value - separatorWidth * (widths.Length - 1));
         var constrained = widths.ToArray();
 
         while (constrained.Sum() > availableWidth)
         {
             var widestColumn = Array.IndexOf(constrained, constrained.Max());
-            if (constrained[widestColumn] <= 1)
+            if (constrained[widestColumn] == 0)
                 break;
 
             constrained[widestColumn]--;
@@ -109,8 +122,8 @@ internal static class TableFormatter
     }
 
     // Pads every cell to its column's width except the last, which avoids trailing whitespace.
-    private static string RenderRow(string[] cells, int[] widths) =>
-        string.Join("  ", cells.Select((cell, i) =>
+    private static string RenderRow(string[] cells, int[] widths, int separatorWidth) =>
+        string.Join(new string(' ', separatorWidth), cells.Select((cell, i) =>
         {
             var rendered = Truncate(cell, widths[i]);
             return i == cells.Length - 1 ? rendered : rendered.PadRight(widths[i]);

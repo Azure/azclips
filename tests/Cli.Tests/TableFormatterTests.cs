@@ -116,4 +116,14 @@ public class TableFormatterTests
         Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 30, line));
         Assert.Contains("...", result);
     }
+
+    [Fact]
+    public void Format_ShouldConstrainSeparatorsAtMinimumTwoColumnWidth()
+    {
+        var json = """[{"name":"alpha","location":"beta"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 3);
+
+        Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 3, line));
+    }
 }
