@@ -58,7 +58,7 @@ try {
     throw 'Cancel unexpectedly accepted a nonexistent deployment.'
 }
 catch {
-    if ($_.Exception.Message -eq 'Cancel unexpectedly accepted a nonexistent deployment.') {
+    if ($_.Exception.Message -notmatch 'DeploymentNotFound') {
         throw
     }
     Write-Host 'OK: cancel rejected a nonexistent deployment'

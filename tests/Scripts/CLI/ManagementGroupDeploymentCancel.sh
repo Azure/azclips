@@ -56,11 +56,19 @@ done
 [[ "$STATE" == "Canceled" ]]
 
 # Negative case: canceling a nonexistent deployment must return an ARM error.
-if "$AZ" deployment mg cancel \
+set +e
+ERROR_OUTPUT=$("$AZ" deployment mg cancel \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name azclips-test-deployment-mg-does-not-exist; then
+    --name azclips-test-deployment-mg-does-not-exist 2>&1)
+STATUS=$?
+set -e
+
+if [[ $STATUS -eq 0 ]]; then
     echo "UNEXPECTED: cancel accepted a nonexistent deployment"
     exit 1
-else
-    echo "OK: cancel rejected a nonexistent deployment"
 fi
+if ! grep -q 'DeploymentNotFound' <<<"$ERROR_OUTPUT"; then
+    echo "Cancel failed for an unexpected reason: $ERROR_OUTPUT" >&2
+    exit 1
+fi
+echo "OK: cancel rejected a nonexistent deployment"
