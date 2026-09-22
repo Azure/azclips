@@ -64,11 +64,11 @@ public class TelemetryExportersTests
     [Theory]
     [InlineData("Global")]
     [InlineData("unknown")]
-    public void ResolveAriaExporter_ReturnsGlobalEndpoint_ForNonEuBoundary(string? dataBoundary)
+    public void ResolveAriaExporter_ReturnsRowEndpoint_ForNonEuBoundary(string? dataBoundary)
     {
         var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
 
         Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
-        Assert.Null(exporter.Endpoint);
+        Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, exporter.Endpoint);
     }
 }
