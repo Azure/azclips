@@ -295,19 +295,35 @@ public class ManagementGroupDeploymentTests
                     : Json("""{"value":[{"name":"two"}]}""");
             }), listOutput);
         list.ManagementGroupId = "test-management-group";
+
+        await list.ProcessAsync();
+
+        Assert.Equal(2, listUris.Count);
+        Assert.Equal("https://management.azure.com/next-page", listUris[1]);
+        List<DeploymentExtended> deployments =
+            Assert.IsAssignableFrom<IEnumerable<DeploymentExtended>>(Assert.Single(listOutput.WrittenValues)).ToList();
+        Assert.Equal(["one", "two"], deployments.Select(deployment => deployment.Name));
+    }
+
+    [Fact]
+    public async Task List_IncludesEncodedFilterAndTopQueryParameters()
+    {
+        string? requestUri = null;
+        ListAtManagementGroupScopeDeploymentsProcessor list =
+            CreateProcessor(new ListAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((request, _) =>
+            {
+                requestUri = request.RequestUri!.AbsoluteUri;
+                return Json("""{"value":[]}""");
+            }), new FakeOutputHandler());
+        list.ManagementGroupId = "test-management-group";
         list.Filter = "properties/provisioningState eq 'Succeeded'";
         list.Top = 5;
 
         await list.ProcessAsync();
 
-        Assert.Equal(2, listUris.Count);
         Assert.Equal(
             "https://management.azure.com/providers/Microsoft.Management/managementGroups/test-management-group/providers/Microsoft.Resources/deployments?api-version=2025-04-01&$filter=properties%2FprovisioningState%20eq%20%27Succeeded%27&$top=5",
-            listUris[0]);
-        Assert.Equal("https://management.azure.com/next-page", listUris[1]);
-        List<DeploymentExtended> deployments =
-            Assert.IsAssignableFrom<IEnumerable<DeploymentExtended>>(Assert.Single(listOutput.WrittenValues)).ToList();
-        Assert.Equal(["one", "two"], deployments.Select(deployment => deployment.Name));
+            requestUri);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)

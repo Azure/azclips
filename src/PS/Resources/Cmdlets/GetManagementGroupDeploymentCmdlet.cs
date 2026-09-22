@@ -42,28 +42,12 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        Dictionary<string, object> parameters = new();
-        string commandName;
-        if (ParameterSetName == IdParameterSet)
-        {
-            (string managementGroupId, string name) = ManagementGroupDeploymentId.Parse(Id!);
-            parameters[nameof(ManagementGroupId)] = managementGroupId;
-            parameters[nameof(Name)] = name;
-            commandName = "Get-AzManagementGroupDeployment_Get";
-        }
-        else
-        {
-            parameters[nameof(ManagementGroupId)] = ManagementGroupId;
-            commandName = $"Get-AzManagementGroupDeployment_{ParameterSetName}";
-            if (Name is not null)
-            {
-                parameters[nameof(Name)] = Name;
-            }
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
-        {
-            parameters[nameof(Profile)] = Profile!;
-        }
+        (string commandName, Dictionary<string, object> parameters) = BuildCommand(
+            ParameterSetName,
+            ManagementGroupId,
+            Name,
+            Id,
+            MyInvocation.BoundParameters.ContainsKey(nameof(Profile)) ? Profile : null);
 
         ITelemetryService telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetry.StartRootActivity();
@@ -78,6 +62,39 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
 
         using ISession session = _engine.OpenExecutionSession(invocation, _streams, _cts.Token);
         session.Run();
+    }
+
+    internal static (string CommandName, Dictionary<string, object> Parameters) BuildCommand(
+        string parameterSetName,
+        string managementGroupId,
+        string? name,
+        string? id,
+        string? profile)
+    {
+        Dictionary<string, object> parameters = new();
+        string commandName;
+        if (parameterSetName == IdParameterSet)
+        {
+            (managementGroupId, name) = ManagementGroupDeploymentId.Parse(id!);
+            parameters[nameof(ManagementGroupId)] = managementGroupId;
+            parameters[nameof(Name)] = name;
+            commandName = "Get-AzManagementGroupDeployment_Get";
+        }
+        else
+        {
+            parameters[nameof(ManagementGroupId)] = managementGroupId;
+            commandName = $"Get-AzManagementGroupDeployment_{parameterSetName}";
+            if (name is not null)
+            {
+                parameters[nameof(Name)] = name;
+            }
+        }
+        if (profile is not null)
+        {
+            parameters[nameof(Profile)] = profile;
+        }
+
+        return (commandName, parameters);
     }
 
     protected override void StopProcessing() => _cts.Cancel();
