@@ -8,22 +8,26 @@
 # - commit-message.prefix sets the start of the commit message and PR title. The
 #   trailing space in the prefix stops Dependabot from inserting a ":" after it, so
 #   titles read like "{Packaging} bump <dep> from x to y" and satisfy the check.
-# - open-pull-requests-limit: 0 disables version updates, preserving the current
-#   behavior of security-updates-only while still applying the prefix to those PRs.
-#   Increase this value later if you also want scheduled version-update PRs.
+# - Each ecosystem checks weekly for major, minor, and patch version updates.
+# - open-pull-requests-limit bounds the number of concurrent version-update PRs.
+#   Security-update PRs are not subject to this limit.
+# - Routine npm and NuGet updates for the same dependency are grouped across
+#   directories. Security updates remain separate from version-update groups.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directories:
       - "/toolkit"
-      - "/toolkit/packages/cli"
-      - "/toolkit/packages/compiler"
-      - "/toolkit/packages/ir"
-      - "/toolkit/packages/typespec-emitter"
-      - "/wiki"
+      - "/toolkit/packages/*"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
+    groups:
+      toolkit-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        group-by: "dependency-name"
     commit-message:
       prefix: "{Packaging} "
 
@@ -32,7 +36,21 @@ updates:
       - "/**/*"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
+    groups:
+      nuget-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        group-by: "dependency-name"
+    commit-message:
+      prefix: "{Packaging} "
+
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "{Packaging} "
 
@@ -40,6 +58,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "{DevOps} "
