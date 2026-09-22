@@ -192,7 +192,6 @@ identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
 
->>>>>>> 4d5939b (add flatten-model-step)
 ### Shared servers (IR 0.8.0)
 
 `IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
