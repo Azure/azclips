@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790048354329,
+  "lastUpdate": 1790052495369,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10588,6 +10588,48 @@ window.BENCHMARK_DATA = {
             "value": 1920952.0681034483,
             "unit": "ns",
             "range": "± 60856.193822993824"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c00d30cd98dc6489de7279421d0c9f7a711ec313",
+          "message": "[Resources] `Set-AzResourceGroup`: Add support for PS to enable resource group updates (#937)\n\n**Description**\nThis completes https://github.com/Azure/CLIPS/issues/910\n\n**Testing Guide**\n- Unit, script and scenario tests implemented\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-22T04:30:24Z",
+          "tree_id": "f034296df7080ffad7ead83c201b409baa3a47a3",
+          "url": "https://github.com/Azure/azclips/commit/c00d30cd98dc6489de7279421d0c9f7a711ec313"
+        },
+        "date": 1790052491572,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1939559.2442286948,
+            "unit": "ns",
+            "range": "± 60826.52312870916"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1999347.0171526587,
+            "unit": "ns",
+            "range": "± 62300.29550232277"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1915049.1266366174,
+            "unit": "ns",
+            "range": "± 59850.89138746421"
           }
         ]
       }
