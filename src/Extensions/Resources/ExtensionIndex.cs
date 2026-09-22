@@ -638,7 +638,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds.", false, [], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+            }
         );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",

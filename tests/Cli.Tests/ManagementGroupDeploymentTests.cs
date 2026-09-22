@@ -716,6 +716,16 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public void Wait_CliMetadataMapsAdvertisedShortAliases()
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata("deployment mg wait", ClientType.CLI);
+
+        Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+    }
+
+    [Fact]
     public async Task Wait_DeletedStopsWhenDeploymentIsNotFound()
     {
         FakeHttpPipeline pipeline = new((_, _) =>

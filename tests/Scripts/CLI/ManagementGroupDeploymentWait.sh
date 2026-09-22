@@ -28,8 +28,8 @@ DEPLOYMENT_NAME=azclips-test-deployment-mg-wait
     >/dev/null
 
 "$AZ" deployment mg wait \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$DEPLOYMENT_NAME" \
+    -m "$MANAGEMENT_GROUP_ID" \
+    -n "$DEPLOYMENT_NAME" \
     --created \
     --interval 2 \
     --timeout 120
