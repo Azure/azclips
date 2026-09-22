@@ -63,6 +63,36 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public async Task Create_RecognizesParameterUriWithQueryString()
+    {
+        const string parametersUri = "https://example.test/parameters.json?sv=1&sig=abc=def";
+        List<string> requestBodies = [];
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            requestBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            return Json("""{"properties":{"provisioningState":"Succeeded"}}""");
+        });
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator
+            {
+                NoWait = true,
+                Parameter = [parametersUri],
+            },
+            pipeline,
+            new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, requestBodies.Count);
+        foreach (string requestBody in requestBodies)
+        {
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(requestBody);
+            Assert.Equal(parametersUri, document.RootElement.GetProperty("properties")
+                .GetProperty("parametersLink").GetProperty("uri").GetString());
+        }
+    }
+
+    [Fact]
     public async Task Validate_SendsOnlyValidationRequest()
     {
         List<(HttpMethod Method, string Path)> requests = [];

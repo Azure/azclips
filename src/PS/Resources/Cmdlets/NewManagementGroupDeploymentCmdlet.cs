@@ -52,6 +52,9 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
     public Hashtable? TemplateParameterObject { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? Mode { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -90,6 +93,7 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
         AddIfBound(parameters, nameof(TemplateParameterFile), TemplateParameterFile);
         AddIfBound(parameters, nameof(TemplateParameterUri), TemplateParameterUri);
         AddIfBound(parameters, nameof(TemplateParameterObject), TemplateParameterObject);
+        AddIfBound(parameters, nameof(Mode), Mode);
         AddIfBound(parameters, nameof(ValidationLevel), ValidationLevel);
         AddIfBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);
         AddIfBound(parameters, nameof(Tag), Tag);

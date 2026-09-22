@@ -75,11 +75,7 @@ internal static class ManagementGroupDeploymentPreparation
             List<string> inlineParameters = [];
             foreach (string item in input.Parameter)
             {
-                if (item.Contains('='))
-                {
-                    inlineParameters.Add(item);
-                }
-                else if (item.StartsWith('@') && string.IsNullOrWhiteSpace(input.ParametersFile))
+                if (item.StartsWith('@') && string.IsNullOrWhiteSpace(input.ParametersFile))
                 {
                     input.ParametersFile = item[1..];
                 }
@@ -92,6 +88,10 @@ internal static class ManagementGroupDeploymentPreparation
                 else if (item.TrimStart().StartsWith('{') && input.Parameters is null)
                 {
                     input.Parameters = JsonSerializer.Deserialize<Dictionary<string, DeploymentParameter>>(item, jsonOptions);
+                }
+                else if (item.Contains('='))
+                {
+                    inlineParameters.Add(item);
                 }
                 else
                 {

@@ -11,5 +11,7 @@ Test-AzManagementGroupDeployment `
     -ManagementGroupId $managementGroupId `
     -Location eastus `
     -TemplateFile $templateFile `
-    -subscriptionId $subscriptionId `
-    -resourceGroupName $resourceGroup
+    -TemplateParameterObject @{
+        subscriptionId = $subscriptionId
+        resourceGroupName = $resourceGroup
+    }

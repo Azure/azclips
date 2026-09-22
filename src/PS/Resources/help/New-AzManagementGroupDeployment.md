@@ -23,7 +23,7 @@ Creates an ARM or Bicep deployment at management-group scope.
 New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> [-Name <string>]
  [-TemplateFile <string>] [-TemplateUri <string>] [-TemplateSpecId <string>]
  [-TemplateObject <hashtable>] [-QueryString <string>] [-TemplateParameterFile <string>]
- [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-ValidationLevel <string>]
+ [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Mode <string>] [-ValidationLevel <string>]
  [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
@@ -152,6 +152,29 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Mode
+
+The deployment mode. Accepted values are `Incremental` and `Complete`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- Incremental
+- Complete
 HelpMessage: ''
 ```
 
