@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790048177847,
+  "lastUpdate": 1790048238048,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -12046,6 +12046,54 @@ window.BENCHMARK_DATA = {
             "value": 3461825.443373494,
             "unit": "ns",
             "range": "± 112590.92975366332"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5837f63719f5e039b432cea1af39cf95ce636fcd",
+          "message": "{Telemetry} align OpenTelemetry.Instrumentation.Http version (#930)\n\n…rect references\n\nCore.Telemetry.csproj had\nOpenTelemetry/OpenTelemetry.Exporter.OneCollector/\nOpenTelemetry.Exporter.OpenTelemetryProtocol at 1.17.0 but\nOpenTelemetry.Instrumentation.Http pinned at 1.15.1. Mixing minor\nversions across the OpenTelemetry package family risks transitive\ndependency downgrades or type/assembly mismatches at runtime.\n\nBumping only Core.Telemetry.csproj triggers NU1605 (package downgrade,\ntreated as an error in this repo) in three other projects that carry\ntheir own direct reference to OpenTelemetry.Instrumentation.Http at\n1.15.1: Core.Cli.csproj, Core.Tui.csproj, Cmdlets.Accounts.csproj.\nBumped all four to 1.17.0 to keep the whole OpenTelemetry package family\naligned solution-wide.\n\nVerified: dotnet build azclips.slnx succeeds (including\n--no-incremental), and Core.Telemetry.Tests (264), Cli.Tests (942),\nCmdlets.Tests (115) all pass.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-22T03:03:17Z",
+          "tree_id": "0b33738c11257b6ee9b832680dc91c42187bed7b",
+          "url": "https://github.com/Azure/azclips/commit/5837f63719f5e039b432cea1af39cf95ce636fcd"
+        },
+        "date": 1790048235172,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3532475.536727712,
+            "unit": "ns",
+            "range": "± 109119.06910072191"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 3601271.958408862,
+            "unit": "ns",
+            "range": "± 118698.89100153757"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3528209.9019331452,
+            "unit": "ns",
+            "range": "± 114911.12642177731"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3408358.6334541063,
+            "unit": "ns",
+            "range": "± 120782.18007744025"
           }
         ]
       }
