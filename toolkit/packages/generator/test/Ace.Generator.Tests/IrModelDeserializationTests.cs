@@ -61,7 +61,7 @@ public sealed class IrModelDeserializationTests
     [Fact]
     public void Shared_Server_References_And_Nested_Endpoint_Union_RoundTrip()
     {
-        IRDocument document = Parse<IRDocument>(
+        TransformedIR document = Parse<TransformedIR>(
             """
             {
               "schemaVersion": "0.8.0",
@@ -99,7 +99,7 @@ public sealed class IrModelDeserializationTests
             }
             """);
 
-        IRDocument roundTripped = Parse<IRDocument>(JsonSerializer.Serialize(document, IrJson.Options));
+        TransformedIR roundTripped = Parse<TransformedIR>(JsonSerializer.Serialize(document, IrJson.Options));
 
         IRServerDefinition definition = Assert.Single(roundTripped.Servers);
         IRId sourceReference = Assert.Single(roundTripped.Sources).Server;

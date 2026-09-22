@@ -5,7 +5,9 @@ import {
   createRegistry,
   noopGenerator,
   CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  TWEAK_IR_STAGE,
   TSP_EMIT_STAGE,
   type CompilerDiagnostic,
 } from "@azure-client-engine/compiler";
@@ -21,7 +23,7 @@ import {
   type HttpMethod,
 } from "@azure-client-engine/ir";
 
-import { flattenModelStep } from "../src/index.js";
+import { createCommandStep, flattenModelStep, tweakIrStep } from "../src/index.js";
 
 // ─── Fixture builders ───────────────────────────────────────────────────
 
@@ -386,7 +388,11 @@ describe("flatten-model: pipeline integration", () => {
         registry: createRegistry({
           // Fulfilment, not orchestration: the compiler's catalog already places
           // flatten-model between emit and the generator.
-          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+          transforms: {
+            [TWEAK_IR_STAGE]: tweakIrStep,
+            [FLATTEN_MODEL_STAGE]: flattenModelStep,
+            [CREATE_COMMAND_STAGE]: createCommandStep,
+          },
           generators: { [CSHARP_STAGE]: () => noopGenerator },
         }),
         captureIR: true,
@@ -395,11 +401,11 @@ describe("flatten-model: pipeline integration", () => {
 
     expect(result.diagnostics).toEqual([]);
     expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE]);
     // The emit snapshot is untouched; the stage's output carries the flattening.
     expect(result.snapshots?.[0]?.ir.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
     expect(
-      result.snapshots?.[1]?.ir.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length,
+      result.snapshots?.[2]?.ir.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length,
     ).toBeGreaterThan(0);
   });
 
@@ -411,7 +417,11 @@ describe("flatten-model: pipeline integration", () => {
       {
         emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
         registry: createRegistry({
-          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
+          transforms: {
+            [TWEAK_IR_STAGE]: tweakIrStep,
+            [FLATTEN_MODEL_STAGE]: flattenModelStep,
+            [CREATE_COMMAND_STAGE]: createCommandStep,
+          },
           generators: { [CSHARP_STAGE]: () => noopGenerator },
         }),
         captureIR: true,
@@ -419,7 +429,11 @@ describe("flatten-model: pipeline integration", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
     expect(result.ir?.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
   });
 });
