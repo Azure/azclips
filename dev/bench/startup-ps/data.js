@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790062774251,
+  "lastUpdate": 1790062779014,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -7310,6 +7310,42 @@ window.BENCHMARK_DATA = {
             "value": 399141867.86,
             "unit": "ns",
             "range": "± 8391995.980141832"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a92d72b7377b5e446174c10499a228e316a60f38",
+          "message": "{CLI} Make runtime help sections independently renderable (#932)\n\n**Related command**\naz --help, az <group> --help, az <command> --help\n\n**Description**\nRefactors the runtime CLI help renderer into composable section methods\nso callers can render individual sections without fabricating a complete\nroot/group/command document.\n\nThis is in prep for more targeted `help` usage in response to errors. \n\nCloses https://github.com/Azure/CLIPS/issues/931\n\n- Expands `IHelpRenderer` with section-level rendering for groups,\nidentities, subgroups, commands, parameter sections, individual named\nparameter groups, examples, and global arguments.\n- Keeps rendering side-effect free: renderers return lines while\n`RuntimeHelpDispatcher` remains responsible for writing them.\n- Composes `RenderRoot`, `RenderGroup`, and `RenderCommand` from the\nsame section methods, avoiding duplicate rendering logic.\n- Centralizes blank-line composition: empty optional sections are\nskipped, one blank line separates non-empty sections, and standalone\nsections have no exterior blank lines.\n- Preserves existing section ordering, empty markers, argument grouping,\nANSI header styling, and byte-for-byte golden fixtures.\n- Intentionally expands the pre-GA public `IHelpRenderer` abstraction so\ncallers can request sections through the interface rather than cast to\n`RuntimeHelpRenderer`.\n\nFollow-up issues [CLIPS#929](https://github.com/Azure/CLIPS/issues/929)\nand [CLIPS#930](https://github.com/Azure/CLIPS/issues/930) own\nexamples-last ordering and the rendered example prompt prefix; this PR\ndoes not change either behavior.\n\n**Testing Guide**\n- `dotnet build src/CLI/Core.Cli.csproj -nologo`\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug --filter\n\"FullyQualifiedName~RuntimeHelpRendererTests\"`\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug`\n- `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj -c\nDebug`\n\nValidation completed locally:\n- CLI build succeeded\n- 23 focused renderer tests passed\n- 951 CLI tests passed (8 skipped)\n- 197 help-tool tests passed\n- No golden fixture changed\n\n**History Notes**\n{CLI} Refactor runtime help rendering into composable sections without\nchanging output",
+          "timestamp": "2026-09-22T15:03:50+10:00",
+          "tree_id": "84501f8971c30c645002a5bba7599cc912282307",
+          "url": "https://github.com/Azure/azclips/commit/a92d72b7377b5e446174c10499a228e316a60f38"
+        },
+        "date": 1790062778882,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 380461794.16,
+            "unit": "ns",
+            "range": "± 9922619.101697886"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 372148601.94,
+            "unit": "ns",
+            "range": "± 6142930.664756601"
           }
         ]
       }
