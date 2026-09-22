@@ -207,3 +207,23 @@ alias SharedMarker = {
 op opaqueWithMarker(...SharedMarker): {
   @body body: bytes;
 };
+
+/**
+ * A page holding two heterogeneous collections. There is no single items property, and
+ * marking both would itself be an error, so `@pageItems` cannot be expressed — even
+ * though the response does carry a continuation token.
+ */
+model MixedSegment {
+  directoryItems: Item[];
+  fileItems: Item[];
+}
+
+model MixedListResponse {
+  segment: MixedSegment;
+
+  @continuationToken
+  nextMarker: string;
+}
+
+@get @route("/mixed")
+op mixedCollections(...SharedMarker): MixedListResponse;

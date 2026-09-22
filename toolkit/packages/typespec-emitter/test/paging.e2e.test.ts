@@ -241,7 +241,6 @@ describe("invalid paging without @list", () => {
     ["duplicate-paging-prop", "model Page { @pageItems first: string[]; @pageItems second: string[]; } op read(): Page;"],
     ["incompatible-paging-props", "model Page { @pageItems items: string[]; @nextLink @prevLink link?: url; } op read(): Page;"],
     ["invalid-paging-prop", "model Page { @pageItems items: string[]; @pageSize size: int32; } op read(): Page;"],
-    ["missing-paging-items", "op read(@offset @query offset?: int32): { value: string[]; };"],
   ])("reports %s rather than emitting a selected or incomplete interpretation", async (code, definition) => {
     const { program } = await compilePaging(`
       import "@typespec/http";
@@ -252,18 +251,44 @@ describe("invalid paging without @list", () => {
     expect(program.diagnostics.filter((d) => d.severity === "error").map((d) => d.code)).toContain(code);
   });
 
-  it("does not demand @pageItems from a response that cannot carry it", () => {
-    // A shared parameter alias carrying a paging marker gets spread across many
-    // operations, paged or not. When such an operation returns an opaque body — raw
-    // bytes the client deserializes itself — there is no property `@pageItems` could
-    // go on, so reporting it names a defect the spec has no way to fix.
-    expect(
-      diagnostics.filter((d) => d.code === "missing-paging-items"),
-    ).toEqual([]);
+  it("does not demand @pageItems from an operation that never claimed to page", async () => {
+    // A marker says what a property *is*, not that its operation is pageable. Without
+    // an explicit `@list` there is no claim to contradict, so a missing `@pageItems`
+    // is not a defect — even with an obvious array sitting right there.
+    const { program } = await compilePaging(`
+      import "@typespec/http";
+      using TypeSpec.Http;
+      @service @server("https://paging.example.test", "Paging") namespace InferredPaging;
+      op read(@offset @query offset?: int32): { value: string[]; };
+    `);
+    expect(program.diagnostics.filter((d) => d.code === "missing-paging-items")).toEqual([]);
+  });
+
+  it("still reports a @list operation whose response cannot be paged", async () => {
+    // `@list` *is* the claim, so a response with no `@pageItems` contradicts it —
+    // a defect the spec author can fix.
+    const { program } = await compilePaging(`
+      import "@typespec/http";
+      using TypeSpec.Http;
+      @service @server("https://paging.example.test", "Paging") namespace DeclaredPaging;
+      @list op read(): { value: string[]; };
+    `);
+    expect(program.diagnostics.filter((d) => d.severity === "error").map((d) => d.code))
+      .toContain("missing-paging-items");
+  });
+
+  it("never infers paging from markers alone", () => {
+    // Shared parameter aliases spread a `@continuationToken` marker across many
+    // operations, paged or not. Inferring from them reported defects the spec had no
+    // way to fix: an opaque body has nowhere to put `@pageItems`, and a page of two
+    // heterogeneous collections has no single items property to put it on.
+    expect(diagnostics.filter((d) => d.code === "missing-paging-items")).toEqual([]);
     expect(operation("opaqueWithMarker").semantics?.pageable).toBeUndefined();
+    expect(operation("mixedCollections").semantics?.pageable).toBeUndefined();
+
     // The marker survives as an ordinary parameter; only the paging claim is dropped.
-    expect(
-      operation("opaqueWithMarker").queryParameters.some((p) => p.wireName === "marker"),
-    ).toBe(true);
+    for (const name of ["opaqueWithMarker", "mixedCollections"]) {
+      expect(operation(name).queryParameters.some((p) => p.wireName === "marker")).toBe(true);
+    }
   });
 });

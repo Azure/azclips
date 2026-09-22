@@ -66,39 +66,26 @@ function sourcePaths(type: Type, target: ModelProperty): ModelProperty[][] {
 }
 
 /**
- * The compiler omits partial metadata when items are missing. Standard marker
- * state also lets us diagnose that case without treating every basic op as a
- * malformed list, and preserve remaining roles for Legacy.markAsPageable.
+ * The compiler omits partial metadata when items are missing. Recovering the
+ * remaining roles from marker state is what lets `Legacy.markAsPageable` supply the
+ * items property that the return type does not declare.
  */
 function partialPaging(ctx: BuildContext, raw: Operation) {
   const input: Partial<Record<typeof inputRoles[number], PagingProperty>> = {};
   const output: Partial<Record<typeof outputRoles[number], PagingProperty>> = {};
-  let hasMarkers = false;
-  let hasItemCandidate = false;
   const marked = (property: ModelProperty, role: string) =>
     ctx.program.stateSet(Symbol.for(`TypeSpec.${role}`)).has(property);
   visitProperties(raw.parameters, (property, path) => {
-    hasMarkers ||= roles.some((role) => marked(property, role));
     for (const role of inputRoles) {
       if (marked(property, role)) input[role] ??= { property, path };
     }
   });
   visitProperties(raw.returnType, (property, path) => {
-    hasMarkers ||= roles.some((role) => marked(property, role));
-    hasItemCandidate ||= isArrayType(property.type);
     for (const role of outputRoles) {
       if (marked(property, role)) output[role] ??= { property, path };
     }
   });
-  return { input, output, hasMarkers, hasItemCandidate };
-}
-
-/**
- * Whether a type is an array, which TypeSpec models as the built-in `Array`
- * template rather than a distinct kind.
- */
-function isArrayType(type: Type): boolean {
-  return type.kind === "Model" && type.name === "Array" && type.indexer !== undefined;
+  return { input, output };
 }
 
 function sourceSegments(
@@ -266,20 +253,23 @@ export function pagingFor(
   const marked = getMarkAsPageable(ctx.sdkContext, raw);
   const partial = resolved ? undefined : partialPaging(ctx, raw);
 
-  // `missing-paging-items` means the return type carries no `@pageItems`. That is only
-  // an authoring mistake when the operation was meant to page, so it is escalated on
-  // an explicit `@list` — or, failing that, on paging markers *plus* a property the
-  // annotation could have gone on.
+  // `missing-paging-items` means the return type carries no `@pageItems`, which is
+  // only a defect when the operation *claims* to page. That claim has to be explicit:
+  // `@list`, or TCGC's `markAsPageable`.
   //
-  // The second half matters because a marker alone is weak evidence: specs spread a
-  // shared parameter alias (a `@continuationToken` marker) across many operations,
-  // paged or not. When such an operation returns an opaque body — raw bytes a client
-  // deserializes itself — there is nowhere to put `@pageItems`, so demanding it
-  // reports a defect the spec cannot fix. Those operations are simply not pageable
-  // here, and render as a plain call keeping the marker as an ordinary parameter.
-  const inferredPaging = partial !== undefined && partial.hasMarkers && partial.hasItemCandidate;
+  // Nothing is inferred from stray paging markers. A marker says what a property is,
+  // not that its operation is pageable, and specs spread shared parameter aliases (a
+  // `@continuationToken` marker) across many operations that are not. Inferring from
+  // them reported defects the spec had no way to fix: an opaque `bytes` body has
+  // nowhere to put `@pageItems`, and a page holding two heterogeneous collections has
+  // no single items property to put it on. Both are legitimate shapes.
+  //
+  // An operation that does not declare itself pageable simply is not pageable here.
+  // It renders as a plain call, keeping any markers as ordinary parameters — which is
+  // also the only useful outcome, since driving pagination needs a complete
+  // items-plus-continuation pair, and a partial one cannot be followed.
   const relevantDiagnostics = diagnostics.filter((d) =>
-    d.code !== "missing-paging-items" || (!marked && (isList(ctx.program, raw) || inferredPaging)));
+    d.code !== "missing-paging-items" || (!marked && isList(ctx.program, raw)));
   ctx.program.reportDiagnostics(relevantDiagnostics);
   if (relevantDiagnostics.some((d) => d.severity === "error")) return undefined;
 
