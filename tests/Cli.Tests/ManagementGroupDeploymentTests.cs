@@ -730,6 +730,58 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public async Task Wait_UpdatedRetriesWhenDeploymentIsNotFound()
+    {
+        int requests = 0;
+        FakeHttpPipeline pipeline = new((_, _) =>
+            ++requests == 1
+                ? Json("""{"error":{"code":"DeploymentNotFound"}}""", HttpStatusCode.NotFound)
+                : Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                {
+                    Updated = true,
+                    Interval = 1,
+                    Timeout = 2,
+                },
+                pipeline,
+                new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_CustomNotEqualDoesNotMatchMissingState()
+    {
+        int requests = 0;
+        FakeHttpPipeline pipeline = new((_, _) =>
+            ++requests == 1
+                ? Json("{}")
+                : Json("""{"name":"test-deployment","properties":{"provisioningState":"Running"}}"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                {
+                    Custom = "provisioningState!=Succeeded",
+                    Interval = 1,
+                    Timeout = 2,
+                },
+                pipeline,
+                new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
+    }
+
+    [Fact]
     public async Task Wait_RequiresCondition()
     {
         FakeHttpPipeline pipeline = new((_, _) =>

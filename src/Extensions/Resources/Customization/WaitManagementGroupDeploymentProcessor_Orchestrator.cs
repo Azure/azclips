@@ -83,7 +83,7 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
                     {
                         return;
                     }
-                    if (!Created && !Exists && string.IsNullOrWhiteSpace(Custom))
+                    if (!Created && !Updated && !Exists && string.IsNullOrWhiteSpace(Custom))
                     {
                         throw;
                     }
@@ -126,6 +126,11 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
         }
 
         string expected = parts[1].Trim('\'', '"');
+        if (state is null)
+        {
+            return false;
+        }
+
         bool equal = string.Equals(state, expected, StringComparison.OrdinalIgnoreCase);
         return operation == "==" ? equal : !equal;
     }
