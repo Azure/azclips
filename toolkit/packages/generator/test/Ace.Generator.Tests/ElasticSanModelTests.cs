@@ -17,12 +17,12 @@ public sealed class ElasticSanModelTests
     private static readonly string IrPath =
         Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ir.json");
 
-    private static IRDocument LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
+    private static TransformedIR LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
 
     [Fact]
     public async Task Emits_A_Model_File_Per_Ir_Model()
     {
-        IRDocument ir = LoadIr();
+        TransformedIR ir = LoadIr();
         var writer = new ArtifactWriter("ElasticSan_Models");
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
@@ -39,7 +39,7 @@ public sealed class ElasticSanModelTests
     [Fact]
     public async Task Emitted_Models_Are_Parseable_And_Carry_Properties()
     {
-        IRDocument ir = LoadIr();
+        TransformedIR ir = LoadIr();
         var writer = new ArtifactWriter("ElasticSan_Models_Parse");
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(

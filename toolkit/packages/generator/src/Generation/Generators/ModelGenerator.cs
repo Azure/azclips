@@ -9,14 +9,14 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Emits C# model types from <see cref="IRDocument.Models"/>. Faithful
+/// Emits C# model types from <see cref="TransformedIR.Models"/>. Faithful
 /// ("garbage in, garbage out") for now: one class per model with every property
 /// the IR carries, mapped literally to C# — plus a <c>[JsonIgnore]</c> accessor for each
 /// flattened member the transform resolved. No inheritance, polymorphism, or enum
 /// emission yet.
 /// </summary>
 /// <remarks>
-/// TODO — richer emission: enums (<see cref="IRDocument.Enums"/>), inheritance +
+/// TODO — richer emission: enums (<see cref="TransformedIR.Enums"/>), inheritance +
 /// overrides (deduplicate inherited properties), polymorphism (<c>[JsonPolymorphic]</c>),
 /// and visibility/access shaping.
 /// </remarks>

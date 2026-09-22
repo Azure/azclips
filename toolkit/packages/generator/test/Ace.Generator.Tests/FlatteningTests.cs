@@ -66,7 +66,7 @@ public sealed class FlatteningTests
     private static IRId ServerId() => Id("server");
 
     /// <summary>Thing { properties -&gt; ThingProperties { size, sku -&gt; Sku { name } } }.</summary>
-    private static IRDocument Document(bool withOperation = false, bool hoisted = false)
+    private static TransformedIR Document(bool withOperation = false, bool hoisted = false)
     {
         IRModel thing = Model("Thing", Obj("Thing", "Properties", "ThingProperties", optional: false, hoisted: hoisted));
         thing.Rendering = new ModelHints
@@ -89,7 +89,7 @@ public sealed class FlatteningTests
             Flattened = [Member("SkuName", true, Id("ThingProperties.sku"), Id("Sku.name"))],
         };
 
-        var ir = new IRDocument
+        var ir = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Sources = [new IRSource { Id = Module, Server = ServerId() }],
@@ -156,7 +156,7 @@ public sealed class FlatteningTests
         },
     };
 
-    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(IRDocument ir)
+    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
@@ -241,7 +241,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Renamed_Body_Parameter_Still_Resolves_To_Its_Model_Member_By_Path()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         // The transform renames a body parameter when it collides with an operation
         // parameter, so the name must not be how the generator finds the model member.
         ir.Operations =
@@ -276,7 +276,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task An_Unresolvable_Path_Warns_And_Skips_Only_That_Member()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened =
@@ -304,7 +304,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Model_Without_Flattening_Metadata_Is_Emitted_Exactly_As_Before()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = null;
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -353,7 +353,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Read_Only_Flattened_Member_Gets_No_Setter()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened =
@@ -380,7 +380,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Member_Visible_For_A_Write_Phase_Keeps_Its_Setter()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened = [Writable("Size", false, Id("Thing.properties"), Id("ThingProperties.size"))],
@@ -397,7 +397,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task Body_Stays_Public_When_No_Flat_Member_Resolves()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         // Every projected parameter is unresolvable, so the processor gets no flat surface.
         // Hiding Body here would leave the operation with no way to send a payload at all.
         ir.Operations =

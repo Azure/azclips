@@ -19,7 +19,7 @@ public sealed class ElasticSanProcessorTests
     private static readonly string IrPath =
         Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ir.json");
 
-    private static IRDocument LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
+    private static TransformedIR LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
 
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(string scenario)
     {
@@ -34,7 +34,7 @@ public sealed class ElasticSanProcessorTests
     [Fact]
     public async Task Emits_A_Processor_File_Per_Command()
     {
-        IRDocument ir = LoadIr();
+        TransformedIR ir = LoadIr();
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
         // One processor per command, plus the shared ProcessorBase.

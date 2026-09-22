@@ -101,6 +101,8 @@ export type {
 export {
   noopGenerator,
   type Generator,
+  type GeneratorAcceptance,
+  type GeneratorInputIssue,
   type GeneratorContext,
   type GeneratedArtifact,
 } from "./generate.js";

@@ -58,7 +58,7 @@ public sealed class IrIndexTests
     {
         IRId widget = Id("Widget");
         IRId size = Id("Widget.size");
-        var ir = new IRDocument
+        var ir = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Models =
@@ -99,7 +99,7 @@ public sealed class IrIndexTests
     public void Index_Records_Duplicate_Server_Definitions_As_Ambiguous()
     {
         IRId server = Id("server");
-        var ir = new IRDocument
+        var ir = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Servers =
@@ -122,7 +122,7 @@ public sealed class IrIndexTests
     [Fact]
     public void Index_Skips_Entries_Without_An_Id_Instead_Of_Failing()
     {
-        var ir = new IRDocument
+        var ir = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Models = [new IRModel { Name = "Anonymous", Source = "<root>", Properties = [] }],

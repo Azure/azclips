@@ -34,7 +34,7 @@ import {
   type TransformStep,
 } from "../src/index.js";
 
-import { parseIR, type IR } from "@azure-client-engine/ir";
+import { parseIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
 
 const PETS_IR: IR = parseIR(
   JSON.parse(
@@ -446,6 +446,67 @@ describe("orchestration: the linear sequence", () => {
     expect(names("tsp-emit")).toContain("Pet");
     expect(names("early")).toContain("Early");
     expect(names("late")).toContain("Late");
+  });
+});
+
+describe("orchestration: what a generator accepts", () => {
+  /** A generator that narrows, recording whether it ever ran. */
+  const picky = (ran: { value: boolean }, accept: boolean): Generator<TransformedIR> => ({
+    name: "picky",
+    accepts: (ir) =>
+      accept
+        ? { success: true, data: ir as TransformedIR }
+        : { success: false, error: { issues: [{ path: ["commands"], message: "Required" }] } },
+    generate: () => { ran.value = true; },
+  });
+
+  it("rejects a document the generator cannot render, naming the stage", async () => {
+    // The pipeline carries one `IR` and a generate stage may sit anywhere, so this is
+    // the only point where a backend's real input requirement can be established.
+    const ran = { value: false };
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({ generators: { [CSHARP_STAGE]: () => picky(ran, false) } }),
+    });
+
+    expect(result.success).toBe(false);
+    const diagnostic = result.diagnostics.find(
+      (d) => d.code === "@azure-client-engine/compiler/invalid-generator-input",
+    );
+    expect(diagnostic).toBeDefined();
+    // Names the backend and the stage whose position produced the document, since
+    // that is what a reader needs to find the transform that did not run.
+    expect(diagnostic!.message).toContain("'picky'");
+    expect(diagnostic!.message).toContain(`'${CSHARP_STAGE}'`);
+    expect(diagnostic!.message).toContain("commands: Required");
+    // Rejected before dispatch, so the backend never sees the document.
+    expect(ran.value).toBe(false);
+  });
+
+  it("runs the generator once its document is accepted", async () => {
+    const ran = { value: false };
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({ generators: { [CSHARP_STAGE]: () => picky(ran, true) } }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(ran.value).toBe(true);
+  });
+
+  it("passes the document through untouched when a generator declares no requirement", async () => {
+    // A backend happy with a bare `IR` omits `accepts` entirely; nothing is checked
+    // and nothing is copied on its behalf.
+    let seen: unknown;
+    const result = await compile({ entrypoint: ENTRYPOINT }, {
+      ...defaults({
+        generators: {
+          [CSHARP_STAGE]: () => ({ name: "plain", generate: (ir) => { seen = ir; } }),
+        },
+      }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(seen).toBe(result.ir);
   });
 });
 

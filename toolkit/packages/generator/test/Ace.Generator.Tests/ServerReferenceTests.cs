@@ -39,7 +39,7 @@ public sealed class ServerReferenceTests
     /// server reference under test lives on the command; the operation is carried alongside as
     /// the wire truth the command points back at.
     /// </summary>
-    private static IRDocument Document(IRId? reference = null) => new()
+    private static TransformedIR Document(IRId? reference = null) => new()
     {
         SchemaVersion = "0.12.0",
         Sources = [new IRSource { Id = "First", Server = ServerId() }],
@@ -48,7 +48,7 @@ public sealed class ServerReferenceTests
         Commands = [Commands.Atomic("Get", reference ?? ServerId(), OperationId("get"))],
     };
 
-    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(IRDocument ir)
+    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
@@ -93,7 +93,7 @@ public sealed class ServerReferenceTests
     [Fact]
     public async Task Commands_Resolve_Distinct_And_Shared_Servers_Across_Sources()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Sources =
         [
             new IRSource { Id = "First", Server = ServerId() },
@@ -140,7 +140,7 @@ public sealed class ServerReferenceTests
     [Fact]
     public async Task Parameterized_Server_Preserves_Defaults_And_Parameter_Interpolation()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Servers[0].Endpoint = new IRServerParameterized
         {
             Template = "https://{account}.{domain}/{basePath}",
@@ -219,7 +219,7 @@ public sealed class ServerReferenceTests
         IRId id = ServerId();
         id.Interface = "Widgets";
         id.TypeArgs = [new IRId { Module = "Models", Name = "Page", TypeArgs = [ServerId("Nested")] }];
-        IRDocument ir = Document(Copy(id));
+        TransformedIR ir = Document(Copy(id));
         ir.Servers = [Definition(id)];
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -265,7 +265,7 @@ public sealed class ServerReferenceTests
             case "absentTypeArgs": reference.TypeArgs = null; break;
             case "emptyTypeArgs": id.TypeArgs = null; reference.TypeArgs = []; break;
         }
-        IRDocument ir = Document(reference);
+        TransformedIR ir = Document(reference);
         ir.Servers = [Definition(id)];
 
         (GenerationResult result, _) = await RunAsync(ir);
@@ -276,7 +276,7 @@ public sealed class ServerReferenceTests
     [Fact]
     public async Task Missing_Reference_Does_Not_Fall_Back_To_Source_Server()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         // The generator reads the *command's* reference; an operation's is wire truth it never
         // consults, which is the point — a command does not inherit its source's server.
         ir.Commands[0].Server = null!;
@@ -297,7 +297,7 @@ public sealed class ServerReferenceTests
     [Fact]
     public async Task Missing_Server_Definitions_Rejects_Operation()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Servers = [];
 
         (GenerationResult result, _) = await RunAsync(ir);
@@ -310,7 +310,7 @@ public sealed class ServerReferenceTests
     [InlineData("https://other.example.com")]
     public async Task Duplicate_Definitions_Are_Ambiguous_Even_When_Endpoints_Match(string duplicateUrl)
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Servers = [Definition(ServerId()), Definition(ServerId(), duplicateUrl)];
 
         (GenerationResult result, _) = await RunAsync(ir);
@@ -321,7 +321,7 @@ public sealed class ServerReferenceTests
     [Fact]
     public async Task Missing_Endpoint_Rejects_Operation()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Servers[0].Endpoint = null!;
 
         (GenerationResult result, _) = await RunAsync(ir);

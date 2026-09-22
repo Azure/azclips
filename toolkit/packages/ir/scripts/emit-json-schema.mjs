@@ -31,8 +31,9 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   IR_SCHEMA_VERSION,
   // The generator only ever reads a *transformed* document — commands and a
-  // resolved target, not bare operations — so that is the root. `IR`'s own types
-  // come along as shared definitions, and the C# root type stays `IRDocument`.
+  // resolved target, not bare operations — so that is the root, and the C# root
+  // type is named `TransformedIR` to say so. `IR`'s own types come along as
+  // shared definitions.
   TransformedIRSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.

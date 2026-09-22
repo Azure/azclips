@@ -16,9 +16,9 @@ public sealed class PlacementTests
 {
     private static IRId Id(string name) => new() { Module = "M", Namespace = ["N"], Name = name };
 
-    private static IRDocument Document(IRTarget? target)
+    private static TransformedIR Document(IRTarget? target)
     {
-        var document = new IRDocument
+        var document = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Models =
@@ -42,7 +42,7 @@ public sealed class PlacementTests
     }
 
     private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(
-        IRDocument ir,
+        TransformedIR ir,
         string optionsNamespace = "Fallback.Namespace")
     {
         var files = new GeneratedFileCollector();

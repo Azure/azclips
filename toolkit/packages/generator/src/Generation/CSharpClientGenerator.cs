@@ -30,7 +30,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
 
     /// <inheritdoc />
     public async Task<GenerationResult> GenerateAsync(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions options,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,

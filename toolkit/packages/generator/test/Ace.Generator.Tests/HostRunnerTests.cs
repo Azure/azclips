@@ -15,7 +15,7 @@ namespace Ace.Generator.Tests;
 /// </summary>
 public sealed class HostRunnerTests
 {
-    private static IRDocument Ir() => new()
+    private static TransformedIR Ir() => new()
     {
         SchemaVersion = "0.8.0",
         Models =
@@ -78,7 +78,7 @@ public sealed class HostRunnerTests
     [Fact]
     public async Task Invalid_server_reference_emits_an_error_result_without_the_processor()
     {
-        IRDocument ir = Ir();
+        TransformedIR ir = Ir();
         ir.Commands =
         [
             Commands.Atomic(

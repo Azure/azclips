@@ -149,6 +149,12 @@ Re-run both steps whenever the IR schema changes. `src/Model/Ir/Ir.Generated.cs`
 committed so the library builds out-of-the-box; treat it as generated output (do
 not hand-edit).
 
+The root type is **`TransformedIR`**, not a neutral "document": the schema's root
+is `TransformedIRSchema`, so everything the generator sees already carries
+`Commands` and a resolved `Target`. Those two only exist once `create-command` has
+run, and the name says so rather than leaving them looking like optional fields on
+a bare IR.
+
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
@@ -166,7 +172,7 @@ throws on the out-of-order discriminator.
 
 ### Source unions and paging (IR 0.10.0 / 0.11.0)
 
-The POCOs preserve `IRDocument.DiscriminatedUnions`, their tagged/default/null
+The POCOs preserve `TransformedIR.DiscriminatedUnions`, their tagged/default/null
 variants, and `IRTypeRefDiscriminatedUnion` references. Operation semantics are
 now an object with independent `Pageable` and `LongRunning` properties rather
 than a `kind`-discriminated union. Paging types retain all input/output roles,
@@ -194,7 +200,7 @@ Both fields are consumed — see [Flattening](#flattening).
 
 ### Shared servers (IR 0.8.0)
 
-`IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
+`TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
 Both `IROperation.Server` and `IRSource.Server` are required `IRId` references;
 the endpoint retains the existing literal/parameterized/oneOf `IRServer` union.
 Processor generation resolves each operation's own reference by structural
@@ -337,7 +343,7 @@ Asynchronous, streaming:
 
 ```csharp
 Task<GenerationResult> GenerateAsync(
-    IRDocument ir, GeneratorOptions options,
+    TransformedIR ir, GeneratorOptions options,
     GeneratedFileHandler writeFile, CancellationToken ct = default);
 ```
 

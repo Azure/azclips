@@ -12,7 +12,7 @@
  * already knows how to stream and surface.
  */
 
-import type { IR } from "@azure-client-engine/ir";
+import type { TransformedIR } from "@azure-client-engine/ir";
 import { safeParseTransformedIR } from "@azure-client-engine/ir";
 import type { Generator, GeneratorContext } from "../generate.js";
 import type { CompilerDiagnostic } from "../types.js";
@@ -26,24 +26,20 @@ export const CSHARP_GENERATOR_ID = "csharp";
 export function createCsharpGenerator(
   runtime: Runtime,
   options: Record<string, unknown> = {},
-): Generator {
+): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
-    async generate(ir: IR, context: GeneratorContext): Promise<void> {
-      // The generator consumes a *transformed* document — commands and a resolved
-      // target, not bare operations. Validating here turns "the command stage never
-      // ran" or "the projection is malformed" into a diagnostic at the boundary,
-      // instead of a null dereference inside the out-of-process host.
-      const document = safeParseTransformedIR(ir);
-      if (!document.success) {
-        context.reportDiagnostic(invalidInput(document.error.issues));
-        return;
-      }
-
+    // This backend renders commands and a resolved target, not bare operations, and
+    // says so in its contract: the orchestrator checks the document before calling
+    // `generate`, so "the command stage never ran" or "the projection is malformed"
+    // becomes a diagnostic at the boundary instead of a null dereference inside the
+    // out-of-process host it is about to be serialized to.
+    accepts: safeParseTransformedIR,
+    async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
       const rootNamespace =
         typeof options.rootNamespace === "string" ? options.rootNamespace : undefined;
       const request: GenerateToolRequest = {
-        ir: document.data,
+        ir,
         options: {
           ...(rootNamespace !== undefined ? { rootNamespace } : {}),
           config: context.config,
@@ -88,21 +84,5 @@ function toolFailure(code: number | null, stderr: string): CompilerDiagnostic {
     severity: "error",
     code: "@azure-client-engine/compiler/generate-tool-failed",
     message: `The csharp-generate tool exited (code ${code ?? "null"}) without a result${detail}`,
-  };
-}
-
-/** Diagnostic for a document that is not a valid transformed IR. */
-function invalidInput(issues: readonly { path: (string | number)[]; message: string }[]): CompilerDiagnostic {
-  const detail = issues
-    .slice(0, 3)
-    .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
-    .join("; ");
-  const more = issues.length > 3 ? ` (+${issues.length - 3} more)` : "";
-  return {
-    severity: "error",
-    code: "@azure-client-engine/compiler/invalid-generator-input",
-    message:
-      "The csharp generator requires a transformed IR (commands and a resolved target). " +
-      `The document it received is not one — ${detail}${more}`,
   };
 }

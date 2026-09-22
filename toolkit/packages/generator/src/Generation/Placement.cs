@@ -7,7 +7,7 @@ namespace Ace.Generator.Generators;
 /// Where generated code lands and what it is called.
 /// </summary>
 /// <remarks>
-/// Read from <see cref="IRDocument.Target"/>, which a transform resolved from
+/// Read from <see cref="TransformedIR.Target"/>, which a transform resolved from
 /// generation-time configuration. Placement is a *decision*, and decisions belong in
 /// the document where a captured IR can show them — the generator only spells them.
 /// <para>
@@ -22,7 +22,7 @@ internal sealed class Placement
     private const string DefaultModelsDirectory = "Models";
     private const string DefaultProcessorsDirectory = "Processors";
 
-    public Placement(IRDocument ir, GeneratorOptions options)
+    public Placement(TransformedIR ir, GeneratorOptions options)
     {
         IRTarget? target = ir.Target;
 

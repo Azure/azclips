@@ -13,7 +13,7 @@ namespace Ace.Generator.Tests;
 /// </summary>
 public sealed class GeneratorCleanupTests
 {
-    private static IRDocument Ir() => new()
+    private static TransformedIR Ir() => new()
     {
 
         SchemaVersion = "0.8.0",

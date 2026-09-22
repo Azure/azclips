@@ -16,7 +16,7 @@ internal sealed class GenerationContext
     private readonly Lazy<Generators.Placement> _placement;
 
     internal GenerationContext(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions options,
         List<GeneratorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
@@ -30,7 +30,7 @@ internal sealed class GenerationContext
     }
 
     /// <summary>The IR document being generated from.</summary>
-    public IRDocument Ir { get; }
+    public TransformedIR Ir { get; }
 
     /// <summary>
     /// Identity lookup over <see cref="Ir"/>, built once per run. Generation never mutates the
@@ -40,7 +40,7 @@ internal sealed class GenerationContext
 
     /// <summary>
     /// Where generated code lands and what it is called, resolved from the document's
-    /// <see cref="IRDocument.Target"/>.
+    /// <see cref="TransformedIR.Target"/>.
     /// </summary>
     public Generators.Placement Placement => _placement.Value;
 

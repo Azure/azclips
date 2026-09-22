@@ -19,10 +19,10 @@ public sealed class CSharpClientGeneratorTests
     /// A document with one command per named operation. The generator reads commands; the
     /// operations are carried alongside as the wire truth each command points back at.
     /// </summary>
-    private static IRDocument Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
+    private static TransformedIR Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
     {
         string[] names = [.. operations ?? []];
-        return new IRDocument
+        return new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Servers =
@@ -56,7 +56,7 @@ public sealed class CSharpClientGeneratorTests
     /// memory (for assertions). The scenario defaults to the calling test's name.
     /// </summary>
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> RunAsync(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions? options = null,
         [CallerMemberName] string scenario = "default")
     {
@@ -95,7 +95,7 @@ public sealed class CSharpClientGeneratorTests
         // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so an enum- or
         // number-typed header has to be formatted. Passing it raw compiles only by accident of
         // overload resolution — and here, not at all.
-        IRDocument ir = Ir(operations: ["get"]);
+        TransformedIR ir = Ir(operations: ["get"]);
         ir.Commands =
         [
             Commands.Atomic(
@@ -140,7 +140,7 @@ public sealed class CSharpClientGeneratorTests
     {
         // The projection resolves paging bindings to a property-id path. An empty path means
         // "the body *is* the page", so the selector must be the body, not a member of it.
-        IRDocument ir = Ir(operations: ["list"]);
+        TransformedIR ir = Ir(operations: ["list"]);
         ir.Commands =
         [
             Commands.Atomic(
@@ -170,7 +170,7 @@ public sealed class CSharpClientGeneratorTests
     {
         // A path segment that names no property in the document must not be PascalCased into a
         // plausible-looking member: that compiles into a wrong selector. Report and emit nothing.
-        IRDocument ir = Ir(operations: ["list"]);
+        TransformedIR ir = Ir(operations: ["list"]);
         ir.Commands =
         [
             Commands.Atomic(
@@ -200,7 +200,7 @@ public sealed class CSharpClientGeneratorTests
     [Fact]
     public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
     {
-        IRDocument ir = Ir(operations: ["upload"]);
+        TransformedIR ir = Ir(operations: ["upload"]);
         ir.Commands[0].Steps[0].Request!.Body = new IRCommandRequestBody
         {
             ContentType = "multipart/mixed",
@@ -237,7 +237,7 @@ public sealed class CSharpClientGeneratorTests
         // Naming is the projection's job: it normalizes and resolves collisions once, across the
         // whole document. Re-deriving a name here would silently undo that, so the generator must
         // spell exactly what the command carries — neither the operation's name nor its id.
-        IRDocument ir = Ir();
+        TransformedIR ir = Ir();
         ir.Operations =
         [
             new IROperation
@@ -270,7 +270,7 @@ public sealed class CSharpClientGeneratorTests
         // Commands, not operations, are the unit: variants project several commands from a single
         // operation, and each is its own processor.
         IRId operation = OperationId("get");
-        IRDocument ir = Ir();
+        TransformedIR ir = Ir();
         ir.Operations = [new IROperation { Id = operation, Name = "get", Server = ServerId() }];
         ir.Commands =
         [
@@ -372,7 +372,7 @@ public sealed class CSharpClientGeneratorTests
         // They collapse onto one C# type, and since a model reference resolves by the
         // id's name, references to either bind to whichever was emitted first — silent,
         // and it compiles. The diagnostic must name both ids, not just the file.
-        IRDocument ir = Ir();
+        TransformedIR ir = Ir();
         ir.Models =
         [
             new IRModel
@@ -412,7 +412,7 @@ public sealed class CSharpClientGeneratorTests
         // document. Nothing in the IR itself flags the divergence, which is why this is
         // pinned rather than left to a real spec to expose.
         IRId renamedId = new() { Module = "Common", Namespace = ["Azure", "CommonTypes"], Name = "ErrorResponse" };
-        IRDocument ir = Ir();
+        TransformedIR ir = Ir();
         ir.Models =
         [
             new IRModel

@@ -1103,36 +1103,6 @@ public partial class IRDiscriminatedUnionVariant
     public string? Summary { get; set; }
 }
 
-public partial class IRDocument
-{
-    [JsonPropertyName("schemaVersion")]
-    public string SchemaVersion { get; set; } = default !;
-
-    [JsonPropertyName("sources")]
-    public IReadOnlyList<IRSource> Sources { get; set; } = [];
-
-    [JsonPropertyName("servers")]
-    public IReadOnlyList<IRServerDefinition> Servers { get; set; } = [];
-
-    [JsonPropertyName("models")]
-    public IReadOnlyList<IRModel> Models { get; set; } = [];
-
-    [JsonPropertyName("enums")]
-    public IReadOnlyList<IREnum> Enums { get; set; } = [];
-
-    [JsonPropertyName("discriminatedUnions")]
-    public IReadOnlyList<IRDiscriminatedUnion>? DiscriminatedUnions { get; set; }
-
-    [JsonPropertyName("operations")]
-    public IReadOnlyList<IROperation> Operations { get; set; } = [];
-
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
-    [JsonPropertyName("target")]
-    public IRTarget Target { get; set; } = default !;
-}
-
 public partial class IREnum
 {
     [JsonPropertyName("id")]
@@ -2188,6 +2158,36 @@ public partial class SerializationHint
 
     [JsonPropertyName("wireNameOverride")]
     public string? WireNameOverride { get; set; }
+}
+
+public partial class TransformedIR
+{
+    [JsonPropertyName("schemaVersion")]
+    public string SchemaVersion { get; set; } = default !;
+
+    [JsonPropertyName("sources")]
+    public IReadOnlyList<IRSource> Sources { get; set; } = [];
+
+    [JsonPropertyName("servers")]
+    public IReadOnlyList<IRServerDefinition> Servers { get; set; } = [];
+
+    [JsonPropertyName("models")]
+    public IReadOnlyList<IRModel> Models { get; set; } = [];
+
+    [JsonPropertyName("enums")]
+    public IReadOnlyList<IREnum> Enums { get; set; } = [];
+
+    [JsonPropertyName("discriminatedUnions")]
+    public IReadOnlyList<IRDiscriminatedUnion>? DiscriminatedUnions { get; set; }
+
+    [JsonPropertyName("operations")]
+    public IReadOnlyList<IROperation> Operations { get; set; } = [];
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
+
+    [JsonPropertyName("target")]
+    public IRTarget Target { get; set; } = default !;
 }
 
 public partial class ValuePropertyHints

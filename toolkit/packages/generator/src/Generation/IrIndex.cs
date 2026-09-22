@@ -3,7 +3,7 @@ using Ace.Generator.Model.Ir;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Identity lookup over an <see cref="IRDocument"/> — the C# counterpart of the IR package's
+/// Identity lookup over an <see cref="TransformedIR"/> — the C# counterpart of the IR package's
 /// <c>indexIR</c>.
 /// </summary>
 /// <remarks>
@@ -26,7 +26,7 @@ internal sealed class IrIndex
     private readonly Dictionary<string, IRProperty> _properties = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IRModel> _propertyOwners = new(StringComparer.Ordinal);
 
-    public IrIndex(IRDocument ir)
+    public IrIndex(TransformedIR ir)
     {
         ArgumentNullException.ThrowIfNull(ir);
 

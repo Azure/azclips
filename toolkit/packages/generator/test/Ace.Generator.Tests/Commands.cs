@@ -6,7 +6,7 @@ namespace Ace.Generator.Tests;
 /// Compact builders for the command shapes the processor generator consumes.
 /// </summary>
 /// <remarks>
-/// The generator reads <see cref="IRDocument.Commands"/>, which a transform projects from
+/// The generator reads <see cref="TransformedIR.Commands"/>, which a transform projects from
 /// operations. These tests build that projection directly rather than reimplementing the
 /// transform: what is under test is how a command is *spelled* in C#, not how it is derived.
 /// </remarks>

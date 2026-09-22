@@ -113,6 +113,32 @@ Language- and client-specific transforms therefore belong in group 2. This is
 upheld by review rather than by a mechanism: the catalog is the single place
 ordering is decided, and no host can insert into it.
 
+### What a generator accepts
+
+Because a generate stage renders the IR *at its position*, the orchestrator holds
+a plain `IR` and cannot know statically that an earlier transform produced the
+richer document a given backend needs. A generator therefore declares its input:
+
+```ts
+interface Generator<TIn extends IR = IR> {
+  readonly name: string;
+  readonly accepts: (ir: IR) => GeneratorAcceptance<TIn>;  // required iff TIn narrows IR
+  generate(ir: TIn, context: GeneratorContext): void | Promise<void>;
+}
+```
+
+`accepts` returns the shape `safeParse` already produces, so a Zod schema *is* an
+acceptance check — the built-in `csharp` backend sets `accepts:
+safeParseTransformedIR` and receives a genuine `TransformedIR`. The orchestrator
+runs the check before dispatch and reports `invalid-generator-input` itself, so
+the failure is uniform across backends and names the stage whose position
+produced the document.
+
+The requirement is conditional on purpose: a backend happy with a bare `IR` omits
+`accepts`, while one that narrows *cannot* omit it, so it can never claim a
+richer input than it actually established. That pairs with the catalog's
+`requires`, which says the same thing at config time.
+
 ### Fulfilment, failure, and output
 
 `CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
