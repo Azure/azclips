@@ -7,7 +7,8 @@ $managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azu
 $managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
 $runId = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()
 $deploymentName = "azclips-test-deployment-mg-cancel-$runId"
-$templateFile = Join-Path $PSScriptRoot '..\Bicep\management-group-cancel.json'
+$bicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
+$templateFile = Join-Path $bicepDir 'management-group-cancel.json'
 
 $payload = @{
     location = 'eastus'
