@@ -43,7 +43,9 @@ internal static class ManagementGroupDeploymentPreparation
 
         if (!string.IsNullOrWhiteSpace(input.ModeInput))
         {
-            if (!Enum.TryParse(input.ModeInput, true, out DeploymentMode mode))
+            if (int.TryParse(input.ModeInput, out _)
+                || !Enum.TryParse(input.ModeInput, true, out DeploymentMode mode)
+                || !Enum.IsDefined(typeof(DeploymentMode), mode))
             {
                 throw new ArgumentException("Mode must be Incremental or Complete.");
             }

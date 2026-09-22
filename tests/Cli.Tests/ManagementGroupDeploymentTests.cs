@@ -12,6 +12,16 @@ namespace Cli.Tests;
 public class ManagementGroupDeploymentTests
 {
     [Fact]
+    public void Create_PowerShellMetadataMapsModeToInput()
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata("New-AzManagementGroupDeployment", ClientType.PowerShell);
+
+        Assert.Equal("ModeInput", metadata.Parameters["Mode"].Name);
+        Assert.Equal(["Incremental", "Complete"], metadata.Parameters["Mode"].AllowedValues);
+    }
+
+    [Fact]
     public async Task Create_ValidatesBeforeSendingPut()
     {
         List<(HttpMethod Method, string Path)> requests = [];
@@ -90,6 +100,28 @@ public class ManagementGroupDeploymentTests
             Assert.Equal(parametersUri, document.RootElement.GetProperty("properties")
                 .GetProperty("parametersLink").GetProperty("uri").GetString());
         }
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("2")]
+    public async Task Create_RejectsNumericMode(string mode)
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"properties":{"provisioningState":"Succeeded"}}"""));
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator
+            {
+                ModeInput = mode,
+            },
+            pipeline,
+            new FakeOutputHandler());
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Incremental or Complete", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
     }
 
     [Fact]

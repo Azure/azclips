@@ -147,6 +147,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterFile"] = new("ParametersFile", "TemplateParameterFile", typeof(string), "A local JSON or Bicep parameters file.", false, [], []),
                 ["TemplateParameterUri"] = new("ParametersUri", "TemplateParameterUri", typeof(string), "The URI of an ARM parameters file.", false, [], []),
                 ["TemplateParameterObject"] = new("TemplateParameterObject", "TemplateParameterObject", typeof(object), "An inline template parameter object.", false, [], []),
+                ["Mode"] = new("ModeInput", "Mode", typeof(string), "Incremental or Complete.", false, [], ["Incremental", "Complete"]),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
                 ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), "None, RequestContent, ResponseContent, or All.", false, [], ["None", "RequestContent", "ResponseContent", "All"]),
                 ["Tag"] = new("Tag", "Tag", typeof(object), "Deployment tags.", false, [], []),
