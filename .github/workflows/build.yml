@@ -36,7 +36,7 @@ jobs:
 
     # Install the .NET Core workload
     - name: Install .NET Core
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v6
       with:
         global-json-file: global.json
 
@@ -194,7 +194,7 @@ jobs:
           echo "ext_name=$extName" >> $env:GITHUB_OUTPUT
       # Install the .NET Core workload
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore Extension
@@ -258,7 +258,7 @@ jobs:
           echo "extension_project_path=src/Extensions/${moduleName}/Extensions.${moduleName}.csproj" >> $env:GITHUB_OUTPUT
       # Install the .NET Core workload
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore Extension
