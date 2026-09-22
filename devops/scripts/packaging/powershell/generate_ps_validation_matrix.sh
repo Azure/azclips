@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generates the PowerShell validation matrix from ps_validation_matrix.yaml.
+# Generates the PowerShell validation matrix from ps_validation_matrix.json.
 #
 # Distributions either run inside a container on a Linux agent ("container" mode) or
 # directly on a platform-specific agent such as macOS or Windows ("native" mode). Each
@@ -24,9 +24,7 @@ VERSION_PATTERN='^[0-9]+(\.[0-9]+)*$'
 DISTRIBUTION_ID_PATTERN='^[A-Za-z][A-Za-z0-9_]*$'
 MATRIX_KEY_PATTERN='^[A-Za-z][A-Za-z0-9_]{0,99}$'
 
-config_path="${SCRIPT_DIR}/ps_validation_matrix.yaml"
-config_source_path=""
-yaml_config_file=""
+config_path="${SCRIPT_DIR}/ps_validation_matrix.json"
 pool_override=""
 pool_overrides=""
 skip_version_check=0
@@ -40,7 +38,7 @@ usage() {
 Usage: generate_ps_validation_matrix.sh [options]
 
 Options:
-  --config PATH          Path to a YAML (.yaml/.yml) or JSON configuration file.
+  --config PATH          Path to a JSON configuration file.
   --pool NAME            Override the agent pool used by container distributions.
   --pool-for ID=NAME     Override the agent pool for a single distribution id.
   --skip-version-check   Generate only configured versions without querying registries
@@ -164,21 +162,6 @@ require_dependencies() {
     command -v "$dependency" >/dev/null 2>&1 ||
       fail "'$dependency' is required but was not found on PATH."
   done
-}
-
-# Keep the existing jq schema and generation logic; normalize YAML only once.
-normalize_config() {
-  config_source_path="$config_path"
-  case "$config_path" in
-    *.yaml|*.yml|*.YAML|*.YML)
-      command -v python3 >/dev/null 2>&1 ||
-        fail "'python3' with PyYAML is required to read YAML configuration."
-      yaml_config_file="$(mktemp)" || fail "Unable to create the normalized configuration file."
-      python3 "$SCRIPT_DIR/read_ps_validation_yaml.py" "$config_path" >"$yaml_config_file" ||
-        fail "Unable to read YAML matrix configuration '$config_path'."
-      config_path="$yaml_config_file"
-      ;;
-  esac
 }
 
 # Returns 0 when the first version sorts strictly above the second.
@@ -339,7 +322,7 @@ validate_config_shape() {
           else . end
         | .versionCheck |= version_check($id + " versionCheck"; ["dockerhub"]))
     | true
-  ' "$config_path" >/dev/null || fail "Invalid matrix configuration '${config_source_path:-$config_path}'."
+  ' "$config_path" >/dev/null || fail "Invalid matrix configuration '$config_path'."
 }
 
 validate_tag_pattern() {
@@ -752,12 +735,11 @@ main() {
   parse_args "$@"
   require_dependencies
   [ -f "$config_path" ] || fail "Configuration file '$config_path' was not found."
-  trap 'rm -f -- "$warnings_file" "$yaml_config_file"' EXIT
-  normalize_config
   validate_config || fail "Unable to validate the matrix configuration."
   az_module_version="$(get_az_module_version)" || fail "Unable to resolve the Az module version."
 
   warnings_file="$(mktemp)" || fail "Unable to create the warnings file."
+  trap 'rm -f -- "$warnings_file"' EXIT
 
   local matrix_json
   matrix_json="$(build_matrix)" || fail "Unable to generate the validation matrix."

@@ -640,15 +640,14 @@ assert_contains "$(cat "$WORK_DIR/ps-stderr.txt")" "Unable to check for new Powe
 end_test
 
 start_test "repository configuration is valid"
-python3 "$SCRIPT_DIR/read_ps_validation_yaml.py" "$SCRIPT_DIR/ps_validation_matrix.yaml" \
-  >"$WORK_DIR/repository.json" || exit 1
+cp "$SCRIPT_DIR/ps_validation_matrix.json" "$WORK_DIR/repository.json" || exit 1
 expected_count="$(jq -r '
   [.distributions[]
    | (.versions | length) * ((.powershellVersions // $ARGS.named.defaults) | length)]
   | add' --argjson defaults "$(jq -c '.powershell.defaultVersions' "$WORK_DIR/repository.json")" \
   "$WORK_DIR/repository.json")"
 output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
-  --config "$SCRIPT_DIR/ps_validation_matrix.yaml" --skip-version-check)"
+  --config "$SCRIPT_DIR/ps_validation_matrix.json" --skip-version-check)"
 assert_equals "0" "$?" "exit code"
 assert_equals "$expected_count" "$(jq -r 'length' <<<"$output")" "configured leg count"
 assert_equals "container,native" \
@@ -666,6 +665,9 @@ assert_equals "devops/scripts/packaging/powershell/linux/ubuntu_install_script.s
 assert_equals "false" \
   "$(jq -r '[.[] | select(.PowerShellVersion == "7.6") | .ContinueOnError] | unique | join(",")' <<<"$output")" \
   "supported powershell legs are not soft-fail"
+assert_equals "10.0" "$(jq -r '.alpine_3_21_ps7_6.DotnetRuntimeVersion' <<<"$output")" "runtime string preserved"
+assert_equals "true" "$(jq -r 'all(.[]; (.PowerShellVersion | type) == "string")' <<<"$output")" \
+  "PowerShell versions remain strings"
 end_test
 
 for value in '{}' null '[]' '"3.23"'; do
@@ -823,7 +825,7 @@ assert_rejected_config '.distributions[0].versionCheck.tagPattern = "([0-9]+"' \
   "not a valid regular expression"
 end_test
 
-for json in '{' '[]' 'null' '{} {}'; do
+for json in '' '{' '[]' 'null' '{} {}' 'schemaVersion: 3' '// comment'; do
   start_test "rejects malformed or multiple JSON documents: $json"
   printf '%s\n' "$json" >"$WORK_DIR/invalid-json.json"
   output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
@@ -1030,9 +1032,10 @@ assert_equals "ubuntu_26_04_ps7_6" "$(jq -r 'keys | join(" ")' <<<"$output")" "e
 assert_equals "" "$(cat "$WORK_DIR/failure-stderr.txt")" "repository limited mode skips all discovery"
 end_test
 
-start_test "help documents limit-testing as a switch"
+start_test "help documents JSON configuration and limit-testing as a switch"
 output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" --help)"
 assert_equals "0" "$?" "exit code"
+assert_contains "$output" "--config PATH          Path to a JSON configuration file." "JSON configuration usage"
 assert_contains "$output" "--limit-testing        Select only configured TestInAlpha legs; disables version discovery." "switch usage"
 end_test
 
@@ -1044,73 +1047,23 @@ assert_equals "" "$output" "no output on invalid CLI use"
 assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "Unknown argument 'false'" "switch takes no value"
 end_test
 
-start_test "default YAML and equivalent JSON generate the same full and limited matrices"
+start_test "default and explicit JSON generate the same full and limited matrices without Python"
 for mode in full limited; do
   arguments=(--skip-version-check)
   [ "$mode" != limited ] || arguments+=(--limit-testing)
-  yaml_output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" "${arguments[@]}")"
-  assert_equals "0" "$?" "$mode YAML exit code"
+  default_output="$(bash -c '
+    python() { echo "Unexpected Python dependency." >&2; exit 1; }
+    python3() { python "$@"; }
+    export -f python python3
+    bash "$@"
+  ' _ "$SCRIPT_DIR/generate_ps_validation_matrix.sh" "${arguments[@]}")"
+  assert_equals "0" "$?" "$mode default JSON exit code"
   json_output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
     --config "$WORK_DIR/repository.json" "${arguments[@]}")"
   assert_equals "0" "$?" "$mode JSON exit code"
-  assert_equals "$json_output" "$yaml_output" "$mode matrix parity"
+  assert_equals "$json_output" "$default_output" "$mode matrix parity"
 done
 end_test
-
-start_test "supports yml files with comments and quoted version identifiers"
-cp "$SCRIPT_DIR/ps_validation_matrix.yaml" "$WORK_DIR/matrix.yml" || exit 1
-output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
-  --config "$WORK_DIR/matrix.yml" --skip-version-check)"
-assert_equals "0" "$?" "yml exit code"
-assert_equals "10.0" "$(jq -r '.alpine_3_21_ps7_6.DotnetRuntimeVersion' <<<"$output")" "runtime string preserved"
-assert_equals "true" "$(jq -r 'all(.[]; (.PowerShellVersion | type) == "string")' <<<"$output")" \
-  "PowerShell versions remain strings"
-end_test
-
-start_test "YAML conversion preserves version discovery regular expressions"
-python3 -c 'import json, sys, yaml; print(yaml.safe_dump(json.load(sys.stdin)))' \
-  <"$WORK_DIR/config.json" >"$WORK_DIR/discovery.yaml" || exit 1
-output="$(run_with_tags $'3.24\n3.25' --config "$WORK_DIR/discovery.yaml")"
-assert_equals "0" "$?" "YAML discovery exit code"
-assert_equals "alpine:3.25" "$(jq -r '.alpine_3_25_ps7_6_unsupported.ContainerImage' <<<"$output")" \
-  "YAML regex discovers a canary"
-end_test
-
-for kind in malformed duplicate multidocument unsafe; do
-  start_test "rejects $kind YAML without emitting a matrix"
-  case "$kind" in
-    malformed) printf 'schemaVersion: [\n' ;;
-    duplicate) printf 'schemaVersion: 3\nschemaVersion: 4\n' ;;
-    multidocument) printf 'schemaVersion: 3\n---\nschemaVersion: 3\n' ;;
-    unsafe) printf '!!python/object:object {}\n' ;;
-  esac >"$WORK_DIR/invalid.yaml"
-  output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
-    --config "$WORK_DIR/invalid.yaml" --azure-variable matrix 2>"$WORK_DIR/yaml-errors.txt")"
-  assert_equals "1" "$?" "$kind YAML exit code"
-  assert_equals "" "$output" "no partial or empty Azure matrix"
-  assert_contains "$(cat "$WORK_DIR/yaml-errors.txt")" "Invalid matrix configuration" "YAML diagnostic"
-  end_test
-done
-
-for kind in version boolean; do
-  start_test "YAML scalar types still obey the matrix schema: $kind"
-  if [ "$kind" = version ]; then
-    filter='.powershell.versions[1].version = 7.6'
-    expected='numeric version strings'
-  else
-    filter='.distributions[0].versions[0].testInAlpha = "false"'
-    expected='must be a boolean'
-  fi
-  jq "$filter" "$WORK_DIR/config.json" |
-    python3 -c 'import json, sys, yaml; print(yaml.safe_dump(json.load(sys.stdin)))' \
-    >"$WORK_DIR/scalars.yaml" || exit 1
-  output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" \
-    --config "$WORK_DIR/scalars.yaml" --azure-variable matrix 2>"$WORK_DIR/yaml-errors.txt")"
-  assert_equals "1" "$?" "incorrect scalar type fails"
-  assert_equals "" "$output" "no matrix emitted"
-  assert_contains "$(cat "$WORK_DIR/yaml-errors.txt")" "$expected" "schema diagnostic"
-  end_test
-done
 
 printf '\n'
 if [ "$failures" -eq 0 ]; then

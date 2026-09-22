@@ -53,26 +53,27 @@ macOS jobs reuse a toolchain under the agent's temporary directory and restore b
 
 ## Matrix and support policy
 
-`ps_validation_matrix.yaml` declares schema version 3, the PowerShell release lines
+`ps_validation_matrix.json` declares schema version 3, the PowerShell release lines
 and matching .NET runtime channels, distribution versions, and execution modes.
 The .NET SDK comes from the repository's `global.json`. PowerShell release lines
 such as `7.6` install the latest available `7.6.*` tool package; the installed version
 is printed during bootstrap. `AzVersion` comes from `src/PS/Az/Az.psd1`.
+The Az modules target .NET 10, so PowerShell releases older than 7.6 are unsupported.
 
-Keep version identifiers quoted (for example, `'7.6'`, `'10.0'`, and `'2025'`),
-and flags as YAML booleans (`true`/`false`). Native Windows entries also accept
-`'latest'`, which expands `poolTemplate: 'windows-{version}'` to `windows-latest`.
+Keep version identifiers as JSON strings (for example, `"7.6"`, `"10.0"`, and `"2025"`),
+and flags as JSON booleans (`true`/`false`). Native Windows entries also accept
+`"latest"`, which expands `"poolTemplate": "windows-{version}"` to `windows-latest`.
 This configured alias follows the same PowerShell support policy as numeric
 Windows versions; it is not a discovered canary. All other distribution,
 PowerShell and .NET runtime versions must remain numeric strings.
-Use ordinary `#` comments rather than
-comment properties. The generator safely converts YAML to temporary JSON for its
-existing jq rules; its matrix output remains JSON for Azure Pipelines.
-Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
-`--config` paths also accept JSON for compatibility.
+The generator reads JSON directly with its existing jq rules; no Python, YAML
+parser, or additional library is needed. PowerShell consumers can use the built-in
+`ConvertFrom-Json`. Keep explanatory notes here rather than adding comments to
+the JSON file. Explicit `--config` paths must also contain a single JSON object.
+The matrix output remains JSON for Azure Pipelines.
 
 - Configured combinations are blocking unless their PowerShell entry explicitly
-  sets `supported: false`.
+  sets `"supported": false`.
 - In full runs, optional registry discovery adds the newest unconfigured distribution or
   PowerShell release as an unsupported canary. Canary failures report
   `SucceededWithIssues` and do not block independent phases or final artifact
@@ -81,7 +82,7 @@ Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
 - Registry discovery failures produce warnings and retain configured coverage.
   Malformed configuration or generation errors fail instead of emitting a partial
   matrix.
-- A configured version entry's `testInAlpha: true` opts it into limited runs.
+- A configured version entry's `"testInAlpha": true` opts it into limited runs.
   `--limit-testing` disables both distribution and PowerShell release discovery,
   so it makes no registry requests and adds no discovered canaries. It filters on
   this flag **before** Azure Pipelines expands matrix jobs and fails clearly if
@@ -92,20 +93,10 @@ Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
   PR, including normal discovery. Restore it to `true` to use configured limited
   coverage after that validation.
 
-From the repository root, on a host with Bash, jq, curl, GNU sort, and Python 3,
-install the YAML dependency in an isolated environment:
-
-```bash
-python3 -m venv /tmp/ps-validation-tools
-. /tmp/ps-validation-tools/bin/activate
-python3 -m pip install -r devops/scripts/packaging/powershell/requirements.txt
-```
-
-Both CI workflows provision this environment before running matrix generation or
-its regression suite. Azure DevOps runs the actual matrix generator without a
-separate matrix self-test step; the self-test remains available locally and runs
-in GitHub Actions. Local Debian/Ubuntu hosts may also need the
-`python3-venv` package to create the environment. Then run:
+From the repository root, on a host with Bash, jq, curl, and GNU sort, run the
+commands below. No parser dependency installation is required in either CI
+workflow. Azure DevOps runs the actual matrix generator without a separate matrix
+self-test step; the self-test remains available locally and runs in GitHub Actions.
 
 ```bash
 # Reproducible selection of configured combinations, without registry discovery.
@@ -115,7 +106,7 @@ bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh --skip
 bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh --limit-testing
 ```
 
-To add a Linux distribution, add its YAML entry and
+To add a Linux distribution, add its JSON entry and
 `linux/<id>_install_script.sh`. Keep module tests out of the bootstrap. Set
 `testInAlpha` on versions that should run in the limited alpha matrix. Native
 Windows/macOS entries use their platform bootstrap and must not enable container
@@ -485,8 +476,8 @@ installation cleanup mechanism.
 
 ## Offline regression fixtures
 
-After installing the Python YAML dependency above, no Az module installation,
-Docker daemon, Azure credentials, or network access is needed for these fixtures.
+No YAML parser, Az module installation, Docker daemon, Azure credentials, or
+network access is needed for these fixtures.
 Run them from the repository root:
 
 ```bash

@@ -29,20 +29,6 @@ jobs:
     fetchDepth: 1
     retryCountOnTaskFailure: 3
 
-  - task: UsePythonVersion@0
-    displayName: Use Python for PS Matrix
-    inputs:
-      versionSpec: '3.12'
-
-  - bash: |
-      set -euo pipefail
-      tools_root="$(Agent.TempDirectory)/ps-validation-tools"
-      python3 -m venv "$tools_root"
-      "$tools_root/bin/python" -m pip install --disable-pip-version-check \
-        -r devops/scripts/packaging/powershell/requirements.txt
-      echo "##vso[task.prependpath]$tools_root/bin"
-    displayName: Install PS Matrix YAML Dependency
-
   - pwsh: |
       & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

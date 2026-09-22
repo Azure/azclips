@@ -915,8 +915,10 @@ exit $LASTEXITCODE
     $count++
 
     $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/build-and-test.yml') -Raw
-    Assert-Contains $job 'UsePythonVersion@0' 'Azure Pipelines provisions Python'
-    Assert-Contains $workflow 'actions/setup-python@' 'GitHub Actions provisions Python'
+    Assert-Equal $false ($job.Contains('UsePythonVersion@')) 'Matrix generation does not provision Python'
+    $matrixWorkflow = [regex]::Match($workflow, '(?ms)^  ps-validation-scripts:\r?\n(?<body>.*?)(?=^  [\w-]+:|\z)').Groups['body'].Value
+    Assert-Contains $matrixWorkflow 'test_generate_ps_validation_matrix.sh' 'PowerShell validation workflow is present'
+    Assert-Equal $false ($matrixWorkflow.Contains('actions/setup-python@')) 'Matrix fixtures do not provision Python'
     Assert-Contains $workflow 'test_generate_ps_validation_matrix.sh' 'GitHub Actions retains the matrix self-test'
     $requirements = 'devops/scripts/packaging/powershell/requirements.txt'
     foreach ($pipeline in @($job, $workflow))
@@ -928,15 +930,14 @@ exit $LASTEXITCODE
         Assert-Contains $pipeline 'PSUpgradeFixtures.ps1' 'Both pipelines run offline upgrade lifecycle fixtures'
         Assert-Contains $pipeline '& pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1' 'Smoke fixtures run as a native process rather than relying on a stale LASTEXITCODE'
         Assert-Equal $true ([regex]::IsMatch($pipeline, 'PSSmokeFixtures\.ps1\r?\n\s+(?:if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}|exit \$LASTEXITCODE)')) 'Smoke fixture native failures propagate in both pipelines'
-        Assert-Contains $pipeline 'python3 -m venv "$tools_root"' 'YAML dependency uses an isolated environment'
-        Assert-Contains $pipeline '"$tools_root/bin/python" -m pip install' 'YAML dependency uses the selected Python'
-        Assert-Contains $pipeline $requirements 'Both pipelines use the pinned YAML dependency'
+        Assert-Equal $false ($pipeline.Contains($requirements)) 'Matrix generation needs no YAML requirements'
+        Assert-Equal $false ($pipeline.Contains('ps-validation-tools')) 'Matrix generation needs no parser environment'
     }
-    Assert-Equal $true ($job.IndexOf($requirements) -lt $job.IndexOf('bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh')) 'Azure Pipelines provisions the YAML dependency before matrix generation'
-    Assert-Equal $true ($workflow.IndexOf($requirements) -lt $workflow.IndexOf('test_generate_ps_validation_matrix.sh')) 'GitHub Actions provisions the YAML dependency before matrix fixtures'
-    Assert-Contains $job '##vso[task.prependpath]$tools_root/bin' 'Azure Pipelines exposes the YAML environment to later tasks'
-    Assert-Contains $workflow 'echo "$tools_root/bin" >> "$GITHUB_PATH"' 'GitHub Actions exposes the YAML environment to later steps'
-    Write-Host 'PASS: YAML dependency provisioning'
+    $matrixConfig = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/ps_validation_matrix.json') -Raw |
+        ConvertFrom-Json -AsHashtable
+    Assert-Equal 3 $matrixConfig.schemaVersion 'PowerShell reads the matrix with its native JSON parser'
+    Assert-Equal $true ($matrixConfig.powershell.defaultVersions[0] -is [string]) 'Version identifiers remain strings'
+    Write-Host 'PASS: native JSON configuration without YAML dependency provisioning'
     $count++
 }
 finally

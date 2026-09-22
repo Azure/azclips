@@ -50,6 +50,10 @@ in bounded child processes. Offline upgrade fixtures must never install real Az
 modules into the developer's profile.
 Remove owned intermediate dotfiles with `-Force`; PowerShell treats them as hidden
 on Unix even when the current user created them.
+The matrix generator reads `packaging/powershell/ps_validation_matrix.json`
+directly with jq; no Python environment or YAML parser is needed. PowerShell
+consumers can use the built-in `ConvertFrom-Json`. Keep versions as JSON strings
+and flags as booleans.
 The matrix generator accepts `latest` only for native Windows OS versions, not
 for container, PowerShell or .NET versions. Keep hosted-agent aliases out of
 numeric version comparisons. Matrix self-tests run locally and in GitHub Actions;
