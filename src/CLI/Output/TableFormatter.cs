@@ -188,9 +188,25 @@ internal static class TableFormatter
     private static int GetDisplayWidth(string value)
     {
         var total = 0;
+        var column = 0;
         foreach (var rune in value.EnumerateRunes())
         {
-            total += GetRuneDisplayWidth(rune);
+            if (rune.Value is 0x0A or 0x0D)
+            {
+                continue;
+            }
+
+            if (rune.Value == '\t')
+            {
+                var nextTabStop = ((column / 8) + 1) * 8;
+                total += nextTabStop - column;
+                column = nextTabStop;
+                continue;
+            }
+
+            var width = GetRuneDisplayWidth(rune);
+            total += width;
+            column += width;
         }
 
         return total;
@@ -199,6 +215,9 @@ internal static class TableFormatter
     private static int GetRuneDisplayWidth(Rune rune)
     {
         var codePoint = rune.Value;
+
+        if (codePoint is '\t' or '\r' or '\n' or '\0')
+            return 0;
 
         if (rune.IsAscii)
             return 1;

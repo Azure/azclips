@@ -129,12 +129,13 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldNotTruncateWideCjkWhenItFitsDisplayWidth()
+    public void Format_ShouldPreserveWideCjkWhenItFitsDisplayWidth()
     {
-        var json = """[{"name":"漢字漢字","location":"eastus"}]""";
+        var json = """["漢字漢字"]""";
 
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 8);
 
+        Assert.Equal("漢字漢字", result);
         Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
     }
 
@@ -146,6 +147,16 @@ public class TableFormatterTests
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
 
         Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 4, line));
+    }
+
+    [Fact]
+    public void Format_ShouldExpandTabsBeforeMeasuringDisplayWidth()
+    {
+        var json = """["a\t"]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 8);
+
+        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
     }
 
     private static int MeasureDisplayCells(string value)
