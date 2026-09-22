@@ -213,6 +213,11 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         IReadOnlyList<RuntimeHelpParameter> parameters,
         uint? terminalWidth)
     {
+        if (parameters.Count == 0)
+        {
+            return [];
+        }
+
         var lines = new List<string> { SectionHeader(header) };
         for (var index = 0; index < parameters.Count; index++)
         {

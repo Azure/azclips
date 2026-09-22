@@ -395,6 +395,14 @@ public class RuntimeHelpRendererTests
     }
 
     [Fact]
+    public void RenderParameterGroupSection_ShouldOmitEmptyGroup()
+    {
+        var renderer = new RuntimeHelpRenderer();
+
+        Assert.Empty(renderer.RenderParameterGroupSection("Authentication Arguments", [], null));
+    }
+
+    [Fact]
     public void RenderExamplesAndGlobalArgumentsSections_ShouldRenderIndependently()
     {
         var renderer = new RuntimeHelpRenderer();
