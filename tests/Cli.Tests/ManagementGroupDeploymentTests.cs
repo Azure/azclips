@@ -649,6 +649,34 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public async Task WhatIf_OmitsLinksForWhitespaceOnlyInputs()
+    {
+        string? requestBody = null;
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json("""{"status":"Succeeded","properties":{"changes":[]}}""");
+        });
+        NewManagementGroupDeploymentWhatIfProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentWhatIfProcessor_Orchestrator
+            {
+                TemplateUri = " ",
+                TemplateSpecId = "\t",
+                ParametersUri = " ",
+            },
+            pipeline,
+            new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        using JsonDocument document = JsonDocument.Parse(Assert.IsType<string>(requestBody));
+        JsonElement properties = document.RootElement.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("template", out _));
+        Assert.False(properties.TryGetProperty("templateLink", out _));
+        Assert.False(properties.TryGetProperty("parametersLink", out _));
+    }
+
+    [Fact]
     public async Task WhatIf_RejectsInvalidResultFormatBeforeSendingRequest()
     {
         FakeHttpPipeline pipeline = new((_, _) =>

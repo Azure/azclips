@@ -40,7 +40,9 @@ public partial class WhatIfAtManagementGroupScopeDeploymentsProcessor : Resource
         Properties = new DeploymentWhatIfProperties
         {
             Template = Template,
-            TemplateLink = TemplateUri is null && TemplateSpecId is null && TemplateRelativePath is null
+            TemplateLink = string.IsNullOrWhiteSpace(TemplateUri)
+                && string.IsNullOrWhiteSpace(TemplateSpecId)
+                && string.IsNullOrWhiteSpace(TemplateRelativePath)
                 ? null
                 : new TemplateLink
                 {
@@ -51,7 +53,7 @@ public partial class WhatIfAtManagementGroupScopeDeploymentsProcessor : Resource
                     QueryString = QueryString,
                 },
             Parameters = Parameters,
-            ParametersLink = ParametersUri is null
+            ParametersLink = string.IsNullOrWhiteSpace(ParametersUri)
                 ? null
                 : new ParametersLink
                 {
