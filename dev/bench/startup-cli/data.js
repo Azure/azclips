@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790048422039,
+  "lastUpdate": 1790058382639,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -4200,6 +4200,48 @@ window.BENCHMARK_DATA = {
             "value": 244178338.19,
             "unit": "ns",
             "range": "± 2561818.584492123"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4c5f9a6420d59ef4d53c16f839175cc6aef258c",
+          "message": "[CLI] Use readable JSON escaping for console JSON (#939)\n\nMakes console-facing JSON easier to read by using the same relaxed JSON\nescaping policy for Config JSON output and structured error JSON that\ncommand output already uses.\n\n## What changed\n\n- `az config info` / Config JSON output no longer escapes apostrophes as\n`\\u0027`.\n- Structured JSON errors no longer escape apostrophes in human-facing\n`error.message` text.\n- JSON remains valid and parseable; stdout/stderr routing and output\nshape are unchanged.\n\n## Testing\n\n- Added config-info regression coverage for readable apostrophes and\nJSON parseability.\n- Added structured-error regression coverage for readable quoted\nparameter names and JSON parseability.\n- Focused tests: 38 passed.\n- Full `Cli.Tests` suite: 953 passed, 0 failed, 8 skipped.\n\n## History Notes\n\n[CLI] Improve readability of console JSON by avoiding unnecessary\nUnicode escapes in config info and structured error messages.\n\nFixes #914\nCloses Azure/CLIPS#942",
+          "timestamp": "2026-09-22T15:03:35+10:00",
+          "tree_id": "f665334c385fe40a34af2941f01c249e5be3311d",
+          "url": "https://github.com/Azure/azclips/commit/a4c5f9a6420d59ef4d53c16f839175cc6aef258c"
+        },
+        "date": 1790058378765,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 261684506.77,
+            "unit": "ns",
+            "range": "± 7666343.386619881"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 261127600.1,
+            "unit": "ns",
+            "range": "± 8699779.250077024"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 260151600.86,
+            "unit": "ns",
+            "range": "± 6201400.673694424"
           }
         ]
       }
