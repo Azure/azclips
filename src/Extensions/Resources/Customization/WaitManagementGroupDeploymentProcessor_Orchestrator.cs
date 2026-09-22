@@ -72,9 +72,14 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
                     {
                         return;
                     }
-                    if (state?.Equals("Failed", StringComparison.OrdinalIgnoreCase) == true)
+                    if ((Created || Updated)
+                        && state is not null
+                        && (state.Equals("Failed", StringComparison.OrdinalIgnoreCase)
+                            || state.Equals("Canceled", StringComparison.OrdinalIgnoreCase)
+                            || state.Equals("Cancelled", StringComparison.OrdinalIgnoreCase)))
                     {
-                        throw new InvalidOperationException("The deployment operation failed.");
+                        throw new InvalidOperationException(
+                            $"The deployment operation reached terminal state '{state}'.");
                     }
                 }
                 catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -100,7 +105,7 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
         }
     }
 
-    private Task DelayAsync(long started, TimeSpan timeout)
+    protected virtual Task DelayAsync(long started, TimeSpan timeout)
     {
         TimeSpan remaining = timeout - Stopwatch.GetElapsedTime(started);
         TimeSpan delay = TimeSpan.FromSeconds(Interval);

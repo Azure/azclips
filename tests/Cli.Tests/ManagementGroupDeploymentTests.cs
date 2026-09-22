@@ -739,7 +739,7 @@ public class ManagementGroupDeploymentTests
                 : Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
         WaitManagementGroupDeploymentProcessor_Orchestrator processor =
             CreateProcessor(
-                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                new TestWaitManagementGroupDeploymentProcessor
                 {
                     Updated = true,
                     Interval = 1,
@@ -765,7 +765,7 @@ public class ManagementGroupDeploymentTests
                 : Json("""{"name":"test-deployment","properties":{"provisioningState":"Running"}}"""));
         WaitManagementGroupDeploymentProcessor_Orchestrator processor =
             CreateProcessor(
-                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                new TestWaitManagementGroupDeploymentProcessor
                 {
                     Custom = "provisioningState!=Succeeded",
                     Interval = 1,
@@ -779,6 +779,49 @@ public class ManagementGroupDeploymentTests
         await processor.ProcessAsync();
 
         Assert.Equal(2, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_DeletedIgnoresFailedStateUntilDeploymentIsNotFound()
+    {
+        int requests = 0;
+        FakeHttpPipeline pipeline = new((_, _) =>
+            ++requests == 1
+                ? Json("""{"properties":{"provisioningState":"Failed"}}""")
+                : Json("""{"error":{"code":"DeploymentNotFound"}}""", HttpStatusCode.NotFound));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new TestWaitManagementGroupDeploymentProcessor { Deleted = true },
+                pipeline,
+                new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("Canceled")]
+    [InlineData("Cancelled")]
+    public async Task Wait_CreatedStopsOnCanceledState(string state)
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json($$"""{"properties":{"provisioningState":"{{state}}"} }"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new TestWaitManagementGroupDeploymentProcessor { Created = true },
+                pipeline,
+                new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains(state, exception.Message);
+        Assert.Equal(1, pipeline.SendCount);
     }
 
     [Fact]
@@ -863,4 +906,10 @@ public class ManagementGroupDeploymentTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
+
+    private sealed class TestWaitManagementGroupDeploymentProcessor
+        : WaitManagementGroupDeploymentProcessor_Orchestrator
+    {
+        protected override Task DelayAsync(long started, TimeSpan timeout) => Task.CompletedTask;
+    }
 }
