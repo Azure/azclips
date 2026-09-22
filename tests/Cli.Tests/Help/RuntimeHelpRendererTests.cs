@@ -260,7 +260,7 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        Assert.Contains("1. First example\naz vm create --name vm1\n\n2. Second example\naz vm create --name vm2", actual);
+        Assert.Contains("1. First example\n$ az vm create --name vm1\n\n2. Second example\n$ az vm create --name vm2", actual);
     }
 
     [Fact]
@@ -409,7 +409,7 @@ public class RuntimeHelpRendererTests
 
         Assert.Empty(renderer.RenderExamplesSection([], null));
         Assert.Equal(
-            ["# EXAMPLES", "1. Create", "az vm create", "", "2. List", "az vm list"],
+            ["# EXAMPLES", "1. Create", "$ az vm create", "", "2. List", "$ az vm list"],
             renderer.RenderExamplesSection(
                 [new("Create", "az vm create"), new("List", "az vm list")],
                 null));
@@ -427,8 +427,8 @@ public class RuntimeHelpRendererTests
         var expected = Compose(
             renderer.RenderCommandIdentitySection(command, null),
             renderer.RenderParameterSections(command.Parameters, null),
-            renderer.RenderExamplesSection(command.Examples, null),
-            renderer.RenderGlobalArgumentsSection(null));
+            renderer.RenderGlobalArgumentsSection(null),
+            renderer.RenderExamplesSection(command.Examples, null));
 
         Assert.Equal(expected, renderer.RenderCommand(command, null));
     }
@@ -442,7 +442,7 @@ public class RuntimeHelpRendererTests
 
         Assert.Equal("\u001b[1m# EXAMPLES\u001b[0m", lines[0]);
         Assert.DoesNotContain("\u001b[", lines[1]);
-        Assert.DoesNotContain("\u001b[", lines[2]);
+        Assert.Contains("$ az vm create", lines[2]);
     }
 
     private static RuntimeHelpCommand Command(

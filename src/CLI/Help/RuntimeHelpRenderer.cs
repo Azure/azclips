@@ -19,6 +19,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
 {
     private const string Bold = "\u001b[1m";
     private const string Reset = "\u001b[0m";
+    private const string ExamplePrompt = "$ ";
 
     private readonly bool _boldHeaders;
 
@@ -47,8 +48,8 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         => ComposeSections(
             RenderCommandIdentitySection(command, terminalWidth),
             RenderParameterSections(command.Parameters, terminalWidth),
-            RenderExamplesSection(command.Examples, terminalWidth),
-            RenderGlobalArgumentsSection(terminalWidth));
+            RenderGlobalArgumentsSection(terminalWidth),
+            RenderExamplesSection(command.Examples, terminalWidth));
 
     internal string[] RenderGroupsSection(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
     {
@@ -260,7 +261,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
 
             lines.Add($"{index + 1}. {examples[index].Title}");
-            lines.Add(examples[index].Command);
+            lines.Add(ExamplePrompt + examples[index].Command);
         }
 
         return [.. lines];
