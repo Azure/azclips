@@ -274,22 +274,6 @@ public class Program
         }
     }
 
-    private static int? GetTerminalWidth()
-    {
-        if (Console.IsOutputRedirected)
-            return null;
-
-        try
-        {
-            var width = Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
@@ -297,7 +281,7 @@ public class Program
             WriteOutput: (value, ct) =>
             {
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
-                    ? GetTerminalWidth()
+                    ? TerminalWidthProvider.Get()
                     : null;
                 Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
