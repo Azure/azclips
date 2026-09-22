@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -35,11 +36,17 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
     {
         try
         {
+            await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            if (!Created && !Updated && !Deleted && !Exists && string.IsNullOrWhiteSpace(Custom))
+            int conditionCount = (Created ? 1 : 0)
+                + (Updated ? 1 : 0)
+                + (Deleted ? 1 : 0)
+                + (Exists ? 1 : 0)
+                + (string.IsNullOrWhiteSpace(Custom) ? 0 : 1);
+            if (conditionCount != 1)
             {
                 throw new ArgumentException(
-                    "Specify one of --created, --updated, --deleted, --exists, or --custom.");
+                    "Specify exactly one of --created, --updated, --deleted, --exists, or --custom.");
             }
             if (Interval <= 0)
             {
@@ -49,6 +56,7 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
             {
                 throw new ArgumentOutOfRangeException(nameof(Timeout), "Timeout must be greater than zero.");
             }
+            (string Operation, string Expected)? customCondition = ParseCustomCondition();
 
             long started = Stopwatch.GetTimestamp();
             TimeSpan timeout = TimeSpan.FromSeconds(Timeout);
@@ -68,7 +76,7 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
                     string? state = deployment?.Properties?.ProvisioningState;
 
                     if (Exists || ((Created || Updated) && state?.Equals("Succeeded", StringComparison.OrdinalIgnoreCase) == true)
-                        || MatchesCustom(state))
+                        || MatchesCustom(state, customCondition))
                     {
                         return;
                     }
@@ -114,29 +122,48 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
             : Task.CompletedTask;
     }
 
-    private bool MatchesCustom(string? state)
+    private (string Operation, string Expected)? ParseCustomCondition()
     {
         if (string.IsNullOrWhiteSpace(Custom))
         {
-            return false;
+            return null;
         }
 
-        string expression = Custom.Replace("properties.", "", StringComparison.OrdinalIgnoreCase);
-        string operation = expression.Contains("!=", StringComparison.Ordinal) ? "!=" : "==";
-        string[] parts = expression.Split(operation, 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || !parts[0].Equals("provisioningState", StringComparison.OrdinalIgnoreCase))
+        Match match = Regex.Match(
+            Custom,
+            @"^\s*(?:properties\.)?provisioningState\s*(==|!=)\s*(?:""([^""]+)""|'([^']+)'|([^=!]+))\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!match.Success)
         {
             throw new ArgumentException(
-                "--custom accepts provisioningState comparisons using == or !=, for example provisioningState==Canceled.");
+                "--custom requires exactly one provisioningState comparison using == or != with a non-empty expected value, for example provisioningState==Canceled.");
         }
 
-        string expected = parts[1].Trim('\'', '"');
-        if (state is null)
+        string expected = match.Groups[2].Success
+            ? match.Groups[2].Value
+            : match.Groups[3].Success
+                ? match.Groups[3].Value
+                : match.Groups[4].Value;
+        expected = expected.Trim();
+        if (expected.Length == 0)
+        {
+            throw new ArgumentException(
+                "--custom requires exactly one provisioningState comparison using == or != with a non-empty expected value, for example provisioningState==Canceled.");
+        }
+
+        return (match.Groups[1].Value, expected);
+    }
+
+    private static bool MatchesCustom(
+        string? state,
+        (string Operation, string Expected)? customCondition)
+    {
+        if (state is null || customCondition is null)
         {
             return false;
         }
 
-        bool equal = string.Equals(state, expected, StringComparison.OrdinalIgnoreCase);
-        return operation == "==" ? equal : !equal;
+        bool equal = string.Equals(state, customCondition.Value.Expected, StringComparison.OrdinalIgnoreCase);
+        return customCondition.Value.Operation == "==" ? equal : !equal;
     }
 }

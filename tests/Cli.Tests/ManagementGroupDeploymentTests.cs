@@ -704,14 +704,15 @@ public class ManagementGroupDeploymentTests
     {
         FakeHttpPipeline pipeline = new((_, _) =>
             Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
-        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
-            CreateProcessor(new WaitManagementGroupDeploymentProcessor_Orchestrator { Created = true, Interval = 1, Timeout = 1 }, pipeline, new FakeOutputHandler());
+        TestWaitManagementGroupDeploymentProcessor processor =
+            CreateProcessor(new TestWaitManagementGroupDeploymentProcessor { Created = true, Interval = 1, Timeout = 1 }, pipeline, new FakeOutputHandler());
         processor.ManagementGroupId = "test-management-group";
         processor.Name = "test-deployment";
 
         await processor.ProcessAsync();
 
         Assert.Equal(1, pipeline.SendCount);
+        Assert.True(processor.BeforeProcessCalled);
     }
 
     [Fact]
@@ -837,7 +838,56 @@ public class ManagementGroupDeploymentTests
         ArgumentException exception =
             await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
 
-        Assert.Contains("Specify one of", exception.Message);
+        Assert.Contains("Specify exactly one of", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_RejectsMultipleConditions()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                {
+                    Created = true,
+                    Deleted = true,
+                },
+                pipeline,
+                new FakeOutputHandler());
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Specify exactly one of", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("provisioningState!==Succeeded")]
+    [InlineData("provisioningState===Succeeded")]
+    [InlineData("provisioningState!=")]
+    [InlineData("provisioningState==' '")]
+    public async Task Wait_RejectsMalformedCustomCondition(string custom)
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                {
+                    Custom = custom,
+                },
+                pipeline,
+                new FakeOutputHandler());
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("--custom", exception.Message);
+        Assert.Contains("exactly one", exception.Message);
+        Assert.Contains("non-empty expected value", exception.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 
@@ -910,6 +960,14 @@ public class ManagementGroupDeploymentTests
     private sealed class TestWaitManagementGroupDeploymentProcessor
         : WaitManagementGroupDeploymentProcessor_Orchestrator
     {
+        public bool BeforeProcessCalled { get; private set; }
+
+        protected override Task BeforeProcessAsync()
+        {
+            BeforeProcessCalled = true;
+            return base.BeforeProcessAsync();
+        }
+
         protected override Task DelayAsync(long started, TimeSpan timeout) => Task.CompletedTask;
     }
 }
