@@ -422,6 +422,7 @@ public class Program
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             });
             Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
         }
