@@ -133,13 +133,20 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public void WhatIf_MetadataExposesMode()
+    public void WhatIf_MetadataExposesModeAndShortAliases()
     {
         CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
             .GetCommandMetadata("deployment mg what-if", ClientType.CLI);
 
         Assert.Equal("ModeInput", metadata.Parameters["mode"].Name);
         Assert.Equal(["Incremental", "Complete"], metadata.Parameters["mode"].AllowedValues);
+        Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+        Assert.Equal("location", metadata.ParameterAliases["l"]);
+        Assert.Equal("template-file", metadata.ParameterAliases["f"]);
+        Assert.Equal("template-uri", metadata.ParameterAliases["u"]);
+        Assert.Equal("template-spec", metadata.ParameterAliases["s"]);
+        Assert.Equal("parameters", metadata.ParameterAliases["p"]);
     }
 
     [Fact]
@@ -639,6 +646,29 @@ public class ManagementGroupDeploymentTests
         Assert.EndsWith("/operations/location-result", requestUris[1]);
         WhatIfOperationResult result = Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues));
         Assert.Equal("NoChange", Assert.Single(result.Properties!.Changes!).ChangeType);
+    }
+
+    [Fact]
+    public async Task WhatIf_RejectsInvalidResultFormatBeforeSendingRequest()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"status":"Succeeded","properties":{"changes":[]}}"""));
+        NewManagementGroupDeploymentWhatIfProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentWhatIfProcessor_Orchestrator
+            {
+                ResultFormatInput = "Foo",
+            },
+            pipeline,
+            new FakeOutputHandler());
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("--result-format", exception.Message);
+        Assert.Contains("'Foo'", exception.Message);
+        Assert.Contains("ResourceIdOnly", exception.Message);
+        Assert.Contains("FullResourcePayloads", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)

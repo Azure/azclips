@@ -10,6 +10,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Returns the changes a deployment would make at management-group scope.</summary>
 public partial class WhatIfAtManagementGroupScopeDeploymentsProcessor : ResourcesProcessorBase<DeploymentWhatIf, WhatIfOperationResult>
 {
+    private const string ApiVersion = "2025-04-01";
+
     public string ManagementGroupId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
@@ -30,7 +32,7 @@ public partial class WhatIfAtManagementGroupScopeDeploymentsProcessor : Resource
     protected override HttpMethod Method => HttpMethod.Post;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(ManagementGroupId)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version=2025-04-01";
+        $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(ManagementGroupId)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version={ApiVersion}";
 
     protected override DeploymentWhatIf? CreateRequestBody() => new()
     {

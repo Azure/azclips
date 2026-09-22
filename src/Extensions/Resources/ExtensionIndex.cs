@@ -606,7 +606,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["result-format"] = new("ResultFormatInput", "result-format", typeof(string), "FullResourcePayloads or ResourceIdOnly.", false, [], ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+                ["l"] = "location",
+                ["f"] = "template-file",
+                ["u"] = "template-uri",
+                ["s"] = "template-spec",
+                ["p"] = "parameters",
+            }
         );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
