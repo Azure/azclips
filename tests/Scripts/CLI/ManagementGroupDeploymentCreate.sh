@@ -39,16 +39,23 @@ echo "create provisioningState -> $STATE"
 [[ "$STATE" == "Succeeded" ]]
 
 # Negative case: malformed Bicep must fail compilation before a deployment is created.
-if "$AZ" deployment mg create \
+set +e
+BICEP_ERROR=$("$AZ" deployment mg create \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --name azclips-test-deployment-mg-malformed \
     --location eastus \
-    --template-file "$BICEP_DIR/malformed.bicep"; then
+    --template-file "$BICEP_DIR/malformed.bicep" 2>&1)
+STATUS=$?
+set -e
+if [[ $STATUS -eq 0 ]]; then
     echo "UNEXPECTED: create accepted malformed Bicep"
     exit 1
-else
-    echo "OK: create rejected malformed Bicep"
 fi
+if ! grep -q 'Bicep compilation failed' <<<"$BICEP_ERROR"; then
+    echo "UNEXPECTED: create failed for the wrong reason: $BICEP_ERROR" >&2
+    exit 1
+fi
+echo "OK: create rejected malformed Bicep"
 
 # Negative case: an invalid mode must be rejected before a deployment is created.
 if "$AZ" deployment mg create \

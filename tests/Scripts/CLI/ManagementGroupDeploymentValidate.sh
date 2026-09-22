@@ -28,15 +28,22 @@ MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.co
     --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP"
 
 # Negative case: malformed Bicep must fail compilation before ARM validation runs.
-if "$AZ" deployment mg validate \
+set +e
+BICEP_ERROR=$("$AZ" deployment mg validate \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location eastus \
-    --template-file "$BICEP_DIR/malformed.bicep"; then
+    --template-file "$BICEP_DIR/malformed.bicep" 2>&1)
+STATUS=$?
+set -e
+if [[ $STATUS -eq 0 ]]; then
     echo "UNEXPECTED: validate accepted malformed Bicep"
     exit 1
-else
-    echo "OK: validate rejected malformed Bicep"
 fi
+if ! grep -q 'Bicep compilation failed' <<<"$BICEP_ERROR"; then
+    echo "UNEXPECTED: validate failed for the wrong reason: $BICEP_ERROR" >&2
+    exit 1
+fi
+echo "OK: validate rejected malformed Bicep"
 
 # Negative case: an invalid validation level must be rejected.
 if "$AZ" deployment mg validate \
