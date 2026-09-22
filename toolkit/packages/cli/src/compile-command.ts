@@ -19,13 +19,14 @@ import {
   compile,
   createRegistry,
   CSHARP_STAGE,
+  TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import { createCommandStep, flattenModelStep } from "@azure-client-engine/transformers";
+import { createCommandStep, flattenModelStep, tweakIrStep } from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,
@@ -44,6 +45,7 @@ import { createHostRuntime } from "./runtime.js";
  */
 const STAGE_IMPLEMENTATIONS = createRegistry({
   transforms: {
+    [TWEAK_IR_STAGE]: tweakIrStep,
     [FLATTEN_MODEL_STAGE]: flattenModelStep,
     [CREATE_COMMAND_STAGE]: createCommandStep,
   },

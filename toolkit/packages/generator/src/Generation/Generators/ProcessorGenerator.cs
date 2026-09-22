@@ -141,8 +141,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     {
         // The processor's generic arguments are the *surfaced* types, which a template may
         // define differently from what any one step puts on the wire.
-        string requestType = TypeOr(command.Surface?.Request, "object");
-        string responseType = TypeOr(command.Surface?.Response, "object");
+        string requestType = TypeOr(command.Surface?.Request, "object", context.Index);
+        string responseType = TypeOr(command.Surface?.Response, "object", context.Index);
 
         var members = new List<MemberDeclarationSyntax>();
 
@@ -158,7 +158,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         {
             if (parameter.Source is not IRCommandParameterSourceBody && !inherited.Contains(parameter.Name))
             {
-                members.Add(ParameterProperty(parameter));
+                members.Add(ParameterProperty(parameter, context.Index));
             }
         }
 
@@ -225,8 +225,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return sb.ToString();
     }
 
-    private static string TypeOr(IRTypeRef? type, string fallback) =>
-        type is not null ? IrTypeMapper.ToCSharp(type) : fallback;
+    private static string TypeOr(IRTypeRef? type, string fallback, IrIndex index) =>
+        type is not null ? IrTypeMapper.ToCSharp(type, index) : fallback;
 
     // ── Parameters ──────────────────────────────────────────────────────────
 
@@ -239,9 +239,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// transform marked <c>internal</c> (a protocol header the transport owns) leaves the public
     /// surface, which is what keeps it out of argument binding and help.
     /// </remarks>
-    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter)
+    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter, IrIndex index)
     {
-        string type = ParameterType(parameter);
+        string type = ParameterType(parameter, index);
 
         PropertyDeclarationSyntax decl = PropertyDeclaration(ParseTypeName(type), Identifier(parameter.Name))
             .AddModifiers(Token(parameter.Access == IRCommandParameterAccess.Internal
@@ -261,9 +261,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     }
 
     /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>
-    private static string ParameterType(IRCommandParameter parameter)
+    private static string ParameterType(IRCommandParameter parameter, IrIndex index)
     {
-        string type = IrTypeMapper.ToCSharp(parameter.Type);
+        string type = IrTypeMapper.ToCSharp(parameter.Type, index);
         return !parameter.Required || parameter.Nullable ? type + "?" : type;
     }
 
@@ -340,7 +340,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             }
 
             // Body itself is nullable, so reading always can produce null.
-            string accessorType = IrTypeMapper.ToCSharp(parameter.Type) + "?";
+            string accessorType = IrTypeMapper.ToCSharp(parameter.Type, context.Index) + "?";
             string docs = parameter.Docs ?? parameter.Summary ?? $"Flattened access to the request body's {target}.";
 
             yield return PropertyDeclaration(ParseTypeName(accessorType), Identifier(parameter.Name))
@@ -594,7 +594,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             yield break;
         }
 
-        string itemType = IrTypeMapper.ToCSharp(pagination.ItemType);
+        string itemType = IrTypeMapper.ToCSharp(pagination.ItemType, context.Index);
 
         yield return MethodDeclaration(ParseTypeName($"IEnumerable<{itemType}>?"), Identifier("pageItems"))
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))

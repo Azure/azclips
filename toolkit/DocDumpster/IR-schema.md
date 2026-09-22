@@ -125,6 +125,7 @@ IROperation = {
   requestBody?, responses
   apiVersion            // per-operation stamp: { value, location: query|header, parameterName }
   server                // required IRId reference into IR.servers
+  clientLocation?       // group the spec explicitly relocated this op to (@clientLocation)
   semantics?            // { pageable?, longRunning? }
   docs?, summary?, access?, rendering?
 }
@@ -136,6 +137,13 @@ Notes that repeatedly matter:
   its source's default. Resolve the operation's, never the source's.
 - **`apiVersion` is per operation**, not per document — a multi-spec emit can mix
   providers on different versions.
+- **`clientLocation` is client-layer, `id` is declaration-layer.** It is set only
+  when `@clientLocation` *explicitly* relocates the operation (resolved for this
+  emitter's scope), and the two routinely disagree: a brownfield spec declares
+  several resources in one interface and separates them only here. `id` keeps
+  recording where the operation was declared. Absent means "not relocated" — TCGC's
+  default placement is deliberately not carried, since it only restates
+  `id.interface`.
 - **A multipart tuple body omits `type`** entirely; its whole shape is in
   `multipart.parts`. Check `body.multipart` as well as `body.type` before concluding
   a request has no body.

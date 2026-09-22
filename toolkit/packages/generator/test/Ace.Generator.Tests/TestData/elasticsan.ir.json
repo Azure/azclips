@@ -3,9 +3,9 @@
   "sources": [
     {
       "id": "Microsoft.ElasticSan",
-      "entrypoint": "C:/workspace/azclips/toolkit/.tmp-fixture/source/main.tsp",
+      "entrypoint": "C:/Users/yabhu/AppData/Local/Temp/fixture-es/source/main.tsp",
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -8251,28 +8251,6 @@
             "optional": true
           },
           {
-            "name": "EncryptionInTransit",
-            "path": [
-              {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "VolumeGroup.properties"
-              },
-              {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "VolumeGroupProperties.encryptionInTransit"
-              }
-            ],
-            "optional": true
-          },
-          {
             "name": "KeyVaultPropertiesKeyName",
             "path": [
               {
@@ -9048,26 +9026,6 @@
           "optional": true,
           "nullable": false,
           "docs": "A boolean indicating whether or not Data Integrity Check is enabled",
-          "typeKind": "primitive",
-          "type": {
-            "kind": "primitive",
-            "name": "boolean"
-          }
-        },
-        {
-          "id": {
-            "module": "Microsoft.ElasticSan",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "VolumeGroupProperties.encryptionInTransit"
-          },
-          "name": "EncryptionInTransit",
-          "wireName": "encryptionInTransit",
-          "optional": true,
-          "nullable": false,
-          "docs": "A boolean indicating whether or not Encryption in Transit is enabled, supported only for ISCSI protocol.",
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -13913,7 +13871,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -14013,7 +13971,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -14302,7 +14260,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -14868,7 +14826,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -15330,7 +15288,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -15494,7 +15452,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -15634,7 +15592,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -15879,7 +15837,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -16184,7 +16142,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -16552,7 +16510,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -16736,7 +16694,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -16896,7 +16854,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -17221,7 +17179,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -17609,7 +17567,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -17931,7 +17889,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -18218,7 +18176,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -18425,7 +18383,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -18814,7 +18772,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -18826,6 +18784,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "Volumes",
       "semantics": {
         "longRunning": {
           "pollingStrategy": "location",
@@ -19078,7 +19037,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -19090,6 +19049,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "Volumes",
       "semantics": {
         "longRunning": {
           "pollingStrategy": "location",
@@ -19258,7 +19218,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -19535,28 +19495,6 @@
                     "ElasticSan"
                   ],
                   "name": "VolumeGroupProperties.enforceDataIntegrityCheckForIscsi"
-                }
-              ],
-              "required": false
-            },
-            {
-              "name": "EncryptionInTransit",
-              "path": [
-                {
-                  "module": "Microsoft.ElasticSan",
-                  "namespace": [
-                    "Microsoft",
-                    "ElasticSan"
-                  ],
-                  "name": "VolumeGroup.properties"
-                },
-                {
-                  "module": "Microsoft.ElasticSan",
-                  "namespace": [
-                    "Microsoft",
-                    "ElasticSan"
-                  ],
-                  "name": "VolumeGroupProperties.encryptionInTransit"
                 }
               ],
               "required": false
@@ -19888,7 +19826,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -20490,7 +20428,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -20674,7 +20612,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -20861,7 +20799,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -21146,7 +21084,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -21158,6 +21096,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "PrivateLinkResources",
       "semantics": {
         "pageable": {
           "isList": false,
@@ -21423,7 +21362,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -21435,6 +21374,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "VolumeSnapshots",
       "docs": "Get a Volume Snapshot."
     },
     {
@@ -21729,7 +21669,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -21741,6 +21681,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "VolumeSnapshots",
       "semantics": {
         "longRunning": {
           "pollingStrategy": "location",
@@ -21933,7 +21874,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -21945,6 +21886,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "VolumeSnapshots",
       "semantics": {
         "longRunning": {
           "pollingStrategy": "location",
@@ -22134,7 +22076,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -22146,6 +22088,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "VolumeSnapshots",
       "semantics": {
         "pageable": {
           "isList": true,
@@ -22400,7 +22343,7 @@
         }
       ],
       "apiVersion": {
-        "value": "2026-04-01-preview",
+        "value": "2024-07-01-preview",
         "location": "query",
         "parameterName": "api-version"
       },
@@ -22412,6 +22355,7 @@
         ],
         "name": "server"
       },
+      "clientLocation": "Skus",
       "semantics": {
         "pageable": {
           "isList": true,
@@ -22530,7 +22474,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSan",
-        "action": "RestoreVolume"
+        "action": "RestoreVolume",
+        "variant": "RestoreVolume"
       },
       "name": "RestoreVolumeElasticSan",
       "template": "atomic",
@@ -22605,7 +22550,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -22848,7 +22793,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Operations",
-        "action": "List"
+        "action": "List",
+        "variant": "List"
       },
       "name": "ListOperations",
       "template": "atomic",
@@ -22884,7 +22830,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -23040,7 +22986,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "Get"
+        "action": "Get",
+        "variant": "Get"
       },
       "name": "GetElasticSans",
       "template": "atomic",
@@ -23096,7 +23043,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -23267,7 +23214,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "Create"
+        "action": "Create",
+        "variant": "Create"
       },
       "name": "CreateElasticSans",
       "template": "atomic",
@@ -23323,7 +23271,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -24069,7 +24017,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "Update"
+        "action": "Update",
+        "variant": "Update"
       },
       "name": "UpdateElasticSans",
       "template": "atomic",
@@ -24125,7 +24074,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -24708,7 +24657,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "Delete"
+        "action": "Delete",
+        "variant": "Delete"
       },
       "name": "DeleteElasticSans",
       "template": "atomic",
@@ -24764,7 +24714,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -24926,7 +24876,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "ListByResourceGroup"
+        "action": "List",
+        "variant": "ByResourceGroup"
       },
       "name": "ListByResourceGroupElasticSans",
       "template": "atomic",
@@ -24978,7 +24929,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -25172,7 +25123,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "ElasticSans",
-        "action": "ListBySubscription"
+        "action": "List",
+        "variant": "BySubscription"
       },
       "name": "ListBySubscriptionElasticSans",
       "template": "atomic",
@@ -25216,7 +25168,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -25387,274 +25339,9 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "ElasticSans",
-        "action": "ListByElasticSan"
-      },
-      "name": "ListByElasticSanElasticSans",
-      "template": "atomic",
-      "server": {
-        "module": "Microsoft.ElasticSan",
-        "namespace": [
-          "Microsoft",
-          "ElasticSan"
-        ],
-        "name": "server"
-      },
-      "steps": [
-        {
-          "operation": {
-            "module": "Microsoft.ElasticSan",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "interface": "ElasticSans",
-            "name": "listByElasticSan"
-          },
-          "request": {
-            "method": "GET",
-            "path": [
-              {
-                "kind": "literal",
-                "text": "/subscriptions/"
-              },
-              {
-                "kind": "parameter",
-                "parameter": "SubscriptionId"
-              },
-              {
-                "kind": "literal",
-                "text": "/resourceGroups/"
-              },
-              {
-                "kind": "parameter",
-                "parameter": "ResourceGroupName"
-              },
-              {
-                "kind": "literal",
-                "text": "/providers/Microsoft.ElasticSan/elasticSans/"
-              },
-              {
-                "kind": "parameter",
-                "parameter": "ElasticSanName"
-              },
-              {
-                "kind": "literal",
-                "text": "/privateLinkResources"
-              }
-            ],
-            "query": [
-              {
-                "wireName": "api-version",
-                "value": {
-                  "kind": "literal",
-                  "text": "2026-04-01-preview"
-                }
-              }
-            ],
-            "headers": [
-              {
-                "wireName": "Accept",
-                "value": {
-                  "kind": "parameter",
-                  "parameter": "Accept"
-                }
-              }
-            ]
-          },
-          "responses": [
-            {
-              "statusCodes": [
-                {
-                  "kind": "exact",
-                  "code": 200
-                }
-              ],
-              "type": {
-                "kind": "model",
-                "id": {
-                  "module": "Microsoft.ElasticSan",
-                  "namespace": [
-                    "Microsoft",
-                    "ElasticSan"
-                  ],
-                  "name": "PrivateLinkResourceListResult"
-                }
-              },
-              "contentType": "application/json",
-              "isError": false,
-              "docs": "Azure operation completed successfully."
-            },
-            {
-              "statusCodes": [
-                {
-                  "kind": "default"
-                }
-              ],
-              "type": {
-                "kind": "model",
-                "id": {
-                  "module": "@azure-tools/typespec-azure-resource-manager",
-                  "namespace": [
-                    "Azure",
-                    "ResourceManager",
-                    "CommonTypes"
-                  ],
-                  "name": "ErrorResponse"
-                }
-              },
-              "contentType": "application/json",
-              "isError": true
-            }
-          ],
-          "pagination": {
-            "itemType": {
-              "kind": "model",
-              "id": {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "PrivateLinkResource"
-              }
-            },
-            "itemsPath": [
-              {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "PrivateLinkResourceListResult.value"
-              }
-            ],
-            "nextLinkVerb": "GET"
-          }
-        }
-      ],
-      "parameters": [
-        {
-          "name": "SubscriptionId",
-          "source": {
-            "kind": "path",
-            "parameter": {
-              "module": "Microsoft.ElasticSan",
-              "namespace": [
-                "Microsoft",
-                "ElasticSan"
-              ],
-              "interface": "ElasticSans",
-              "name": "listByElasticSan.subscriptionId"
-            }
-          },
-          "type": {
-            "kind": "primitive",
-            "name": "string"
-          },
-          "required": true,
-          "nullable": false,
-          "docs": "The ID of the target subscription. The value must be an UUID."
-        },
-        {
-          "name": "ResourceGroupName",
-          "source": {
-            "kind": "path",
-            "parameter": {
-              "module": "Microsoft.ElasticSan",
-              "namespace": [
-                "Microsoft",
-                "ElasticSan"
-              ],
-              "interface": "ElasticSans",
-              "name": "listByElasticSan.resourceGroupName"
-            }
-          },
-          "type": {
-            "kind": "primitive",
-            "name": "string"
-          },
-          "required": true,
-          "nullable": false,
-          "docs": "The name of the resource group. The name is case insensitive."
-        },
-        {
-          "name": "ElasticSanName",
-          "source": {
-            "kind": "path",
-            "parameter": {
-              "module": "Microsoft.ElasticSan",
-              "namespace": [
-                "Microsoft",
-                "ElasticSan"
-              ],
-              "interface": "ElasticSans",
-              "name": "listByElasticSan.elasticSanName"
-            }
-          },
-          "type": {
-            "kind": "primitive",
-            "name": "string"
-          },
-          "required": true,
-          "nullable": false,
-          "docs": "The name of the ElasticSan."
-        },
-        {
-          "name": "Accept",
-          "source": {
-            "kind": "header",
-            "parameter": {
-              "module": "Microsoft.ElasticSan",
-              "namespace": [
-                "Microsoft",
-                "ElasticSan"
-              ],
-              "interface": "ElasticSans",
-              "name": "listByElasticSan.accept"
-            }
-          },
-          "type": {
-            "kind": "primitive",
-            "name": "string"
-          },
-          "required": true,
-          "nullable": false,
-          "access": "internal"
-        }
-      ],
-      "surface": {
-        "response": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft.ElasticSan",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "PrivateLinkResourceListResult"
-          }
-        },
-        "output": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft.ElasticSan",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "PrivateLinkResource"
-          }
-        },
-        "paginated": true
-      },
-      "docs": "Gets the private link resources that need to be created for a elastic San."
-    },
-    {
-      "id": {
-        "module": "Microsoft.ElasticSan",
         "subject": "PrivateEndpointConnections",
-        "action": "Get"
+        "action": "Get",
+        "variant": "Get"
       },
       "name": "GetPrivateEndpointConnections",
       "template": "atomic",
@@ -25718,7 +25405,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -25911,7 +25598,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "PrivateEndpointConnections",
-        "action": "Create"
+        "action": "Create",
+        "variant": "Create"
       },
       "name": "CreatePrivateEndpointConnections",
       "template": "atomic",
@@ -25975,7 +25663,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -26429,7 +26117,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "PrivateEndpointConnections",
-        "action": "Delete"
+        "action": "Delete",
+        "variant": "Delete"
       },
       "name": "DeletePrivateEndpointConnections",
       "template": "atomic",
@@ -26493,7 +26182,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -26677,7 +26366,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "PrivateEndpointConnections",
-        "action": "List"
+        "action": "List",
+        "variant": "List"
       },
       "name": "ListPrivateEndpointConnections",
       "template": "atomic",
@@ -26737,7 +26427,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -26953,7 +26643,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Volumes",
-        "action": "Get"
+        "action": "Get",
+        "variant": "Get"
       },
       "name": "GetVolumes",
       "template": "atomic",
@@ -27025,7 +26716,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -27240,7 +26931,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Volumes",
-        "action": "Create"
+        "action": "Create",
+        "variant": "Create"
       },
       "name": "CreateVolumes",
       "template": "atomic",
@@ -27312,7 +27004,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -27785,7 +27477,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Volumes",
-        "action": "Update"
+        "action": "Update",
+        "variant": "Update"
       },
       "name": "UpdateVolumes",
       "template": "atomic",
@@ -27857,7 +27550,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -28233,7 +27926,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Volumes",
-        "action": "Delete"
+        "action": "Delete",
+        "variant": "Delete"
       },
       "name": "DeleteVolumes",
       "template": "atomic",
@@ -28305,7 +27999,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               },
               {
@@ -28620,7 +28314,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "Volumes",
-        "action": "ListByVolumeGroup"
+        "action": "List",
+        "variant": "ByVolumeGroup"
       },
       "name": "ListByVolumeGroupVolumes",
       "template": "atomic",
@@ -28688,7 +28383,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -28961,10 +28656,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "VolumeGroups",
-        "action": "PreBackup"
+        "subject": "Volumes",
+        "action": "PreBackup",
+        "variant": "PreBackup"
       },
-      "name": "PreBackupVolumeGroups",
+      "name": "PreBackupVolumes",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -29030,7 +28726,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -29339,10 +29035,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "VolumeGroups",
-        "action": "PreRestore"
+        "subject": "Volumes",
+        "action": "PreRestore",
+        "variant": "PreRestore"
       },
-      "name": "PreRestoreVolumeGroups",
+      "name": "PreRestoreVolumes",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -29408,7 +29105,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -29719,7 +29416,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "VolumeGroups",
-        "action": "Get"
+        "action": "Get",
+        "variant": "Get"
       },
       "name": "GetVolumeGroups",
       "template": "atomic",
@@ -29783,7 +29481,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -29976,7 +29674,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "VolumeGroups",
-        "action": "Create"
+        "action": "Create",
+        "variant": "Create"
       },
       "name": "CreateVolumeGroups",
       "template": "atomic",
@@ -30040,7 +29739,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -30491,37 +30190,6 @@
           "docs": "A boolean indicating whether or not Data Integrity Check is enabled"
         },
         {
-          "name": "EncryptionInTransit",
-          "source": {
-            "kind": "body",
-            "path": [
-              {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "VolumeGroup.properties"
-              },
-              {
-                "module": "Microsoft.ElasticSan",
-                "namespace": [
-                  "Microsoft",
-                  "ElasticSan"
-                ],
-                "name": "VolumeGroupProperties.encryptionInTransit"
-              }
-            ]
-          },
-          "type": {
-            "kind": "primitive",
-            "name": "boolean"
-          },
-          "required": false,
-          "nullable": false,
-          "docs": "A boolean indicating whether or not Encryption in Transit is enabled, supported only for ISCSI protocol."
-        },
-        {
           "name": "KeyVaultPropertiesKeyName",
           "source": {
             "kind": "body",
@@ -30875,7 +30543,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "VolumeGroups",
-        "action": "Update"
+        "action": "Update",
+        "variant": "Update"
       },
       "name": "UpdateVolumeGroups",
       "template": "atomic",
@@ -30939,7 +30608,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -31731,7 +31400,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "VolumeGroups",
-        "action": "Delete"
+        "action": "Delete",
+        "variant": "Delete"
       },
       "name": "DeleteVolumeGroups",
       "template": "atomic",
@@ -31795,7 +31465,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -31979,7 +31649,8 @@
       "id": {
         "module": "Microsoft.ElasticSan",
         "subject": "VolumeGroups",
-        "action": "ListByElasticSan"
+        "action": "List",
+        "variant": "ByElasticSan"
       },
       "name": "ListByElasticSanVolumeGroups",
       "template": "atomic",
@@ -32039,7 +31710,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -32290,10 +31961,278 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "Snapshots",
-        "action": "Get"
+        "subject": "PrivateLinkResources",
+        "action": "List",
+        "variant": "ByElasticSan"
       },
-      "name": "GetSnapshots",
+      "name": "ListByElasticSanPrivateLinkResources",
+      "template": "atomic",
+      "server": {
+        "module": "Microsoft.ElasticSan",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
+      },
+      "steps": [
+        {
+          "operation": {
+            "module": "Microsoft.ElasticSan",
+            "namespace": [
+              "Microsoft",
+              "ElasticSan"
+            ],
+            "interface": "ElasticSans",
+            "name": "listByElasticSan"
+          },
+          "request": {
+            "method": "GET",
+            "path": [
+              {
+                "kind": "literal",
+                "text": "/subscriptions/"
+              },
+              {
+                "kind": "parameter",
+                "parameter": "SubscriptionId"
+              },
+              {
+                "kind": "literal",
+                "text": "/resourceGroups/"
+              },
+              {
+                "kind": "parameter",
+                "parameter": "ResourceGroupName"
+              },
+              {
+                "kind": "literal",
+                "text": "/providers/Microsoft.ElasticSan/elasticSans/"
+              },
+              {
+                "kind": "parameter",
+                "parameter": "ElasticSanName"
+              },
+              {
+                "kind": "literal",
+                "text": "/privateLinkResources"
+              }
+            ],
+            "query": [
+              {
+                "wireName": "api-version",
+                "value": {
+                  "kind": "literal",
+                  "text": "2024-07-01-preview"
+                }
+              }
+            ],
+            "headers": [
+              {
+                "wireName": "Accept",
+                "value": {
+                  "kind": "parameter",
+                  "parameter": "Accept"
+                }
+              }
+            ]
+          },
+          "responses": [
+            {
+              "statusCodes": [
+                {
+                  "kind": "exact",
+                  "code": 200
+                }
+              ],
+              "type": {
+                "kind": "model",
+                "id": {
+                  "module": "Microsoft.ElasticSan",
+                  "namespace": [
+                    "Microsoft",
+                    "ElasticSan"
+                  ],
+                  "name": "PrivateLinkResourceListResult"
+                }
+              },
+              "contentType": "application/json",
+              "isError": false,
+              "docs": "Azure operation completed successfully."
+            },
+            {
+              "statusCodes": [
+                {
+                  "kind": "default"
+                }
+              ],
+              "type": {
+                "kind": "model",
+                "id": {
+                  "module": "@azure-tools/typespec-azure-resource-manager",
+                  "namespace": [
+                    "Azure",
+                    "ResourceManager",
+                    "CommonTypes"
+                  ],
+                  "name": "ErrorResponse"
+                }
+              },
+              "contentType": "application/json",
+              "isError": true
+            }
+          ],
+          "pagination": {
+            "itemType": {
+              "kind": "model",
+              "id": {
+                "module": "Microsoft.ElasticSan",
+                "namespace": [
+                  "Microsoft",
+                  "ElasticSan"
+                ],
+                "name": "PrivateLinkResource"
+              }
+            },
+            "itemsPath": [
+              {
+                "module": "Microsoft.ElasticSan",
+                "namespace": [
+                  "Microsoft",
+                  "ElasticSan"
+                ],
+                "name": "PrivateLinkResourceListResult.value"
+              }
+            ],
+            "nextLinkVerb": "GET"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "name": "SubscriptionId",
+          "source": {
+            "kind": "path",
+            "parameter": {
+              "module": "Microsoft.ElasticSan",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "interface": "ElasticSans",
+              "name": "listByElasticSan.subscriptionId"
+            }
+          },
+          "type": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "required": true,
+          "nullable": false,
+          "docs": "The ID of the target subscription. The value must be an UUID."
+        },
+        {
+          "name": "ResourceGroupName",
+          "source": {
+            "kind": "path",
+            "parameter": {
+              "module": "Microsoft.ElasticSan",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "interface": "ElasticSans",
+              "name": "listByElasticSan.resourceGroupName"
+            }
+          },
+          "type": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "required": true,
+          "nullable": false,
+          "docs": "The name of the resource group. The name is case insensitive."
+        },
+        {
+          "name": "ElasticSanName",
+          "source": {
+            "kind": "path",
+            "parameter": {
+              "module": "Microsoft.ElasticSan",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "interface": "ElasticSans",
+              "name": "listByElasticSan.elasticSanName"
+            }
+          },
+          "type": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "required": true,
+          "nullable": false,
+          "docs": "The name of the ElasticSan."
+        },
+        {
+          "name": "Accept",
+          "source": {
+            "kind": "header",
+            "parameter": {
+              "module": "Microsoft.ElasticSan",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "interface": "ElasticSans",
+              "name": "listByElasticSan.accept"
+            }
+          },
+          "type": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "required": true,
+          "nullable": false,
+          "access": "internal"
+        }
+      ],
+      "surface": {
+        "response": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.ElasticSan",
+            "namespace": [
+              "Microsoft",
+              "ElasticSan"
+            ],
+            "name": "PrivateLinkResourceListResult"
+          }
+        },
+        "output": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.ElasticSan",
+            "namespace": [
+              "Microsoft",
+              "ElasticSan"
+            ],
+            "name": "PrivateLinkResource"
+          }
+        },
+        "paginated": true
+      },
+      "docs": "Gets the private link resources that need to be created for a elastic San."
+    },
+    {
+      "id": {
+        "module": "Microsoft.ElasticSan",
+        "subject": "VolumeSnapshots",
+        "action": "Get",
+        "variant": "Get"
+      },
+      "name": "GetVolumeSnapshots",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -32363,7 +32302,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -32577,10 +32516,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "Snapshots",
-        "action": "Create"
+        "subject": "VolumeSnapshots",
+        "action": "Create",
+        "variant": "Create"
       },
-      "name": "CreateSnapshots",
+      "name": "CreateVolumeSnapshots",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -32650,7 +32590,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -33006,10 +32946,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "Snapshots",
-        "action": "Delete"
+        "subject": "VolumeSnapshots",
+        "action": "Delete",
+        "variant": "Delete"
       },
-      "name": "DeleteSnapshots",
+      "name": "DeleteVolumeSnapshots",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -33079,7 +33020,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               }
             ],
@@ -33284,10 +33225,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "Snapshots",
-        "action": "ListByVolumeGroup"
+        "subject": "VolumeSnapshots",
+        "action": "List",
+        "variant": "ByVolumeGroup"
       },
-      "name": "ListByVolumeGroupSnapshots",
+      "name": "ListByVolumeGroupVolumeSnapshots",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -33353,7 +33295,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               },
               {
@@ -33619,10 +33561,11 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "subject": "SkusOperationGroup",
-        "action": "List"
+        "subject": "Skus",
+        "action": "List",
+        "variant": "List"
       },
-      "name": "ListSkusOperationGroup",
+      "name": "ListSkus",
       "template": "atomic",
       "server": {
         "module": "Microsoft.ElasticSan",
@@ -33664,7 +33607,7 @@
                 "wireName": "api-version",
                 "value": {
                   "kind": "literal",
-                  "text": "2026-04-01-preview"
+                  "text": "2024-07-01-preview"
                 }
               },
               {

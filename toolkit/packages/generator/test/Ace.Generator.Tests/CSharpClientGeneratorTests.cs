@@ -365,6 +365,92 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_NamesBothModelsWhenTwoRenderAsOneType()
+    {
+        // Distinct models routinely share a name across namespaces (`ErrorResponse`
+        // exists in a provider's namespace and in Azure.ResourceManager.CommonTypes).
+        // They collapse onto one C# type, and since a model reference resolves by the
+        // id's name, references to either bind to whichever was emitted first — silent,
+        // and it compiles. The diagnostic must name both ids, not just the file.
+        IRDocument ir = Ir();
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "ErrorResponse",
+                Source = "Test",
+                Id = new IRId { Module = "Test", Namespace = ["Contoso", "Storage"], Name = "ErrorResponse" },
+            },
+            new IRModel
+            {
+                Name = "ErrorResponse",
+                Source = "Common",
+                Id = new IRId { Module = "Common", Namespace = ["Azure", "CommonTypes"], Name = "ErrorResponse" },
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        GeneratorDiagnostic diagnostic = Assert.Single(
+            result.Diagnostics,
+            d => d.Code == "ace-generator/model-name-collision");
+        Assert.Contains("Contoso.Storage.ErrorResponse", diagnostic.Message);
+        Assert.Contains("Azure.CommonTypes.ErrorResponse", diagnostic.Message);
+
+        // The second is dropped at the source, so the generic duplicate-file warning
+        // never fires — the specific diagnostic replaces it rather than doubling it.
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "ace-generator/duplicate-file");
+        Assert.Single(writer.Files.Keys, k => k.EndsWith("ErrorResponse.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Generate_ReferencesARenamedModelByItsCurrentName()
+    {
+        // A transform renames a model to keep two same-named types apart, which makes
+        // `model.Name` diverge from `id.Name`. A reference resolved off the id would
+        // then name a type nobody declares — so references must resolve through the
+        // document. Nothing in the IR itself flags the divergence, which is why this is
+        // pinned rather than left to a real spec to expose.
+        IRId renamedId = new() { Module = "Common", Namespace = ["Azure", "CommonTypes"], Name = "ErrorResponse" };
+        IRDocument ir = Ir();
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "CommonTypesErrorResponse",
+                Source = "Common",
+                Id = renamedId,
+            },
+            new IRModel
+            {
+                Name = "Holder",
+                Source = "Test",
+                Id = new IRId { Module = "Test", Name = "Holder" },
+                Properties =
+                [
+                    new IRPropertyObject
+                    {
+                        Id = new IRId { Module = "Test", Name = "Holder.error" },
+                        Name = "Error",
+                        WireName = "error",
+                        Type = new IRTypeRefModel { Id = renamedId },
+                        Optional = true,
+                        Nullable = false,
+                    },
+                ],
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string holder = writer.Files.Source(result, "Holder");
+        Assert.Contains("CommonTypesErrorResponse? Error", holder);
+        // The id's name must not leak through as a type reference.
+        Assert.DoesNotContain("ErrorResponse? Error", holder.Replace("CommonTypesErrorResponse? Error", ""));
+    }
+
+    [Fact]
     public async Task Generate_EmitsOnlyRelativeForwardSlashPaths()
     {
         (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"], operations: ["get"]));

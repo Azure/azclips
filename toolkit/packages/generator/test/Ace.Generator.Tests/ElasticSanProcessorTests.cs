@@ -56,7 +56,7 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task Commands_Are_Named_From_Their_Group_And_Action()
+    public async Task Commands_Are_Named_From_Their_Subject_And_Action()
     {
         (GenerationResult result, _) = await EmitAsync("ElasticSan_Processors_Interfaces");
 
@@ -64,12 +64,18 @@ public sealed class ElasticSanProcessorTests
         Assert.Empty(result.Diagnostics);
         foreach (string name in new[]
         {
+            // No @clientLocation applies (its decorator is scoped "go"), so this one
+            // keeps the subject derived from its declaration site.
             "RestoreVolumeElasticSanProcessor",
-            "PreBackupVolumeGroupsProcessor",
-            "PreRestoreVolumeGroupsProcessor",
-            "ListByElasticSanElasticSansProcessor",
-            "GetSnapshotsProcessor",
-            "ListSkusOperationGroupProcessor",
+            // Relocated by the spec: VolumeGroups.preBackup -> Volumes.
+            "PreBackupVolumesProcessor",
+            "PreRestoreVolumesProcessor",
+            // ElasticSans.listByElasticSan -> "PrivateLinkResources".
+            "ListByElasticSanPrivateLinkResourcesProcessor",
+            // Snapshots.get -> "VolumeSnapshots".
+            "GetVolumeSnapshotsProcessor",
+            // SkusOperationGroup.list -> "Skus", dropping the interface's suffix.
+            "ListSkusProcessor",
         })
         {
             Assert.Contains(name, result.GeneratedClasses.Keys);

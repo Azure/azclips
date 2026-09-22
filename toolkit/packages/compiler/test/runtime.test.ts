@@ -28,7 +28,7 @@ import { emptyIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
  * The catalog's optional transform stages have no built-in implementation, so
  * these tests turn them off and exercise only the two runtime-backed built-ins.
  */
-const BUILTINS_ONLY = { pipeline: { "flatten-model": false } } as const;
+const BUILTINS_ONLY = { pipeline: { "tweak-ir": false, "flatten-model": false } } as const;
 
 /**
  * `create-command` cannot be turned off the way `flatten-model` can — the generate

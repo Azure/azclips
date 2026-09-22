@@ -21,6 +21,7 @@ import {
   CSHARP_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  TWEAK_IR_STAGE,
   TSP_EMIT_STAGE,
   compile,
   createRegistry,
@@ -86,6 +87,7 @@ function defaults(overrides: Partial<Parameters<typeof createRegistry>[0]> = {})
     emit: petsEmit,
     registry: createRegistry({
       transforms: {
+        [TWEAK_IR_STAGE]: () => ({ name: TWEAK_IR_STAGE, run: (ir) => ir }),
         [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }),
         [CREATE_COMMAND_STAGE]: () => ({ name: CREATE_COMMAND_STAGE, run: (ir) => ir }),
         ...overrides.transforms,
@@ -119,6 +121,7 @@ describe("orchestration: the emit stage", () => {
         registry: createRegistry({
           emitters: { [TSP_EMIT_STAGE]: () => petsEmit },
           transforms: {
+            [TWEAK_IR_STAGE]: () => ({ name: "w", run: (ir) => ir }),
             [FLATTEN_MODEL_STAGE]: () => ({ name: "x", run: (ir) => ir }),
             [CREATE_COMMAND_STAGE]: () => ({ name: "y", run: (ir) => ir }),
           },
@@ -161,6 +164,7 @@ describe("orchestration: config toggles", () => {
     // Every IR-producing stage snapshots; generate stages take a position but emit none.
     expect(result.snapshots?.map((s) => s.step)).toEqual([
       TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
       FLATTEN_MODEL_STAGE,
       CREATE_COMMAND_STAGE,
     ]);
@@ -187,7 +191,11 @@ describe("orchestration: config toggles", () => {
     expect(ran).toBe(false);
     // csharp still ran — it simply moved up the sequence.
     expect(result.files.has(`${CSHARP_STAGE}.txt`)).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, CREATE_COMMAND_STAGE]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([
+      TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
+      CREATE_COMMAND_STAGE,
+    ]);
   });
 
   it("fails when an enabled stage has no implementation", async () => {

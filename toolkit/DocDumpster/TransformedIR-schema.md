@@ -97,29 +97,45 @@ Siblings are therefore found by an id comparison ignoring `variant`, never by
 parsing a name. A *variant* is a **surface** axis, not a behavioral one: siblings
 share internals and differ in what they expose. Sequencing is `template`'s job.
 
-### Deriving `subject`: not the interface, not the tag
+### Deriving `subject`: the author's grouping first
 
 A TypeSpec interface is not reliably the operation group. Brownfield specs use one
-interface as a *file* container holding several resources, marking the real group
-with `@tag`. That tag is **not** usable as identity — measured on the Network spec,
-80 distinct tags of which only 39 match a derived subject, and the set includes
-`applicationSecurityGroups` (camelCase), `"Network Interfaces"` (a space), and
-`ExpressRouteCircuitArpTable` (one operation, not a group). It is free-form
-documentation text.
+interface as a *file* container holding several resources and separate them with
+`@clientLocation`, so the decorator — resolved for this emitter's scope — is the
+author's own answer and wins:
 
-What survives reliably is the declared name: TCGC renders swagger's
+```
+@clientLocation  →  declared-name prefix  →  id.interface  →  namespace tail
+```
+
+`@clientLocation` is carried by the emitter as `IROperation.clientLocation`, set
+**only** when the decorator explicitly relocates an operation. TCGC also reports a
+default placement, but that merely restates the declaration site `id.interface`
+already records; carrying it would make an authored grouping indistinguishable from
+the default.
+
+Measured across 1,161 operations in three specs, the decorator and the prefix
+**never disagree** (52 agreements, 0 conflicts), and the decorator covers 228
+operations the prefix cannot see — so preferring the inference would only ever
+discard a better answer. The prefix is kept beneath it for a spec that renames
+without relocating; it fires nowhere in that sample.
+
+The prefix itself recovers a subject from the declared name. TCGC renders swagger's
 `ExpressRouteCrossConnectionPeerings_Get` as `expressRouteCrossConnectionPeeringsGet`
-while the client name stays `Get`. `create-command` therefore takes `subject` from
-the declared name minus its trailing action, falling back to the interface (then the
-namespace tail) when the name is exactly the action:
+while the client name stays `Get`, so stripping the trailing action leaves the group.
+The action is matched **word-wise**, not as a string suffix, so it is never sliced
+out of a longer word (`blocklist` does not yield `Block` for `List`).
 
-| `id.interface` | `id.name` | `name` → action | ⇒ `subject` |
-|---|---|---|---|
-| `ExpressRouteCrossConnections` | `get` | `Get` | `ExpressRouteCrossConnections` *(fallback)* |
-| `ExpressRouteCrossConnections` | `expressRouteCrossConnectionPeeringsGet` | `Get` | `ExpressRouteCrossConnectionPeerings` |
+> **Scope matters.** `@clientLocation(..., "!csharp")` applies to ACE, because ACE
+> registers with TCGC as `@azure-client-engine/typespec-emitter` — not as `csharp`.
+> Specs use that scope to exclude the *legacy AutoRest C# generator*, so ACE
+> deliberately receives relocations that emitter does not. Registering ACE as a
+> csharp emitter would silently reverse every one of them.
 
-The action is matched **word-wise**, not as a string suffix, so an action is never
-sliced out of a longer word (`blocklist` does not yield subject `Block` for `List`).
+Why not `@tag`? Measured on Network, 80 distinct tags of which only 39 match a
+derived subject, and the set includes `applicationSecurityGroups` (camelCase),
+`"Network Interfaces"` (a space), and `ExpressRouteCircuitArpTable` (one operation,
+not a group). It is free-form documentation text, not identity.
 
 ### Deriving `variant`: the `by` qualifier
 

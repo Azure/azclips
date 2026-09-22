@@ -146,6 +146,42 @@ describe("command projection", () => {
     ]);
   });
 
+  it("prefers an explicit client location over the inferred prefix", () => {
+    // `@clientLocation` is the author stating the grouping; the prefix only infers
+    // it. Where both exist they agree in practice, so this pins which one is
+    // authoritative — and the decorator also covers operations the prefix cannot see.
+    const ir = document([
+      operation({
+        id: id("get", "CrossConnections"),
+        name: "get",
+        clientLocation: "Peerings",
+      }),
+    ]);
+    const { out, diagnostics } = run(ir);
+
+    expect(diagnostics).toEqual([]);
+    expect(out.commands[0]!.id.subject).toBe("Peerings");
+    // The declaration site is untouched — id records where it was declared.
+    expect(out.operations[0]!.id.interface).toBe("CrossConnections");
+  });
+
+  it("resolves a clash the declared names cannot, when the spec relocates", () => {
+    // The deployments shape: a rename leaves two operations sharing a client name in
+    // one interface, and only `@clientLocation` tells them apart.
+    const ir = document([
+      operation({ id: id("list", "Tenant"), name: "listAtScope", clientLocation: "Deployments" }),
+      operation({
+        id: id("listAtScope", "Tenant"),
+        name: "listAtScope",
+        clientLocation: "DeploymentOperations",
+      }),
+    ]);
+    const { out, diagnostics } = run(ir);
+
+    expect(diagnostics).toEqual([]);
+    expect(out.commands.map((c) => c.id.subject)).toEqual(["Deployments", "DeploymentOperations"]);
+  });
+
   it("matches the action word-wise so it is not sliced out of a longer word", () => {
     // `blocklist` ends with the letters of `list` but is one word, so the prefix is
     // empty and the subject falls back to the declaring interface.
@@ -212,9 +248,10 @@ describe("command projection", () => {
     expect(command.id.subject).toBe("N");
   });
 
-  it("reports rather than emitting two commands under one identity", () => {
+  it("names both operations when two derive one identity", () => {
     // Same subject and action under two namespaces derives one `(module, subject,
-    // action)` — which is an invalid document.
+    // action)` — which is an invalid document. The message has to identify both
+    // sides: the incoming operation alone never shows what it collided with.
     const ir = document([
       operation(),
       operation({ id: { ...id("get", "Widgets"), namespace: ["N", "Other"] } }),
@@ -225,6 +262,14 @@ describe("command projection", () => {
       ["error", "duplicate-command-identity"],
     ]);
     expect(out.commands).toHaveLength(1);
+
+    const message = diagnostics[0]!.message;
+    // Both declared ids, distinguished by their namespaces...
+    expect(message).toContain("[M] N::Widgets.get");
+    expect(message).toContain("[M] N.Other::Widgets.get");
+    // ...the identity they share, and which one survived.
+    expect(message).toContain('["M","Widgets","Get","Get"]');
+    expect(message).toContain("Only the first is emitted");
   });
 
   it("qualifies a colliding name rather than emitting two types under one", () => {

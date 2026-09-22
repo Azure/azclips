@@ -65,6 +65,7 @@ export interface StageDescriptor {
 }
 
 export const TSP_EMIT_STAGE = "tsp-emit";
+export const TWEAK_IR_STAGE = "tweak-ir";
 export const FLATTEN_MODEL_STAGE = "flatten-model";
 export const CREATE_COMMAND_STAGE = "create-command";
 export const CSHARP_STAGE = "csharp";
@@ -75,6 +76,11 @@ export const CSHARP_STAGE = "csharp";
  */
 export const STAGE_CATALOG: readonly StageDescriptor[] = [
   { id: TSP_EMIT_STAGE, kind: "emit", default: "mandatory" },
+  // The one place IR-level renaming happens, and therefore first among the
+  // transforms: both stages below copy names into structures of their own
+  // (`ModelHints.flattened`, `IRCommand`), so a rename after either would leave a
+  // stale copy behind.
+  { id: TWEAK_IR_STAGE, kind: "transform", default: "on" },
   { id: FLATTEN_MODEL_STAGE, kind: "transform", default: "on" },
   // Projects operations into commands, producing the `TransformedIR` every
   // generator consumes. The document phase changes here: stages before this one

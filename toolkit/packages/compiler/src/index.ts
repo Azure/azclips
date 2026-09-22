@@ -24,6 +24,7 @@ export { compile } from "./compile.js";
 export {
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
+  TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
   CSHARP_STAGE,

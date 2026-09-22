@@ -1645,6 +1645,9 @@ public partial class IROperation
     [JsonPropertyName("server")]
     public IRId Server { get; set; } = default !;
 
+    [JsonPropertyName("clientLocation")]
+    public string? ClientLocation { get; set; }
+
     [JsonPropertyName("semantics")]
     public IROperationSemantics? Semantics { get; set; }
 

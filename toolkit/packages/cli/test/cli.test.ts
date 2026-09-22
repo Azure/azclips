@@ -449,9 +449,9 @@ describe("ace compile: stage toggles", () => {
     ]);
     expect(code).toBe(0);
 
-    // Emit and the command projection still snapshot; only flattening is gone.
+    // Emit, tweak-ir, and the command projection still snapshot; only flattening is gone.
     const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
-    expect(captures).toHaveLength(2);
+    expect(captures).toHaveLength(3);
     for (const capture of captures) {
       const ir = parseSnapshot(capture);
       expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(
