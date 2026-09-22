@@ -549,6 +549,23 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public async Task Export_ThrowsWhenResponseHasNoTemplate()
+    {
+        FakeOutputHandler output = new();
+        ExportTemplateAtManagementGroupScopeDeploymentsProcessor processor =
+            CreateProcessor(new ExportTemplateAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
+                Json("{}")), output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("did not include a template", exception.Message);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
     public async Task Export_ArmFailureIsSurfacedWithoutOutput()
     {
         FakeHttpPipeline pipeline = new((_, _) =>

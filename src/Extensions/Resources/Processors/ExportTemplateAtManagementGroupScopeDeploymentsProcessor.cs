@@ -19,10 +19,12 @@ public class ExportTemplateAtManagementGroupScopeDeploymentsProcessor
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExportResult? result)
     {
-        if (result?.Template is not null)
+        if (result?.Template is null)
         {
-            await WriteOutput(result.Template);
+            throw new InvalidOperationException("The export response did not include a template.");
         }
+
+        await WriteOutput(result.Template);
         return true;
     }
 }
