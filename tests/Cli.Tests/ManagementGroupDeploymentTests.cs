@@ -3,6 +3,7 @@
 
 using System.Collections;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
@@ -65,6 +66,12 @@ public class ManagementGroupDeploymentTests
 
         await processor.ProcessAsync();
 
+        Dictionary<string, object?> template =
+            Assert.IsType<Dictionary<string, object?>>(processor.Template);
+        Dictionary<string, object?> variables =
+            Assert.IsType<Dictionary<string, object?>>(template["variables"]);
+        Assert.IsType<Dictionary<string, object?>>(variables["settings"]);
+
         Assert.Equal(2, requestBodies.Count);
         foreach (string requestBody in requestBodies)
         {
@@ -76,6 +83,26 @@ public class ManagementGroupDeploymentTests
                 .GetProperty("enabled")
                 .GetBoolean());
         }
+    }
+
+    [Theory]
+    [InlineData("""{"parametersJson":"{\"parameters\":{\"name\":{\"value\":\"test\"}}}"}""")]
+    [InlineData("""{"parameters":{"name":{"value":"test"}}}""")]
+    public void BicepParametersOutputSupportsEnvelopeAndArmDocument(string output)
+    {
+        Type preparation = typeof(NewManagementGroupDeploymentProcessor_Orchestrator).Assembly.GetType(
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ManagementGroupDeploymentPreparation")!;
+        MethodInfo extract = preparation.GetMethod(
+            "ExtractBicepParametersJson",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        string json = (string)extract.Invoke(null, [output])!;
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        Assert.Equal("test", document.RootElement.GetProperty("parameters")
+            .GetProperty("name")
+            .GetProperty("value")
+            .GetString());
     }
 
     [Fact]

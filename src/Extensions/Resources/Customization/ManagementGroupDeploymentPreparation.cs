@@ -36,7 +36,7 @@ internal static class ManagementGroupDeploymentPreparation
     {
         if (input.TemplateObject is not null)
         {
-            input.Template = input.TemplateObject;
+            input.Template = NormalizePowerShellObject(input.TemplateObject);
         }
 
         if (!string.IsNullOrWhiteSpace(input.ModeInput))
@@ -56,7 +56,7 @@ internal static class ManagementGroupDeploymentPreparation
                 key => key.ToString()!,
                 key => parameterObject[key] is DeploymentParameter parameter
                     ? parameter
-                    : new DeploymentParameter { Value = parameterObject[key] },
+                    : new DeploymentParameter { Value = NormalizePowerShellObject(parameterObject[key]) },
                 StringComparer.OrdinalIgnoreCase);
         }
 
@@ -214,13 +214,7 @@ internal static class ManagementGroupDeploymentPreparation
             string json;
             if (bicepParametersOutput is not null)
             {
-                using JsonDocument envelope = JsonDocument.Parse(bicepParametersOutput);
-                if (!envelope.RootElement.TryGetProperty("parametersJson", out JsonElement parametersJson)
-                    || parametersJson.ValueKind != JsonValueKind.String)
-                {
-                    throw new InvalidOperationException("Bicep output did not contain parametersJson.");
-                }
-                json = parametersJson.GetString()!;
+                json = ExtractBicepParametersJson(bicepParametersOutput);
             }
             else
             {
@@ -284,6 +278,52 @@ internal static class ManagementGroupDeploymentPreparation
         }
 
         input.Parameters = parameters.Count == 0 ? null : parameters;
+    }
+
+    private static object? NormalizePowerShellObject(object? value)
+    {
+        if (value is IDictionary dictionary)
+        {
+            Dictionary<string, object?> normalized = new(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                string key = entry.Key?.ToString()
+                    ?? throw new ArgumentException("PowerShell hashtable keys cannot be null.");
+                normalized[key] = NormalizePowerShellObject(entry.Value);
+            }
+            return normalized;
+        }
+
+        if (value is IEnumerable enumerable and not string)
+        {
+            return enumerable.Cast<object?>().Select(NormalizePowerShellObject).ToArray();
+        }
+
+        return value;
+    }
+
+    private static string ExtractBicepParametersJson(string output)
+    {
+        using JsonDocument document = JsonDocument.Parse(output);
+        JsonElement root = document.RootElement;
+        if (root.TryGetProperty("parametersJson", out JsonElement parametersJson))
+        {
+            return parametersJson.ValueKind switch
+            {
+                JsonValueKind.String => parametersJson.GetString()!,
+                JsonValueKind.Object => parametersJson.GetRawText(),
+                _ => throw new InvalidOperationException(
+                    "Bicep parametersJson must be a JSON string or object."),
+            };
+        }
+
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("parameters", out _))
+        {
+            return root.GetRawText();
+        }
+
+        throw new InvalidOperationException(
+            "Bicep output must contain parametersJson or be an ARM parameters document.");
     }
 
     internal static string BuildArmErrorMessage(string operation, ErrorResponse? error)
