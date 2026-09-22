@@ -13,23 +13,6 @@ public interface IHelpRenderer
 
     string[] RenderCommand(RuntimeHelpCommand command, uint? terminalWidth);
 
-    string[] RenderGroupsSection(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth);
-
-    string[] RenderGroupIdentitySection(RuntimeHelpGroup group, uint? terminalWidth);
-
-    string[] RenderSubgroupsSection(IReadOnlyList<RuntimeHelpGroupSummary> subgroups, uint? terminalWidth);
-
-    string[] RenderCommandsSection(IReadOnlyList<RuntimeHelpCommandSummary> commands, uint? terminalWidth);
-
-    string[] RenderCommandIdentitySection(RuntimeHelpCommand command, uint? terminalWidth);
-
-    string[] RenderParameterSections(IReadOnlyList<RuntimeHelpParameter> parameters, uint? terminalWidth);
-
-    string[] RenderParameterGroupSection(string header, IReadOnlyList<RuntimeHelpParameter> parameters, uint? terminalWidth);
-
-    string[] RenderExamplesSection(IReadOnlyList<RuntimeHelpExample> examples, uint? terminalWidth);
-
-    string[] RenderGlobalArgumentsSection(uint? terminalWidth);
 }
 
 public sealed class RuntimeHelpRenderer : IHelpRenderer
@@ -67,7 +50,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             RenderExamplesSection(command.Examples, terminalWidth),
             RenderGlobalArgumentsSection(terminalWidth));
 
-    public string[] RenderGroupsSection(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
+    internal string[] RenderGroupsSection(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
     {
         var lines = new List<string>
         {
@@ -88,14 +71,14 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    public string[] RenderGroupIdentitySection(RuntimeHelpGroup group, uint? terminalWidth)
+    internal string[] RenderGroupIdentitySection(RuntimeHelpGroup group, uint? terminalWidth)
     {
         var lines = new List<string> { SectionHeader("Group") };
         AppendNameAndSummary(lines, $"az {group.GroupPath}", group.Summary);
         return [.. lines];
     }
 
-    public string[] RenderSubgroupsSection(IReadOnlyList<RuntimeHelpGroupSummary> subgroups, uint? terminalWidth)
+    internal string[] RenderSubgroupsSection(IReadOnlyList<RuntimeHelpGroupSummary> subgroups, uint? terminalWidth)
     {
         if (subgroups.Count == 0)
         {
@@ -116,7 +99,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    public string[] RenderCommandsSection(IReadOnlyList<RuntimeHelpCommandSummary> commands, uint? terminalWidth)
+    internal string[] RenderCommandsSection(IReadOnlyList<RuntimeHelpCommandSummary> commands, uint? terminalWidth)
     {
         var lines = new List<string> { SectionHeader("Commands") };
         if (commands.Count == 0)
@@ -142,7 +125,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    public string[] RenderCommandIdentitySection(RuntimeHelpCommand command, uint? terminalWidth)
+    internal string[] RenderCommandIdentitySection(RuntimeHelpCommand command, uint? terminalWidth)
     {
         var lines = new List<string> { SectionHeader("Command") };
         AppendNameAndSummary(lines, $"az {command.CommandPath}", command.Summary);
@@ -161,7 +144,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         lines.Add(summary);
     }
 
-    public string[] RenderGlobalArgumentsSection(uint? terminalWidth)
+    internal string[] RenderGlobalArgumentsSection(uint? terminalWidth)
     {
         var lines = new List<string> { SectionHeader("Global Arguments") };
         for (var i = 0; i < KnownGlobalFlags.All.Count; i++)
@@ -185,7 +168,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
     // alphabetical order. Sections with no params are skipped. When Parameters is empty, the
     // single "Arguments" header + "(none)" placeholder is emitted (preserves prior behavior for
     // no-param commands like `az logout`).
-    public string[] RenderParameterSections(IReadOnlyList<RuntimeHelpParameter> parameters, uint? terminalWidth)
+    internal string[] RenderParameterSections(IReadOnlyList<RuntimeHelpParameter> parameters, uint? terminalWidth)
     {
         if (parameters.Count == 0)
         {
@@ -225,7 +208,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return ComposeSections([.. sections]);
     }
 
-    public string[] RenderParameterGroupSection(
+    internal string[] RenderParameterGroupSection(
         string header,
         IReadOnlyList<RuntimeHelpParameter> parameters,
         uint? terminalWidth)
@@ -256,7 +239,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    public string[] RenderExamplesSection(IReadOnlyList<RuntimeHelpExample> examples, uint? terminalWidth)
+    internal string[] RenderExamplesSection(IReadOnlyList<RuntimeHelpExample> examples, uint? terminalWidth)
     {
         if (examples.Count == 0)
         {

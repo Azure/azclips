@@ -305,7 +305,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderGroupsSection_ShouldSortGroupsAndHaveNoExteriorBlankLines()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
         RuntimeHelpGroup[] groups =
         [
             new("vm", "Manage VMs.", [], []),
@@ -324,7 +324,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderIdentitySections_ShouldRenderHeadingsAndSummaries()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
         var group = new RuntimeHelpGroup("vm", "Manage VMs.", [], []);
         var command = Command(parameters: [], examples: []);
 
@@ -335,7 +335,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderSubgroupsSection_ShouldBeOptionalAndRenderEntries()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
 
         Assert.Empty(renderer.RenderSubgroupsSection([], null));
         Assert.Equal(
@@ -348,7 +348,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderCommandsSection_ShouldRenderEmptyMarkerAndTags()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
 
         Assert.Equal(["# COMMANDS", "(none)"], renderer.RenderCommandsSection([], null));
         Assert.Equal(
@@ -361,7 +361,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderParameterSections_ShouldPreserveGroupingAndFormatting()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
         RuntimeHelpParameter[] parameters =
         [
             new("name", ["n"], true, "VM name.", "VM name.", [], "(All)", false, false, ValueSources: "az vm list"),
@@ -381,7 +381,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderParameterGroupSection_ShouldRenderOneNamedGroupIndependently()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
         RuntimeHelpParameter[] parameters =
         [
             new("admin-username", ["u"], true, "Admin user.", "Admin user.", [], "(All)", false, false),
@@ -397,7 +397,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderExamplesAndGlobalArgumentsSections_ShouldRenderIndependently()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
 
         Assert.Empty(renderer.RenderExamplesSection([], null));
         Assert.Equal(
@@ -411,7 +411,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderCommand_ShouldEqualCompositionOfItsSections()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer();
+        var renderer = new RuntimeHelpRenderer();
         var command = Command(
             parameters: [new("name", [], true, "VM name.", "VM name.", [], "(All)", false, false)],
             examples: [new("Create", "az vm create --name vm1")]);
@@ -428,7 +428,7 @@ public class RuntimeHelpRendererTests
     [Fact]
     public void RenderStandaloneSection_ShouldHonorBoldHeaders()
     {
-        IHelpRenderer renderer = new RuntimeHelpRenderer(boldHeaders: true);
+        var renderer = new RuntimeHelpRenderer(boldHeaders: true);
 
         var lines = renderer.RenderExamplesSection([new("Create", "az vm create")], null);
 
