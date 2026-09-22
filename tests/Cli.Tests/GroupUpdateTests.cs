@@ -31,7 +31,24 @@ public class GroupUpdateTests
         Assert.Equal(typeof(bool), metadata.Parameters["force-string"].ParameterType);
         Assert.DoesNotContain("add", metadata.Parameters.Keys);
         Assert.DoesNotContain("remove", metadata.Parameters.Keys);
-        Assert.DoesNotContain("Set-AzResourceGroup", index.GetCommandKeys(ClientType.PowerShell));
+    }
+
+    [Fact]
+    public void PowerShellMetadata_ExposesLegacyTagReplacementSurface()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(
+            "Set-AzResourceGroup",
+            ClientType.PowerShell);
+
+        Assert.Equal(typeof(SetResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
+        Assert.Equal("ResourceGroupName", metadata.Parameters["Name"].Name);
+        Assert.Equal(["ResourceGroupName"], metadata.Parameters["Name"].Aliases);
+        Assert.Equal(["ResourceGroupId", "ResourceId"], metadata.Parameters["Id"].Aliases);
+        Assert.Equal("Tags", metadata.Parameters["Tag"].Name);
+        Assert.Equal(typeof(Dictionary<string, string>), metadata.Parameters["Tag"].ParameterType);
+        Assert.True(metadata.Parameters["Tag"].IsRequired);
+        Assert.DoesNotContain("Set", metadata.Parameters.Keys);
+        Assert.DoesNotContain("ForceString", metadata.Parameters.Keys);
     }
 
     [Theory]
@@ -114,6 +131,53 @@ public class GroupUpdateTests
 
         using JsonDocument body = JsonDocument.Parse(requestBody!);
         Assert.Empty(body.RootElement.GetProperty("tags").EnumerateObject());
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_ResolvesIdAndReplacesTagsWithOnePatch()
+    {
+        HttpRequestMessage? sentRequest = null;
+        string? requestBody = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentRequest = request;
+            requestBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json("""{"name":"test-rg","location":"eastus","tags":{"Owner":"team-b"}}""");
+        });
+        SetResourceGroupProcessor_Orchestrator processor = CreatePowerShellProcessor(
+            pipeline,
+            new FakeOutputHandler());
+        processor.Id = "/subscriptions/id-subscription/resourceGroups/group with spaces";
+        processor.Tags = new Dictionary<string, string> { ["Owner"] = "team-b" };
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(HttpMethod.Patch, sentRequest!.Method);
+        Assert.Equal(
+            "https://management.azure.com/subscriptions/id-subscription/resourcegroups/group%20with%20spaces?api-version=2025-04-01",
+            sentRequest.RequestUri!.AbsoluteUri);
+        using JsonDocument body = JsonDocument.Parse(requestBody!);
+        Assert.Equal("team-b", body.RootElement.GetProperty("tags").GetProperty("Owner").GetString());
+        Assert.Equal("id-subscription", processor.SubscriptionId);
+        Assert.Equal("group with spaces", processor.ResourceGroupName);
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_RequiresOneAddressAndTags()
+    {
+        SetResourceGroupProcessor_Orchestrator processor = CreatePowerShellProcessor(
+            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("HTTP should not be called.")),
+            new FakeOutputHandler());
+
+        InvalidOperationException missingAddress = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => processor.ProcessAsync());
+        Assert.Contains("exactly one", missingAddress.Message);
+
+        processor.ResourceGroupName = "test-rg";
+        InvalidOperationException missingTags = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => processor.ProcessAsync());
+        Assert.Contains("Tag parameter is required", missingTags.Message);
     }
 
     [Fact]
@@ -200,6 +264,21 @@ public class GroupUpdateTests
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var processor = new UpdateResourceGroupProcessor_Orchestrator();
+        processor.Init(new ProcessorContext(
+            pipeline,
+            new FakeEventPublisher(),
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile));
+        return processor;
+    }
+
+    private static SetResourceGroupProcessor_Orchestrator CreatePowerShellProcessor(
+        FakeHttpPipeline pipeline,
+        FakeOutputHandler output)
+    {
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = new SetResourceGroupProcessor_Orchestrator();
         processor.Init(new ProcessorContext(
             pipeline,
             new FakeEventPublisher(),

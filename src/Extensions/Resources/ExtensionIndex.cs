@@ -29,6 +29,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_setResourceGroup_PS = new(
+            Name: "SetResourceGroupProcessor_Orchestrator",
+            InvocationName: "Set-AzResourceGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SetResourceGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.SetResourceGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("ResourceGroupName", "Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: ["ResourceGroupName"], AllowedValues: []),
+                ["Id"]             = new("Id", "Id", typeof(string), "The resource group ID.", IsRequired: false, Aliases: ["ResourceGroupId", "ResourceId"], AllowedValues: []),
+                ["Tag"]            = new("Tags", "Tag", typeof(Dictionary<string, string>), "The complete set of resource group tags.", IsRequired: true, Aliases: ["Tags"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["ResourceGroupName"] = "Name",
+                ["ResourceGroupId"] = "Id",
+                ["ResourceId"] = "Id",
+                ["Tags"] = "Tag",
+            }
+        );
         private static readonly CommandMetadata s_removeResourceGroup_PS = new(
             Name: "DeleteResourceGroupProcessor_Orchestrator",
             InvocationName: "Remove-AzResourceGroup",
@@ -334,6 +356,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzResourceGroup"]      = s_newResourceGroup_PS,
+            ["Set-AzResourceGroup"]      = s_setResourceGroup_PS,
             ["Remove-AzResourceGroup"]   = s_removeResourceGroup_PS,
             ["Get-AzResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
