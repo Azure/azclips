@@ -211,7 +211,7 @@ None.
 
 ### System.Boolean
 
-Returns `$true` when `-PassThru` is specified and the delete request is sent.
+Returns `$true` when `-PassThru` is specified and the deployment record has been deleted.
 
 ## NOTES
 
