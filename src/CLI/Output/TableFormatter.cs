@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace Core.Cli.Output;
@@ -13,6 +15,22 @@ namespace Core.Cli.Output;
 /// </summary>
 internal static class TableFormatter
 {
+    internal static int? GetTerminalWidth()
+    {
+        if (Console.IsOutputRedirected)
+            return null;
+
+        try
+        {
+            var width = Console.WindowWidth;
+            return width > 0 ? width : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     internal static string Format(string json, int? terminalWidth = null)
     {
         using var doc = JsonDocument.Parse(json);
@@ -108,14 +126,17 @@ internal static class TableFormatter
 
         var availableWidth = Math.Max(0, terminalWidth.Value - separatorWidth * (widths.Length - 1));
         var constrained = widths.ToArray();
+        var excess = constrained.Sum() - availableWidth;
 
-        while (constrained.Sum() > availableWidth)
+        while (excess > 0)
         {
             var widestColumn = Array.IndexOf(constrained, constrained.Max());
-            if (constrained[widestColumn] == 0)
+            if (widestColumn < 0 || constrained[widestColumn] == 0)
                 break;
 
-            constrained[widestColumn]--;
+            var reduction = Math.Min(constrained[widestColumn], excess);
+            constrained[widestColumn] -= reduction;
+            excess -= reduction;
         }
 
         return constrained;
@@ -126,17 +147,91 @@ internal static class TableFormatter
         string.Join(new string(' ', separatorWidth), cells.Select((cell, i) =>
         {
             var rendered = Truncate(cell, widths[i]);
-            return i == cells.Length - 1 ? rendered : rendered.PadRight(widths[i]);
+            return i == cells.Length - 1 ? rendered : PadToDisplayWidth(rendered, widths[i]);
         }));
+
+    private static string PadToDisplayWidth(string value, int width)
+    {
+        var current = GetDisplayWidth(value);
+        if (current >= width)
+            return value;
+
+        return value + new string(' ', width - current);
+    }
 
     private static string Truncate(string value, int width)
     {
-        if (value.Length <= width)
+        if (width <= 0)
+            return string.Empty;
+
+        if (GetDisplayWidth(value) <= width)
             return value;
 
         if (width <= 3)
-            return value[..width];
+            return new string('.', width);
 
-        return value[..(width - 3)] + "...";
+        var runes = value.EnumerateRunes().ToList();
+        if (runes.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        var used = 0;
+        foreach (var rune in runes)
+        {
+            var cellWidth = GetRuneDisplayWidth(rune);
+            if (cellWidth == 0)
+            {
+                sb.Append(rune);
+                continue;
+            }
+
+            if (used + cellWidth > width - 3)
+                break;
+
+            sb.Append(rune);
+            used += cellWidth;
+        }
+
+        while (GetDisplayWidth(sb.ToString()) + 3 > width && sb.Length > 0)
+        {
+            var lastRune = sb.ToString().EnumerateRunes().Last();
+            sb.Length -= lastRune.Utf16SequenceLength;
+        }
+
+        return sb.ToString() + "...";
+    }
+
+    private static int GetDisplayWidth(string value)
+    {
+        var total = 0;
+        foreach (var rune in value.EnumerateRunes())
+        {
+            total += GetRuneDisplayWidth(rune);
+        }
+
+        return total;
+    }
+
+    private static int GetRuneDisplayWidth(Rune rune)
+    {
+        if (rune.IsAscii)
+            return 1;
+
+        var category = CharUnicodeInfo.GetUnicodeCategory(rune.ToString(), 0);
+        if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
+            return 0;
+
+        var codePoint = rune.Value;
+        return codePoint switch
+        {
+            >= 0x1100 and <= 0x115F => 2,
+            >= 0x2E80 and <= 0xA4CF => 2,
+            >= 0xAC00 and <= 0xD7A3 => 2,
+            >= 0xF900 and <= 0xFAFF => 2,
+            >= 0xFE30 and <= 0xFE4F => 2,
+            >= 0xFF00 and <= 0xFF60 => 2,
+            >= 0xFFE0 and <= 0xFFE6 => 2,
+            _ => 1,
+        };
     }
 }

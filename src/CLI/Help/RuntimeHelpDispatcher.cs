@@ -429,5 +429,5 @@ public sealed class RuntimeHelpDispatcher
             command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
     }
     private static uint? TerminalWidth() =>
-        TerminalWidthProvider.Get() is { } width ? (uint)width : null;
+        TableFormatter.GetTerminalWidth() is { } width ? (uint)width : null;
 }
