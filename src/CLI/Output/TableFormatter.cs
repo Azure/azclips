@@ -15,22 +15,6 @@ namespace Core.Cli.Output;
 /// </summary>
 internal static class TableFormatter
 {
-    internal static int? GetTerminalWidth()
-    {
-        if (Console.IsOutputRedirected)
-            return null;
-
-        try
-        {
-            var width = Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     internal static string Format(string json, int? terminalWidth = null)
     {
         using var doc = JsonDocument.Parse(json);

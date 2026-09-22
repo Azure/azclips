@@ -281,7 +281,7 @@ public class Program
             WriteOutput: (value, ct) =>
             {
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
-                    ? TableFormatter.GetTerminalWidth()
+                    ? TerminalWidthProvider.Get()
                     : null;
                 Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
