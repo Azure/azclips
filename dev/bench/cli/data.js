@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790058230817,
+  "lastUpdate": 1790058314430,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -7812,6 +7812,48 @@ window.BENCHMARK_DATA = {
             "value": 3518702.9201934705,
             "unit": "ns",
             "range": "± 107609.33321087902"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4c5f9a6420d59ef4d53c16f839175cc6aef258c",
+          "message": "[CLI] Use readable JSON escaping for console JSON (#939)\n\nMakes console-facing JSON easier to read by using the same relaxed JSON\nescaping policy for Config JSON output and structured error JSON that\ncommand output already uses.\n\n## What changed\n\n- `az config info` / Config JSON output no longer escapes apostrophes as\n`\\u0027`.\n- Structured JSON errors no longer escape apostrophes in human-facing\n`error.message` text.\n- JSON remains valid and parseable; stdout/stderr routing and output\nshape are unchanged.\n\n## Testing\n\n- Added config-info regression coverage for readable apostrophes and\nJSON parseability.\n- Added structured-error regression coverage for readable quoted\nparameter names and JSON parseability.\n- Focused tests: 38 passed.\n- Full `Cli.Tests` suite: 953 passed, 0 failed, 8 skipped.\n\n## History Notes\n\n[CLI] Improve readability of console JSON by avoiding unnecessary\nUnicode escapes in config info and structured error messages.\n\nFixes #914\nCloses Azure/CLIPS#942",
+          "timestamp": "2026-09-22T15:03:35+10:00",
+          "tree_id": "f665334c385fe40a34af2941f01c249e5be3311d",
+          "url": "https://github.com/Azure/azclips/commit/a4c5f9a6420d59ef4d53c16f839175cc6aef258c"
+        },
+        "date": 1790058310505,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3636007.748886189,
+            "unit": "ns",
+            "range": "± 116875.3579984371"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3724405.757947686,
+            "unit": "ns",
+            "range": "± 142278.97015517997"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3624283.036003236,
+            "unit": "ns",
+            "range": "± 144369.48858649528"
           }
         ]
       }
