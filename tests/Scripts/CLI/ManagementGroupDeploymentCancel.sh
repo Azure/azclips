@@ -16,8 +16,22 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 SUBSCRIPTION_ID=f758ac53-3e63-4317-a956-0997793808d7
 RESOURCE_GROUP=azclips-mg-test-rg
 MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
-RUN_ID="$(date +%s)"
+RUN_ID="$(date +%s)-$$-$RANDOM"
 DEPLOYMENT_NAME="azclips-test-deployment-mg-cancel-$RUN_ID"
+NESTED_NAME="azclips-cancel-$RUN_ID"
+
+cleanup() {
+    "$AZ" rest --method DELETE \
+        --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$MANAGEMENT_GROUP_ID/providers/Microsoft.Resources/deployments/$DEPLOYMENT_NAME?api-version=2025-04-01" \
+        >/dev/null 2>&1 || true
+    "$AZ" rest --method DELETE \
+        --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$NESTED_NAME?api-version=2025-04-01" \
+        >/dev/null 2>&1 || true
+    "$AZ" rest --method DELETE \
+        --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deploymentScripts/$NESTED_NAME?api-version=2023-08-01" \
+        >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 "$AZ" deployment mg create \
     --management-group-id "$MANAGEMENT_GROUP_ID" \

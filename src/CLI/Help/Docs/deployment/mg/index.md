@@ -30,3 +30,9 @@ az deployment mg list --management-group-id myManagementGroup
 ```bash
 az deployment mg show --management-group-id myManagementGroup --name myDeployment
 ```
+
+### Cancel a running management-group deployment
+
+```bash
+az deployment mg cancel --management-group-id myManagementGroup --name myDeployment
+```

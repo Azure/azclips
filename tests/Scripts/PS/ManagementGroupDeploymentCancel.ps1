@@ -5,11 +5,13 @@ $subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
 $resourceGroup = 'azclips-mg-test-rg'
 $managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01'
 $managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
-$runId = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()
+$runId = [Guid]::NewGuid().ToString('N').Substring(0, 12)
 $deploymentName = "azclips-test-deployment-mg-cancel-$runId"
+$nestedName = "azclips-cancel-$runId"
 $bicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
 $templateFile = Join-Path $bicepDir 'management-group-cancel.json'
 
+try {
 $payload = @{
     location = 'eastus'
     properties = @{
@@ -84,4 +86,20 @@ catch {
         throw
     }
     Write-Host 'OK: cancel rejected a nonexistent deployment'
+}
+}
+finally {
+    $cleanupUris = @(
+        "https://management.azure.com/providers/Microsoft.Management/managementGroups/$managementGroupId/providers/Microsoft.Resources/deployments/$deploymentName`?api-version=2025-04-01",
+        "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Resources/deployments/$nestedName`?api-version=2025-04-01",
+        "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Resources/deploymentScripts/$nestedName`?api-version=2023-08-01"
+    )
+    foreach ($cleanupUri in $cleanupUris) {
+        try {
+            Invoke-AzRestMethod -Method DELETE -Uri $cleanupUri -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Verbose "Cleanup skipped for $cleanupUri`: $($_.Exception.Message)"
+        }
+    }
 }
