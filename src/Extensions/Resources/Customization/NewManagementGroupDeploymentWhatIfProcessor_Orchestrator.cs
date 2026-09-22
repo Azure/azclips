@@ -31,7 +31,7 @@ public class NewManagementGroupDeploymentWhatIfProcessor_Orchestrator
             null or "" or "fullresourcepayloads" => "FullResourcePayloads",
             "resourceidonly" => "ResourceIdOnly",
             _ => throw new ArgumentException(
-                "ResultFormat must be FullResourcePayloads or ResourceIdOnly."),
+                "ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'."),
         };
         return base.BeforeProcessAsync();
     }

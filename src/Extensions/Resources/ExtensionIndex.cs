@@ -601,6 +601,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["template-spec"] = new("TemplateSpecId", "template-spec", typeof(string), "The resource ID of a Template Spec.", false, ["s"], []),
                 ["query-string"] = new("QueryString", "query-string", typeof(string), "A query string used with template-uri.", false, [], []),
                 ["parameters"] = new("Parameter", "parameters", typeof(string[]), "Parameter files, JSON, or KEY=VALUE overrides.", false, ["p"], []),
+                ["mode"] = new("ModeInput", "mode", typeof(string), "Incremental or Complete.", false, [], ["Incremental", "Complete"]),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
                 ["result-format"] = new("ResultFormatInput", "result-format", typeof(string), "FullResourcePayloads or ResourceIdOnly.", false, [], ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),

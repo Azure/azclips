@@ -133,6 +133,16 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public void WhatIf_MetadataExposesMode()
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata("deployment mg what-if", ClientType.CLI);
+
+        Assert.Equal("ModeInput", metadata.Parameters["mode"].Name);
+        Assert.Equal(["Incremental", "Complete"], metadata.Parameters["mode"].AllowedValues);
+    }
+
+    [Fact]
     public async Task Create_ValidatesBeforeSendingPut()
     {
         List<(HttpMethod Method, string Path)> requests = [];
