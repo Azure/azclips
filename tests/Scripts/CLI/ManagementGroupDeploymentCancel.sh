@@ -22,7 +22,7 @@ DEPLOYMENT_NAME=azclips-test-deployment-mg-cancel
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --name "$DEPLOYMENT_NAME" \
     --location eastus \
-    --template-file "$BICEP_DIR/management-group-nested-empty.json" \
+    --template-file "$BICEP_DIR/management-group-cancel.json" \
     --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" \
     --no-wait
 

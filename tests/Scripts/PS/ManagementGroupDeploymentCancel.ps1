@@ -6,15 +6,17 @@ $resourceGroup = 'azclips-mg-test-rg'
 $managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01'
 $managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
 $deploymentName = 'azclips-test-deployment-mg-cancel'
-$templateFile = Join-Path $PSScriptRoot '..\Bicep\management-group-nested-empty.json'
+$templateFile = Join-Path $PSScriptRoot '..\Bicep\management-group-cancel.json'
 
 New-AzManagementGroupDeployment `
     -ManagementGroupId $managementGroupId `
     -Name $deploymentName `
     -Location eastus `
     -TemplateFile $templateFile `
-    -subscriptionId $subscriptionId `
-    -resourceGroupName $resourceGroup `
+    -TemplateParameterObject @{
+        subscriptionId = $subscriptionId
+        resourceGroupName = $resourceGroup
+    } `
     -NoWait `
     -Confirm:$false |
     Out-Null
