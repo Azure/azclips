@@ -8,17 +8,19 @@ $managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].nam
 $deploymentName = 'azclips-test-deployment-mg-cancel'
 $templateFile = Join-Path $PSScriptRoot '..\Bicep\management-group-cancel.json'
 
-New-AzManagementGroupDeployment `
-    -ManagementGroupId $managementGroupId `
-    -Name $deploymentName `
-    -Location eastus `
-    -TemplateFile $templateFile `
-    -TemplateParameterObject @{
-        subscriptionId = $subscriptionId
-        resourceGroupName = $resourceGroup
-    } `
-    -NoWait `
-    -Confirm:$false |
+$payload = @{
+    location = 'eastus'
+    properties = @{
+        mode = 'Incremental'
+        template = Get-Content $templateFile -Raw | ConvertFrom-Json -AsHashtable
+        parameters = @{
+            subscriptionId = @{ value = $subscriptionId }
+            resourceGroupName = @{ value = $resourceGroup }
+        }
+    }
+} | ConvertTo-Json -Depth 100
+$deploymentUri = "https://management.azure.com/providers/Microsoft.Management/managementGroups/$managementGroupId/providers/Microsoft.Resources/deployments/$deploymentName`?api-version=2025-04-01"
+Invoke-AzRestMethod -Method PUT -Uri $deploymentUri -Payload $payload |
     Out-Null
 
 $result = Stop-AzManagementGroupDeployment `
