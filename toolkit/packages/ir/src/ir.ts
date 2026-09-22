@@ -164,7 +164,7 @@ export type TransformedIR = Flatten<
   IR & {
     /**
      * Every command, flat. **Array order is not meaningful** — group with
-     * `id.group` / `id.action`, not with position.
+     * `id.subject` / `id.action`, not with position.
      */
     commands: IRCommand[];
     /** Resolved placement for the generated project. */

@@ -803,8 +803,8 @@ public partial class IRCommandId
     [JsonPropertyName("module")]
     public string Module { get; set; } = default !;
 
-    [JsonPropertyName("group")]
-    public string Group { get; set; } = default !;
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = default !;
 
     [JsonPropertyName("action")]
     public string Action { get; set; } = default !;

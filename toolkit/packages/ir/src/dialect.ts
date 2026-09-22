@@ -70,8 +70,9 @@ const clientDialectFields = {
  * A command as a PowerShell cmdlet.
  *
  * `verb` and `noun` are the cmdlet's identity, so sibling commands (same
- * `id.family`, different `id.variant`) normally share them and fold into one cmdlet
- * — each sibling contributing the parameter sets its own parameters declare.
+ * `id.subject` and `id.action`, different `id.variant`) normally share them and fold
+ * into one cmdlet — each sibling contributing the parameter sets its own parameters
+ * declare.
  */
 export type PsCommandDialect = IRClientDialect & {
   /** Approved PowerShell verb (`Get`, `New`, `Set`, `Remove`, …). */

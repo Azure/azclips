@@ -61,14 +61,14 @@ Commands are a **projection beside** operations, never a replacement:
 operation it projects, so a captured document can always be traced to wire truth.
 
 Commands live **flat at the root**. Array order is not meaningful — group by
-`id.group` / `id.action`, never by position.
+`id.subject` / `id.action`, never by position.
 
 ## Identity
 
 ```ts
 IRCommandId = {
   module:   string   // IRSource.id of the primary operation
-  group:    string   // declaring interface, or the namespace tail
+  subject:  string   // what it acts on
   action:   string   // what it does: Get, Create, Update
   variant?: string   // which input surface within the action
 }
@@ -79,6 +79,11 @@ Four axes, which is why this is **not an `IRId`**: that has three usable slots
 all three. Unlike an `IRId` it is **synthesized** — a command has no declaration
 site — so the transform that creates commands owns its uniqueness.
 
+`subject` is deliberately **not** called `interface`: `IRId.interface` asserts *a
+TypeSpec interface declared this*, and a subject is derived precisely when that is
+the wrong answer (below). It is also not called `group`, a word already spent on CLI
+parameter groups and PS parameter sets.
+
 Deliberately **config-independent**: namespace, project name, and directories are
 placement (`IRTarget`), not identity. Changing the root namespace must not churn
 every command's identity, and with it every captured-IR diff.
@@ -86,16 +91,75 @@ every command's identity, and with it every captured-IR diff.
 | helper | |
 |---|---|
 | `commandKey(id)` | structural key over all four axes |
-| `commandActionKey(id)` | key over `(module, group, action)` — **every sibling variant shares it** |
+| `commandActionKey(id)` | key over `(module, subject, action)` — **every sibling variant shares it** |
 
 Siblings are therefore found by an id comparison ignoring `variant`, never by
 parsing a name. A *variant* is a **surface** axis, not a behavioral one: siblings
 share internals and differ in what they expose. Sequencing is `template`'s job.
 
-> **Known gap.** `group` is an interface *name*, so the same interface name under
-> two namespaces derives the same identity. `create-command` reports
-> `duplicate-command-identity` (error) and skips rather than emitting an invalid
-> document.
+### Deriving `subject`: not the interface, not the tag
+
+A TypeSpec interface is not reliably the operation group. Brownfield specs use one
+interface as a *file* container holding several resources, marking the real group
+with `@tag`. That tag is **not** usable as identity — measured on the Network spec,
+80 distinct tags of which only 39 match a derived subject, and the set includes
+`applicationSecurityGroups` (camelCase), `"Network Interfaces"` (a space), and
+`ExpressRouteCircuitArpTable` (one operation, not a group). It is free-form
+documentation text.
+
+What survives reliably is the declared name: TCGC renders swagger's
+`ExpressRouteCrossConnectionPeerings_Get` as `expressRouteCrossConnectionPeeringsGet`
+while the client name stays `Get`. `create-command` therefore takes `subject` from
+the declared name minus its trailing action, falling back to the interface (then the
+namespace tail) when the name is exactly the action:
+
+| `id.interface` | `id.name` | `name` → action | ⇒ `subject` |
+|---|---|---|---|
+| `ExpressRouteCrossConnections` | `get` | `Get` | `ExpressRouteCrossConnections` *(fallback)* |
+| `ExpressRouteCrossConnections` | `expressRouteCrossConnectionPeeringsGet` | `Get` | `ExpressRouteCrossConnectionPeerings` |
+
+The action is matched **word-wise**, not as a string suffix, so an action is never
+sliced out of a longer word (`blocklist` does not yield subject `Block` for `List`).
+
+### Deriving `variant`: the `by` qualifier
+
+`variant` is **always populated**, so no consumer branches on an absent one. It is
+inferred by splitting the operation name on a `by` qualifier — the same trick
+AutoRest's `create-commands-v2` uses:
+
+| operation | `action` | `variant` |
+|---|---|---|
+| `list` | `List` | `List` *(only surface, named after the action)* |
+| `listByResourceGroup` | `List` | `ByResourceGroup` |
+| `listBySubscription` | `List` | `BySubscription` |
+
+These are genuinely one action with three surfaces — they differ only in what the
+caller must supply — so `commandActionKey` groups them, which is what a variant is
+for. A leading or trailing `by` never splits, since it would leave an empty axis.
+
+Scoped to `by` alone: AutoRest splits on `with/at/by/for/in/of` and then needs a
+`specialWords` table to stop `signIn` becoming `Sign`, but across 776 Network and 30
+ElasticSan operations **only `by` ever fires**, so the wider set buys nothing and
+costs that hazard.
+
+### Naming
+
+`name` is the generated C# type stem: `action` + `variant` + `subject`, with the
+variant in the middle because it qualifies the action. Concatenation only — the stem
+then goes through C# identifier rules (PascalCase, legal characters, no leading
+digit) and a document-wide uniqueness check.
+
+Nothing linguistic is applied. AutoRest additionally collapses a subject its
+qualifier already named (`ListByElasticSan` over `ElasticSans`, which otherwise
+reads `ListByElasticSanElasticSans`) by singularizing every word through an English
+pluralization service — but that is a **PowerShell cmdlet-naming rule** and belongs
+to a client dialect, not to this step. Measured across 1,105 operations every such
+collapse depended on that singularization; a strict comparison fires zero times, so
+there is no convention-free rule to keep.
+
+> **Remaining gap.** Two operations that share a subject, an action *and* a variant
+> still collide — `create-command` reports `duplicate-command-identity` (error) and
+> skips rather than emitting an invalid document.
 
 ## The command
 

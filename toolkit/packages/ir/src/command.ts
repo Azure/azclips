@@ -21,7 +21,7 @@
  *     keeps `ModelHints.flattened` authoritative for flattening.
  *
  * Commands live flat at the IR root. **Array order is not meaningful**; group with
- * `id.group` / `id.family`, not with position.
+ * `id.subject` / `id.action`, not with position.
  *
  * The name is deliberate: `Core.Abstractions` — the client-neutral runtime layer both
  * the CLI and the PowerShell modules sit on — already calls this a command
@@ -76,18 +76,23 @@ import {
  * them out means changing the root namespace cannot churn every command's identity
  * (and with it every captured-IR diff).
  *
- * OPEN — is `action` unique document-wide or only within `group`? Two groups may both
- * declare `Get`. Currently scoped to `group`, so `(module, group, action, variant)`
- * is the unique tuple.
+ * OPEN — is `action` unique document-wide or only within `subject`? Two subjects may
+ * both declare `Get`. Currently scoped to `subject`, so `(module, subject, action,
+ * variant)` is the unique tuple.
  */
 export type IRCommandId = {
   /** Source id (`IRSource.id`) of the spec the primary operation came from. */
   module: string;
   /**
-   * The containing scope — the operation's interface, or a derived group for
-   * namespace-level operations. One group holds many commands.
+   * What the command acts on — its *subject*, which is the group the spec meant
+   * rather than necessarily the interface that declared it. One subject holds many
+   * commands.
+   *
+   * Deliberately not called `interface`: `IRId.interface` means *a TypeSpec
+   * interface declared this*, and a subject is derived precisely when that is the
+   * wrong answer.
    */
-  group: string;
+  subject: string;
   /**
    * What the command does (`Get`, `Create`, `Update`). **Siblings share everything
    * but `variant`**, so finding them is an id comparison ignoring that one field,
@@ -98,7 +103,8 @@ export type IRCommandId = {
    */
   action: string;
   /**
-   * Which input surface within the action. Absent is the base variant.
+   * Which input surface within the action. Always populated — a consumer never has
+   * to branch on an absent variant.
    *
    * A variant is a **surface** axis, not a behavioral one: sibling commands share
    * their internals (a base variant may keep, say, a resource-id string internal)
@@ -110,7 +116,7 @@ export type IRCommandId = {
 export const IRCommandIdSchema: z.ZodType<IRCommandId> = z
   .object({
     module: z.string().min(1),
-    group: z.string().min(1),
+    subject: z.string().min(1),
     action: z.string().min(1),
     variant: z.string().min(1).optional(),
   })
@@ -121,12 +127,12 @@ export const IRCommandIdSchema: z.ZodType<IRCommandId> = z
  * commands share a key only when every axis matches.
  */
 export function commandKey(id: IRCommandId): string {
-  return JSON.stringify([id.module, id.group, id.action, id.variant ?? null]);
+  return JSON.stringify([id.module, id.subject, id.action, id.variant ?? null]);
 }
 
 /** Key for a set of sibling commands — every variant of one action shares it. */
 export function commandActionKey(id: IRCommandId): string {
-  return JSON.stringify([id.module, id.group, id.action]);
+  return JSON.stringify([id.module, id.subject, id.action]);
 }
 
 // ─── Templates ──────────────────────────────────────────────────────────

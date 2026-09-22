@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  commandActionKey,
   parseIR,
   parseTransformedIR,
   type IR,
@@ -112,25 +113,108 @@ describe("command projection", () => {
     expect(out.commands[0]!.steps[0]!.operation).toEqual(out.operations[0]!.id);
   });
 
-  it("derives identity from the operation's group and name", () => {
+  it("derives identity from the operation's subject and name", () => {
     const command = only(document([operation()]));
 
-    expect(command.id).toEqual({ module: MODULE, group: "Widgets", action: "Get" });
+    expect(command.id).toEqual({ module: MODULE, subject: "Widgets", action: "Get", variant: "Get" });
     expect(command.name).toBe("GetWidgets");
-    // Variants are a later transform; everything here is the base surface.
-    expect(command.id.variant).toBeUndefined();
+    // Always populated, so no consumer has to branch on an absent variant. With no
+    // `by` qualifier this is the action's only surface, so it is named after it.
+    expect(command.id.variant).toBe("Get");
     expect(command.template).toBe("atomic");
+  });
+
+  it("takes the subject from the operation, not the interface that declared it", () => {
+    // A brownfield interface is a file container: the spec marks the real group with
+    // `@tag`, which the IR drops, but TCGC keeps it as the declared name's prefix
+    // (swagger `ExpressRouteCrossConnectionPeerings_Get` -> `...PeeringsGet`, client
+    // name `Get`). Without recovering it both operations collapse onto one identity.
+    const ir = document([
+      operation({ id: id("get", "CrossConnections"), name: "get" }),
+      operation({ id: id("crossConnectionPeeringsGet", "CrossConnections"), name: "Get" }),
+    ]);
+    const { out, diagnostics } = run(ir);
+
+    expect(diagnostics).toEqual([]);
+    expect(out.commands.map((command) => command.id.subject)).toEqual([
+      "CrossConnections",
+      "CrossConnectionPeerings",
+    ]);
+    expect(out.commands.map((command) => command.name)).toEqual([
+      "GetCrossConnections",
+      "GetCrossConnectionPeerings",
+    ]);
+  });
+
+  it("matches the action word-wise so it is not sliced out of a longer word", () => {
+    // `blocklist` ends with the letters of `list` but is one word, so the prefix is
+    // empty and the subject falls back to the declaring interface.
+    const command = only(document([operation({ id: id("blocklist", "Widgets"), name: "list" })]));
+
+    expect(command.id.subject).toBe("Widgets");
+    expect(command.id.action).toBe("List");
+  });
+
+  it("splits a `by` qualifier into sibling surfaces of one action", () => {
+    // `List` and `ListByResourceGroup` are the same action differing only in what
+    // the caller supplies, so they are siblings: one action, two variants.
+    const ir = document([
+      operation({ id: id("list", "Widgets"), name: "list" }),
+      operation({ id: id("listByResourceGroup", "Widgets"), name: "listByResourceGroup" }),
+    ]);
+    const { out, diagnostics } = run(ir);
+
+    expect(diagnostics).toEqual([]);
+    expect(out.commands.map((c) => [c.id.action, c.id.variant])).toEqual([
+      ["List", "List"],
+      ["List", "ByResourceGroup"],
+    ]);
+    // Same action key, so a later pass finds them by id comparison, not by name.
+    expect(commandActionKey(out.commands[0]!.id)).toBe(commandActionKey(out.commands[1]!.id));
+    expect(out.commands.map((c) => c.name)).toEqual(["ListWidgets", "ListByResourceGroupWidgets"]);
+  });
+
+  it("does not split a leading or trailing `by`", () => {
+    // A name that is only a qualifier has no action left, and `...By` qualifies
+    // nothing — both stay whole rather than producing an empty axis.
+    const ir = document([
+      operation({ id: id("byPolicy", "Widgets"), name: "byPolicy" }),
+      operation({ id: id("orderBy", "Widgets"), name: "orderBy" }),
+    ]);
+    const { out } = run(ir);
+
+    expect(out.commands.map((c) => [c.id.action, c.id.variant])).toEqual([
+      ["ByPolicy", "ByPolicy"],
+      ["OrderBy", "OrderBy"],
+    ]);
+  });
+
+  it("does not singularize to collapse a subject its variant already named", () => {
+    // `ListByElasticSan` over subject `ElasticSans` doubles the noun. Removing it
+    // needs English singularization — a PowerShell cmdlet-naming rule, and a client
+    // dialect's job. This step concatenates and leaves the wording alone.
+    const command = only(
+      document([operation({ id: id("listByElasticSan", "ElasticSans"), name: "listByElasticSan" })]),
+    );
+
+    expect(command.id).toEqual({
+      module: MODULE,
+      subject: "ElasticSans",
+      action: "List",
+      variant: "ByElasticSan",
+    });
+    expect(command.name).toBe("ListByElasticSanElasticSans");
   });
 
   it("falls back to the namespace tail when an operation declares no interface", () => {
     const command = only(document([operation({ id: id("ping"), name: "ping" })]));
 
-    expect(command.id.group).toBe("N");
+    expect(command.id.subject).toBe("N");
   });
 
   it("reports rather than emitting two commands under one identity", () => {
-    // `group` is an interface *name*, so the same interface under two namespaces
-    // derives the same `(module, group, action)` — which is an invalid document.
+    // Same subject and action under two namespaces derives one `(module, subject,
+    // action)` — which is an invalid document.
     const ir = document([
       operation(),
       operation({ id: { ...id("get", "Widgets"), namespace: ["N", "Other"] } }),
@@ -152,7 +236,7 @@ describe("command projection", () => {
     ]);
     const { out } = run(ir);
 
-    expect(out.commands.map((command) => command.id.group)).toEqual(["AWidgets", "Widgets"]);
+    expect(out.commands.map((command) => command.id.subject)).toEqual(["AWidgets", "Widgets"]);
     expect(out.commands.map((command) => command.name)).toEqual(["GetAWidgets", "GetAWidgets2"]);
   });
 });

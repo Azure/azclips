@@ -70,7 +70,7 @@ internal static class Commands
         IRCommandSurface? surface = null,
         IRLongRunningSemantics? longRunning = null,
         IRCommandPagination? pagination = null,
-        string? group = null,
+        string? subject = null,
         string? action = null,
         string? docs = null) =>
         new()
@@ -78,7 +78,7 @@ internal static class Commands
             Id = new IRCommandId
             {
                 Module = server.Module,
-                Group = group ?? "Widgets",
+                Subject = subject ?? "Widgets",
                 Action = action ?? name,
             },
             Name = name,

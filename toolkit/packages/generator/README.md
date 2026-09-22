@@ -392,14 +392,11 @@ The stages are at different maturity levels. **`ModelGenerator`,
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
 `optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
 
-**`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TRequest, TResponse>`
-per flat IR operation. `Verb` comes from the display `operation.name`; `Group`
-comes from `operation.id.interface`, the source TypeSpec interface name.
-`id.namespace` contains only the TypeSpec namespace, and `id.name` retains the
-original TypeSpec operation name even when its display name differs. Parameter
-IDs carry the same owner interface. Namespace-level operations have no interface
-group and emit `{Verb}Processor`; the generator never infers a group from the
-namespace tail. The public surface mirrors the API parameter surface exactly (one
+**`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
+per `IRCommand`. The name is used **verbatim** — `create-command` already composed
+it (`action` + `variant` + `subject`), resolved collisions, and applied C#
+identifier rules, so the generator never re-derives a name from an operation. The
+public surface mirrors the command's parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with

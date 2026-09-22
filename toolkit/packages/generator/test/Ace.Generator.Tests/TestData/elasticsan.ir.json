@@ -22529,7 +22529,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSan",
+        "subject": "ElasticSan",
         "action": "RestoreVolume"
       },
       "name": "RestoreVolumeElasticSan",
@@ -22847,7 +22847,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Operations",
+        "subject": "Operations",
         "action": "List"
       },
       "name": "ListOperations",
@@ -23039,7 +23039,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "Get"
       },
       "name": "GetElasticSans",
@@ -23266,7 +23266,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "Create"
       },
       "name": "CreateElasticSans",
@@ -24068,7 +24068,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "Update"
       },
       "name": "UpdateElasticSans",
@@ -24707,7 +24707,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "Delete"
       },
       "name": "DeleteElasticSans",
@@ -24925,7 +24925,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "ListByResourceGroup"
       },
       "name": "ListByResourceGroupElasticSans",
@@ -25171,7 +25171,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "ListBySubscription"
       },
       "name": "ListBySubscriptionElasticSans",
@@ -25387,7 +25387,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "ElasticSans",
+        "subject": "ElasticSans",
         "action": "ListByElasticSan"
       },
       "name": "ListByElasticSanElasticSans",
@@ -25653,7 +25653,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "PrivateEndpointConnections",
+        "subject": "PrivateEndpointConnections",
         "action": "Get"
       },
       "name": "GetPrivateEndpointConnections",
@@ -25910,7 +25910,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "PrivateEndpointConnections",
+        "subject": "PrivateEndpointConnections",
         "action": "Create"
       },
       "name": "CreatePrivateEndpointConnections",
@@ -26428,7 +26428,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "PrivateEndpointConnections",
+        "subject": "PrivateEndpointConnections",
         "action": "Delete"
       },
       "name": "DeletePrivateEndpointConnections",
@@ -26676,7 +26676,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "PrivateEndpointConnections",
+        "subject": "PrivateEndpointConnections",
         "action": "List"
       },
       "name": "ListPrivateEndpointConnections",
@@ -26952,7 +26952,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Volumes",
+        "subject": "Volumes",
         "action": "Get"
       },
       "name": "GetVolumes",
@@ -27239,7 +27239,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Volumes",
+        "subject": "Volumes",
         "action": "Create"
       },
       "name": "CreateVolumes",
@@ -27784,7 +27784,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Volumes",
+        "subject": "Volumes",
         "action": "Update"
       },
       "name": "UpdateVolumes",
@@ -28232,7 +28232,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Volumes",
+        "subject": "Volumes",
         "action": "Delete"
       },
       "name": "DeleteVolumes",
@@ -28619,7 +28619,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Volumes",
+        "subject": "Volumes",
         "action": "ListByVolumeGroup"
       },
       "name": "ListByVolumeGroupVolumes",
@@ -28961,7 +28961,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "PreBackup"
       },
       "name": "PreBackupVolumeGroups",
@@ -29339,7 +29339,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "PreRestore"
       },
       "name": "PreRestoreVolumeGroups",
@@ -29718,7 +29718,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "Get"
       },
       "name": "GetVolumeGroups",
@@ -29975,7 +29975,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "Create"
       },
       "name": "CreateVolumeGroups",
@@ -30874,7 +30874,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "Update"
       },
       "name": "UpdateVolumeGroups",
@@ -31730,7 +31730,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "Delete"
       },
       "name": "DeleteVolumeGroups",
@@ -31978,7 +31978,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "VolumeGroups",
+        "subject": "VolumeGroups",
         "action": "ListByElasticSan"
       },
       "name": "ListByElasticSanVolumeGroups",
@@ -32290,7 +32290,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Snapshots",
+        "subject": "Snapshots",
         "action": "Get"
       },
       "name": "GetSnapshots",
@@ -32577,7 +32577,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Snapshots",
+        "subject": "Snapshots",
         "action": "Create"
       },
       "name": "CreateSnapshots",
@@ -33006,7 +33006,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Snapshots",
+        "subject": "Snapshots",
         "action": "Delete"
       },
       "name": "DeleteSnapshots",
@@ -33284,7 +33284,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "Snapshots",
+        "subject": "Snapshots",
         "action": "ListByVolumeGroup"
       },
       "name": "ListByVolumeGroupSnapshots",
@@ -33619,7 +33619,7 @@
     {
       "id": {
         "module": "Microsoft.ElasticSan",
-        "group": "SkusOperationGroup",
+        "subject": "SkusOperationGroup",
         "action": "List"
       },
       "name": "ListSkusOperationGroup",

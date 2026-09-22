@@ -31,9 +31,12 @@
  * **No client dialects.** It knows nothing about PowerShell or the CLI; `dialect` is
  * left absent for the client transforms that run after it.
  *
- * **No variants.** Every command is the base variant (`id.variant` absent). Sibling
- * surfaces — a resource-id form beside a path-parameter form — are a later transform
- * that adds commands sharing an `id.action`.
+ * **Only base surfaces beyond the `by` split.** `id.variant` is always populated,
+ * and is inferred where an operation name carries a `by` qualifier
+ * (`listByResourceGroup` is `List` in its `ByResourceGroup` surface). Everything
+ * else names its variant after the action. Surfaces that come from *parameters*
+ * rather than the name — a resource-id form beside a path-parameter form — are a
+ * later transform that adds commands sharing an `id.action`.
  *
  * **Only the `atomic` template.** Read-before-write (`getPut`) needs operation
  * pairing that belongs in its own pass, so every command here has exactly one step.
@@ -174,7 +177,7 @@ export function createCommandStep(
       };
 
       // Grouping is scratch, not shape: commands land flat, and downstream regroups
-      // by reading `id.group` / `id.action` rather than relying on array order.
+      // by reading `id.subject` / `id.action` rather than relying on array order.
       const commands: IRCommand[] = [];
       for (const [, operations] of groupOperations(pass)) {
         for (const operation of operations) {
@@ -192,16 +195,17 @@ export function createCommandStep(
 // ─── Grouping ───────────────────────────────────────────────────────────
 
 /**
- * Bucket operations by `(server, group)`.
+ * Bucket operations by `(server, subject)`.
  *
  * The server level is first because a server decides which generated base a command
- * derives from; the group level scopes naming. Both are read back off `IRCommandId`
- * downstream — this map exists only so names resolve against the right neighbours.
+ * derives from; the subject level scopes naming. Both are read back off
+ * `IRCommandId` downstream — this map exists only so names resolve against the right
+ * neighbours.
  */
 function groupOperations(pass: PassContext): Map<string, IROperation[]> {
   const buckets = new Map<string, IROperation[]>();
   for (const operation of pass.ir.operations) {
-    const key = `${serializeId(operation.server)}\u0000${groupOf(operation)}`;
+    const key = `${serializeId(operation.server)}\u0000${subjectOf(operation)}`;
     const bucket = buckets.get(key);
     if (bucket === undefined) buckets.set(key, [operation]);
     else bucket.push(operation);
@@ -210,18 +214,79 @@ function groupOperations(pass: PassContext): Map<string, IROperation[]> {
 }
 
 /**
- * The scope a command belongs to: the declaring interface, or the last namespace
- * segment for a namespace-level operation.
+ * The subject prefix of an operation's declared name, or `""` when the name is
+ * exactly the action.
+ *
+ * A TypeSpec interface is not reliably the operation group. Brownfield specs use an
+ * interface as a *file* container and put several resources in it, marking the real
+ * group with `@tag` — which the IR does not carry, and which is free-form
+ * documentation text anyway (inconsistently cased, sometimes not an identifier).
+ * What survives reliably is the declared name: TCGC renders swagger's
+ * `ExpressRouteCrossConnectionPeerings_Get` as
+ * `expressRouteCrossConnectionPeeringsGet` while the client name stays `Get`.
+ *
+ * Compared word-wise, not by string suffix, so an action that happens to end another
+ * word is not sliced out of it (`blocklist` does not yield subject `Block` for
+ * action `List`).
+ */
+function subjectPrefixOf(operation: IROperation): string {
+  const actionWords = deconstruct(operation.name);
+  const nameWords = deconstruct(operation.id.name);
+  const offset = nameWords.length - actionWords.length;
+  if (actionWords.length === 0 || offset <= 0) return "";
+
+  for (const [index, word] of actionWords.entries()) {
+    if (nameWords[offset + index]?.toLowerCase() !== word.toLowerCase()) return "";
+  }
+  return nameWords.slice(0, offset).map(capitalize).join("");
+}
+
+/**
+ * What a command acts on: its subject prefix, else the declaring interface, else the
+ * last namespace segment for a namespace-level operation.
+ *
+ * The prefix wins because it is the operation group the spec actually meant — two
+ * resources sharing one interface must not share a subject, or their commands
+ * collide on `(module, subject, action)` and one of them is lost.
  *
  * Deliberately not written back onto `IROperation.id.interface`: that field asserts
  * *a TypeSpec interface declared this*, so synthesizing one would be a lie. A command
- * has no declaration site, so its own `group` can be derived freely.
+ * has no declaration site, so its own `subject` can be derived freely.
  */
-function groupOf(operation: IROperation): string {
+function subjectOf(operation: IROperation): string {
+  const prefix = subjectPrefixOf(operation);
+  if (prefix.length > 0) return prefix;
   const declared = operation.id.interface;
   if (declared !== undefined && declared.length > 0) return pascal(declared);
   const tail = operation.id.namespace.at(-1);
   return tail !== undefined && tail.length > 0 ? pascal(tail) : "Operations";
+}
+
+/**
+ * Split an operation name into `(action, variant)` on a `by` qualifier:
+ * `listByResourceGroup` is the `List` action in its `ByResourceGroup` surface.
+ *
+ * This is the one place a variant is *inferred* rather than assigned. It is exactly
+ * the variant axis: `List` and `ListByResourceGroup` are the same action differing
+ * only in what the caller must supply (`ListByResourceGroup` requires a resource
+ * group; `List` does not), which is what makes them siblings rather than two
+ * unrelated commands.
+ *
+ * Scoped to `by` alone. AutoRest splits on `with/at/by/for/in/of` and then needs a
+ * `specialWords` table to stop `signIn` becoming `Sign` + `""`; across 776 Network
+ * and 30 ElasticSan operations only `by` ever fires, so the wider set buys nothing
+ * and costs that hazard. A leading `by` is not a qualifier, so index 0 never splits.
+ */
+function splitAction(name: string): { action: string; variant: string } {
+  const words = deconstruct(name);
+  const at = words.findIndex((word, index) => index > 0 && word.toLowerCase() === "by");
+  if (at < 0 || at === words.length - 1) {
+    return { action: pascal(name), variant: "" };
+  }
+  return {
+    action: words.slice(0, at).map(capitalize).join(""),
+    variant: words.slice(at).map(capitalize).join(""),
+  };
 }
 
 // ─── Target ─────────────────────────────────────────────────────────────
@@ -255,18 +320,24 @@ function buildCommand(pass: PassContext, operation: IROperation): IRCommand | un
     return undefined;
   }
 
-  const group = groupOf(operation);
+  const subject = subjectOf(operation);
+  const { action, variant } = splitAction(operation.name);
   const id: IRCommandId = {
     module: operation.source,
-    group,
-    action: pascal(operation.name),
+    subject,
+    action,
+    // Always populated, so consumers never branch on an absent variant. An operation
+    // with no `by` qualifier is its action's only surface, and names that surface
+    // after the action itself.
+    variant: variant.length > 0 ? variant : action,
   };
 
-  // Identity is `(module, group, action, variant)`, and `group` is an interface *name*
-  // — so two operations under different namespaces that share an interface name and an
-  // operation name derive the same identity. Reported rather than emitted: a second
-  // command under one identity is an invalid document, and inventing a distinguishing
-  // name here would silently rename a user-facing command.
+  // Identity is `(module, subject, action, variant)`. `subject` is derived from the
+  // operation's own name, so sibling resources under one interface no longer
+  // collapse — what remains is a genuine clash (same subject, action, and surface).
+  // Reported rather than emitted: a second command under one identity is an invalid
+  // document, and inventing a distinguishing name here would silently rename a
+  // user-facing command.
   const identity = commandKey(id);
   if (pass.usedIdentities.has(identity)) {
     pass.report(
@@ -274,7 +345,7 @@ function buildCommand(pass: PassContext, operation: IROperation): IRCommand | un
       "duplicate-command-identity",
       `Operation '${serializeId(operation.id)}' derives command identity ${identity}, which ` +
         "another operation already produced. Disambiguate the interface or operation name, or " +
-        "give one of them an explicit group.",
+        "give one of them an explicit subject.",
     );
     return undefined;
   }
@@ -300,7 +371,7 @@ function buildCommand(pass: PassContext, operation: IROperation): IRCommand | un
 
   return {
     id,
-    name: uniqueName(pass, `${id.action}${group}`),
+    name: uniqueName(pass, commandName(id)),
     template: "atomic",
     server: operation.server,
     steps: [step],
@@ -316,6 +387,27 @@ function buildCommand(pass: PassContext, operation: IROperation): IRCommand | un
     ...(operation.docs !== undefined ? { docs: operation.docs } : {}),
     ...(operation.summary !== undefined ? { summary: operation.summary } : {}),
   };
+}
+
+/**
+ * The generated C# type stem: action, then the surface qualifier, then subject —
+ * `ListByResourceGroupElasticSans`. The variant sits in the middle because it
+ * qualifies the action, not the subject.
+ *
+ * Concatenation only. AutoRest additionally collapses a subject its qualifier
+ * already named (`ListByElasticSan` over `ElasticSans`) by singularizing every word
+ * through an English pluralization service — but that is a PowerShell cmdlet-naming
+ * rule, and a client dialect's business, not this step's. Measured across 1,105
+ * operations, every such collapse depended on the singularization: a strict
+ * comparison never fires once. So there is no non-linguistic rule to keep, and a
+ * doubled word is preferred over guessing at English here.
+ *
+ * C# naming is still applied — `uniqueName` runs the stem through `identifier`, so
+ * the result is PascalCase, legal, and unique document-wide.
+ */
+function commandName(id: IRCommandId): string {
+  const variant = id.variant !== undefined && id.variant !== id.action ? id.variant : "";
+  return `${id.action}${variant}${id.subject}`;
 }
 
 /**
