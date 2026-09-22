@@ -28,7 +28,8 @@ DEPLOYMENT_NAME=azclips-test-deployment-mg-export
 
 OUTPUT="$("$AZ" deployment mg export \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$DEPLOYMENT_NAME")"
+    --name "$DEPLOYMENT_NAME" \
+    --output json)"
 
 grep -Eqi '"contentVersion"[[:space:]]*:[[:space:]]*"1.0.0.0"' <<<"$OUTPUT"
 grep -Eqi '"resources"[[:space:]]*:[[:space:]]*\[' <<<"$OUTPUT"
