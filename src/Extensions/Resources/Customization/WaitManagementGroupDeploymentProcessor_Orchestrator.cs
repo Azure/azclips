@@ -41,9 +41,13 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
                 throw new ArgumentException(
                     "Specify one of --created, --updated, --deleted, --exists, or --custom.");
             }
-            if (Interval <= 0 || Timeout <= 0)
+            if (Interval <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(Interval), "Interval and timeout must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(Interval), "Interval must be greater than zero.");
+            }
+            if (Timeout <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(Timeout), "Timeout must be greater than zero.");
             }
 
             long started = Stopwatch.GetTimestamp();
@@ -118,7 +122,7 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : ResourcesProc
         if (parts.Length != 2 || !parts[0].Equals("provisioningState", StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException(
-                "--custom currently accepts provisioningState equality, for example provisioningState==Canceled.");
+                "--custom accepts provisioningState comparisons using == or !=, for example provisioningState==Canceled.");
         }
 
         string expected = parts[1].Trim('\'', '"');

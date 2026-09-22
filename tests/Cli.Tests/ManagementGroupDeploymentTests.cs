@@ -729,6 +729,45 @@ public class ManagementGroupDeploymentTests
         Assert.Equal(1, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task Wait_RequiresCondition()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}"""));
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(new WaitManagementGroupDeploymentProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Specify one of", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData(0, 1, "Interval")]
+    [InlineData(1, 0, "Timeout")]
+    public async Task Wait_ReportsInvalidTimingParameter(int interval, int timeout, string parameterName)
+    {
+        WaitManagementGroupDeploymentProcessor_Orchestrator processor =
+            CreateProcessor(
+                new WaitManagementGroupDeploymentProcessor_Orchestrator
+                {
+                    Created = true,
+                    Interval = interval,
+                    Timeout = timeout,
+                },
+                new FakeHttpPipeline((_, _) => Json("{}")),
+                new FakeOutputHandler());
+
+        ArgumentOutOfRangeException exception =
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processor.ProcessAsync());
+
+        Assert.Equal(parameterName, exception.ParamName);
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : ResourcesProcessorBase
     {

@@ -633,7 +633,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["updated"] = new("Updated", "updated", typeof(bool), "Wait until provisioningState is Succeeded.", false, [], []),
                 ["deleted"] = new("Deleted", "deleted", typeof(bool), "Wait until the deployment no longer exists.", false, [], []),
                 ["exists"] = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", false, [], []),
-                ["custom"] = new("Custom", "custom", typeof(string), "Wait for a provisioningState equality expression.", false, [], []),
+                ["custom"] = new("Custom", "custom", typeof(string), "Wait for a provisioningState comparison using == or !=.", false, [], []),
                 ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds.", false, [], []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds.", false, [], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
