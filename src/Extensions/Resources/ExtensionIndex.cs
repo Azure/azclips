@@ -381,7 +381,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return after ARM accepts the deployment.", false, [], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+                ["l"] = "location",
+                ["f"] = "template-file",
+                ["u"] = "template-uri",
+                ["s"] = "template-spec",
+                ["p"] = "parameters",
+            }
         );
         private static readonly CommandMetadata s_testManagementGroupDeployment_CLI = new(
             Name: nameof(TestManagementGroupDeploymentProcessor_Orchestrator),
@@ -403,7 +412,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+                ["l"] = "location",
+                ["f"] = "template-file",
+                ["u"] = "template-uri",
+                ["s"] = "template-spec",
+                ["p"] = "parameters",
+            }
         );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",

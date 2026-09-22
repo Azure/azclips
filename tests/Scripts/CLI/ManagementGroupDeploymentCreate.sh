@@ -23,11 +23,11 @@ MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.co
 DEPLOYMENT_NAME=azclips-test-deployment-mg-create
 
 "$AZ" deployment mg create \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$DEPLOYMENT_NAME" \
-    --location eastus \
-    --template-file "$BICEP_DIR/management-group-nested-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP"
+    -m "$MANAGEMENT_GROUP_ID" \
+    -n "$DEPLOYMENT_NAME" \
+    -l eastus \
+    -f "$BICEP_DIR/management-group-nested-empty.json" \
+    -p subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP"
 
 STATE=$("$AZ" rest \
     --method GET \

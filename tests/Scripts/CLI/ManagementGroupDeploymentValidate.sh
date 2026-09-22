@@ -22,10 +22,10 @@ RESOURCE_GROUP=azclips-mg-test-rg
 MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
 
 "$AZ" deployment mg validate \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location eastus \
-    --template-file "$BICEP_DIR/management-group-nested-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP"
+    -m "$MANAGEMENT_GROUP_ID" \
+    -l eastus \
+    -f "$BICEP_DIR/management-group-nested-empty.json" \
+    -p subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP"
 
 # Negative case: malformed Bicep must fail compilation before ARM validation runs.
 set +e

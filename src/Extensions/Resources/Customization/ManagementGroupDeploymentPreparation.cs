@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Collections;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -107,7 +105,7 @@ internal static class ManagementGroupDeploymentPreparation
         string? bicepParametersOutput = null;
         if (input.ParametersFile?.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase) == true)
         {
-            bicepParametersOutput = RunBicep("build-params", input.ParametersFile);
+            bicepParametersOutput = BicepCompiler.BuildParams(input.ParametersFile);
             using JsonDocument envelope = JsonDocument.Parse(bicepParametersOutput);
             if (input.Template is null && string.IsNullOrWhiteSpace(input.TemplateFile)
                 && string.IsNullOrWhiteSpace(input.TemplateUri) && string.IsNullOrWhiteSpace(input.TemplateSpecId))
@@ -132,7 +130,8 @@ internal static class ManagementGroupDeploymentPreparation
             + (string.IsNullOrWhiteSpace(input.TemplateSpecId) ? 0 : 1);
         if (templateSources != 1)
         {
-            throw new ArgumentException("Exactly one of Template, TemplateFile, TemplateUri, or TemplateSpecId must be provided.");
+            throw new ArgumentException(
+                "Exactly one template source must be provided: inline template object, template file, template URI, or template spec.");
         }
 
         if (!string.IsNullOrWhiteSpace(input.QueryString) && string.IsNullOrWhiteSpace(input.TemplateUri))
@@ -196,7 +195,7 @@ internal static class ManagementGroupDeploymentPreparation
             }
 
             string json = input.TemplateFile.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase)
-                ? RunBicep("build", input.TemplateFile)
+                ? BicepCompiler.BuildTemplate(input.TemplateFile)
                 : File.ReadAllText(input.TemplateFile);
             input.Template = JsonSerializer.Deserialize<JsonElement>(json);
         }
@@ -252,6 +251,11 @@ internal static class ManagementGroupDeploymentPreparation
                 }
 
                 string key = item[..separator].Trim();
+                if (key.Length == 0)
+                {
+                    throw new ArgumentException($"Invalid inline parameter '{item}'; the key is empty.");
+                }
+
                 string value = item[(separator + 1)..];
                 object parsedValue;
                 if (value.StartsWith('@'))
@@ -317,66 +321,4 @@ internal static class ManagementGroupDeploymentPreparation
         }
     }
 
-    private static string RunBicep(string command, string path)
-    {
-        if (!File.Exists(path))
-        {
-            throw new FileNotFoundException($"Bicep file not found: {path}", path);
-        }
-
-        ProcessStartInfo startInfo = new()
-        {
-            FileName = LocateBicep(),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        startInfo.ArgumentList.Add(command);
-        startInfo.ArgumentList.Add(path);
-        startInfo.ArgumentList.Add("--stdout");
-
-        using Process process = new() { StartInfo = startInfo };
-        try
-        {
-            process.Start();
-        }
-        catch (Win32Exception ex)
-        {
-            throw new InvalidOperationException("Bicep CLI not found. Install Bicep or pass compiled ARM JSON.", ex);
-        }
-
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = process.StandardError.ReadToEndAsync();
-        process.WaitForExit();
-        string output = stdout.GetAwaiter().GetResult();
-        string error = stderr.GetAwaiter().GetResult();
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"Bicep compilation failed (exit code {process.ExitCode}):{Environment.NewLine}{(string.IsNullOrWhiteSpace(error) ? output : error)}");
-        }
-
-        return output;
-    }
-
-    private static string LocateBicep()
-    {
-        string executable = OperatingSystem.IsWindows() ? "bicep.exe" : "bicep";
-        string? path = Environment.GetEnvironmentVariable("PATH");
-        foreach (string directory in (path ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-        {
-            string candidate = Path.Combine(directory.Trim(), executable);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-        }
-
-        string bundled = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".azure", "bin", executable);
-        return File.Exists(bundled) ? bundled : executable;
-    }
 }

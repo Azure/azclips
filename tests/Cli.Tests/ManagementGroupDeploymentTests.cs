@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -19,6 +21,61 @@ public class ManagementGroupDeploymentTests
 
         Assert.Equal("ModeInput", metadata.Parameters["Mode"].Name);
         Assert.Equal(["Incremental", "Complete"], metadata.Parameters["Mode"].AllowedValues);
+    }
+
+    [Theory]
+    [InlineData("deployment mg create")]
+    [InlineData("deployment mg validate")]
+    public void CliMetadataMapsAdvertisedShortAliases(string command)
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata(command, ClientType.CLI);
+
+        Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+        Assert.Equal("location", metadata.ParameterAliases["l"]);
+        Assert.Equal("template-file", metadata.ParameterAliases["f"]);
+        Assert.Equal("template-uri", metadata.ParameterAliases["u"]);
+        Assert.Equal("template-spec", metadata.ParameterAliases["s"]);
+        Assert.Equal("parameters", metadata.ParameterAliases["p"]);
+    }
+
+    [Fact]
+    public async Task Create_SerializesNestedPowerShellHashtableTemplate()
+    {
+        List<string> requestBodies = [];
+        FakeHttpPipeline pipeline = new((request, _) =>
+        {
+            requestBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            return Json("""{"properties":{"provisioningState":"Succeeded"}}""");
+        });
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator { NoWait = true },
+            pipeline,
+            new FakeOutputHandler());
+        processor.TemplateObject = new Hashtable
+        {
+            ["contentVersion"] = "1.0.0.0",
+            ["variables"] = new Hashtable
+            {
+                ["settings"] = new Hashtable { ["enabled"] = true },
+            },
+            ["resources"] = Array.Empty<object>(),
+        };
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, requestBodies.Count);
+        foreach (string requestBody in requestBodies)
+        {
+            using JsonDocument document = JsonDocument.Parse(requestBody);
+            Assert.True(document.RootElement.GetProperty("properties")
+                .GetProperty("template")
+                .GetProperty("variables")
+                .GetProperty("settings")
+                .GetProperty("enabled")
+                .GetBoolean());
+        }
     }
 
     [Fact]
@@ -121,6 +178,26 @@ public class ManagementGroupDeploymentTests
             await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
 
         Assert.Contains("Incremental or Complete", exception.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Create_RejectsWhitespaceOnlyInlineParameterName()
+    {
+        FakeHttpPipeline pipeline = new((_, _) =>
+            Json("""{"properties":{"provisioningState":"Succeeded"}}"""));
+        NewManagementGroupDeploymentProcessor_Orchestrator processor = CreateProcessor(
+            new NewManagementGroupDeploymentProcessor_Orchestrator
+            {
+                Parameter = [" =value"],
+            },
+            pipeline,
+            new FakeOutputHandler());
+
+        ArgumentException exception =
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Contains("key is empty", exception.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 
