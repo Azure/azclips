@@ -6,8 +6,13 @@ IMAGE_FLAVOR="${IMAGE_FLAVOR:?ERROR: IMAGE_FLAVOR is required}"
 PLATFORM="${PLATFORM:?ERROR: PLATFORM is required}"
 EXPECTED_VERSION="${EXPECTED_VERSION:-}"
 SMOKE_TEST_SCRIPT="${SMOKE_TEST_SCRIPT:?ERROR: SMOKE_TEST_SCRIPT is required}"
+IMAGE_ARCHIVE="${IMAGE_ARCHIVE:-}"
 
-docker pull --platform "$PLATFORM" "$IMAGE_TAG"
+if [[ -n "$IMAGE_ARCHIVE" ]]; then
+  docker load --input "$IMAGE_ARCHIVE"
+else
+  docker pull --platform "$PLATFORM" "$IMAGE_TAG"
+fi
 
 actual_arch="$(docker image inspect "$IMAGE_TAG" --format '{{.Architecture}}')"
 expected_arch="${PLATFORM#linux/}"

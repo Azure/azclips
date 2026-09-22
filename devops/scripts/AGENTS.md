@@ -23,7 +23,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `compliance/` | NOTICE generation (`generate_notice.ps1`, `NOTICE.template`, `notice-overrides.json`). |
 | `packaging/common/` | Shared build steps (`build_common.sh`, `stage_agent.*`, `inject_builtin_extensions.*`, `create_component_archives.sh`, `rename_extension_packages.sh`). |
 | `packaging/config/` | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`. |
-| `packaging/linux/` | Linux tarball build + test. |
+| `packaging/linux/` | Linux tarball build/test and Docker tooling bootstrap. |
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
@@ -58,6 +58,11 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 ## Config-Driven Packaging
 - `full_package.config` / `lean_package.config` are include-only extension lists (one name per line; `*` = all). Selected via `PACKAGE_PROFILE=full|lean`.
 - `artifact_naming.config` centralizes artifact name patterns — change names here, not scattered across scripts.
+
+## Docker Publish Retry Behavior
+- `packaging/linux/docker/publish_docker_images.sh` follows classic retry behavior: existing immutable version tags are retained, their digests are recorded, and downstream verification continues without candidate-image uploads.
+- CLI tags follow the classic `azurelinux3.0` spelling, while PowerShell tags use classic `azurelinux-3.0`. The CLI default `VERSION-azurelinux3.0` manifest uses the full amd64/arm64 images; production promotion updates both `azurelinux3.0` and `latest` to it.
+- `packaging/linux/docker/pull_published_docker_images.sh` confirms each multi-architecture manifest maps to the recorded architecture-specific digest, pulls that digest on the authenticated AMD64 release agent, and saves it as a per-image pipeline artifact. Native verification agents load those archives through `verify_published_docker_image.sh`, avoiding Azure CLI and ACR credential requirements on ARM64.
 
 ## Editing Rules for Agents
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).

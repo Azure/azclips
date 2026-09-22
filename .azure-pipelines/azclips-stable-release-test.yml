@@ -140,4 +140,3 @@ stages:
     signed_artifact_name: ${{ variables.SignedArtifactName }}
     publication_environment: azclips-container-test
     promote_aliases: false
-    enable_azure_cli_bootstrap: false

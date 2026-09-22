@@ -21,11 +21,12 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Pipeline resource `betaBuild` tagged `sign-beta` | release | ESRP-signs a completed beta build, verifies, runs component governance. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → publish GitHub release. |
+| `azclips-stable-release-test.yml` | Manual only | release | Uses the selected source's CLI version for all artifacts and image tags, builds/signs release inputs, then builds, publishes, and verifies Azure Linux 3 Docker images in test ACR repositories without GitHub publication or alias promotion. |
 
 ## Template Layout (`templates/`)
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
-- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
+- `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-docker-to-acr.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
 - `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`.
 - `templates/dist/steps/` — small reusable steps (`get-github-pat-token.yml`, `validate-release-project.yml`).
 
@@ -38,9 +39,15 @@ guide in the same PR so it stays accurate.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - The unit-test job restores and builds the complete solution before running tests with `--no-build`, ensuring exporter fixture tests see a complete, current set of extension artifacts.
+- `build-unsigned-distribution.yml` accepts `build_docker_images` (default `true`); release flows that rebuild Docker images from signed inputs may set it to `false` to skip the unsigned Docker build, validation, and finalizer downloads.
+- Docker build, publish, verification, and promotion stages depend directly on `Init` and consume `SetCoreVersion.ArtifactVersion`; they do not independently derive a Docker version.
+- ACR publish/promotion and the AMD64 published-image pull job follow classic release-agent convention and expect `az` on the AMD64 agent. The AMD64 job pulls every published digest and exports per-image pipeline artifacts; native verification jobs load those artifacts and run smoke tests, so ARM64 agents require Docker but not Azure CLI or ACR credentials.
+- Docker publication follows classic retry behavior in both test and production: existing immutable version tags are retained and verified downstream rather than rebuilt under candidate tags.
+- CLI tags follow the classic `azurelinux3.0` convention; `VERSION-azurelinux3.0` is the default full multi-architecture image, and production promotion points both `azurelinux3.0` and `latest` at it. PowerShell tags follow classic `azurelinux-3.0` spelling.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
+The manual Docker test pipeline uses `release_channel: source`, which emits the selected commit's explicit CLI `<Version>` unchanged as `ArtifactVersion`.
 
 ## Projects & Context Guards
 - **`public`** — PR (`pr-alpha`) and `beta` builds. No ESRP access.

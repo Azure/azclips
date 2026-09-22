@@ -48,9 +48,6 @@ parameters:
 - name: promote_aliases
   type: boolean
   default: true
-- name: enable_azure_cli_bootstrap
-  type: boolean
-  default: false
 
 stages:
 - stage: BuildSignedDockerImages
@@ -259,13 +256,6 @@ stages:
               "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
             displayName: Install Docker
 
-          - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
-            - script: |
-                set -euo pipefail
-                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-                "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-              displayName: Install Azure CLI
-
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Lean Amd64 Image
             inputs:
@@ -347,8 +337,92 @@ stages:
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
+  - job: PullPublishedDockerImages
+    displayName: Pull Published Docker Images
+    timeoutInMinutes: 45
+    pool:
+      name: ${{ parameters.amd64_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - script: |
+        set -euo pipefail
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      displayName: Install Docker
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Docker Image Digests
+      inputs:
+        artifact: Docker_Publish_Metadata
+        path: $(Pipeline.Workspace)/docker-publish-metadata
+
+    - task: AzureCLI@2
+      displayName: Pull Published Images
+      inputs:
+        azureSubscription: ${{ parameters.azure_subscription }}
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          az acr login --name "$CLI_REGISTRY_NAME"
+          az acr login --name "$POWERSHELL_REGISTRY_NAME"
+          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/pull_published_docker_images.sh"
+          VERSION="$ARTIFACT_VERSION" \
+          METADATA_ROOT="$(Pipeline.Workspace)/docker-publish-metadata" \
+          OUTPUT_ROOT="$(Build.ArtifactStagingDirectory)/docker-verification-images" \
+          "${{ parameters.PackagingScriptsRoot }}/linux/docker/pull_published_docker_images.sh"
+      env:
+        ARTIFACT_VERSION: $(ArtifactVersion)
+        CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
+        CLI_REGISTRY_SERVER: ${{ parameters.cli_registry_server }}
+        CLI_REPOSITORY: ${{ parameters.cli_repository }}
+        POWERSHELL_REGISTRY_NAME: ${{ parameters.powershell_registry_name }}
+        POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
+        POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Lean Amd64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Amd64
+        artifact: Docker_Verification_CLI_AzureLinux3_Lean_Amd64
+        publishLocation: pipeline
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Lean Arm64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Arm64
+        artifact: Docker_Verification_CLI_AzureLinux3_Lean_Arm64
+        publishLocation: pipeline
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Full Amd64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Amd64
+        artifact: Docker_Verification_CLI_AzureLinux3_Full_Amd64
+        publishLocation: pipeline
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Full Arm64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Arm64
+        artifact: Docker_Verification_CLI_AzureLinux3_Full_Arm64
+        publishLocation: pipeline
+    - task: PublishPipelineArtifact@1
+      displayName: Publish PowerShell Amd64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Amd64
+        artifact: Docker_Verification_PowerShell_AzureLinux3_Amd64
+        publishLocation: pipeline
+    - task: PublishPipelineArtifact@1
+      displayName: Publish PowerShell Arm64 Verification Image
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Arm64
+        artifact: Docker_Verification_PowerShell_AzureLinux3_Arm64
+        publishLocation: pipeline
+
   - job: VerifyPublishedDockerImages
     displayName: Published Docker Image
+    dependsOn: PullPublishedDockerImages
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -356,50 +430,50 @@ stages:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
           ImageFlavor: cli
-          RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
           TagSuffix: azurelinux3.0-lean
+          VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Lean_Amd64
         cli_azurelinux3_lean_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
           ImageFlavor: cli
-          RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
           TagSuffix: azurelinux3.0-lean
+          VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Lean_Arm64
         cli_azurelinux3_full_amd64:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
           ImageFlavor: cli
-          RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
           TagSuffix: azurelinux3.0-full
+          VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Full_Amd64
         cli_azurelinux3_full_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
           ImageFlavor: cli
-          RegistryName: ${{ parameters.cli_registry_name }}
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
           TagSuffix: azurelinux3.0-full
+          VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Full_Arm64
         powershell_azurelinux3_amd64:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
           ImageFlavor: pwsh
-          RegistryName: ${{ parameters.powershell_registry_name }}
           RegistryServer: ${{ parameters.powershell_registry_server }}
           ImageRepository: ${{ parameters.powershell_repository }}
           TagSuffix: azurelinux-3.0
+          VerificationArtifact: Docker_Verification_PowerShell_AzureLinux3_Amd64
         powershell_azurelinux3_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
           ImageFlavor: pwsh
-          RegistryName: ${{ parameters.powershell_registry_name }}
           RegistryServer: ${{ parameters.powershell_registry_server }}
           ImageRepository: ${{ parameters.powershell_repository }}
           TagSuffix: azurelinux-3.0
+          VerificationArtifact: Docker_Verification_PowerShell_AzureLinux3_Arm64
     pool:
       name: $(Pool)
     steps:
@@ -414,65 +488,65 @@ stages:
         "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
       displayName: Install Docker
 
-    - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
-      - script: |
-          set -euo pipefail
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-          "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-        displayName: Install Azure CLI
-
     - task: DownloadPipelineArtifact@2
       displayName: Download Docker Image Digests
       inputs:
         artifact: Docker_Publish_Metadata
         path: $(Pipeline.Workspace)/docker-publish-metadata
 
-    - task: AzureCLI@2
-      displayName: Pull And Verify Version Manifest
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Published Docker Image
       inputs:
-        azureSubscription: ${{ parameters.azure_subscription }}
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          set -euo pipefail
-          version="$ARTIFACT_VERSION"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-            echo "ERROR: Docker verification requires a SemVer-like release version. Got: $version"
-            exit 1
-          fi
+        artifact: $(VerificationArtifact)
+        path: $(Pipeline.Workspace)/docker-verification-image
 
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
-          ACTION=validate \
-          VERSION="$version" \
-          "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
-          az acr login --name "$TARGET_REGISTRY_NAME"
-          digest_file="$(Pipeline.Workspace)/docker-publish-metadata/image-digests.txt"
-          image_prefix="$TARGET_REGISTRY_SERVER/$TARGET_IMAGE_REPOSITORY:${version}-$TARGET_TAG_SUFFIX@"
-          image_ref="$(grep -F "$image_prefix" "$digest_file" || true)"
-          if [[ "$(grep -c . <<<"$image_ref")" -ne 1 ]]; then
-            echo "ERROR: Expected one published digest for '$image_prefix'."
-            printf '%s\n' "$image_ref"
+    - script: |
+        set -euo pipefail
+        version="$ARTIFACT_VERSION"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Docker verification requires a SemVer-like release version. Got: $version"
+          exit 1
+        fi
+
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+        ACTION=validate \
+        VERSION="$version" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/publish_docker_images.sh"
+        digest_file="$(Pipeline.Workspace)/docker-publish-metadata/image-digests.txt"
+        image_prefix="$TARGET_REGISTRY_SERVER/$TARGET_IMAGE_REPOSITORY:${version}-$TARGET_TAG_SUFFIX@"
+        image_ref="$(grep -F "$image_prefix" "$digest_file" || true)"
+        if [[ "$(grep -c . <<<"$image_ref")" -ne 1 ]]; then
+          echo "ERROR: Expected one published digest for '$image_prefix'."
+          printf '%s\n' "$image_ref"
+          exit 1
+        fi
+        image_tag="$TARGET_REGISTRY_SERVER/$TARGET_IMAGE_REPOSITORY:${version}-$TARGET_TAG_SUFFIX"
+        image_archive="$(Pipeline.Workspace)/docker-verification-image/image.tar"
+        if [[ ! -f "$image_archive" ]]; then
+          echo "ERROR: Published Docker image archive is missing '$image_archive'."
+          exit 1
+        fi
+        expected_version=""
+        if [[ "$TARGET_IMAGE_FLAVOR" == "cli" ]]; then
+          expected_version="$version"
+        else
+          powershell_version_file="$(Pipeline.Workspace)/docker-publish-metadata/powershell-version.txt"
+          if [[ ! -f "$powershell_version_file" ]]; then
+            echo "ERROR: Published PowerShell image metadata is missing '$powershell_version_file'."
             exit 1
           fi
-          expected_version=""
-          if [[ "$TARGET_IMAGE_FLAVOR" == "cli" ]]; then
-            expected_version="$version"
-          else
-            powershell_version_file="$(Pipeline.Workspace)/docker-publish-metadata/powershell-version.txt"
-            if [[ ! -f "$powershell_version_file" ]]; then
-              echo "ERROR: Published PowerShell image metadata is missing '$powershell_version_file'."
-              exit 1
-            fi
-            expected_version="$(<"$powershell_version_file")"
-          fi
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
-          IMAGE_TAG="$image_ref" \
-          IMAGE_FLAVOR="$TARGET_IMAGE_FLAVOR" \
-          PLATFORM="$TARGET_PLATFORM" \
-          EXPECTED_VERSION="$expected_version" \
-          SMOKE_TEST_SCRIPT="${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh" \
-          "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
+          expected_version="$(<"$powershell_version_file")"
+        fi
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
+        IMAGE_TAG="$image_tag" \
+        IMAGE_FLAVOR="$TARGET_IMAGE_FLAVOR" \
+        PLATFORM="$TARGET_PLATFORM" \
+        EXPECTED_VERSION="$expected_version" \
+        IMAGE_ARCHIVE="$image_archive" \
+        SMOKE_TEST_SCRIPT="${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/verify_published_docker_image.sh"
+      displayName: Load And Verify Published Image
       env:
         ARTIFACT_VERSION: $(ArtifactVersion)
         CLI_REGISTRY_NAME: ${{ parameters.cli_registry_name }}
@@ -481,7 +555,6 @@ stages:
         POWERSHELL_REGISTRY_NAME: ${{ parameters.powershell_registry_name }}
         POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
         POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}
-        TARGET_REGISTRY_NAME: $(RegistryName)
         TARGET_REGISTRY_SERVER: $(RegistryServer)
         TARGET_IMAGE_REPOSITORY: $(ImageRepository)
         TARGET_TAG_SUFFIX: $(TagSuffix)
@@ -516,13 +589,6 @@ stages:
               chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
               "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
             displayName: Install Docker
-
-          - ${{ if eq(parameters.enable_azure_cli_bootstrap, true) }}:
-            - script: |
-                set -euo pipefail
-                chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-                "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_azure_cli.sh"
-              displayName: Install Azure CLI
 
           - task: DownloadPipelineArtifact@2
             displayName: Download Docker Image Digests
