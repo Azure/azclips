@@ -8,6 +8,13 @@
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
+    <ItemGroup Condition="'$(SignAssembly)' == 'true'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(SignAssembly)' != 'true'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
     </ItemGroup>

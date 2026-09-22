@@ -46,7 +46,7 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
         string commandName;
         if (ParameterSetName == IdParameterSet)
         {
-            (string managementGroupId, string name) = ParseId(Id!);
+            (string managementGroupId, string name) = ManagementGroupDeploymentId.Parse(Id!);
             parameters[nameof(ManagementGroupId)] = managementGroupId;
             parameters[nameof(Name)] = name;
             commandName = "Get-AzManagementGroupDeployment_Get";
@@ -84,22 +84,4 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
 
     protected override void EndProcessing() => _cts.Dispose();
 
-    private static (string ManagementGroupId, string Name) ParseId(string id)
-    {
-        string[] segments = id.Trim('/').Split('/');
-        if (segments.Length != 8
-            || !segments[0].Equals("providers", StringComparison.OrdinalIgnoreCase)
-            || !segments[1].Equals("Microsoft.Management", StringComparison.OrdinalIgnoreCase)
-            || !segments[2].Equals("managementGroups", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(segments[3])
-            || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
-            || !segments[5].Equals("Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
-            || !segments[6].Equals("deployments", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(segments[7]))
-        {
-            throw new ArgumentException("Id must be a management-group deployment resource ID.", nameof(id));
-        }
-
-        return (segments[3], segments[7]);
-    }
 }
