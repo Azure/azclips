@@ -14,6 +14,9 @@ parameters:
 - name: limit_testing
   type: boolean
   default: false
+- name: skip_version_check
+  type: boolean
+  default: false
 
 jobs:
 - job: GeneratePowerShellValidationMatrix
@@ -58,7 +61,7 @@ jobs:
     condition: always()
     inputs:
       targetPath: $(Agent.TempDirectory)/azclips-ps-smoke-coverage
-      artifact: Validate_PS_Smoke_Coverage
+      artifact: Validate_PS_Smoke_Coverage_$(System.StageName)
       publishLocation: pipeline
 
   - bash: |
@@ -66,6 +69,9 @@ jobs:
       matrix_args=()
       if [[ "${{ parameters.limit_testing }}" == "True" || "${{ parameters.limit_testing }}" == "true" ]]; then
         matrix_args+=(--limit-testing)
+      fi
+      if [[ "${{ parameters.skip_version_check }}" == "True" || "${{ parameters.skip_version_check }}" == "true" ]]; then
+        matrix_args+=(--skip-version-check)
       fi
       bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh \
         --pool '${{ parameters.ubuntu_pool }}' \
@@ -117,7 +123,7 @@ jobs:
     displayName: Publish PowerShell Upgrade Baseline
     inputs:
       targetPath: $(Agent.TempDirectory)/azclips-ps-upgrade-baseline
-      artifact: PSUpgradeBaseline
+      artifact: PSUpgradeBaseline_$(System.StageName)
       publishLocation: pipeline
 
 - job: PowerShellValidation
@@ -170,7 +176,7 @@ jobs:
     displayName: Download PowerShell Upgrade Baseline
     condition: and(succeededOrFailed(), eq(variables['PsValidationBootstrapped'], 'true'), in(variables['PsUpgradeBaselineResult'], 'Succeeded', 'SucceededWithIssues'))
     inputs:
-      artifact: PSUpgradeBaseline
+      artifact: PSUpgradeBaseline_$(System.StageName)
       path: $(Pipeline.Workspace)/${{ parameters.ps_modules_artifact_name }}/upgrade-baseline
 
   - template: ../steps/ps-validation-phase.yml
@@ -220,5 +226,5 @@ jobs:
     condition: always()
     inputs:
       targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)
-      artifact: Validate_PS_Sim_$(ValidationKey)
+      artifact: Validate_PS_Sim_$(System.StageName)_$(ValidationKey)
       publishLocation: pipeline

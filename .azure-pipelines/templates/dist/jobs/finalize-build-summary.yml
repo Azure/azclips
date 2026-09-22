@@ -20,6 +20,37 @@ jobs:
     fetchDepth: 1
     retryCountOnTaskFailure: 3
 
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $results = @{
+        Alpha = $env:PS_ALPHA_RESULT
+        Beta = $env:PS_BETA_RESULT
+        Release = $env:PS_RELEASE_RESULT
+      }
+      $requiredModes = switch ($env:PS_RELEASE_CHANNEL) {
+        'pr-alpha' { 'Alpha'; 'Beta'; 'Release' }
+        'beta' { 'Beta' }
+        'stable' { 'Release' }
+        default { throw "Unsupported PowerShell validation release channel: '$env:PS_RELEASE_CHANNEL'." }
+      }
+      foreach ($mode in $requiredModes) {
+        if ($results[$mode] -notin 'Succeeded', 'SucceededWithIssues') {
+          throw "PowerShell $mode validation did not complete successfully: '$($results[$mode])'."
+        }
+      }
+      $result = if (@($requiredModes | Where-Object { $results[$_] -eq 'SucceededWithIssues' }).Count) {
+        'SucceededWithIssues'
+      } else {
+        'Succeeded'
+      }
+      Write-Host "##vso[task.setvariable variable=ValidatePSResult]$result"
+    displayName: Aggregate PS Validation Results
+    env:
+      PS_RELEASE_CHANNEL: $(ReleaseChannel)
+      PS_ALPHA_RESULT: $(ValidatePSAlphaResult)
+      PS_BETA_RESULT: $(ValidatePSBetaResult)
+      PS_RELEASE_RESULT: $(ValidatePSReleaseResult)
+
   - script: |
       echo "BuildCommon: $(BuildCommonResult)"
       echo "BuildLinux: $(BuildLinuxResult)"
@@ -30,10 +61,14 @@ jobs:
       echo "BuildPSModules: $(BuildPSModulesResult)"
       echo "ValidateLinux: $(ValidateLinuxResult)"
       echo "ValidatePS: $(ValidatePSResult)"
+      echo "ValidatePSAlpha: $(ValidatePSAlphaResult)"
+      echo "ValidatePSBeta: $(ValidatePSBetaResult)"
+      echo "ValidatePSRelease: $(ValidatePSReleaseResult)"
       echo "ValidateWindows: $(ValidateWindowsResult)"
       echo "ValidateMacOS: $(ValidateMacOSResult)"
       echo "ComponentGovernance: $(ComponentGovernanceResult)"
     displayName: Stage Summary
+    condition: always()
 
   - bash: |
       set -euo pipefail

@@ -32,8 +32,7 @@ stages:
     artifact_version_override: auto
     bump_type: patch
     release_channel: pr-alpha
-    # Temporarily exercise the full PowerShell matrix for this PR.
-    limit_ps_testing: false
+    limit_ps_testing: true
     release_date: auto
     pr_number: auto
     sequence: auto

@@ -254,6 +254,13 @@ function Read-Condition
         if (-not $Variables.ContainsKey($name)) { throw "Unknown condition parameter: $name" }
         return $Variables[$name]
     }
+    $match = [regex]::Match($remaining, "^dependencies\.[A-Za-z]+\.outputs\['[^']+'\]")
+    if ($match.Success)
+    {
+        $Position.Value += $match.Length
+        if (-not $Variables.ContainsKey($match.Value)) { throw "Unknown dependency output: $($match.Value)" }
+        return $Variables[$match.Value]
+    }
     $match = [regex]::Match($remaining, '^dependencies\.([A-Za-z]+)\.result')
     if ($match.Success)
     {
@@ -766,6 +773,76 @@ exit $LASTEXITCODE
     Write-Host 'PASS: final publication result policy'
     $count++
 
+    $summaryText = $summary -join "`n"
+    $aggregation = [regex]::Match($summaryText,
+        '(?ms)^  - pwsh: \|\r?\n(?<body>.*?)^    displayName: Aggregate PS Validation Results').Groups['body'].Value
+    Assert-Equal $false ([string]::IsNullOrWhiteSpace($aggregation)) 'Final summary aggregates the channel-required PS stages'
+    $aggregate = [scriptblock]::Create(($aggregation -replace '(?m)^      ', ''))
+    $environmentNames = @('PS_RELEASE_CHANNEL', 'PS_ALPHA_RESULT', 'PS_BETA_RESULT', 'PS_RELEASE_RESULT')
+    $savedEnvironment = @{}
+    foreach ($name in $environmentNames) { $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name) }
+    try
+    {
+        foreach ($channel in 'pr-alpha', 'beta', 'stable')
+        {
+            $requiredModes = switch ($channel)
+            {
+                'pr-alpha' { @('Alpha', 'Beta', 'Release') }
+                'beta' { @('Beta') }
+                'stable' { @('Release') }
+            }
+            $env:PS_RELEASE_CHANNEL = $channel
+            foreach ($mode in 'Alpha', 'Beta', 'Release')
+            {
+                foreach ($result in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled', 'Skipped', '')
+                {
+                    foreach ($baselineMode in 'Alpha', 'Beta', 'Release')
+                    {
+                        [Environment]::SetEnvironmentVariable("PS_$($baselineMode.ToUpperInvariant())_RESULT",
+                            $(if ($baselineMode -in $requiredModes) { 'Succeeded' } else { 'Skipped' }))
+                    }
+                    [Environment]::SetEnvironmentVariable("PS_$($mode.ToUpperInvariant())_RESULT", $result)
+                    $caught = $null
+                    $output = ''
+                    try { $output = (& $aggregate 6>&1 | Out-String) }
+                    catch { $caught = $_ }
+                    $shouldPass = $mode -notin $requiredModes -or $result -in 'Succeeded', 'SucceededWithIssues'
+                    Assert-Equal $shouldPass ($null -eq $caught) "Aggregate $channel after $mode=$result"
+                    if ($shouldPass)
+                    {
+                        $expected = if ($mode -in $requiredModes -and $result -eq 'SucceededWithIssues') { 'SucceededWithIssues' } else { 'Succeeded' }
+                        Assert-Contains $output "##vso[task.setvariable variable=ValidatePSResult]$expected" 'Aggregate preserves required canary warnings'
+                    }
+                    else
+                    {
+                        Assert-Contains $caught.Exception.Message "PowerShell $mode validation did not complete successfully" 'Required failed, canceled, skipped or missing stages block publication'
+                        Assert-Equal $false ($output.Contains('##vso[task.setvariable')) 'Failure never emits a successful aggregate'
+                    }
+                }
+            }
+        }
+        foreach ($channel in '', 'auto', 'unknown')
+        {
+            $env:PS_RELEASE_CHANNEL = $channel
+            $caught = $null
+            try { & $aggregate 6>&1 | Out-Null }
+            catch { $caught = $_ }
+            Assert-Equal $true ($null -ne $caught) 'Missing or unresolved release channels fail closed'
+            Assert-Contains $caught.Exception.Message 'Unsupported PowerShell validation release channel' 'Unknown channel diagnostic'
+        }
+    }
+    finally
+    {
+        foreach ($name in $environmentNames) { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name]) }
+    }
+    foreach ($mode in 'Alpha', 'Beta', 'Release')
+    {
+        Assert-Contains $summaryText ("PS_{0}_RESULT: `$(ValidatePS{1}Result)" -f $mode.ToUpperInvariant(), $mode) 'Whole-stage results reach the aggregate'
+    }
+    Assert-Contains $summaryText 'PS_RELEASE_CHANNEL: $(ReleaseChannel)' 'The resolved release channel reaches the aggregate'
+    Write-Host 'PASS: required validation modes aggregate without accepting skipped active stages'
+    $count++
+
     Assert-Equal 1 ([regex]::Matches($template, '(?m)^- (pwsh|bash|task):').Count) 'Exactly one visible task per phase'
     Assert-Contains $template 'invoke_ps_validation_step.ps1' 'Template invokes the exercised phase runner'
     foreach ($phase in 'Bootstrap', 'Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')
@@ -816,7 +893,7 @@ exit $LASTEXITCODE
     Assert-Contains $preMatrixJob '& pwsh -NoProfile -File ./devops/scripts/packaging/powershell/test_ps_smoke.ps1' 'Coverage uses the hosted PowerShell without installing target modules'
     Assert-Equal $true ([regex]::IsMatch($preMatrixJob, '(?s)-CoverageOnly.*?exit \$LASTEXITCODE\s+displayName: Validate Azure PS Smoke-Test Coverage')) 'Coverage preserves native failures and zero-exit warning success'
     Assert-Equal $true ($preMatrixJob.IndexOf('-CoverageOnly') -lt $preMatrixJob.IndexOf('name: GenerateMatrix')) 'Coverage completes before publishing matrix outputs'
-    Assert-Contains $preMatrixJob 'artifact: Validate_PS_Smoke_Coverage' 'Coverage report publishes once outside matrix artifacts'
+    Assert-Contains $preMatrixJob 'artifact: Validate_PS_Smoke_Coverage_$(System.StageName)' 'Coverage report is unique per validation stage'
     Assert-Equal $true ([regex]::IsMatch($preMatrixJob, '(?s)displayName: Publish PS Smoke-Test Coverage\s+condition: always\(\)')) 'Coverage diagnostics publish even on configuration failure'
     Assert-Contains $matrixJob '- GeneratePowerShellValidationMatrix' 'Matrix waits for coverage and generation to finish'
     Assert-Contains $matrixJob '- PreparePowerShellUpgradeBaseline' 'Matrix waits for the frozen upgrade baseline'
@@ -852,7 +929,9 @@ exit $LASTEXITCODE
     Assert-Contains $baselineJob 'persistCredentials: true' 'Private release download uses built-in checkout authentication'
     Assert-Contains $baselineJob '-UseCheckoutCredentials' 'Authentication stays in baseline preparation'
     Assert-Contains $baselineJob 'git config --local --unset-all $header' 'Persisted credentials are removed after acquisition'
-    Assert-Contains $baselineJob 'artifact: PSUpgradeBaseline' 'Baseline is frozen once for all matrix legs'
+    Assert-Contains $baselineJob 'artifact: PSUpgradeBaseline_$(System.StageName)' 'Baseline is frozen once per validation stage'
+    Assert-Contains $matrixJob 'artifact: PSUpgradeBaseline_$(System.StageName)' 'Matrix downloads its own stage baseline'
+    Assert-Equal 2 ([regex]::Matches($job, [regex]::Escape('artifact: PSUpgradeBaseline_$(System.StageName)')).Count) 'Baseline publisher and downloader use the same artifact name'
     Assert-Equal $true ($matrixJob.IndexOf('phase: Bootstrap') -lt $matrixJob.IndexOf('displayName: Download PowerShell Upgrade Baseline')) 'A failed baseline artifact download cannot prevent bootstrap'
     $matrixCondition = [regex]::Match($matrixJob, '(?m)^  condition: (.+)$').Groups[1].Value.Trim()
     $downloadCondition = [regex]::Match($matrixJob, '(?m)^    condition: (.+PsUpgradeBaselineResult.+)$').Groups[1].Value.Trim()
@@ -882,18 +961,80 @@ exit $LASTEXITCODE
     Assert-Contains $job "PsValidationInstalled: 'false'" 'A skipped Install never inherits an installed marker'
     Assert-Contains $job 'and(always(), eq(variables[''ValidationMode''], ''container''))' 'Containers are removed after failures'
     Assert-Contains $job 'matrix_args+=(--limit-testing)' 'Limit reaches the generator before matrix expansion'
+    Assert-Contains $job 'matrix_args+=(--skip-version-check)' 'Release discovery override reaches the generator before matrix expansion'
     Assert-Equal $true ([regex]::IsMatch($job, '(?m)- name: limit_testing\r?\n  type: boolean\r?\n  default: false')) 'Full matrix is the typed default'
+    Assert-Equal $true ([regex]::IsMatch($job, '(?m)- name: skip_version_check\r?\n  type: boolean\r?\n  default: false')) 'Discovery override is an opt-in boolean'
+    foreach ($flag in 'limit_testing', 'skip_version_check')
+    {
+        $switch = '--' + $flag.Replace('_', '-')
+        Assert-Contains ($job.Replace("`r`n", "`n")) ('if [[ "${{ parameters.' + $flag + ' }}" == "True" || "${{ parameters.' + $flag + ' }}" == "true" ]]; then' + "`n" +
+            '        matrix_args+=(' + $switch + ')') 'Both Azure boolean renderings map to the correct generator switch'
+    }
     $stage = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/stages/build-unsigned-distribution.yml') -Raw
     Assert-Contains $stage 'limit_testing: ${{ parameters.limit_ps_testing }}' 'Shared stage forwards the selected limit'
-    Assert-Equal $true ([regex]::IsMatch($stage, '(?m)- name: limit_ps_testing\r?\n  type: boolean\r?\n  default: false')) 'Release stages default to full coverage'
+    Assert-Equal $true ([regex]::IsMatch($stage, '(?m)- name: limit_ps_testing\r?\n  type: boolean\r?\n  default: true')) 'Alpha mode defaults to limited coverage'
     $alpha = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/azclips-alpha-build.yml') -Raw
-    Assert-Contains $alpha 'limit_ps_testing: false' 'Alpha temporarily runs the full matrix for PR validation'
+    Assert-Contains $alpha 'limit_ps_testing: true' 'Alpha restores its configured limited selection'
+    $stageNames = @([regex]::Matches($stage, '(?m)^- stage: (\w+)') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal $stageNames.Count (@($stageNames | Sort-Object -Unique).Count) 'Shared stage IDs are unique'
+    $finalStage = [regex]::Match($stage, '(?ms)^- stage: Finalize\r?\n(?<body>.*)\z').Groups['body'].Value
+    Assert-Contains $finalStage "ReleaseChannel: `$[ dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel'] ]" 'Finalization uses the resolved channel, including auto inference'
+    Assert-Contains $finalStage 'ValidatePSResult: Failed' 'Publication fails closed until required modes have been aggregated'
+    $validationStages = @{}
+    $publishedArtifacts = [Collections.Generic.HashSet[string]]::new()
+    foreach ($mode in 'Alpha', 'Beta', 'Release')
+    {
+        $stageName = "ValidatePS$mode"
+        $body = [regex]::Match($stage, "(?ms)^- stage: $stageName\r?\n(?<body>.*?)(?=^- stage:|\z)").Groups['body'].Value
+        $validationStages[$mode] = $body
+        Assert-Contains $body "displayName: Validate (PS) $mode" 'Validation modes have distinct display names'
+        Assert-Contains $body '- Init' 'Channel-dependent stages wait for channel resolution'
+        Assert-Contains $finalStage "- $stageName" 'Finalization waits for every validation mode'
+        Assert-Contains $finalStage ("ValidatePS{0}Result: `$[ dependencies.{1}.result ]" -f $mode, $stageName) 'Aggregate includes every job and matrix leg in each stage'
+        $condition = [regex]::Match($body, '(?m)^  condition: (.+)\r?$').Groups[1].Value.Trim()
+        foreach ($channel in 'pr-alpha', 'beta', 'stable', 'unknown')
+        {
+            foreach ($status in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled')
+            {
+                $variables = @{
+                    'Agent.JobStatus' = $status
+                    "dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel']" = $channel
+                }
+                $selected = $channel -eq 'pr-alpha' -or ($mode -eq 'Beta' -and $channel -eq 'beta') -or
+                    ($mode -eq 'Release' -and $channel -eq 'stable')
+                Assert-Equal ($selected -and $status -in 'Succeeded', 'SucceededWithIssues') `
+                    (Test-Condition $condition $variables) "$stageName selection for $channel after $status"
+            }
+        }
+        $limit = if ($mode -eq 'Alpha') { '${{ parameters.limit_ps_testing }}' } else { 'false' }
+        $skip = if ($mode -eq 'Beta') { 'false' } else { 'true' }
+        Assert-Contains $body "limit_testing: $limit" "$mode matrix selection"
+        Assert-Contains $body "skip_version_check: $skip" "$mode discovery policy overrides configured flags where required"
+        foreach ($publish in [regex]::Matches($job, '(?ms)^  - task: PublishPipelineArtifact@1\r?\n(?<body>.*?)(?=^  - |^- job:|\z)'))
+        {
+            $artifact = [regex]::Match($publish.Groups['body'].Value, '(?m)^      artifact: (.+)\r?$').Groups[1].Value.Trim()
+            Assert-Contains $artifact '$(System.StageName)' 'Every PS output artifact is stage-qualified'
+            Assert-Equal $true ($publishedArtifacts.Add($artifact.Replace('$(System.StageName)', $stageName))) 'Overlapping matrix legs never collide across stages'
+        }
+    }
+    Assert-Equal 9 $publishedArtifacts.Count 'All three artifact types are distinct across the three comparison stages'
+    foreach ($entry in @(
+        @{ File = 'azclips-alpha-build.yml'; Channel = 'pr-alpha' },
+        @{ File = 'azclips-beta-build.yml'; Channel = 'beta' },
+        @{ File = 'azclips-stable-release.yml'; Channel = 'stable' }
+    ))
+    {
+        $pipeline = Get-Content -LiteralPath (Join-Path $repoRoot ".azure-pipelines/$($entry.File)") -Raw
+        Assert-Contains $pipeline "release_channel: $($entry.Channel)" 'Each entry pipeline selects its intended resolved channel'
+    }
+    Write-Host 'PASS: Alpha/Beta/Release stage selection, matrix policies and artifact isolation'
+    $count++
     Assert-Equal $false ($job.Contains('test_generate_ps_validation_matrix.sh')) 'Azure Pipelines does not run the matrix self-test'
     Assert-Contains $job 'bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh' 'Azure Pipelines still generates the validation matrix'
     Assert-Contains $job 'PSModuleLifecycleFixtures.ps1' 'Module fixtures are wired into CI'
     Assert-Contains $job 'PSSmokeFixtures.ps1' 'Smoke fixtures are wired into CI'
     Assert-Contains $job 'PSValidationPipelineFixtures.ps1' 'Pipeline fixtures are wired into CI'
-    Assert-Contains $job 'artifact: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
+    Assert-Contains $job 'artifact: Validate_PS_Sim_$(System.StageName)_$(ValidationKey)' 'Each stage and matrix leg has a unique validation artifact'
     Assert-Equal $true ([regex]::IsMatch($job, '(?s)displayName: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
     Assert-Equal $true ([regex]::IsMatch($job, '(?s)condition: always\(\)\s+displayName: Finalize PS Validation Artifacts')) 'Finalization also runs after failures'
     Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact: Validate_PS_Sim_')) 'Results are finalized before publication'
@@ -907,9 +1048,11 @@ exit $LASTEXITCODE
         ForEach-Object { $_.Groups[1].Value }) -join ',') 'The common build retains package lifecycle checks but must not run smoke validation'
     Assert-Equal $false ($buildJob.Contains('test_ps_smoke.ps1') -or $buildJob.Contains('ps_smoke_tests.psd1')) 'Production smoke coverage is not a build prerequisite'
     Assert-Contains $buildJob 'Publish Final PS Module Outputs' 'The build publishes the input packages for validation'
-    $validationStage = [regex]::Match($stage, '(?ms)^- stage: ValidatePS\r?\n(?<body>.*?)(?=^- stage:|\z)').Groups['body'].Value
-    Assert-Contains $validationStage '- BuildPSModules' 'The dedicated PS validation stage runs after package build'
-    Assert-Contains $validationStage '../jobs/validate-ps-build.yml' 'The dedicated stage owns the distribution validation jobs'
+    foreach ($validationStage in $validationStages.Values)
+    {
+        Assert-Contains $validationStage '- BuildPSModules' 'Every PS validation mode runs after package build'
+        Assert-Contains $validationStage '../jobs/validate-ps-build.yml' 'Every mode owns the distribution validation jobs'
+    }
     Assert-Contains $job 'phase: Validate' 'Production smoke validation remains enabled in the matrix'
     Write-Host 'PASS: production smoke validation runs only after package build'
     $count++

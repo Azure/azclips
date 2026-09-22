@@ -87,11 +87,17 @@ The matrix output remains JSON for Azure Pipelines.
   so it makes no registry requests and adds no discovered canaries. It filters on
   this flag **before** Azure Pipelines expands matrix jobs and fails clearly if
   no configured entries are selected.
-- The job parameter `limit_testing` and shared stage parameter `limit_ps_testing`
-  are booleans, defaulting to `false` for full coverage. The alpha pipeline
-  temporarily sets `limit_ps_testing: false` to exercise the entire matrix in this
-  PR, including normal discovery. Restore it to `true` to use configured limited
-  coverage after that validation.
+- `ValidatePSAlpha` uses the shared `limit_ps_testing` boolean (default `true`,
+  also set explicitly by the alpha pipeline) to select configured alpha entries.
+  It disables version discovery.
+- `ValidatePSBeta` uses the full matrix and honors configured distribution and
+  PowerShell version discovery.
+- `ValidatePSRelease` uses the full configured matrix and sets the job's
+  `skip_version_check` boolean to `true`. This passes `--skip-version-check`,
+  overriding all discovery flags in the JSON without editing the configuration.
+- Alpha runs all three modes for comparison. Beta runs only Beta; stable runs
+  only Release. Selection uses the release channel resolved by `Init`.
+  Publication requires acceptable whole-stage results for every active mode.
 
 From the repository root, on a host with Bash, jq, curl, and GNU sort, run the
 commands below. No parser dependency installation is required in either CI
@@ -123,14 +129,15 @@ hosted images use the `Azure Pipelines` pool.
 
 ## Validation artifacts
 
-The pre-matrix job publishes `Validate_PS_Smoke_Coverage` once. Its
+Each active stage's pre-matrix job publishes `Validate_PS_Smoke_Coverage_<StageName>` once. Its
 `smoke-coverage.json` contains configured case counts for each module,
 missing-coverage warnings, and the coverage step's outcome, with no import or
 command execution results.
 
-Every matrix leg publishes its own `Validate_PS_Sim_<ValidationKey>` pipeline
-artifact, for example `Validate_PS_Sim_ubuntu_26_04_ps7_6`. `ValidationKey` is the
+Every matrix leg publishes its own `Validate_PS_Sim_<StageName>_<ValidationKey>` pipeline
+artifact, for example `Validate_PS_Sim_ValidatePSRelease_ubuntu_26_04_ps7_6`. `ValidationKey` is the
 generator's unique matrix key, including the unsupported suffix for canaries.
+The stage name keeps artifacts distinct when alpha runs all three modes.
 There is no consolidation job, and these diagnostics are separate from the input
 `PSModules` artifact and the final release distribution.
 
@@ -235,14 +242,15 @@ delivery; those remain separate validation paths.
 
 ## Upgrade validation
 
-`PreparePowerShellUpgradeBaseline` downloads one released bundle for the entire
-matrix using authenticated GitHub CLI. It uses the latest stable release unless
+`PreparePowerShellUpgradeBaseline` downloads one released bundle for each active
+stage's matrix using authenticated GitHub CLI. It uses the latest stable release unless
 its Az version equals the pipeline's Az version; in that case it selects the
 highest older distinct stable version. Drafts and prereleases are excluded.
 A newer release than the target, no older baseline, missing digest or checksum
 mismatch fails explicitly. The downloaded tarball is checked for unsafe entries
-before extraction. The `PSUpgradeBaseline` artifact contains the selected release
+before extraction. The `PSUpgradeBaseline_<StageName>` artifact contains the selected release
 metadata and its flat `gallery/` with packages and the released `InstallModule.ps1`.
+Matrix version-discovery settings do not disable this upgrade baseline.
 
 Private GitHub access uses the checkout's built-in authorization only in the
 preparation job; persisted headers are removed afterward. Credentials are not

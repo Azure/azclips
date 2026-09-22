@@ -37,11 +37,12 @@ guide in the same PR so it stays accurate.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
+- PowerShell validation has three stages: `ValidatePSAlpha` (limited configured entries), `ValidatePSBeta` (full matrix plus configured version discovery), and `ValidatePSRelease` (all configured entries, discovery forcibly disabled). Alpha runs all three modes for comparison; beta runs only Beta, and stable runs only Release. Stage conditions use the channel resolved by `Init`, including when `release_channel` is `auto`. The alpha entry pipeline sets `limit_ps_testing: true`; that parameter affects only the Alpha mode.
 - PowerShell validation matrix phases are Bootstrap, Dependencies, Upgrade, Install, Validate and Uninstall. Dependencies, Upgrade and fresh Install require `PsValidationBootstrapped`; Validate/Uninstall require `PsValidationInstalled`. Upgrade cleans its own state before Install. Independent failures do not suppress later work; cancellation still skips new validation. Reports/publication gates retain earlier failures.
 - The PowerShell matrix-generation job reads `ps_validation_matrix.json` directly with jq, without Python/YAML dependency setup. It retains actual generation, but not the separate matrix self-test step (that fixture runs locally and in GitHub Actions). Native Windows supports configured numeric versions and `latest`, which selects `windows-latest`; this alias does not change PowerShell support/failure policy.
 - PowerShell preparation jobs route `pool-*` values through `pool.name`, while hosted image labels use `pool.vmImage`. Generated matrix legs use `DistributionPoolName` and `DistributionVmImage`: named pools receive an empty image, and hosted images select the `Azure Pipelines` pool. Do not pass named pool identifiers as image labels.
-- `PreparePowerShellUpgradeBaseline` acquires a checksum-verified stable GitHub bundle once, using built-in persisted checkout authorization that is removed in `finally`. It publishes `PSUpgradeBaseline`; credentials never enter that artifact or matrix containers. Equal latest/target versions select the previous distinct stable version. Matrix expansion requires successful generation but still proceeds after baseline-preparation failure, so independent coverage remains available.
-- `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
+- `PreparePowerShellUpgradeBaseline` acquires a checksum-verified stable GitHub bundle once per active validation stage, using built-in persisted checkout authorization that is removed in `finally`. It publishes `PSUpgradeBaseline_<StageName>`; credentials never enter that artifact or matrix containers. Equal latest/target versions select the previous distinct stable version. Matrix expansion requires successful generation but still proceeds after baseline-preparation failure, so independent coverage remains available. Disabling matrix version discovery does not disable this upgrade baseline.
+- `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary. Its PS aggregate uses whole-stage results for the modes required by the resolved channel. Every required mode must succeed or succeed with issues; inactive modes may be skipped. The aggregate gates distribution publication.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
 
@@ -68,8 +69,9 @@ guide in the same PR so it stays accurate.
 - `Final_Signed_Distribution` — stable ESRP-signed output.
 - `Final_Signed_Beta_Distribution` — beta ESRP-signed output.
 - `PSModules` — packaged PowerShell modules.
-- `PSUpgradeBaseline` — selected stable PowerShell release metadata and verified bundle gallery for upgrade validation.
-- `Validate_PS_Sim_<ValidationKey>` — schema-3 phase results, logs and lifecycle/dependency/upgrade/smoke diagnostics for each matrix leg; Upgrade is required for success.
+- `PSUpgradeBaseline_<StageName>` — selected stable PowerShell release metadata and verified bundle gallery for each active validation stage.
+- `Validate_PS_Smoke_Coverage_<StageName>` — pre-matrix smoke coverage for each active validation stage.
+- `Validate_PS_Sim_<StageName>_<ValidationKey>` — schema-3 phase results, logs and lifecycle/dependency/upgrade/smoke diagnostics for each matrix leg; Upgrade is required for success. Stage-qualified names prevent collisions between alpha's three comparison modes.
 
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.

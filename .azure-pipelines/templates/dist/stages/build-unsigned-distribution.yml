@@ -37,7 +37,7 @@ parameters:
   default: 'PSModules'
 - name: limit_ps_testing
   type: boolean
-  default: false
+  default: true
 
 stages:
 - template: init-resolve-version.yml
@@ -164,11 +164,12 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
-- stage: ValidatePS
-  displayName: Validate (PS)
+- stage: ValidatePSAlpha
+  displayName: Validate (PS) Alpha
   dependsOn:
+  - Init
   - BuildPSModules
-  condition: succeeded()
+  condition: and(succeeded(), eq(dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel'], 'pr-alpha'))
   jobs:
   - template: ../jobs/validate-ps-build.yml
     parameters:
@@ -177,6 +178,39 @@ stages:
       macos_intel_pool: ${{ parameters.macos_intel_pool }}
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
       limit_testing: ${{ parameters.limit_ps_testing }}
+      skip_version_check: true
+
+- stage: ValidatePSBeta
+  displayName: Validate (PS) Beta
+  dependsOn:
+  - Init
+  - BuildPSModules
+  condition: and(succeeded(), in(dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel'], 'pr-alpha', 'beta'))
+  jobs:
+  - template: ../jobs/validate-ps-build.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      limit_testing: false
+      skip_version_check: false
+
+- stage: ValidatePSRelease
+  displayName: Validate (PS) Release
+  dependsOn:
+  - Init
+  - BuildPSModules
+  condition: and(succeeded(), in(dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel'], 'pr-alpha', 'stable'))
+  jobs:
+  - template: ../jobs/validate-ps-build.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      limit_testing: false
+      skip_version_check: true
 
 - stage: ValidateWindows
   displayName: Validate (CLI) Windows
@@ -223,7 +257,9 @@ stages:
   - Benchmark
   - BuildPSModules
   - ValidateLinux
-  - ValidatePS
+  - ValidatePSAlpha
+  - ValidatePSBeta
+  - ValidatePSRelease
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -238,7 +274,11 @@ stages:
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidatePSResult: $[ stageDependencies.ValidatePS.PowerShellValidation.result ]
+    ReleaseChannel: $[ dependencies.Init.outputs['Start.SetCoreVersion.ReleaseChannel'] ]
+    ValidatePSAlphaResult: $[ dependencies.ValidatePSAlpha.result ]
+    ValidatePSBetaResult: $[ dependencies.ValidatePSBeta.result ]
+    ValidatePSReleaseResult: $[ dependencies.ValidatePSRelease.result ]
+    ValidatePSResult: Failed
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
