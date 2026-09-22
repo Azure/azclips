@@ -49,12 +49,20 @@ if [[ "${HAS_ENVELOPE,,}" == "true" ]]; then
 fi
 echo "export template -> succeeded"
 
-# Negative case: exporting a nonexistent deployment must return an ARM error.
-if "$AZ" deployment mg export \
+# Negative case: exporting a nonexistent deployment must return DeploymentNotFound.
+set +e
+EXPORT_ERROR=$("$AZ" deployment mg export \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name azclips-test-deployment-mg-does-not-exist; then
+    --name azclips-test-deployment-mg-does-not-exist 2>&1)
+STATUS=$?
+set -e
+
+if [[ $STATUS -eq 0 ]]; then
     echo "UNEXPECTED: export accepted a nonexistent deployment"
     exit 1
-else
-    echo "OK: export rejected a nonexistent deployment"
 fi
+if ! grep -q 'DeploymentNotFound' <<<"$EXPORT_ERROR"; then
+    echo "UNEXPECTED: export failed for the wrong reason: $EXPORT_ERROR" >&2
+    exit 1
+fi
+echo "OK: export rejected a nonexistent deployment"
