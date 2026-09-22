@@ -129,13 +129,23 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldConstrainWideCharactersByDisplayWidth()
+    public void Format_ShouldNotTruncateWideCjkWhenItFitsDisplayWidth()
     {
         var json = """[{"name":"漢字漢字","location":"eastus"}]""";
 
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 8);
 
         Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
+    }
+
+    [Fact]
+    public void Format_ShouldConstrainEmojiByDisplayWidth()
+    {
+        var json = """["😀😀😀😀"]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
+
+        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 4, line));
     }
 
     private static int MeasureDisplayCells(string value)
@@ -166,6 +176,8 @@ public class TableFormatterTests
             >= 0xFE30 and <= 0xFE4F => true,
             >= 0xFF00 and <= 0xFF60 => true,
             >= 0xFFE0 and <= 0xFFE6 => true,
+            >= 0x1F300 and <= 0x1FAFF => true,
+            >= 0x2600 and <= 0x27BF => true,
             _ => false
         };
     }

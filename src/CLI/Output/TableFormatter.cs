@@ -87,10 +87,10 @@ internal static class TableFormatter
         var widths = new int[columnCount];
         for (var c = 0; c < columnCount; c++)
         {
-            widths[c] = headers is not null ? headers[c].Length : 0;
+            widths[c] = headers is not null ? GetDisplayWidth(headers[c]) : 0;
             foreach (var row in rows)
             {
-                widths[c] = Math.Max(widths[c], row[c].Length);
+                widths[c] = Math.Max(widths[c], GetDisplayWidth(row[c]));
             }
         }
 
@@ -214,14 +214,21 @@ internal static class TableFormatter
 
     private static int GetRuneDisplayWidth(Rune rune)
     {
+        var codePoint = rune.Value;
+
         if (rune.IsAscii)
             return 1;
+
+        if (codePoint is 0x200D or 0xFE0E or 0xFE0F)
+            return 0;
+
+        if (codePoint is >= 0x1F3FB and <= 0x1F3FF)
+            return 0;
 
         var category = CharUnicodeInfo.GetUnicodeCategory(rune.ToString(), 0);
         if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
             return 0;
 
-        var codePoint = rune.Value;
         return codePoint switch
         {
             >= 0x1100 and <= 0x115F => 2,
@@ -231,6 +238,8 @@ internal static class TableFormatter
             >= 0xFE30 and <= 0xFE4F => 2,
             >= 0xFF00 and <= 0xFF60 => 2,
             >= 0xFFE0 and <= 0xFFE6 => 2,
+            >= 0x1F300 and <= 0x1FAFF => 2,
+            >= 0x2600 and <= 0x27BF => 2,
             _ => 1,
         };
     }
