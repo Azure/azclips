@@ -293,12 +293,12 @@ public class Program
     private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
-        var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
-            ? GetTerminalWidth()
-            : null;
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
+                var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
+                    ? GetTerminalWidth()
+                    : null;
                 Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
