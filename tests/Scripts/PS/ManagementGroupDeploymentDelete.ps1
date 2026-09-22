@@ -56,5 +56,8 @@ catch {
     if ($_.Exception.Message -eq 'Delete unexpectedly accepted an invalid deployment ID.') {
         throw
     }
+    if ($_.Exception.Message -notlike '*Id must be a management-group deployment resource ID.*') {
+        throw
+    }
     Write-Host 'OK: delete rejected an invalid deployment ID'
 }

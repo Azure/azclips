@@ -28,8 +28,8 @@ NO_WAIT_NAME=azclips-test-deployment-mg-delete-no-wait
     >/dev/null
 
 OUTPUT="$("$AZ" deployment mg delete \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$WAIT_NAME")"
+    -m "$MANAGEMENT_GROUP_ID" \
+    -n "$WAIT_NAME")"
 [[ -z "$(printf '%s' "$OUTPUT" | tr -d '[:space:]')" ]]
 
 WAIT_RESULT=$("$AZ" deployment mg list \
@@ -67,11 +67,21 @@ done
 
 [[ -z "$NO_WAIT_RESULT" ]]
 
-# Negative case: omitting the required deployment name must be rejected.
+NEGATIVE_OUTPUT="$(mktemp)"
+trap 'rm -f "$NEGATIVE_OUTPUT"' EXIT
+
+# Negative case: omitting the required deployment name must be rejected as a usage error.
 if "$AZ" deployment mg delete \
-    --management-group-id "$MANAGEMENT_GROUP_ID"; then
+    --management-group-id "$MANAGEMENT_GROUP_ID" >"$NEGATIVE_OUTPUT" 2>&1; then
     echo "UNEXPECTED: delete accepted a missing --name"
+    cat "$NEGATIVE_OUTPUT"
     exit 1
-else
-    echo "OK: delete rejected a missing --name"
 fi
+
+if ! grep -Fq "Required parameter '--name' is missing." "$NEGATIVE_OUTPUT"; then
+    echo "UNEXPECTED: delete failed for a reason other than the missing --name"
+    cat "$NEGATIVE_OUTPUT"
+    exit 1
+fi
+
+echo "OK: delete rejected a missing --name"

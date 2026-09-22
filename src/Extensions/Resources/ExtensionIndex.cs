@@ -557,7 +557,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return after ARM accepts the delete request.", false, [], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+            }
         );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",

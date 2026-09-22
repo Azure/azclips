@@ -420,6 +420,16 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public void Delete_CliMetadataMapsAdvertisedShortAliases()
+    {
+        CommandMetadata metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata("deployment mg delete", ClientType.CLI);
+
+        Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+    }
+
+    [Fact]
     public async Task Delete_WaitsOnLocationAndSuppressesOperationBody()
     {
         List<(HttpMethod Method, string Uri)> requests = [];
