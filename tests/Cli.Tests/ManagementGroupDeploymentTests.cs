@@ -254,25 +254,40 @@ public class ManagementGroupDeploymentTests
     [Fact]
     public async Task GetAndList_UseManagementGroupScopeAndListUnwrapsPages()
     {
+        string? getUri = null;
         FakeOutputHandler getOutput = new();
         GetAtManagementGroupScopeDeploymentsProcessor get =
-            CreateProcessor(new GetAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
-                Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}""")), getOutput);
+            CreateProcessor(new GetAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((request, _) =>
+            {
+                getUri = request.RequestUri!.AbsoluteUri;
+                return Json("""{"name":"test-deployment","properties":{"provisioningState":"Succeeded"}}""");
+            }), getOutput);
         get.ManagementGroupId = "test-management-group";
         get.Name = "test-deployment";
 
         await get.ProcessAsync();
 
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Management/managementGroups/test-management-group/providers/Microsoft.Resources/deployments/test-deployment?api-version=2025-04-01",
+            getUri);
         Assert.Equal("test-deployment", Assert.IsType<DeploymentExtended>(Assert.Single(getOutput.WrittenValues)).Name);
 
+        List<string> listUris = [];
         FakeOutputHandler listOutput = new();
         ListAtManagementGroupScopeDeploymentsProcessor list =
-            CreateProcessor(new ListAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
-                Json("""{"value":[{"name":"one"},{"name":"two"}]}""")), listOutput);
+            CreateProcessor(new ListAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((request, _) =>
+            {
+                listUris.Add(request.RequestUri!.AbsoluteUri);
+                return listUris.Count == 1
+                    ? Json("""{"value":[{"name":"one"}],"nextLink":"https://management.azure.com/next-page"}""")
+                    : Json("""{"value":[{"name":"two"}]}""");
+            }), listOutput);
         list.ManagementGroupId = "test-management-group";
 
         await list.ProcessAsync();
 
+        Assert.Equal(2, listUris.Count);
+        Assert.Equal("https://management.azure.com/next-page", listUris[1]);
         List<DeploymentExtended> deployments =
             Assert.IsAssignableFrom<IEnumerable<DeploymentExtended>>(Assert.Single(listOutput.WrittenValues)).ToList();
         Assert.Equal(["one", "two"], deployments.Select(deployment => deployment.Name));

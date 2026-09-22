@@ -86,20 +86,20 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
 
     private static (string ManagementGroupId, string Name) ParseId(string id)
     {
-        string[] segments = id.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        int managementGroups = Array.FindIndex(
-            segments,
-            segment => segment.Equals("managementGroups", StringComparison.OrdinalIgnoreCase));
-        int deployments = Array.FindIndex(
-            segments,
-            managementGroups + 2,
-            segment => segment.Equals("deployments", StringComparison.OrdinalIgnoreCase));
-        if (managementGroups < 0 || managementGroups + 1 >= segments.Length
-            || deployments < 0 || deployments + 1 >= segments.Length)
+        string[] segments = id.Trim('/').Split('/');
+        if (segments.Length != 8
+            || !segments[0].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[1].Equals("Microsoft.Management", StringComparison.OrdinalIgnoreCase)
+            || !segments[2].Equals("managementGroups", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(segments[3])
+            || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
+            || !segments[5].Equals("Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
+            || !segments[6].Equals("deployments", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(segments[7]))
         {
             throw new ArgumentException("Id must be a management-group deployment resource ID.", nameof(id));
         }
 
-        return (segments[managementGroups + 1], segments[deployments + 1]);
+        return (segments[3], segments[7]);
     }
 }
