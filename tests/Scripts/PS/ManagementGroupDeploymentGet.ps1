@@ -5,8 +5,13 @@ $managementGroups = Invoke-AzRestMethod -Method GET -Uri 'https://management.azu
 $managementGroupId = ($managementGroups.Content | ConvertFrom-Json).value[0].name
 $deploymentName = 'azclips-test-deployment-mg-create'
 
-if ((Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $deploymentName).Name -ne $deploymentName) {
+$deployment = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $deploymentName
+if ($deployment.Name -ne $deploymentName) {
     throw 'Show did not return the deployment.'
+}
+
+if ((Get-AzManagementGroupDeployment -Id $deployment.Id).Name -ne $deploymentName) {
+    throw 'Get by deployment ID did not return the deployment.'
 }
 
 if ($deploymentName -notin (Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId).Name) {

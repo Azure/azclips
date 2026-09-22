@@ -29,12 +29,19 @@ LIST_NAME=$("$AZ" deployment mg list \
 echo "list deployment -> $LIST_NAME"
 [[ "$LIST_NAME" == "$DEPLOYMENT_NAME" ]]
 
-# Negative case: showing a nonexistent deployment must return an ARM error.
-if "$AZ" deployment mg show \
+# Negative case: showing a nonexistent deployment must return DeploymentNotFound.
+set +e
+SHOW_ERROR=$("$AZ" deployment mg show \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name azclips-test-deployment-mg-does-not-exist; then
+    --name azclips-test-deployment-mg-does-not-exist 2>&1)
+STATUS=$?
+set -e
+if [[ $STATUS -eq 0 ]]; then
     echo "UNEXPECTED: show found a nonexistent deployment"
     exit 1
-else
-    echo "OK: show rejected a nonexistent deployment"
 fi
+if ! grep -q 'DeploymentNotFound' <<<"$SHOW_ERROR"; then
+    echo "UNEXPECTED: show failed for the wrong reason: $SHOW_ERROR" >&2
+    exit 1
+fi
+echo "OK: show rejected a nonexistent deployment"
