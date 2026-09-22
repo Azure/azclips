@@ -467,7 +467,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+                ["n"] = "name",
+            }
         );
         private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = new(
             Name: nameof(ListManagementGroupDeploymentProcessor),
@@ -483,7 +487,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["top"] = new("Top", "top", typeof(int), "The maximum number of results per page.", false, [], []),
                 ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["m"] = "management-group-id",
+            }
         );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",

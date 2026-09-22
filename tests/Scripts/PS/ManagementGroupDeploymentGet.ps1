@@ -24,5 +24,8 @@ catch {
     if ($_.Exception.Message -eq 'Show unexpectedly found a nonexistent deployment.') {
         throw
     }
+    if ($_.Exception.Message -notmatch 'DeploymentNotFound') {
+        throw
+    }
     Write-Host 'OK: show rejected a nonexistent deployment'
 }

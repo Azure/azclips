@@ -24,3 +24,9 @@ az deployment mg validate --management-group-id myManagementGroup --location eas
 ```bash
 az deployment mg list --management-group-id myManagementGroup
 ```
+
+### Show a management-group deployment
+
+```bash
+az deployment mg show --management-group-id myManagementGroup --name myDeployment
+```

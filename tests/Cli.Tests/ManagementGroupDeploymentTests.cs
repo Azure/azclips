@@ -106,6 +106,18 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public void Get_CliMetadataMapsShortAliases()
+    {
+        Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex extension = new();
+        CommandMetadata show = extension.GetCommandMetadata("deployment mg show", ClientType.CLI);
+        CommandMetadata list = extension.GetCommandMetadata("deployment mg list", ClientType.CLI);
+
+        Assert.Equal("management-group-id", show.ParameterAliases["m"]);
+        Assert.Equal("name", show.ParameterAliases["n"]);
+        Assert.Equal("management-group-id", list.ParameterAliases["m"]);
+    }
+
+    [Fact]
     public async Task Create_ValidatesBeforeSendingPut()
     {
         List<(HttpMethod Method, string Path)> requests = [];
