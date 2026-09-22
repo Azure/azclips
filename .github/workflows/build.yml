@@ -30,7 +30,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -147,7 +147,7 @@ jobs:
       extensions: ${{ steps.discover-extensions.outputs.extensions }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - id: discover-extensions
@@ -164,7 +164,7 @@ jobs:
         extension: ${{ fromJSON(needs.discover-extensions.outputs.extensions) }}
         configuration: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Extract Extension Metadata
@@ -215,7 +215,7 @@ jobs:
       modules: ${{ steps.discover-modules.outputs.modules }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - id: discover-modules
@@ -231,7 +231,7 @@ jobs:
       matrix:
         module: ${{ fromJSON(needs.discover-powershell-modules.outputs.modules) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup PowerShell latest
@@ -337,7 +337,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
