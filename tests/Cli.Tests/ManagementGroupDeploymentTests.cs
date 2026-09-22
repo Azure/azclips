@@ -420,7 +420,7 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task Delete_WaitsOnLocationUntilNoContentWithoutFetchingDeletedDeployment()
+    public async Task Delete_WaitsOnLocationAndSuppressesOperationBody()
     {
         List<(HttpMethod Method, string Uri)> requests = [];
         FakeHttpPipeline pipeline = new((request, _) =>
@@ -434,7 +434,7 @@ public class ManagementGroupDeploymentTests
                 return accepted;
             }
 
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
+            return Json("""{"status":"Succeeded"}""");
         });
         FakeOutputHandler output = new();
         RemoveManagementGroupDeploymentProcessor_Orchestrator processor =

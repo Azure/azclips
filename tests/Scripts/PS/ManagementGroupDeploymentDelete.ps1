@@ -15,8 +15,10 @@ foreach ($name in @($nameDeployment, $idDeployment)) {
         -Name $name `
         -Location eastus `
         -TemplateFile $templateFile `
-        -subscriptionId $subscriptionId `
-        -resourceGroupName $resourceGroup `
+        -TemplateParameterObject @{
+            subscriptionId = $subscriptionId
+            resourceGroupName = $resourceGroup
+        } `
         -Confirm:$false |
         Out-Null
 }

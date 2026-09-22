@@ -20,5 +20,7 @@ public class DeleteAtManagementGroupScopeDeploymentsProcessor
     protected override Func<HttpResponseMessage, string?> GetLocationUri =>
         response => response.GetFirstHeader("Location");
 
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(object? body) => Task.FromResult(true);
+
     internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO(fetchFinalState: false);
 }
