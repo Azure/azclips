@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790046658480,
+  "lastUpdate": 1790046733404,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10462,6 +10462,48 @@ window.BENCHMARK_DATA = {
             "value": 1977583.575828877,
             "unit": "ns",
             "range": "± 61501.831384391524"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2c852c56b28a32e7d58cfc0345129b244eea937d",
+          "message": "[Auth] Disconnect-AzAccount: Don't hard-fail when MSAL token-cache cleanup errors (#730)\n\n**Related command**\n\nN/A (telemetry / logging infrastructure)\n\n**Description**\n\nFree-form log message text was leaking into exported telemetry,\nbypassing the property allowlist — including to Azure Monitor (remote).\n\n`ConsoleLoggingService.RecordTelemetry` attached the full log message as\nan `ActivityEvent` tag on every log call. The allowlist\n(`DefaultTelemetryPropertyFilterProcessor`) only prunes top-level\n`Activity` tags, not event tags, and `ActivityEvent`s can't be stripped\nat `OnEnd`. So `FileExporter`, the OTLP exporter, and the Azure Monitor\nexporter all serialized the message verbatim. This contradicts the\nallowlist's intent, which explicitly excludes `exception.message` (\"type\nand stacktrace only, NOT message\").\n\nFix at the source: stop attaching the free-form message to telemetry\nevents; emit only the bounded structural `level`/`logger` tags. Console\noutput is unchanged, so local debugging still shows full messages. This\nis the only single point that also covers the external Azure Monitor /\nOTLP exporters (a per-exporter filter would leave remote upload\nleaking). The now-unused `message` parameter is removed from\n`RecordTelemetry`.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx`\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~ConsoleLoggingServiceTelemetryTests\"`\n- `dotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj`\n\nAdded `ConsoleLoggingServiceTelemetryTests` (one case per log level)\nasserting `RecordTelemetry` emits no `message` tag and no message text\nreaches any event tag, while keeping `level`/`logger`.\n\n**History Notes**\n\n[Telemetry] Log messages are no longer attached to trace event tags, so\nmessage text cannot bypass the property allowlist\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: a0x1ab <59631311+a0x1ab@users.noreply.github.com>\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-22T11:46:24+10:00",
+          "tree_id": "474100cf70520c9d73d245515ec298ef29230a0f",
+          "url": "https://github.com/Azure/azclips/commit/2c852c56b28a32e7d58cfc0345129b244eea937d"
+        },
+        "date": 1790046729505,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1965233.6219330062,
+            "unit": "ns",
+            "range": "± 56039.90018643586"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2034171.6019189765,
+            "unit": "ns",
+            "range": "± 51702.513915964366"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1936667.8793542907,
+            "unit": "ns",
+            "range": "± 51878.02901209967"
           }
         ]
       }
