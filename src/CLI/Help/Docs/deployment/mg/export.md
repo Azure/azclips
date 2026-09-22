@@ -1,5 +1,5 @@
 ---
-summary: Export a management-group deployment template.
+summary: Export a management-group-scoped deployment template.
 status: preview
 schema: 1.0.0
 online version:

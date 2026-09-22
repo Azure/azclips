@@ -5,6 +5,10 @@
 # Usage: ./tests/Scripts/CLI/ManagementGroupDeploymentExport.sh
 set -euo pipefail
 
+# Shared test context:
+#   subscription: SUBSCRIPTION_ID (default: f758ac53-3e63-4317-a956-0997793808d7)
+#   resource group: RESOURCE_GROUP (default: azclips-mg-test-rg, region: eastus)
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 
@@ -13,8 +17,8 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 
 "$AZ" config set --key agent.enabled --value false
 
-SUBSCRIPTION_ID=f758ac53-3e63-4317-a956-0997793808d7
-RESOURCE_GROUP=azclips-mg-test-rg
+SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-f758ac53-3e63-4317-a956-0997793808d7}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-azclips-mg-test-rg}"
 MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
 DEPLOYMENT_NAME=azclips-test-deployment-mg-export
 
@@ -27,8 +31,8 @@ DEPLOYMENT_NAME=azclips-test-deployment-mg-export
     >/dev/null
 
 OUTPUT="$("$AZ" deployment mg export \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$DEPLOYMENT_NAME" \
+    -m "$MANAGEMENT_GROUP_ID" \
+    -n "$DEPLOYMENT_NAME" \
     --output json)"
 
 grep -Eqi '"contentVersion"[[:space:]]*:[[:space:]]*"1.0.0.0"' <<<"$OUTPUT"
