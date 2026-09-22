@@ -16,15 +16,34 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 SUBSCRIPTION_ID=f758ac53-3e63-4317-a956-0997793808d7
 RESOURCE_GROUP=azclips-mg-test-rg
 MANAGEMENT_GROUP_ID=$("$AZ" rest --method GET --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups?api-version=2021-04-01" --query "json.value[0].name" --output tsv)
-WAIT_NAME=azclips-test-deployment-mg-delete
-NO_WAIT_NAME=azclips-test-deployment-mg-delete-no-wait
+RUN_ID="$(date +%s)-$$-$RANDOM"
+WAIT_NAME="azclips-test-deployment-mg-delete-$RUN_ID"
+NO_WAIT_NAME="azclips-test-deployment-mg-delete-no-wait-$RUN_ID"
+WAIT_NESTED_NAME="azclips-delete-wait-$RUN_ID"
+NO_WAIT_NESTED_NAME="azclips-delete-no-wait-$RUN_ID"
+NEGATIVE_OUTPUT="$(mktemp)"
+
+cleanup() {
+    for name in "$WAIT_NAME" "$NO_WAIT_NAME"; do
+        "$AZ" rest --method DELETE \
+            --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$MANAGEMENT_GROUP_ID/providers/Microsoft.Resources/deployments/$name?api-version=2025-04-01" \
+            >/dev/null 2>&1 || true
+    done
+    for name in "$WAIT_NESTED_NAME" "$NO_WAIT_NESTED_NAME"; do
+        "$AZ" rest --method DELETE \
+            --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$name?api-version=2025-04-01" \
+            >/dev/null 2>&1 || true
+    done
+    rm -f "$NEGATIVE_OUTPUT"
+}
+trap cleanup EXIT
 
 "$AZ" deployment mg create \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --name "$WAIT_NAME" \
     --location eastus \
     --template-file "$BICEP_DIR/management-group-nested-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" nestedDeploymentName="$WAIT_NESTED_NAME" \
     >/dev/null
 
 OUTPUT="$("$AZ" deployment mg delete \
@@ -44,7 +63,7 @@ echo "delete wait -> removed"
     --name "$NO_WAIT_NAME" \
     --location eastus \
     --template-file "$BICEP_DIR/management-group-nested-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$RESOURCE_GROUP" nestedDeploymentName="$NO_WAIT_NESTED_NAME" \
     >/dev/null
 
 OUTPUT="$("$AZ" deployment mg delete \
@@ -66,9 +85,6 @@ for _ in {1..24}; do
 done
 
 [[ -z "$NO_WAIT_RESULT" ]]
-
-NEGATIVE_OUTPUT="$(mktemp)"
-trap 'rm -f "$NEGATIVE_OUTPUT"' EXIT
 
 # Negative case: omitting the required deployment name must be rejected as a usage error.
 if "$AZ" deployment mg delete \

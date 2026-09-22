@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Customization;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -15,6 +16,19 @@ namespace Cli.Tests;
 
 public class ManagementGroupDeploymentTests
 {
+    [Fact]
+    public void HttpRuntime_PreservesSevenArgumentSendAsyncLroOverload()
+    {
+        int[] parameterCounts = typeof(HttpRuntime)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(method => method.Name == nameof(HttpRuntime.SendAsyncLRO))
+            .Select(method => method.GetParameters().Length)
+            .Order()
+            .ToArray();
+
+        Assert.Equal([7, 8], parameterCounts);
+    }
+
     [Fact]
     public void Create_PowerShellMetadataMapsModeToInput()
     {
