@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # test_macos_tarball_bundled_plus_ext.sh
-# macOS scenario: validate bundled macOS tarball layout, then run runtime checks on macOS hosts.
+# macOS scenario: install the bundled macOS tarball and run the full lifecycle on a matching host.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
@@ -82,6 +82,21 @@ if [[ "$RID" == "osx-arm64" ]]; then
   ASSET_RID="$(read_artifact_config macos_arm64_label macos-arm64)"
 elif [[ "$RID" == "osx-x64" ]]; then
   ASSET_RID="$(read_artifact_config macos_x64_label macos-x86_64)"
+else
+  echo "ERROR: Unsupported RID '$RID'. Expected 'osx-arm64' or 'osx-x64'."
+  exit 1
+fi
+
+host_os="$(uname -s)"
+host_arch="$(uname -m)"
+if [[ "$host_os" != "Darwin" ]]; then
+  echo "ERROR: macOS runtime validation requires a macOS host. Detected: $host_os."
+  exit 1
+fi
+if [[ ("$RID" == "osx-arm64" && "$host_arch" != "arm64") ||
+      ("$RID" == "osx-x64" && "$host_arch" != "x86_64") ]]; then
+  echo "ERROR: Runtime validation for $RID requires a matching host architecture. Detected: $host_arch."
+  exit 1
 fi
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
@@ -125,19 +140,6 @@ rm -rf "$SIM_ROOT"
 mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install" "$SIM_ROOT/invalid-archives" "$SIM_ROOT/classic-bin"
 export AZCLIPS_HOME="$SIM_ROOT/home/.azclips"
 
-runtime_supported=false
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  host_arch="$(uname -m)"
-  if [[ ("$RID" == "osx-arm64" && "$host_arch" == "arm64") ||
-        ("$RID" == "osx-x64" && "$host_arch" == "x86_64") ]]; then
-    runtime_supported=true
-  fi
-fi
-
-if [[ "$runtime_supported" != "true" ]]; then
-  tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
-fi
-
 archive_name="$(basename "$CLI_TAR_PATH")"
 archive_version_and_rid="${archive_name#"$ARTIFACT_STEM"-}"
 if [[ "$PACKAGE_PROFILE" == "lean" ]]; then
@@ -152,37 +154,35 @@ else
 fi
 wrong_rid_name="${archive_name/%-"$ASSET_RID".tar.gz/-"$opposite_asset_rid".tar.gz}"
 
-if [[ "$runtime_supported" == "true" ]]; then
-  ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_profile_name"
-  ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_rid_name"
-  printf 'not a tar archive\n' >"$SIM_ROOT/invalid-archives/$archive_name"
+ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_profile_name"
+ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_rid_name"
+printf 'not a tar archive\n' >"$SIM_ROOT/invalid-archives/$archive_name"
 
-  echo "[1/15] Reject invalid local archives"
-  expect_install_failure "empty archive path" "--archive requires a path" \
-    --package "$PACKAGE_PROFILE" --archive ""
-  expect_install_failure "missing archive" "Archive was not found" \
-    --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/missing-$archive_name"
-  expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI package" \
-    --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_profile_name"
-  expect_install_failure "wrong runtime identifier" "does not match platform $ASSET_RID" \
-    --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
-  printf 'existing install sentinel\n' >"$SIM_ROOT/install/az"
-  expect_install_failure "corrupt archive" "tar:|Error opening archive|Unrecognized archive format" \
-    --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"
-  if [[ "$(cat "$SIM_ROOT/install/az")" != "existing install sentinel" ]]; then
-    echo "FAIL: corrupt archive modified the existing installation"
-    exit 1
-  fi
-  echo "  PASS: corrupt archive preserved the existing installation"
-  rm -rf "$SIM_ROOT/invalid-archives"
-
-  printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
-  chmod +x "$SIM_ROOT/classic-bin/az"
-
-  HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
-    --package "$PACKAGE_PROFILE" \
-    --archive "$CLI_TAR_PATH"
+echo "[1/15] Reject invalid local archives"
+expect_install_failure "empty archive path" "--archive requires a path" \
+  --package "$PACKAGE_PROFILE" --archive ""
+expect_install_failure "missing archive" "Archive was not found" \
+  --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/missing-$archive_name"
+expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI package" \
+  --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_profile_name"
+expect_install_failure "wrong runtime identifier" "does not match platform $ASSET_RID" \
+  --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
+printf 'existing install sentinel\n' >"$SIM_ROOT/install/az"
+expect_install_failure "corrupt archive" "tar:|Error opening archive|Unrecognized archive format" \
+  --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"
+if [[ "$(cat "$SIM_ROOT/install/az")" != "existing install sentinel" ]]; then
+  echo "FAIL: corrupt archive modified the existing installation"
+  exit 1
 fi
+echo "  PASS: corrupt archive preserved the existing installation"
+rm -rf "$SIM_ROOT/invalid-archives"
+
+printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
+chmod +x "$SIM_ROOT/classic-bin/az"
+
+HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
+  --package "$PACKAGE_PROFILE" \
+  --archive "$CLI_TAR_PATH"
 
 AZ="$SIM_ROOT/install/az"
 if [[ ! -x "$AZ" ]]; then
@@ -229,11 +229,6 @@ fi
 echo "PASS: Bundled extension folders are present"
 echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
-
-if [[ "$runtime_supported" != "true" ]]; then
-  echo "NOTE: Host is not compatible with $RID; package layout validation passed and runtime checks were skipped."
-  exit 0
-fi
 
 echo ""
 echo "[2/15] CLI version (bundled install)"

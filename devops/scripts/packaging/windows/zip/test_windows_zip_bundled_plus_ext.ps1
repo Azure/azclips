@@ -3,11 +3,24 @@ param(
     [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../../out/common'),
     [string]$Rid = 'win-x64',
     [string]$CliZipPath = '',
-    [string]$SimRoot = '',
-    [switch]$SkipRuntime
+    [string]$SimRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $IsWindows) {
+    throw "Windows runtime validation requires a Windows host. Detected: $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)."
+}
+
+$hostArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+$expectedHostArchitecture = switch ($Rid) {
+    'win-x64' { 'x64' }
+    'win-arm64' { 'arm64' }
+    default { throw "Unsupported RID '$Rid'. Expected 'win-x64' or 'win-arm64'." }
+}
+if ($hostArchitecture -ne $expectedHostArchitecture) {
+    throw "Runtime validation for $Rid requires a matching host architecture. Detected: $hostArchitecture."
+}
 
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
 $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
@@ -166,7 +179,6 @@ $null = New-Item -Path $installRoot, $homeRoot, $invalidArchivesRoot, $classicBi
 $env:USERPROFILE = $homeRoot
 $env:AZCLIPS_HOME = Join-Path $homeRoot '.azclips'
 $env:AZCLI_INSTALL_ROOT = $installRoot
-$runRuntime = $IsWindows -and -not $SkipRuntime
 
 $archiveName = Split-Path -Leaf $CliZipPath
 $archiveVersionAndRid = $archiveName.Substring($artifactStem.Length + 1)
@@ -191,7 +203,6 @@ else {
     Get-ArtifactConfigValue -Name 'windows_x64_label' -DefaultValue 'win-x64'
 }
 $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zip$", "-$oppositeAssetRid.zip"
-if ($runRuntime) {
     $wrongProfilePath = Join-Path $invalidArchivesRoot $wrongProfileName
     $wrongRidPath = Join-Path $invalidArchivesRoot $wrongRidName
     $corruptArchivePath = Join-Path $invalidArchivesRoot $archiveName
@@ -235,10 +246,6 @@ if ($runRuntime) {
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: installer exited with code $LASTEXITCODE."
     }
-}
-else {
-    Expand-Archive -Path $CliZipPath -DestinationPath $installRoot -Force
-}
 
 $azExe = Join-Path $installRoot 'az.exe'
 if (-not (Test-Path -Path $azExe -PathType Leaf)) {
@@ -288,7 +295,6 @@ if (-not $resNupkg) { throw 'FAIL: Resources nupkg not found.' }
 
 Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
-if ($runRuntime) {
     Write-Host ''
     Write-Host '[Runtime] Running az.exe checks on Windows'
 
@@ -502,11 +508,6 @@ if ($runRuntime) {
     $global:LASTEXITCODE = 0
 
     Write-Host 'PASS: Windows installer, runtime, reinstall, extension lifecycle, failure paths, and uninstall validated'
-} else {
-    Write-Host ''
-    Write-Host 'NOTE: Runtime execution skipped (non-Windows host or -SkipRuntime set).'
-    Write-Host '      Package/layout validation completed successfully.'
-}
 
 Write-Host ''
 Write-Host '============================================'
