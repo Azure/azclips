@@ -259,9 +259,11 @@ public sealed class ElasticSanProcessorTests
             };
 
             IRCommandParameter identity = command.Parameters.Single(parameter => parameter.Name == "ResourceGroupName");
+            var identityId = new IRId { Module = "ElasticSan", Name = "ElasticSanIdentity" };
             identity.Source = new IRCommandParameterSourceSynthetic
             {
                 Purpose = "identity",
+                Type = identityId,
                 Parameters = [ir.Operations[0].Id],
             };
             identity.Dialect = new IRCommandParameterDialect
@@ -303,6 +305,7 @@ public sealed class ElasticSanProcessorTests
                     parameter.Name,
                     "resourceGroupName",
                     StringComparison.OrdinalIgnoreCase));
+                    var identityId = new IRId { Module = "ElasticSan", Name = "ElasticSanIdentity" };
             ir.Target.Dialect = new IRTargetDialect
             {
                 Ps = new IRTargetDialectPs
@@ -311,26 +314,31 @@ public sealed class ElasticSanProcessorTests
                     Description = "Elastic SAN module.",
                     Prefix = "Az",
                     SubjectPrefix = "ElasticSan",
-                    Identity = new IRTargetDialectPsIdentity
-                    {
-                        Name = "ElasticSanIdentity",
-                        Properties =
-                        [
-                            new IRTargetDialectPsIdentityProperties
-                            {
-                                Name = "ResourceGroupName",
-                                Description = "Resource group identity.",
-                                SourceParameters = [path.Id],
-                            },
-                            new IRTargetDialectPsIdentityProperties
-                            {
-                                Name = "ResourceId",
-                                SourceParameters = [],
-                            },
-                        ],
-                    },
                 },
             };
+            ir.SharedTypes =
+            [
+                new TransformedIRSharedTypes
+                {
+                    Kind = "identity",
+                    Id = identityId,
+                    Name = "ElasticSanIdentity",
+                    Properties =
+                    [
+                        new TransformedIRSharedTypesProperties
+                        {
+                            Name = "ResourceGroupName",
+                            Description = "Resource group identity.",
+                            SourceParameters = [path.Id],
+                        },
+                        new TransformedIRSharedTypesProperties
+                        {
+                            Name = "ResourceId",
+                            SourceParameters = [],
+                        },
+                    ],
+                },
+            ];
         });
 
         string assembly = writer.Files["Properties/PowerShellAssemblyInfo.cs"];
@@ -349,6 +357,28 @@ public sealed class ElasticSanProcessorTests
         Assert.DoesNotContain(
             CSharpSyntaxTree.ParseText(identity).GetDiagnostics(),
             diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public async Task Emits_A_Shared_Identity_Without_Module_Metadata()
+    {
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_PS_IdentityOnly", ir =>
+        {
+            ir.Target.Dialect = null;
+            ir.SharedTypes =
+            [
+                new TransformedIRSharedTypes
+                {
+                    Kind = "identity",
+                    Id = new IRId { Module = "ElasticSan", Name = "ElasticSanIdentity" },
+                    Name = "ElasticSanIdentity",
+                    Properties = [],
+                },
+            ];
+        });
+
+        Assert.DoesNotContain("Properties/PowerShellAssemblyInfo.cs", writer.Files.Keys);
+        Assert.Contains("[PSIdentity(\"ElasticSanIdentity\")]", writer.Files.Source(result, "ElasticSanIdentity"));
     }
 
     [Fact]

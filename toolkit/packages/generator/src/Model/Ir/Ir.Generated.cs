@@ -941,6 +941,9 @@ public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSourc
     [JsonPropertyName("purpose")]
     public string Purpose { get; set; } = default !;
 
+    [JsonPropertyName("type")]
+    public IRId Type { get; set; } = default !;
+
     [JsonPropertyName("parameters")]
     public IReadOnlyList<IRId> Parameters { get; set; } = [];
 }
@@ -2026,30 +2029,6 @@ public partial class IRTargetDialectPs
 
     [JsonPropertyName("subjectPrefix")]
     public string? SubjectPrefix { get; set; }
-
-    [JsonPropertyName("identity")]
-    public IRTargetDialectPsIdentity? Identity { get; set; }
-}
-
-public partial class IRTargetDialectPsIdentity
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("properties")]
-    public IReadOnlyList<IRTargetDialectPsIdentityProperties> Properties { get; set; } = [];
-}
-
-public partial class IRTargetDialectPsIdentityProperties
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("sourceParameters")]
-    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class IRTargetDirectories
@@ -2339,8 +2318,38 @@ public partial class TransformedIR
     [JsonPropertyName("commands")]
     public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 
+    [JsonPropertyName("sharedTypes")]
+    public IReadOnlyList<TransformedIRSharedTypes> SharedTypes { get; set; } = [];
+
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;
+}
+
+public partial class TransformedIRSharedTypes
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = default !;
+
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("properties")]
+    public IReadOnlyList<TransformedIRSharedTypesProperties> Properties { get; set; } = [];
+}
+
+public partial class TransformedIRSharedTypesProperties
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("sourceParameters")]
+    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class ValuePropertyHints
