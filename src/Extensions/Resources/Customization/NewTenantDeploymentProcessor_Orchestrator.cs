@@ -38,9 +38,8 @@ public class NewTenantDeploymentProcessor_Orchestrator
                     return;
                 }
 
-                bool hasChanges = result.Properties?.Changes?.Any(change =>
-                    !string.Equals(change.ChangeType, "NoChange", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(change.ChangeType, "Ignore", StringComparison.OrdinalIgnoreCase)) == true;
+                bool hasChanges = HasEffectiveChanges(result.Properties?.Changes)
+                    || HasEffectiveChanges(result.Properties?.PotentialChanges);
 
                 if (!ProceedIfNoChange || hasChanges)
                 {
@@ -123,7 +122,7 @@ public class NewTenantDeploymentProcessor_Orchestrator
         string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
             ?? throw new InvalidOperationException("Tenant deployment what-if returned an empty result.");
-        ThrowIfError(result.Error, "Tenant deployment what-if");
+        ThrowIfWhatIfFailed(result);
 
         WhatIfTenantDeploymentProcessor_Orchestrator filter = new()
         {
@@ -131,6 +130,21 @@ public class NewTenantDeploymentProcessor_Orchestrator
         };
         filter.FilterChanges(result);
         return result;
+    }
+
+    internal static bool HasEffectiveChanges(IEnumerable<WhatIfChange>? changes) =>
+        changes?.Any(change =>
+            !string.Equals(change.ChangeType, "NoChange", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(change.ChangeType, "Ignore", StringComparison.OrdinalIgnoreCase)) == true;
+
+    internal static void ThrowIfWhatIfFailed(WhatIfOperationResult result)
+    {
+        if (string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase)
+            && result.Error is null)
+        {
+            throw new InvalidOperationException("Tenant deployment what-if failed.");
+        }
+        ThrowIfError(result.Error, "Tenant deployment what-if");
     }
 
     private Task<HttpResponseMessage> CreateAsync()

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
@@ -203,6 +204,79 @@ public class TenantDeploymentTests
 
         Assert.Contains("not running", error.Message);
         Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Stop_SuppressesCancelResponsePayload()
+    {
+        int requestCount = 0;
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            ++requestCount == 1
+                ? Json("""{ "name": "running", "properties": { "provisioningState": "Running" } }""")
+                : Json("{}"));
+        var output = new FakeOutputHandler();
+        var processor = new StopTenantDeploymentProcessor_Orchestrator { Name = "running" };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public void ConfirmWithWhatIf_TreatsPotentialChangesAsChanges()
+    {
+        MethodInfo method = typeof(NewTenantDeploymentProcessor_Orchestrator).GetMethod(
+            "HasEffectiveChanges",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.True((bool)method.Invoke(
+            null,
+            [new[] { new WhatIfChange { ChangeType = "Create" } }])!);
+        Assert.False((bool)method.Invoke(
+            null,
+            [
+                new[]
+                {
+                    new WhatIfChange { ChangeType = "NoChange" },
+                    new WhatIfChange { ChangeType = "Ignore" },
+                },
+            ])!);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WhatIf_FailedStatusWithoutErrorThrows(bool createPath)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "status": "Failed" }"""));
+        IProcessor processor = createPath
+            ? new NewTenantDeploymentProcessor_Orchestrator
+            {
+                Name = "tenant-test",
+                Location = "eastus",
+                TemplateObject = new Dictionary<string, object>
+                {
+                    ["resources"] = Array.Empty<object>(),
+                },
+                WhatIf = true,
+            }
+            : new WhatIfTenantDeploymentProcessor_Orchestrator
+            {
+                Name = "tenant-test",
+                Location = "eastus",
+                TemplateObject = new Dictionary<string, object>
+                {
+                    ["resources"] = Array.Empty<object>(),
+                },
+            };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => processor.ProcessAsync());
+
+        Assert.Contains("what-if failed", error.Message);
     }
 
     [Fact]

@@ -485,7 +485,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Creates a tenant-scope deployment after validating the template. Supply exactly one template source. The deployment mode is Incremental. Use -WhatIf to run the ARM what-if operation without creating resources.
+Returns the tenant-scope deployment created by Azure Resource Manager.
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
+
+Returns the predicted resource changes when `-WhatIf` is true.
 
 ## NOTES
 
@@ -494,4 +498,3 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 ## RELATED LINKS
 
 [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
-

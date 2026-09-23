@@ -29,4 +29,7 @@ public class StopTenantDeploymentProcessor_Orchestrator : ResourcesProcessorBase
             CreateExtendedProcessor<CancelAtTenantScopeDeploymentsProcessor>(p => p.DeploymentName = Name);
         return await cancel.SendAsync();
     }
+
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(object? body) =>
+        Task.FromResult(true);
 }

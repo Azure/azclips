@@ -71,12 +71,16 @@ internal static class TenantDeploymentCmdletHelpers
     public static string NameFromId(string id)
     {
         string[] segments = id.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length < 2
-            || !string.Equals(segments[^2], "deployments", StringComparison.OrdinalIgnoreCase))
+        if (segments.Length != 4
+            || !string.Equals(segments[0], "providers", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(segments[1], "Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(segments[2], "deployments", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Tenant deployment Id must end with /providers/Microsoft.Resources/deployments/{name}.", nameof(id));
+            throw new ArgumentException(
+                "Tenant deployment Id must be /providers/Microsoft.Resources/deployments/{name}.",
+                nameof(id));
         }
-        return segments[^1];
+        return segments[3];
     }
 
     public static void Run(

@@ -46,7 +46,7 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator
 
             WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
                 ?? throw new InvalidOperationException("Tenant deployment what-if returned an empty result.");
-            ThrowIfError(result.Error, "Tenant deployment what-if");
+            NewTenantDeploymentProcessor_Orchestrator.ThrowIfWhatIfFailed(result);
             FilterChanges(result);
             await WriteOutput(result);
         }

@@ -10,7 +10,9 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzTenantDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
+[OutputType(
+    "Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended",
+    "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult")]
 public class NewTenantDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
