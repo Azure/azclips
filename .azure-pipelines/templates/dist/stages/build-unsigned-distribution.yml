@@ -89,6 +89,7 @@ stages:
       ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
 - stage: BuildWindows
   displayName: Build (CLI) Windows
@@ -105,6 +106,7 @@ stages:
       windows_arm64_pool: ${{ parameters.windows_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
 - stage: BuildMacOS
   displayName: Build (CLI) macOS
@@ -121,6 +123,7 @@ stages:
       macos_intel_pool: ${{ parameters.macos_intel_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
 
 - stage: Test
   displayName: Test
@@ -159,7 +162,6 @@ stages:
       ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
-      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
 - stage: ValidateWindows
   displayName: Validate (CLI) Windows
@@ -176,7 +178,6 @@ stages:
       windows_arm64_pool: ${{ parameters.windows_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
-      PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
 - stage: ValidateMacOS
   displayName: Validate (CLI) macOS
@@ -193,7 +194,6 @@ stages:
       macos_intel_pool: ${{ parameters.macos_intel_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
-      PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
 
 - stage: Finalize
   displayName: Finalize Build
