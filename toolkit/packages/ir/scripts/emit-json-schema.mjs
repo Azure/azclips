@@ -30,17 +30,10 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   IR_SCHEMA_VERSION,
-  IRSchema,
-  // PowerShell surface, reachable from the root through `IR.ps`.
-  PSSchema,
-  PSCommandAttributeSchema,
-  PSParameterSetAttributeSchema,
-  PSParameterAttributeSchema,
-  PSAttributeProjections,
-  PSParameterSetOverrideSchema,
-  PSModuleAttributeSchema,
-  PSIdentityAttributeSchema,
-  PSIdentityPropertyAttributeSchema,
+  // The generator consumes transformed IR: canonical commands plus a resolved target.
+  TransformedIRSchema,
+  PowerShellContractSchemas,
+  PowerShellContractProjections,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
@@ -113,6 +106,28 @@ import {
   ParameterHintsSchema,
   OperationHintsSchema,
   RequestBodyHintsSchema,
+  IRCommandSchema,
+  IRCommandIdSchema,
+  IRCommandParameterSchema,
+  IRCommandParameterSourceSchema,
+  IRCommandRequestSchema,
+  IRCommandRequestBodySchema,
+  IRCommandResponseSchema,
+  IRCommandStepSchema,
+  IRCommandSurfaceSchema,
+  IRCommandPaginationSchema,
+  IRCommandUriSegmentSchema,
+  IRCommandValueSchema,
+  IRCommandWireEntrySchema,
+  IRCommandDialectSchema,
+  IRCommandParameterDialectSchema,
+  PsCommandDialectSchema,
+  PsParameterDialectSchema,
+  PsParameterSetMembershipSchema,
+  CliCommandDialectSchema,
+  CliParameterDialectSchema,
+  IRTargetSchema,
+  IRTargetDirectoriesSchema,
 } from "../dist/src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -199,20 +214,34 @@ const definitions = {
   ParameterHints: ParameterHintsSchema,
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
-  // PowerShell surface (`IR.ps`).
-  PS: PSSchema,
-  PSCommandAttribute: PSCommandAttributeSchema,
-  PSParameterSetAttribute: PSParameterSetAttributeSchema,
-  PSParameterAttribute: PSParameterAttributeSchema,
-  PSParameterSetOverride: PSParameterSetOverrideSchema,
-  PSModuleAttribute: PSModuleAttributeSchema,
-  PSIdentityAttribute: PSIdentityAttributeSchema,
-  PSIdentityPropertyAttribute: PSIdentityPropertyAttributeSchema,
+  IRCommand: IRCommandSchema,
+  IRCommandId: IRCommandIdSchema,
+  IRCommandParameter: IRCommandParameterSchema,
+  IRCommandParameterSource: IRCommandParameterSourceSchema,
+  IRCommandRequest: IRCommandRequestSchema,
+  IRCommandRequestBody: IRCommandRequestBodySchema,
+  IRCommandResponse: IRCommandResponseSchema,
+  IRCommandStep: IRCommandStepSchema,
+  IRCommandSurface: IRCommandSurfaceSchema,
+  IRCommandPagination: IRCommandPaginationSchema,
+  IRCommandUriSegment: IRCommandUriSegmentSchema,
+  IRCommandValue: IRCommandValueSchema,
+  IRCommandWireEntry: IRCommandWireEntrySchema,
+  IRCommandDialect: IRCommandDialectSchema,
+  IRCommandParameterDialect: IRCommandParameterDialectSchema,
+  PsCommandDialect: PsCommandDialectSchema,
+  PsParameterDialect: PsParameterDialectSchema,
+  PsParameterSetMembership: PsParameterSetMembershipSchema,
+  CliCommandDialect: CliCommandDialectSchema,
+  CliParameterDialect: CliParameterDialectSchema,
+  IRTarget: IRTargetSchema,
+  IRTargetDirectories: IRTargetDirectoriesSchema,
+  ...PowerShellContractSchemas,
   PSCompleterAttribute: PSCompleterAttributeSchema,
   PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
 };
 
-const jsonSchema = zodToJsonSchema(IRSchema, {
+const jsonSchema = zodToJsonSchema(TransformedIRSchema, {
   target: "jsonSchema7",
   // `root` emits absolute `#/definitions/<Name>` refs and never throws or drops
   // recursive types to `any` (which `none` does here, defeated by the
@@ -225,18 +254,22 @@ const jsonSchema = zodToJsonSchema(IRSchema, {
   definitions,
 });
 
-for (const [definitionName, projection] of Object.entries(PSAttributeProjections)) {
+for (const [definitionName, projection] of Object.entries(PowerShellContractProjections)) {
   const definition = jsonSchema.definitions?.[definitionName];
   if (definition === undefined) {
     throw new Error(`CLR attribute projection '${definitionName}' has no matching JSON Schema definition.`);
   }
   definition["x-csharp-attribute"] = projection;
+  const contractSchema = PowerShellContractSchemas[definitionName];
+  if (contractSchema !== PSCompleterAttributeSchema && contractSchema !== PSDefaultValueAttributeSchema) {
+    definition["x-csharp-attribute-only"] = true;
+  }
 }
 
 // Stamp identity + version so consumers can gate on the IR schema version.
 jsonSchema.$id = `https://azure-client-engine.dev/ir/${IR_SCHEMA_VERSION}/ir.schema.json`;
-jsonSchema.title = "Azure Client Engine IR";
-jsonSchema.description = `Intermediate Representation for the Azure Client Engine compiler (schemaVersion ${IR_SCHEMA_VERSION}). Generated from the Zod source of truth in @azure-client-engine/ir; do not edit by hand.`;
+jsonSchema.title = "Azure Client Engine transformed IR";
+jsonSchema.description = `Transformed Intermediate Representation for the Azure Client Engine compiler (schemaVersion ${IR_SCHEMA_VERSION}) — the IR plus the commands and resolved target a generator consumes. Generated from the Zod source of truth in @azure-client-engine/ir; do not edit by hand.`;
 
 const serialized = JSON.stringify(jsonSchema, null, 2) + "\n";
 

@@ -30,17 +30,17 @@ public sealed class PSCommandAttribute : Attribute
     public string DefaultParameterSetName { get; }
     public string HttpPath { get; set; } = string.Empty;
     public string ApiVersion { get; set; } = string.Empty;
-    public bool SupportsShouldProcess { get; set; }
+    public Type[] OutputTypes { get; set; } = [];
+    public bool SupportsShouldProcess { get; set; } = false;
     public PSConfirmImpact ConfirmImpact { get; set; }
     public string[] Aliases { get; set; } = [];
-    public bool Hidden { get; set; }
+    public bool Hidden { get; set; } = false;
     public string Summary { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string[] Examples { get; set; } = [];
     public Core.Abstractions.HelpTag[] Tags { get; set; } = [];
-    public bool SupportsPaging { get; set; }
+    public bool SupportsPaging { get; set; } = false;
     public string HelpUri { get; set; } = string.Empty;
-    public Type[] OutputTypes { get; set; } = [];
 }
 
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]

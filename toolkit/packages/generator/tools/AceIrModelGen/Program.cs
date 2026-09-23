@@ -21,7 +21,7 @@ using Ace.Ir.CodeGen;
 
 string schemaPath = GetArg("--schema") ?? "../ir/dist/ir.schema.json";
 string outPath = GetArg("--out") ?? "src/Model/Ir/Ir.Generated.cs";
-string ns = GetArg("--namespace") ?? "Ace.Ir.Model";
+string ns = GetArg("--namespace") ?? "Ace.Generator.Model.Ir";
 string attributesOutPath = GetArg("--attributes-out") ?? "../../../src/Core/Core.Abstractions/PowerShellContracts.Generated.cs";
 string attributesNamespace = GetArg("--attributes-namespace") ?? "Core.Abstractions";
 

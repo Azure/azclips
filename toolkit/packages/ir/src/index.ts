@@ -13,6 +13,7 @@ export type { CSharpAttributeProjection } from "./csharp-attribute.js";
 export {
   IRIdSchema,
   serializeId,
+  idKey,
   idEquals,
   type IRId,
 } from "./id.js";
@@ -198,10 +199,14 @@ export {
 
 export {
   IRSchema,
+  TransformedIRSchema,
   parseIR,
   safeParseIR,
+  parseTransformedIR,
+  safeParseTransformedIR,
   emptyIR,
   type IR,
+  type TransformedIR,
 } from "./ir.js";
 
 export {
@@ -274,25 +279,21 @@ export {
   LifecycleTags,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
-  PSCommandAttributeSchema,
-  PSParameterSetAttributeSchema,
-  PSParameterSetOverrideSchema,
-  PSParameterAttributeSchema,
-  PSAttributeProjections,
-  PSModuleAttributeSchema,
-  PSIdentityAttributeSchema,
-  PSIdentityPropertyAttributeSchema,
-  PSSchema,
   type ConfirmImpact,
   type LifecycleTag,
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
-  type PSCommandAttribute,
-  type PSParameterSetAttribute,
-  type PSParameterSetOverride,
-  type PSParameterAttribute,
-  type PSModuleAttribute,
-  type PSIdentityAttribute,
-  type PSIdentityPropertyAttribute,
-  type PS,
 } from "./ps.js";
+
+export {
+  PSCommandContractSchema,
+  PSParameterSetContractSchema,
+  PSParameterContractSchema,
+  PSModuleContractSchema,
+  PSIdentityContractSchema,
+  PSIdentityPropertyContractSchema,
+  PSCompleterContractSchema,
+  PSDefaultValueContractSchema,
+  PowerShellContractSchemas,
+  PowerShellContractProjections,
+} from "./ps-contract.js";
