@@ -272,7 +272,7 @@ describe("ace compile: configured pipeline", () => {
           pipeline: { "ps.derive": true, "ps.directives": true },
           stageOptions: {
             "ps.directives": {
-              directives: [{ where: { subject: "Pet" }, set: { subject: "Animal" } }],
+              directives: [{ where: { subject: "Pets" }, set: { subject: "Animals" } }],
             },
           },
         }),
@@ -292,12 +292,15 @@ describe("ace compile: configured pipeline", () => {
 
       const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
       const ir = JSON.parse(readFileSync(captures.sort().at(-1)!, "utf8")) as {
-        ps?: { commands: { noun: string }[] };
+        commands: { dialect?: { ps?: { noun: string } } }[];
       };
-      const nouns = ir.ps!.commands.map((c) => c.noun);
-      expect(nouns).toContain("Animal");
-      // `subject: Pet` is anchored, so the rename must not reach `PetStatus`.
-      expect(nouns).toContain("PetStatus");
+      const nouns = ir.commands.flatMap((command) =>
+        command.dialect?.ps === undefined ? [] : [command.dialect.ps.noun],
+      );
+      expect(nouns).toContain("Animals");
+      // Canonical commands group getStatus under the Pets interface subject too;
+      // there is no response-derived PetStatus subject to preserve.
+      expect(nouns).not.toContain("Pets");
     },
   );
 

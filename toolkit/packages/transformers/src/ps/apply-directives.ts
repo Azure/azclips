@@ -1,233 +1,202 @@
-/**
- * Applies authoring directives to derived attributes. Runs after inference and never feeds back
- * into it, so the two layers stay independently reviewable.
- *
- * Anything a directive asks for that this layer cannot carry out is reported rather than dropped:
- * a silently ignored override is the failure mode that leaves real modules with directives their
- * authors believe are working.
- */
-
-import type { PS, PSCommandAttribute, PSParameterAttribute } from "@azure-client-engine/ir";
+import type {
+  IRCommand,
+  IRCommandParameter,
+  PsCommandDialect,
+  PsParameterDialect,
+  TransformedIR,
+} from "@azure-client-engine/ir";
 import type { PSDirective, PSDirectiveSelector, PSDirectiveSet } from "./directives.js";
 
 export type PSDirectiveDiagnostic = {
   severity: "warning";
   code: "unmatched-directive" | "unsupported-directive";
   message: string;
-  /** Index into the directive list, so a report can point at the offending entry. */
   directiveIndex: number;
 };
 
 export type ApplyDirectivesResult = {
-  attributes: PS;
+  ir: TransformedIR;
   diagnostics: PSDirectiveDiagnostic[];
 };
 
-/**
- * Mirrors `getPatternToMatch` in modifiers-v2.ts: a selector of only letters and digits is
- * anchored, so `subject: Volume` cannot also match `VolumeGroup`, while a selector carrying regex
- * syntax is used as written. Matching is case-insensitive, and an empty selector is no constraint
- * at all -- modules author `subject: ''` as a placeholder next to the selector they mean.
- */
 const patterns = new Map<string, RegExp>();
+
 function patternFor(selector: string): RegExp {
   let pattern = patterns.get(selector);
   if (pattern === undefined) {
-    // `g` matches AutoRest, whose `set` replacement rewrites every match rather than the first.
     pattern = /^[a-zA-Z0-9]+$/.test(selector)
       ? new RegExp(`^${selector}$`, "gi")
       : new RegExp(selector, "gi");
     patterns.set(selector, pattern);
   }
+  pattern.lastIndex = 0;
   return pattern;
 }
 
 function matches(selector: string | undefined, value: string): boolean {
   if (!selector) return true;
-  return value.match(patternFor(selector)) !== null;
+  return patternFor(selector).test(value);
 }
 
-/** Replacement runs through the selector, so a `set` value can carry `$1`-style capture groups. */
 function replaced(previous: string, selector: string | undefined, replacement: string): string {
   return selector ? previous.replace(patternFor(selector), replacement) : replacement;
 }
 
-function commandMatches(where: PSDirectiveSelector, command: PSCommandAttribute): boolean {
+function psOf(command: IRCommand): PsCommandDialect | undefined {
+  return command.dialect?.ps;
+}
+
+function nounPrefixOf(command: IRCommand): string {
+  const noun = psOf(command)?.noun ?? "";
+  return noun.endsWith(command.id.subject)
+    ? noun.slice(0, noun.length - command.id.subject.length)
+    : "";
+}
+
+function commandMatches(where: PSDirectiveSelector, command: IRCommand): boolean {
+  const ps = psOf(command);
   return (
-    matches(where.verb, command.verb) &&
-    matches(where.subject, command.subject) &&
-    matches(where["subject-prefix"], command.subjectPrefix ?? "") &&
-    (where.variant === undefined ||
-      command.parameterSets.some((set) => matches(where.variant, set.name)))
+    ps !== undefined &&
+    matches(where.verb, ps.verb) &&
+    matches(where.subject, command.id.subject) &&
+    matches(where["subject-prefix"], nounPrefixOf(command)) &&
+    matches(where.variant, command.id.variant ?? "")
   );
 }
 
-/** The sets a parameter takes part in; one that names neither takes part in all of them. */
-function setsOf(command: PSCommandAttribute, parameter: PSParameterAttribute): string[] {
-  if (parameter.parameterSets !== undefined) return Object.keys(parameter.parameterSets);
-  if (parameter.parameterSetName !== undefined) return [parameter.parameterSetName];
-  return command.parameterSets.map((set) => set.name);
+function displayName(parameter: IRCommandParameter): string {
+  return parameter.dialect?.ps?.name ?? parameter.name;
 }
 
-/**
- * A `variant` selector narrows which parameters a directive reaches, not just which commands.
- * `modifiers-v2.ts` gets this for free -- its unit is one cmdlet *per variant*, each with its own
- * parameter list -- whereas a command here holds every set at once, so the scoping is explicit.
- */
 function parameterMatches(
   where: PSDirectiveSelector,
-  command: PSCommandAttribute,
-  parameter: PSParameterAttribute,
+  parameter: IRCommandParameter,
 ): boolean {
-  if (!matches(where["parameter-name"], parameter.name)) return false;
+  if (!matches(where["parameter-name"], displayName(parameter))) return false;
   if (where.variant === undefined) return true;
-  return setsOf(command, parameter).some((set) => matches(where.variant, set));
+  const memberships = parameter.dialect?.ps?.parameterSets;
+  return memberships === undefined || memberships.some(
+    (membership) => membership.set === undefined || matches(where.variant, membership.set),
+  );
 }
 
-/** The module prefix is not stored; it is whatever `noun` carries ahead of the known parts. */
-function modulePrefixOf(command: PSCommandAttribute): string {
-  const tail = (command.subjectPrefix ?? "") + command.subject;
-  return command.noun.endsWith(tail) ? command.noun.slice(0, command.noun.length - tail.length) : "";
-}
-
-function applyCommandSet(
-  command: PSCommandAttribute,
-  where: PSDirectiveSelector,
-  set: PSDirectiveSet,
-  matchedVariant: string | undefined,
-): PSCommandAttribute {
-  const next = { ...command };
-  if (set.verb !== undefined) next.verb = replaced(command.verb, where.verb, set.verb);
-  if (set["command-description"] !== undefined) next.description = set["command-description"];
-  if (set.alias !== undefined) next.alias = unionAlias(command.alias, set.alias);
-  if (set["suppress-should-process"] !== undefined) {
-    next.supportsShouldProcess = !set["suppress-should-process"];
-  }
-  // The capability half lives in IR (`IRPageableSemantics`); this is the opt-in half.
-  if (set["clientside-pagination"] !== undefined) next.supportsPaging = set["clientside-pagination"];
-
-  if (set.subject !== undefined || set["subject-prefix"] !== undefined) {
-    const modulePrefix = modulePrefixOf(command);
-    if (set.subject !== undefined) {
-      next.subject = replaced(command.subject, where.subject, set.subject);
-    }
-    if (set["subject-prefix"] !== undefined) {
-      const prefix = replaced(
-        command.subjectPrefix ?? "",
-        where["subject-prefix"],
-        set["subject-prefix"],
-      );
-      next.subjectPrefix = prefix === "" ? undefined : prefix;
-    }
-    next.noun = modulePrefix + (next.subjectPrefix ?? "") + next.subject;
-  }
-
-  if (set.variant !== undefined && matchedVariant !== undefined) {
-    return renameParameterSet(
-      next,
-      matchedVariant,
-      replaced(matchedVariant, where.variant, set.variant),
-    );
-  }
-  return next;
-}
-
-/** Renames a set and every reference to it, so the schema's set-reference refinement still holds. */
-function renameParameterSet(
-  command: PSCommandAttribute,
-  from: string,
-  to: string,
-): PSCommandAttribute {
-  return {
-    ...command,
-    parameterSets: command.parameterSets.map((set) => (set.name === from ? { ...set, name: to } : set)),
-    defaultParameterSetName:
-      command.defaultParameterSetName === from ? to : command.defaultParameterSetName,
-    parameters: command.parameters.map((parameter) => {
-      const next = { ...parameter };
-      if (next.parameterSetName === from) next.parameterSetName = to;
-      if (next.parameterSets !== undefined && from in next.parameterSets) {
-        const { [from]: moved, ...rest } = next.parameterSets;
-        next.parameterSets = { ...rest, [to]: moved! };
-      }
-      return next;
-    }),
-  };
-}
-
-/** AutoRest adds to the aliases already on the attribute rather than replacing them. */
-function unionAlias(existing: readonly string[] | undefined, added: string | string[]): string[] {
+function unionAliases(existing: readonly string[] | undefined, added: string | string[]): string[] {
   return [...new Set([...(existing ?? []), ...(typeof added === "string" ? [added] : added)])];
 }
 
-/**
- * Drops the sets a `variant` selector names, along with any parameter left with no set to belong
- * to. In `modifiers-v2.ts` each variant is its own cmdlet, so `remove` deletes that one variant;
- * here every variant lives on a single command, so the same directive has to cut sets out of it.
- * Returns undefined when no set survives, which is the case that really does drop the command.
- */
-function removeParameterSets(
-  command: PSCommandAttribute,
-  variant: string,
-): PSCommandAttribute | undefined {
-  const removed = new Set(
-    command.parameterSets.filter((set) => matches(variant, set.name)).map((set) => set.name),
-  );
-  const parameterSets = command.parameterSets.filter((set) => !removed.has(set.name));
-  if (parameterSets.length === 0) return undefined;
-
-  const parameters: PSParameterAttribute[] = [];
-  for (const parameter of command.parameters) {
-    const next = { ...parameter };
-    if (next.parameterSets !== undefined) {
-      const kept = Object.entries(next.parameterSets).filter(([name]) => !removed.has(name));
-      if (kept.length === 0) continue;
-      next.parameterSets = Object.fromEntries(kept);
-    } else if (next.parameterSetName !== undefined && removed.has(next.parameterSetName)) {
-      continue;
-    }
-    parameters.push(next);
-  }
+function renameSets(
+  command: IRCommand,
+  where: PSDirectiveSelector,
+  replacement: string,
+): IRCommand {
+  if (where.variant === undefined) return command;
+  const rename = (set: string): string => replaced(set, where.variant, replacement);
+  const commandPs = psOf(command)!;
+  const parameters = command.parameters.map((parameter) => {
+    const memberships = parameter.dialect?.ps?.parameterSets;
+    if (memberships === undefined) return parameter;
+    return {
+      ...parameter,
+      dialect: {
+        ...parameter.dialect,
+        ps: {
+          ...parameter.dialect!.ps!,
+          parameterSets: memberships.map((membership) =>
+            membership.set !== undefined && matches(where.variant, membership.set)
+              ? { ...membership, set: rename(membership.set) }
+              : membership,
+          ),
+        },
+      },
+    };
+  });
 
   return {
     ...command,
-    parameterSets,
     parameters,
-    defaultParameterSetName: removed.has(command.defaultParameterSetName)
-      ? parameterSets[0]!.name
-      : command.defaultParameterSetName,
+    dialect: {
+      ...command.dialect,
+      ps: {
+        ...commandPs,
+        ...(commandPs.defaultParameterSet !== undefined &&
+        matches(where.variant, commandPs.defaultParameterSet)
+          ? { defaultParameterSet: rename(commandPs.defaultParameterSet) }
+          : {}),
+      },
+    },
   };
 }
 
-function applyParameterSet(
-  parameter: PSParameterAttribute,
+function applyCommandSet(
+  command: IRCommand,
   where: PSDirectiveSelector,
   set: PSDirectiveSet,
-): PSParameterAttribute {
-  const next = { ...parameter };
-  if (set["parameter-name"] !== undefined) {
-    next.name = replaced(parameter.name, where["parameter-name"], set["parameter-name"]);
+): IRCommand {
+  const current = psOf(command)!;
+  const ps: PsCommandDialect = { ...current };
+  if (set.verb !== undefined) ps.verb = replaced(current.verb, where.verb, set.verb);
+  if (set["command-description"] !== undefined) ps.description = set["command-description"];
+  if (set.alias !== undefined) ps.aliases = unionAliases(current.aliases, set.alias);
+  if (set["suppress-should-process"] !== undefined) {
+    ps.supportsShouldProcess = !set["suppress-should-process"];
   }
-  if (set["parameter-description"] !== undefined) next.helpMessage = set["parameter-description"];
-  if (set.alias !== undefined) next.alias = unionAlias(parameter.alias, set.alias);
-  if (set.completer !== undefined) next.completer = set.completer;
-  if (set.default !== undefined) next.defaultValue = set.default;
+  if (set.subject !== undefined || set["subject-prefix"] !== undefined) {
+    const subject = set.subject !== undefined
+      ? replaced(command.id.subject, where.subject, set.subject)
+      : command.id.subject;
+    const prefix = set["subject-prefix"] !== undefined
+      ? replaced(nounPrefixOf(command), where["subject-prefix"], set["subject-prefix"])
+      : nounPrefixOf(command);
+    ps.noun = prefix + subject;
+  }
+
+  let next: IRCommand = { ...command, dialect: { ...command.dialect, ps } };
+  if (set.variant !== undefined) next = renameSets(next, where, set.variant);
   return next;
 }
 
+function applyParameterSet(
+  parameter: IRCommandParameter,
+  where: PSDirectiveSelector,
+  set: PSDirectiveSet,
+): IRCommandParameter {
+  const current = parameter.dialect?.ps ?? {};
+  const ps: PsParameterDialect = { ...current };
+  if (set["parameter-name"] !== undefined) {
+    ps.name = replaced(displayName(parameter), where["parameter-name"], set["parameter-name"]);
+  }
+  if (set["parameter-description"] !== undefined) ps.description = set["parameter-description"];
+  if (set.alias !== undefined) ps.aliases = unionAliases(current.aliases, set.alias);
+  if (set.completer !== undefined) ps.completer = set.completer;
+  if (set.default !== undefined) ps.defaultValue = set.default;
+  return { ...parameter, dialect: { ...parameter.dialect, ps } };
+}
+
+function cloneCommand(command: IRCommand): IRCommand {
+  return {
+    ...command,
+    dialect: command.dialect === undefined ? undefined : {
+      ...command.dialect,
+      ps: command.dialect.ps === undefined ? undefined : { ...command.dialect.ps },
+    },
+    parameters: command.parameters.map((parameter) => ({
+      ...parameter,
+      dialect: parameter.dialect === undefined ? undefined : {
+        ...parameter.dialect,
+        ps: parameter.dialect.ps === undefined ? undefined : {
+          ...parameter.dialect.ps,
+          parameterSets: parameter.dialect.ps.parameterSets?.map((membership) => ({ ...membership })),
+        },
+      },
+    })),
+  };
+}
+
 export function applyDirectives(
-  attributes: PS,
+  input: TransformedIR,
   directives: readonly PSDirective[],
 ): ApplyDirectivesResult {
-  let commands = attributes.commands.map((command) => ({
-    // Kept alongside so `cmdletsToExport` can follow a rename; directives may rename the same
-    // command more than once, so the starting name is what the module list is keyed by.
-    origin: `${command.verb}-${command.noun}`,
-    command: {
-      ...command,
-      parameters: command.parameters.map((parameter) => ({ ...parameter })),
-    },
-  }));
+  let commands = input.commands.map(cloneCommand);
   const diagnostics: PSDirectiveDiagnostic[] = [];
 
   directives.forEach((directive, directiveIndex) => {
@@ -236,91 +205,56 @@ export function applyDirectives(
     let matched = 0;
 
     if (targetsParameters) {
-      const kept: typeof commands = [];
-      for (const { origin, command } of commands) {
-        if (!commandMatches(where, command)) {
-          kept.push({ origin, command });
-          continue;
-        }
-
-        const parameters: PSParameterAttribute[] = [];
+      commands = commands.map((command) => {
+        if (!commandMatches(where, command)) return command;
+        const parameters: IRCommandParameter[] = [];
         for (const parameter of command.parameters) {
-          if (!parameterMatches(where, command, parameter)) {
+          if (!parameterMatches(where, parameter)) {
             parameters.push(parameter);
             continue;
           }
-
-          // One attribute carries one name, so a set-scoped rename cannot reach a parameter that
-          // also lives outside those sets -- autorest.powershell splits it in two (`-Name` in Get,
-          // `-SearchName` in List on Get-AzMLWorkspaceDatastore). Report rather than rename both.
-          if (
-            where.variant !== undefined &&
-            directive.set?.["parameter-name"] !== undefined &&
-            setsOf(command, parameter).some((set) => !matches(where.variant, set))
-          ) {
-            diagnostics.push({
-              severity: "warning",
-              code: "unsupported-directive",
-              message:
-                `Cannot rename '${parameter.name}' on ${command.verb}-${command.noun} for variant ` +
-                `'${where.variant}' alone: the parameter also belongs to sets the variant does not match.`,
-              directiveIndex,
-            });
-            parameters.push(parameter);
-            continue;
-          }
-
           matched++;
-
-          if (directive.remove === true) continue;
+          if (directive.remove === true) {
+            parameters.push(parameter);
+            continue;
+          }
 
           let next = parameter;
-          if (directive["clear-alias"] === true) {
-            const { alias: _dropped, ...rest } = next;
-            next = rest;
+          if (directive["clear-alias"] === true && next.dialect?.ps !== undefined) {
+            const { aliases: _aliases, ...ps } = next.dialect.ps;
+            next = { ...next, dialect: { ...next.dialect, ps } };
           }
           if (directive.set !== undefined) next = applyParameterSet(next, where, directive.set);
-          if (directive.hide === true) next = { ...next, hidden: true };
+          if (directive.hide === true) {
+            next = { ...next, dialect: { ...next.dialect, ps: { ...next.dialect?.ps, hidden: true } } };
+          }
           parameters.push(next);
         }
-        kept.push({ origin, command: { ...command, parameters } });
-      }
-      commands = kept;
+        return { ...command, parameters };
+      });
     } else {
-      const kept: typeof commands = [];
-      for (const { origin, command } of commands) {
-        const hit =
-          commandMatches(where, command) &&
+      const kept: IRCommand[] = [];
+      for (const command of commands) {
+        const hit = commandMatches(where, command) &&
           (where["parameter-name"] === undefined ||
-            command.parameters.some((p) => parameterMatches(where, command, p)));
+            command.parameters.some((parameter) => parameterMatches(where, parameter)));
         if (!hit) {
-          kept.push({ origin, command });
+          kept.push(command);
           continue;
         }
         matched++;
-
-        if (directive.remove === true) {
-          if (where.variant === undefined) continue;
-          const trimmed = removeParameterSets(command, where.variant);
-          if (trimmed === undefined) continue;
-          kept.push({ origin, command: trimmed });
-          continue;
-        }
+        if (directive.remove === true) continue;
 
         let next = command;
         if (directive["clear-alias"] === true) {
-          const { alias: _dropped, ...rest } = next;
-          next = rest;
+          const { aliases: _aliases, ...ps } = psOf(next)!;
+          next = { ...next, dialect: { ...next.dialect, ps } };
         }
-        if (directive.set !== undefined) {
-          const matchedVariant =
-            where.variant === undefined
-              ? undefined
-              : command.parameterSets.find((s) => matches(where.variant, s.name))?.name;
-          next = applyCommandSet(next, where, directive.set, matchedVariant);
+        if (directive.set !== undefined) next = applyCommandSet(next, where, directive.set);
+        if (directive.hide === true) {
+          next = { ...next, dialect: { ...next.dialect, ps: { ...psOf(next)!, hidden: true } } };
         }
-        if (directive.hide === true) next = { ...next, hidden: true };
-        kept.push({ origin, command: next });
+        kept.push(next);
       }
       commands = kept;
     }
@@ -333,7 +267,6 @@ export function applyDirectives(
         directiveIndex,
       });
     }
-
     for (const unsupported of unsupportedKeys(directive)) {
       diagnostics.push({
         severity: "warning",
@@ -344,22 +277,7 @@ export function applyDirectives(
     }
   });
 
-  // A directive can rename or remove a command, which `cmdletsToExport` has to follow or the
-  // document contradicts itself.
-  const renamed = new Map(
-    commands.map(({ origin, command }) => [origin, `${command.verb}-${command.noun}`]),
-  );
-  const modules = attributes.modules.map((module) => ({
-    ...module,
-    cmdletsToExport: module.cmdletsToExport
-      .map((name) => renamed.get(name))
-      .filter((name): name is string => name !== undefined),
-  }));
-
-  return {
-    attributes: { ...attributes, commands: commands.map(({ command }) => command), modules },
-    diagnostics,
-  };
+  return { ir: { ...input, commands }, diagnostics };
 }
 
 const COMMAND_ONLY_SET_KEYS = [
@@ -369,7 +287,6 @@ const COMMAND_ONLY_SET_KEYS = [
   "variant",
   "command-description",
   "suppress-should-process",
-  "clientside-pagination",
 ] as const satisfies readonly (keyof PSDirectiveSet)[];
 
 const PARAMETER_ONLY_SET_KEYS = [
@@ -379,23 +296,27 @@ const PARAMETER_ONLY_SET_KEYS = [
   "default",
 ] as const satisfies readonly (keyof PSDirectiveSet)[];
 
-/**
- * A directive selects either commands or parameters, and AutoRest quietly ignores whichever
- * setters do not belong to the side it picked. Reporting them keeps the failure visible instead.
- */
 function unsupportedKeys(directive: PSDirective): string[] {
-  const set = directive.set;
-  if (set === undefined) return [];
-
   const targetsParameters =
     directive.where["parameter-name"] !== undefined && directive.select !== "command";
+  const reasons: string[] = [];
+  if (targetsParameters && directive.remove === true) {
+    reasons.push(
+      "Parameter removal has no presentation-only storage; removing the canonical parameter would invalidate request bindings",
+    );
+  }
+
+  const set = directive.set;
+  if (set === undefined) return reasons;
   const target = targetsParameters ? "parameter" : "command";
   const inapplicable = targetsParameters ? COMMAND_ONLY_SET_KEYS : PARAMETER_ONLY_SET_KEYS;
-
-  const reasons = inapplicable
+  reasons.push(...inapplicable
     .filter((key) => set[key] !== undefined)
-    .map((key) => `\`set.${key}\` does not apply to a ${target} directive`);
+    .map((key) => `\`set.${key}\` does not apply to a ${target} directive`));
 
+  if (set["clientside-pagination"] !== undefined) {
+    reasons.push("`set.clientside-pagination` has no canonical command dialect storage");
+  }
   if (!targetsParameters && set.variant !== undefined && directive.where.variant === undefined) {
     reasons.push("`set.variant` needs a `variant` selector to know which set to rename");
   }
