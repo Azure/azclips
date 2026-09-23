@@ -80,7 +80,9 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        bool armWhatIf = MyInvocation.BoundParameters.ContainsKey("WhatIf");
+        bool armWhatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? whatIf)
+            && whatIf is SwitchParameter whatIfSwitch
+            && whatIfSwitch.IsPresent;
         string target = $"tenant deployment '{Name ?? "(generated name)"}'";
         if (!armWhatIf && !ShouldProcess(target, "Create"))
         {

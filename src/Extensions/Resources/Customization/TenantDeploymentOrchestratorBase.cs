@@ -17,8 +17,6 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
 
     public string? DeploymentDebugLogLevel { get; set; }
 
-    public bool NoPrompt { get; set; }
-
     protected override void ValidateScopeInputs()
     {
         if (string.IsNullOrWhiteSpace(Location))

@@ -46,7 +46,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["query-string"] = new("QueryString", "query-string", typeof(string), "Query string for a linked template or parameters URI.", false, [], []),
                 ["parameters"] = new("Parameter", "parameters", typeof(string[]), "Parameter files, JSON objects, URIs, or KEY=VALUE overrides.", false, ["p"], []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "Template, Provider, or ProviderNoRbac.", false, [], ["Template", "Provider", "ProviderNoRbac"]),
-                ["no-prompt"] = new("NoPrompt", "no-prompt", typeof(bool), "Fail instead of prompting for missing template parameters.", false, [], []),
             };
         }
 
@@ -572,8 +571,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 {
                     ["result-format"] = new("ResultFormat", "result-format", typeof(string), "What-if result format.", false, ["r"], ["FullResourcePayloads", "ResourceIdOnly"]),
                     ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Change types excluded from output.", false, ["x"], []),
-                    ["no-pretty-print"] = new("NoPrettyPrint", "no-pretty-print", typeof(bool), "Return structured output.", false, [], []),
-                    ["no-color"] = new("NoColor", "no-color", typeof(bool), "Disable colored output.", false, [], []),
                 }).ToDictionary(),
             new Dictionary<string, string>
             {

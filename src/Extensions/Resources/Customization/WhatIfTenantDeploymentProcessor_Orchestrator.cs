@@ -15,10 +15,6 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator
 
     public string[]? ExcludeChangeTypes { get; set; }
 
-    public bool NoPrettyPrint { get; set; }
-
-    public bool NoColor { get; set; }
-
     internal override async Task<HttpResponseMessage> SendAsync()
     {
         PrepareAndValidate();

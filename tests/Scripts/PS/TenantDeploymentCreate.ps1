@@ -73,7 +73,7 @@ function Remove-TestDeployment {
 try {
     $jsonName = "$prefix-json"
     $deployments.Add($jsonName)
-    Write-Host '=== [New] JSON + parameters file + inline override ==='
+    # Create from JSON with a parameters file and an inline override.
     $jsonDeployment = New-AzTenantDeployment `
         -Location $Location `
         -Name $jsonName `
@@ -83,18 +83,19 @@ try {
         -ValidationLevel Provider `
         -Tag @{ scenario = 'tenant-deployment'; source = 'json' } `
         -DeploymentDebugLogLevel None `
+        -WhatIf:$false `
         -Confirm:$false
 
     if ($jsonDeployment.Properties.ProvisioningState -ne 'Succeeded') {
         throw "JSON deployment did not succeed: $($jsonDeployment.Properties.ProvisioningState)"
     }
 
-    Write-Host '=== [Get] by name, id, and list ==='
+    # Get the deployment by name and ID, then list tenant deployments.
     Get-AzTenantDeployment -Name $jsonName | Out-Host
     Get-AzTenantDeployment -Id $jsonDeployment.Id | Out-Host
     Get-AzTenantDeployment | Out-Host
 
-    Write-Host '=== [Stop] terminal-state checks by name, id, and input object ==='
+    # Verify terminal deployments cannot be stopped by name, ID, or input object.
     Assert-ExpectedFailure 'Stop by name after completion' 'not running|cannot be canceled' {
         Stop-AzTenantDeployment -Name $jsonName -Confirm:$false -ErrorAction Stop
     }
@@ -107,7 +108,7 @@ try {
 
     $bicepName = "$prefix-bicep"
     $deployments.Add($bicepName)
-    Write-Host '=== [New] Bicep + bicepparam + inline override ==='
+    # Create from Bicep with a bicepparam file and an inline override.
     $bicepDeployment = New-AzTenantDeployment `
         -Location $Location `
         -Name $bicepName `
@@ -119,7 +120,7 @@ try {
 
     $objectName = "$prefix-object"
     $deployments.Add($objectName)
-    Write-Host '=== [New] template and parameter objects ==='
+    # Create from template and parameter objects.
     $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
         ConvertFrom-Json -AsHashtable
     $objectDeployment = New-AzTenantDeployment `
@@ -131,7 +132,7 @@ try {
         -ValidationLevel ProviderNoRbac `
         -Confirm:$false
 
-    Write-Host '=== [New] derived name when -Name is omitted ==='
+    # Verify the deployment name is derived when -Name is omitted.
     Copy-Item (Join-Path $bicepDir 'tenant-empty.json') $derivedTemplate
     $derivedDeployment = New-AzTenantDeployment `
         -Location $Location `
@@ -140,7 +141,7 @@ try {
         -Confirm:$false
     $deployments.Add($derivedDeployment.Name)
 
-    Write-Host '=== [negative] malformed Bicep ==='
+    # Verify malformed Bicep is rejected.
     Assert-ExpectedFailure 'malformed Bicep create' 'Bicep compilation failed' {
         New-AzTenantDeployment `
             -Location $Location `
@@ -150,7 +151,7 @@ try {
             -ErrorAction Stop
     }
 
-    Write-Host '=== [negative] parameters URI plus inline override ==='
+    # Verify a parameters URI cannot be combined with an inline override.
     Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {
         New-AzTenantDeployment `
             -Location $Location `
@@ -162,7 +163,7 @@ try {
             -ErrorAction Stop
     }
 
-    Write-Host '=== [Remove] by name, id, and input object with PassThru ==='
+    # Remove deployments by name, ID, and input object, including PassThru.
     if (-not (Remove-AzTenantDeployment -Name $jsonName -PassThru -Confirm:$false)) {
         throw 'Remove-AzTenantDeployment by name did not return true.'
     }

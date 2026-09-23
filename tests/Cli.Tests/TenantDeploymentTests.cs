@@ -14,13 +14,17 @@ namespace Cli.Tests;
 
 public class TenantDeploymentTests
 {
-    private static void Init(IProcessor processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static void Init(
+        IProcessor processor,
+        FakeHttpPipeline pipeline,
+        FakeOutputHandler output,
+        IEventPublisher? publisher = null)
     {
         pipeline.PollingInterval = 0;
         Profile profile = new() { TenantId = "test-tenant", SubscriptionId = "test-subscription" };
         processor.Init(new ProcessorContext(
             pipeline,
-            new FakeEventPublisher(),
+            publisher ?? new FakeEventPublisher(),
             new FakeAuthHandler(profile),
             output,
             Profile: profile));
@@ -50,6 +54,22 @@ public class TenantDeploymentTests
                 .Where(key => key.StartsWith("deployment tenant ", StringComparison.Ordinal))
                 .Order()
                 .ToArray());
+
+        foreach (string command in new[]
+        {
+            "deployment tenant create",
+            "deployment tenant validate",
+            "deployment tenant what-if",
+        })
+        {
+            CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
+            Assert.DoesNotContain("no-prompt", metadata.Parameters.Keys);
+        }
+
+        CommandMetadata whatIfMetadata =
+            index.GetCommandMetadata("deployment tenant what-if", ClientType.CLI);
+        Assert.DoesNotContain("no-pretty-print", whatIfMetadata.Parameters.Keys);
+        Assert.DoesNotContain("no-color", whatIfMetadata.Parameters.Keys);
 
         Assert.Equal(
             [
@@ -265,6 +285,31 @@ public class TenantDeploymentTests
         Init(processor, pipeline, new FakeOutputHandler());
 
         await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_UsesSessionCancellationTokenDuringPollingDelay()
+    {
+        using CancellationTokenSource cancellation = new();
+        cancellation.Cancel();
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            """{ "name": "running", "properties": { "provisioningState": "Running" } }"""));
+        var processor = new WaitTenantDeploymentProcessor
+        {
+            Name = "running",
+            Updated = true,
+            Interval = 30,
+            Timeout = 60,
+        };
+        Init(
+            processor,
+            pipeline,
+            new FakeOutputHandler(),
+            new FakeEventPublisher { Token = cancellation.Token });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessAsync());
 
         Assert.Equal(1, pipeline.SendCount);
     }

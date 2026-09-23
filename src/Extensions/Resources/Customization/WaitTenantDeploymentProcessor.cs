@@ -65,7 +65,7 @@ public class WaitTenantDeploymentProcessor : ResourcesProcessorBase<object, obje
                 }
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(Interval), Token);
+            await Task.Delay(TimeSpan.FromSeconds(Interval), Publisher.Token);
         }
 
         throw new TimeoutException($"Timed out waiting for tenant deployment '{Name}'.");

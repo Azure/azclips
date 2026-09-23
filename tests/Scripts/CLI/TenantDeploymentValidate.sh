@@ -45,7 +45,7 @@ expect_failure() {
 
 "$AZ" config set --key agent.enabled --value false
 
-echo "=== [validate] JSON with Provider validation ==="
+# Validate JSON using Provider validation.
 "$AZ" deployment tenant validate \
     --location "$LOCATION" \
     --name "$PREFIX-provider" \
@@ -53,7 +53,7 @@ echo "=== [validate] JSON with Provider validation ==="
     --parameters "@$BICEP_DIR/tenant-empty.parameters.json" marker=inline-wins \
     --validation-level Provider
 
-echo "=== [validate] Bicep with Template validation ==="
+# Validate Bicep using Template validation.
 "$AZ" deployment tenant validate \
     --location "$LOCATION" \
     --name "$PREFIX-template" \
@@ -61,14 +61,14 @@ echo "=== [validate] Bicep with Template validation ==="
     --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins \
     --validation-level Template
 
-echo "=== [validate] ProviderNoRbac and derived name ==="
+# Validate with ProviderNoRbac and a derived deployment name.
 "$AZ" deployment tenant validate \
     --location "$LOCATION" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
     --parameters marker=provider-no-rbac \
     --validation-level ProviderNoRbac
 
-echo "=== [negative] malformed Bicep ==="
+# Verify malformed Bicep is rejected.
 expect_failure \
     "malformed Bicep validation" \
     "Bicep compilation failed" \
@@ -77,7 +77,7 @@ expect_failure \
         --name "$PREFIX-malformed" \
         --template-file "$BICEP_DIR/malformed.bicep"
 
-echo "=== [negative] ARM validation diagnostic ==="
+# Verify ARM validation diagnostics are surfaced.
 expect_failure \
     "invalid tenant template" \
     "InvalidTemplate|undefinedTenantParameter|validation" \
@@ -86,7 +86,7 @@ expect_failure \
         --name "$PREFIX-invalid-template" \
         --template-file "$BICEP_DIR/tenant-invalid-template.json"
 
-echo "=== [negative] parameters URI plus inline overlay ==="
+# Verify a parameters URI cannot be combined with an inline overlay.
 expect_failure \
     "parameters URI plus inline overlay" \
     "Inline parameters cannot be combined with a parameters URI" \

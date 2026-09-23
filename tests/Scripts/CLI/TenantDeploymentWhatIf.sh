@@ -2,8 +2,8 @@
 # Tenant-scope deployment what-if smoke tests.
 #
 # Covers ARM JSON, Bicep, parameter overlays, result formats, excluded change
-# types, structured/colorless output, malformed Bicep, invalid result format,
-# and live ARM template diagnostics.
+# types, malformed Bicep, invalid result format, and live ARM template
+# diagnostics.
 #
 # Prerequisites:
 #   1. Build:    dotnet build azclips.slnx
@@ -46,32 +46,30 @@ expect_failure() {
 
 "$AZ" config set --key agent.enabled --value false
 
-echo "=== [what-if] JSON default result format ==="
+# Run what-if for JSON using the default result format.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-json" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
     --parameters marker=json
 
-echo "=== [what-if] Bicep + bicepparam + inline override ==="
+# Run what-if for Bicep with a bicepparam file and inline override.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-bicep" \
     --template-file "$BICEP_DIR/tenant-empty.bicep" \
     --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins
 
-echo "=== [what-if] ResourceIdOnly + excluded types + structured/colorless output ==="
+# Run what-if with ResourceIdOnly and excluded change types.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-id-only" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
     --parameters marker=id-only \
     --result-format ResourceIdOnly \
-    --exclude-change-types NoChange Ignore \
-    --no-pretty-print \
-    --no-color
+    --exclude-change-types NoChange Ignore
 
-echo "=== [negative] malformed Bicep ==="
+# Verify malformed Bicep is rejected.
 expect_failure \
     "malformed Bicep what-if" \
     "Bicep compilation failed" \
@@ -80,7 +78,7 @@ expect_failure \
         --name "$PREFIX-malformed" \
         --template-file "$BICEP_DIR/malformed.bicep"
 
-echo "=== [negative] invalid result format ==="
+# Verify an invalid result format is rejected.
 expect_failure \
     "invalid result format" \
     "result-format|ResultFormat|allowed" \
@@ -90,7 +88,7 @@ expect_failure \
         --template-file "$BICEP_DIR/tenant-empty.json" \
         --result-format Invalid
 
-echo "=== [negative] live ARM what-if diagnostic ==="
+# Verify live ARM what-if diagnostics are surfaced.
 expect_failure \
     "invalid tenant template what-if" \
     "InvalidTemplate|undefinedTenantParameter|what-if" \

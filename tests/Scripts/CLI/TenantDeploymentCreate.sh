@@ -61,7 +61,7 @@ trap cleanup EXIT
 
 JSON_NAME="$PREFIX-json"
 DEPLOYMENTS+=("$JSON_NAME")
-echo "=== [create] local ARM JSON, waited LRO ==="
+# Create from local ARM JSON and wait for the LRO.
 "$AZ" deployment tenant create \
     --location "$LOCATION" \
     --name "$JSON_NAME" \
@@ -69,7 +69,7 @@ echo "=== [create] local ARM JSON, waited LRO ==="
     --parameters "@$BICEP_DIR/tenant-empty.parameters.json" marker=inline-wins \
     --validation-level Provider
 
-echo "=== [wait] exists, updated, and custom conditions ==="
+# Exercise exists, updated, and custom wait conditions.
 "$AZ" deployment tenant wait --name "$JSON_NAME" --exists --interval 2 --timeout 120
 "$AZ" deployment tenant wait --name "$JSON_NAME" --updated --interval 2 --timeout 120
 "$AZ" deployment tenant wait \
@@ -78,7 +78,7 @@ echo "=== [wait] exists, updated, and custom conditions ==="
     --interval 2 \
     --timeout 120
 
-echo "=== [show/list/export] ==="
+# Show, list, and export the deployment.
 "$AZ" deployment tenant show --name "$JSON_NAME"
 "$AZ" deployment tenant list
 "$AZ" deployment tenant export --name "$JSON_NAME" > "$EXPORT_FILE"
@@ -86,7 +86,7 @@ test -s "$EXPORT_FILE"
 
 BICEP_NAME="$PREFIX-bicep"
 DEPLOYMENTS+=("$BICEP_NAME")
-echo "=== [create] Bicep + bicepparam + inline override ==="
+# Create from Bicep with a bicepparam file and inline override.
 "$AZ" deployment tenant create \
     --location "$LOCATION" \
     --name "$BICEP_NAME" \
@@ -94,7 +94,7 @@ echo "=== [create] Bicep + bicepparam + inline override ==="
     --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins \
     --validation-level Template
 
-echo "=== [create] derived name when --name is omitted ==="
+# Verify the deployment name is derived when --name is omitted.
 cp "$BICEP_DIR/tenant-empty.json" "$DERIVED_TEMPLATE"
 DERIVED_NAME="$(basename "$DERIVED_TEMPLATE" .json)"
 DEPLOYMENTS+=("$DERIVED_NAME")
@@ -105,7 +105,7 @@ DEPLOYMENTS+=("$DERIVED_NAME")
 
 NOWAIT_NAME="$PREFIX-nowait"
 DEPLOYMENTS+=("$NOWAIT_NAME")
-echo "=== [create/cancel] no-wait then cancel race ==="
+# Start a no-wait deployment and exercise the cancel race.
 "$AZ" deployment tenant create \
     --location "$LOCATION" \
     --name "$NOWAIT_NAME" \
@@ -113,12 +113,20 @@ echo "=== [create/cancel] no-wait then cancel race ==="
     --parameters marker=no-wait \
     --no-wait
 
-# The empty deployment can finish before cancel reaches ARM. Both a successful
-# cancel and the expected terminal-state rejection are acceptable here.
-"$AZ" deployment tenant cancel --name "$NOWAIT_NAME" || true
+# The empty deployment can finish before cancel reaches ARM. Accept only a
+# successful cancel or ARM's expected terminal-state rejection.
+set +e
+CANCEL_OUTPUT=$("$AZ" deployment tenant cancel --name "$NOWAIT_NAME" 2>&1)
+CANCEL_STATUS=$?
+set -e
+if [[ $CANCEL_STATUS -ne 0 ]] &&
+    ! grep -Eiq "not running|cannot be cancel(l)?ed|DeploymentCannotBeCancelled" <<<"$CANCEL_OUTPUT"; then
+    echo "UNEXPECTED: tenant deployment cancel failed: $CANCEL_OUTPUT" >&2
+    exit "$CANCEL_STATUS"
+fi
 "$AZ" deployment tenant wait --name "$NOWAIT_NAME" --exists --interval 2 --timeout 120
 
-echo "=== [negative] malformed Bicep ==="
+# Verify malformed Bicep is rejected.
 expect_failure \
     "malformed Bicep create" \
     "Bicep compilation failed" \
@@ -127,7 +135,7 @@ expect_failure \
         --name "$PREFIX-malformed" \
         --template-file "$BICEP_DIR/malformed.bicep"
 
-echo "=== [negative] invalid validation level ==="
+# Verify an invalid validation level is rejected.
 expect_failure \
     "invalid validation level" \
     "validation-level|ValidationLevel|allowed" \
@@ -137,7 +145,7 @@ expect_failure \
         --template-file "$BICEP_DIR/tenant-empty.json" \
         --validation-level Invalid
 
-echo "=== [negative] parameters URI plus inline overlay ==="
+# Verify a parameters URI cannot be combined with an inline overlay.
 expect_failure \
     "parameters URI plus inline overlay" \
     "Inline parameters cannot be combined with a parameters URI" \
@@ -147,7 +155,7 @@ expect_failure \
         --template-file "$BICEP_DIR/tenant-empty.json" \
         --parameters https://example.com/parameters.json marker=conflict
 
-echo "=== [delete] waited and no-wait variants ==="
+# Delete deployments using waited and no-wait variants.
 "$AZ" deployment tenant delete --name "$JSON_NAME"
 "$AZ" deployment tenant wait --name "$JSON_NAME" --deleted --interval 2 --timeout 120
 

@@ -54,7 +54,7 @@ function Assert-ExpectedFailure {
     throw "$Name unexpectedly succeeded."
 }
 
-Write-Host '=== [WhatIf] JSON default result format ==='
+# Run what-if for JSON using the default result format.
 New-AzTenantDeployment `
     -Location $Location `
     -Name "$prefix-json" `
@@ -62,7 +62,7 @@ New-AzTenantDeployment `
     -Parameter 'marker=json' `
     -WhatIf | Out-Host
 
-Write-Host '=== [WhatIf] Bicep + bicepparam + inline override ==='
+# Run what-if for Bicep with a bicepparam file and inline override.
 New-AzTenantDeployment `
     -Location $Location `
     -Name "$prefix-bicep" `
@@ -71,7 +71,7 @@ New-AzTenantDeployment `
     -Parameter 'marker=bicep-inline-wins' `
     -WhatIf | Out-Host
 
-Write-Host '=== [WhatIf] template/parameter objects, ResourceIdOnly, excluded types ==='
+# Run what-if for object inputs with ResourceIdOnly and excluded change types.
 $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
     ConvertFrom-Json -AsHashtable
 New-AzTenantDeployment `
@@ -84,7 +84,7 @@ New-AzTenantDeployment `
     -WhatIfExcludeChangeType NoChange, Ignore `
     -WhatIf | Out-Host
 
-Write-Host '=== [negative] malformed Bicep ==='
+# Verify malformed Bicep is rejected.
 Assert-ExpectedFailure 'malformed Bicep what-if' 'Bicep compilation failed' {
     New-AzTenantDeployment `
         -Location $Location `
@@ -94,7 +94,7 @@ Assert-ExpectedFailure 'malformed Bicep what-if' 'Bicep compilation failed' {
         -ErrorAction Stop
 }
 
-Write-Host '=== [negative] invalid result format ==='
+# Verify an invalid result format is rejected.
 Assert-ExpectedFailure 'invalid result format' 'ResultFormat must be one of|allowed' {
     New-AzTenantDeployment `
         -Location $Location `
@@ -105,7 +105,7 @@ Assert-ExpectedFailure 'invalid result format' 'ResultFormat must be one of|allo
         -ErrorAction Stop
 }
 
-Write-Host '=== [negative] live ARM what-if diagnostic ==='
+# Verify live ARM what-if diagnostics are surfaced.
 Assert-ExpectedFailure 'invalid tenant template what-if' 'InvalidTemplate|undefinedTenantParameter|what-if' {
     New-AzTenantDeployment `
         -Location $Location `

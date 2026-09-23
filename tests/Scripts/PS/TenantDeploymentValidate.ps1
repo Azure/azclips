@@ -54,7 +54,7 @@ function Assert-ExpectedFailure {
     throw "$Name unexpectedly succeeded."
 }
 
-Write-Host '=== [Test] JSON + parameters file + inline override, Provider ==='
+# Validate JSON with a parameters file, inline override, and Provider level.
 $providerResult = Test-AzTenantDeployment `
     -Location $Location `
     -Name "$prefix-provider" `
@@ -66,7 +66,7 @@ if ($providerResult.Error) {
     throw "Provider validation failed: $($providerResult.Error.Message)"
 }
 
-Write-Host '=== [Test] Bicep + bicepparam + inline override, Template ==='
+# Validate Bicep with a bicepparam file, inline override, and Template level.
 $templateResult = Test-AzTenantDeployment `
     -Location $Location `
     -Name "$prefix-template" `
@@ -78,7 +78,7 @@ if ($templateResult.Error) {
     throw "Template validation failed: $($templateResult.Error.Message)"
 }
 
-Write-Host '=== [Test] template/parameter objects, ProviderNoRbac ==='
+# Validate template and parameter objects with ProviderNoRbac level.
 $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
     ConvertFrom-Json -AsHashtable
 $objectResult = Test-AzTenantDeployment `
@@ -91,7 +91,7 @@ if ($objectResult.Error) {
     throw "ProviderNoRbac validation failed: $($objectResult.Error.Message)"
 }
 
-Write-Host '=== [negative] malformed Bicep ==='
+# Verify malformed Bicep is rejected.
 Assert-ExpectedFailure 'malformed Bicep validation' 'Bicep compilation failed' {
     Test-AzTenantDeployment `
         -Location $Location `
@@ -100,7 +100,7 @@ Assert-ExpectedFailure 'malformed Bicep validation' 'Bicep compilation failed' {
         -ErrorAction Stop
 }
 
-Write-Host '=== [Test] structured ARM validation diagnostic ==='
+# Verify ARM returns structured validation diagnostics.
 $invalidResult = Test-AzTenantDeployment `
     -Location $Location `
     -Name "$prefix-invalid-template" `
@@ -112,7 +112,7 @@ if ($invalidResult.Error.Message -notmatch 'undefinedTenantParameter|parameter')
     throw "Unexpected validation diagnostic: $($invalidResult.Error.Message)"
 }
 
-Write-Host '=== [negative] parameters URI plus inline override ==='
+# Verify a parameters URI cannot be combined with an inline override.
 Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {
     Test-AzTenantDeployment `
         -Location $Location `

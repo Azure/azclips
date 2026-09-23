@@ -90,8 +90,7 @@ public class TenantDeploymentScenarioTests
             "deployment", "tenant", "what-if",
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template,
-            "--no-pretty-print");
+            "--template-file", template);
 
         Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
             "deployment", "tenant", "create",
