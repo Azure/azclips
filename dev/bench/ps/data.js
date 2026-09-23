@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790125416593,
+  "lastUpdate": 1790125576039,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -12234,6 +12234,54 @@ window.BENCHMARK_DATA = {
             "value": 2027475.8769722814,
             "unit": "ns",
             "range": "± 54537.30502164939"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7",
+          "message": "[CLI] Constrain table output to terminal width (#943)\n\nFixes #913\n\nSummary:\n- Constrains CLI table output to the terminal width.\n- Preserves appropriate behavior for redirected output.\n\nTests:\n- dotnet test tests/Cli.Tests/Cli.Tests.csproj -nologo (967 passed, 0\nfailed, 8 skipped)",
+          "timestamp": "2026-09-23T10:05:24+10:00",
+          "tree_id": "0b3b42b22cc846a433d6a463331c09bbef79ba7a",
+          "url": "https://github.com/Azure/azclips/commit/00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7"
+        },
+        "date": 1790125573079,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2016983.8273190404,
+            "unit": "ns",
+            "range": "± 64265.196148610456"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2109210.1212378126,
+            "unit": "ns",
+            "range": "± 69961.04094256276"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 1989001.297123229,
+            "unit": "ns",
+            "range": "± 65973.7901660257"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 1946237.7303030302,
+            "unit": "ns",
+            "range": "± 55789.91537030849"
           }
         ]
       }
