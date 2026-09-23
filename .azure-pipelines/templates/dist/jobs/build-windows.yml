@@ -13,28 +13,18 @@ parameters:
 jobs:
 - job: BuildWindowsOutput
   displayName: CLI Windows Zip
-  timeoutInMinutes: 30
+  timeoutInMinutes: 60
   strategy:
     matrix:
-      win_x64_lean:
+      win_x64:
         Rid: win-x64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Windows_Lean
+        LeanDistributionArtifact: Distribution_Windows_Lean
+        FullDistributionArtifact: Distribution_Windows_Full
         PoolName: ${{ parameters.windows_pool }}
-      win_arm64_lean:
+      win_arm64:
         Rid: win-arm64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Windows_Arm64_Lean
-        PoolName: ${{ parameters.windows_arm64_pool }}
-      win_x64_full:
-        Rid: win-x64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Windows_Full
-        PoolName: ${{ parameters.windows_pool }}
-      win_arm64_full:
-        Rid: win-arm64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Windows_Arm64_Full
+        LeanDistributionArtifact: Distribution_Windows_Arm64_Lean
+        FullDistributionArtifact: Distribution_Windows_Arm64_Full
         PoolName: ${{ parameters.windows_arm64_pool }}
   pool:
     name: $(PoolName)
@@ -87,19 +77,39 @@ jobs:
         Write-Host "##vso[task.prependpath]$installDir"
 
   - task: PowerShell@2
-    displayName: Build CLI Windows Zip
+    displayName: Build CLI Windows Lean Zip
     inputs:
       targetType: inline
       script: |
         $ErrorActionPreference = 'Stop'
+        Remove-Item -Path "${{ parameters.PackagingWindowsOutRoot }}" -Recurse -Force -ErrorAction SilentlyContinue
         $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
-        $env:PACKAGE_PROFILE = "$(BuildProfile)"
+        $env:PACKAGE_PROFILE = 'lean'
         & "${{ parameters.PackagingScriptsRoot }}/windows/zip/build_win_zip.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
       pwsh: true
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish CLI Windows
+    displayName: Publish CLI Windows Lean
     inputs:
       targetPath: ${{ parameters.PackagingWindowsOutRoot }}
-      artifact: $(DistributionArtifact)
+      artifact: $(LeanDistributionArtifact)
+      publishLocation: pipeline
+
+  - task: PowerShell@2
+    displayName: Build CLI Windows Full Zip
+    inputs:
+      targetType: inline
+      script: |
+        $ErrorActionPreference = 'Stop'
+        Remove-Item -Path "${{ parameters.PackagingWindowsOutRoot }}" -Recurse -Force -ErrorAction SilentlyContinue
+        $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
+        $env:PACKAGE_PROFILE = 'full'
+        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/build_win_zip.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+      pwsh: true
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Windows Full
+    inputs:
+      targetPath: ${{ parameters.PackagingWindowsOutRoot }}
+      artifact: $(FullDistributionArtifact)
       publishLocation: pipeline

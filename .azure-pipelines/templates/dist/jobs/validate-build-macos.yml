@@ -13,28 +13,18 @@ parameters:
 jobs:
 - job: MacOSValidation
   displayName: CLI macOS Validation
-  timeoutInMinutes: 30
+  timeoutInMinutes: 60
   strategy:
     matrix:
-      osx_arm64_lean:
+      osx_arm64:
         Rid: osx-arm64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_MacOS_Lean
+        LeanDistributionArtifact: Distribution_MacOS_Lean
+        FullDistributionArtifact: Distribution_MacOS_Full
         VmImage: ${{ parameters.macos_arm64_pool }}
-      osx_x64_lean:
+      osx_x64:
         Rid: osx-x64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_MacOS_Intel_Lean
-        VmImage: ${{ parameters.macos_intel_pool }}
-      osx_arm64_full:
-        Rid: osx-arm64
-        BuildProfile: full
-        DistributionArtifact: Distribution_MacOS_Full
-        VmImage: ${{ parameters.macos_arm64_pool }}
-      osx_x64_full:
-        Rid: osx-x64
-        BuildProfile: full
-        DistributionArtifact: Distribution_MacOS_Intel_Full
+        LeanDistributionArtifact: Distribution_MacOS_Intel_Lean
+        FullDistributionArtifact: Distribution_MacOS_Intel_Full
         VmImage: ${{ parameters.macos_intel_pool }}
   pool:
     vmImage: $(VmImage)
@@ -44,9 +34,15 @@ jobs:
     fetchDepth: 0
 
   - task: DownloadPipelineArtifact@2
-    displayName: Get macOS Dist
+    displayName: Get macOS Lean Dist
     inputs:
-      artifact: $(DistributionArtifact)
+      artifact: $(LeanDistributionArtifact)
+      path: ${{ parameters.PackagingMacOSOutRoot }}
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get macOS Full Dist
+    inputs:
+      artifact: $(FullDistributionArtifact)
       path: ${{ parameters.PackagingMacOSOutRoot }}
 
   - task: DownloadPipelineArtifact@2
@@ -58,13 +54,28 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-    displayName: Validate CLI macOS Tarball
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=lean RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+    displayName: Validate CLI macOS Lean Tarball
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish CLI macOS Sim
-    condition: always()
+    displayName: Publish CLI macOS Lean Sim
+    condition: succeededOrFailed()
     inputs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
-      artifact: Validate_MacOS_Sim_$(Rid)_$(BuildProfile)
+      artifact: Validate_MacOS_Sim_$(Rid)_lean
+      publishLocation: pipeline
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=full RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+    displayName: Validate CLI macOS Full Tarball
+    condition: succeededOrFailed()
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI macOS Full Sim
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
+      artifact: Validate_MacOS_Sim_$(Rid)_full
       publishLocation: pipeline

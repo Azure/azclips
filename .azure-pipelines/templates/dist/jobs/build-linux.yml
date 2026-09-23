@@ -13,48 +13,24 @@ parameters:
 jobs:
 - job: BuildLinuxOutput
   displayName: CLI Linux Tarball
-  timeoutInMinutes: 30
+  timeoutInMinutes: 120
   strategy:
     matrix:
-      linux_x64_lean:
-        Rid: linux-x64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Linux_Lean
+      linux_x64:
+        GlibcRid: linux-x64
+        MuslRid: linux-musl-x64
+        GlibcLeanDistributionArtifact: Distribution_Linux_Lean
+        GlibcFullDistributionArtifact: Distribution_Linux_Full
+        MuslLeanDistributionArtifact: Distribution_Linux_Musl_X64_Lean
+        MuslFullDistributionArtifact: Distribution_Linux_Musl_X64_Full
         PoolName: ${{ parameters.ubuntu_pool }}
-      linux_arm64_lean:
-        Rid: linux-arm64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Linux_Arm64_Lean
-        PoolName: ${{ parameters.ubuntu_arm64_pool }}
-      linux_x64_full:
-        Rid: linux-x64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Linux_Full
-        PoolName: ${{ parameters.ubuntu_pool }}
-      linux_arm64_full:
-        Rid: linux-arm64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Linux_Arm64_Full
-        PoolName: ${{ parameters.ubuntu_arm64_pool }}
-      linux_musl_x64_lean:
-        Rid: linux-musl-x64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Linux_Musl_X64_Lean
-        PoolName: ${{ parameters.ubuntu_pool }}
-      linux_musl_arm64_lean:
-        Rid: linux-musl-arm64
-        BuildProfile: lean
-        DistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
-        PoolName: ${{ parameters.ubuntu_arm64_pool }}
-      linux_musl_x64_full:
-        Rid: linux-musl-x64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Linux_Musl_X64_Full
-        PoolName: ${{ parameters.ubuntu_pool }}
-      linux_musl_arm64_full:
-        Rid: linux-musl-arm64
-        BuildProfile: full
-        DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
+      linux_arm64:
+        GlibcRid: linux-arm64
+        MuslRid: linux-musl-arm64
+        GlibcLeanDistributionArtifact: Distribution_Linux_Arm64_Lean
+        GlibcFullDistributionArtifact: Distribution_Linux_Arm64_Full
+        MuslLeanDistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
+        MuslFullDistributionArtifact: Distribution_Linux_Musl_Arm64_Full
         PoolName: ${{ parameters.ubuntu_arm64_pool }}
   pool:
     name: $(PoolName)
@@ -77,13 +53,53 @@ jobs:
 
   - script: |
       set -euo pipefail
+      rm -rf "${{ parameters.PackagingLinuxOutRoot }}"
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
-    displayName: Build CLI Linux Tarball
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=lean RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux glibc Lean Tarball
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish CLI Linux
+    displayName: Publish CLI Linux glibc Lean
     inputs:
       targetPath: ${{ parameters.PackagingLinuxOutRoot }}
-      artifact: $(DistributionArtifact)
+      artifact: $(GlibcLeanDistributionArtifact)
+      publishLocation: pipeline
+
+  - script: |
+      set -euo pipefail
+      rm -rf "${{ parameters.PackagingLinuxOutRoot }}"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=full RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux glibc Full Tarball
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Linux glibc Full
+    inputs:
+      targetPath: ${{ parameters.PackagingLinuxOutRoot }}
+      artifact: $(GlibcFullDistributionArtifact)
+      publishLocation: pipeline
+
+  - script: |
+      set -euo pipefail
+      rm -rf "${{ parameters.PackagingLinuxOutRoot }}"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=lean RID="$(MuslRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux musl Lean Tarball
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Linux musl Lean
+    inputs:
+      targetPath: ${{ parameters.PackagingLinuxOutRoot }}
+      artifact: $(MuslLeanDistributionArtifact)
+      publishLocation: pipeline
+
+  - script: |
+      set -euo pipefail
+      rm -rf "${{ parameters.PackagingLinuxOutRoot }}"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=full RID="$(MuslRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux musl Full Tarball
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Linux musl Full
+    inputs:
+      targetPath: ${{ parameters.PackagingLinuxOutRoot }}
+      artifact: $(MuslFullDistributionArtifact)
       publishLocation: pipeline
