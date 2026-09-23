@@ -3,8 +3,35 @@ import {
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
   PsCommandDialectSchema,
+  PsModuleDialectSchema,
   PsParameterDialectSchema,
+  IRCommandSchema,
+  IRCommandParameterSourceSchema,
 } from "../src/index.js";
+
+describe("PsModuleDialect", () => {
+  it("carries module naming and synthesized InputObject metadata without a command graph", () => {
+    const result = PsModuleDialectSchema.safeParse({
+      name: "ElasticSan",
+      description: "Manages Elastic SAN resources.",
+      prefix: "Az",
+      subjectPrefix: "ElasticSan",
+      identity: {
+        name: "ElasticSanIdentity",
+        properties: [
+          {
+            name: "ResourceGroupName",
+            sourceParameters: [
+              { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
 
 describe("PsCommandDialect", () => {
   it("accepts PowerShell processor metadata on a canonical command dialect", () => {
@@ -18,6 +45,11 @@ describe("PsCommandDialect", () => {
       examples: ["Remove-AzWidget -Name example"],
       lifecycleTag: "GA",
       helpUri: "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
+      supportsPaging: true,
+      outputTypes: [
+        { kind: "model", id: { module: "Widgets", namespace: [], name: "Widget" } },
+      ],
+      httpPath: { path: "/widgets/{name}", apiVersion: "2025-01-01" },
     });
 
     expect(result.success).toBe(true);
@@ -31,6 +63,41 @@ describe("PsCommandDialect", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("does not require each sibling to declare the family default locally", () => {
+    const operation = { module: "Widgets", namespace: [], name: "getByIdentity" };
+    const result = IRCommandSchema.safeParse({
+      id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
+      name: "GetWidgetByIdentity",
+      template: "atomic",
+      server: { module: "Widgets", namespace: [], name: "server" },
+      steps: [
+        {
+          operation,
+          request: { method: "GET", path: [], query: [], headers: [] },
+          responses: [
+            { statusCodes: [{ kind: "exact", code: 200 }], isError: false },
+          ],
+        },
+      ],
+      parameters: [
+        {
+          name: "InputObject",
+          source: { kind: "synthetic", purpose: "identity", parameters: [operation] },
+          type: { kind: "primitive", name: "string" },
+          required: true,
+          nullable: false,
+          dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
+        },
+      ],
+      surface: { paginated: false },
+      dialect: {
+        ps: { verb: "Get", noun: "AzWidget", defaultParameterSet: "ByName" },
+      },
+    });
+
+    expect(result.success).toBe(true);
   });
 });
 
@@ -65,6 +132,41 @@ describe("PsParameterDialect", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts one all-set fallback alongside named overrides", () => {
+    const result = PsParameterDialectSchema.safeParse({
+      removed: false,
+      parameterSets: [
+        { mandatory: false },
+        { set: "ByIdentity", mandatory: true, valueFromPipeline: true },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects multiple all-set fallbacks", () => {
+    const result = PsParameterDialectSchema.safeParse({
+      parameterSets: [{ mandatory: false }, { mandatory: true }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("PowerShell synthetic parameters", () => {
+  it("records the canonical path parameters supplied by an InputObject", () => {
+    const result = IRCommandParameterSourceSchema.safeParse({
+      kind: "synthetic",
+      purpose: "identity",
+      parameters: [
+        { module: "Widgets", namespace: [], name: "subscriptionId" },
+        { module: "Widgets", namespace: [], name: "resourceGroupName" },
+      ],
+    });
+
+    expect(result.success).toBe(true);
   });
 });
 

@@ -37,6 +37,7 @@
  */
 
 import { z } from "zod";
+import { IRIdSchema, type IRId } from "./id.js";
 import {
   ConfirmImpacts,
   LifecycleTags,
@@ -47,6 +48,7 @@ import {
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
 } from "./ps.js";
+import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
 
@@ -75,6 +77,56 @@ const clientDialectFields = {
 };
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
+
+/** One property exposed by the module's synthesized InputObject type. */
+export type PsIdentityProperty = {
+  name: string;
+  description?: string | undefined;
+  /** Canonical path parameters this property can satisfy. Empty for a synthesized resource id. */
+  sourceParameters: IRId[];
+};
+
+export const PsIdentityPropertySchema: z.ZodType<PsIdentityProperty> = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    sourceParameters: z.array(IRIdSchema),
+  })
+  .strict();
+
+/** Module-wide synthesized InputObject contract. */
+export type PsIdentity = {
+  name: string;
+  properties: PsIdentityProperty[];
+};
+
+export const PsIdentitySchema: z.ZodType<PsIdentity> = z
+  .object({
+    name: z.string().min(1),
+    properties: z.array(PsIdentityPropertySchema),
+  })
+  .strict();
+
+/** PowerShell metadata shared by every command emitted into one module. */
+export type PsModuleDialect = {
+  name: string;
+  description?: string | undefined;
+  /** Module-owned noun prefix, for example `Az`. */
+  prefix?: string | undefined;
+  /** Service/subject prefix appended after `prefix`, for example `ApplicationInsights`. */
+  subjectPrefix?: string | undefined;
+  identity?: PsIdentity | undefined;
+};
+
+export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    prefix: z.string().min(1).optional(),
+    subjectPrefix: z.string().min(1).optional(),
+    identity: PsIdentitySchema.optional(),
+  })
+  .strict();
 
 /**
  * A command as a PowerShell cmdlet.
@@ -110,6 +162,12 @@ export type PsCommandDialect = IRClientDialect & {
   examples?: string[] | undefined;
   lifecycleTag?: LifecycleTag | undefined;
   helpUri?: string | undefined;
+  /** Opt in to client-side paging when the canonical operation is not pageable. */
+  supportsPaging?: boolean | undefined;
+  /** PowerShell output types when the cmdlet writes more than the canonical primary output. */
+  outputTypes?: IRTypeRef[] | undefined;
+  /** Runtime API-version metadata when the cmdlet must surface a dynamic version. */
+  httpPath?: { path: string; apiVersion: string } | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
@@ -124,6 +182,12 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     examples: z.array(z.string().min(1)).optional(),
     lifecycleTag: z.enum(LifecycleTags).optional(),
     helpUri: z.string().min(1).optional(),
+    supportsPaging: z.boolean().optional(),
+    outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
+    httpPath: z
+      .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -169,6 +233,8 @@ export type PsParameterDialect = IRClientDialect & {
    * that only renames a parameter need not restate its membership.
    */
   parameterSets?: PsParameterSetMembership[] | undefined;
+  /** Omit this parameter from the PowerShell surface without deleting its canonical binding. */
+  removed?: boolean | undefined;
   completer?: PSCompleterAttribute | undefined;
   defaultValue?: PSDefaultValueAttribute | undefined;
 };
@@ -177,6 +243,7 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
   .object({
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
+    removed: z.boolean().optional(),
     completer: PSCompleterAttributeSchema.optional(),
     defaultValue: PSDefaultValueAttributeSchema.optional(),
   })
@@ -186,19 +253,17 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
     if (memberships === undefined) return;
 
     const named = new Set<string>();
+    let hasFallback = false;
     memberships.forEach((membership, index) => {
       if (membership.set === undefined) {
-        // An unnamed membership already covers every set, so pairing it with a
-        // named one says two different things about the same set.
-        if (memberships.length > 1) {
+        if (hasFallback) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message:
-              "A parameter-set membership with no `set` covers every set, so it cannot " +
-              "appear alongside named memberships.",
+            message: "A parameter can declare at most one unnamed fallback membership.",
             path: ["parameterSets", index],
           });
         }
+        hasFallback = true;
         return;
       }
       if (named.has(membership.set)) {

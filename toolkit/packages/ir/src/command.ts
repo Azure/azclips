@@ -183,7 +183,13 @@ export type IRCommandParameterSource =
   | { kind: "path"; parameter: IRId }
   | { kind: "query"; parameter: IRId }
   | { kind: "header"; parameter: IRId }
-  | { kind: "body"; path: IRId[] };
+  | { kind: "body"; path: IRId[] }
+  | {
+      kind: "synthetic";
+      purpose: "identity";
+      /** Canonical path parameters supplied by the synthesized InputObject. */
+      parameters: IRId[];
+    };
 
 export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource> =
   z.discriminatedUnion("kind", [
@@ -191,6 +197,13 @@ export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource>
     z.object({ kind: z.literal("query"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("header"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("body"), path: z.array(IRIdSchema).min(1) }).strict(),
+    z
+      .object({
+        kind: z.literal("synthetic"),
+        purpose: z.literal("identity"),
+        parameters: z.array(IRIdSchema).min(1),
+      })
+      .strict(),
   ]);
 
 /**
@@ -502,12 +515,11 @@ export const IRCommandSurfaceSchema: z.ZodType<IRCommandSurface> = z
  * in `dialect.ts`, which is the contract projected into the generator's POCOs and
  * into the generated extension's runtime metadata.
  *
- * Dialects live on commands and their parameters, and nowhere else. Models are
- * client-neutral: they are output shapes that serialize themselves, so no client
- * dialect belongs on them. Hints on models and properties shape the emitted **C#
- * type** (`flatten`, `flattened`); dialects shape the **client surface**. Keeping the
- * two apart bounds growth at `clients x {command, parameter}` rather than
- * `clients x node kinds`.
+ * Command and parameter dialects live here; module-wide dialect metadata lives on
+ * `IRTarget`. Models stay client-neutral: they are output shapes that serialize
+ * themselves, so no client dialect belongs on them. Hints on models and properties
+ * shape the emitted **C# type** (`flatten`, `flattened`); dialects shape the **client
+ * surface**.
  *
  * Client attributes are emitted on processors only — never projected back onto a
  * model member, which would drag client concerns into model generation.
@@ -671,29 +683,6 @@ export const IRCommandSchema: z.ZodType<IRCommand> = z
       checkEntries(step.request.query, "query");
       checkEntries(step.request.headers, "headers");
     });
-
-    // A parameter set exists because parameters declare membership in it, so a
-    // default naming one nothing declares would leave PowerShell with no set to
-    // fall back to.
-    const defaultSet = command.dialect?.ps?.defaultParameterSet;
-    if (defaultSet !== undefined) {
-      const declaredSets = new Set(
-        command.parameters.flatMap((parameter) =>
-          (parameter.dialect?.ps?.parameterSets ?? []).flatMap((membership) =>
-            membership.set !== undefined ? [membership.set] : [],
-          ),
-        ),
-      );
-      if (!declaredSets.has(defaultSet)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            `Command '${command.name}' names default parameter set '${defaultSet}', ` +
-            "which none of its parameters declares membership in.",
-          path: ["dialect", "ps", "defaultParameterSet"],
-        });
-      }
-    }
 
     // The surface says the processor pages; some step has to say how.
     if (command.surface.paginated && !command.steps.some((step) => step.pagination !== undefined)) {

@@ -17,6 +17,7 @@
  */
 
 import { z } from "zod";
+import { PsModuleDialectSchema, type PsModuleDialect } from "./dialect.js";
 
 /** Relative directories the generated artifacts are written to. */
 export type IRTargetDirectories = {
@@ -47,6 +48,8 @@ export type IRTarget = {
    */
   projectName: string;
   directories: IRTargetDirectories;
+  /** Client-specific metadata that applies to the generated project as a whole. */
+  dialect?: { ps?: PsModuleDialect | undefined } | undefined;
 };
 
 export const IRTargetSchema: z.ZodType<IRTarget> = z
@@ -54,5 +57,11 @@ export const IRTargetSchema: z.ZodType<IRTarget> = z
     rootNamespace: z.array(z.string().min(1)).min(1),
     projectName: z.string().min(1),
     directories: IRTargetDirectoriesSchema,
+    dialect: z
+      .object({
+        ps: PsModuleDialectSchema.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();

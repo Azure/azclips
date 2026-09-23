@@ -16,7 +16,7 @@ import { IROperationSchema, type IROperation } from "./operation.js";
 import { IRSourceSchema, type IRSource } from "./source.js";
 import { IRServerDefinitionSchema, type IRServerDefinition } from "./server.js";
 import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discriminated-union.js";
-import { IRCommandSchema, commandKey, type IRCommand } from "./command.js";
+import { IRCommandSchema, commandActionKey, commandKey, type IRCommand } from "./command.js";
 import { IRTargetSchema, type IRTarget } from "./target.js";
 import { idKey, serializeId, type IRId } from "./id.js";
 
@@ -191,6 +191,10 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
+    const psFamilies = new Map<
+      string,
+      { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
+    >();
 
     ir.commands.forEach((command, index) => {
       if (!servers.has(idKey(command.server))) {
@@ -231,6 +235,51 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
       identities.add(key);
+
+      if (command.dialect?.ps !== undefined) {
+        const familyKey = commandActionKey(command.id);
+        const family = psFamilies.get(familyKey) ?? { commands: [], sets: new Set<string>() };
+        family.commands.push({
+          index,
+          name: command.name,
+          defaultSet: command.dialect.ps.defaultParameterSet,
+        });
+        command.parameters.forEach((parameter) => {
+          parameter.dialect?.ps?.parameterSets?.forEach((membership) => {
+            if (membership.set !== undefined) family.sets.add(membership.set);
+          });
+        });
+        psFamilies.set(familyKey, family);
+      }
+    });
+
+    psFamilies.forEach((family) => {
+      const defaults = new Set(
+        family.commands.flatMap((command) =>
+          command.defaultSet !== undefined ? [command.defaultSet] : [],
+        ),
+      );
+      if (defaults.size === 0) return;
+
+      const [defaultSet] = defaults;
+      family.commands.forEach((command) => {
+        if (defaults.size > 1 || command.defaultSet !== defaultSet) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `PowerShell sibling commands must agree on one default parameter set; '${command.name}' does not.`,
+            path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
+          });
+        }
+      });
+
+      if (defaults.size === 1 && defaultSet !== undefined && !family.sets.has(defaultSet)) {
+        const command = family.commands[0]!;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `PowerShell command family names default parameter set '${defaultSet}', which none of its parameters declares.`,
+          path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
+        });
+      }
     });
   });
 

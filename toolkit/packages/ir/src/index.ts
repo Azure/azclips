@@ -236,12 +236,18 @@ export {
 } from "./command.js";
 
 export {
+  PsIdentityPropertySchema,
+  PsIdentitySchema,
+  PsModuleDialectSchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
   type IRClientDialect,
+  type PsIdentityProperty,
+  type PsIdentity,
+  type PsModuleDialect,
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,
