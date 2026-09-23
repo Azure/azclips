@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790127615658,
+  "lastUpdate": 1790127830916,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -12366,6 +12366,54 @@ window.BENCHMARK_DATA = {
             "value": 1946237.7303030302,
             "unit": "ns",
             "range": "± 55789.91537030849"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "855ab60becb20f9ec6a4be314db0bac77c977c22",
+          "message": "{Benchmark} Use dedicated 1ES pools for benchmarking (#903)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Provisioned dedicated 1ES benchmark agents in 1ES hub\n- Tag 1ES pool to GitHub workflow.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-23T00:53:46Z",
+          "tree_id": "91688a79f7666ddfd534ce04cf98873c3bd8efa7",
+          "url": "https://github.com/Azure/azclips/commit/855ab60becb20f9ec6a4be314db0bac77c977c22"
+        },
+        "date": 1790127826985,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2350118.9836318716,
+            "unit": "ns",
+            "range": "± 56083.452045978054"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2443712.1828045035,
+            "unit": "ns",
+            "range": "± 64332.62485855202"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2316495.535838624,
+            "unit": "ns",
+            "range": "± 58102.15294908151"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2263656.2420382164,
+            "unit": "ns",
+            "range": "± 52819.845190173226"
           }
         ]
       }
