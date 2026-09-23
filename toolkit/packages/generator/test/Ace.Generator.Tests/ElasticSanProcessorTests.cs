@@ -23,10 +23,10 @@ public sealed class ElasticSanProcessorTests
 
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(
         string scenario,
-        Action<IRDocument>? configure = null)
+        Action<TransformedIR>? configure = null)
     {
         var writer = new ArtifactWriter(scenario);
-        IRDocument ir = LoadIr();
+        TransformedIR ir = LoadIr();
         configure?.Invoke(ir);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
@@ -114,64 +114,10 @@ public sealed class ElasticSanProcessorTests
     [Fact]
     public async Task Get_Processor_Has_No_Body_And_No_Lro_Send()
     {
-        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Get", ir =>
-        {
-            IROperation operation = ir.Operations.Single(operation =>
-                operation.Name == "get"
-                && operation.Id.Interface == "ElasticSans");
-            IRParameter name = operation.PathParameters.Single(parameter => parameter.Name == "elasticSanName");
-            ir.Ps = new PS
-            {
-                Commands =
-                [
-                    new PSCommandAttribute
-                    {
-                        Verb = "Get",
-                        Noun = "AzElasticSan",
-                        Subject = "ElasticSan",
-                        DefaultParameterSetName = "Get",
-                        OutputTypes = [((IRTypeRefModel)operation.Responses.First(response => response.Type is IRTypeRefModel).Type!).Id],
-                        SourceOperationIds = [operation.Id],
-                        ParameterSets =
-                        [
-                            new PSParameterSetAttribute { Name = "Get", SourceOperationId = operation.Id },
-                            new PSParameterSetAttribute { Name = "GetByPipeline", SourceOperationId = operation.Id },
-                            new PSParameterSetAttribute { Name = "GetViaIdentity", SourceOperationId = operation.Id },
-                        ],
-                        Parameters =
-                        [
-                            new PSParameterAttribute
-                            {
-                                Name = "Name",
-                                SourceParameterId = name.Id,
-                                ParameterSets = new Dictionary<string, PSParameterSetOverride>
-                                {
-                                    ["Get"] = new() { Mandatory = true, ValueFromPipeline = true },
-                                    ["GetByPipeline"] = new() { ValueFromPipelineByPropertyName = true },
-                                },
-                            },
-                            new PSParameterAttribute
-                            {
-                                Name = "InputObject",
-                                Mandatory = true,
-                                ParameterSetName = "GetViaIdentity",
-                                Identity = true,
-                            },
-                        ],
-                    },
-                ],
-            };
-        });
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Get");
 
         string get = writer.Files.Source(result, "GetElasticSansProcessor");
 
-        Assert.Contains("[PSCommand(\"Get\", \"AzElasticSan\", \"Get\"", get);
-        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"Get\")]", get);
-        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"GetByPipeline\")]", get);
-        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"GetViaIdentity\")]", get);
-        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"Get\", \"Name\", Mandatory = true, ValueFromPipeline = true", get);
-        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"GetByPipeline\", \"Name\", ValueFromPipelineByPropertyName = true", get);
-        Assert.DoesNotContain("[PSParameter(\"Get-AzElasticSan\", \"GetViaIdentity\", \"Name\"", get);
         Assert.Contains("public partial class GetElasticSansProcessor : ProcessorBase<object, ElasticSan>", get);
         Assert.Contains("Method => HttpMethod.Get;", get);
         Assert.DoesNotContain("CreateRequestBody", get);
@@ -179,20 +125,154 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task List_Processor_Has_Pagination_Wiring()
+    public async Task Emits_PowerShell_Metadata_From_Canonical_Command_Dialects()
     {
-        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_List");
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_PS_Metadata", ir =>
+        {
+            IRCommand command = ir.Commands.Single(command => command.Name == "ListByResourceGroupElasticSans");
+            command.Summary = "Lists Elastic SAN resources.";
+            command.Docs = "Lists Elastic SAN resources in a resource group.";
+            command.Dialect = new IRCommandDialect
+            {
+                Ps = new PsCommandDialect
+                {
+                    Verb = "Get",
+                    Noun = "AzElasticSan",
+                    SupportsShouldProcess = true,
+                    ConfirmImpact = PsCommandDialectConfirmImpact.High,
+                    Aliases = ["Get-AzElasticSans"],
+                    Description = "Lists Elastic SAN resources for PowerShell.",
+                    Examples = ["Get-AzElasticSan -ResourceGroup demo"],
+                    LifecycleTag = PsCommandDialectLifecycleTag.Preview,
+                    HelpUri = "https://aka.ms/Get-AzElasticSan",
+                    Completer = new PSCompleterAttribute { Script = "Get-ElasticSanCommand" },
+                },
+            };
+
+            IRCommandParameter resourceGroup = command.Parameters.Single(parameter => parameter.Name == "ResourceGroupName");
+            resourceGroup.Dialect = new IRCommandParameterDialect
+            {
+                Ps = new PsParameterDialect
+                {
+                    Name = "ResourceGroup",
+                    Aliases = ["ResourceGroupName"],
+                    Description = "Resource group to enumerate.",
+                    ParameterSets =
+                    [
+                        new PsParameterSetMembership
+                        {
+                            Set = null,
+                            Mandatory = false,
+                        },
+                        new PsParameterSetMembership
+                        {
+                            Set = "ByResourceGroup",
+                            Mandatory = true,
+                            Position = 0,
+                            ValueFromPipeline = true,
+                            ValueFromPipelineByPropertyName = true,
+                        },
+                    ],
+                    Completer = new PSCompleterAttribute { Name = "ResourceGroupCompleter" },
+                    DefaultValue = new PSDefaultValueAttribute
+                    {
+                        Script = "$env:AZURE_RESOURCE_GROUP",
+                        Name = "AZURE_RESOURCE_GROUP",
+                        Description = "Default resource group.",
+                        SetCondition = "$null -eq $ResourceGroup",
+                    },
+                },
+            };
+
+            command.Parameters.Single(parameter => parameter.Name == "SubscriptionId").Dialect =
+                new IRCommandParameterDialect
+                {
+                    Ps = new PsParameterDialect
+                    {
+                        ParameterSets = [new PsParameterSetMembership { Set = "Other", Mandatory = true }],
+                    },
+                };
+        });
 
         string list = writer.Files.Source(result, "ListByResourceGroupElasticSansProcessor");
 
-        // Pageable -> a plain GET (no LRO) that wires the runtime pagination helper.
+        Assert.Contains("using Core.Abstractions;", list);
+        Assert.Contains("[PSCommand(\"Get\", \"AzElasticSan\", \"ByResourceGroup\"", list);
+        Assert.Contains("SupportsShouldProcess = true", list);
+        Assert.Contains("ConfirmImpact = PSConfirmImpact.High", list);
+        Assert.Contains("Aliases = new string[] { \"Get-AzElasticSans\" }", list);
+        Assert.Contains("Summary = \"Lists Elastic SAN resources.\"", list);
+        Assert.Contains("Description = \"Lists Elastic SAN resources for PowerShell.\"", list);
+        Assert.Contains("Examples = new string[] { \"Get-AzElasticSan -ResourceGroup demo\" }", list);
+        Assert.Contains("Tags = new HelpTag[] { HelpTag.Preview }", list);
+        Assert.Contains("HttpPath = \"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ElasticSan/elasticSans\"", list);
+        Assert.Contains("ApiVersion = \"2024-07-01-preview\"", list);
+        Assert.Contains("SupportsPaging = true", list);
+        Assert.Contains("HelpUri = \"https://aka.ms/Get-AzElasticSan\"", list);
+        Assert.Contains("OutputTypes = new Type[] { typeof(ElasticSanList) }", list);
+        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"ByResourceGroup\")]", list);
+        Assert.Contains("[PSCompleter(\"Get-AzElasticSan\", Script = \"Get-ElasticSanCommand\")]", list);
+        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"ByResourceGroup\", \"ResourceGroup\", Mandatory = true", list);
+        Assert.Contains("HelpMessage = \"Resource group to enumerate.\"", list);
+        Assert.Contains("Position = 0", list);
+        Assert.Contains("ValueFromPipeline = true", list);
+        Assert.Contains("ValueFromPipelineByPropertyName = true", list);
+        Assert.Contains("Aliases = new string[] { \"ResourceGroupName\" }", list);
+        Assert.Contains("[PSCompleter(\"Get-AzElasticSan\", ParameterSetName = \"ByResourceGroup\", Name = \"ResourceGroupCompleter\")]", list);
+        Assert.Contains("[PSDefaultValue(\"Get-AzElasticSan\", \"ByResourceGroup\", Script = \"$env:AZURE_RESOURCE_GROUP\"", list);
+        Assert.DoesNotContain("[PSParameter(\"Get-AzElasticSan\", \"ByResourceGroup\", \"SubscriptionId\"", list);
+        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"ByResourceGroup\", \"Accept\", Mandatory = true, Hidden = true)]", list);
+        Assert.DoesNotContain("IsIdentity", list);
+        Assert.DoesNotContain("PSIdentity", list);
+        Assert.DoesNotContain("PSModule", list);
+
         Assert.Contains("public partial class ListByResourceGroupElasticSansProcessor : ProcessorBase<object, ElasticSanList>", list);
         Assert.Contains("Method => HttpMethod.Get;", list);
         Assert.DoesNotContain("SendAsyncLRO", list);
-        // Selectors from IR response-body bindings (PascalCased) + the runtime helper override.
         Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
         Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
         Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);
         Assert.Contains("body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions)", list);
+    }
+
+    [Fact]
+    public async Task Emits_PowerShell_Metadata_On_Flat_Body_Parameters_But_Not_Body()
+    {
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_PS_Body_Metadata", ir =>
+        {
+            IRCommand command = ir.Commands.Single(command => command.Name == "CreateElasticSans");
+            command.Dialect = new IRCommandDialect
+            {
+                Ps = new PsCommandDialect
+                {
+                    Verb = "New",
+                    Noun = "AzElasticSan",
+                    DefaultParameterSet = "Create",
+                },
+            };
+            command.Parameters.Single(parameter => parameter.Name == "SkuName").Dialect =
+                new IRCommandParameterDialect
+                {
+                    Ps = new PsParameterDialect { Name = "Sku", Aliases = ["SkuName"] },
+                };
+        });
+
+        string create = writer.Files.Source(result, "CreateElasticSansProcessor");
+
+        Assert.Contains("[PSParameter(\"New-AzElasticSan\", \"Create\", \"Sku\", Mandatory = true", create);
+        Assert.Contains("Aliases = new string[] { \"SkuName\" }", create);
+        Assert.Contains("[PSParameter(\"New-AzElasticSan\", \"Create\", \"Location\", Mandatory = true", create);
+        Assert.DoesNotContain("[PSParameter(\"New-AzElasticSan\", \"Create\", \"Body\"", create);
+    }
+
+    [Fact]
+    public async Task Omits_PowerShell_Attributes_And_Using_When_Dialect_Is_Absent()
+    {
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_No_PS_Dialect");
+
+        string get = writer.Files.Source(result, "GetElasticSansProcessor");
+
+        Assert.DoesNotContain("using Core.Abstractions;", get);
+        Assert.DoesNotContain("[PS", get);
     }
 }
