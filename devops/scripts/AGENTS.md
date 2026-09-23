@@ -61,7 +61,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 ## Editing Rules for Agents
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).
-- Contributor PRs may rename `.csproj` files only when their direct release-owned version properties are unchanged. CI uses a 1% similarity threshold and rejects unmatched project delete/add combinations so version validation cannot be bypassed through Git's rename classification.
+- Contributor PRs may rename `.csproj` files only when their direct release-owned version properties are unchanged. CI uses a 1% similarity threshold and requires project additions and deletions to match one-to-one as renames, rejecting surplus paths so version validation cannot be bypassed through Git's rename classification.
 - Preserve encoding, line endings, and final-newline state when publishing scripts make version-only file updates.
 - Preserve env-var override points and script-relative path resolution.
 - Keep RID/output-root names aligned with `.azure-pipelines/templates/dist/variables/packaging.yml`.

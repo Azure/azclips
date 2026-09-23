@@ -119,7 +119,35 @@ class PullRequestFilePolicyTests(unittest.TestCase):
                 )
 
                 self.assertEqual(len(violations), 1)
-                self.assertIn("unless Git identifies them as renames", violations[0])
+                self.assertIn("matched one-to-one as Git renames", violations[0])
+
+    def test_rejects_surplus_project_additions_or_deletions_alongside_rename(self):
+        project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        cases = {
+            "surplus deletion": (
+                "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\nD\tsrc/Extra/Extra.csproj\n",
+                {"src/Old/Old.csproj", "src/Extra/Extra.csproj"},
+                {"src/New/New.csproj"},
+            ),
+            "surplus addition": (
+                "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\nA\tsrc/Extra/Extra.csproj\n",
+                {"src/Old/Old.csproj"},
+                {"src/New/New.csproj", "src/Extra/Extra.csproj"},
+            ),
+        }
+
+        for name, (diff_output, base_paths, head_paths) in cases.items():
+            with self.subTest(name=name):
+                changed_files, project_renames = parse_changed_files(diff_output)
+                violations = find_policy_violations(
+                    changed_files,
+                    lambda path: project if path in base_paths else None,
+                    lambda path: project if path in head_paths else None,
+                    project_renames=project_renames,
+                )
+
+                self.assertEqual(len(violations), 1)
+                self.assertIn("matched one-to-one as Git renames", violations[0])
 
     def test_rejects_project_renames_with_a_missing_side(self):
         project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
