@@ -266,6 +266,43 @@ public class RoleAssignmentCliTests
             sentUri!.AbsoluteUri);
     }
 
+    [Fact]
+    public async Task List_FollowsNextLink_AcrossPages()
+    {
+        var sentUris = new List<string>();
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUris.Add(request.RequestUri!.ToString());
+            return sentUris.Count switch
+            {
+                1 => JsonResponse("""
+                    {
+                      "value": [ { "name": "a1" }, { "name": "a2" } ],
+                      "nextLink": "https://management.azure.com/rolepage2"
+                    }
+                    """),
+                2 => JsonResponse("""
+                    {
+                      "value": [ { "name": "a3" }, { "name": "a4" } ],
+                      "nextLink": "https://management.azure.com/rolepage3"
+                    }
+                    """),
+                _ => JsonResponse("""{ "value": [ { "name": "a5" } ] }""")
+            };
+        });
+        ListRoleAssignmentProcessor processor = CreateProcessor(new ListRoleAssignmentProcessor(), pipeline, output);
+        processor.Scope = Scope;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(3, sentUris.Count);
+        Assert.Equal("https://management.azure.com/rolepage2", sentUris[1]);
+        Assert.Equal("https://management.azure.com/rolepage3", sentUris[2]);
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["a1", "a2", "a3", "a4", "a5"], assignments.Select(a => a.Name!).ToArray());
+    }
+
     private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;
