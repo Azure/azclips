@@ -15,13 +15,10 @@
  *     module, subject, and action) and written onto every sibling identically,
  *     since `PsCommandDialect.verb`/`.noun` is a family-level fact (see
  *     `dialect.ts`'s docs on `PsCommandDialect`).
- *   - **defaultParameterSet** -- stated only by the one sibling it names (the
- *     family member whose own parameters need the fewest required values, mirroring
- *     `CmdletCommonMetadataAttribute.DefaultParameterSetName`). `IRCommand`'s own
- *     validation checks a stated default set against *that command's own*
- *     parameter-set memberships (`command.ts`'s `superRefine`), so naming a
- *     sibling's set on a command whose parameters never join it would fail
- *     validation -- only the winning sibling ever states one.
+ *   - **defaultParameterSet** -- resolved from the family member whose own parameters
+ *     need the fewest required values, then written identically onto every sibling.
+ *     The transformed-document schema validates this family-level agreement and
+ *     resolves the named set across all siblings' memberships.
  *   - **supportsShouldProcess/confirmImpact** -- per command, from its own step's
  *     HTTP method.
  *   - **parameter-set membership** -- only stated when a family has more than one
@@ -111,12 +108,9 @@ function applyFamily(siblings: readonly IRCommand[], options: DeriveDialectOptio
   // family has one implicit set, and naming it would be noise no set declares.
   const winner = siblings.length > 1 ? defaultSiblingOf(siblings) : undefined;
   const multipleSets = siblings.length > 1;
-  // `IRCommand`'s own validation checks a stated default against *that command's
-  // own* parameter-set memberships, which `multipleSets` puts on every one of its
-  // parameters below -- but a command with no parameters at all (a bare `List`) has
-  // nothing to put membership on, so it can never validly name itself the default.
-  // Left unstated rather than invented; PowerShell falls back to the first declared
-  // set when none is marked default.
+  // A command with no parameters at all (a bare `List`) has no membership from which
+  // to declare its variant as a set. Leave the family default unstated rather than
+  // inventing a parameter solely to name it.
   const canStateDefault = winner !== undefined && winner.parameters.length > 0;
 
   for (const command of siblings) {
@@ -128,7 +122,7 @@ function applyFamily(siblings: readonly IRCommand[], options: DeriveDialectOptio
         ...command.dialect?.ps,
         verb,
         noun,
-        ...(command === winner && canStateDefault ? { defaultParameterSet: command.id.variant } : {}),
+        ...(canStateDefault ? { defaultParameterSet: winner.id.variant } : {}),
         ...(mutating ? { supportsShouldProcess: true, confirmImpact: "Medium" } : {}),
         ...(command.access === "internal" ? { hidden: true } : {}),
       },

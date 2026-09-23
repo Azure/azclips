@@ -101,7 +101,7 @@ describe("deriveDialect", () => {
     expect(new Set(ps.map((p) => p?.noun)).size).toBe(1);
   });
 
-  it("names the default parameter set only on the sibling with the fewest required parameters", () => {
+  it("names one family default on every sibling", () => {
     const top = { id: id("list.top"), name: "top", wireName: "top", type: { kind: "primitive", name: "int32" }, optional: true, nullable: false };
     const list = operation({ id: id("list", "Widgets"), name: "list", queryParameters: [top] });
     const listByResourceGroup = operation({
@@ -115,10 +115,7 @@ describe("deriveDialect", () => {
 
     const byVariant = new Map(out.commands.map((c) => [c.id.variant, c]));
     expect(byVariant.get("List")!.dialect?.ps?.defaultParameterSet).toBe("List");
-    expect(byVariant.get("ByResourceGroup")!.dialect?.ps?.defaultParameterSet).toBeUndefined();
-
-    // The winning sibling names a set only its own parameters declare membership in,
-    // so the document must still validate.
+    expect(byVariant.get("ByResourceGroup")!.dialect?.ps?.defaultParameterSet).toBe("List");
     expect(() => parseTransformedIR(out)).not.toThrow();
   });
 
