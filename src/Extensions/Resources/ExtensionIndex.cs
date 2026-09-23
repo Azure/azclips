@@ -100,6 +100,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listRoleAssignment_PS = new(
+            Name: "ListRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "Get-AzRoleAssignment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]             = new("Scope", "Scope", typeof(string), "Fully qualified scope to list role assignments at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "List role assignments scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ObjectId"]          = new("AssigneeObjectId", "ObjectId", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "New-AzResourceGroupDeployment",
@@ -381,6 +397,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Remove-AzResourceGroup"]   = s_removeResourceGroup_PS,
             ["Get-AzResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
+            ["Get-AzRoleAssignment"]     = s_listRoleAssignment_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,

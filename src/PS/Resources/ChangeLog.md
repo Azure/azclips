@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `Get-AzRoleAssignment` to list Azure RBAC role assignments at a subscription, resource group, or scope
+    - Supports `-Scope`, `-ResourceGroupName`, `-SubscriptionId`, and `-ObjectId` (principal object ID); name/UPN/service-principal and role-name filtering are not yet supported
 
 ## Version 0.1.0
 
