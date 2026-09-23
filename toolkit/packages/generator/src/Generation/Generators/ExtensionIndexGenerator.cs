@@ -11,18 +11,14 @@ namespace Ace.Generator.Generators;
 
 /// <summary>
 /// Emits the extension's <c>ExtensionIndex</c> — the command table the engine dispatches through —
-/// from the PowerShell surface on <see cref="IRDocument.Ps"/>.
+/// from the PowerShell dialects on <see cref="TransformedIR.Commands"/>.
 /// </summary>
 /// <remarks>
-/// One <c>CommandMetadata</c> per <em>parameter set</em>, not per command. A
-/// <c>PSCommandAttribute</c> holds every variant of a cmdlet at once, but the engine dispatches to
-/// one processor per invocation, so each set becomes its own table entry bound to the processor for
-/// its source operation. Entries are suffixed <c>Verb-Noun_Set</c> only when the cmdlet has more
-/// than one set, matching the hand-written indexes (<c>Get-AzVM_Get</c> / <c>Get-AzVM_List</c>, but
-/// a bare <c>New-AzVM</c>).
+/// Each canonical command is already one dispatch unit and maps directly to its generated
+/// <c>{Command.Name}Processor</c>. Commands sharing a PowerShell verb-noun are suffixed with their
+/// canonical variant so every runtime key remains unique.
 /// <para>
-/// The CLI table is emitted empty: that surface arrives with <c>IR.cli</c>, and an empty table is
-/// truthful about a PowerShell-only extension where throwing would not be.
+/// The CLI table is emitted empty until canonical CLI dialect generation is implemented.
 /// </para>
 /// </remarks>
 internal sealed class ExtensionIndexGenerator : IArtifactGenerator
@@ -33,53 +29,49 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        PS? ps = context.Ir.Ps;
-        if (ps is null || ps.Commands.Count == 0)
+        List<IRCommand> commands = [.. context.Ir.Commands
+            .Where(command => command.Dialect?.Ps is { Hidden: not true })];
+        if (commands.Count == 0)
         {
             yield break;
         }
 
-        var operations = new Dictionary<string, IROperation>(StringComparer.Ordinal);
-        foreach (IROperation operation in context.Ir.Operations)
-        {
-            if (operation.Id is not null)
-            {
-                operations[IrIds.Serialize(operation.Id)] = operation;
-            }
-        }
+        Dictionary<string, int> invocationBaseCounts = commands
+            .GroupBy(InvocationBase, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
 
         var entries = new List<Entry>();
-        foreach (PSCommandAttribute command in ps.Commands)
+        var invocationOwners = new Dictionary<string, IRCommand>(StringComparer.OrdinalIgnoreCase);
+        bool hasCollision = false;
+        foreach (IRCommand command in commands)
         {
-            if (command.Hidden == true)
+            string invocationBase = InvocationBase(command);
+            string invocationName = invocationBaseCounts[invocationBase] > 1
+                ? $"{invocationBase}_{command.Id.Variant}"
+                : invocationBase;
+
+            if (!invocationOwners.TryAdd(invocationName, command))
             {
+                IRCommand owner = invocationOwners[invocationName];
+                context.Report(
+                    Model.DiagnosticSeverity.Error,
+                    "ace-generator/duplicate-command-invocation",
+                    $"Commands '{owner.Name}' and '{command.Name}' both map to PowerShell invocation "
+                        + $"'{invocationName}'. Give the sibling commands distinct canonical variants.");
+                hasCollision = true;
                 continue;
             }
 
-            foreach (PSParameterSetAttribute set in command.ParameterSets)
-            {
-                if (!operations.TryGetValue(IrIds.Serialize(set.SourceOperationId), out IROperation? operation))
-                {
-                    context.Report(
-                        Model.DiagnosticSeverity.Warning,
-                        "ace-generator/unresolved-source-operation",
-                        $"Parameter set '{set.Name}' of '{command.Verb}-{command.Noun}' names source operation "
-                            + $"'{set.SourceOperationId.Name}', which is not in the document; the set was skipped.");
-                    continue;
-                }
-
-                entries.Add(
-                    new Entry(
-                        InvocationName: command.ParameterSets.Count > 1
-                            ? $"{command.Verb}-{command.Noun}_{set.Name}"
-                            : $"{command.Verb}-{command.Noun}",
-                        ProcessorType: ProcessorNaming.TypeName(operation),
-                        Aliases: command.Alias ?? [],
-                        Parameters: ParametersFor(command, set.Name, TypeIndex(context.Ir), EnumIndex(context.Ir))));
-            }
+            PsCommandDialect ps = command.Dialect!.Ps!;
+            entries.Add(
+                new Entry(
+                    InvocationName: invocationName,
+                    ProcessorType: command.Name + "Processor",
+                    Aliases: ps.Aliases ?? [],
+                    Parameters: ParametersFor(command, context.Index)));
         }
 
-        if (entries.Count == 0)
+        if (hasCollision || entries.Count == 0)
         {
             yield break;
         }
@@ -111,123 +103,70 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         }
     }
 
-    /// <summary>Every id a PS parameter can name, mapped to the IR type it binds.</summary>
-    private static Dictionary<string, IRTypeRef> TypeIndex(IRDocument ir)
-    {
-        var index = new Dictionary<string, IRTypeRef>(StringComparer.Ordinal);
-
-        foreach (IROperation operation in ir.Operations)
-        {
-            foreach (IRParameter parameter in operation.PathParameters
-                .Concat(operation.QueryParameters)
-                .Concat(operation.HeaderParameters))
-            {
-                if (parameter.Id is not null && parameter.Type is not null)
-                {
-                    index[IrIds.Serialize(parameter.Id)] = parameter.Type;
-                }
-            }
-        }
-
-        foreach (IRModel model in ir.Models)
-        {
-            foreach (IRProperty property in model.Properties)
-            {
-                if (property.Id is not null && TypeRefOf(property) is { } type)
-                {
-                    index[IrIds.Serialize(property.Id)] = type;
-                }
-            }
-        }
-
-        return index;
-    }
-
-    /// <summary>Enum members by enum id, for the <c>AllowedValues</c> of a parameter that names one.</summary>
-    private static Dictionary<string, string[]> EnumIndex(IRDocument ir)
-    {
-        var index = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        foreach (IREnum @enum in ir.Enums)
-        {
-            if (@enum.Id is not null)
-            {
-                index[IrIds.Serialize(@enum.Id)] = [.. @enum.Members.Select(m => m.Value?.ToString() ?? m.Name)];
-            }
-        }
-        return index;
-    }
-
-    private static IRTypeRef? TypeRefOf(IRProperty property) => property switch
-    {
-        IRPropertyPrimitive p => p.Type,
-        IRPropertyObject p => p.Type,
-        IRPropertyCollection p => p.Type,
-        IRPropertyEnum p => p.Type,
-        IRPropertyUnion p => p.Type,
-        _ => null,
-    };
+    private static string InvocationBase(IRCommand command) =>
+        $"{command.Dialect!.Ps!.Verb}-{command.Dialect.Ps.Noun}";
 
     /// <summary>
     /// The C# type a parameter binds as. Enums render as <c>string</c> with their members carried
     /// on <c>AllowedValues</c> — the shape the hand-written indexes use, and the only one that
     /// compiles while the model stage does not emit enum types.
     /// </summary>
-    private static string Render(IRTypeRef type) => type switch
+    private static string Render(IRTypeRef type, IrIndex index) => type switch
     {
         IRTypeRefEnum => "string",
-        IRTypeRefArray a => $"IList<{Render(a.Element)}>",
-        IRTypeRefDictionary d => $"IDictionary<string, {Render(d.Value)}>",
-        _ => IrTypeMapper.ToCSharp(type),
+        IRTypeRefArray a => $"IList<{Render(a.Element, index)}>",
+        IRTypeRefDictionary d => $"IDictionary<string, {Render(d.Value, index)}>",
+        _ => IrTypeMapper.ToCSharp(type, index),
     };
 
-    /// <summary>The parameters that take part in <paramref name="setName"/>, with per-set overrides applied.</summary>
+    /// <summary>The canonical command parameters with their PowerShell presentation applied.</summary>
+    /// <remarks>
+    /// Hidden parameters remain in metadata because generated processors still consume them; omitting one
+    /// would prevent runtime binding rather than merely hiding it from help.
+    /// </remarks>
     private static IReadOnlyList<Parameter> ParametersFor(
-        PSCommandAttribute command,
-        string setName,
-        IReadOnlyDictionary<string, IRTypeRef> types,
-        IReadOnlyDictionary<string, string[]> enums)
+        IRCommand command,
+        IrIndex index)
     {
         var parameters = new List<Parameter>();
 
-        foreach (PSParameterAttribute parameter in command.Parameters)
+        foreach (IRCommandParameter parameter in command.Parameters)
         {
-            PSParameterSetOverride? over = null;
-            if (parameter.ParameterSets is { } map)
-            {
-                if (!map.TryGetValue(setName, out over))
-                {
-                    continue;
-                }
-            }
-            else if (parameter.ParameterSetName is { } only && only != setName)
-            {
-                continue;
-            }
-
-            // An identity parameter binds the module identity type, which nothing emits yet.
-            IRTypeRef? type = parameter.Identity == true || parameter.SourceParameterId is null
-                ? null
-                : types.TryGetValue(IrIds.Serialize(parameter.SourceParameterId), out IRTypeRef? found)
-                    ? found
-                    : null;
-
-            string[] allowed = type is IRTypeRefEnum e
-                && e.Id is not null
-                && enums.TryGetValue(IrIds.Serialize(e.Id), out string[]? members)
-                    ? members
+            PsParameterDialect? ps = parameter.Dialect?.Ps;
+            PsParameterSetMembership? membership = MembershipFor(ps, command.Id.Variant);
+            string[] allowed = parameter.Type is IRTypeRefEnum e
+                && index.Enum(e.Id) is { } declared
+                    ? [.. declared.Members.Select(member => member.Value?.ToString() ?? member.Name)]
                     : [];
 
             parameters.Add(
                 new Parameter(
                     Name: parameter.Name,
-                    Type: type is null ? "object" : Render(type),
-                    Help: over?.HelpMessage ?? parameter.HelpMessage ?? string.Empty,
-                    Required: over?.Mandatory ?? parameter.Mandatory ?? false,
-                    Aliases: parameter.Alias ?? [],
+                    InvocationName: ps?.Name ?? parameter.Name,
+                    Type: Render(parameter.Type, index),
+                    Help: ps?.Description ?? parameter.Docs ?? parameter.Summary ?? string.Empty,
+                    Required: membership?.Mandatory ?? parameter.Required,
+                    Aliases: ps?.Aliases ?? [],
                     AllowedValues: allowed));
         }
 
         return parameters;
+    }
+
+    private static PsParameterSetMembership? MembershipFor(PsParameterDialect? dialect, string? variant)
+    {
+        IReadOnlyList<PsParameterSetMembership>? memberships = dialect?.ParameterSets;
+        if (memberships is null)
+        {
+            return null;
+        }
+
+        PsParameterSetMembership? matchingVariant = variant is null
+            ? null
+            : memberships.FirstOrDefault(membership =>
+                string.Equals(membership.Set, variant, StringComparison.Ordinal));
+        return matchingVariant
+            ?? memberships.FirstOrDefault(membership => string.IsNullOrEmpty(membership.Set));
     }
 
     /// <summary>
@@ -323,7 +262,7 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
 
     /// <summary>
     /// The PowerShell surface: the partial that fills the PowerShell table, one entry per
-    /// parameter set. The class and the hook are composed structurally; the table itself is the
+    /// canonical command. The class and the hook are composed structurally; the table itself is the
     /// method's implementation, so it is authored as a body — the same split the other generators use.
     /// </summary>
     private static string EmitPowerShell(GeneratorOptions options, IReadOnlyList<Entry> entries)
@@ -370,7 +309,7 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
             foreach (Parameter parameter in entry.Parameters)
             {
                 body.AppendLine(
-                    $"{Item}[{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
+                    $"{Item}[{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.InvocationName)}, "
                         + $"typeof({parameter.Type}), {Literal(parameter.Help)}, "
                         + $"IsRequired: {(parameter.Required ? "true" : "false")}, "
                         + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], "
@@ -417,6 +356,7 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
 
     private sealed record Parameter(
         string Name,
+        string InvocationName,
         string Type,
         string Help,
         bool Required,

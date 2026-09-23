@@ -89,7 +89,11 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                     "multipart request serialization and response deserialization require customization.");
             }
 
-            string typeName = command.Name + "Processor";`r`n            yield return new GeneratedFile(`r`n                context.Placement.ProcessorFile(typeName),`r`n                Emit(context, ns, modelsNamespace, typeName, command, step, server),`r`n                typeName);
+            string typeName = command.Name + "Processor";
+            yield return new GeneratedFile(
+                context.Placement.ProcessorFile(typeName),
+                Emit(context, ns, modelsNamespace, typeName, command, step, server),
+                typeName);
         }
     }
 
@@ -126,7 +130,6 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return match.Endpoint;
     }
 
-<<<<<<< HEAD
     private static string Emit(
         GenerationContext context,
         string @namespace,
@@ -140,12 +143,6 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         // define differently from what any one step puts on the wire.
         string requestType = TypeOr(command.Surface?.Request, "object", context.Index);
         string responseType = TypeOr(command.Surface?.Response, "object", context.Index);
-=======
-    private static string Emit(GenerationContext context, string @namespace, string modelsNamespace, string className, IROperation operation, IRServer server)
-    {
-        string responseType = ResponseType(operation);
-        string requestType = RequestType(operation) ?? "object";
->>>>>>> 236f86929 ([Cirrus Codegen] Generator: Emit the ExtensionIndex command table from the PowerShell surface)
 
         var members = new List<MemberDeclarationSyntax>();
 

@@ -1,246 +1,264 @@
-using System.Text.Json;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace Ace.Generator.Tests;
 
 /// <summary>
-/// Emits the extension index from the real ElasticSan PowerShell surface
-/// (<c>TestData/elasticsan.ps.json</c>, produced by the `ps.derive` transform over
-/// <c>elasticsan.ir.json</c>) and checks the table it produces. Output lands in
-/// <c>artifacts/ElasticSan_ExtensionIndex/</c> for eyeballing.
+/// Emits the extension index from canonical ElasticSan commands. The committed fixture is emitter
+/// output, so each test adds a controlled PowerShell dialect in memory just as a transform would.
 /// </summary>
 public sealed class ExtensionIndexTests
 {
     private static readonly string IrPath = Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ir.json");
-    private static readonly string PsPath = Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ps.json");
 
-    /// <summary>
-    /// The PS surface is kept beside the IR rather than inside it: the committed IR is emitter
-    /// output, and the surface is what a transform adds later in the pipeline.
-    /// </summary>
-    private static IRDocument LoadIr()
+    private static TransformedIR LoadIr(bool annotatePowerShell = true)
     {
-        IRDocument ir = IrJson.Deserialize(File.ReadAllText(IrPath));
-        ir.Ps = JsonSerializer.Deserialize<PS>(File.ReadAllText(PsPath), IrJson.Options);
+        TransformedIR ir = IrJson.Deserialize(File.ReadAllText(IrPath));
+        if (annotatePowerShell)
+        {
+            foreach (IRCommand command in ir.Commands)
+            {
+                command.Dialect = new IRCommandDialect
+                {
+                    Ps = new PsCommandDialect
+                    {
+                        Verb = command.Id.Action,
+                        Noun = command.Id.Subject,
+                    },
+                };
+            }
+        }
+
         return ir;
     }
 
-    private static async Task<ArtifactWriter> EmitAsync(string scenario, IRDocument ir)
+    private static async Task<(ArtifactWriter Writer, GenerationResult Result)> EmitAsync(
+        string scenario,
+        TransformedIR ir)
     {
         var writer = new ArtifactWriter(scenario);
-        await new CSharpClientGenerator().GenerateAsync(
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
             new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
             writer.WriteAsync);
-        return writer;
+        return (writer, result);
     }
 
     [Fact]
-    public async Task Emits_One_Table_Entry_Per_Parameter_Set()
+    public async Task Emits_One_Table_Entry_Per_Visible_Canonical_Command()
     {
-        IRDocument ir = LoadIr();
-        int sets = ir.Ps!.Commands.Where(c => c.Hidden != true).Sum(c => c.ParameterSets.Count);
+        TransformedIR ir = LoadIr();
+        int visible = ir.Commands.Count(command => command.Dialect?.Ps is { Hidden: not true });
 
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex", ir);
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex", ir);
         string index = writer.Files["ExtensionIndex.Ps.cs"];
 
-        Assert.Equal(sets, index.Split("InvocationName:").Length - 1);
+        Assert.Equal(visible, index.Split("InvocationName:").Length - 1);
     }
 
     [Fact]
-    public async Task Emitted_Index_Is_Parseable()
+    public async Task Suffixes_Only_Sibling_Invocation_Bases_With_The_Canonical_Variant()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Parse", LoadIr());
+        TransformedIR ir = LoadIr();
+        Dictionary<string, int> counts = ir.Commands
+            .GroupBy(command => $"{command.Dialect!.Ps!.Verb}-{command.Dialect.Ps.Noun}", StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
 
-        var tree = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.Ps.cs"]);
-        Assert.DoesNotContain(
-            tree.GetDiagnostics(),
-            d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
-    }
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Names", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
-    /// <summary>
-    /// Parsing cannot see an unresolved name, so every type the table names must be one that
-    /// exists: a BCL type, or a type the generator itself emitted.
-    /// </summary>
-    [Fact]
-    public async Task Every_Type_The_Table_Names_Exists()
-    {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Types", LoadIr());
-
-        HashSet<string> emitted = [.. writer.Files.Keys
-            .Where(k => k.EndsWith(".cs", StringComparison.Ordinal))
-            .Select(k => Path.GetFileName(k)[..^".cs".Length])];
-
-        var root = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.Ps.cs"]).GetRoot();
-        var unresolved = new List<string>();
-
-        foreach (TypeOfExpressionSyntax typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+        foreach (IRCommand command in ir.Commands)
         {
-            foreach (string name in NamesIn(typeOf.Type))
-            {
-                if (!Bcl.Contains(name) && !emitted.Contains(name))
-                {
-                    unresolved.Add(name);
-                }
-            }
+            string invocationBase = $"{command.Dialect!.Ps!.Verb}-{command.Dialect.Ps.Noun}";
+            string expected = counts[invocationBase] > 1
+                ? $"{invocationBase}_{command.Id.Variant}"
+                : invocationBase;
+            Assert.Contains($"InvocationName: \"{expected}\"", index);
         }
 
-        Assert.Empty(unresolved);
-    }
-
-    private static readonly HashSet<string> Bcl =
-    [
-        "string", "bool", "sbyte", "short", "int", "long", "byte", "ushort", "uint", "ulong",
-        "float", "double", "decimal", "object", "IList", "IDictionary",
-    ];
-
-    /// <summary>The type names a `typeof(...)` depends on, ignoring namespace qualifiers.</summary>
-    private static IEnumerable<string> NamesIn(TypeSyntax type)
-    {
-        switch (type)
-        {
-            case QualifiedNameSyntax qualified:
-                foreach (string name in NamesIn(qualified.Right)) yield return name;
-                break;
-            case GenericNameSyntax generic:
-                yield return generic.Identifier.Text;
-                foreach (TypeSyntax argument in generic.TypeArgumentList.Arguments)
-                {
-                    foreach (string name in NamesIn(argument)) yield return name;
-                }
-                break;
-            case ArrayTypeSyntax array:
-                foreach (string name in NamesIn(array.ElementType)) yield return name;
-                break;
-            case PredefinedTypeSyntax predefined:
-                yield return predefined.Keyword.Text;
-                break;
-            case IdentifierNameSyntax identifier:
-                yield return identifier.Identifier.Text;
-                break;
-        }
+        Assert.Contains("InvocationName: \"List-ElasticSans_ByResourceGroup\"", index);
+        Assert.Contains("InvocationName: \"List-ElasticSans_BySubscription\"", index);
     }
 
     [Fact]
-    public async Task Renders_An_Enum_Parameter_As_A_String_With_Its_Members_Allowed()
+    public async Task Every_Visible_Command_Uses_Its_Canonical_Processor()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Enums", LoadIr());
+        TransformedIR ir = LoadIr();
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Processors", ir);
         string index = writer.Files["ExtensionIndex.Ps.cs"];
 
-        Assert.Contains("AllowedValues: [\"Enabled\", \"Disabled\"]", index);
-        // The enum's own type name must not survive: the model stage emits no enum types.
-        Assert.DoesNotContain("typeof(PublicNetworkAccess)", index);
-    }
-
-    [Fact]
-    public async Task Suffixes_The_Invocation_Name_Only_When_A_Cmdlet_Has_Several_Sets()
-    {
-        IRDocument ir = LoadIr();
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Names", ir);
-        string index = writer.Files["ExtensionIndex.Ps.cs"];
-
-        foreach (PSCommandAttribute command in ir.Ps!.Commands.Where(c => c.Hidden != true))
+        foreach (IRCommand command in ir.Commands.Where(command => command.Dialect?.Ps is { Hidden: not true }))
         {
-            string bare = $"{command.Verb}-{command.Noun}";
-            if (command.ParameterSets.Count == 1)
-            {
-                Assert.Contains($"InvocationName: \"{bare}\"", index);
-            }
-            else
-            {
-                foreach (PSParameterSetAttribute set in command.ParameterSets)
-                {
-                    Assert.Contains($"InvocationName: \"{bare}_{set.Name}\"", index);
-                }
-            }
-        }
-    }
-
-    [Fact]
-    public async Task Binds_Each_Set_To_The_Processor_For_Its_Source_Operation()
-    {
-        IRDocument ir = LoadIr();
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Processors", ir);
-        string index = writer.Files["ExtensionIndex.Ps.cs"];
-
-        // Every processor the index names must be a file the processor stage actually emitted.
-        foreach (string line in index.Split('\n').Where(l => l.Contains("ProcessorType: typeof(", StringComparison.Ordinal)))
-        {
-            string typeName = line.Split("typeof(Processors.")[1].Split(')')[0];
+            string processor = command.Name + "Processor";
+            Assert.Contains($"ProcessorType: typeof(Processors.{processor})", index);
             Assert.True(
-                writer.Files.ContainsKey($"Processors/{typeName}.cs"),
-                $"index references {typeName}, which the processor stage did not emit");
+                writer.Files.ContainsKey($"Processors/{processor}.cs"),
+                $"index references {processor}, which the processor stage did not emit");
         }
     }
 
     [Fact]
-    public async Task Emits_No_Index_When_The_Document_Carries_No_PowerShell_Surface()
+    public async Task Emits_No_Index_When_Commands_Have_No_PowerShell_Dialect()
     {
-        IRDocument ir = IrJson.Deserialize(File.ReadAllText(IrPath));
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Absent", ir);
+        (ArtifactWriter writer, _) = await EmitAsync(
+            "ElasticSan_ExtensionIndex_Absent",
+            LoadIr(annotatePowerShell: false));
 
         Assert.DoesNotContain("ExtensionIndex.cs", writer.Files.Keys);
         Assert.DoesNotContain("ExtensionIndex.Ps.cs", writer.Files.Keys);
     }
 
-    /// <summary>
-    /// The surfaces are generated independently, so the core must not name any one of them: it
-    /// declares a hook per surface and each partial fills its own table.
-    /// </summary>
     [Fact]
-    public async Task Splits_The_Core_From_The_Surface_So_Each_Can_Be_Generated_Alone()
+    public async Task Omits_A_Dialect_Hidden_Command()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Partial", LoadIr());
+        TransformedIR ir = LoadIr();
+        IRCommand hidden = ir.Commands[0];
+        hidden.Dialect!.Ps!.Hidden = true;
 
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Hidden", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.DoesNotContain($"Name: \"{hidden.Name}Processor\"", index);
+    }
+
+    [Fact]
+    public async Task Uses_Parameter_Dialect_And_Variant_Membership_With_Canonical_Fallbacks()
+    {
+        TransformedIR ir = LoadIr();
+        IRCommand command = ir.Commands.First(candidate => candidate.Parameters.Count >= 3 && candidate.Id.Variant is not null);
+        IRCommandParameter variantParameter = command.Parameters[0];
+        IRCommandParameter unnamedParameter = command.Parameters[1];
+        IRCommandParameter canonicalParameter = command.Parameters[2];
+
+        variantParameter.Required = true;
+        variantParameter.Docs = "Canonical docs ignored";
+        variantParameter.Dialect = new IRCommandParameterDialect
+        {
+            Ps = new PsParameterDialect
+            {
+                Name = "DisplayName",
+                Aliases = ["AliasOne", "AliasTwo"],
+                Hidden = true,
+                Description = "PowerShell help",
+                ParameterSets =
+                [
+                    new PsParameterSetMembership { Set = null, Mandatory = true },
+                    new PsParameterSetMembership { Set = command.Id.Variant, Mandatory = false },
+                ],
+            },
+        };
+
+        unnamedParameter.Required = false;
+        unnamedParameter.Docs = "Canonical docs help";
+        unnamedParameter.Dialect = new IRCommandParameterDialect
+        {
+            Ps = new PsParameterDialect
+            {
+                ParameterSets = [new PsParameterSetMembership { Set = null, Mandatory = true }],
+            },
+        };
+
+        canonicalParameter.Required = true;
+        canonicalParameter.Docs = null;
+        canonicalParameter.Summary = "Canonical summary help";
+        canonicalParameter.Dialect = null;
+
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Parameters", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.Contains(
+            $"[{Quote(variantParameter.Name)}] = new({Quote(variantParameter.Name)}, \"DisplayName\", "
+                + $"typeof({RenderedType(index, variantParameter.Name)}), \"PowerShell help\", IsRequired: false, "
+                + "Aliases: [\"AliasOne\", \"AliasTwo\"]",
+            index);
+        Assert.Contains(
+            $"[{Quote(unnamedParameter.Name)}] = new({Quote(unnamedParameter.Name)}, {Quote(unnamedParameter.Name)}, "
+                + $"typeof({RenderedType(index, unnamedParameter.Name)}), \"Canonical docs help\", IsRequired: true",
+            index);
+        Assert.Contains(
+            $"[{Quote(canonicalParameter.Name)}] = new({Quote(canonicalParameter.Name)}, {Quote(canonicalParameter.Name)}, "
+                + $"typeof({RenderedType(index, canonicalParameter.Name)}), \"Canonical summary help\", IsRequired: true",
+            index);
+        Assert.Contains($"[\"AliasOne\"] = {Quote(variantParameter.Name)}", index);
+        Assert.Contains($"[\"AliasTwo\"] = {Quote(variantParameter.Name)}", index);
+    }
+
+    [Fact]
+    public async Task Renders_Enum_Parameters_As_Strings_With_Document_Enum_Members()
+    {
+        TransformedIR ir = LoadIr();
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Enums", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.Contains("AllowedValues: [\"Enabled\", \"Disabled\"]", index);
+        Assert.DoesNotContain("typeof(PublicNetworkAccess)", index);
+    }
+
+    [Fact]
+    public async Task Emitted_Index_Files_Are_Parseable()
+    {
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Parse", LoadIr());
+
+        foreach (string path in new[] { "ExtensionIndex.cs", "ExtensionIndex.Ps.cs" })
+        {
+            var tree = CSharpSyntaxTree.ParseText(writer.Files[path]);
+            Assert.DoesNotContain(
+                tree.GetDiagnostics(),
+                diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+        }
+    }
+
+    [Fact]
+    public async Task Splits_Core_From_Surface_And_Claims_The_Class_Once()
+    {
+        (ArtifactWriter writer, GenerationResult result) = await EmitAsync(
+            "ElasticSan_ExtensionIndex_Partial",
+            LoadIr());
         string core = writer.Files["ExtensionIndex.cs"];
         string ps = writer.Files["ExtensionIndex.Ps.cs"];
 
         Assert.Contains("public partial class ExtensionIndex : IExtensionIndex", core);
         Assert.Contains("static partial void AddPowerShellCommands", core);
         Assert.Contains("static partial void AddCliCommands", core);
-        // No command data in the core, and no interface/lookup surface in the partial.
         Assert.DoesNotContain("InvocationName:", core);
         Assert.DoesNotContain("IExtensionIndex", ps);
         Assert.DoesNotContain("GetCommandTable", ps);
+        Assert.Equal("ExtensionIndex.cs", result.GeneratedClasses["ExtensionIndex"]);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "ace-generator/duplicate-class");
     }
 
     [Fact]
-    public async Task Omits_A_Hidden_Command_From_The_Table()
+    public async Task Diagnoses_A_Remaining_Runtime_Key_Collision()
     {
-        IRDocument ir = LoadIr();
-        PSCommandAttribute hidden = ir.Ps!.Commands[0];
-        hidden.Hidden = true;
+        TransformedIR ir = LoadIr();
+        IRCommand first = ir.Commands[0];
+        IRCommand second = ir.Commands[1];
+        first.Dialect!.Ps = new PsCommandDialect { Verb = "Get", Noun = "Collision" };
+        second.Dialect!.Ps = new PsCommandDialect { Verb = "Get", Noun = "Collision" };
+        first.Id.Variant = "Same";
+        second.Id.Variant = "Same";
 
-        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Hidden", ir);
-        string index = writer.Files["ExtensionIndex.Ps.cs"];
-
-        Assert.DoesNotContain($"\"{hidden.Verb}-{hidden.Noun}\"", index);
-        Assert.DoesNotContain($"\"{hidden.Verb}-{hidden.Noun}_", index);
-    }
-
-    [Fact]
-    public async Task Reports_A_Set_Whose_Source_Operation_Is_Missing_Instead_Of_Emitting_A_Dangling_Reference()
-    {
-        IRDocument ir = LoadIr();
-        ir.Ps!.Commands[0].ParameterSets[0].SourceOperationId = new IRId
-        {
-            Module = "nope",
-            Namespace = ["Nope"],
-            Name = "nope",
-        };
-
-        var writer = new ArtifactWriter("ElasticSan_ExtensionIndex_Unresolved");
-        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir,
-            new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
-            writer.WriteAsync);
+        (ArtifactWriter writer, GenerationResult result) = await EmitAsync(
+            "ElasticSan_ExtensionIndex_Collision",
+            ir);
 
         Assert.Contains(
             result.Diagnostics,
-            d => d.Code == "ace-generator/unresolved-source-operation");
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error
+                && diagnostic.Code == "ace-generator/duplicate-command-invocation"
+                && diagnostic.Message.Contains("Get-Collision_Same", StringComparison.Ordinal));
+        Assert.DoesNotContain("ExtensionIndex.cs", writer.Files.Keys);
+        Assert.DoesNotContain("ExtensionIndex.Ps.cs", writer.Files.Keys);
+    }
+
+    private static string Quote(string value) => $"\"{value}\"";
+
+    private static string RenderedType(string index, string parameterName)
+    {
+        string marker = $"[{Quote(parameterName)}] = new(";
+        string entry = index[index.IndexOf(marker, StringComparison.Ordinal)..];
+        return entry.Split("typeof(", 2, StringSplitOptions.None)[1].Split(')', 2)[0];
     }
 }
