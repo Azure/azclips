@@ -8,7 +8,8 @@
 # - commit-message.prefix sets the start of the commit message and PR title. The
 #   trailing space in the prefix stops Dependabot from inserting a ":" after it, so
 #   titles read like "{Packaging} bump <dep> from x to y" and satisfy the check.
-# - Each ecosystem checks weekly for major, minor, and patch version updates.
+# - Each ecosystem checks weekly for minor and patch version updates. Routine
+#   major updates are ignored so engineers can opt in to breaking changes.
 # - open-pull-requests-limit bounds the number of concurrent version-update PRs.
 #   Security-update PRs are not subject to this limit.
 # - Routine npm and NuGet updates for the same dependency are grouped across
@@ -19,23 +20,20 @@ updates:
     directories:
       - "/toolkit"
       - "/toolkit/packages/*"
+      - "/wiki"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      toolkit-dependencies:
+      npm-dependencies:
         applies-to: "version-updates"
         patterns:
           - "*"
         group-by: "dependency-name"
-    commit-message:
-      prefix: "{Packaging} "
-
-  - package-ecosystem: "npm"
-    directory: "/wiki"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{Packaging} "
 
@@ -51,6 +49,10 @@ updates:
         patterns:
           - "*"
         group-by: "dependency-name"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{Packaging} "
 
@@ -59,6 +61,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{Packaging} "
 
@@ -67,5 +73,9 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{DevOps} "
