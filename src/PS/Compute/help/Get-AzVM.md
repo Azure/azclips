@@ -42,7 +42,9 @@ Get-AzVM [-Id] <string> [-SubscriptionId <string>] [-UserData] [-Profile <string
 
 ## DESCRIPTION
 
-Retrieves the properties of a single virtual machine identified by name within the specified resource group and subscription.
+Retrieves details of virtual machines in a subscription.
+Supply `-ResourceGroupName` together with `-Name` to retrieve a single virtual machine, or `-ResourceGroupName` alone to list every virtual machine in that resource group.
+Alternatively, address a single virtual machine directly by its ARM resource ID with `-Id`.
 
 ## EXAMPLES
 
@@ -239,7 +241,7 @@ You can pipe a virtual machine resource ID to this cmdlet by property name.
 
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
-One `VirtualMachine` object per matching VM — a single result when `-Name` is supplied (Get mode), an array of results otherwise (List mode). Each includes the ARM resource ID, provisioning state, VM size, and network configuration.
+One `VirtualMachine` object per matching VM — a single result when `-Name` is supplied (Get mode), and an array of results in List mode or when addressing by `-Id` (Id mode). Each includes the ARM resource ID, provisioning state, VM size, and network configuration.
 
 ## NOTES
 

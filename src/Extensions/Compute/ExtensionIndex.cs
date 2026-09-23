@@ -276,8 +276,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]   = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]              = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]              = new("Name", "name", typeof(string), "The name of the virtual machine. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ids"]               = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["include-user-data"] = new("IncludeUserData", "include-user-data", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
                 ["show-details"]      = new("ShowDetails", "show-details", typeof(bool), "Show public ip address, FQDN, and power states. Command will run slow.", IsRequired: false, Aliases: ["d"], AllowedValues: []),

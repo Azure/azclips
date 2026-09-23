@@ -523,7 +523,7 @@
       {
         "name": "--name",
         "required": false,
-        "short_summary": "The name of the virtual machine.",
+        "short_summary": "The name of the virtual machine. Provide either --ids or --name and --resource-group.",
         "long_summary": ""
       },
       {
@@ -535,7 +535,7 @@
       {
         "name": "--resource-group",
         "required": false,
-        "short_summary": "The resource group name.",
+        "short_summary": "The resource group name. Provide either --ids or --name and --resource-group.",
         "long_summary": ""
       },
       {
