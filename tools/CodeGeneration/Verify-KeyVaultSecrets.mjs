@@ -4,10 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const extension = resolve(root, 'src/Extensions/KeyVault');
-const manifest = JSON.parse(readFileSync(resolve(extension, 'secrets-generation.json'), 'utf8'));
+const manifestName = process.argv[3] ?? 'secrets-generation.json';
+if (!['secrets-generation.json', 'certificates-generation.json'].includes(manifestName)) throw new Error('Unknown generation manifest.');
+const manifest = JSON.parse(readFileSync(resolve(extension, manifestName), 'utf8'));
 const raw = process.argv[2];
-if (!raw || process.argv.length !== 3) {
-    console.error('Usage: node tools/CodeGeneration/Verify-KeyVaultSecrets.mjs <raw-output>');
+if (!raw || process.argv.length > 4) {
+    console.error('Usage: node tools/CodeGeneration/Verify-KeyVaultSecrets.mjs <raw-output> [secrets-generation.json|certificates-generation.json]');
     process.exit(2);
 }
 

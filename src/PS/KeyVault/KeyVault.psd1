@@ -5,7 +5,7 @@
     GUID = '91be1979-845d-4cb0-9462-e0f430c19fd6'
     Author = 'Microsoft Corporation'
     CompanyName = 'Microsoft Corporation'
-    Description = 'Key Vault secret lifecycle commands for Azclips'
+    Description = 'Key Vault secret and certificate lifecycle commands for Azclips'
     PowerShellVersion = '7.6'
     RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' })
     RequiredAssemblies = @(
@@ -20,7 +20,9 @@
     )
     NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll')
     FunctionsToExport = @()
-    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret')
+    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret',
+        'Add-AzKeyVaultCertificate', 'Import-AzKeyVaultCertificate', 'Get-AzKeyVaultCertificate',
+        'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate')
     VariablesToExport = @()
     AliasesToExport = @()
     PrivateData = @{
@@ -28,7 +30,7 @@
             Tags = @('Azure', 'KeyVault', 'Azclips')
             LicenseUri = 'https://aka.ms/azps-license'
             ProjectUri = 'https://github.com/Azure/azclips'
-            ReleaseNotes = 'Initial secret lifecycle support. Metadata output by default; plaintext retrieval requires AsPlainText.'
+            ReleaseNotes = 'Secret and certificate lifecycle support. Secret plaintext requires AsPlainText. Certificate export contains public material only.'
         }
     }
 }

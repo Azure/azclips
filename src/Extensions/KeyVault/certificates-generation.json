@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "specRepository": "https://github.com/Azure/azure-rest-api-specs.git",
+  "specRevision": "f24f79579b392171062e81b9b573ab714c7839b5",
+  "specPath": "specification/keyvault/data-plane/Certificates",
+  "apiVersion": "2025-07-01",
+  "toolkitRevision": "0b06f6e93fdeb7d6ef940abcd8b5c1c8601927f1",
+  "rootNamespace": "Microsoft.Azure.Azclips.Extensions.KeyVault",
+  "serverParameter": { "name": "vaultBaseUrl", "typeSpecType": "url", "property": "VaultBaseUrl", "csharpType": "Uri" },
+  "scratchSpecEdits": [{ "file": "main.tsp", "remove": "import \"./client.tsp\";", "reason": "Exclude SDK-only get/update overrides and SDK-specific renames; keep upstream REST models and routes unchanged." }],
+  "compileArguments": ["toolkit/packages/cli/dist/src/cli.js", "compile", "--tsp-location", "<scratch-spec>", "--api-version", "2025-07-01", "--out-dir", "<raw-output>", "--root-namespace", "Microsoft.Azure.Azclips.Extensions.KeyVault", "--capture-ir", "--capture-source"],
+  "models": ["Action", "CertificateAttributes", "CertificateBundle", "CertificateCreateParameters", "CertificateImportParameters", "CertificateItem", "CertificateListResult", "CertificateOperation", "CertificatePolicy", "CertificateUpdateParameters", "DeletedCertificateBundle", "IssuerParameters", "KeyProperties", "KeyVaultErrorError", "LifetimeAction", "SecretProperties", "SubjectAlternativeNames", "Trigger", "X509CertificateProperties"],
+  "literalReplacements": [
+    { "from": " : ProcessorBase<", "to": " : KeyVaultDataPlaneProcessorBase<", "reason": "Use the reviewed extension-local runtime base." },
+    { "from": "DeletionRecoveryLevel?", "to": "string?", "reason": "Preserve extensible wire strings; enum declaration was not emitted." },
+    { "from": "JsonWebKeyType?", "to": "string?", "reason": "Enum declaration was not emitted; preserve wire strings." },
+    { "from": "JsonWebKeyCurveName?", "to": "string?", "reason": "Enum declaration was not emitted; preserve wire strings." },
+    { "from": "IList<KeyUsageType>", "to": "IList<string>", "reason": "Enum declaration was not emitted; preserve wire strings." },
+    { "from": "CertificatePolicyAction?", "to": "string?", "reason": "Enum declaration was not emitted; preserve wire strings." },
+    { "from": "public string Base64EncodedCertificate { get; set; }", "to": "public string Base64EncodedCertificate { get; set; } = null!;", "reason": "Omitted input must remain distinct from an explicit input." }
+  ],
+  "processors": [
+    { "name": "CreateCertificateProcessor", "operation": "createCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/create?api-version=2025-07-01\";" },
+    { "name": "ImportCertificateProcessor", "operation": "importCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/import?api-version=2025-07-01\";" },
+    { "name": "GetCertificateProcessor", "operation": "getCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01\";" },
+    { "name": "GetCertificatesProcessor", "operation": "getCertificates", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates?api-version=2025-07-01\" +\n        (Maxresults.HasValue ? $\"&maxresults={Maxresults.Value}\" : string.Empty) +\n        (IncludePending.HasValue ? $\"&includePending={IncludePending.Value.ToString().ToLowerInvariant()}\" : string.Empty);" },
+    { "name": "GetCertificateVersionsProcessor", "operation": "getCertificateVersions", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/versions?api-version=2025-07-01\" +\n        (Maxresults.HasValue ? $\"&maxresults={Maxresults.Value}\" : string.Empty);" },
+    { "name": "UpdateCertificateProcessor", "operation": "updateCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01\";" },
+    { "name": "DeleteCertificateProcessor", "operation": "deleteCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}?api-version=2025-07-01\";" },
+    { "name": "GetCertificateOperationProcessor", "operation": "getCertificateOperation", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/pending?api-version=2025-07-01\";" },
+    { "name": "UpdateCertificatePolicyProcessor", "operation": "updateCertificatePolicy", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/policy?api-version=2025-07-01\";" }
+  ],
+  "excludedModelRationale": "Only the selected processor dependency closure is imported. Raw unselected models and operations remain in scratch for review.",
+  "requestUriRationale": "Bind the typed server parameter, escape path values and omit absent optional queries.",
+  "serializationRationale": "Customization configures the x5t base64url converter from the TypeSpec encoding annotation without editing generated models.",
+  "verifyCommand": "node tools/CodeGeneration/Verify-KeyVaultSecrets.mjs <raw-output> certificates-generation.json"
+}

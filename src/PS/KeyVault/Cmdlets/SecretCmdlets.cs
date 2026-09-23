@@ -42,7 +42,7 @@ public abstract class KeyVaultCmdletBase : PSCmdlet
         telemetry.TagInvocation(invocation);
         using var session = engine.OpenExecutionSession(invocation, streams, cancellation.Token);
         try { session.Run(); }
-        finally { parameters.Remove("SecureValue"); }
+        finally { parameters.Remove("SecureValue"); parameters.Remove("SecurePassword"); }
     }
 
     protected override void EndProcessing() => cancellation.Dispose();

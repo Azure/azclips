@@ -33,7 +33,11 @@ public class KeyVaultEndpointTests
     [InlineData("https://attacker.example/secrets/test")]
     [InlineData("https://other.vault.azure.net/secrets/test")]
     [InlineData("https://fixture.vault.azure.net/other")]
-    public async Task CrossOriginOrNonSecretRequestIsRejectedBeforeAuth(string requestUri)
+    [InlineData("https://other.vault.azure.net/certificates/test")]
+    [InlineData("https://fixture.vault.azure.net/certificates-other/test")]
+    [InlineData("https://fixture.vault.azure.net/keys/test")]
+    [InlineData("https://fixture.vault.azure.net/deletedcertificates/test")]
+    public async Task CrossOriginOrUnsupportedRequestIsRejectedBeforeAuth(string requestUri)
     {
         var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
         var terminal = new Mock<ISendAsyncTerminalFactory>(MockBehavior.Strict);
@@ -45,8 +49,11 @@ public class KeyVaultEndpointTests
         await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
     }
 
-    [Fact]
-    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride()
+    [Theory]
+    [InlineData("/secrets/test")]
+    [InlineData("/certificates")]
+    [InlineData("/certificates/test/pending")]
+    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string requestPath)
     {
         var profile = new Profile { TenantId = "fixture-tenant", CloudName = "AzureCloud" };
         string[]? capturedScopes = null;
@@ -77,7 +84,7 @@ public class KeyVaultEndpointTests
         factory.Setup(value => value.Create()).Returns(terminal.Object);
         var pipeline = new HttpPipeline(factory.Object);
         pipeline.Prepend(auth.SendAsync);
-        var processor = new EndpointProcessor { VaultName = "fixture" };
+        var processor = new EndpointProcessor { VaultName = "fixture", RequestUri = "https://fixture.vault.azure.net" + requestPath };
         processor.Init(Context(pipeline, auth, profile));
         await processor.ProcessAsync();
         Assert.NotNull(capturedScopes);

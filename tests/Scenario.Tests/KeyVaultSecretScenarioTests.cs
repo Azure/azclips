@@ -119,7 +119,7 @@ public class KeyVaultSecretScenarioTests
         var interceptor = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
         using var host = new ScenarioHost(ClientType.CLI, interceptor, extensions: [ExtensionUnderTest.KeyVault]);
         var error = Assert.ThrowsAny<Exception>(() => host.RunCli("keyvault", "secret", "list", "--vault-name", "fixture"));
-        Assert.Contains("selected vault's secrets endpoint", error.ToString());
+        Assert.Contains("selected vault's secrets or certificates endpoint", error.ToString());
         Assert.Single(interceptor.Sent);
     }
 

@@ -14,7 +14,10 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     protected void PrepareDataPlane()
     {
         if (!JsonOptions.IsReadOnly)
+        {
             JsonOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            Customization.CertificateJson.Configure(JsonOptions);
+        }
         if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.TenantId))
             throw new InvalidOperationException("Sign in and select a profile before using Key Vault.");
         if (!string.IsNullOrEmpty(ResolvedProfile.CloudName) && ResolvedProfile.CloudName != "AzureCloud")
@@ -43,8 +46,9 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             if (uri is null || !uri.IsAbsoluteUri || uri.Scheme != Uri.UriSchemeHttps ||
                 uri.Port != 443 || !string.Equals(uri.IdnHost, vault.IdnHost, StringComparison.OrdinalIgnoreCase) ||
                 uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
-                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal)))
-                throw new ArgumentException("The request must target the selected vault's secrets endpoint.");
+                                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
+                                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal)))
+                                throw new ArgumentException("The request must target the selected vault's secrets or certificates endpoint.");
 
             request.MarkSensitive();
             var previousOverride = AuthHandler.AcquireTokenAsyncOverride;
