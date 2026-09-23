@@ -1733,6 +1733,11 @@ git commit -m "[Compute] az vm show / Get-AzVM: document new parameters and add 
 
 ## Coverage map
 
+> **Post-implementation corrections.** Two gaps in this plan were found during execution and are recorded here because they would otherwise be lost. Both were fixed in the branch.
+>
+> 1. **Documentation is CI-enforced, not conventional.** This plan states that doc updates are "convention plus `MarkdownStructureValidator`, not a hard gate." That is wrong. The `help-validate` job in `.github/workflows/build-and-test.yml` runs `build/Test-PSHelpMarkdown.ps1`, which uses PlatyPS `Compare-CommandHelp` to diff each cmdlet's real parameter surface against its `.md`, and fails the build with `PSL14_ParameterDrift` on any mismatch. `src/PS/Compute/help/Get-AzVM.md` must therefore describe the cmdlet exactly — including a `## INPUTS` section, which is *not* in that script's exclusion list. Validate with `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute`.
+> 2. **A generated fixture goes stale whenever the CLI parameter surface changes.** `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` snapshots `az vm show`'s parameters and examples. Tasks 1-3 changed that surface and none of their validation steps ran that test project, so the fixture was already failing by Task 4. Regenerate it with the repo's own `build/Update-CliExportFixtures.ps1` — never by hand. Any future task that edits `ExtensionIndex` parameter metadata should refresh this fixture in the same commit and run `dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj`.
+
 Every requirement in the spec, and the task that implements it:
 
 | Spec requirement | Task |
