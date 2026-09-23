@@ -48,6 +48,10 @@ STATE=$(az deployment group show \
     --resource-group "$RESOURCE_GROUP" \
     --name "$DEPLOYMENT_NAME" \
     --output json | grep -o '"provisioningState": *"[^"]*"' | head -1)
+if [[ "$STATE" != *Succeeded* ]]; then
+    echo "UNEXPECTED: show provisioningState -> $STATE" >&2
+    exit 1
+fi
 echo "show provisioningState -> $STATE"
 
 # Happy path: list every deployment in the resource group. The processor unwraps the ARM
@@ -62,21 +66,36 @@ az deployment group list --resource-group "$RESOURCE_GROUP"
 
 # Negative case: a deployment name that does not exist must surface an ARM 404
 # (DeploymentNotFound) and exit non-zero, not print an empty success.
-az deployment group show \
+if az deployment group show \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
     --name azclips-test-deployment-does-not-exist \
-    --debug
+    --debug; then
+    echo 'UNEXPECTED: missing deployment did not fail' >&2
+    exit 1
+else
+    echo 'EXPECTED FAILURE: DeploymentNotFound'
+fi
 
 # Negative case: a resource group that does not exist must surface an ARM 404
 # (ResourceGroupNotFound) and exit non-zero, not print an empty list.
-az deployment group list \
+if az deployment group list \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group azclips-test-group-does-not-exist \
-    --debug
+    --debug; then
+    echo 'UNEXPECTED: missing resource group did not fail' >&2
+    exit 1
+else
+    echo 'EXPECTED FAILURE: ResourceGroupNotFound'
+fi
 
 # Negative case: --name is required for show; omitting it must fail argument binding
 # before any HTTP call is made.
-az deployment group show \
+if az deployment group show \
     --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP"
+    --resource-group "$RESOURCE_GROUP"; then
+    echo 'UNEXPECTED: show without --name succeeded' >&2
+    exit 1
+else
+    echo 'EXPECTED FAILURE: show requires --name'
+fi
