@@ -33,9 +33,6 @@ Remove-AzResourceGroupDeployment -Id <string> [-SubscriptionId <string>] [-Profi
 
 ## ALIASES
 
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
-
 ## DESCRIPTION
 
 Deletes an Azure Resource Manager deployment scoped to a resource group. This removes the deployment record and its associated deployment operations from the deployment history; it does **not** delete the resources the deployment created, and it leaves the resource group itself untouched.
@@ -74,7 +71,7 @@ Remove-AzResourceGroupDeployment -Id /subscriptions/00000000-0000-0000-0000-0000
 
 ### Delete a deployment in a specific subscription without being prompted
 
-`Remove-AzResourceGroupDeployment` supports `ShouldProcess`, so it asks for confirmation by default. Pass `-Confirm:$false` to delete unattended.
+`Remove-AzResourceGroupDeployment` supports `ShouldProcess` with a `Medium` confirm impact, so it does not prompt under the default `$ConfirmPreference` of `High`. Pass `-Confirm` to request a prompt, or `-Confirm:$false` to stay unattended even where `$ConfirmPreference` has been lowered.
 
 ```powershell
 Remove-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false

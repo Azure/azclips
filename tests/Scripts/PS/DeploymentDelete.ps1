@@ -44,6 +44,15 @@ $StorageAccountName = 'azclipsdeploydelete'
 # unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
 
+# Nothing is fatal on its own: the negative cases below must all run. Every unexpected outcome is
+# counted here instead, and the script exits non-zero at the end if any were recorded.
+$script:failures = 0
+
+function Add-Failure([string]$message) {
+    $script:failures++
+    Write-Host "UNEXPECTED: $message" -ForegroundColor Red
+}
+
 # Empty template: no resources, so the deployment reaches Succeeded almost immediately and creates
 # nothing that needs cleaning up. Single-quoted here-string so "$schema" is NOT interpolated.
 $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) 'azclips-empty-template.json'
@@ -56,12 +65,17 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) 'azclips-empty-templ
 '@ | Set-Content -Path $templateFile -Encoding utf8
 
 # Arrange: create a deployment and wait for it to finish, leaving a terminal history record.
-New-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $DeploymentName `
-    -TemplateFile $templateFile | Out-Null
-Write-Host "ARRANGE: deployment '$DeploymentName' created and terminal"
+try {
+    New-AzResourceGroupDeployment `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroupName $ResourceGroupName `
+        -Name $DeploymentName `
+        -TemplateFile $templateFile `
+        -ErrorAction Stop | Out-Null
+    Write-Host "ARRANGE: deployment '$DeploymentName' created and terminal"
+} catch {
+    Add-Failure "arrange failed to create '$DeploymentName': $($_.Exception.Message)"
+}
 
 # Happy path: delete the terminal deployment. ARM answers 202 and the cmdlet polls the Location
 # header until it returns 204, so this BLOCKS until the delete has actually finished. There is no
@@ -77,12 +91,12 @@ try {
         -ErrorAction Stop
 
     if ($null -ne $deleteOutput) {
-        Write-Host "UNEXPECTED: delete emitted output '$deleteOutput', expected nothing" -ForegroundColor Red
+        Add-Failure "delete emitted output '$deleteOutput', expected nothing"
     } else {
         Write-Host 'PASS (delete): completed silently'
     }
 } catch {
-    Write-Host "UNEXPECTED: delete threw: $($_.Exception.Message)" -ForegroundColor Red
+    Add-Failure "delete threw: $($_.Exception.Message)"
 }
 
 # Assert the record is gone. Because delete waits for the LRO to complete, no polling is needed
@@ -93,12 +107,12 @@ try {
         -ResourceGroupName $ResourceGroupName `
         -Name $DeploymentName `
         -ErrorAction Stop | Out-Null
-    Write-Host 'UNEXPECTED: the deployment record still exists after delete' -ForegroundColor Red
+    Add-Failure 'the deployment record still exists after delete'
 } catch {
     if ($_.Exception.Message -match 'DeploymentNotFound|not found|404') {
         Write-Host "PASS (gone): $($_.Exception.Message)"
     } else {
-        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+        Add-Failure "get after delete failed for the wrong reason: $($_.Exception.Message)"
     }
 }
 
@@ -113,38 +127,52 @@ try {
         -ErrorAction Stop
     Write-Host 'PASS (already deleted): silent success, as ARM returns 204 either way'
 } catch {
-    Write-Host "UNEXPECTED: deleting an absent deployment threw: $($_.Exception.Message)" -ForegroundColor Red
+    Add-Failure "deleting an absent deployment threw: $($_.Exception.Message)"
 }
 
 # Legacy binding parity, part 1: -ResourceGroupName is position 0 and -Name is position 1, so the
 # parameter names can be omitted entirely. Still the "does not exist" path, so still silent.
-Remove-AzResourceGroupDeployment $ResourceGroupName azclips-test-deployment-does-not-exist -Confirm:$false
-Write-Host 'PASS (positional): bound -ResourceGroupName/-Name positionally'
+try {
+    Remove-AzResourceGroupDeployment $ResourceGroupName azclips-test-deployment-does-not-exist -Confirm:$false -ErrorAction Stop
+    Write-Host 'PASS (positional): bound -ResourceGroupName/-Name positionally'
+} catch {
+    Add-Failure "positional binding threw: $($_.Exception.Message)"
+}
 
 # Legacy binding parity, part 2: -Name carries the legacy alias -DeploymentName.
-Remove-AzResourceGroupDeployment `
-    -ResourceGroupName $ResourceGroupName `
-    -DeploymentName azclips-test-deployment-does-not-exist `
-    -Confirm:$false
-Write-Host 'PASS (alias): bound -DeploymentName'
+try {
+    Remove-AzResourceGroupDeployment `
+        -ResourceGroupName $ResourceGroupName `
+        -DeploymentName azclips-test-deployment-does-not-exist `
+        -Confirm:$false `
+        -ErrorAction Stop
+    Write-Host 'PASS (alias): bound -DeploymentName'
+} catch {
+    Add-Failure "-DeploymentName alias threw: $($_.Exception.Message)"
+}
 
 # Legacy binding parity, part 3: the -Id parameter set. The subscription is read out of the id, so
 # -SubscriptionId is not needed. -DeploymentId and -ResourceId are aliases of -Id.
-Remove-AzResourceGroupDeployment `
-    -Id "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Resources/deployments/azclips-test-deployment-does-not-exist" `
-    -Confirm:$false
-Write-Host 'PASS (-Id): resolved resource group, name and subscription from the id'
+try {
+    Remove-AzResourceGroupDeployment `
+        -Id "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Resources/deployments/azclips-test-deployment-does-not-exist" `
+        -Confirm:$false `
+        -ErrorAction Stop
+    Write-Host 'PASS (-Id): resolved resource group, name and subscription from the id'
+} catch {
+    Add-Failure "-Id parameter set threw: $($_.Exception.Message)"
+}
 
 # Negative case: a malformed -Id must fail argument validation in the cmdlet BEFORE any HTTP call is
 # made, rather than building a nonsense request URI.
 try {
     Remove-AzResourceGroupDeployment -Id 'not-a-resource-id' -Confirm:$false -ErrorAction Stop
-    Write-Host 'UNEXPECTED: a malformed -Id did not throw' -ForegroundColor Red
+    Add-Failure 'a malformed -Id did not throw'
 } catch {
     if ($_.FullyQualifiedErrorId -match 'InvalidDeploymentId') {
         Write-Host "EXPECTED FAILURE (malformed -Id): $($_.Exception.Message)"
     } else {
-        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+        Add-Failure "a malformed -Id failed for the wrong reason: $($_.Exception.Message)"
     }
 }
 
@@ -158,12 +186,12 @@ try {
         -Name $DeploymentName `
         -Confirm:$false `
         -ErrorAction Stop
-    Write-Host 'UNEXPECTED: missing resource group did not throw' -ForegroundColor Red
+    Add-Failure 'missing resource group did not throw'
 } catch {
     if ($_.Exception.Message -match 'ResourceGroupNotFound|not found|404') {
         Write-Host "EXPECTED FAILURE (missing resource group): $($_.Exception.Message)"
     } else {
-        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+        Add-Failure "missing resource group failed for the wrong reason: $($_.Exception.Message)"
     }
 }
 
@@ -199,22 +227,33 @@ $runningPayload = @'
 
 $put = Invoke-AzRestMethod -Method PUT -Uri $runningUri -Payload $runningPayload
 
+$runningIsArranged = $false
 if ($put.StatusCode -ne 201) {
-    Write-Host "UNEXPECTED: arrange PUT returned $($put.StatusCode), expected 201 - the running-delete case below cannot run" -ForegroundColor Red
+    Add-Failure "arrange PUT returned $($put.StatusCode), expected 201 - the running-delete case below cannot run"
 } else {
+    $runningIsArranged = $true
     Write-Host "ARRANGE: deployment '$RunningDeploymentName' accepted (201), now running"
 }
 
-try {
-    Remove-AzResourceGroupDeployment `
-        -SubscriptionId $SubscriptionId `
-        -ResourceGroupName $ResourceGroupName `
-        -Name $RunningDeploymentName `
-        -Confirm:$false `
-        -ErrorAction Stop
-    Write-Host 'UNEXPECTED: deleting a running deployment did not throw' -ForegroundColor Red
-} catch {
-    Write-Host "EXPECTED FAILURE (running deployment): $($_.Exception.Message)"
+# Only a 409 DeploymentCannotBeDeleted proves the running deployment was rejected for the right
+# reason; a malformed request, a missing group or an auth failure would throw too and must not be
+# mistaken for a pass.
+if ($runningIsArranged) {
+    try {
+        Remove-AzResourceGroupDeployment `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroupName $ResourceGroupName `
+            -Name $RunningDeploymentName `
+            -Confirm:$false `
+            -ErrorAction Stop
+        Add-Failure 'deleting a running deployment did not throw'
+    } catch {
+        if ($_.Exception.Message -match 'DeploymentCannotBeDeleted|409|Conflict') {
+            Write-Host "EXPECTED FAILURE (running deployment): $($_.Exception.Message)"
+        } else {
+            Add-Failure "deleting a running deployment failed for the wrong reason: $($_.Exception.Message)"
+        }
+    }
 }
 
 # Cleanup: cancel the in-flight deployment so it reaches a terminal state, poll until it gets there,
@@ -235,6 +274,9 @@ foreach ($attempt in 1..15) {
     Start-Sleep -Seconds 2
 }
 Write-Host "CLEANUP: running deployment provisioningState is '$state'"
+if ($state -notin @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) {
+    Add-Failure "running deployment never reached a terminal state (last state '$state')"
+}
 
 Remove-AzResourceGroupDeployment `
     -SubscriptionId $SubscriptionId `
@@ -253,7 +295,14 @@ $delete = Invoke-AzRestMethod `
 if ($delete.StatusCode -in @(200, 204)) {
     Write-Host "CLEANUP: storage account '$StorageAccountName' removed (HTTP $($delete.StatusCode))"
 } else {
-    Write-Host "UNEXPECTED: cleanup returned $($delete.StatusCode); '$StorageAccountName' may still exist" -ForegroundColor Red
+    Add-Failure "cleanup returned $($delete.StatusCode); '$StorageAccountName' may still exist"
 }
 
 Remove-Item -Path $templateFile -ErrorAction SilentlyContinue
+
+if ($script:failures -eq 0) {
+    Write-Host 'RESULT: all assertions passed'
+} else {
+    Write-Host "RESULT: $($script:failures) unexpected outcome(s)" -ForegroundColor Red
+}
+exit $script:failures

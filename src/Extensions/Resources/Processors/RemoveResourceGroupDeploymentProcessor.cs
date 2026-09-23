@@ -16,8 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// The operation is long-running (<c>final-state-via: location</c>): ARM answers 202 with a
     /// Location header, that URI keeps answering 202 while the delete runs, and answers 204 when it
     /// finishes. A deployment that does not exist is answered 204 straight away, so the polling loop
-    /// is never entered and the command silently succeeds. Either way there is no response body, so
-    /// this processor writes no output on success.
+    /// is never entered and the command silently succeeds. Either way the command emits nothing.
     /// </remarks>
     public class RemoveResourceGroupDeploymentProcessor : ResourcesProcessorBase<object, object>
     {
@@ -29,13 +28,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string Name { get; set; } = string.Empty;
 
-        // GetFinalUri must point at the Location URI, not the default (the original DELETE URI):
-        // once polling stops, HttpRuntime issues one last GET against the final URI, and the
-        // deployment is gone by then, so a GET on the deployment itself would 404 a successful delete.
-        protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
+        // No final URI: the Location poll already ends in 204 when the delete has completed, so the
+        // extra final GET has nothing left to fetch. Pointing it at the deleted deployment would 404
+        // a successful delete, and pointing it at the Location URI would just repeat the last poll.
+        protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
         protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
         protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
+
+        // Delete emits nothing even when the terminal poll answers 200 with a status document.
+        protected override Task<bool> BeforeWriteOutputAsyncAndReturn(object? body) => Task.FromResult(true);
 
         // Always waits for the delete to finish (matches `az deployment group delete`).
         internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
