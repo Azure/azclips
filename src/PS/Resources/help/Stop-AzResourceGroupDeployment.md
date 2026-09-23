@@ -48,9 +48,9 @@ Target a subscription other than the active profile's.
 Stop-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
-### Cancel a deployment without being prompted
+### Cancel a deployment unattended
 
-`Stop-AzResourceGroupDeployment` supports `ShouldProcess`, so it asks for confirmation by default. Pass `-Confirm:$false` to cancel unattended, and inspect the resulting state afterwards.
+`Stop-AzResourceGroupDeployment` supports `ShouldProcess` with a `Medium` confirm impact, so it does not prompt under the default `$ConfirmPreference` of `High`. Pass `-Confirm:$false` to keep it silent even where `$ConfirmPreference` has been lowered, and inspect the resulting state afterwards.
 
 ```powershell
 Stop-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18 -Confirm:$false
