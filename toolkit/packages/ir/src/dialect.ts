@@ -37,6 +37,16 @@
  */
 
 import { z } from "zod";
+import {
+  ConfirmImpacts,
+  LifecycleTags,
+  PSCompleterAttributeSchema,
+  PSDefaultValueAttributeSchema,
+  type ConfirmImpact,
+  type LifecycleTag,
+  type PSCompleterAttribute,
+  type PSDefaultValueAttribute,
+} from "./ps.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
 
@@ -95,6 +105,11 @@ export type PsCommandDialect = IRClientDialect & {
   defaultParameterSet?: string | undefined;
   /** Emit `SupportsShouldProcess` (`-WhatIf` / `-Confirm`). */
   supportsShouldProcess?: boolean | undefined;
+  confirmImpact?: ConfirmImpact | undefined;
+  completer?: PSCompleterAttribute | undefined;
+  examples?: string[] | undefined;
+  lifecycleTag?: LifecycleTag | undefined;
+  helpUri?: string | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
@@ -104,6 +119,11 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     noun: z.string().min(1),
     defaultParameterSet: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean().optional(),
+    confirmImpact: z.enum(ConfirmImpacts).optional(),
+    completer: PSCompleterAttributeSchema.optional(),
+    examples: z.array(z.string().min(1)).optional(),
+    lifecycleTag: z.enum(LifecycleTags).optional(),
+    helpUri: z.string().min(1).optional(),
   })
   .strict();
 
@@ -149,12 +169,16 @@ export type PsParameterDialect = IRClientDialect & {
    * that only renames a parameter need not restate its membership.
    */
   parameterSets?: PsParameterSetMembership[] | undefined;
+  completer?: PSCompleterAttribute | undefined;
+  defaultValue?: PSDefaultValueAttribute | undefined;
 };
 
 export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
   .object({
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
+    completer: PSCompleterAttributeSchema.optional(),
+    defaultValue: PSDefaultValueAttributeSchema.optional(),
   })
   .strict()
   .superRefine((dialect, ctx) => {

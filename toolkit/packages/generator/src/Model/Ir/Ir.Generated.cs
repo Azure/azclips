@@ -550,7 +550,7 @@ public enum IRVisibility
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum PSCommandAttributeConfirmImpact
+public enum PsCommandDialectConfirmImpact
 {
     [JsonStringEnumMemberName("None")]
     None,
@@ -563,7 +563,7 @@ public enum PSCommandAttributeConfirmImpact
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum PSCommandAttributeLifecycleTag
+public enum PsCommandDialectLifecycleTag
 {
     [JsonStringEnumMemberName("Preview")]
     Preview,
@@ -2096,90 +2096,6 @@ public partial class OperationHints
     public DocsHint? Docs { get; set; }
 }
 
-public partial class PS
-{
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<PSCommandAttribute> Commands { get; set; } = [];
-
-    [JsonPropertyName("modules")]
-    public IReadOnlyList<PSModuleAttribute> Modules { get; set; } = [];
-}
-
-public partial class PSCommandAttribute
-{
-    [JsonPropertyName("verb")]
-    public string Verb { get; set; } = default !;
-
-    [JsonPropertyName("noun")]
-    public string Noun { get; set; } = default !;
-
-    [JsonPropertyName("subject")]
-    public string Subject { get; set; } = default !;
-
-    [JsonPropertyName("subjectPrefix")]
-    public string? SubjectPrefix { get; set; }
-
-    [JsonPropertyName("supportsShouldProcess")]
-    public bool SupportsShouldProcess { get; set; }
-
-    [JsonPropertyName("confirmImpact")]
-    public PSCommandAttributeConfirmImpact? ConfirmImpact { get; set; }
-
-    [JsonPropertyName("alias")]
-    public IReadOnlyList<string>? Alias { get; set; }
-
-    [JsonPropertyName("hidden")]
-    public bool? Hidden { get; set; }
-
-    [JsonPropertyName("completer")]
-    public PSCompleterAttribute? Completer { get; set; }
-
-    [JsonPropertyName("summary")]
-    public string? Summary { get; set; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("examples")]
-    public IReadOnlyList<string>? Examples { get; set; }
-
-    [JsonPropertyName("lifecycleTag")]
-    public PSCommandAttributeLifecycleTag? LifecycleTag { get; set; }
-
-    [JsonPropertyName("httpPath")]
-    public PSCommandAttributeHttpPath? HttpPath { get; set; }
-
-    [JsonPropertyName("supportsPaging")]
-    public bool? SupportsPaging { get; set; }
-
-    [JsonPropertyName("helpUri")]
-    public string? HelpUri { get; set; }
-
-    [JsonPropertyName("outputTypes")]
-    public IReadOnlyList<IRId> OutputTypes { get; set; } = [];
-
-    [JsonPropertyName("parameterSets")]
-    public IReadOnlyList<PSParameterSetAttribute> ParameterSets { get; set; } = [];
-
-    [JsonPropertyName("parameters")]
-    public IReadOnlyList<PSParameterAttribute> Parameters { get; set; } = [];
-
-    [JsonPropertyName("defaultParameterSetName")]
-    public string DefaultParameterSetName { get; set; } = default !;
-
-    [JsonPropertyName("sourceOperationIds")]
-    public IReadOnlyList<IRId> SourceOperationIds { get; set; } = [];
-}
-
-public partial class PSCommandAttributeHttpPath
-{
-    [JsonPropertyName("path")]
-    public string Path { get; set; } = default !;
-
-    [JsonPropertyName("apiVersion")]
-    public string ApiVersion { get; set; } = default !;
-}
-
 public partial class PSCompleterAttribute
 {
     [JsonPropertyName("script")]
@@ -2205,117 +2121,6 @@ public partial class PSDefaultValueAttribute
 
     [JsonPropertyName("setCondition")]
     public string? SetCondition { get; set; }
-}
-
-public partial class PSIdentityAttribute
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("properties")]
-    public IReadOnlyList<PSIdentityPropertyAttribute> Properties { get; set; } = [];
-}
-
-public partial class PSIdentityPropertyAttribute
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("helpMessage")]
-    public string? HelpMessage { get; set; }
-
-    [JsonPropertyName("sourceParameterIds")]
-    public IReadOnlyList<IRId> SourceParameterIds { get; set; } = [];
-}
-
-public partial class PSModuleAttribute
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("sourceId")]
-    public string SourceId { get; set; } = default !;
-
-    [JsonPropertyName("cmdletsToExport")]
-    public IReadOnlyList<string> CmdletsToExport { get; set; } = [];
-
-    [JsonPropertyName("identity")]
-    public PSIdentityAttribute? Identity { get; set; }
-}
-
-public partial class PSParameterAttribute
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("mandatory")]
-    public bool? Mandatory { get; set; }
-
-    [JsonPropertyName("parameterSetName")]
-    public string? ParameterSetName { get; set; }
-
-    [JsonPropertyName("hidden")]
-    public bool? Hidden { get; set; }
-
-    [JsonPropertyName("helpMessage")]
-    public string? HelpMessage { get; set; }
-
-    [JsonPropertyName("position")]
-    public int? Position { get; set; }
-
-    [JsonPropertyName("valueFromPipeline")]
-    public bool? ValueFromPipeline { get; set; }
-
-    [JsonPropertyName("valueFromPipelineByPropertyName")]
-    public bool? ValueFromPipelineByPropertyName { get; set; }
-
-    [JsonPropertyName("alias")]
-    public IReadOnlyList<string>? Alias { get; set; }
-
-    [JsonPropertyName("completer")]
-    public PSCompleterAttribute? Completer { get; set; }
-
-    [JsonPropertyName("defaultValue")]
-    public PSDefaultValueAttribute? DefaultValue { get; set; }
-
-    [JsonPropertyName("parameterSets")]
-    public IReadOnlyDictionary<string, PSParameterSetOverride>? ParameterSets { get; set; }
-
-    [JsonPropertyName("identity")]
-    public bool? Identity { get; set; }
-
-    [JsonPropertyName("sourceParameterId")]
-    public IRId? SourceParameterId { get; set; }
-}
-
-public partial class PSParameterSetAttribute
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("sourceOperationId")]
-    public IRId SourceOperationId { get; set; } = default !;
-}
-
-public partial class PSParameterSetOverride
-{
-    [JsonPropertyName("mandatory")]
-    public bool? Mandatory { get; set; }
-
-    [JsonPropertyName("position")]
-    public int? Position { get; set; }
-
-    [JsonPropertyName("helpMessage")]
-    public string? HelpMessage { get; set; }
-
-    [JsonPropertyName("valueFromPipeline")]
-    public bool? ValueFromPipeline { get; set; }
-
-    [JsonPropertyName("valueFromPipelineByPropertyName")]
-    public bool? ValueFromPipelineByPropertyName { get; set; }
 }
 
 public partial class ParameterHints
@@ -2352,6 +2157,21 @@ public partial class PsCommandDialect
 
     [JsonPropertyName("supportsShouldProcess")]
     public bool? SupportsShouldProcess { get; set; }
+
+    [JsonPropertyName("confirmImpact")]
+    public PsCommandDialectConfirmImpact? ConfirmImpact { get; set; }
+
+    [JsonPropertyName("completer")]
+    public PSCompleterAttribute? Completer { get; set; }
+
+    [JsonPropertyName("examples")]
+    public IReadOnlyList<string>? Examples { get; set; }
+
+    [JsonPropertyName("lifecycleTag")]
+    public PsCommandDialectLifecycleTag? LifecycleTag { get; set; }
+
+    [JsonPropertyName("helpUri")]
+    public string? HelpUri { get; set; }
 }
 
 public partial class PsParameterDialect
@@ -2370,6 +2190,12 @@ public partial class PsParameterDialect
 
     [JsonPropertyName("parameterSets")]
     public IReadOnlyList<PsParameterSetMembership>? ParameterSets { get; set; }
+
+    [JsonPropertyName("completer")]
+    public PSCompleterAttribute? Completer { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public PSDefaultValueAttribute? DefaultValue { get; set; }
 }
 
 public partial class PsParameterSetMembership

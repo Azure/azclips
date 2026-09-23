@@ -49,60 +49,56 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
-    public void IRDocument_Ps_RoundTripsCommandsAndOpenParameterSetsMap()
+    public void PowerShellDialects_RoundTripAttributeMetadata()
     {
-        IRDocument document = Parse<IRDocument>(
+        PsCommandDialect command = Parse<PsCommandDialect>(
             """
             {
-              "schemaVersion": "0.8.0",
-              "sources": [
-                { "id": "M", "server": { "module": "M", "namespace": ["Contoso"], "name": "server" } }
+              "verb": "Remove",
+              "noun": "AzWidget",
+              "defaultParameterSet": "ByName",
+              "supportsShouldProcess": true,
+              "confirmImpact": "High",
+              "examples": ["Remove-AzWidget -Name example"],
+              "lifecycleTag": "GA",
+              "helpUri": "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget"
+            }
+            """);
+
+        PsCommandDialect commandRoundTrip = Parse<PsCommandDialect>(
+            JsonSerializer.Serialize(command, IrJson.Options));
+
+        Assert.Equal(PsCommandDialectConfirmImpact.High, commandRoundTrip.ConfirmImpact);
+        Assert.Equal(PsCommandDialectLifecycleTag.GA, commandRoundTrip.LifecycleTag);
+        Assert.Equal("ByName", commandRoundTrip.DefaultParameterSet);
+        Assert.Equal("Remove-AzWidget -Name example", Assert.Single(commandRoundTrip.Examples!));
+
+        PsParameterDialect parameter = Parse<PsParameterDialect>(
+            """
+            {
+              "name": "ResourceGroupName",
+              "aliases": ["ResourceGroup"],
+              "parameterSets": [
+                { "set": "ByName", "mandatory": true, "position": 0, "valueFromPipeline": true },
+                { "set": "ById", "mandatory": false, "valueFromPipelineByPropertyName": true }
               ],
-              "ps": {
-                "commands": [
-                  {
-                    "verb": "Get",
-                    "noun": "AzWidget",
-                    "subject": "Widget",
-                    "supportsShouldProcess": false,
-                    "outputTypes": [],
-                    "parameterSets": [
-                      { "name": "Get", "sourceOperationId": { "module": "M", "namespace": ["Contoso"], "name": "get" } }
-                    ],
-                    "parameters": [
-                      {
-                        "name": "Name",
-                        "sourceParameterId": { "module": "M", "namespace": ["Contoso"], "name": "get.name" },
-                        "parameterSets": {
-                          "Get": { "mandatory": true, "position": 0, "valueFromPipeline": true },
-                          "GetViaIdentity": { "mandatory": false, "valueFromPipelineByPropertyName": true }
-                        }
-                      }
-                    ],
-                    "defaultParameterSetName": "Get",
-                    "sourceOperationIds": [{ "module": "M", "namespace": ["Contoso"], "name": "get" }]
-                  }
-                ],
-                "modules": []
+              "completer": { "name": "ResourceGroupCompleter" },
+              "defaultValue": {
+                "script": "(Get-AzContext).Subscription.Id",
+                "setCondition": "$PSBoundParameters.ContainsKey('SubscriptionId')"
               }
             }
             """);
 
-        IRDocument roundTripped = Parse<IRDocument>(JsonSerializer.Serialize(document, IrJson.Options));
+        PsParameterDialect parameterRoundTrip = Parse<PsParameterDialect>(
+            JsonSerializer.Serialize(parameter, IrJson.Options));
 
-        PSCommandAttribute command = Assert.Single(roundTripped.Ps!.Commands);
-        Assert.Equal("Get", command.Verb);
-        Assert.Equal("AzWidget", command.Noun);
-        PSParameterAttribute parameter = Assert.Single(command.Parameters);
-        // The open map is the point of the test: a dictionary keyed by parameter-set name,
-        // not a fixed shape, so every key must survive the round trip untouched.
-        Assert.NotNull(parameter.ParameterSets);
-        Assert.Equal(2, parameter.ParameterSets!.Count);
-        Assert.True(parameter.ParameterSets["Get"].Mandatory);
-        Assert.Equal(0, parameter.ParameterSets["Get"].Position);
-        Assert.True(parameter.ParameterSets["Get"].ValueFromPipeline);
-        Assert.False(parameter.ParameterSets["GetViaIdentity"].Mandatory);
-        Assert.True(parameter.ParameterSets["GetViaIdentity"].ValueFromPipelineByPropertyName);
+        Assert.Equal("ResourceGroup", Assert.Single(parameterRoundTrip.Aliases!));
+        Assert.Equal(2, parameterRoundTrip.ParameterSets!.Count);
+        Assert.True(parameterRoundTrip.ParameterSets[0].ValueFromPipeline);
+        Assert.True(parameterRoundTrip.ParameterSets[1].ValueFromPipelineByPropertyName);
+        Assert.Equal("ResourceGroupCompleter", parameterRoundTrip.Completer!.Name);
+        Assert.Contains("Subscription.Id", parameterRoundTrip.DefaultValue!.Script);
     }
 
     [Fact]

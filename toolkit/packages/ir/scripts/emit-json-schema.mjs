@@ -36,14 +36,6 @@ import {
   // shared definitions.
   TransformedIRSchema,
   // PowerShell metadata definitions consumed by command dialect generation.
-  PSSchema,
-  PSCommandAttributeSchema,
-  PSParameterSetAttributeSchema,
-  PSParameterAttributeSchema,
-  PSParameterSetOverrideSchema,
-  PSModuleAttributeSchema,
-  PSIdentityAttributeSchema,
-  PSIdentityPropertyAttributeSchema,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
@@ -254,15 +246,7 @@ const definitions = {
   // Placement.
   IRTarget: IRTargetSchema,
   IRTargetDirectories: IRTargetDirectoriesSchema,
-  // PowerShell metadata.
-  PS: PSSchema,
-  PSCommandAttribute: PSCommandAttributeSchema,
-  PSParameterSetAttribute: PSParameterSetAttributeSchema,
-  PSParameterAttribute: PSParameterAttributeSchema,
-  PSParameterSetOverride: PSParameterSetOverrideSchema,
-  PSModuleAttribute: PSModuleAttributeSchema,
-  PSIdentityAttribute: PSIdentityAttributeSchema,
-  PSIdentityPropertyAttribute: PSIdentityPropertyAttributeSchema,
+  // PowerShell metadata shared by dialects.
   PSCompleterAttribute: PSCompleterAttributeSchema,
   PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
 };
