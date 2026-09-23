@@ -28,6 +28,9 @@ public class GetVMCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string? Name { get; set; }
 
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    public SwitchParameter UserData { get; set; }
+
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
@@ -53,6 +56,10 @@ public class GetVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
         {
             parameters.Add("Name", Name!);
+        }
+        if (UserData.IsPresent)
+        {
+            parameters.Add(nameof(UserData), true);
         }
 
         var parameterSetName = ParameterSetName;

@@ -28,6 +28,10 @@ public class VirtualMachineProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProvisioningState { get; set; }
 
+    // Returned only when the request asks for $expand=userData.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? UserData { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

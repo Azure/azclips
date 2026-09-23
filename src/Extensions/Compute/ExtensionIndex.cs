@@ -43,17 +43,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getVM_PS = new(
-            Name: "GetVMProcessor",
+            Name: "GetVMProcessor_Orchestrator",
             InvocationName: "Get-AzVM_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.GetVMProcessor),
+            ProcessorType: typeof(Processors.GetVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]          = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -251,19 +252,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getVM_CLI = new(
-            Name: "GetVMProcessor",
+            Name: "GetVMProcessor_Orchestrator",
             InvocationName: "vm show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.GetVMProcessor),
+            ProcessorType: typeof(Processors.GetVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["subscription-id"]   = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]              = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["include-user-data"] = new("IncludeUserData", "include-user-data", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["u"] = "include-user-data",
+            }
         );
         private static readonly CommandMetadata s_listVM_CLI = new(
             Name: "ListVMProcessor",
