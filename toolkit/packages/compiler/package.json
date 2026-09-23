@@ -14,7 +14,7 @@
     "@azure-client-engine/ir": "*"
   },
   "devDependencies": {
-    "@types/node": "~20.14.0",
+    "@types/node": "~20.19.43",
     "rimraf": "^5.0.5",
     "vitest": "3.2.4"
   },
