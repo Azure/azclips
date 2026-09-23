@@ -167,10 +167,11 @@ describe("applyDirectives: canonical commands", () => {
     }));
   });
 
-  it("reports parameter removal as unsupported without invalidating request bindings", () => {
+  it("removes a parameter only from the PowerShell surface", () => {
     const { ir, diagnostics } = apply([{ where: { "parameter-name": "Name" }, remove: true }]);
     expect(command(ir, "Get").parameters).toHaveLength(1);
-    expect(diagnostics).toEqual([expect.objectContaining({ code: "unsupported-directive" })]);
+    expect(command(ir, "Get").parameters[0]!.dialect?.ps?.removed).toBe(true);
+    expect(diagnostics).toEqual([]);
   });
 
   it("select: command removes the command containing the parameter", () => {
@@ -183,10 +184,10 @@ describe("applyDirectives: canonical commands", () => {
     expect(diagnostics).toEqual([expect.objectContaining({ code: "unmatched-directive", directiveIndex: 0 })]);
   });
 
-  it("reports client-side pagination as unsupported and invents no storage", () => {
+  it("stores client-side pagination on the PowerShell command dialect", () => {
     const { ir, diagnostics } = apply([{ where: { verb: "Get" }, set: { "clientside-pagination": true } }]);
-    expect(diagnostics).toEqual([expect.objectContaining({ code: "unsupported-directive" })]);
-    expect(command(ir, "Get").dialect?.ps).not.toHaveProperty("supportsPaging");
+    expect(diagnostics).toEqual([]);
+    expect(command(ir, "Get").dialect?.ps?.supportsPaging).toBe(true);
     expect(command(ir, "Get").surface.paginated).toBe(false);
   });
 
@@ -223,6 +224,7 @@ describe("applyDirectives: sibling command variants", () => {
     const list = ir.commands.find((candidate) => candidate.id.variant === "List")!;
     expect(list.id.variant).toBe("List");
     expect(list.dialect?.ps?.defaultParameterSet).toBe("All");
+    expect(ir.commands.every((command) => command.dialect?.ps?.defaultParameterSet === "All")).toBe(true);
     expect(list.parameters[0]!.dialect?.ps?.parameterSets).toEqual([{ set: "All", mandatory: false }]);
     expect(() => parseTransformedIR(ir)).not.toThrow();
   });

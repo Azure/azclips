@@ -5,6 +5,7 @@ import type {
   PsParameterDialect,
   TransformedIR,
 } from "@azure-client-engine/ir";
+import { commandActionKey } from "@azure-client-engine/ir";
 import type { PSDirective, PSDirectiveSelector, PSDirectiveSet } from "./directives.js";
 
 export type PSDirectiveDiagnostic = {
@@ -140,6 +141,9 @@ function applyCommandSet(
   if (set["suppress-should-process"] !== undefined) {
     ps.supportsShouldProcess = !set["suppress-should-process"];
   }
+  if (set["clientside-pagination"] !== undefined) {
+    ps.supportsPaging = set["clientside-pagination"];
+  }
   if (set.subject !== undefined || set["subject-prefix"] !== undefined) {
     const subject = set.subject !== undefined
       ? replaced(command.id.subject, where.subject, set.subject)
@@ -202,6 +206,7 @@ export function applyDirectives(
   directives.forEach((directive, directiveIndex) => {
     const where = directive.where;
     const targetsParameters = where["parameter-name"] !== undefined && directive.select !== "command";
+    const matchedFamilies = new Set<string>();
     let matched = 0;
 
     if (targetsParameters) {
@@ -215,7 +220,13 @@ export function applyDirectives(
           }
           matched++;
           if (directive.remove === true) {
-            parameters.push(parameter);
+            parameters.push({
+              ...parameter,
+              dialect: {
+                ...parameter.dialect,
+                ps: { ...parameter.dialect?.ps, removed: true },
+              },
+            });
             continue;
           }
 
@@ -243,6 +254,7 @@ export function applyDirectives(
           continue;
         }
         matched++;
+        matchedFamilies.add(commandActionKey(command.id));
         if (directive.remove === true) continue;
 
         let next = command;
@@ -257,6 +269,34 @@ export function applyDirectives(
         kept.push(next);
       }
       commands = kept;
+
+      if (directive.set?.variant !== undefined && where.variant !== undefined) {
+        const variant = directive.set.variant;
+        commands = commands.map((command) => {
+          const ps = command.dialect?.ps;
+          if (
+            ps?.defaultParameterSet === undefined ||
+            !matchedFamilies.has(commandActionKey(command.id)) ||
+            !matches(where.variant, ps.defaultParameterSet)
+          ) {
+            return command;
+          }
+          return {
+            ...command,
+            dialect: {
+              ...command.dialect,
+              ps: {
+                ...ps,
+                defaultParameterSet: replaced(
+                  ps.defaultParameterSet,
+                  where.variant,
+                  variant,
+                ),
+              },
+            },
+          };
+        });
+      }
     }
 
     if (matched === 0) {
@@ -287,6 +327,7 @@ const COMMAND_ONLY_SET_KEYS = [
   "variant",
   "command-description",
   "suppress-should-process",
+  "clientside-pagination",
 ] as const satisfies readonly (keyof PSDirectiveSet)[];
 
 const PARAMETER_ONLY_SET_KEYS = [
@@ -300,11 +341,6 @@ function unsupportedKeys(directive: PSDirective): string[] {
   const targetsParameters =
     directive.where["parameter-name"] !== undefined && directive.select !== "command";
   const reasons: string[] = [];
-  if (targetsParameters && directive.remove === true) {
-    reasons.push(
-      "Parameter removal has no presentation-only storage; removing the canonical parameter would invalidate request bindings",
-    );
-  }
 
   const set = directive.set;
   if (set === undefined) return reasons;
@@ -314,9 +350,6 @@ function unsupportedKeys(directive: PSDirective): string[] {
     .filter((key) => set[key] !== undefined)
     .map((key) => `\`set.${key}\` does not apply to a ${target} directive`));
 
-  if (set["clientside-pagination"] !== undefined) {
-    reasons.push("`set.clientside-pagination` has no canonical command dialect storage");
-  }
   if (!targetsParameters && set.variant !== undefined && directive.where.variant === undefined) {
     reasons.push("`set.variant` needs a `variant` selector to know which set to rename");
   }

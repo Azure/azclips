@@ -96,9 +96,9 @@ describe("ps.directives step", () => {
     expect(out.commands).toHaveLength(1);
   });
 
-  it("reports unmatched and unsupported directives through compiler diagnostics", () => {
+  it("reports unmatched directives and applies supported pagination", () => {
     const { context: diagnosticContext, diagnostics } = collectingContext();
-    createPSDirectivesStep({
+    const out = createPSDirectivesStep({
       directives: [
         { where: { subject: "Absent" }, remove: true },
         { where: { verb: "Get" }, set: { "clientside-pagination": true } },
@@ -107,8 +107,8 @@ describe("ps.directives step", () => {
 
     expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
       "@azure-client-engine/transformers/unmatched-directive",
-      "@azure-client-engine/transformers/unsupported-directive",
     ]);
+    expect(out.commands[0]!.dialect?.ps?.supportsPaging).toBe(true);
   });
 
   it("names itself and validates options", () => {
