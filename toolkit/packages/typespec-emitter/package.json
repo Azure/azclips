@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@azure-client-engine/ir": "*",
-    "js-yaml": "3.13.1"
+    "js-yaml": "3.15.2"
   },
   "peerDependencies": {
     "@azure-tools/typespec-azure-core": ">=0.63.0 <1.0.0",
