@@ -99,4 +99,91 @@ public class VmShowOrchestrationTests
         Assert.Equal(FakeVmShowArmBackend.UserDataValue, vm.Properties.UserData);
         Assert.Contains(backend.Requests, uri => uri.Contains("$expand=userData", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Ids_FetchEachVirtualMachine_AndWriteAnArray()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var outputs = host.RunCli("vm", "show", "--ids", VmId("vm-one"), VmId("vm-two"));
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal(new[] { "vm-one", "vm-two" }, vms.Select(vm => vm.Name).ToArray());
+        Assert.Equal(2, backend.Requests.Count);
+    }
+
+    [Fact]
+    public void SingleId_StillWritesAnArray()
+    {
+        using var host = NewHost(ClientType.CLI, out _);
+
+        var outputs = host.RunCli("vm", "show", "--ids", VmId(VmName));
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal(VmName, Assert.Single(vms).Name);
+    }
+
+    [Fact]
+    public void Ids_CarryTheExpandToEveryFetch()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        host.RunCli("vm", "show", "--ids", VmId("vm-one"), VmId("vm-two"), "--include-user-data");
+
+        Assert.Equal(2, backend.Requests.Count);
+        Assert.All(backend.Requests, uri => Assert.True(uri.Contains("$expand=userData", StringComparison.Ordinal), uri));
+    }
+
+    [Fact]
+    public void Ids_WinOverNameAndResourceGroup()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var outputs = host.RunCli("vm", "show",
+            "--resource-group", "ignored-rg",
+            "--name", "ignored-vm",
+            "--ids", VmId("vm-one"));
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal("vm-one", Assert.Single(vms).Name);
+        Assert.All(backend.Requests, uri => Assert.False(uri.Contains("ignored-vm", StringComparison.Ordinal), uri));
+    }
+
+    [Fact]
+    public void NoIdsAndNoName_FailsBeforeAnyRequest()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            host.RunCli("vm", "show", "--subscription-id", SubscriptionId));
+
+        Assert.Contains("resource id", exception.Message);
+        Assert.Empty(backend.Requests);
+    }
+
+    [Fact]
+    public void MalformedId_IsRejectedBeforeAnyRequest()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            host.RunCli("vm", "show", "--ids", "/subscriptions/abc/not-a-virtual-machine"));
+
+        Assert.Empty(backend.Requests);
+    }
+
+    [Fact]
+    public void GetAzVM_Id_ResolvesThroughTheSharedResolver()
+    {
+        using var host = NewHost(ClientType.PowerShell, out var backend);
+
+        var outputs = host.RunPowerShell("Get-AzVM_Id", new Dictionary<string, object>
+        {
+            ["Id"] = new[] { VmId(VmName) },
+        }, extension: "Compute");
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal(VmName, Assert.Single(vms).Name);
+        Assert.Single(backend.Requests);
+    }
 }

@@ -19,6 +19,7 @@ public class GetVMCmdlet : PSCmdlet
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
@@ -28,7 +29,11 @@ public class GetVMCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string? Name { get; set; }
 
+    [Parameter(ParameterSetName = "Id", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    public string Id { get; set; } = "";
+
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
     public SwitchParameter UserData { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -56,6 +61,11 @@ public class GetVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
         {
             parameters.Add("Name", Name!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Id)))
+        {
+            // The processor addresses VMs by id array; -Id is the single-target PowerShell spelling of it.
+            parameters.Add(nameof(Id), new[] { Id });
         }
         if (UserData.IsPresent)
         {

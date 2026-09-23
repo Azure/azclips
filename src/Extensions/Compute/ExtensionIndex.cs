@@ -58,6 +58,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_getVMById_PS = new(
+            Name: "GetVMProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_Id",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]             = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]       = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_listVM_PS = new(
             Name: "ListVMProcessor",
             InvocationName: "Get-AzVM_List",
@@ -261,8 +276,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]   = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]              = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]              = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ids"]               = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["include-user-data"] = new("IncludeUserData", "include-user-data", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
@@ -447,6 +463,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             // ["New-AzVM"]                           = s_newVM_PS,
             ["New-AzVM"]                   = s_newVMOrchestrator_PS,
             ["Get-AzVM_Get"]                   = s_getVM_PS,
+            ["Get-AzVM_Id"]                = s_getVMById_PS,
             ["Get-AzVM_List"]               = s_listVM_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
             ["Start-AzVM"]                 = s_startVM_PS,
