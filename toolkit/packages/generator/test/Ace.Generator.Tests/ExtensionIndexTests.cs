@@ -186,6 +186,29 @@ public sealed class ExtensionIndexTests
     }
 
     [Fact]
+    public async Task Omits_A_PowerShell_Removed_Parameter_But_Keeps_Hidden_Parameters()
+    {
+        TransformedIR ir = LoadIr();
+        IRCommand command = ir.Commands.First(candidate => candidate.Parameters.Count >= 2);
+        command.Parameters[0].Name = "RemovedParameterForIndexTest";
+        command.Parameters[0].Dialect = new IRCommandParameterDialect
+        {
+            Ps = new PsParameterDialect { Removed = true },
+        };
+        command.Parameters[1].Name = "HiddenParameterForIndexTest";
+        command.Parameters[1].Dialect = new IRCommandParameterDialect
+        {
+            Ps = new PsParameterDialect { Hidden = true },
+        };
+
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_RemovedParameter", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.DoesNotContain($"[\"{command.Parameters[0].Name}\"]", index);
+        Assert.Contains($"[\"{command.Parameters[1].Name}\"]", index);
+    }
+
+    [Fact]
     public async Task Renders_Enum_Parameters_As_Strings_With_Document_Enum_Members()
     {
         TransformedIR ir = LoadIr();

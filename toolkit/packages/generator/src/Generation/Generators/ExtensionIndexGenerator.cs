@@ -133,6 +133,10 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         foreach (IRCommandParameter parameter in command.Parameters)
         {
             PsParameterDialect? ps = parameter.Dialect?.Ps;
+            if (ps?.Removed is true)
+            {
+                continue;
+            }
             PsParameterSetMembership? membership = MembershipFor(ps, command.Id.Variant);
             string[] allowed = parameter.Type is IRTypeRefEnum e
                 && index.Enum(e.Id) is { } declared
