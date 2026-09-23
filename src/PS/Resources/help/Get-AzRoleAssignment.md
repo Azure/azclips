@@ -1,0 +1,231 @@
+---
+document type: cmdlet
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
+HelpUri: ''
+Locale: en-US
+Module Name: Resources
+ms.date: 09/23/2026
+PlatyPS schema version: 2024-05-01
+title: Get-AzRoleAssignment
+---
+
+# Get-AzRoleAssignment
+
+## SYNOPSIS
+
+List Azure RBAC role assignments.
+
+## SYNTAX
+
+### SubscriptionScope (Default)
+
+```
+Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-Profile <string>]
+ [<CommonParameters>]
+```
+
+### ResourceGroup
+
+```
+Get-AzRoleAssignment -ResourceGroupName <string> [-SubscriptionId <string>] [-ObjectId <string>]
+ [-Profile <string>] [<CommonParameters>]
+```
+
+### Scope
+
+```
+Get-AzRoleAssignment -Scope <string> [-ObjectId <string>] [-Profile <string>] [<CommonParameters>]
+```
+
+## ALIASES
+
+## DESCRIPTION
+
+List Azure role-based access control (RBAC) role assignments at a subscription, resource group, or scope.
+The scope defaults to the active subscription and can be narrowed with `-ResourceGroupName` or overridden
+with `-Scope` (the two are mutually exclusive). Use `-ObjectId` to filter to a single principal by its
+object (principal) ID. Filtering by sign-in name, service-principal name, or role name is not yet supported.
+
+## EXAMPLES
+
+### List role assignments in the subscription
+
+List every role assignment in the active (or specified) subscription.
+
+```powershell
+Get-AzRoleAssignment -SubscriptionId 00000000-0000-0000-0000-000000000000
+```
+
+### List role assignments scoped to a resource group
+
+List role assignments effective at the given resource group.
+
+```powershell
+Get-AzRoleAssignment -ResourceGroupName myrg
+```
+
+### List role assignments at an explicit scope
+
+List role assignments at a fully qualified scope, such as a management group or a single resource.
+
+```powershell
+Get-AzRoleAssignment -Scope /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg
+```
+
+### List role assignments for a specific principal
+
+Filter role assignments to the principal with the given object ID.
+
+```powershell
+Get-AzRoleAssignment -ObjectId 11111111-2222-3333-4444-555555555555
+```
+
+## PARAMETERS
+
+### -ObjectId
+
+Filter to role assignments for this principal's object (principal) ID (GUID).
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SubscriptionScope
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ResourceGroup
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Scope
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ResourceGroupName
+
+List role assignments scoped to this resource group under the subscription. Mutually exclusive with -Scope.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: ResourceGroup
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Scope
+
+Fully qualified scope to list role assignments at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Scope
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SubscriptionId
+
+Azure Subscription Id. Defaults to the active profile's subscription.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SubscriptionScope
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ResourceGroup
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### CommonParameters
+
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
+
+## INPUTS
+
+## OUTPUTS
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.RoleAssignment
+
+One `RoleAssignment` object per matching assignment, including its id, name, and properties (role definition id, principal id and type, and scope).
+
+## NOTES
+
+Generated help for resources.
+
+## RELATED LINKS
+
+
+- [Online Version]()
+
