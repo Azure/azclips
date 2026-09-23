@@ -32,9 +32,9 @@ function Remove-DirectoryWithRetry {
     [Parameter(Mandatory = $true)]
     [string]$Path,
 
-    [int]$MaxAttempts = 10,
+    [int]$MaxAttempts = 30,
 
-    [int]$DelayMilliseconds = 500
+    [int]$DelayMilliseconds = 1000
   )
 
   for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
