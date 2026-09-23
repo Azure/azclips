@@ -15,9 +15,7 @@ STABLE_RELEASE_TITLE_PATTERN = re.compile(r"^\{DevOps\} Trigger stable release (
 STABLE_RELEASE_EXTENSION_PATH_PATTERN = re.compile(
     r"^src/Extensions/(?P<module>[^/]+)/Extensions\.(?P<project>[^/]+)\.csproj$"
 )
-STABLE_RELEASE_PS_PATH_PATTERN = re.compile(
-    r"^src/PS/(?P<module>[^/]+)/(?P<file>[^/]+)$"
-)
+STABLE_RELEASE_PS_PATH_PATTERN = re.compile(r"^src/PS/(?P<module>[^/]+)/(?P<file>[^/]+)$")
 VERSION_PROPERTIES = {
     "AssemblyVersion",
     "FileVersion",
@@ -108,6 +106,9 @@ def find_policy_violations(
     project_renames: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     violations = []
+    renamed_paths = {path for rename in project_renames or [] for path in rename}
+    added_projects = []
+    deleted_projects = []
     if stable_release:
         for file_path in changed_files:
             if not is_stable_release_allowed_path(file_path):
@@ -136,6 +137,11 @@ def find_policy_violations(
         if base_content is None or head_content is None:
             if stable_release:
                 violations.append(f"{file_path}: generated stable-release PRs may not add or delete project files.")
+            elif file_path not in renamed_paths:
+                if base_content is None and head_content is not None:
+                    added_projects.append(file_path)
+                elif base_content is not None:
+                    deleted_projects.append(file_path)
             continue
 
         if stable_release:
@@ -153,6 +159,15 @@ def find_policy_violations(
                     f"{file_path}: <{property_name}> must not be changed manually; "
                     "stable-release automation owns project versions."
                 )
+
+    if (
+        not stable_release
+        and added_projects
+        and deleted_projects
+    ):
+        violations.append(
+            "Project files may not be added and deleted together unless Git identifies them as renames."
+        )
 
     return violations
 
@@ -176,11 +191,7 @@ def has_only_project_version_line_changes(base_content: str, head_content: str) 
     def is_direct_version_line(line: str, versions: dict[str, tuple[tuple, ...]]) -> bool:
         match = VERSION_PROPERTY_LINE_PATTERN.fullmatch(line)
         return bool(
-            match
-            and any(
-                record[2] == match.group("value").strip()
-                for record in versions.get(match.group("name"), ())
-            )
+            match and any(record[2] == match.group("value").strip() for record in versions.get(match.group("name"), ()))
         )
 
     base_lines = base_content.splitlines(keepends=True)
@@ -274,7 +285,7 @@ def main() -> int:
     changed_files, project_renames = parse_changed_files(
         run_git(
             repo_root,
-            ["diff", "--name-status", "--find-renames", f"{args.base_sha}...{args.head_sha}", "--"],
+            ["diff", "--name-status", "--find-renames=1%", f"{args.base_sha}...{args.head_sha}", "--"],
         )
     )
     violations = find_policy_violations(
