@@ -5,9 +5,10 @@
 # runs overwrite the same deployment record instead of accumulating new ones -- nothing to
 # clean up. The storage account it provisions is likewise idempotent (same name every run).
 #
-# Shared test context:
-#   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: azclips-test-group-1 (region: australiaeast)
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
+# Optional:
+#   AZCLIPS_RESOURCE_GROUP  - existing resource group to read, defaults to azclips-test-group-1
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI (which would block on input). Disable the agent via config so the
@@ -21,8 +22,8 @@ az config set --key agent.enabled --value false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BICEP_DIR="$SCRIPT_DIR/../Bicep"
 
-SUBSCRIPTION_ID=282bb33f-067d-4179-a7a4-b833c13af735
-RESOURCE_GROUP=azclips-test-group-1
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.}"
+RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
 DEPLOYMENT_NAME=azclips-test-deployment-get
 
 # Arrange: ensure there is a deployment to read back. Stable name -> idempotent.

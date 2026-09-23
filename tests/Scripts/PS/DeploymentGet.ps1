@@ -8,12 +8,17 @@
 # runs overwrite the same deployment record instead of accumulating new ones -- nothing to
 # clean up. The storage account it provisions is likewise idempotent (same name every run).
 #
-# Shared test context:
-#   SubscriptionId: 282bb33f-067d-4179-a7a4-b833c13af735
-#   ResourceGroupName: azclips-test-group-1 (region: australiaeast)
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
+# Optional:
+#   AZCLIPS_RESOURCE_GROUP  - existing resource group to read, defaults to azclips-test-group-1
 
-$SubscriptionId = '282bb33f-067d-4179-a7a4-b833c13af735'
-$ResourceGroupName = 'azclips-test-group-1'
+$SubscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
+    throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
+}
+
+$ResourceGroupName = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { 'azclips-test-group-1' } else { $env:AZCLIPS_RESOURCE_GROUP }
 $DeploymentName = 'azclips-test-deployment-get'
 
 $BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
