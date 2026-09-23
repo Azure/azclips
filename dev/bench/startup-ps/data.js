@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790062779014,
+  "lastUpdate": 1790125782093,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -3672,6 +3672,42 @@ window.BENCHMARK_DATA = {
             "value": 287084039.05,
             "unit": "ns",
             "range": "± 5603603.710467675"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7",
+          "message": "[CLI] Constrain table output to terminal width (#943)\n\nFixes #913\n\nSummary:\n- Constrains CLI table output to the terminal width.\n- Preserves appropriate behavior for redirected output.\n\nTests:\n- dotnet test tests/Cli.Tests/Cli.Tests.csproj -nologo (967 passed, 0\nfailed, 8 skipped)",
+          "timestamp": "2026-09-23T10:05:24+10:00",
+          "tree_id": "0b3b42b22cc846a433d6a463331c09bbef79ba7a",
+          "url": "https://github.com/Azure/azclips/commit/00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7"
+        },
+        "date": 1790125781905,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 302257930.88,
+            "unit": "ns",
+            "range": "± 6964020.162164632"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 294003544.77,
+            "unit": "ns",
+            "range": "± 6117600.99736664"
           }
         ]
       }
