@@ -5,8 +5,8 @@ export { createCommandStep, type CreateCommandOptions } from "./create-command-s
 export { resolveVerb } from "./ps/verb-mapping.js";
 
 export {
-  deriveAttributes,
-  type DeriveAttributesOptions,
+  deriveDialect,
+  type DeriveDialectOptions,
 } from "./ps/derive.js";
 
 export { createPSDeriveStep, PS_DERIVE_STEP_ID } from "./ps/step.js";

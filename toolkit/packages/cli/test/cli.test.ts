@@ -222,12 +222,15 @@ describe("ace compile: configured pipeline", () => {
       const withPs = captures
         .map(
           (f) =>
-            JSON.parse(readFileSync(f, "utf8")) as { ps?: { commands: { noun: string }[] } },
+            JSON.parse(readFileSync(f, "utf8")) as {
+              commands?: { dialect?: { ps?: { noun: string } } }[];
+            },
         )
-        .find((ir) => ir.ps !== undefined);
+        .find((ir) => ir.commands?.some((c) => c.dialect?.ps !== undefined));
       expect(withPs).toBeDefined();
-      expect(withPs!.ps!.commands.length).toBeGreaterThan(0);
-      expect(withPs!.ps!.commands.every((c) => c.noun.startsWith("Az"))).toBe(true);
+      const dialects = withPs!.commands!.map((c) => c.dialect?.ps).filter((ps) => ps !== undefined);
+      expect(dialects.length).toBeGreaterThan(0);
+      expect(dialects.every((ps) => ps!.noun.startsWith("Az"))).toBe(true);
     },
   );
 });
