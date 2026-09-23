@@ -106,18 +106,16 @@ class PullRequestFilePolicyTests(unittest.TestCase):
 
     def test_rejects_unmatched_project_delete_add_pairs(self):
         base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
-        changed_files, project_renames = parse_changed_files(
-            "D\tsrc/Old/Old.csproj\nA\tsrc/New/New.csproj\n"
-        )
+        changed_files, project_renames = parse_changed_files("D\tsrc/Old/Old.csproj\nA\tsrc/New/New.csproj\n")
 
         for head_version in ("0.1.0", "0.1.1"):
             with self.subTest(head_version=head_version):
                 head_project = f"<Project><PropertyGroup><Version>{head_version}</Version></PropertyGroup></Project>"
                 violations = find_policy_violations(
-                changed_files,
-                lambda path: base_project if path == "src/Old/Old.csproj" else None,
-                lambda path: head_project if path == "src/New/New.csproj" else None,
-                project_renames=project_renames,
+                    changed_files,
+                    lambda path: base_project if path == "src/Old/Old.csproj" else None,
+                    lambda path: head_project if path == "src/New/New.csproj" else None,
+                    project_renames=project_renames,
                 )
 
                 self.assertEqual(len(violations), 1)

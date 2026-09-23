@@ -160,14 +160,8 @@ def find_policy_violations(
                     "stable-release automation owns project versions."
                 )
 
-    if (
-        not stable_release
-        and added_projects
-        and deleted_projects
-    ):
-        violations.append(
-            "Project files may not be added and deleted together unless Git identifies them as renames."
-        )
+    if not stable_release and added_projects and deleted_projects:
+        violations.append("Project files may not be added and deleted together unless Git identifies them as renames.")
 
     return violations
 
