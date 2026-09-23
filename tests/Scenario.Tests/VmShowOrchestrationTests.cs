@@ -186,4 +186,91 @@ public class VmShowOrchestrationTests
         Assert.Equal(VmName, Assert.Single(vms).Name);
         Assert.Single(backend.Requests);
     }
+
+    [Fact]
+    public void ShowDetails_ExpandsInstanceView_AndFlattensNetworkAndPowerState()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var outputs = host.RunCli("vm", "show",
+            "--subscription-id", SubscriptionId,
+            "--resource-group", ResourceGroupName,
+            "--name", VmName,
+            "--show-details");
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.Equal(FakeVmShowArmBackend.PrivateIp, vm.PrivateIps);
+        Assert.Equal(FakeVmShowArmBackend.PublicIp, vm.PublicIps);
+        Assert.Equal(FakeVmShowArmBackend.MacAddress, vm.MacAddresses);
+        Assert.Equal($"{FakeVmShowArmBackend.PublicIpName}.westus2.cloudapp.azure.com", vm.Fqdns);
+
+        // The instance view is consumed for powerState, then dropped: legacy `del result['instanceView']`.
+        Assert.Null(vm.Properties.InstanceView);
+
+        Assert.Contains(backend.Requests, uri => uri.Contains("$expand=instanceView", StringComparison.Ordinal));
+        Assert.Contains(backend.Requests, uri => uri.Contains($"/networkInterfaces/{FakeVmShowArmBackend.NicName}", StringComparison.Ordinal));
+        Assert.Contains(backend.Requests, uri => uri.Contains($"/publicIPAddresses/{FakeVmShowArmBackend.PublicIpName}", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ShowDetails_ShortAlias_BindsTheSameWay()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        host.RunCli("vm", "show",
+            "--subscription-id", SubscriptionId,
+            "--resource-group", ResourceGroupName,
+            "--name", VmName,
+            "-d");
+
+        Assert.Contains(backend.Requests, uri => uri.Contains("$expand=instanceView", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ShowDetailsWithUserData_ExpandsBoth()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var outputs = host.RunCli("vm", "show",
+            "--subscription-id", SubscriptionId,
+            "--resource-group", ResourceGroupName,
+            "--name", VmName,
+            "--show-details",
+            "--include-user-data");
+
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(FakeVmShowArmBackend.UserDataValue, vm.Properties.UserData);
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.Contains(backend.Requests, uri => uri.Contains("$expand=instanceView,userData", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ShowDetails_AppliesToEveryIdInAFanOut()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        var outputs = host.RunCli("vm", "show", "--ids", VmId("vm-one"), VmId("vm-two"), "--show-details");
+
+        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(outputs));
+        Assert.Equal(2, vms.Length);
+        Assert.All(vms, vm => Assert.Equal("VM running", vm.PowerState));
+        Assert.All(vms, vm => Assert.Null(vm.Properties.InstanceView));
+
+        // Two VM GETs, two NIC GETs, two public-IP GETs.
+        Assert.Equal(6, backend.Requests.Count);
+    }
+
+    [Fact]
+    public void PlainShow_IssuesExactlyOneRequest()
+    {
+        using var host = NewHost(ClientType.CLI, out var backend);
+
+        host.RunCli("vm", "show",
+            "--subscription-id", SubscriptionId,
+            "--resource-group", ResourceGroupName,
+            "--name", VmName);
+
+        Assert.Single(backend.Requests);
+    }
 }

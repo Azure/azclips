@@ -12,6 +12,24 @@ public class VirtualMachine
     public string Name { get; set; } = null!;
     public string Location { get; set; } = null!;
     public VirtualMachineProperties Properties { get; set; } = null!;
+
+    // Synthetic fields computed by --show-details rather than returned by ARM. They sit outside
+    // Properties so the ARM-sourced payload stays untouched, matching legacy `az vm show -d`.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PowerState { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PublicIps { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Fqdns { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateIps { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MacAddresses { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -31,6 +49,10 @@ public class VirtualMachineProperties
     // Returned only when the request asks for $expand=userData.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserData { get; set; }
+
+    // Returned only with $expand=instanceView; cleared once --show-details has read the power state.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VirtualMachineInstanceView? InstanceView { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
@@ -138,6 +160,19 @@ public class DiagnosticsProfile
 public class BootDiagnostics
 {
     public bool Enabled { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VirtualMachineInstanceView
+{
+    public List<InstanceViewStatus> Statuses { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class InstanceViewStatus
+{
+    public string? Code { get; set; }
+    public string? DisplayStatus { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
