@@ -15,7 +15,7 @@ public sealed class IrFidelityTests
     [Fact]
     public void Source_Union_Definitions_References_And_Null_Default_Variants_RoundTrip()
     {
-        IRDocument document = RoundTrip<IRDocument>(
+        TransformedIR document = RoundTrip<TransformedIR>(
             """
             {
               "schemaVersion": "0.11.0",

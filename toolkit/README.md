@@ -58,9 +58,11 @@ The **compiler owns the workflow**. `STAGE_CATALOG` in
 run, and whether each runs by default:
 
 ```ts
-{ id: "tsp-emit",      kind: "emit",      default: "mandatory" }
-{ id: "flatten-model", kind: "transform", default: "on" }
-{ id: "csharp",        kind: "generate",  default: "on" }
+{ id: "tsp-emit",       kind: "emit",      default: "mandatory" }
+{ id: "tweak-ir",       kind: "transform", default: "on" }
+{ id: "flatten-model",  kind: "transform", default: "on" }
+{ id: "create-command", kind: "transform", default: "on" }
+{ id: "csharp",         kind: "generate",  default: "on" }
 ```
 
 The resolved plan is a **single linear sequence**. One IR leaves the emit stage
@@ -111,6 +113,32 @@ Language- and client-specific transforms therefore belong in group 2. This is
 upheld by review rather than by a mechanism: the catalog is the single place
 ordering is decided, and no host can insert into it.
 
+### What a generator accepts
+
+Because a generate stage renders the IR *at its position*, the orchestrator holds
+a plain `IR` and cannot know statically that an earlier transform produced the
+richer document a given backend needs. A generator therefore declares its input:
+
+```ts
+interface Generator<TIn extends IR = IR> {
+  readonly name: string;
+  readonly accepts: (ir: IR) => GeneratorAcceptance<TIn>;  // required iff TIn narrows IR
+  generate(ir: TIn, context: GeneratorContext): void | Promise<void>;
+}
+```
+
+`accepts` returns the shape `safeParse` already produces, so a Zod schema *is* an
+acceptance check — the built-in `csharp` backend sets `accepts:
+safeParseTransformedIR` and receives a genuine `TransformedIR`. The orchestrator
+runs the check before dispatch and reports `invalid-generator-input` itself, so
+the failure is uniform across backends and names the stage whose position
+produced the document.
+
+The requirement is conditional on purpose: a backend happy with a bare `IR` omits
+`accepts`, while one that narrows *cannot* omit it, so it can never claim a
+richer input than it actually established. That pairs with the catalog's
+`requires`, which says the same thing at config time.
+
 ### Fulfilment, failure, and output
 
 `CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
@@ -122,7 +150,7 @@ options are not orchestration.
 Stages run to the first failure — in a sequence, every later stage would just
 consume the broken IR.
 
-Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-flatten-model.json`).
+Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-tweak-ir.json`).
 Generate stages take a sequence position but produce no IR, so index gaps are
 expected. Because a run mutates one IR from end to end, a sink that *retains* a
 snapshot **must** copy it: the in-memory collector does, and the CLI's filesystem
@@ -137,6 +165,17 @@ transform stage ids. A step implements `TransformStep` and knows nothing about
 where it runs — the catalog already placed it. A run carries one IR, so
 returning it mutated in place is the expected shape; returning a replacement
 works too.
+
+`tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
+renaming happens**. Today it gives every model and enum a name that is unique
+across the type universe, so two same-named declarations from different
+namespaces cannot collapse onto one generated type. It runs first among the
+transforms because the two below it denormalize names — `flatten-model` composes
+member names from property and model names, and `create-command` copies names
+into commands — so a rename after either would leave a stale copy behind. (An
+`IRCommand` is different: commands are created downstream and nothing
+denormalizes them, so later steps may name their own output freely.) It never
+touches `id`, which stays a record of where a declaration came from.
 
 `flattenModelStep()` fulfils the `flatten-model` stage: it hoists nested object
 members onto their containing model (`ModelHints.flattened`) and projects a
