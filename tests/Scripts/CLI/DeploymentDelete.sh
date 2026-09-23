@@ -185,49 +185,60 @@ PUT_STATUS=$(az rest \
     --uri "$RUNNING_URI" \
     --body "$RUNNING_TEMPLATE_PAYLOAD" \
     --output json | grep -o '"statusCode": *[0-9]*' | head -1)
+RUNNING_ARRANGED=0
 case "$PUT_STATUS" in
-    *201*) echo "PASS: ARRANGE running deployment '$RUNNING_DEPLOYMENT_NAME' accepted ($PUT_STATUS)" ;;
+    *201*)
+        RUNNING_ARRANGED=1
+        echo "PASS: ARRANGE running deployment '$RUNNING_DEPLOYMENT_NAME' accepted ($PUT_STATUS)"
+        ;;
     *) fail "ARRANGE running deployment PUT returned '$PUT_STATUS', expected 201 -- the running-delete case below is not meaningful" ;;
 esac
 
-# The delete must be rejected while the deployment is in flight, not silently accepted.
-az deployment group delete \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$RUNNING_DEPLOYMENT_NAME" \
-    --debug
-assert_status $? nonzero "delete a running deployment (expect DeploymentCannotBeDeleted)"
-
-# Cleanup. Cancel the in-flight deployment so it reaches a terminal state, poll until it gets there,
-# then delete its record -- which also demonstrates that a cancelled deployment IS deletable.
-az deployment group cancel \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$RUNNING_DEPLOYMENT_NAME"
-
-STATE=""
-for _ in $(seq 1 15); do
-    STATE=$(az deployment group show \
+# Everything below depends on THIS run having put a deployment into Running. Without that the
+# delete/cancel/poll calls would act on whatever record an earlier run left behind and report its
+# state as if it were this run's result, so the whole block is skipped after a failed arrange.
+if [ "$RUNNING_ARRANGED" -eq 1 ]; then
+    # The delete must be rejected while the deployment is in flight, not silently accepted.
+    az deployment group delete \
         --subscription-id "$SUBSCRIPTION_ID" \
         --resource-group "$RESOURCE_GROUP" \
         --name "$RUNNING_DEPLOYMENT_NAME" \
-        --output json | grep -o '"provisioningState": *"[^"]*"' | head -1)
-    case "$STATE" in
-        *Cancel*|*Succeeded*|*Failed*) break ;;
-    esac
-    sleep 2
-done
-echo "CLEANUP: running deployment provisioningState -> $STATE (expect a terminal state)"
-case "$STATE" in
-    *Cancel*|*Succeeded*|*Failed*) ;;
-    *) fail "CLEANUP: running deployment never reached a terminal state (last state '$STATE')" ;;
-esac
+        --debug
+    assert_status $? nonzero "delete a running deployment (expect DeploymentCannotBeDeleted)"
 
-az deployment group delete \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$RUNNING_DEPLOYMENT_NAME"
-assert_status $? zero "CLEANUP: delete the cancelled deployment record"
+    # Cleanup. Cancel the in-flight deployment so it reaches a terminal state, poll until it gets
+    # there, then delete its record -- which also demonstrates a cancelled deployment IS deletable.
+    az deployment group cancel \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$RUNNING_DEPLOYMENT_NAME"
+
+    STATE=""
+    for _ in $(seq 1 15); do
+        STATE=$(az deployment group show \
+            --subscription-id "$SUBSCRIPTION_ID" \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$RUNNING_DEPLOYMENT_NAME" \
+            --output json | grep -o '"provisioningState": *"[^"]*"' | head -1)
+        case "$STATE" in
+            *Cancel*|*Succeeded*|*Failed*) break ;;
+        esac
+        sleep 2
+    done
+    echo "CLEANUP: running deployment provisioningState -> $STATE (expect a terminal state)"
+    case "$STATE" in
+        *Cancel*|*Succeeded*|*Failed*) ;;
+        *) fail "CLEANUP: running deployment never reached a terminal state (last state '$STATE')" ;;
+    esac
+
+    az deployment group delete \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$RUNNING_DEPLOYMENT_NAME"
+    assert_status $? zero "CLEANUP: delete the cancelled deployment record"
+else
+    echo "SKIPPED: running-deployment delete, cancel and record cleanup (arrange did not return 201)"
+fi
 
 # The cancelled deployment may have created the storage account before it was stopped, and deleting
 # the deployment record does not remove it. ARM answers 200 when the account existed and 204 when it

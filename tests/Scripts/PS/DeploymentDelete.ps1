@@ -257,33 +257,39 @@ if ($runningIsArranged) {
 }
 
 # Cleanup: cancel the in-flight deployment so it reaches a terminal state, poll until it gets there,
-# then delete its record -- which also demonstrates that a cancelled deployment IS deletable.
-Stop-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $RunningDeploymentName `
-    -Confirm:$false
-
-$state = $null
-foreach ($attempt in 1..15) {
-    $state = (Get-AzResourceGroupDeployment `
+# then delete its record -- which also demonstrates that a cancelled deployment IS deletable. This
+# too is gated: without a 201 from THIS run the cancel and poll would act on whatever record an
+# earlier run left behind and report its state as if it were this run's result.
+if ($runningIsArranged) {
+    Stop-AzResourceGroupDeployment `
         -SubscriptionId $SubscriptionId `
         -ResourceGroupName $ResourceGroupName `
-        -Name $RunningDeploymentName).Properties.ProvisioningState
-    if ($state -in @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) { break }
-    Start-Sleep -Seconds 2
-}
-Write-Host "CLEANUP: running deployment provisioningState is '$state'"
-if ($state -notin @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) {
-    Add-Failure "running deployment never reached a terminal state (last state '$state')"
-}
+        -Name $RunningDeploymentName `
+        -Confirm:$false
 
-Remove-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $RunningDeploymentName `
-    -Confirm:$false
-Write-Host "CLEANUP: deployment record '$RunningDeploymentName' removed"
+    $state = $null
+    foreach ($attempt in 1..15) {
+        $state = (Get-AzResourceGroupDeployment `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroupName $ResourceGroupName `
+            -Name $RunningDeploymentName).Properties.ProvisioningState
+        if ($state -in @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) { break }
+        Start-Sleep -Seconds 2
+    }
+    Write-Host "CLEANUP: running deployment provisioningState is '$state'"
+    if ($state -notin @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) {
+        Add-Failure "running deployment never reached a terminal state (last state '$state')"
+    }
+
+    Remove-AzResourceGroupDeployment `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroupName $ResourceGroupName `
+        -Name $RunningDeploymentName `
+        -Confirm:$false
+    Write-Host "CLEANUP: deployment record '$RunningDeploymentName' removed"
+} else {
+    Write-Host 'SKIPPED: running-deployment cancel and record cleanup (arrange did not return 201)'
+}
 
 # The cancelled deployment may have created the storage account before it was stopped, and deleting
 # the deployment record does not remove it. ARM answers 200 when the account existed and 204 when it
