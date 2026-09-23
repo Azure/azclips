@@ -5,28 +5,46 @@ import {
   PsCommandDialectSchema,
   PsModuleDialectSchema,
   PsParameterDialectSchema,
+  IRCommandIdentitySchema,
   IRCommandSchema,
   IRCommandParameterSourceSchema,
+  emptyIR,
+  safeParseTransformedIR,
 } from "../src/index.js";
 
+const target = {
+  rootNamespace: ["Microsoft", "Azure", "Widgets"],
+  projectName: "Widgets",
+  directories: { models: "Models", processors: "Processors" },
+};
+
 describe("PsModuleDialect", () => {
-  it("carries module naming and synthesized InputObject metadata without a command graph", () => {
+  it("carries module naming metadata without client-surface declarations", () => {
     const result = PsModuleDialectSchema.safeParse({
       name: "ElasticSan",
       description: "Manages Elastic SAN resources.",
       prefix: "Az",
       subjectPrefix: "ElasticSan",
-      identity: {
-        name: "ElasticSanIdentity",
-        properties: [
-          {
-            name: "ResourceGroupName",
-            sourceParameters: [
-              { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
-            ],
-          },
-        ],
-      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("IRCommandIdentity", () => {
+  it("declares a synthesized InputObject shared by commands", () => {
+    const result = IRCommandIdentitySchema.safeParse({
+      kind: "identity",
+      id: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity" },
+      name: "ElasticSanIdentity",
+      properties: [
+        {
+          name: "ResourceGroupName",
+          sourceParameters: [
+            { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
+          ],
+        },
+      ],
     });
 
     expect(result.success).toBe(true);
@@ -84,7 +102,12 @@ describe("PsCommandDialect", () => {
       parameters: [
         {
           name: "InputObject",
-          source: { kind: "synthetic", purpose: "identity", parameters: [operation] },
+          source: {
+            kind: "synthetic",
+            purpose: "identity",
+            type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
+            parameters: [operation],
+          },
           type: { kind: "primitive", name: "string" },
           required: true,
           nullable: false,
@@ -160,6 +183,7 @@ describe("PowerShell synthetic parameters", () => {
     const result = IRCommandParameterSourceSchema.safeParse({
       kind: "synthetic",
       purpose: "identity",
+      type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
       parameters: [
         { module: "Widgets", namespace: [], name: "subscriptionId" },
         { module: "Widgets", namespace: [], name: "resourceGroupName" },
@@ -167,6 +191,72 @@ describe("PowerShell synthetic parameters", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("PowerShell shared identity references", () => {
+  const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
+  const identity = {
+    kind: "identity" as const,
+    id: identityId,
+    name: "WidgetIdentity",
+    properties: [],
+  };
+
+  it("rejects duplicate shared type ids", () => {
+    const result = safeParseTransformedIR({
+      ...emptyIR(),
+      commands: [],
+      sharedTypes: [identity, identity],
+      target,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["sharedTypes", 1, "id"] }),
+      ]));
+    }
+  });
+
+  it("rejects a synthetic parameter that references a missing shared identity", () => {
+    const operation = { module: "Widgets", namespace: [], name: "get" };
+    const result = safeParseTransformedIR({
+      ...emptyIR(),
+      commands: [{
+        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
+        name: "GetWidgetByIdentity",
+        template: "atomic",
+        server: { module: "Widgets", namespace: [], name: "server" },
+        steps: [{
+          operation,
+          request: { method: "GET", path: [], query: [], headers: [] },
+          responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
+        }],
+        parameters: [{
+          name: "InputObject",
+          source: {
+            kind: "synthetic",
+            purpose: "identity",
+            type: identityId,
+            parameters: [operation],
+          },
+          type: { kind: "primitive", name: "string" },
+          required: true,
+          nullable: false,
+        }],
+        surface: { paginated: false },
+      }],
+      sharedTypes: [],
+      target,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "source", "type"] }),
+      ]));
+    }
   });
 });
 

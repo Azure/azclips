@@ -37,7 +37,6 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, type IRId } from "./id.js";
 import {
   ConfirmImpacts,
   LifecycleTags,
@@ -78,35 +77,6 @@ const clientDialectFields = {
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
 
-/** One property exposed by the module's synthesized InputObject type. */
-export type PsIdentityProperty = {
-  name: string;
-  description?: string | undefined;
-  /** Canonical path parameters this property can satisfy. Empty for a synthesized resource id. */
-  sourceParameters: IRId[];
-};
-
-export const PsIdentityPropertySchema: z.ZodType<PsIdentityProperty> = z
-  .object({
-    name: z.string().min(1),
-    description: z.string().optional(),
-    sourceParameters: z.array(IRIdSchema),
-  })
-  .strict();
-
-/** Module-wide synthesized InputObject contract. */
-export type PsIdentity = {
-  name: string;
-  properties: PsIdentityProperty[];
-};
-
-export const PsIdentitySchema: z.ZodType<PsIdentity> = z
-  .object({
-    name: z.string().min(1),
-    properties: z.array(PsIdentityPropertySchema),
-  })
-  .strict();
-
 /** PowerShell metadata shared by every command emitted into one module. */
 export type PsModuleDialect = {
   name: string;
@@ -115,7 +85,6 @@ export type PsModuleDialect = {
   prefix?: string | undefined;
   /** Service/subject prefix appended after `prefix`, for example `ApplicationInsights`. */
   subjectPrefix?: string | undefined;
-  identity?: PsIdentity | undefined;
 };
 
 export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
@@ -124,7 +93,6 @@ export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
     description: z.string().optional(),
     prefix: z.string().min(1).optional(),
     subjectPrefix: z.string().min(1).optional(),
-    identity: PsIdentitySchema.optional(),
   })
   .strict();
 

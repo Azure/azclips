@@ -19,6 +19,10 @@ import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discrim
 import { IRCommandSchema, commandActionKey, commandKey, type IRCommand } from "./command.js";
 import { IRTargetSchema, type IRTarget } from "./target.js";
 import { idKey, serializeId, type IRId } from "./id.js";
+import {
+  IRCommandSharedTypeSchema,
+  type IRCommandSharedType,
+} from "./shared-type.js";
 
 export type IR = {
   schemaVersion: string;
@@ -167,6 +171,8 @@ export type TransformedIR = Flatten<
      * `id.subject` / `id.action`, not with position.
      */
     commands: IRCommand[];
+    /** Types synthesized once and shared by commands in the transformed client surface. */
+    sharedTypes: IRCommandSharedType[];
     /** Resolved placement for the generated project. */
     target: IRTarget;
   }
@@ -175,6 +181,7 @@ export type TransformedIR = Flatten<
 /** Extends `IRSchemaRoot`, so a field added to `IR` reaches both roots. */
 const TransformedIRSchemaRoot = IRSchemaRoot.extend({
   commands: z.array(IRCommandSchema),
+  sharedTypes: z.array(IRCommandSharedTypeSchema),
   target: IRTargetSchema,
 });
 
@@ -191,10 +198,23 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
+    const sharedTypes = new Set<string>();
     const psFamilies = new Map<
       string,
       { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
     >();
+
+    ir.sharedTypes.forEach((sharedType, index) => {
+      const key = idKey(sharedType.id);
+      if (sharedTypes.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Two shared types have the id ${serializeId(sharedType.id)}; shared type ids must be unique.`,
+          path: ["sharedTypes", index, "id"],
+        });
+      }
+      sharedTypes.add(key);
+    });
 
     ir.commands.forEach((command, index) => {
       if (!servers.has(idKey(command.server))) {
@@ -235,6 +255,16 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
       identities.add(key);
+
+      command.parameters.forEach((parameter, parameterIndex) => {
+        if (parameter.source.kind === "synthetic" && !sharedTypes.has(idKey(parameter.source.type))) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Command '${command.name}' parameter '${parameter.name}' references shared identity ${serializeId(parameter.source.type)}, which is not in TransformedIR.sharedTypes.`,
+            path: ["commands", index, "parameters", parameterIndex, "source", "type"],
+          });
+        }
+      });
 
       if (command.dialect?.ps !== undefined) {
         const familyKey = commandActionKey(command.id);

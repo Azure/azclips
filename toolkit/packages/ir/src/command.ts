@@ -187,6 +187,8 @@ export type IRCommandParameterSource =
   | {
       kind: "synthetic";
       purpose: "identity";
+      /** Shared identity declaration used as this parameter's type. */
+      type: IRId;
       /** Canonical path parameters supplied by the synthesized InputObject. */
       parameters: IRId[];
     };
@@ -201,6 +203,7 @@ export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource>
       .object({
         kind: z.literal("synthetic"),
         purpose: z.literal("identity"),
+        type: IRIdSchema,
         parameters: z.array(IRIdSchema).min(1),
       })
       .strict(),
