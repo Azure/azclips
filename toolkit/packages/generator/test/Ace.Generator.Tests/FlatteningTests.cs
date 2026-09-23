@@ -96,12 +96,13 @@ public sealed class FlatteningTests
             Servers = [new IRServerDefinition { Id = ServerId(), Endpoint = new IRServerLiteral { Url = "https://example.com" } }],
             Models = [thing, thingProperties, Model("Sku", Prim("Sku", "Name", optional: false))],
             Operations = [],
+            Commands = new IRCommandCollection(),
         };
 
         if (withOperation)
         {
             ir.Operations = [Operation()];
-            ir.Commands = [Command()];
+            ir.Commands.Items = [Command()];
         }
 
         return ir;
@@ -255,7 +256,7 @@ public sealed class FlatteningTests
                 },
             ]),
         ];
-        ir.Commands =
+        ir.Commands.Items =
         [
             Command([
                 Commands.Parameter(
@@ -411,7 +412,7 @@ public sealed class FlatteningTests
                 },
             ]),
         ];
-        ir.Commands =
+        ir.Commands.Items =
         [
             Command([
                 Commands.Parameter(

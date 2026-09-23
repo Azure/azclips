@@ -22,6 +22,7 @@ public sealed class HostRunnerTests
         [
             new IRModel { Name = "Widget", Source = "Test", Id = new IRId { Module = "Test", Name = "Widget" } },
         ],
+        Commands = new IRCommandCollection(),
     };
 
     /// <summary>Serialize a request, run the host, and split stdout into frames.</summary>
@@ -79,7 +80,7 @@ public sealed class HostRunnerTests
     public async Task Invalid_server_reference_emits_an_error_result_without_the_processor()
     {
         TransformedIR ir = Ir();
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic(
                 "Get",

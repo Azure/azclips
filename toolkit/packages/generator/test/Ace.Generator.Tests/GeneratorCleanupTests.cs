@@ -27,6 +27,7 @@ public sealed class GeneratorCleanupTests
             },
         ],
         Operations = [new IROperation { Name = "get", Server = new IRId { Module = "T", Name = "server" } }],
+        Commands = new IRCommandCollection(),
     };
 
     [Fact]

@@ -203,7 +203,9 @@ export {
   parseTransformedIR,
   safeParseTransformedIR,
   emptyIR,
+  IRCommandCollectionSchema,
   type IR,
+  type IRCommandCollection,
   type TransformedIR,
 } from "./ir.js";
 

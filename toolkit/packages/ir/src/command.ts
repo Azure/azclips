@@ -20,8 +20,8 @@
  *     or regroup commands, but must never re-derive a name — the same rule that
  *     keeps `ModelHints.flattened` authoritative for flattening.
  *
- * Commands live flat at the IR root. **Array order is not meaningful**; group with
- * `id.subject` / `id.action`, not with position.
+ * Commands live flat in `TransformedIR.commands.items`. **Array order is not
+ * meaningful**; group with `id.subject` / `id.action`, not with position.
  *
  * The name is deliberate: `Core.Abstractions` — the client-neutral runtime layer both
  * the CLI and the PowerShell modules sit on — already calls this a command

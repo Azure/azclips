@@ -190,7 +190,11 @@ export function createCommandStep(
         }
       }
 
-      const transformed: TransformedIR = { ...ir, commands, target: buildTarget(pass) };
+      const transformed: TransformedIR = {
+        ...ir,
+        commands: { items: commands, sharedTypes: [] },
+        target: buildTarget(pass),
+      };
       return transformed;
     },
   };
@@ -582,7 +586,7 @@ function buildRequest(
 ): IRCommandStep["request"] {
   const byId = new Map<string, string>();
   for (const parameter of parameters) {
-    if (parameter.source.kind !== "body") {
+    if (parameter.source.kind === "path" || parameter.source.kind === "query" || parameter.source.kind === "header") {
       byId.set(serializeId(parameter.source.parameter), parameter.name);
     }
   }

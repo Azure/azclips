@@ -9,7 +9,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Emits one C# processor class per <see cref="TransformedIR.Commands"/> entry.
+/// Emits one C# processor class per <see cref="IRCommandCollection.Items"/> entry.
 /// </summary>
 /// <remarks>
 /// Commands are a *projection*: the transform already decided the type name, the parameter
@@ -46,7 +46,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         string ns = context.Placement.ProcessorsNamespace;
         string modelsNamespace = context.Placement.ModelsNamespace;
 
-        foreach (IRCommand command in context.Ir.Commands)
+        foreach (IRCommand command in context.Ir.Commands.Items)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 

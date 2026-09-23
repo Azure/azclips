@@ -44,9 +44,12 @@ public sealed class CSharpClientGeneratorTests
             Operations = names
                 .Select(name => new IROperation { Id = OperationId(name), Name = name, Server = ServerId() })
                 .ToList(),
-            Commands = names
-                .Select(name => Commands.Atomic(Pascal(name), ServerId(), OperationId(name)))
-                .ToList(),
+            Commands = new IRCommandCollection
+            {
+                Items = names
+                    .Select(name => Commands.Atomic(Pascal(name), ServerId(), OperationId(name)))
+                    .ToList(),
+            },
         };
     }
 
@@ -96,7 +99,7 @@ public sealed class CSharpClientGeneratorTests
         // number-typed header has to be formatted. Passing it raw compiles only by accident of
         // overload resolution — and here, not at all.
         TransformedIR ir = Ir(operations: ["get"]);
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic(
                 "Get",
@@ -141,7 +144,7 @@ public sealed class CSharpClientGeneratorTests
         // The projection resolves paging bindings to a property-id path. An empty path means
         // "the body *is* the page", so the selector must be the body, not a member of it.
         TransformedIR ir = Ir(operations: ["list"]);
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic(
                 "List",
@@ -171,7 +174,7 @@ public sealed class CSharpClientGeneratorTests
         // A path segment that names no property in the document must not be PascalCased into a
         // plausible-looking member: that compiles into a wrong selector. Report and emit nothing.
         TransformedIR ir = Ir(operations: ["list"]);
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic(
                 "List",
@@ -201,7 +204,7 @@ public sealed class CSharpClientGeneratorTests
     public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
     {
         TransformedIR ir = Ir(operations: ["upload"]);
-        ir.Commands[0].Steps[0].Request!.Body = new IRCommandRequestBody
+        ir.Commands.Items[0].Steps[0].Request!.Body = new IRCommandRequestBody
         {
             ContentType = "multipart/mixed",
             Multipart = new IRMultipartBody
@@ -247,7 +250,7 @@ public sealed class CSharpClientGeneratorTests
                 Server = ServerId(),
             },
         ];
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic(
                 "FetchWidgets",
@@ -272,7 +275,7 @@ public sealed class CSharpClientGeneratorTests
         IRId operation = OperationId("get");
         TransformedIR ir = Ir();
         ir.Operations = [new IROperation { Id = operation, Name = "get", Server = ServerId() }];
-        ir.Commands =
+        ir.Commands.Items =
         [
             Commands.Atomic("GetWidget", ServerId(), operation, action: "get"),
             Commands.Atomic("GetWidgetByName", ServerId(), operation, action: "getByName"),

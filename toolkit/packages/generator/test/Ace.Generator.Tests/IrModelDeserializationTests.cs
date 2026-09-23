@@ -107,23 +107,23 @@ public sealed class IrModelDeserializationTests
         TransformedIR document = Parse<TransformedIR>(
             """
             {
-              "sharedTypes": [
-                {
-                  "kind": "identity",
-                  "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
-                  "name": "WidgetIdentity",
-                  "properties": [
-                    {
-                      "name": "ResourceGroupName",
-                      "sourceParameters": [
-                        { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
-                      ]
-                    }
-                  ]
-                }
-              ],
-              "commands": [
-                {
+              "commands": {
+                "sharedTypes": [
+                  {
+                    "kind": "identity",
+                    "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
+                    "name": "WidgetIdentity",
+                    "properties": [
+                      {
+                        "name": "ResourceGroupName",
+                        "sourceParameters": [
+                          { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "items": [{
                   "parameters": [
                     {
                       "name": "InputObject",
@@ -143,19 +143,19 @@ public sealed class IrModelDeserializationTests
                       "nullable": false
                     }
                   ]
-                }
-              ]
+                }]
+              }
             }
             """);
 
         TransformedIR roundTripped = Parse<TransformedIR>(
             JsonSerializer.Serialize(document, IrJson.Options));
 
-        IRCommandIdentity identity = Assert.Single(roundTripped.SharedTypes);
+        IRCommandIdentity identity = Assert.Single(roundTripped.Commands.SharedTypes);
         Assert.Equal("WidgetIdentity", identity.Name);
         Assert.Equal("ResourceGroupName", Assert.Single(identity.Properties).Name);
 
-        IRCommandParameter parameter = Assert.Single(Assert.Single(roundTripped.Commands).Parameters);
+        IRCommandParameter parameter = Assert.Single(Assert.Single(roundTripped.Commands.Items).Parameters);
         var source = Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
         Assert.Equal(identity.Id.Name, source.Type.Name);
         Assert.Equal("get.resourceGroupName", Assert.Single(source.Parameters).Name);

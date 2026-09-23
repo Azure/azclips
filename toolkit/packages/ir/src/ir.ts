@@ -164,15 +164,27 @@ export function emptyIR(): IR {
  */
 type Flatten<T> = { [K in keyof T]: T[K] };
 
+export type IRCommandCollection = {
+  /** Every command, flat. Array order is not meaningful. */
+  items: IRCommand[];
+  /** Types synthesized once and shared by commands in this client surface. */
+  sharedTypes: IRCommandSharedType[];
+};
+
+export const IRCommandCollectionSchema: z.ZodType<IRCommandCollection> = z
+  .object({
+    items: z.array(IRCommandSchema),
+    sharedTypes: z.array(IRCommandSharedTypeSchema),
+  })
+  .strict();
+
 export type TransformedIR = Flatten<
   IR & {
     /**
-     * Every command, flat. **Array order is not meaningful** — group with
-     * `id.subject` / `id.action`, not with position.
+     * The command-shaped client surface: canonical command items and declarations
+     * shared by those commands.
      */
-    commands: IRCommand[];
-    /** Types synthesized once and shared by commands in the transformed client surface. */
-    sharedTypes: IRCommandSharedType[];
+    commands: IRCommandCollection;
     /** Resolved placement for the generated project. */
     target: IRTarget;
   }
@@ -180,8 +192,7 @@ export type TransformedIR = Flatten<
 
 /** Extends `IRSchemaRoot`, so a field added to `IR` reaches both roots. */
 const TransformedIRSchemaRoot = IRSchemaRoot.extend({
-  commands: z.array(IRCommandSchema),
-  sharedTypes: z.array(IRCommandSharedTypeSchema),
+  commands: IRCommandCollectionSchema,
   target: IRTargetSchema,
 });
 
@@ -209,13 +220,13 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
       { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
     >();
 
-    ir.sharedTypes.forEach((sharedType, index) => {
+    ir.commands.sharedTypes.forEach((sharedType, index) => {
       const key = idKey(sharedType.id);
       if (sharedTypes.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two shared types have the id ${serializeId(sharedType.id)}; shared type ids must be unique.`,
-          path: ["sharedTypes", index, "id"],
+          path: ["commands", "sharedTypes", index, "id"],
         });
       }
       sharedTypes.add(key);
@@ -226,19 +237,19 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               message: `Shared identity '${sharedType.name}' property '${property.name}' references ${serializeId(parameter)}, which is not a canonical path parameter.`,
-              path: ["sharedTypes", index, "properties", propertyIndex, "sourceParameters", parameterIndex],
+              path: ["commands", "sharedTypes", index, "properties", propertyIndex, "sourceParameters", parameterIndex],
             });
           }
         });
       });
     });
 
-    ir.commands.forEach((command, index) => {
+    ir.commands.items.forEach((command, index) => {
       if (!servers.has(idKey(command.server))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Command '${command.name}' references server ${serializeId(command.server)}, which has no definition in IR.servers.`,
-          path: ["commands", index, "server"],
+          path: ["commands", "items", index, "server"],
         });
       }
 
@@ -247,7 +258,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Command '${command.name}' step ${stepIndex} references operation ${serializeId(step.operation)}, which is not in IR.operations.`,
-            path: ["commands", index, "steps", stepIndex, "operation"],
+            path: ["commands", "items", index, "steps", stepIndex, "operation"],
           });
         }
       });
@@ -258,7 +269,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two commands are named '${command.name}'; command names must be unique across the document.`,
-          path: ["commands", index, "name"],
+          path: ["commands", "items", index, "name"],
         });
       }
       names.add(command.name);
@@ -269,7 +280,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two commands share the identity ${key}; (module, group, action, variant) must be unique.`,
-          path: ["commands", index, "id"],
+          path: ["commands", "items", index, "id"],
         });
       }
       identities.add(key);
@@ -280,8 +291,8 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         if (!sharedTypes.has(idKey(parameter.source.type))) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `Command '${command.name}' parameter '${parameter.name}' references shared identity ${serializeId(parameter.source.type)}, which is not in TransformedIR.sharedTypes.`,
-            path: ["commands", index, "parameters", parameterIndex, "source", "type"],
+            message: `Command '${command.name}' parameter '${parameter.name}' references shared identity ${serializeId(parameter.source.type)}, which is not in TransformedIR.commands.sharedTypes.`,
+            path: ["commands", "items", index, "parameters", parameterIndex, "source", "type"],
           });
         }
 
@@ -289,7 +300,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Command '${command.name}' parameter '${parameter.name}' must use its referenced shared identity as its model type.`,
-            path: ["commands", index, "parameters", parameterIndex, "type"],
+            path: ["commands", "items", index, "parameters", parameterIndex, "type"],
           });
         }
 
@@ -298,7 +309,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               message: `Command '${command.name}' parameter '${parameter.name}' supplies ${serializeId(sourceParameter)}, which is not a canonical path parameter.`,
-              path: ["commands", index, "parameters", parameterIndex, "source", "parameters", sourceParameterIndex],
+              path: ["commands", "items", index, "parameters", parameterIndex, "source", "parameters", sourceParameterIndex],
             });
           }
         });
@@ -335,7 +346,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `PowerShell sibling commands must agree on one default parameter set; '${command.name}' does not.`,
-            path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
+            path: ["commands", "items", command.index, "dialect", "ps", "defaultParameterSet"],
           });
         }
       });
@@ -345,7 +356,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `PowerShell command family names default parameter set '${defaultSet}', which none of its parameters declares.`,
-          path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
+          path: ["commands", "items", command.index, "dialect", "ps", "defaultParameterSet"],
         });
       }
     });

@@ -81,6 +81,7 @@ public sealed class IrIndexTests
                 },
             ],
             Operations = [],
+            Commands = new IRCommandCollection(),
         };
 
         var index = new IrIndex(ir);
@@ -109,6 +110,7 @@ public sealed class IrIndexTests
             ],
             Models = [],
             Operations = [],
+            Commands = new IRCommandCollection(),
         };
 
         var index = new IrIndex(ir);
@@ -127,6 +129,7 @@ public sealed class IrIndexTests
             SchemaVersion = "0.12.0",
             Models = [new IRModel { Name = "Anonymous", Source = "<root>", Properties = [] }],
             Operations = [new IROperation { Name = "get", Source = "<root>" }],
+            Commands = new IRCommandCollection(),
         };
 
         var index = new IrIndex(ir);

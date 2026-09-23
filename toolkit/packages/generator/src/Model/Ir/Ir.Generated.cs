@@ -815,6 +815,15 @@ public partial class IRCommand
     public IRCommandDialect? Dialect { get; set; }
 }
 
+public partial class IRCommandCollection
+{
+    [JsonPropertyName("items")]
+    public IReadOnlyList<IRCommand> Items { get; set; } = [];
+
+    [JsonPropertyName("sharedTypes")]
+    public IReadOnlyList<IRCommandIdentity> SharedTypes { get; set; } = [];
+}
+
 public partial class IRCommandDialect
 {
     [JsonPropertyName("ps")]
@@ -2343,10 +2352,7 @@ public partial class TransformedIR
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
     [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
-    [JsonPropertyName("sharedTypes")]
-    public IReadOnlyList<IRCommandIdentity> SharedTypes { get; set; } = [];
+    public IRCommandCollection Commands { get; set; } = default !;
 
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;

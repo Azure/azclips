@@ -110,6 +110,7 @@ import {
   RequestBodyHintsSchema,
   // Commands — the transformer↔generator contract. Registered so the generated C#
   // gets named types rather than anonymous inline objects.
+  IRCommandCollectionSchema,
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
@@ -223,6 +224,7 @@ const definitions = {
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
   // Commands.
+  IRCommandCollection: IRCommandCollectionSchema,
   IRCommand: IRCommandSchema,
   IRCommandId: IRCommandIdSchema,
   IRCommandParameter: IRCommandParameterSchema,

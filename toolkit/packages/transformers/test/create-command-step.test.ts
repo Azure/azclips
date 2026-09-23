@@ -92,7 +92,7 @@ function run(
 
 const only = (ir: IR, options: Record<string, unknown> = {}): IRCommand => {
   const { out } = run(ir, options);
-  return out.commands[0]!;
+  return out.commands.items[0]!;
 };
 
 /** The request path as text, parameters shown as `{Name}`. */
@@ -107,10 +107,10 @@ describe("command projection", () => {
     const { out, diagnostics } = run(ir);
 
     expect(diagnostics).toEqual([]);
-    expect(out.commands).toHaveLength(2);
+    expect(out.commands.items).toHaveLength(2);
     // A projection, not a replacement — wire truth stays reachable.
     expect(out.operations).toHaveLength(2);
-    expect(out.commands[0]!.steps[0]!.operation).toEqual(out.operations[0]!.id);
+    expect(out.commands.items[0]!.steps[0]!.operation).toEqual(out.operations[0]!.id);
   });
 
   it("derives identity from the operation's subject and name", () => {
@@ -136,11 +136,11 @@ describe("command projection", () => {
     const { out, diagnostics } = run(ir);
 
     expect(diagnostics).toEqual([]);
-    expect(out.commands.map((command) => command.id.subject)).toEqual([
+    expect(out.commands.items.map((command) => command.id.subject)).toEqual([
       "CrossConnections",
       "CrossConnectionPeerings",
     ]);
-    expect(out.commands.map((command) => command.name)).toEqual([
+    expect(out.commands.items.map((command) => command.name)).toEqual([
       "GetCrossConnections",
       "GetCrossConnectionPeerings",
     ]);
@@ -160,7 +160,7 @@ describe("command projection", () => {
     const { out, diagnostics } = run(ir);
 
     expect(diagnostics).toEqual([]);
-    expect(out.commands[0]!.id.subject).toBe("Peerings");
+    expect(out.commands.items[0]!.id.subject).toBe("Peerings");
     // The declaration site is untouched — id records where it was declared.
     expect(out.operations[0]!.id.interface).toBe("CrossConnections");
   });
@@ -179,7 +179,7 @@ describe("command projection", () => {
     const { out, diagnostics } = run(ir);
 
     expect(diagnostics).toEqual([]);
-    expect(out.commands.map((c) => c.id.subject)).toEqual(["Deployments", "DeploymentOperations"]);
+    expect(out.commands.items.map((c) => c.id.subject)).toEqual(["Deployments", "DeploymentOperations"]);
   });
 
   it("matches the action word-wise so it is not sliced out of a longer word", () => {
@@ -201,13 +201,13 @@ describe("command projection", () => {
     const { out, diagnostics } = run(ir);
 
     expect(diagnostics).toEqual([]);
-    expect(out.commands.map((c) => [c.id.action, c.id.variant])).toEqual([
+    expect(out.commands.items.map((c) => [c.id.action, c.id.variant])).toEqual([
       ["List", "List"],
       ["List", "ByResourceGroup"],
     ]);
     // Same action key, so a later pass finds them by id comparison, not by name.
-    expect(commandActionKey(out.commands[0]!.id)).toBe(commandActionKey(out.commands[1]!.id));
-    expect(out.commands.map((c) => c.name)).toEqual(["ListWidgets", "ListByResourceGroupWidgets"]);
+    expect(commandActionKey(out.commands.items[0]!.id)).toBe(commandActionKey(out.commands.items[1]!.id));
+    expect(out.commands.items.map((c) => c.name)).toEqual(["ListWidgets", "ListByResourceGroupWidgets"]);
   });
 
   it("does not split a leading or trailing `by`", () => {
@@ -219,7 +219,7 @@ describe("command projection", () => {
     ]);
     const { out } = run(ir);
 
-    expect(out.commands.map((c) => [c.id.action, c.id.variant])).toEqual([
+    expect(out.commands.items.map((c) => [c.id.action, c.id.variant])).toEqual([
       ["ByPolicy", "ByPolicy"],
       ["OrderBy", "OrderBy"],
     ]);
@@ -261,7 +261,7 @@ describe("command projection", () => {
     expect(diagnostics.map((d) => [d.severity, d.code.split("/").pop()])).toEqual([
       ["error", "duplicate-command-identity"],
     ]);
-    expect(out.commands).toHaveLength(1);
+    expect(out.commands.items).toHaveLength(1);
 
     const message = diagnostics[0]!.message;
     // Both declared ids, distinguished by their namespaces...
@@ -281,8 +281,8 @@ describe("command projection", () => {
     ]);
     const { out } = run(ir);
 
-    expect(out.commands.map((command) => command.id.subject)).toEqual(["AWidgets", "Widgets"]);
-    expect(out.commands.map((command) => command.name)).toEqual(["GetAWidgets", "GetAWidgets2"]);
+    expect(out.commands.items.map((command) => command.id.subject)).toEqual(["AWidgets", "Widgets"]);
+    expect(out.commands.items.map((command) => command.name)).toEqual(["GetAWidgets", "GetAWidgets2"]);
   });
 });
 
@@ -372,7 +372,7 @@ describe("request", () => {
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["unbound-path-placeholder"]);
     // Degrades to a literal rather than silently binding to nothing.
-    expect(uri(out.commands[0]!)).toBe("/widgets/{ghost}");
+    expect(uri(out.commands.items[0]!)).toBe("/widgets/{ghost}");
   });
 
   it("pins the api-version as a literal rather than a parameter", () => {
@@ -472,7 +472,7 @@ describe("body", () => {
     );
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["unresolved-body-parameter"]);
-    expect(out.commands[0]!.steps[0]!.request.body?.projected).toBe(false);
+    expect(out.commands.items[0]!.steps[0]!.request.body?.projected).toBe(false);
   });
 });
 
@@ -600,8 +600,8 @@ describe("pagination", () => {
     const { out, diagnostics } = run(document([broken], [page]));
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["paging-binding-unresolved"]);
-    expect(out.commands[0]!.surface.paginated).toBe(false);
-    expect(out.commands[0]!.steps[0]!.pagination).toBeUndefined();
+    expect(out.commands.items[0]!.surface.paginated).toBe(false);
+    expect(out.commands.items[0]!.steps[0]!.pagination).toBeUndefined();
   });
 });
 
@@ -644,6 +644,6 @@ describe("degradation", () => {
     }) as TransformedIR;
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["empty-operation-name"]);
-    expect(out.commands).toEqual([]);
+    expect(out.commands.items).toEqual([]);
   });
 });

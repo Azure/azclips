@@ -38,7 +38,7 @@ public sealed class ElasticSanProcessorTests
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
         // One processor per command, plus the shared ProcessorBase.
-        Assert.Equal(ir.Commands.Count + 1, writer.Files.ProcessorSources().Count());
+        Assert.Equal(ir.Commands.Items.Count + 1, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]

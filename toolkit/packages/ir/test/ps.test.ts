@@ -242,7 +242,8 @@ describe("PowerShell shared identity references", () => {
         apiVersion,
         server: serverId,
       }],
-      commands: [{
+      commands: {
+        items: [{
         id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
         name: "GetWidgetByIdentity",
         template: "atomic",
@@ -264,9 +265,10 @@ describe("PowerShell shared identity references", () => {
           required: true,
           nullable: false,
         }],
-        surface: { paginated: false },
-      }],
-      sharedTypes,
+          surface: { paginated: false },
+        }],
+        sharedTypes,
+      },
       target,
     };
   }
@@ -274,15 +276,14 @@ describe("PowerShell shared identity references", () => {
   it("rejects duplicate shared type ids", () => {
     const result = safeParseTransformedIR({
       ...emptyIR(),
-      commands: [],
-      sharedTypes: [identity, identity],
+      commands: { items: [], sharedTypes: [identity, identity] },
       target,
     });
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["sharedTypes", 1, "id"] }),
+        expect.objectContaining({ path: ["commands", "sharedTypes", 1, "id"] }),
       ]));
     }
   });
@@ -293,7 +294,7 @@ describe("PowerShell shared identity references", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "source", "type"] }),
+        expect.objectContaining({ path: ["commands", "items", 0, "parameters", 0, "source", "type"] }),
       ]));
     }
   });
@@ -310,7 +311,7 @@ describe("PowerShell shared identity references", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "type"] }),
+        expect.objectContaining({ path: ["commands", "items", 0, "parameters", 0, "type"] }),
       ]));
     }
   });
@@ -322,7 +323,7 @@ describe("PowerShell shared identity references", () => {
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          path: ["commands", 0, "parameters", 0, "source", "parameters", 0],
+          path: ["commands", "items", 0, "parameters", 0, "source", "parameters", 0],
         }),
       ]));
     }
@@ -340,7 +341,7 @@ describe("PowerShell shared identity references", () => {
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          path: ["sharedTypes", 0, "properties", 0, "sourceParameters", 0],
+          path: ["commands", "sharedTypes", 0, "properties", 0, "sourceParameters", 0],
         }),
       ]));
     }
