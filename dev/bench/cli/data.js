@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790128019083,
+  "lastUpdate": 1790136568483,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11216,6 +11216,48 @@ window.BENCHMARK_DATA = {
             "value": 3700762.8601694917,
             "unit": "ns",
             "range": "± 112456.30198435296"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "827b076a8d349653f50eefdbe2bae6c1c3b4e137",
+          "message": "[Compute] `az vm delete` / `Remove-AzVM`: Add `--force-deletion` and `-ForceDeletion` params (#863)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm delete --force-deletion`\n`Remove-AzVM -ForceDeletion`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Add `forcedeletion` parameters for remove vm\n- Extend scenario tests.\n- Add short hand aliases for params such as `-g = --resource-group` and\n`-n = --vm-name = --name`\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`az vm delete --force-deletion`\n`Remove-AzVM -ForceDeletion`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-23T11:44:32+08:00",
+          "tree_id": "f1b2643f32a2db9fc4571db568ab04e88e2c0bb1",
+          "url": "https://github.com/Azure/azclips/commit/827b076a8d349653f50eefdbe2bae6c1c3b4e137"
+        },
+        "date": 1790136565564,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3978291.7572639226,
+            "unit": "ns",
+            "range": "± 141339.856031275"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 6961891.947177419,
+            "unit": "ns",
+            "range": "± 250302.03247861"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4097400.280802581,
+            "unit": "ns",
+            "range": "± 145666.5635191279"
           }
         ]
       }
