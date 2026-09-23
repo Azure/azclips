@@ -63,17 +63,50 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
 
+    def test_allows_project_renames_that_preserve_release_versions(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        head_project = (
+            "<Project><PropertyGroup><Version>0.1.0</Version><Nullable>enable</Nullable></PropertyGroup></Project>"
+        )
+        changed_files, project_renames = parse_changed_files(
+            "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n"
+        )
+        self.assertEqual(
+            find_policy_violations(
+                changed_files,
+                lambda path: base_project if path == "src/Old/Old.csproj" else None,
+                lambda path: head_project if path == "src/New/New.csproj" else None,
+                project_renames=project_renames,
+            ),
+            [],
+        )
+
+        versionless_base_project = "<Project><PropertyGroup><AssemblyName>Old</AssemblyName></PropertyGroup></Project>"
+        versionless_head_project = "<Project><PropertyGroup><AssemblyName>New</AssemblyName></PropertyGroup></Project>"
+        self.assertEqual(
+            find_policy_violations(
+                changed_files,
+                lambda path: versionless_base_project if path == "src/Old/Old.csproj" else None,
+                lambda path: versionless_head_project if path == "src/New/New.csproj" else None,
+                project_renames=project_renames,
+            ),
+            [],
+        )
+
+    def test_rejects_project_renames_that_change_release_versions(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        changed_version_project = "<Project><PropertyGroup><Version>0.1.1</Version></PropertyGroup></Project>"
         changed_files, project_renames = parse_changed_files(
             "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n"
         )
         violations = find_policy_violations(
             changed_files,
             lambda path: base_project if path == "src/Old/Old.csproj" else None,
-            lambda path: head_project if path == "src/New/New.csproj" else None,
+            lambda path: changed_version_project if path == "src/New/New.csproj" else None,
             project_renames=project_renames,
         )
         self.assertEqual(len(violations), 1)
-        self.assertIn("may not be renamed", violations[0])
+        self.assertIn("must preserve release-owned versions", violations[0])
 
     def test_allows_package_reference_child_version_changes(self):
         base_project = """

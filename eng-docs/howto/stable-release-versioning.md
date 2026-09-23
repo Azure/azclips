@@ -18,7 +18,7 @@ functional code and non-version project metadata.
 | A nested dependency version, such as `PackageReference/Version` | Yes | It is not treated as the project's release version. |
 | PowerShell manifest versions (`ModuleVersion` or `RequiredModules`) | Yes | The PR policy does not inspect `.psd1` content. Stable-release automation later recalculates and aligns packageable module versions. |
 | Add or delete a `.csproj` | Yes | The release policy permits it in a contributor PR. New packageable extensions must include complete packaging metadata. |
-| Rename a `.csproj` | No | The PR policy fails to prevent version-policy bypasses. |
+| Rename a `.csproj` | Yes, if direct version properties are unchanged | The PR policy compares release-owned versions between the old and new paths. |
 | Root `CHANGELOG.md` | No | The PR policy fails because stable-release automation owns it. |
 | Module-level changelog (`src/PS/<Module>/ChangeLog.md`) | Yes | CI permits the file; contributors should add customer-facing notes under `## Upcoming Release`. Release automation creates the versioned section. |
 

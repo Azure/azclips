@@ -117,9 +117,18 @@ def find_policy_violations(
 
     if not stable_release:
         for old_path, new_path in project_renames or []:
-            violations.append(
-                f"{old_path} -> {new_path}: project files containing release-owned versions may not be renamed."
-            )
+            base_content = read_base_file(old_path)
+            head_content = read_head_file(new_path)
+            if (
+                not old_path.endswith(".csproj")
+                or not new_path.endswith(".csproj")
+                or base_content is None
+                or head_content is None
+                or get_project_versions(base_content) != get_project_versions(head_content)
+            ):
+                violations.append(
+                    f"{old_path} -> {new_path}: renamed project files must preserve release-owned versions."
+                )
 
     for file_path in sorted(path for path in changed_files if path.endswith(".csproj")):
         base_content = read_base_file(file_path)
