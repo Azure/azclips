@@ -4,10 +4,8 @@
  * the flat parameter surface (body leaves included, via `flatten-model`'s
  * projection), and merged nothing across operations.
  *
- * This step only **annotates what already exists**: `IRCommand.dialect.ps` and
- * `IRCommandParameter.dialect.ps`. It creates no commands, no parameters, and no
- * second command graph -- `IR.ps` is gone, and PS vocabulary lives on
- * `TransformedIR.commands` dialects, nowhere else.
+ * This step annotates canonical commands and derives the shared PowerShell client
+ * surface. It creates no commands and no second command graph -- `IR.ps` is gone.
  *
  * ## What this derives
  *
@@ -28,30 +26,28 @@
  *   - **name shortening** -- a path parameter whose name restates the subject
  *     (`ElasticSanName` on `Get-AzElasticSan`) is shortened to `Name`, the full name
  *     kept as an alias, unless that would collide with another parameter.
+ *   - **module and identity** -- target-owned module metadata, one canonical input
+ *     model built from path parameters, and one synthetic InputObject parameter per
+ *     command with command-local property-to-path bindings.
  *
  * ## What it deliberately does not derive (schema gaps, not oversights)
  *
- *   - **No module identity / `-InputObject` fan-out.** The old `PSIdentityAttribute`
- *     and `ViaIdentity` parameter sets synthesized a resource-identity parameter
- *     that no operation declares and `create-command` does not project. Neither
- *     `IRCommandDialect` nor `IRCommandParameterSource` has anywhere to put a
- *     parameter with no operation-level source, so this is left undone rather than
- *     invented.
  *   - **No `createOrUpdate` -> New/Update fan-out.** `create-command` decided
  *     command identity once and never splits one operation into two commands, so a
  *     compound action word resolves to a single verb (`resolveVerb`'s leading-word
  *     fallback -- `New` for `CreateOrUpdate`) instead of the pair AutoRest emits.
- *   - **No module-level output (`PSModuleAttribute`/`cmdletsToExport`/module
- *     identity).** There is no module-scoped dialect node today; only command and
- *     parameter dialects exist.
  *   - **`completer`/`defaultValue`/`examples`/`helpUri`/`lifecycleTag`.** These have
  *     no IR-derivable source; they are authored, and belong to `ps.directives`.
  */
 
 import {
   commandActionKey,
+  idKey,
   type IRCommand,
   type IRCommandParameter,
+  type IRId,
+  type IRModel,
+  type IRProperty,
   type PsParameterDialect,
   type TransformedIR,
 } from "@azure-client-engine/ir";
@@ -74,6 +70,21 @@ const MUTATING_METHODS: ReadonlySet<string> = new Set(["PUT", "POST", "PATCH", "
  * is the shape a `TransformStep` expects (see `transform.ts`).
  */
 export function deriveDialect(ir: TransformedIR, options: DeriveDialectOptions = {}): TransformedIR {
+  ir.target.dialect = {
+    ...ir.target.dialect,
+    ps: {
+      ...ir.target.dialect?.ps,
+      name: ir.target.projectName,
+      ...(options.modulePrefix !== undefined ? { prefix: options.modulePrefix } : {}),
+      ...(options.subjectPrefix !== undefined ? { subjectPrefix: options.subjectPrefix } : {}),
+    },
+  };
+
+  removeDerivedIdentities(ir);
+
+  const identity = deriveIdentity(ir, options);
+  if (identity !== undefined) ir.models.push(identity.model);
+
   const families = new Map<string, IRCommand[]>();
   for (const command of ir.commands) {
     const key = commandActionKey(command.id);
@@ -83,10 +94,97 @@ export function deriveDialect(ir: TransformedIR, options: DeriveDialectOptions =
   }
 
   for (const siblings of families.values()) {
-    applyFamily(siblings, options);
+    applyFamily(siblings, options, identity);
   }
 
   return ir;
+}
+
+type DerivedIdentity = {
+  model: IRModel;
+  propertiesByParameterName: ReadonlyMap<string, IRProperty>;
+};
+
+function removeDerivedIdentities(ir: TransformedIR): void {
+  const modelIds = new Set<string>();
+  for (const command of ir.commands) {
+    const identity = command.dialect?.ps?.identity;
+    if (identity === undefined) continue;
+
+    const parameter = command.parameters.find(
+      (candidate) => candidate.name === identity.parameter && candidate.source.kind === "synthetic",
+    );
+    if (parameter?.type.kind === "model") modelIds.add(idKey(parameter.type.id));
+    command.parameters = command.parameters.filter((candidate) => candidate !== parameter);
+    delete command.dialect?.ps?.identity;
+  }
+
+  if (modelIds.size > 0) {
+    ir.models = ir.models.filter((model) => !modelIds.has(idKey(model.id)));
+  }
+}
+
+function deriveIdentity(
+  ir: TransformedIR,
+  options: DeriveDialectOptions,
+): DerivedIdentity | undefined {
+  const candidates = new Map<string, IRCommandParameter>();
+  for (const command of ir.commands) {
+    for (const parameter of command.parameters) {
+      if (parameter.source.kind !== "path") continue;
+
+      const key = parameter.name.toLowerCase();
+      if (!candidates.has(key)) candidates.set(key, parameter);
+    }
+  }
+
+  if (candidates.size === 0) return undefined;
+
+  const rootName = ir.target.rootNamespace[ir.target.rootNamespace.length - 1];
+  const name = `${options.subjectPrefix ?? rootName ?? "Module"}Identity`;
+  const source = ir.sources[0]?.id ?? ir.target.projectName;
+  const id: IRId = { module: source, namespace: [], name };
+  const propertiesByParameterName = new Map<string, IRProperty>();
+  for (const [key, parameter] of candidates) {
+    propertiesByParameterName.set(key, identityProperty(id, parameter));
+  }
+
+  return {
+    model: {
+      id,
+      name,
+      source,
+      usage: ["input"],
+      properties: [...propertiesByParameterName.values()],
+    },
+    propertiesByParameterName,
+  };
+}
+
+function identityProperty(model: IRId, parameter: IRCommandParameter): IRProperty {
+  const common = {
+    id: { ...model, name: `${model.name}.${parameter.name}` },
+    name: parameter.name,
+    wireName: parameter.name,
+    optional: false,
+    nullable: parameter.nullable,
+    ...(parameter.docs !== undefined ? { docs: parameter.docs } : {}),
+  };
+
+  switch (parameter.type.kind) {
+    case "primitive":
+      return { ...common, typeKind: "primitive", type: parameter.type };
+    case "model":
+    case "dictionary":
+      return { ...common, typeKind: "object", type: parameter.type };
+    case "array":
+      return { ...common, typeKind: "collection", type: parameter.type };
+    case "enum":
+      return { ...common, typeKind: "enum", type: parameter.type };
+    case "union":
+    case "discriminatedUnion":
+      return { ...common, typeKind: "union", type: parameter.type };
+  }
 }
 
 function requiredCount(command: IRCommand): number {
@@ -98,7 +196,11 @@ function defaultSiblingOf(siblings: readonly IRCommand[]): IRCommand {
   return siblings.reduce((best, command) => (requiredCount(command) < requiredCount(best) ? command : best));
 }
 
-function applyFamily(siblings: readonly IRCommand[], options: DeriveDialectOptions): void {
+function applyFamily(
+  siblings: readonly IRCommand[],
+  options: DeriveDialectOptions,
+  identity: DerivedIdentity | undefined,
+): void {
   const primary = siblings[0]!;
   const verb = resolveVerb(primary.id.action);
   const deduped = deduplicateNoun(options.subjectPrefix ?? "", primary.id.subject);
@@ -106,8 +208,11 @@ function applyFamily(siblings: readonly IRCommand[], options: DeriveDialectOptio
 
   // Only meaningful, and only valid, when more than one set exists: a single-command
   // family has one implicit set, and naming it would be noise no set declares.
-  const winner = siblings.length > 1 ? defaultSiblingOf(siblings) : undefined;
-  const multipleSets = siblings.length > 1;
+  const hasIdentitySet = siblings.some((command) =>
+    command.parameters.some((parameter) => parameter.source.kind === "path"),
+  );
+  const multipleSets = siblings.length > 1 || hasIdentitySet;
+  const winner = multipleSets ? defaultSiblingOf(siblings) : undefined;
   // A command with no parameters at all (a bare `List`) has no membership from which
   // to declare its variant as a set. Leave the family default unstated rather than
   // inventing a parameter solely to name it.
@@ -128,8 +233,38 @@ function applyFamily(siblings: readonly IRCommand[], options: DeriveDialectOptio
       },
     };
 
+    const pathParameters = command.parameters.filter(
+      (parameter) => parameter.source.kind === "path",
+    );
+    const identitySet = pathParameters.length > 0 ? `${command.id.variant}ViaIdentity` : undefined;
+
     for (const parameter of command.parameters) {
-      applyParameter(parameter, command, multipleSets, deduped.subject);
+      applyParameter(parameter, command, multipleSets, deduped.subject, identitySet);
+    }
+
+    if (identity !== undefined && identitySet !== undefined) {
+      const parameterName = uniqueParameterName("InputObject", command.parameters);
+      command.parameters.push({
+        name: parameterName,
+        source: { kind: "synthetic" },
+        type: { kind: "model", id: identity.model.id },
+        required: true,
+        nullable: false,
+        docs: "Identity Parameter",
+        dialect: {
+          ps: {
+            parameterSets: [{ set: identitySet, mandatory: true, valueFromPipeline: true }],
+          },
+        },
+      });
+
+      command.dialect!.ps!.identity = {
+        parameter: parameterName,
+        properties: pathParameters.map((parameter) => ({
+          property: identity.propertiesByParameterName.get(parameter.name.toLowerCase())!.id,
+          sourceParameters: parameter.source.kind === "path" ? [parameter.source.parameter] : [],
+        })),
+      };
     }
   }
 }
@@ -139,6 +274,7 @@ function applyParameter(
   command: IRCommand,
   multipleSets: boolean,
   subject: string,
+  identitySet: string | undefined,
 ): void {
   const shortened =
     parameter.source.kind === "path"
@@ -148,13 +284,32 @@ function applyParameter(
   const ps: PsParameterDialect = {
     ...(shortened !== undefined ? { name: shortened, aliases: [parameter.name] } : {}),
     ...(multipleSets
-      ? { parameterSets: [{ set: command.id.variant, mandatory: parameter.required }] }
+      ? {
+          parameterSets: [
+            { set: command.id.variant, mandatory: parameter.required },
+            ...(identitySet !== undefined && parameter.source.kind !== "path"
+              ? [{ set: identitySet, mandatory: parameter.required }]
+              : []),
+          ],
+        }
       : {}),
   };
 
   if (Object.keys(ps).length > 0) {
     parameter.dialect = { ...parameter.dialect, ps };
   }
+}
+
+function uniqueParameterName(
+  preferred: string,
+  parameters: readonly IRCommandParameter[],
+): string {
+  const names = new Set(parameters.map((parameter) => parameter.name.toLowerCase()));
+  if (!names.has(preferred.toLowerCase())) return preferred;
+
+  let suffix = 2;
+  while (names.has(`${preferred}${suffix}`.toLowerCase())) suffix++;
+  return `${preferred}${suffix}`;
 }
 
 /**

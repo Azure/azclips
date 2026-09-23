@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { parseIR, parseTransformedIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, idKey, parseIR, parseTransformedIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
 import type { TransformContext } from "@azure-client-engine/compiler";
 import { createCommandStep } from "../../src/create-command-step.js";
 import { deriveDialect } from "../../src/ps/derive.js";
@@ -51,7 +51,7 @@ const operation = (over: Record<string, unknown> = {}): Record<string, unknown> 
 
 function document(operations: Record<string, unknown>[]): IR {
   return parseIR({
-    schemaVersion: "0.12.0",
+    schemaVersion: IR_SCHEMA_VERSION,
     sources: [
       {
         id: MODULE,
@@ -150,12 +150,14 @@ describe("deriveDialect", () => {
     expect(parameter.dialect?.ps?.parameterSets).toEqual([{ set: "ByResourceGroup", mandatory: true }]);
   });
 
-  it("leaves parameter dialects absent for a single-command family with no name to shorten", () => {
+  it("places a path parameter only in the normal set when ViaIdentity is available", () => {
     const out = deriveDialect(
       transform([operation({ pathParameters: [pathParam("id")] })]),
     );
 
-    expect(out.commands[0]!.parameters[0]!.dialect).toBeUndefined();
+    expect(out.commands[0]!.parameters[0]!.dialect?.ps?.parameterSets).toEqual([
+      { set: "Get", mandatory: true },
+    ]);
   });
 
   it("shortens a path parameter that restates the subject, keeping the full name as an alias", () => {
@@ -166,6 +168,70 @@ describe("deriveDialect", () => {
     const parameter = out.commands[0]!.parameters[0]!;
     expect(parameter.dialect?.ps?.name).toBe("Name");
     expect(parameter.dialect?.ps?.aliases).toEqual(["WidgetsName"]);
+  });
+
+  it("derives module metadata and one canonical identity model referenced by each InputObject", () => {
+    const get = operation({
+      pathParameters: [pathParam("resourceGroupName"), pathParam("widgetsName")],
+    });
+    const remove = operation({
+      id: id("delete", "Widgets"),
+      name: "delete",
+      method: "DELETE",
+      pathParameters: [
+        pathParam("resourceGroupName", { id: id("delete.resourceGroupName") }),
+        pathParam("widgetsName", { id: id("delete.widgetsName") }),
+      ],
+    });
+
+    const out = deriveDialect(transform([get, remove]), {
+      modulePrefix: "Az",
+      subjectPrefix: "Contoso",
+    });
+
+    expect(out.target.dialect?.ps).toEqual({
+      name: "Contoso.Widgets",
+      prefix: "Az",
+      subjectPrefix: "Contoso",
+    });
+    const identity = out.models.find((model) => model.name === "ContosoIdentity")!;
+    expect(identity).toMatchObject({
+      name: "ContosoIdentity",
+      usage: ["input"],
+      properties: [
+        { name: "ResourceGroupName" },
+        { name: "WidgetsName" },
+      ],
+    });
+
+    for (const command of out.commands) {
+      const inputObject = command.parameters.find(
+        (parameter) => parameter.source.kind === "synthetic",
+      )!;
+      expect(inputObject.type).toEqual({ kind: "model", id: identity.id });
+      expect(inputObject.source).toEqual({ kind: "synthetic" });
+      expect(command.dialect?.ps?.identity?.parameter).toBe(inputObject.name);
+      expect(command.dialect?.ps?.identity?.properties).toHaveLength(2);
+      expect(command.dialect?.ps?.identity?.properties.every((binding) =>
+        identity.properties.some((property) => idKey(property.id) === idKey(binding.property)) &&
+        binding.sourceParameters.length === 1,
+      )).toBe(true);
+    }
+    expect(() => parseTransformedIR(out)).not.toThrow();
+  });
+
+  it("derives identity parameters idempotently", () => {
+    const out = deriveDialect(
+      transform([operation({ pathParameters: [pathParam("widgetsName")] })]),
+    );
+
+    deriveDialect(out);
+
+    expect(out.models.filter((model) => model.name === "WidgetsIdentity")).toHaveLength(1);
+    expect(out.commands[0]!.parameters.filter(
+      (parameter) => parameter.source.kind === "synthetic",
+    )).toHaveLength(1);
+    expect(() => parseTransformedIR(out)).not.toThrow();
   });
 
   it("marks a mutating command with SupportsShouldProcess and Medium confirm impact", () => {
