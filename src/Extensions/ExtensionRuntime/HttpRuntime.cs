@@ -35,8 +35,26 @@ public static class HttpRuntime
         Func<HttpResponseMessage, string?> getFinalUri,
         Func<HttpResponseMessage, string?> getOperationLocationUri,
         Func<HttpResponseMessage, string?> getAsyncOperationUri,
+        Func<HttpResponseMessage, string?> getLocationUri)
+        => SendAsyncLRO(
+            getRequest,
+            publisher,
+            httpPipeline,
+            getFinalUri,
+            getOperationLocationUri,
+            getAsyncOperationUri,
+            getLocationUri,
+            allowedResponseStatusCodes: null);
+
+    public static Task<HttpResponseMessage> SendAsyncLRO(
+        Func<Task<HttpRequestMessage>> getRequest,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline,
+        Func<HttpResponseMessage, string?> getFinalUri,
+        Func<HttpResponseMessage, string?> getOperationLocationUri,
+        Func<HttpResponseMessage, string?> getAsyncOperationUri,
         Func<HttpResponseMessage, string?> getLocationUri,
-        IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes = null)
+        IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes)
         => SendAsyncLROCore(
             getRequest,
             publisher,

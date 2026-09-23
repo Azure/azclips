@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Xunit;
@@ -14,6 +16,27 @@ namespace Cli.Tests;
 
 public class ManagementGroupDeploymentTests
 {
+    [Fact]
+    public void HttpRuntime_PreservesSevenArgumentSendAsyncLROOverload()
+    {
+        MethodInfo? overload = typeof(HttpRuntime).GetMethod(
+            nameof(HttpRuntime.SendAsyncLRO),
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            [
+                typeof(Func<Task<HttpRequestMessage>>),
+                typeof(IEventPublisher),
+                typeof(IRuntimeHttpPipeline),
+                typeof(Func<HttpResponseMessage, string?>),
+                typeof(Func<HttpResponseMessage, string?>),
+                typeof(Func<HttpResponseMessage, string?>),
+                typeof(Func<HttpResponseMessage, string?>),
+            ],
+            modifiers: null);
+
+        Assert.NotNull(overload);
+    }
+
     private static void Init(
         IProcessor processor,
         FakeHttpPipeline pipeline,

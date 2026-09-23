@@ -487,8 +487,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Returns the management-group deployment created by Azure Resource Manager, or a what-if
-result when `-WhatIf` is true.
+Returns the management-group deployment created by Azure Resource Manager.
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
+
+Returns the predicted resource changes when `-WhatIf` is true.
 
 ## NOTES
 

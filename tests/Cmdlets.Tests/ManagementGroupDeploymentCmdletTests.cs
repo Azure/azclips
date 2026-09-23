@@ -99,6 +99,21 @@ public class ManagementGroupDeploymentCmdletTests
         }
     }
 
+    [Fact]
+    public void NewCmdlet_DeclaresCreateAndWhatIfOutputTypes()
+    {
+        OutputTypeAttribute attribute = Assert.Single(
+            typeof(NewManagementGroupDeploymentCmdlet)
+                .GetCustomAttributes<OutputTypeAttribute>());
+
+        Assert.Equal(
+            [
+                "Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended",
+                "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult",
+            ],
+            attribute.Type.Select(type => type.Name));
+    }
+
     private static (string ManagementGroupId, string Name) ParseId(string id)
     {
         Type helpers = typeof(GetManagementGroupDeploymentCmdlet).Assembly.GetType(
