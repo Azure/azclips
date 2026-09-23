@@ -14,6 +14,8 @@
 #   Security-update PRs are not subject to this limit.
 # - Routine npm and NuGet updates for the same dependency are grouped across
 #   directories. Security updates remain separate from version-update groups.
+# - TypeSpec packages move as a family to preserve peer compatibility. Packages
+#   with mixed major constraints or exact pins stay outside cross-directory groups.
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -25,10 +27,25 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      # TypeSpec packages publish coordinated peer dependency ranges. Updating one
+      # package alone can leave npm with an incompatible mix of release lines.
+      typespec-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "@azure-tools/typespec-*"
+          - "@typespec/*"
       npm-dependencies:
         applies-to: "version-updates"
         patterns:
           - "*"
+        # Cross-directory grouping can normalize every manifest to one constraint.
+        # Keep mixed-major and exact-pinned dependencies as independent updates.
+        exclude-patterns:
+          - "@azure-tools/typespec-*"
+          - "@typespec/*"
+          - "@types/node"
+          - "js-yaml"
+          - "vitest"
         group-by: "dependency-name"
     ignore:
       - dependency-name: "*"
