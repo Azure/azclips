@@ -169,8 +169,9 @@ describe("applyDirectives: canonical commands", () => {
 
   it("removes a parameter only from the PowerShell surface", () => {
     const { ir, diagnostics } = apply([{ where: { "parameter-name": "Name" }, remove: true }]);
-    expect(command(ir, "Get").parameters).toHaveLength(1);
-    expect(command(ir, "Get").parameters[0]!.dialect?.ps?.removed).toBe(true);
+    const parameters = command(ir, "Get").parameters;
+    expect(parameters.find((parameter) => parameter.name === "VolumesName")!.dialect?.ps?.removed).toBe(true);
+    expect(parameters.find((parameter) => parameter.source.kind === "synthetic")).toBeDefined();
     expect(diagnostics).toEqual([]);
   });
 
