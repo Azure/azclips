@@ -10,6 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
     [ExtensionVerb("group")]
     [ExtensionVerb("deployment")]
+    [ExtensionVerb("role")]
     [ExtensionVerb("rest")]
     public class ExtensionIndex : IExtensionIndex
     {
@@ -278,6 +279,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listRoleAssignment_CLI = new(
+            Name: "ListRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "role assignment list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]    = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["scope"]              = new("Scope", "scope", typeof(string), "Fully qualified scope to list role assignments at. Mutually exclusive with --resource-group. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]     = new("ResourceGroupName", "resource-group", typeof(string), "List role assignments scoped to this resource group under the subscription.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["assignee"]           = new("Assignee", "assignee", typeof(string), "Filter to role assignments for this principal. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["assignee-object-id"] = new("AssigneeObjectId", "assignee-object-id", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+            }
+        );
         private static readonly CommandMetadata s_newResourceGroupDeployment_CLI = new(
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group create",
@@ -377,6 +398,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["group list"]                = s_listResourceGroup_CLI,
             ["group show"]                = s_getResourceGroup_CLI,
             ["group update"]              = s_updateResourceGroup_CLI,
+            ["role assignment list"]      = s_listRoleAssignment_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
