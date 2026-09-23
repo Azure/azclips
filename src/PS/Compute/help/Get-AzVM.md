@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/01/2026
+ms.date: 09/23/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzVM
 ---
@@ -27,7 +27,14 @@ Get-AzVM -ResourceGroupName <string> [-SubscriptionId <string>] [-Profile <strin
 ### Get
 
 ```
-Get-AzVM -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>] [-Profile <string>]
+Get-AzVM -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>] [-UserData]
+ [-Profile <string>] [<CommonParameters>]
+```
+
+### Id
+
+```
+Get-AzVM [-Id] <string> [-SubscriptionId <string>] [-UserData] [-Profile <string>]
  [<CommonParameters>]
 ```
 
@@ -55,7 +62,36 @@ Return every virtual machine that lives in `myrg`.
 Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
 ```
 
+### Get a VM by resource ID
+
+Retrieve a virtual machine addressed by its ARM resource ID.
+
+```powershell
+Get-AzVM -Id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm
+```
+
 ## PARAMETERS
+
+### -Id
+
+The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Id
+  Position: 0
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Name
 
@@ -148,6 +184,39 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
+- Name: Id
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -UserData
+
+Include the user data properties in the query result.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Id
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -161,6 +230,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 [about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
+
+### System.String
+
+You can pipe a virtual machine resource ID to this cmdlet by property name.
 
 ## OUTPUTS
 
