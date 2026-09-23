@@ -195,6 +195,11 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     // Commands reference operations and servers by id. A dangling reference is a
     // generator crash otherwise, so it is caught at the boundary instead.
     const operations = new Set(ir.operations.map((operation) => idKey(operation.id)));
+    const pathParameters = new Set(
+      ir.operations.flatMap((operation) =>
+        operation.pathParameters.map((parameter) => idKey(parameter.id)),
+      ),
+    );
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
@@ -214,6 +219,18 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
       sharedTypes.add(key);
+
+      sharedType.properties.forEach((property, propertyIndex) => {
+        property.sourceParameters.forEach((parameter, parameterIndex) => {
+          if (!pathParameters.has(idKey(parameter))) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Shared identity '${sharedType.name}' property '${property.name}' references ${serializeId(parameter)}, which is not a canonical path parameter.`,
+              path: ["sharedTypes", index, "properties", propertyIndex, "sourceParameters", parameterIndex],
+            });
+          }
+        });
+      });
     });
 
     ir.commands.forEach((command, index) => {
@@ -248,7 +265,8 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
 
       // Identity must distinguish commands even when display names diverge.
       const key = commandKey(command.id);
-      if (identities.has(key)) {        ctx.addIssue({
+      if (identities.has(key)) {
+        ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two commands share the identity ${key}; (module, group, action, variant) must be unique.`,
           path: ["commands", index, "id"],
@@ -257,13 +275,33 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
       identities.add(key);
 
       command.parameters.forEach((parameter, parameterIndex) => {
-        if (parameter.source.kind === "synthetic" && !sharedTypes.has(idKey(parameter.source.type))) {
+        if (parameter.source.kind !== "synthetic") return;
+
+        if (!sharedTypes.has(idKey(parameter.source.type))) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Command '${command.name}' parameter '${parameter.name}' references shared identity ${serializeId(parameter.source.type)}, which is not in TransformedIR.sharedTypes.`,
             path: ["commands", index, "parameters", parameterIndex, "source", "type"],
           });
         }
+
+        if (parameter.type.kind !== "model" || idKey(parameter.type.id) !== idKey(parameter.source.type)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Command '${command.name}' parameter '${parameter.name}' must use its referenced shared identity as its model type.`,
+            path: ["commands", index, "parameters", parameterIndex, "type"],
+          });
+        }
+
+        parameter.source.parameters.forEach((sourceParameter, sourceParameterIndex) => {
+          if (!pathParameters.has(idKey(sourceParameter))) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Command '${command.name}' parameter '${parameter.name}' supplies ${serializeId(sourceParameter)}, which is not a canonical path parameter.`,
+              path: ["commands", index, "parameters", parameterIndex, "source", "parameters", sourceParameterIndex],
+            });
+          }
+        });
       });
 
       if (command.dialect?.ps !== undefined) {

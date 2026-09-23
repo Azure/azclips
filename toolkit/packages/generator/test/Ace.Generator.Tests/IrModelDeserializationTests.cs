@@ -102,6 +102,66 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
+    public void PowerShellIdentity_RoundTripsAsSharedTypeReferencedBySyntheticParameter()
+    {
+        TransformedIR document = Parse<TransformedIR>(
+            """
+            {
+              "sharedTypes": [
+                {
+                  "kind": "identity",
+                  "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
+                  "name": "WidgetIdentity",
+                  "properties": [
+                    {
+                      "name": "ResourceGroupName",
+                      "sourceParameters": [
+                        { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "commands": [
+                {
+                  "parameters": [
+                    {
+                      "name": "InputObject",
+                      "source": {
+                        "kind": "synthetic",
+                        "purpose": "identity",
+                        "type": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
+                        "parameters": [
+                          { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
+                        ]
+                      },
+                      "type": {
+                        "kind": "model",
+                        "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" }
+                      },
+                      "required": true,
+                      "nullable": false
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        TransformedIR roundTripped = Parse<TransformedIR>(
+            JsonSerializer.Serialize(document, IrJson.Options));
+
+        IRCommandIdentity identity = Assert.Single(roundTripped.SharedTypes);
+        Assert.Equal("WidgetIdentity", identity.Name);
+        Assert.Equal("ResourceGroupName", Assert.Single(identity.Properties).Name);
+
+        IRCommandParameter parameter = Assert.Single(Assert.Single(roundTripped.Commands).Parameters);
+        var source = Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
+        Assert.Equal(identity.Id.Name, source.Type.Name);
+        Assert.Equal("get.resourceGroupName", Assert.Single(source.Parameters).Name);
+    }
+
+    [Fact]
     public void IRId_AbsentInterface_IsNotInferredFromNamespace()
     {
         IRId id = Parse<IRId>(

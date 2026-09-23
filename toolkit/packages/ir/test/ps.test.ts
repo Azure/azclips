@@ -196,12 +196,80 @@ describe("PowerShell synthetic parameters", () => {
 
 describe("PowerShell shared identity references", () => {
   const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
+  const serverId = { module: "Widgets", namespace: [], name: "server" };
+  const operationId = { module: "Widgets", namespace: [], name: "get" };
+  const pathParameterId = { module: "Widgets", namespace: [], name: "get.resourceGroupName" };
+  const apiVersion = { value: "2025-01-01", location: "query", parameterName: "api-version" };
   const identity = {
     kind: "identity" as const,
     id: identityId,
     name: "WidgetIdentity",
     properties: [],
   };
+
+  function document({
+    sharedTypes = [identity],
+    parameterType = identityId,
+    sourceParameters = [pathParameterId],
+  } = {}) {
+    return {
+      ...emptyIR(),
+      sources: [{
+        id: "Widgets",
+        entrypoint: "main.tsp",
+        apiVersion,
+        rootNamespace: ["Widgets"],
+        server: serverId,
+      }],
+      servers: [{ id: serverId, endpoint: { kind: "literal", url: "https://example.com" } }],
+      operations: [{
+        id: operationId,
+        name: "get",
+        source: "Widgets",
+        method: "GET",
+        pathTemplate: "/{resourceGroupName}",
+        pathParameters: [{
+          id: pathParameterId,
+          name: "resourceGroupName",
+          wireName: "resourceGroupName",
+          type: { kind: "primitive", name: "string" },
+          optional: false,
+          nullable: false,
+        }],
+        queryParameters: [],
+        headerParameters: [],
+        responses: [{ statusCode: { kind: "exact", code: 200 }, isError: false }],
+        apiVersion,
+        server: serverId,
+      }],
+      commands: [{
+        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
+        name: "GetWidgetByIdentity",
+        template: "atomic",
+        server: serverId,
+        steps: [{
+          operation: operationId,
+          request: { method: "GET", path: [], query: [], headers: [] },
+          responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
+        }],
+        parameters: [{
+          name: "InputObject",
+          source: {
+            kind: "synthetic",
+            purpose: "identity",
+            type: identityId,
+            parameters: sourceParameters,
+          },
+          type: { kind: "model", id: parameterType },
+          required: true,
+          nullable: false,
+        }],
+        surface: { paginated: false },
+      }],
+      sharedTypes,
+      target,
+    };
+  }
 
   it("rejects duplicate shared type ids", () => {
     const result = safeParseTransformedIR({
@@ -220,41 +288,60 @@ describe("PowerShell shared identity references", () => {
   });
 
   it("rejects a synthetic parameter that references a missing shared identity", () => {
-    const operation = { module: "Widgets", namespace: [], name: "get" };
-    const result = safeParseTransformedIR({
-      ...emptyIR(),
-      commands: [{
-        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
-        name: "GetWidgetByIdentity",
-        template: "atomic",
-        server: { module: "Widgets", namespace: [], name: "server" },
-        steps: [{
-          operation,
-          request: { method: "GET", path: [], query: [], headers: [] },
-          responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
-        }],
-        parameters: [{
-          name: "InputObject",
-          source: {
-            kind: "synthetic",
-            purpose: "identity",
-            type: identityId,
-            parameters: [operation],
-          },
-          type: { kind: "primitive", name: "string" },
-          required: true,
-          nullable: false,
-        }],
-        surface: { paginated: false },
-      }],
-      sharedTypes: [],
-      target,
-    });
+    const result = safeParseTransformedIR(document({ sharedTypes: [] }));
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
         expect.objectContaining({ path: ["commands", 0, "parameters", 0, "source", "type"] }),
+      ]));
+    }
+  });
+
+  it("accepts a synthetic parameter bound to its shared identity and canonical path", () => {
+    expect(safeParseTransformedIR(document()).success).toBe(true);
+  });
+
+  it("rejects a synthetic parameter whose model type differs from its shared identity", () => {
+    const result = safeParseTransformedIR(document({
+      parameterType: { ...identityId, name: "OtherIdentity" },
+    }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "type"] }),
+      ]));
+    }
+  });
+
+  it("rejects a synthetic parameter bound to a non-path declaration", () => {
+    const result = safeParseTransformedIR(document({ sourceParameters: [operationId] }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          path: ["commands", 0, "parameters", 0, "source", "parameters", 0],
+        }),
+      ]));
+    }
+  });
+
+  it("rejects a shared identity property bound to a non-path declaration", () => {
+    const result = safeParseTransformedIR(document({
+      sharedTypes: [{
+        ...identity,
+        properties: [{ name: "ResourceGroupName", sourceParameters: [operationId] }],
+      }],
+    }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          path: ["sharedTypes", 0, "properties", 0, "sourceParameters", 0],
+        }),
       ]));
     }
   });

@@ -125,6 +125,8 @@ import {
   IRCommandWireEntrySchema,
   IRCommandDialectSchema,
   IRCommandParameterDialectSchema,
+  IRCommandIdentitySchema,
+  IRCommandIdentityPropertySchema,
   // Per-client dialects.
   PsCommandDialectSchema,
   PsParameterDialectSchema,
@@ -236,6 +238,8 @@ const definitions = {
   IRCommandWireEntry: IRCommandWireEntrySchema,
   IRCommandDialect: IRCommandDialectSchema,
   IRCommandParameterDialect: IRCommandParameterDialectSchema,
+  IRCommandIdentity: IRCommandIdentitySchema,
+  IRCommandIdentityProperty: IRCommandIdentityPropertySchema,
   // Dialects. Each client's type is structurally distinct, which matters:
   // zodToJsonSchema collapses identical shapes into one definition.
   PsCommandDialect: PsCommandDialectSchema,
