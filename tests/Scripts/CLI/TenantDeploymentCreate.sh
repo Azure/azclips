@@ -18,7 +18,9 @@ BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-LOCATION="${AZCLIPS_TENANT_DEPLOYMENT_LOCATION:-eastus}"
+SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+LOCATION="eastus"
+TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
 STAMP="$(date +%y%m%d%H%M%S)-$$"
 PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-$STAMP}"
 EXPORT_FILE="${TMPDIR:-/tmp}/$PREFIX-export.json"
@@ -44,7 +46,7 @@ expect_failure() {
         echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
         return 1
     fi
-    echo "OK: $label rejected as expected"
+    printf '%s\n' "$output"
 }
 
 cleanup() {
@@ -59,6 +61,16 @@ trap cleanup EXIT
 
 "$AZ" config set --key agent.enabled --value false
 
+# This dedicated test group is reused and intentionally not deleted by individual scripts.
+if ! "$AZ" group show \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
+    "$AZ" group create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --name "$TEST_RESOURCE_GROUP" \
+        --location "$LOCATION"
+fi
+
 JSON_NAME="$PREFIX-json"
 DEPLOYMENTS+=("$JSON_NAME")
 # Create from local ARM JSON and wait for the LRO.
@@ -66,7 +78,7 @@ DEPLOYMENTS+=("$JSON_NAME")
     --location "$LOCATION" \
     --name "$JSON_NAME" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" marker=inline-wins \
+    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=inline-wins \
     --validation-level Provider
 
 # Exercise exists, updated, and custom wait conditions.
@@ -81,8 +93,19 @@ DEPLOYMENTS+=("$JSON_NAME")
 # Show, list, and export the deployment.
 "$AZ" deployment tenant show --name "$JSON_NAME"
 "$AZ" deployment tenant list
-"$AZ" deployment tenant export --name "$JSON_NAME" > "$EXPORT_FILE"
+"$AZ" deployment tenant export --name "$JSON_NAME" | tee "$EXPORT_FILE"
 test -s "$EXPORT_FILE"
+
+# Confirm the tenant template ran its workload only in the dedicated test resource group.
+"$AZ" rest \
+    --method GET \
+    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01"
+NESTED_STATE="$("$AZ" rest \
+    --method GET \
+    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01" \
+    --query "json.properties.provisioningState" \
+    --output tsv)"
+[[ "$NESTED_STATE" == "Succeeded" ]]
 
 BICEP_NAME="$PREFIX-bicep"
 DEPLOYMENTS+=("$BICEP_NAME")
@@ -91,7 +114,7 @@ DEPLOYMENTS+=("$BICEP_NAME")
     --location "$LOCATION" \
     --name "$BICEP_NAME" \
     --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins \
+    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins \
     --validation-level Template
 
 # Verify the deployment name is derived when --name is omitted.
@@ -101,7 +124,7 @@ DEPLOYMENTS+=("$DERIVED_NAME")
 "$AZ" deployment tenant create \
     --location "$LOCATION" \
     --template-file "$DERIVED_TEMPLATE" \
-    --parameters marker=derived-name
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=derived-name
 
 NOWAIT_NAME="$PREFIX-nowait"
 DEPLOYMENTS+=("$NOWAIT_NAME")
@@ -110,7 +133,7 @@ DEPLOYMENTS+=("$NOWAIT_NAME")
     --location "$LOCATION" \
     --name "$NOWAIT_NAME" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters marker=no-wait \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=no-wait \
     --no-wait
 
 # The empty deployment can finish before cancel reaches ARM. Accept only a
@@ -124,6 +147,7 @@ if [[ $CANCEL_STATUS -ne 0 ]] &&
     echo "UNEXPECTED: tenant deployment cancel failed: $CANCEL_OUTPUT" >&2
     exit "$CANCEL_STATUS"
 fi
+printf '%s\n' "$CANCEL_OUTPUT"
 "$AZ" deployment tenant wait --name "$NOWAIT_NAME" --exists --interval 2 --timeout 120
 
 # Verify malformed Bicep is rejected.

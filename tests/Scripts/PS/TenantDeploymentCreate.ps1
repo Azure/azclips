@@ -16,17 +16,13 @@
 #   4. Use an identity permitted to create tenant-scope deployments.
 #
 # Usage: ./tests/Scripts/PS/TenantDeploymentCreate.ps1
-[CmdletBinding()]
-param(
-    [string] $Location = $(if ($env:AZCLIPS_TENANT_DEPLOYMENT_LOCATION) {
-        $env:AZCLIPS_TENANT_DEPLOYMENT_LOCATION
-    } else {
-        'eastus'
-    })
-)
 
 $ErrorActionPreference = 'Stop'
 $DebugPreference = 'Continue'
+$subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
+$location = 'eastus'
+# This dedicated test group is reused and intentionally not deleted by individual scripts.
+$resourceGroupName = 'azclips-tenant-test-rg'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')
 $bicepDir = Join-Path $repoRoot 'tests' 'Scripts' 'Bicep'
 $stamp = "$(Get-Date -Format 'yyMMddHHmmss')-$PID"
@@ -37,6 +33,15 @@ $prefix = if ($env:AZCLIPS_TENANT_DEPLOYMENT_NAME) {
 }
 $derivedTemplate = Join-Path ([System.IO.Path]::GetTempPath()) "$prefix-derived.json"
 $deployments = [System.Collections.Generic.List[string]]::new()
+
+try {
+    Get-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -ErrorAction Stop | Out-Null
+} catch {
+    if ($_.Exception.Message -notmatch '404|ResourceGroupNotFound|could not be found') {
+        throw
+    }
+    New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -Location $location
+}
 
 function Assert-ExpectedFailure {
     param(
@@ -49,7 +54,7 @@ function Assert-ExpectedFailure {
         & $Action
     } catch {
         if ($_.Exception.Message -match $Pattern) {
-            Write-Host "EXPECTED FAILURE ($Name): $($_.Exception.Message)"
+            Write-Warning $_.Exception.Message
             return
         }
         throw
@@ -75,11 +80,11 @@ try {
     $deployments.Add($jsonName)
     # Create from JSON with a parameters file and an inline override.
     $jsonDeployment = New-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -Name $jsonName `
         -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
         -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.parameters.json') `
-        -Parameter 'marker=inline-wins' `
+        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=inline-wins' `
         -ValidationLevel Provider `
         -Tag @{ scenario = 'tenant-deployment'; source = 'json' } `
         -DeploymentDebugLogLevel None `
@@ -89,11 +94,22 @@ try {
     if ($jsonDeployment.Properties.ProvisioningState -ne 'Succeeded') {
         throw "JSON deployment did not succeed: $($jsonDeployment.Properties.ProvisioningState)"
     }
+    $jsonDeployment
 
     # Get the deployment by name and ID, then list tenant deployments.
     Get-AzTenantDeployment -Name $jsonName | Out-Host
     Get-AzTenantDeployment -Id $jsonDeployment.Id | Out-Host
     Get-AzTenantDeployment | Out-Host
+
+    # Confirm the tenant template ran its workload only in the dedicated test resource group.
+    $nestedDeployment = Invoke-AzRestMethod `
+        -Method GET `
+        -Uri "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01"
+    $nestedState = ($nestedDeployment.Content | ConvertFrom-Json).properties.provisioningState
+    if ($nestedState -ne 'Succeeded') {
+        throw "Nested resource-group deployment did not succeed: $nestedState"
+    }
+    $nestedDeployment
 
     # Verify terminal deployments cannot be stopped by name, ID, or input object.
     Assert-ExpectedFailure 'Stop by name after completion' 'not running|cannot be canceled' {
@@ -110,13 +126,14 @@ try {
     $deployments.Add($bicepName)
     # Create from Bicep with a bicepparam file and an inline override.
     $bicepDeployment = New-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -Name $bicepName `
         -TemplateFile (Join-Path $bicepDir 'tenant-empty.bicep') `
         -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.bicepparam') `
-        -Parameter 'marker=bicep-inline-wins' `
+        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=bicep-inline-wins' `
         -ValidationLevel Template `
         -Confirm:$false
+    $bicepDeployment
 
     $objectName = "$prefix-object"
     $deployments.Add($objectName)
@@ -124,27 +141,33 @@ try {
     $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
         ConvertFrom-Json -AsHashtable
     $objectDeployment = New-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -Name $objectName `
         -TemplateObject $templateObject `
-        -TemplateParameterObject @{ marker = @{ value = 'object-base' } } `
+        -TemplateParameterObject @{
+            subscriptionId = @{ value = $subscriptionId }
+            resourceGroupName = @{ value = $resourceGroupName }
+            marker = @{ value = 'object-base' }
+        } `
         -Parameter 'marker=object-inline-wins' `
         -ValidationLevel ProviderNoRbac `
         -Confirm:$false
+    $objectDeployment
 
     # Verify the deployment name is derived when -Name is omitted.
     Copy-Item (Join-Path $bicepDir 'tenant-empty.json') $derivedTemplate
     $derivedDeployment = New-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -TemplateFile $derivedTemplate `
-        -Parameter 'marker=derived-name' `
+        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=derived-name' `
         -Confirm:$false
     $deployments.Add($derivedDeployment.Name)
+    $derivedDeployment
 
     # Verify malformed Bicep is rejected.
     Assert-ExpectedFailure 'malformed Bicep create' 'Bicep compilation failed' {
         New-AzTenantDeployment `
-            -Location $Location `
+            -Location $location `
             -Name "$prefix-malformed" `
             -TemplateFile (Join-Path $bicepDir 'malformed.bicep') `
             -Confirm:$false `
@@ -154,7 +177,7 @@ try {
     # Verify a parameters URI cannot be combined with an inline override.
     Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {
         New-AzTenantDeployment `
-            -Location $Location `
+            -Location $location `
             -Name "$prefix-parameter-conflict" `
             -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
             -TemplateParameterUri https://example.com/parameters.json `

@@ -17,7 +17,9 @@ BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-LOCATION="${AZCLIPS_TENANT_DEPLOYMENT_LOCATION:-eastus}"
+SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+LOCATION="eastus"
+TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
 STAMP="$(date +%y%m%d%H%M%S)-$$"
 PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-validate-$STAMP}"
 
@@ -40,17 +42,27 @@ expect_failure() {
         echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
         return 1
     fi
-    echo "OK: $label rejected as expected"
+    printf '%s\n' "$output"
 }
 
 "$AZ" config set --key agent.enabled --value false
+
+# This dedicated test group is reused and intentionally not deleted by individual scripts.
+if ! "$AZ" group show \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
+    "$AZ" group create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --name "$TEST_RESOURCE_GROUP" \
+        --location "$LOCATION"
+fi
 
 # Validate JSON using Provider validation.
 "$AZ" deployment tenant validate \
     --location "$LOCATION" \
     --name "$PREFIX-provider" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" marker=inline-wins \
+    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=inline-wins \
     --validation-level Provider
 
 # Validate Bicep using Template validation.
@@ -58,14 +70,14 @@ expect_failure() {
     --location "$LOCATION" \
     --name "$PREFIX-template" \
     --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins \
+    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins \
     --validation-level Template
 
 # Validate with ProviderNoRbac and a derived deployment name.
 "$AZ" deployment tenant validate \
     --location "$LOCATION" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters marker=provider-no-rbac \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=provider-no-rbac \
     --validation-level ProviderNoRbac
 
 # Verify malformed Bicep is rejected.
@@ -84,7 +96,8 @@ expect_failure \
     "$AZ" deployment tenant validate \
         --location "$LOCATION" \
         --name "$PREFIX-invalid-template" \
-        --template-file "$BICEP_DIR/tenant-invalid-template.json"
+        --template-file "$BICEP_DIR/tenant-invalid-template.json" \
+        --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP"
 
 # Verify a parameters URI cannot be combined with an inline overlay.
 expect_failure \

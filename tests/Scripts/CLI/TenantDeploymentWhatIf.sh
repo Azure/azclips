@@ -18,7 +18,9 @@ BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-LOCATION="${AZCLIPS_TENANT_DEPLOYMENT_LOCATION:-eastus}"
+SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+LOCATION="eastus"
+TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
 STAMP="$(date +%y%m%d%H%M%S)-$$"
 PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-whatif-$STAMP}"
 
@@ -41,31 +43,41 @@ expect_failure() {
         echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
         return 1
     fi
-    echo "OK: $label rejected as expected"
+    printf '%s\n' "$output"
 }
 
 "$AZ" config set --key agent.enabled --value false
+
+# This dedicated test group is reused and intentionally not deleted by individual scripts.
+if ! "$AZ" group show \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
+    "$AZ" group create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --name "$TEST_RESOURCE_GROUP" \
+        --location "$LOCATION"
+fi
 
 # Run what-if for JSON using the default result format.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-json" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters marker=json
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=json
 
 # Run what-if for Bicep with a bicepparam file and inline override.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-bicep" \
     --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" marker=bicep-inline-wins
+    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins
 
 # Run what-if with ResourceIdOnly and excluded change types.
 "$AZ" deployment tenant what-if \
     --location "$LOCATION" \
     --name "$PREFIX-id-only" \
     --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters marker=id-only \
+    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=id-only \
     --result-format ResourceIdOnly \
     --exclude-change-types NoChange Ignore
 
@@ -95,6 +107,7 @@ expect_failure \
     "$AZ" deployment tenant what-if \
         --location "$LOCATION" \
         --name "$PREFIX-invalid-template" \
-        --template-file "$BICEP_DIR/tenant-invalid-template.json"
+        --template-file "$BICEP_DIR/tenant-invalid-template.json" \
+        --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP"
 
 echo "All tenant deployment what-if smoke checks completed."

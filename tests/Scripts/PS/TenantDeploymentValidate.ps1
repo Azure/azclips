@@ -15,16 +15,12 @@
 #   4. Use an identity permitted to validate tenant-scope deployments.
 #
 # Usage: ./tests/Scripts/PS/TenantDeploymentValidate.ps1
-[CmdletBinding()]
-param(
-    [string] $Location = $(if ($env:AZCLIPS_TENANT_DEPLOYMENT_LOCATION) {
-        $env:AZCLIPS_TENANT_DEPLOYMENT_LOCATION
-    } else {
-        'eastus'
-    })
-)
 
 $ErrorActionPreference = 'Stop'
+$subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
+$location = 'eastus'
+# This dedicated test group is reused and intentionally not deleted by individual scripts.
+$resourceGroupName = 'azclips-tenant-test-rg'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')
 $bicepDir = Join-Path $repoRoot 'tests' 'Scripts' 'Bicep'
 $stamp = "$(Get-Date -Format 'yyMMddHHmmss')-$PID"
@@ -32,6 +28,15 @@ $prefix = if ($env:AZCLIPS_TENANT_DEPLOYMENT_NAME) {
     $env:AZCLIPS_TENANT_DEPLOYMENT_NAME
 } else {
     "azclips-tenant-validate-$stamp"
+}
+
+try {
+    Get-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -ErrorAction Stop | Out-Null
+} catch {
+    if ($_.Exception.Message -notmatch '404|ResourceGroupNotFound|could not be found') {
+        throw
+    }
+    New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -Location $location
 }
 
 function Assert-ExpectedFailure {
@@ -45,7 +50,7 @@ function Assert-ExpectedFailure {
         & $Action
     } catch {
         if ($_.Exception.Message -match $Pattern) {
-            Write-Host "EXPECTED FAILURE ($Name): $($_.Exception.Message)"
+            Write-Warning $_.Exception.Message
             return
         }
         throw
@@ -56,45 +61,52 @@ function Assert-ExpectedFailure {
 
 # Validate JSON with a parameters file, inline override, and Provider level.
 $providerResult = Test-AzTenantDeployment `
-    -Location $Location `
+    -Location $location `
     -Name "$prefix-provider" `
     -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
     -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.parameters.json') `
-    -Parameter 'marker=inline-wins' `
+    -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=inline-wins' `
     -ValidationLevel Provider
 if ($providerResult.Error) {
     throw "Provider validation failed: $($providerResult.Error.Message)"
 }
+$providerResult
 
 # Validate Bicep with a bicepparam file, inline override, and Template level.
 $templateResult = Test-AzTenantDeployment `
-    -Location $Location `
+    -Location $location `
     -Name "$prefix-template" `
     -TemplateFile (Join-Path $bicepDir 'tenant-empty.bicep') `
     -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.bicepparam') `
-    -Parameter 'marker=bicep-inline-wins' `
+    -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=bicep-inline-wins' `
     -ValidationLevel Template
 if ($templateResult.Error) {
     throw "Template validation failed: $($templateResult.Error.Message)"
 }
+$templateResult
 
 # Validate template and parameter objects with ProviderNoRbac level.
 $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
     ConvertFrom-Json -AsHashtable
 $objectResult = Test-AzTenantDeployment `
-    -Location $Location `
+    -Location $location `
     -TemplateObject $templateObject `
-    -TemplateParameterObject @{ marker = @{ value = 'object-base' } } `
+    -TemplateParameterObject @{
+        subscriptionId = @{ value = $subscriptionId }
+        resourceGroupName = @{ value = $resourceGroupName }
+        marker = @{ value = 'object-base' }
+    } `
     -Parameter 'marker=object-inline-wins' `
     -ValidationLevel ProviderNoRbac
 if ($objectResult.Error) {
     throw "ProviderNoRbac validation failed: $($objectResult.Error.Message)"
 }
+$objectResult
 
 # Verify malformed Bicep is rejected.
 Assert-ExpectedFailure 'malformed Bicep validation' 'Bicep compilation failed' {
     Test-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -Name "$prefix-malformed" `
         -TemplateFile (Join-Path $bicepDir 'malformed.bicep') `
         -ErrorAction Stop
@@ -102,20 +114,25 @@ Assert-ExpectedFailure 'malformed Bicep validation' 'Bicep compilation failed' {
 
 # Verify ARM returns structured validation diagnostics.
 $invalidResult = Test-AzTenantDeployment `
-    -Location $Location `
+    -Location $location `
     -Name "$prefix-invalid-template" `
-    -TemplateFile (Join-Path $bicepDir 'tenant-invalid-template.json')
+    -TemplateFile (Join-Path $bicepDir 'tenant-invalid-template.json') `
+    -TemplateParameterObject @{
+        subscriptionId = @{ value = $subscriptionId }
+        resourceGroupName = @{ value = $resourceGroupName }
+    }
 if (-not $invalidResult.Error) {
     throw 'Invalid tenant template did not return validation diagnostics.'
 }
 if ($invalidResult.Error.Message -notmatch 'undefinedTenantParameter|parameter') {
     throw "Unexpected validation diagnostic: $($invalidResult.Error.Message)"
 }
+$invalidResult
 
 # Verify a parameters URI cannot be combined with an inline override.
 Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {
     Test-AzTenantDeployment `
-        -Location $Location `
+        -Location $location `
         -Name "$prefix-parameter-conflict" `
         -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
         -TemplateParameterUri https://example.com/parameters.json `
