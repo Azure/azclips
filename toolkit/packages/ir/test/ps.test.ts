@@ -6,12 +6,12 @@ import {
   PSDefaultValueContractSchema,
   PowerShellContractProjections,
   PowerShellContractSchemas,
+  IRCommandSchema,
+  IRCommandParameterSourceSchema,
   PsCommandDialectSchema,
   PsModuleDialectSchema,
   PsParameterDialectSchema,
   IRCommandIdentitySchema,
-  IRCommandSchema,
-  IRCommandParameterSourceSchema,
   emptyIR,
   safeParseTransformedIR,
   TransformedIRSchema,
@@ -144,6 +144,8 @@ describe("PsParameterDialect", () => {
         { set: "ByName", mandatory: false },
       ],
     });
+    expect(result.success).toBe(false);
+  });
 
   it("accepts one all-set fallback alongside named overrides", () => {
     const result = PsParameterDialectSchema.safeParse({
@@ -153,6 +155,7 @@ describe("PsParameterDialect", () => {
         { set: "ByIdentity", mandatory: true, valueFromPipeline: true },
       ],
     });
+
     expect(result.success).toBe(true);
   });
 
@@ -160,6 +163,7 @@ describe("PsParameterDialect", () => {
     const result = PsParameterDialectSchema.safeParse({
       parameterSets: [{ mandatory: false }, { mandatory: true }],
     });
+
     expect(result.success).toBe(false);
   });
 });

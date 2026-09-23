@@ -582,7 +582,11 @@ function buildRequest(
 ): IRCommandStep["request"] {
   const byId = new Map<string, string>();
   for (const parameter of parameters) {
-    if (parameter.source.kind !== "body") {
+    if (
+      parameter.source.kind === "path" ||
+      parameter.source.kind === "query" ||
+      parameter.source.kind === "header"
+    ) {
       byId.set(serializeId(parameter.source.parameter), parameter.name);
     }
   }
