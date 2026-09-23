@@ -209,6 +209,42 @@ public sealed class ExtensionIndexTests
     }
 
     [Fact]
+    public async Task Includes_A_Synthetic_Identity_Parameter_With_Its_Model_Type()
+    {
+        TransformedIR ir = LoadIr();
+        IRCommand command = ir.Commands[0];
+        var identityId = new IRId { Module = "ElasticSan", Name = "ElasticSanIdentity" };
+        ir.Models = ir.Models.Concat([
+            new IRModel
+            {
+                Id = identityId,
+                Name = "ElasticSanIdentity",
+                Source = "synthetic",
+                Usage = [IRModelUsage.Input],
+            },
+        ]).ToArray();
+        command.Parameters = command.Parameters.Concat([
+            new IRCommandParameter
+            {
+                Name = "InputObject",
+                Source = new IRCommandParameterSourceSynthetic(),
+                Type = new IRTypeRefModel { Id = identityId },
+                Required = true,
+                Nullable = false,
+                Docs = "Identity Parameter",
+            },
+        ]).ToArray();
+
+        (ArtifactWriter writer, _) = await EmitAsync("ElasticSan_ExtensionIndex_Identity", ir);
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.Contains(
+            "[\"InputObject\"] = new(\"InputObject\", \"InputObject\", typeof(ElasticSanIdentity), "
+                + "\"Identity Parameter\", IsRequired: true",
+            index);
+    }
+
+    [Fact]
     public async Task Renders_Enum_Parameters_As_Strings_With_Document_Enum_Members()
     {
         TransformedIR ir = LoadIr();
