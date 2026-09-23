@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790125779569,
+  "lastUpdate": 1790125784762,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -8612,6 +8612,48 @@ window.BENCHMARK_DATA = {
             "value": 307684112.55,
             "unit": "ns",
             "range": "± 3519526.1235920032"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7",
+          "message": "[CLI] Constrain table output to terminal width (#943)\n\nFixes #913\n\nSummary:\n- Constrains CLI table output to the terminal width.\n- Preserves appropriate behavior for redirected output.\n\nTests:\n- dotnet test tests/Cli.Tests/Cli.Tests.csproj -nologo (967 passed, 0\nfailed, 8 skipped)",
+          "timestamp": "2026-09-23T10:05:24+10:00",
+          "tree_id": "0b3b42b22cc846a433d6a463331c09bbef79ba7a",
+          "url": "https://github.com/Azure/azclips/commit/00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7"
+        },
+        "date": 1790125784574,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 318617939.23,
+            "unit": "ns",
+            "range": "± 6176415.5598775325"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 322759634.15,
+            "unit": "ns",
+            "range": "± 10327355.729662154"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 320759203.29,
+            "unit": "ns",
+            "range": "± 5415313.526723486"
           }
         ]
       }
