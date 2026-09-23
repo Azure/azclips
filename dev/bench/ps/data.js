@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790125576039,
+  "lastUpdate": 1790125652193,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -10840,6 +10840,48 @@ window.BENCHMARK_DATA = {
             "value": 2002304.2037824055,
             "unit": "ns",
             "range": "± 62925.33548475771"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7",
+          "message": "[CLI] Constrain table output to terminal width (#943)\n\nFixes #913\n\nSummary:\n- Constrains CLI table output to the terminal width.\n- Preserves appropriate behavior for redirected output.\n\nTests:\n- dotnet test tests/Cli.Tests/Cli.Tests.csproj -nologo (967 passed, 0\nfailed, 8 skipped)",
+          "timestamp": "2026-09-23T10:05:24+10:00",
+          "tree_id": "0b3b42b22cc846a433d6a463331c09bbef79ba7a",
+          "url": "https://github.com/Azure/azclips/commit/00c0aa1c9e05d04fc84d6ce2f77705ec81e18ec7"
+        },
+        "date": 1790125648378,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1978634.736164736,
+            "unit": "ns",
+            "range": "± 53389.52659988121"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2047110.211869815,
+            "unit": "ns",
+            "range": "± 52609.37293651173"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1943970.3156103785,
+            "unit": "ns",
+            "range": "± 52230.72794301728"
           }
         ]
       }
