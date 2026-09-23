@@ -28,7 +28,56 @@ public static class HttpRuntime
         return response;
     }
 
-    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri)
+    public static Task<HttpResponseMessage> SendAsyncLRO(
+        Func<Task<HttpRequestMessage>> getRequest,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline,
+        Func<HttpResponseMessage, string?> getFinalUri,
+        Func<HttpResponseMessage, string?> getOperationLocationUri,
+        Func<HttpResponseMessage, string?> getAsyncOperationUri,
+        Func<HttpResponseMessage, string?> getLocationUri,
+        IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes = null)
+        => SendAsyncLROCore(
+            getRequest,
+            publisher,
+            httpPipeline,
+            getFinalUri,
+            getOperationLocationUri,
+            getAsyncOperationUri,
+            getLocationUri,
+            fetchFinalState: true,
+            allowedResponseStatusCodes);
+
+    public static Task<HttpResponseMessage> SendAsyncLRO(
+        Func<Task<HttpRequestMessage>> getRequest,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline,
+        Func<HttpResponseMessage, string?> getFinalUri,
+        Func<HttpResponseMessage, string?> getOperationLocationUri,
+        Func<HttpResponseMessage, string?> getAsyncOperationUri,
+        Func<HttpResponseMessage, string?> getLocationUri,
+        bool fetchFinalState)
+        => SendAsyncLROCore(
+            getRequest,
+            publisher,
+            httpPipeline,
+            getFinalUri,
+            getOperationLocationUri,
+            getAsyncOperationUri,
+            getLocationUri,
+            fetchFinalState,
+            allowedResponseStatusCodes: null);
+
+    private static async Task<HttpResponseMessage> SendAsyncLROCore(
+        Func<Task<HttpRequestMessage>> getRequest,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline,
+        Func<HttpResponseMessage, string?> getFinalUri,
+        Func<HttpResponseMessage, string?> getOperationLocationUri,
+        Func<HttpResponseMessage, string?> getAsyncOperationUri,
+        Func<HttpResponseMessage, string?> getLocationUri,
+        bool fetchFinalState,
+        IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes)
     {
         HttpRequestMessage request = await getRequest();
         try
@@ -133,7 +182,7 @@ public static class HttpRuntime
                 }
                 // we are done polling, do a request on final target?
                 // create a new request with the final uri
-                if (!string.IsNullOrEmpty(_finalUri))
+                if (fetchFinalState && !string.IsNullOrEmpty(_finalUri))
                 {
                     // drop the old response
                     response?.Dispose();
@@ -157,6 +206,10 @@ public static class HttpRuntime
                 default:
                 {
                     await publisher.Publish(Events.PollingFailed);
+                    if (allowedResponseStatusCodes?.Contains(response.StatusCode) == true)
+                    {
+                        break;
+                    }
                     try
                     {
                         await response.EnsureSuccessAsync(publisher);

@@ -33,11 +33,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? TemplateSpecId { get; set; }
 
+        public object? TemplateObject { get; set; }
+
         public string? QueryString { get; set; }
 
         public string? ParametersUri { get; set; }
 
         public string? ParametersFile { get; set; }
+
+        public object? ParametersObject { get; set; }
 
         public string? Mode { get; set; }
 
@@ -50,10 +54,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // orchestrators call this first, then add their own command-specific rules.
         protected void ValidateCommonInputs()
         {
-            if (string.IsNullOrWhiteSpace(ResourceGroupName))
-            {
-                throw new ArgumentException("ResourceGroupName must be provided.");
-            }
+            ValidateScopeInputs();
             if (string.IsNullOrWhiteSpace(Name) || Name.Length > 64 || !DeploymentNamePattern.IsMatch(Name))
             {
                 throw new ArgumentException("Deployment name must be 1-64 characters and match the pattern ^[-\\w\\._\\(\\)]+$.");
@@ -61,17 +62,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             int templateSources = (string.IsNullOrWhiteSpace(TemplateUri) ? 0 : 1)
                                  + (string.IsNullOrWhiteSpace(TemplateFile) ? 0 : 1)
-                                 + (string.IsNullOrWhiteSpace(TemplateSpecId) ? 0 : 1);
+                                 + (string.IsNullOrWhiteSpace(TemplateSpecId) ? 0 : 1)
+                                 + (TemplateObject is null ? 0 : 1);
             if (templateSources != 1)
             {
-                throw new ArgumentException("Exactly one of TemplateUri, TemplateFile, or TemplateSpecId must be provided.");
+                throw new ArgumentException(
+                    "Exactly one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided.");
             }
 
             int parameterSources = (string.IsNullOrWhiteSpace(ParametersUri) ? 0 : 1)
-                                  + (string.IsNullOrWhiteSpace(ParametersFile) ? 0 : 1);
+                                  + (string.IsNullOrWhiteSpace(ParametersFile) ? 0 : 1)
+                                  + (ParametersObject is null ? 0 : 1);
             if (parameterSources > 1)
             {
-                throw new ArgumentException("Provide at most one of ParametersUri or ParametersFile.");
+                throw new ArgumentException(
+                    "Provide at most one of ParametersUri, ParametersFile, or ParametersObject.");
             }
 
             // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
@@ -102,6 +107,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
+        protected virtual void ValidateScopeInputs()
+        {
+            if (string.IsNullOrWhiteSpace(ResourceGroupName))
+            {
+                throw new ArgumentException("ResourceGroupName must be provided.");
+            }
+        }
+
         protected static DeploymentMode ParseMode(string? mode) =>
             string.IsNullOrWhiteSpace(mode)
                 ? DeploymentMode.Incremental
@@ -110,6 +123,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected object? BuildTemplate(out TemplateLink? templateLink)
         {
             templateLink = null;
+
+            if (TemplateObject is not null)
+            {
+                return TemplateObject;
+            }
 
             if (!string.IsNullOrWhiteSpace(TemplateUri))
             {
@@ -158,8 +176,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return null;
             }
 
-            object? fileParameters = null;
-            if (!string.IsNullOrWhiteSpace(ParametersFile))
+            object? fileParameters = ParametersObject;
+            if (fileParameters is null && !string.IsNullOrWhiteSpace(ParametersFile))
             {
                 // A .bicepparam source is compiled to an ARM parameters file first.
                 if (IsBicepParamFile(ParametersFile))
@@ -189,6 +207,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     throw new ArgumentException("The parameters file must contain a JSON object of parameters to combine with inline parameter values.");
                 }
                 parameters = JsonObject.Create(element)!;
+            }
+            else if (fileParameters is not null)
+            {
+                parameters = JsonSerializer.SerializeToNode(fileParameters, JsonOptions) as JsonObject
+                    ?? throw new ArgumentException("The parameters object must serialize to a JSON object.");
             }
             else
             {

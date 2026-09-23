@@ -17,6 +17,8 @@
 -->
 ## Upcoming Release
 
+* Added management-group deployment create, get, stop, remove, and test cmdlets.
+
 ## Version 0.1.0
 
 * First preview

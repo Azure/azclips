@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "subscriptionId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "resourceGroupName": {
+      "value": "azclips-mg-test-rg"
+    },
+    "marker": {
+      "value": "from-parameters-file"
+    }
+  }
+}
