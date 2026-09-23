@@ -28,7 +28,7 @@
     "@typespec/xml": ">=0.77.0 <1.0.0"
   },
   "devDependencies": {
-    "@azure-tools/typespec-azure-core": "^0.68.0",
+    "@azure-tools/typespec-azure-core": "^0.72.0",
     "@azure-tools/typespec-azure-resource-manager": "^0.68.0",
     "@azure-tools/typespec-azure-rulesets": "^0.68.0",
     "@azure-tools/typespec-client-generator-core": "^0.68.4",
