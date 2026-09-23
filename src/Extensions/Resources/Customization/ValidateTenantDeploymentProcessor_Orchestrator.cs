@@ -22,12 +22,12 @@ public class ValidateTenantDeploymentProcessor_Orchestrator
         return await processor.SendAsync();
     }
 
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentValidateResult? body)
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentValidateResult? body)
     {
         if (ThrowOnError)
         {
             ThrowIfError(body?.Error, "Tenant deployment validation");
         }
-        return false;
+        return Task.FromResult(false);
     }
 }
