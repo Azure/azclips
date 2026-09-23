@@ -1,15 +1,21 @@
 import { assert, describe, expect, it } from "vitest";
 import {
   PSCompleterAttributeSchema,
+  PSCompleterContractSchema,
   PSDefaultValueAttributeSchema,
+  PSDefaultValueContractSchema,
+  PowerShellContractProjections,
+  PowerShellContractSchemas,
+  IRCommandSchema,
+  IRCommandParameterSourceSchema,
   PsCommandDialectSchema,
   PsModuleDialectSchema,
   PsParameterDialectSchema,
   IRCommandIdentitySchema,
-  IRCommandSchema,
-  IRCommandParameterSourceSchema,
   emptyIR,
   safeParseTransformedIR,
+  TransformedIRSchema,
+  type TransformedIR,
 } from "../src/index.js";
 
 const target = {
@@ -26,7 +32,6 @@ describe("PsModuleDialect", () => {
       prefix: "Az",
       subjectPrefix: "ElasticSan",
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -37,16 +42,13 @@ describe("IRCommandIdentity", () => {
       kind: "identity",
       id: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity" },
       name: "ElasticSanIdentity",
-      properties: [
-        {
-          name: "ResourceGroupName",
-          sourceParameters: [
-            { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
-          ],
-        },
-      ],
+      properties: [{
+        name: "ResourceGroupName",
+        sourceParameters: [
+          { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
+        ],
+      }],
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -69,7 +71,6 @@ describe("PsCommandDialect", () => {
       ],
       httpPath: { path: "/widgets/{name}", apiVersion: "2025-01-01" },
     });
-
     expect(result.success).toBe(true);
   });
 
@@ -79,7 +80,6 @@ describe("PsCommandDialect", () => {
       noun: "AzWidget",
       confirmImpact: "Critical",
     });
-
     expect(result.success).toBe(false);
   });
 
@@ -90,36 +90,27 @@ describe("PsCommandDialect", () => {
       name: "GetWidgetByIdentity",
       template: "atomic",
       server: { module: "Widgets", namespace: [], name: "server" },
-      steps: [
-        {
-          operation,
-          request: { method: "GET", path: [], query: [], headers: [] },
-          responses: [
-            { statusCodes: [{ kind: "exact", code: 200 }], isError: false },
-          ],
+      steps: [{
+        operation,
+        request: { method: "GET", path: [], query: [], headers: [] },
+        responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
+      }],
+      parameters: [{
+        name: "InputObject",
+        source: {
+          kind: "synthetic",
+          purpose: "identity",
+          type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
+          parameters: [operation],
         },
-      ],
-      parameters: [
-        {
-          name: "InputObject",
-          source: {
-            kind: "synthetic",
-            purpose: "identity",
-            type: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
-            parameters: [operation],
-          },
-          type: { kind: "primitive", name: "string" },
-          required: true,
-          nullable: false,
-          dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
-        },
-      ],
+        type: { kind: "primitive", name: "string" },
+        required: true,
+        nullable: false,
+        dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
+      }],
       surface: { paginated: false },
-      dialect: {
-        ps: { verb: "Get", noun: "AzWidget", defaultParameterSet: "ByName" },
-      },
+      dialect: { ps: { verb: "Get", noun: "AzWidget", defaultParameterSet: "ByName" } },
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -153,7 +144,6 @@ describe("PsParameterDialect", () => {
         { set: "ByName", mandatory: false },
       ],
     });
-
     expect(result.success).toBe(false);
   });
 
@@ -189,7 +179,6 @@ describe("PowerShell synthetic parameters", () => {
         { module: "Widgets", namespace: [], name: "resourceGroupName" },
       ],
     });
-
     expect(result.success).toBe(true);
   });
 });
@@ -210,7 +199,6 @@ describe("PowerShell shared identity references", () => {
       sharedTypes: [identity, identity],
       target,
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
@@ -250,7 +238,6 @@ describe("PowerShell shared identity references", () => {
       sharedTypes: [],
       target,
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
@@ -260,7 +247,42 @@ describe("PowerShell shared identity references", () => {
   });
 });
 
-describe("PowerShell attribute metadata", () => {
+describe("PowerShell CLR contract projections", () => {
+  const expectedContracts = [
+    "PSCommandAttribute",
+    "PSParameterSetAttribute",
+    "PSParameterAttribute",
+    "PSModuleAttribute",
+    "PSIdentityAttribute",
+    "PSIdentityPropertyAttribute",
+    "PSCompleterAttribute",
+    "PSDefaultValueAttribute",
+  ];
+
+  it("registers all eight standalone contract schemas and projections", () => {
+    expect(Object.keys(PowerShellContractSchemas)).toEqual(expectedContracts);
+    expect(Object.keys(PowerShellContractProjections)).toEqual(expectedContracts);
+    expect(Object.values(PowerShellContractProjections).map((projection) => projection.name)).toEqual(
+      expectedContracts,
+    );
+  });
+
+  it("uses the projected completer and default schemas in canonical dialects", () => {
+    expect(PSCompleterAttributeSchema).toBe(PSCompleterContractSchema);
+    expect(PSDefaultValueAttributeSchema).toBe(PSDefaultValueContractSchema);
+  });
+
+  it("preserves contextual constructor fields for later attribute emission", () => {
+    expect(PowerShellContractProjections.PSParameterAttribute.constructor).toEqual([
+      { name: "commandName", type: "string" },
+      { name: "parameterSetName", type: "string" },
+      { name: "name", source: "name" },
+    ]);
+    expect(PowerShellContractProjections.PSDefaultValueAttribute.constructor).toEqual([
+      { name: "commandName", type: "string" },
+      { name: "parameterSetName", type: "string" },
+    ]);
+  });
   it.each([
     ["script", { script: "Get-Thing" }],
     ["name", { name: "LocationCompleter" }],
@@ -269,11 +291,22 @@ describe("PowerShell attribute metadata", () => {
     expect(PSCompleterAttributeSchema.safeParse(value).success).toBe(true);
   });
 
-  it("rejects an empty completer", () => {
+  it("rejects an empty completer and a default value without a script", () => {
     expect(PSCompleterAttributeSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("requires a script for a default value", () => {
     expect(PSDefaultValueAttributeSchema.safeParse({ name: "Subscription" }).success).toBe(false);
+  });
+});
+
+describe("TransformedIR PowerShell ownership", () => {
+  it("has no ps property in either its TypeScript contract or strict root schema", () => {
+    const transformedIrHasPs: "ps" extends keyof TransformedIR ? true : false = false;
+    expect(transformedIrHasPs).toBe(false);
+
+    const result = TransformedIRSchema.safeParse({ ps: { commands: [], modules: [] } });
+    expect(result.success).toBe(false);
+    assert(!result.success);
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({ code: "unrecognized_keys", keys: ["ps"] }),
+    );
   });
 });

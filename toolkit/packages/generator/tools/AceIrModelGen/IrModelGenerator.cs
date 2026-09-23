@@ -56,6 +56,11 @@ internal sealed class IrModelGenerator
         // derived before we decide which object defs are standalone.
         foreach (JsonProperty def in _defs.EnumerateObject())
         {
+            if (IsAttributeOnly(def.Value))
+            {
+                continue;
+            }
+
             if (def.Value.TryGetProperty("anyOf", out _))
             {
                 ClassifyUnion(def.Name, def.Value);
@@ -65,6 +70,11 @@ internal sealed class IrModelGenerator
         foreach (JsonProperty def in _defs.EnumerateObject())
         {
             JsonElement d = def.Value;
+            if (IsAttributeOnly(d))
+            {
+                continue;
+            }
+
             if (d.TryGetProperty("enum", out _) && IsString(d))
             {
                 AddEnum(def.Name, d);
@@ -81,6 +91,9 @@ internal sealed class IrModelGenerator
         // commands and a resolved target, never bare operations alone.
         _classes[RootTypeName] = ObjectClass(RootTypeName, _root);
     }
+
+    private static bool IsAttributeOnly(JsonElement definition) =>
+        definition.TryGetProperty("x-csharp-attribute-only", out JsonElement marker) && marker.GetBoolean();
 
     private ClassBuild ObjectClass(string name, JsonElement obj)
     {

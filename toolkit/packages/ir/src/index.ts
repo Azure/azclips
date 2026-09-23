@@ -8,6 +8,8 @@
 
 export { IR_SCHEMA_VERSION } from "./version.js";
 
+export type { CSharpAttributeProjection } from "./csharp-attribute.js";
+
 export {
   IRIdSchema,
   serializeId,
@@ -282,3 +284,16 @@ export {
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
 } from "./ps.js";
+
+export {
+  PSCommandContractSchema,
+  PSParameterSetContractSchema,
+  PSParameterContractSchema,
+  PSModuleContractSchema,
+  PSIdentityContractSchema,
+  PSIdentityPropertyContractSchema,
+  PSCompleterContractSchema,
+  PSDefaultValueContractSchema,
+  PowerShellContractSchemas,
+  PowerShellContractProjections,
+} from "./ps-contract.js";

@@ -30,12 +30,10 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   IR_SCHEMA_VERSION,
-  // The generator only ever reads a *transformed* document — commands and a
-  // resolved target, not bare operations — so that is the root, and the C# root
-  // type is named `TransformedIR` to say so. `IR`'s own types come along as
-  // shared definitions.
+  // The generator consumes transformed IR: canonical commands plus a resolved target.
   TransformedIRSchema,
-  // PowerShell metadata definitions consumed by command dialect generation.
+  PowerShellContractSchemas,
+  PowerShellContractProjections,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
@@ -108,8 +106,6 @@ import {
   ParameterHintsSchema,
   OperationHintsSchema,
   RequestBodyHintsSchema,
-  // Commands — the transformer↔generator contract. Registered so the generated C#
-  // gets named types rather than anonymous inline objects.
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
@@ -125,13 +121,11 @@ import {
   IRCommandWireEntrySchema,
   IRCommandDialectSchema,
   IRCommandParameterDialectSchema,
-  // Per-client dialects.
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
-  // Resolved placement for the generated project.
   IRTargetSchema,
   IRTargetDirectoriesSchema,
 } from "../dist/src/index.js";
@@ -220,7 +214,6 @@ const definitions = {
   ParameterHints: ParameterHintsSchema,
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
-  // Commands.
   IRCommand: IRCommandSchema,
   IRCommandId: IRCommandIdSchema,
   IRCommandParameter: IRCommandParameterSchema,
@@ -236,17 +229,14 @@ const definitions = {
   IRCommandWireEntry: IRCommandWireEntrySchema,
   IRCommandDialect: IRCommandDialectSchema,
   IRCommandParameterDialect: IRCommandParameterDialectSchema,
-  // Dialects. Each client's type is structurally distinct, which matters:
-  // zodToJsonSchema collapses identical shapes into one definition.
   PsCommandDialect: PsCommandDialectSchema,
   PsParameterDialect: PsParameterDialectSchema,
   PsParameterSetMembership: PsParameterSetMembershipSchema,
   CliCommandDialect: CliCommandDialectSchema,
   CliParameterDialect: CliParameterDialectSchema,
-  // Placement.
   IRTarget: IRTargetSchema,
   IRTargetDirectories: IRTargetDirectoriesSchema,
-  // PowerShell metadata shared by dialects.
+  ...PowerShellContractSchemas,
   PSCompleterAttribute: PSCompleterAttributeSchema,
   PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
 };
@@ -263,6 +253,18 @@ const jsonSchema = zodToJsonSchema(TransformedIRSchema, {
   $refStrategy: "root",
   definitions,
 });
+
+for (const [definitionName, projection] of Object.entries(PowerShellContractProjections)) {
+  const definition = jsonSchema.definitions?.[definitionName];
+  if (definition === undefined) {
+    throw new Error(`CLR attribute projection '${definitionName}' has no matching JSON Schema definition.`);
+  }
+  definition["x-csharp-attribute"] = projection;
+  const contractSchema = PowerShellContractSchemas[definitionName];
+  if (contractSchema !== PSCompleterAttributeSchema && contractSchema !== PSDefaultValueAttributeSchema) {
+    definition["x-csharp-attribute-only"] = true;
+  }
+}
 
 // Stamp identity + version so consumers can gate on the IR schema version.
 jsonSchema.$id = `https://azure-client-engine.dev/ir/${IR_SCHEMA_VERSION}/ir.schema.json`;

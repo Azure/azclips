@@ -907,6 +907,7 @@ public partial class IRCommandParameterDialect
 [JsonDerivedType(typeof(IRCommandParameterSourceQuery), "query")]
 [JsonDerivedType(typeof(IRCommandParameterSourceHeader), "header")]
 [JsonDerivedType(typeof(IRCommandParameterSourceBody), "body")]
+[JsonDerivedType(typeof(IRCommandParameterSourceSynthetic), "synthetic")]
 public abstract partial class IRCommandParameterSource
 {
 }
@@ -933,6 +934,15 @@ public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
 {
     [JsonPropertyName("parameter")]
     public IRId Parameter { get; set; } = default !;
+}
+
+public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSource
+{
+    [JsonPropertyName("purpose")]
+    public string Purpose { get; set; } = default !;
+
+    [JsonPropertyName("parameters")]
+    public IReadOnlyList<IRId> Parameters { get; set; } = [];
 }
 
 public partial class IRCommandRequest
@@ -1992,6 +2002,54 @@ public partial class IRTarget
 
     [JsonPropertyName("directories")]
     public IRTargetDirectories Directories { get; set; } = default !;
+
+    [JsonPropertyName("dialect")]
+    public IRTargetDialect? Dialect { get; set; }
+}
+
+public partial class IRTargetDialect
+{
+    [JsonPropertyName("ps")]
+    public IRTargetDialectPs? Ps { get; set; }
+}
+
+public partial class IRTargetDialectPs
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("prefix")]
+    public string? Prefix { get; set; }
+
+    [JsonPropertyName("subjectPrefix")]
+    public string? SubjectPrefix { get; set; }
+
+    [JsonPropertyName("identity")]
+    public IRTargetDialectPsIdentity? Identity { get; set; }
+}
+
+public partial class IRTargetDialectPsIdentity
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("properties")]
+    public IReadOnlyList<IRTargetDialectPsIdentityProperties> Properties { get; set; } = [];
+}
+
+public partial class IRTargetDialectPsIdentityProperties
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("sourceParameters")]
+    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class IRTargetDirectories
@@ -2172,6 +2230,24 @@ public partial class PsCommandDialect
 
     [JsonPropertyName("helpUri")]
     public string? HelpUri { get; set; }
+
+    [JsonPropertyName("supportsPaging")]
+    public bool? SupportsPaging { get; set; }
+
+    [JsonPropertyName("outputTypes")]
+    public IReadOnlyList<IRTypeRef>? OutputTypes { get; set; }
+
+    [JsonPropertyName("httpPath")]
+    public PsCommandDialectHttpPath? HttpPath { get; set; }
+}
+
+public partial class PsCommandDialectHttpPath
+{
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = default !;
+
+    [JsonPropertyName("apiVersion")]
+    public string ApiVersion { get; set; } = default !;
 }
 
 public partial class PsParameterDialect
@@ -2190,6 +2266,9 @@ public partial class PsParameterDialect
 
     [JsonPropertyName("parameterSets")]
     public IReadOnlyList<PsParameterSetMembership>? ParameterSets { get; set; }
+
+    [JsonPropertyName("removed")]
+    public bool? Removed { get; set; }
 
     [JsonPropertyName("completer")]
     public PSCompleterAttribute? Completer { get; set; }
