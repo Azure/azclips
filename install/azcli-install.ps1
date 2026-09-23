@@ -52,6 +52,34 @@ function Remove-DirectoryWithRetry {
   }
 }
 
+function Move-DirectoryWithRetry {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Destination,
+
+    [int]$MaxAttempts = 30,
+
+    [int]$DelayMilliseconds = 1000
+  )
+
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      [System.IO.Directory]::Move($Path, $Destination)
+      return
+    }
+    catch {
+      if ($attempt -eq $MaxAttempts) {
+        throw
+      }
+      Write-Verbose "Move attempt $attempt failed for '$Path': $($_.Exception.Message)"
+      Start-Sleep -Milliseconds $DelayMilliseconds
+    }
+  }
+}
+
 if ($PSBoundParameters.ContainsKey('ArchivePath') -and [string]::IsNullOrWhiteSpace($ArchivePath)) {
   throw 'ArchivePath requires a path.'
 }
@@ -172,7 +200,7 @@ try {
   }
 
   if (Test-Path $InstallRoot) { Remove-DirectoryWithRetry -Path $InstallRoot }
-  Move-Item -Path $stageRoot -Destination $InstallRoot
+  Move-DirectoryWithRetry -Path $stageRoot -Destination $InstallRoot
   $stageRoot = $null
 }
 finally {
