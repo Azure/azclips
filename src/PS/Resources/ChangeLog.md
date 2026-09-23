@@ -17,6 +17,9 @@
 -->
 ## Upcoming Release
 
+* Add tenant-scope ARM deployment commands.
+    - Supports New/Get/Stop/Remove/Test-AzTenantDeployment.
+
 ## Version 0.1.0
 
 * First preview

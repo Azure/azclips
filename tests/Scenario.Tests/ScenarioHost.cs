@@ -22,6 +22,25 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "group",
         ["", "create", "delete", "exists", "show", "list", "update"]);
 
+    public static readonly ExtensionUnderTest ResourcesDeployments = new(
+        "Resources",
+        "Microsoft.Azure.Azclips.Extensions.Resources",
+        typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
+        "deployment",
+        [
+            "",
+            "tenant",
+            "tenant create",
+            "tenant list",
+            "tenant show",
+            "tenant cancel",
+            "tenant delete",
+            "tenant export",
+            "tenant validate",
+            "tenant what-if",
+            "tenant wait",
+        ]);
+
     public static readonly ExtensionUnderTest Compute = new(
         "Compute",
         "Microsoft.Azure.Azclips.Extensions.Compute",

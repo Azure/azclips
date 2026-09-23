@@ -28,7 +28,15 @@ public static class HttpRuntime
         return response;
     }
 
-    public static async Task<HttpResponseMessage> SendAsyncLRO(Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, Func<HttpResponseMessage, string?> getFinalUri, Func<HttpResponseMessage, string?> getOperationLocationUri, Func<HttpResponseMessage, string?> getAsyncOperationUri, Func<HttpResponseMessage, string?> getLocationUri)
+    public static async Task<HttpResponseMessage> SendAsyncLRO(
+        Func<Task<HttpRequestMessage>> getRequest,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline,
+        Func<HttpResponseMessage, string?> getFinalUri,
+        Func<HttpResponseMessage, string?> getOperationLocationUri,
+        Func<HttpResponseMessage, string?> getAsyncOperationUri,
+        Func<HttpResponseMessage, string?> getLocationUri,
+        IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes = null)
     {
         HttpRequestMessage request = await getRequest();
         try
@@ -157,6 +165,10 @@ public static class HttpRuntime
                 default:
                 {
                     await publisher.Publish(Events.PollingFailed);
+                    if (allowedResponseStatusCodes?.Contains(response.StatusCode) == true)
+                    {
+                        break;
+                    }
                     try
                     {
                         await response.EnsureSuccessAsync(publisher);
