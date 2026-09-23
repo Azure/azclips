@@ -10,10 +10,10 @@ using Core.Abstractions.Runtime.Handler;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Extensions.Identity;
-using Microsoft.Azure.Azclips.Extensions.Identity.Customization;
-using Microsoft.Azure.Azclips.Extensions.Identity.Models;
-using Microsoft.Azure.Azclips.Extensions.Identity.Processors;
+using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
+using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
+using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
+using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
 using Moq;
 
 namespace Cli.Tests;

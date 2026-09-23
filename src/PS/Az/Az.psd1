@@ -13,7 +13,7 @@ RequiredModules = @(
     @{ ModuleName = '../Network/Network.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.1' },
     @{ ModuleName = '../Resources/Resources.psd1'; ModuleVersion = '0.1.1' },
-    @{ ModuleName = '../Identity/Identity.psd1'; ModuleVersion = '0.1.0' },
+    @{ ModuleName = '../ManagedServiceIdentity/ManagedServiceIdentity.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Config/Config.psd1'; ModuleVersion = '0.1.1' },
     @{ ModuleName = '../MsGraph/MsGraph.psd1'; ModuleVersion = '0.1.1' }
 )
