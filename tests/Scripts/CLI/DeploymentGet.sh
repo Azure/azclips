@@ -55,23 +55,39 @@ fi
 echo "show provisioningState -> $STATE"
 
 # Happy path: list every deployment in the resource group. The processor unwraps the ARM
-# { "value": [...], "nextLink": ... } envelope and follows pages, so this is a flat array.
-az deployment group list \
+# { "value": [...], "nextLink": ... } envelope and follows pages, so this is a flat array
+# that must contain the deployment created above.
+if ! LIST_OUTPUT=$(az deployment group list \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
-    --debug
+    --output json \
+    --debug); then
+    echo 'UNEXPECTED: list failed' >&2
+    exit 1
+fi
+if [[ "$LIST_OUTPUT" != *"$DEPLOYMENT_NAME"* ]]; then
+    echo "UNEXPECTED: list did not return $DEPLOYMENT_NAME" >&2
+    exit 1
+fi
+echo "list returned $DEPLOYMENT_NAME"
 
 # subscription-id is optional: it defaults to the active profile's subscription.
-az deployment group list --resource-group "$RESOURCE_GROUP"
+if ! az deployment group list --resource-group "$RESOURCE_GROUP"; then
+    echo 'UNEXPECTED: list without --subscription-id failed' >&2
+    exit 1
+fi
 
 # Negative case: a deployment name that does not exist must surface an ARM 404
 # (DeploymentNotFound) and exit non-zero, not print an empty success.
-if az deployment group show \
+if MISSING_DEPLOYMENT_OUTPUT=$(az deployment group show \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
     --name azclips-test-deployment-does-not-exist \
-    --debug; then
+    --debug 2>&1); then
     echo 'UNEXPECTED: missing deployment did not fail' >&2
+    exit 1
+elif [[ "$MISSING_DEPLOYMENT_OUTPUT" != *DeploymentNotFound* ]]; then
+    echo "UNEXPECTED: missing deployment failed without DeploymentNotFound -> $MISSING_DEPLOYMENT_OUTPUT" >&2
     exit 1
 else
     echo 'EXPECTED FAILURE: DeploymentNotFound'
@@ -79,11 +95,14 @@ fi
 
 # Negative case: a resource group that does not exist must surface an ARM 404
 # (ResourceGroupNotFound) and exit non-zero, not print an empty list.
-if az deployment group list \
+if MISSING_GROUP_OUTPUT=$(az deployment group list \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group azclips-test-group-does-not-exist \
-    --debug; then
+    --debug 2>&1); then
     echo 'UNEXPECTED: missing resource group did not fail' >&2
+    exit 1
+elif [[ "$MISSING_GROUP_OUTPUT" != *ResourceGroupNotFound* ]]; then
+    echo "UNEXPECTED: missing resource group failed without ResourceGroupNotFound -> $MISSING_GROUP_OUTPUT" >&2
     exit 1
 else
     echo 'EXPECTED FAILURE: ResourceGroupNotFound'
