@@ -44,17 +44,17 @@ RequiredModules = @(
 )
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
-                        '../../../artifacts/Debug/Core/Core.Engine.dll',
-                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
-                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
-                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Identity/Microsoft.Azure.Azclips.Extensions.Identity.dll'
+RequiredAssemblies = 'Core/Core.Abstractions.dll',
+                        'Core/Core.Telemetry.dll',
+                        'Core/Core.Runtime.dll',
+                        'Core/Core.Engine.dll',
+                        'Core/Core.AssemblyLoading.dll',
+                        'Core/Core.ArgumentParsing.dll',
+                        'Core/Core.DependencyInjection.dll',
+                        'Extensions/Microsoft.Azure.Azclips.Extensions.Identity.dll'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Identity.dll')
+NestedModules = @('bin/Microsoft.Azure.Azclips.Cmdlets.Identity.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()

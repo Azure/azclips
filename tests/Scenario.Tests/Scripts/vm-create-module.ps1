@@ -1,7 +1,10 @@
 $ErrorActionPreference = 'Stop'
-Import-Module ./src/PS/Accounts/Accounts.psd1
-Import-Module ./src/PS/Resources/Resources.psd1
-Import-Module ./src/PS/Compute/Compute.psd1
+# The build stages every module as a self-contained folder under artifacts/<Configuration>/PS;
+# the runner points at the configuration it was built with; Debug is the dev default.
+$modules = if ($env:AZCLIPS_PS_MODULES) { $env:AZCLIPS_PS_MODULES } else { './artifacts/Debug/PS' }
+Import-Module (Join-Path $modules 'Accounts/Accounts.psd1')
+Import-Module (Join-Path $modules 'Resources/Resources.psd1')
+Import-Module (Join-Path $modules 'Compute/Compute.psd1')
 
 # subscription resolves from the active profile
 $rg = New-AzResourceGroup -Name scenario-vm-rg -Location westus2

@@ -26,9 +26,9 @@ The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `C
 ### Importing and Using
 
 ```powershell
-# Import a built module (manifests reference artifact DLLs by relative path)
-Import-Module ./src/PS/Accounts/Accounts.psd1
-Import-Module ./src/PS/Compute/Compute.psd1
+# Import a staged module (the build stages each module as a self-contained folder)
+Import-Module ./artifacts/Debug/PS/Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/PS/Compute/Compute.psd1
 
 # Authenticate, then create a resource group and a VM
 Connect-AzAccount -SubscriptionId <sub-id>
@@ -119,7 +119,7 @@ graph LR
 
 ## Manifests and Help
 
-Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the artifact DLLs it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-AzVM.md`) generated for `Get-Help`. Because manifests reference DLLs under `artifacts/<Config>/...` (`src/PS/Compute/Compute.psd1:59`), you must build the solution before importing a module.
+Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the assemblies it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-AzVM.md`) generated for `Get-Help`. Manifests reference their payload by module-relative paths (`Core/…`, `Extensions/…`, `bin/…`), which the build materializes in `artifacts/<Config>/PS/<Module>/`, so you must build the solution and import the staged module.
 
 ## References
 

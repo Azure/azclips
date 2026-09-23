@@ -35,14 +35,13 @@ public abstract class StartupBenchmarkBase
     }
 
     /// <summary>
-    /// Stage a PS module and its <c>RequiredModules</c> dependency closure via
-    /// <see cref="PSManifestStager"/>, returning the absolute path to the staged manifest.
-    /// Unlike build/Set-ModuleConfiguration.ps1, this preserves <c>RequiredModules</c>, so importing
-    /// a dependent module (e.g. Config) transitively imports Accounts and initializes the service
-    /// provider. Staged fresh from source each run, so it is never stale (survives renames).
-    /// Call from <c>[GlobalSetup]</c> so the staging I/O stays outside the measured region.
+    /// The absolute path to a module's manifest in the build's staged PS output
+    /// (<c>artifacts/&lt;Configuration&gt;/PS/&lt;module&gt;</c>). Each staged module is a
+    /// self-contained folder that keeps its <c>RequiredModules</c>, so importing a dependent
+    /// module (e.g. Config) transitively imports Accounts and initializes the service provider.
+    /// Call from <c>[GlobalSetup]</c> so the resolution I/O stays outside the measured region.
     /// </summary>
-    protected string StageModule(string module) => PSManifestStager.StageModule(RepoRoot, module);
+    protected string ResolveModule(string module) => StagedPSModules.ManifestPath(RepoRoot, module);
 
     /// <summary>ProcessStartInfo for an az CLI invocation, stopping at the seam.</summary>
     protected ProcessStartInfo CliStartInfo(params string[] args)

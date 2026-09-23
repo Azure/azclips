@@ -8,7 +8,7 @@ outline: deep
 
 ## Why This Matters
 
-Project Azclips is a multi-project .NET 10 solution that produces both a native-style `az` binary and a set of PowerShell modules that load the *same* compiled Core assemblies. Because the PowerShell manifests reference DLLs by their build-output path (for example `../../../artifacts/Debug/Core/Core.Engine.dll` in `src/PS/Compute/Compute.psd1:60`), your toolchain and output layout must match what the projects expect. Getting the SDK version, output paths, and shared build properties right up front is what makes every downstream surface — CLI, PowerShell, TUI — work from a single `dotnet build`.
+Project Azclips is a multi-project .NET 10 solution that produces both a native-style `az` binary and a set of PowerShell modules that load the *same* compiled Core assemblies. Because the build stages each PowerShell module as a self-contained folder under `artifacts/<Config>/PS/<Module>/`, whose manifest loads its payload by module-relative paths (for example `Core/Core.Engine.dll` in `src/PS/Compute/Compute.psd1:60`), your toolchain and output layout must match what the projects expect. Getting the SDK version, output paths, and shared build properties right up front is what makes every downstream surface — CLI, PowerShell, TUI — work from a single `dotnet build`.
 
 ## Prerequisites
 
@@ -79,7 +79,6 @@ This matches the documented Quick Start (`README.md:80`). PowerShell helper scri
 | `build/build.ps1` | Orchestrated build wrapper. |
 | `build/Install-BuildDependencies.ps1` | Installs PlatyPS 1.0.1 and other build deps. |
 | `build/New-PSHelpMarkdown.ps1` | Generates PowerShell help markdown. |
-| `build/Set-ModuleConfiguration.ps1` | Configures module manifests. |
 
 > **Note:** The catalogue prompt references a `scripts/deploy.sh`, but the current tree ships PowerShell build scripts under `build/` (verified: no `deploy.sh` exists). Prefer the `build/*.ps1` scripts above.
 
@@ -93,7 +92,7 @@ Output paths are driven centrally by `Shared.props`. Every project writes to `ar
 <PublishDir>$(OutputPath)</PublishDir>
 ```
 
-That is why the CLI ends up at `artifacts/Release/Core.Cli/az` and Core DLLs at `artifacts/<Config>/Core/*.dll` — exactly the locations the `.psd1` manifests hard-reference (`src/PS/Compute/Compute.psd1:59`).
+That is why the CLI ends up at `artifacts/Release/Core.Cli/az` and Core DLLs at `artifacts/<Config>/Core/*.dll`, which the build copies into each staged module's `Core/` folder (`src/PS/PSModule.targets`).
 
 Shared compiler behavior comes from `src/Directory.Build.props`, which every project imports (`src/Directory.Build.props:1`):
 
@@ -157,4 +156,4 @@ If `dotnet --version` reports a 9.x SDK or errors on the pin, install the .NET 1
 - `src/Directory.Build.props:1` — shared build properties (`net10.0`, Nullable, TreatWarningsAsErrors).
 - `README.md:71` — Prerequisites and build Quick Start.
 - `src/Core/Core.Abstractions/HomePaths.cs:12` — `~/.azclips` and LocalApplicationData roots.
-- `src/PS/Compute/Compute.psd1:59` — PowerShell manifest referencing artifact DLLs.
+- `src/PS/Compute/Compute.psd1:59` — PowerShell manifest referencing its staged assemblies.

@@ -64,7 +64,7 @@ foreach ($moduleName in $Module)
     $rawManifest = Get-Content -Path $manifestPath -Raw
     if ($rawManifest -match '/artifacts/Debug/' -or $rawManifest -match '\\artifacts\\Debug\\')
     {
-        throw "Manifest still references Debug artifacts after staging: $manifestPath"
+        throw "Manifest references a configuration-specific artifact path: $manifestPath"
     }
 
     $manifestData = Import-PowerShellDataFile -Path $manifestPath
@@ -103,7 +103,7 @@ foreach ($moduleName in $Module)
         }
     }
 
-    # Staged manifests intentionally use absolute RequiredAssemblies paths. Validate the
+    # Staged manifests reference their payload by module-relative paths. Validate the
     # real import path in an isolated pwsh process because binary modules and their
     # dependencies are not reliably unloadable within a long-running PowerShell session.
     $expectedJson = $declaredCmdlets | ConvertTo-Json -Compress

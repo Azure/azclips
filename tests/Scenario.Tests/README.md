@@ -112,8 +112,10 @@ writes the file in record mode and does nothing in playback.
 
 A scenario can also be a script run by a real shell against the real az binary, one process per
 command, chaining values the way a user would (see `Scripts/vm-create.ps1` and `.sh`). The
-PowerShell module surface works the same way: `Scripts/vm-create-module.ps1` imports the built
-modules and drives the real cmdlets, with the subscription resolving from the active profile.
+PowerShell module surface works the same way: `Scripts/vm-create-module.ps1` imports the modules
+the build staged under `artifacts/<Configuration>/PS/` (the runner points `AZCLIPS_PS_MODULES` at
+the configuration the tests were built with) and drives the real cmdlets, with the subscription
+resolving from the active profile.
 
 The product carries no test code. The recording assembly lives under `tests/Tests.Recording` and
 the runtime injects it into every spawned az or pwsh process through `DOTNET_STARTUP_HOOKS`; with

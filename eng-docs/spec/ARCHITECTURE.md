@@ -909,12 +909,12 @@ az --help
 
 ### Using PowerShell Modules
 
-PowerShell modules are available in `src/PS/` and can be used directly:
+PowerShell modules are authored in `src/PS/` and staged by the build under `artifacts/<Configuration>/PS/`:
 
 ```powershell
-# Import modules from source
-Import-Module ./src/PS/Accounts/Accounts.psd1
-Import-Module ./src/PS/Resources/Resources.psd1
+# Import the modules the build staged
+Import-Module ./artifacts/Debug/PS/Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
 Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
