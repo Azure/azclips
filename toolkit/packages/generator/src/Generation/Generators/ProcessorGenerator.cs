@@ -271,7 +271,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     private sealed record PowerShellMetadata(
         PsCommandDialect Dialect,
         string CommandName,
-        string ParameterSetName);
+        string ParameterSetName,
+        string DefaultParameterSetName);
 
     private static PowerShellMetadata? PowerShellMetadataFor(IRCommand command)
     {
@@ -280,8 +281,13 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             return null;
         }
 
-        string parameterSetName = dialect.DefaultParameterSet ?? command.Id.Variant ?? AllParameterSets;
-        return new PowerShellMetadata(dialect, $"{dialect.Verb}-{dialect.Noun}", parameterSetName);
+        string parameterSetName = command.Id.Variant ?? dialect.DefaultParameterSet ?? AllParameterSets;
+        string defaultParameterSetName = dialect.DefaultParameterSet ?? parameterSetName;
+        return new PowerShellMetadata(
+            dialect,
+            $"{dialect.Verb}-{dialect.Noun}",
+            parameterSetName,
+            defaultParameterSetName);
     }
 
     private static IEnumerable<AttributeListSyntax> PowerShellClassAttributes(
@@ -300,7 +306,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         {
             AttributeArgument(StringLiteral(ps.Verb)),
             AttributeArgument(StringLiteral(ps.Noun)),
-            AttributeArgument(StringLiteral(metadata.ParameterSetName)),
+            AttributeArgument(StringLiteral(metadata.DefaultParameterSetName)),
         };
         AddNamed(arguments, "SupportsShouldProcess", ps.SupportsShouldProcess);
         AddNamed(arguments, "ConfirmImpact", ps.ConfirmImpact is null ? null : ParseExpression($"PSConfirmImpact.{ps.ConfirmImpact}"));
@@ -312,11 +318,11 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         AddNamed(arguments, "Tags", ps.LifecycleTag is null
             ? null
             : ParseExpression($"new HelpTag[] {{ HelpTag.{ps.LifecycleTag} }}"));
-        AddNamed(arguments, "HttpPath", HttpPath(step.Request));
-        AddNamed(arguments, "ApiVersion", ApiVersion(step.Request));
-        AddNamed(arguments, "SupportsPaging", command.Surface?.Paginated == true ? true : null);
+        AddNamed(arguments, "HttpPath", ps.HttpPath?.Path ?? HttpPath(step.Request));
+        AddNamed(arguments, "ApiVersion", ps.HttpPath?.ApiVersion ?? ApiVersion(step.Request));
+        AddNamed(arguments, "SupportsPaging", ps.SupportsPaging ?? (command.Surface?.Paginated == true ? true : null));
         AddNamed(arguments, "HelpUri", ps.HelpUri);
-        AddNamed(arguments, "OutputTypes", OutputTypes(command.Surface?.Response, context.Index));
+        AddNamed(arguments, "OutputTypes", OutputTypes(ps.OutputTypes, command.Surface?.Response, context.Index));
         yield return AttributeList("PSCommand", arguments);
 
         yield return AttributeList(
@@ -342,6 +348,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         }
 
         PsParameterDialect? ps = parameter.Dialect?.Ps;
+        if (ps?.Removed is true)
+        {
+            yield break;
+        }
         PsParameterSetMembership? membership = MembershipFor(ps, metadata.ParameterSetName);
         if (ps?.ParameterSets is not null && membership is null)
         {
@@ -361,6 +371,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         AddNamed(arguments, "ValueFromPipeline", membership?.ValueFromPipeline);
         AddNamed(arguments, "ValueFromPipelineByPropertyName", membership?.ValueFromPipelineByPropertyName);
         AddNamed(arguments, "Aliases", ps?.Aliases);
+        AddNamed(arguments, "IsIdentity", parameter.Source is IRCommandParameterSourceSynthetic { Purpose: "identity" }
+            ? true
+            : null);
         yield return AttributeList("PSParameter", arguments);
 
         if (ps?.Completer is not null)
@@ -464,10 +477,19 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     private static ExpressionSyntax StringArray(IEnumerable<string> values) =>
         ParseExpression($"new string[] {{ {string.Join(", ", values.Select(value => SymbolDisplay.FormatLiteral(value, true)))} }}");
 
-    private static ExpressionSyntax? OutputTypes(IRTypeRef? response, IrIndex index) =>
-        response is null
+    private static ExpressionSyntax? OutputTypes(
+        IReadOnlyList<IRTypeRef>? powerShellTypes,
+        IRTypeRef? response,
+        IrIndex index)
+    {
+        IReadOnlyList<IRTypeRef> types = powerShellTypes is { Count: > 0 }
+            ? powerShellTypes
+            : response is null ? [] : [response];
+        return types.Count == 0
             ? null
-            : ParseExpression($"new Type[] {{ typeof({IrTypeMapper.ToCSharp(response, index)}) }}");
+            : ParseExpression(
+                $"new Type[] {{ {string.Join(", ", types.Select(type => $"typeof({IrTypeMapper.ToCSharp(type, index)})"))} }}");
+    }
 
     private static string? HttpPath(IRCommandRequest? request)
     {

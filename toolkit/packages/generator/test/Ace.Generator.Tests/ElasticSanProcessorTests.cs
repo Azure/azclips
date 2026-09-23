@@ -236,6 +236,122 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
+    public async Task Emits_Completed_PowerShell_Command_And_Parameter_Metadata()
+    {
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_PS_Completed", ir =>
+        {
+            IRCommand command = ir.Commands.Single(command => command.Name == "ListByResourceGroupElasticSans");
+            command.Dialect = new IRCommandDialect
+            {
+                Ps = new PsCommandDialect
+                {
+                    Verb = "Get",
+                    Noun = "AzElasticSan",
+                    DefaultParameterSet = "FamilyDefault",
+                    SupportsPaging = false,
+                    HttpPath = new PsCommandDialectHttpPath
+                    {
+                        Path = "/custom/{ResourceGroupName}",
+                        ApiVersion = "2099-01-01",
+                    },
+                    OutputTypes = [command.Surface.Response!],
+                },
+            };
+
+            IRCommandParameter identity = command.Parameters.Single(parameter => parameter.Name == "ResourceGroupName");
+            identity.Source = new IRCommandParameterSourceSynthetic
+            {
+                Purpose = "identity",
+                Parameters = [ir.Operations[0].Id],
+            };
+            identity.Dialect = new IRCommandParameterDialect
+            {
+                Ps = new PsParameterDialect
+                {
+                    ParameterSets = [new PsParameterSetMembership { Set = "ByResourceGroup", Mandatory = true }],
+                },
+            };
+            command.Parameters.Single(parameter => parameter.Name == "SubscriptionId").Dialect =
+                new IRCommandParameterDialect { Ps = new PsParameterDialect { Removed = true } };
+        });
+
+        string list = writer.Files.Source(result, "ListByResourceGroupElasticSansProcessor");
+        Assert.Contains("[PSCommand(\"Get\", \"AzElasticSan\", \"FamilyDefault\"", list);
+        Assert.Contains("HttpPath = \"/custom/{ResourceGroupName}\"", list);
+        Assert.Contains("ApiVersion = \"2099-01-01\"", list);
+        Assert.Contains("SupportsPaging = false", list);
+        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"ByResourceGroup\")]", list);
+        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"ByResourceGroup\", \"ResourceGroupName\", Mandatory = true", list);
+        Assert.Contains("IsIdentity = true", list);
+        Assert.DoesNotContain("[PSParameter(\"Get-AzElasticSan\", \"ByResourceGroup\", \"SubscriptionId\"", list);
+    }
+
+    [Fact]
+    public async Task Emits_PowerShell_Module_And_Identity_Artifacts()
+    {
+        string sourceId = string.Empty;
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_PS_Module", ir =>
+        {
+            sourceId = ir.Sources[0].Id;
+            IRCommand command = ir.Commands.Single(candidate => candidate.Name == "ListByResourceGroupElasticSans");
+            command.Dialect = new IRCommandDialect
+            {
+                Ps = new PsCommandDialect { Verb = "Get", Noun = "AzElasticSan" },
+            };
+            IRParameter path = ir.Operations.SelectMany(operation => operation.PathParameters)
+                .First(parameter => string.Equals(
+                    parameter.Name,
+                    "resourceGroupName",
+                    StringComparison.OrdinalIgnoreCase));
+            ir.Target.Dialect = new IRTargetDialect
+            {
+                Ps = new IRTargetDialectPs
+                {
+                    Name = "ElasticSan",
+                    Description = "Elastic SAN module.",
+                    Prefix = "Az",
+                    SubjectPrefix = "ElasticSan",
+                    Identity = new IRTargetDialectPsIdentity
+                    {
+                        Name = "ElasticSanIdentity",
+                        Properties =
+                        [
+                            new IRTargetDialectPsIdentityProperties
+                            {
+                                Name = "ResourceGroupName",
+                                Description = "Resource group identity.",
+                                SourceParameters = [path.Id],
+                            },
+                            new IRTargetDialectPsIdentityProperties
+                            {
+                                Name = "ResourceId",
+                                SourceParameters = [],
+                            },
+                        ],
+                    },
+                },
+            };
+        });
+
+        string assembly = writer.Files["Properties/PowerShellAssemblyInfo.cs"];
+        Assert.Contains($"[assembly: PSModule(\"ElasticSan\", \"{sourceId}\"", assembly);
+        Assert.Contains("Description = \"Elastic SAN module.\"", assembly);
+        Assert.Contains("CmdletsToExport = new string[] { \"Get-AzElasticSan\" }", assembly);
+
+        string identity = writer.Files.Source(result, "ElasticSanIdentity");
+        Assert.Contains("[PSIdentity(\"ElasticSanIdentity\")]", identity);
+        Assert.Contains("[PSIdentityProperty(\"ResourceGroupName\", HelpMessage = \"Resource group identity.\")]", identity);
+        Assert.Contains("public string? ResourceGroupName { get; set; }", identity);
+        Assert.Contains("public string? ResourceId { get; set; }", identity);
+        Assert.DoesNotContain(
+            CSharpSyntaxTree.ParseText(assembly).GetDiagnostics(),
+            diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+        Assert.DoesNotContain(
+            CSharpSyntaxTree.ParseText(identity).GetDiagnostics(),
+            diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public async Task Emits_PowerShell_Metadata_On_Flat_Body_Parameters_But_Not_Body()
     {
         (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_PS_Body_Metadata", ir =>
