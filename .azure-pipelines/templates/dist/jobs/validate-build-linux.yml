@@ -7,8 +7,6 @@ parameters:
   type: string
 - name: PackagingCommonOutRoot
   type: string
-- name: PackagingLinuxOutRoot
-  type: string
 
 jobs:
 - job: LinuxValidation
@@ -45,25 +43,25 @@ jobs:
     displayName: Get Linux glibc Lean Dist
     inputs:
       artifact: $(GlibcLeanDistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
+      path: $(Agent.TempDirectory)/validation/linux/$(GlibcRid)/lean/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get Linux glibc Full Dist
     inputs:
       artifact: $(GlibcFullDistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
+      path: $(Agent.TempDirectory)/validation/linux/$(GlibcRid)/full/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get Linux musl Lean Dist
     inputs:
       artifact: $(MuslLeanDistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
+      path: $(Agent.TempDirectory)/validation/linux/$(MuslRid)/lean/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get Linux musl Full Dist
     inputs:
       artifact: $(MuslFullDistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}
+      path: $(Agent.TempDirectory)/validation/linux/$(MuslRid)/full/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get CLI Common
@@ -74,20 +72,20 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=lean RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(Agent.TempDirectory)/validation/linux/$(GlibcRid)/lean/artifact" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" SIM_ROOT="$(Agent.TempDirectory)/validation/linux/$(GlibcRid)/lean/sim" PACKAGE_PROFILE=lean RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI Linux glibc Lean Tarball
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Linux glibc Lean Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/linux/$(GlibcRid)/lean/sim
       artifact: Validate_Linux_Sim_$(GlibcRid)_lean
       publishLocation: pipeline
 
   - script: |
       set -euo pipefail
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=full RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(Agent.TempDirectory)/validation/linux/$(GlibcRid)/full/artifact" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" SIM_ROOT="$(Agent.TempDirectory)/validation/linux/$(GlibcRid)/full/sim" PACKAGE_PROFILE=full RID="$(GlibcRid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI Linux glibc Full Tarball
     condition: succeededOrFailed()
 
@@ -95,7 +93,7 @@ jobs:
     displayName: Publish CLI Linux glibc Full Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/linux/$(GlibcRid)/full/sim
       artifact: Validate_Linux_Sim_$(GlibcRid)_full
       publishLocation: pipeline
 
@@ -110,17 +108,20 @@ jobs:
 
   - bash: |
       set -euo pipefail
+      runtime_root="$(Agent.TempDirectory)/validation/linux/$(MuslRid)/lean/runtime"
+      mkdir -p "$runtime_root"
       docker_command=(docker)
       if [[ "$(Architecture)" == "arm64" ]]; then
         docker_command=(sudo docker)
       fi
       "${docker_command[@]}" run --rm \
-        -v "$(Build.SourcesDirectory):/src" \
-        -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
-        -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
+        -v "$(Build.SourcesDirectory):/src:ro" \
+        -v "$(Agent.TempDirectory)/validation/linux/$(MuslRid)/lean/artifact:/out/linux:ro" \
+        -v "${{ parameters.PackagingCommonOutRoot }}:/out/common:ro" \
+        -v "$runtime_root:/validation" \
         -w /src \
         alpine:3.22 \
-        sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common PACKAGE_PROFILE=lean RID="$(MuslRid)" bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
+        sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common SIM_ROOT=/validation/sim PACKAGE_PROFILE=lean RID="$(MuslRid)" bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
     displayName: Validate CLI Linux musl Lean Tarball
     condition: succeededOrFailed()
 
@@ -128,23 +129,26 @@ jobs:
     displayName: Publish CLI Linux musl Lean Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/linux/$(MuslRid)/lean/runtime/sim
       artifact: Validate_Linux_Sim_$(MuslRid)_lean
       publishLocation: pipeline
 
   - bash: |
       set -euo pipefail
+      runtime_root="$(Agent.TempDirectory)/validation/linux/$(MuslRid)/full/runtime"
+      mkdir -p "$runtime_root"
       docker_command=(docker)
       if [[ "$(Architecture)" == "arm64" ]]; then
         docker_command=(sudo docker)
       fi
       "${docker_command[@]}" run --rm \
-        -v "$(Build.SourcesDirectory):/src" \
-        -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
-        -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
+        -v "$(Build.SourcesDirectory):/src:ro" \
+        -v "$(Agent.TempDirectory)/validation/linux/$(MuslRid)/full/artifact:/out/linux:ro" \
+        -v "${{ parameters.PackagingCommonOutRoot }}:/out/common:ro" \
+        -v "$runtime_root:/validation" \
         -w /src \
         alpine:3.22 \
-        sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common PACKAGE_PROFILE=full RID="$(MuslRid)" bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
+        sh -c 'apk add --no-cache bash ca-certificates icu-libs krb5-libs libgcc libssl3 libstdc++ zlib >/dev/null && ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT=/out/linux COMMON_OUT_ROOT=/out/common SIM_ROOT=/validation/sim PACKAGE_PROFILE=full RID="$(MuslRid)" bash devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh'
     displayName: Validate CLI Linux musl Full Tarball
     condition: succeededOrFailed()
 
@@ -152,6 +156,6 @@ jobs:
     displayName: Publish CLI Linux musl Full Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/linux/$(MuslRid)/full/runtime/sim
       artifact: Validate_Linux_Sim_$(MuslRid)_full
       publishLocation: pipeline

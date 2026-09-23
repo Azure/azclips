@@ -7,8 +7,6 @@ parameters:
   type: string
 - name: PackagingCommonOutRoot
   type: string
-- name: PackagingWindowsOutRoot
-  type: string
 
 jobs:
 - job: WindowsValidation
@@ -37,13 +35,13 @@ jobs:
     displayName: Get Windows Lean Dist
     inputs:
       artifact: $(LeanDistributionArtifact)
-      path: ${{ parameters.PackagingWindowsOutRoot }}
+      path: $(Agent.TempDirectory)/validation/windows/$(Rid)/lean/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get Windows Full Dist
     inputs:
       artifact: $(FullDistributionArtifact)
-      path: ${{ parameters.PackagingWindowsOutRoot }}
+      path: $(Agent.TempDirectory)/validation/windows/$(Rid)/full/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get CLI Common
@@ -98,13 +96,13 @@ jobs:
         $ErrorActionPreference = 'Stop'
         $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
         $env:PACKAGE_PROFILE = 'lean'
-        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(Agent.TempDirectory)/validation/windows/$(Rid)/lean/artifact" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -SimRoot "$(Agent.TempDirectory)/validation/windows/$(Rid)/lean/sim"
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows Lean Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/windows/$(Rid)/lean/sim
       artifact: Validate_Windows_Sim_$(Rid)_lean
       publishLocation: pipeline
 
@@ -118,12 +116,12 @@ jobs:
         $ErrorActionPreference = 'Stop'
         $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
         $env:PACKAGE_PROFILE = 'full'
-        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(Agent.TempDirectory)/validation/windows/$(Rid)/full/artifact" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -SimRoot "$(Agent.TempDirectory)/validation/windows/$(Rid)/full/sim"
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows Full Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/windows/$(Rid)/full/sim
       artifact: Validate_Windows_Sim_$(Rid)_full
       publishLocation: pipeline

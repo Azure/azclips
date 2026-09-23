@@ -36,6 +36,7 @@ guide in the same PR so it stays accurate.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
 - Platform build and validation matrices fan out by architecture. Each architecture job processes Lean and Full sequentially; Linux jobs also process their glibc and musl RIDs sequentially.
+- Validation downloads and simulation output use separate temporary roots for every RID/profile so sequential validations do not share package or installation state.
 - `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Each archive receives one full installer, layout, and runtime validation in a compatible environment: glibc on Ubuntu and musl in Alpine. Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.

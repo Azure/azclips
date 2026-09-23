@@ -7,8 +7,6 @@ parameters:
   type: string
 - name: PackagingCommonOutRoot
   type: string
-- name: PackagingMacOSOutRoot
-  type: string
 
 jobs:
 - job: MacOSValidation
@@ -37,13 +35,13 @@ jobs:
     displayName: Get macOS Lean Dist
     inputs:
       artifact: $(LeanDistributionArtifact)
-      path: ${{ parameters.PackagingMacOSOutRoot }}
+      path: $(Agent.TempDirectory)/validation/macos/$(Rid)/lean/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get macOS Full Dist
     inputs:
       artifact: $(FullDistributionArtifact)
-      path: ${{ parameters.PackagingMacOSOutRoot }}
+      path: $(Agent.TempDirectory)/validation/macos/$(Rid)/full/artifact
 
   - task: DownloadPipelineArtifact@2
     displayName: Get CLI Common
@@ -54,21 +52,21 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=lean RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(Agent.TempDirectory)/validation/macos/$(Rid)/lean/artifact" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" SIM_ROOT="$(Agent.TempDirectory)/validation/macos/$(Rid)/lean/sim" PACKAGE_PROFILE=lean RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI macOS Lean Tarball
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI macOS Lean Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/macos/$(Rid)/lean/sim
       artifact: Validate_MacOS_Sim_$(Rid)_lean
       publishLocation: pipeline
 
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE=full RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(Agent.TempDirectory)/validation/macos/$(Rid)/full/artifact" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" SIM_ROOT="$(Agent.TempDirectory)/validation/macos/$(Rid)/full/sim" PACKAGE_PROFILE=full RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI macOS Full Tarball
     condition: succeededOrFailed()
 
@@ -76,6 +74,6 @@ jobs:
     displayName: Publish CLI macOS Full Sim
     condition: succeededOrFailed()
     inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
+      targetPath: $(Agent.TempDirectory)/validation/macos/$(Rid)/full/sim
       artifact: Validate_MacOS_Sim_$(Rid)_full
       publishLocation: pipeline
