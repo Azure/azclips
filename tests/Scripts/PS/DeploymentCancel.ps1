@@ -33,6 +33,11 @@ $DeploymentName = 'azclips-test-deployment-cancel'
 $StorageAccountPrefix = 'azclipsdeploycancel'
 $StorageAccountCount = 3
 
+# A deployment name that must never exist. Used twice on purpose: once without -WhatIf, where it has
+# to 404, and once with -WhatIf, where the identical call has to stay silent. Sharing one constant
+# keeps that pair a controlled A/B in which -WhatIf is the only difference.
+$MissingDeploymentName = 'azclips-test-deployment-does-not-exist'
+
 # Every expectation is tallied rather than thrown on, so cleanup at the bottom always runs and the
 # negative cases can continue past their expected errors. The script exits non-zero at the very end
 # if anything did not hold -- without that a failed cancel would still exit 0 and look like a pass.
@@ -170,7 +175,7 @@ try {
         Stop-AzResourceGroupDeployment `
             -SubscriptionId $SubscriptionId `
             -ResourceGroupName $ResourceGroupName `
-            -Name azclips-test-deployment-does-not-exist `
+            -Name $MissingDeploymentName `
             -Confirm:$false `
             -ErrorAction Stop
         Fail 'missing deployment did not throw'
@@ -198,6 +203,28 @@ try {
         } else {
             Fail "missing resource group threw without ResourceGroupNotFound: $($_.Exception.Message)"
         }
+    }
+
+    # -WhatIf must short-circuit in ShouldProcess before any HTTP call is issued
+    # (StopResourceGroupDeploymentCmdlet.cs returns from ProcessRecord before OpenExecutionSession).
+    # Asserting "no HTTP happened" needs an observable difference, so this reuses the deployment name
+    # from the negative case directly above: without -WhatIf that exact call just threw
+    # DeploymentNotFound, so with -WhatIf a silent return is only possible if ARM was never reached.
+    try {
+        $whatIfOutput = Stop-AzResourceGroupDeployment `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroupName $ResourceGroupName `
+            -Name $MissingDeploymentName `
+            -WhatIf `
+            -ErrorAction Stop
+
+        if ($null -ne $whatIfOutput) {
+            Fail "-WhatIf emitted output '$whatIfOutput', expected nothing"
+        } else {
+            Write-Host 'PASS (whatif): short-circuited without reaching ARM'
+        }
+    } catch {
+        Fail "-WhatIf reached ARM instead of short-circuiting: $($_.Exception.Message)"
     }
 
     # Required-argument binding: actually invoking the cmdlet without -Name would make PowerShell
