@@ -72,7 +72,7 @@ public class UpdateAzUserAssignedIdentityCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Identity", "Update-AzUserAssignedIdentity", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("ManagedServiceIdentity", "Update-AzUserAssignedIdentity", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
