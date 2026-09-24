@@ -60,3 +60,19 @@ foreach ($file in $psd1Files) {
     Set-Content -Path $targetPath -Value $updated -NoNewline
     Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
 }
+
+# Format and type files sit beside the manifest and are referenced by
+# FormatsToProcess/TypesToProcess with module-relative paths, so they must be
+# staged alongside it or the staged manifest fails to import. No path rewrite
+# is needed: module-relative references stay correct after the copy.
+$dataFiles = Get-ChildItem -Path $sourceRoot -Include '*.format.ps1xml', '*.types.ps1xml' -Recurse
+
+foreach ($file in $dataFiles) {
+    $moduleDir  = $file.Directory.Name
+    $targetDir  = Join-Path $artifactRoot $moduleDir
+    $targetPath = Join-Path $targetDir $file.Name
+
+    $null = New-Item -ItemType Directory -Path $targetDir -Force
+    Copy-Item -Path $file.FullName -Destination $targetPath -Force
+    Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
+}
