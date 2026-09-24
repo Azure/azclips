@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790210697400,
+  "lastUpdate": 1790214363909,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -12832,6 +12832,56 @@ window.BENCHMARK_DATA = {
             "value": 3560392.7585891443,
             "unit": "ns",
             "range": "± 120200.9895029412"
+          }
+        ]
+      }
+    ],
+    "Azclips Managedserviceidentity CLI Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "64843ebf598b23b76002b4762b2ac6752b488010",
+          "message": "{Tests} Fix ManagedServiceIdentity benchmarks (#992)",
+          "timestamp": "2026-09-24T01:22:46Z",
+          "tree_id": "8a0dbd02bae18a6e4382cbd77e15f3405a269b5d",
+          "url": "https://github.com/Azure/azclips/commit/64843ebf598b23b76002b4762b2ac6752b488010"
+        },
+        "date": 1790214360945,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3704507.5324701597,
+            "unit": "ns",
+            "range": "± 114129.5357538078"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 3816677.425970874,
+            "unit": "ns",
+            "range": "± 143919.76357223766"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3702894.9386106622,
+            "unit": "ns",
+            "range": "± 116019.6491760955"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3577151.2639337643,
+            "unit": "ns",
+            "range": "± 119849.29236177783"
           }
         ]
       }
