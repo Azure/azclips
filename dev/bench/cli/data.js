@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790210583714,
+  "lastUpdate": 1790210697400,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -7980,6 +7980,48 @@ window.BENCHMARK_DATA = {
             "value": 3536425.7416093815,
             "unit": "ns",
             "range": "± 109130.81374941034"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7ab5a9939d507f8ca6ec5b227fdccb2e92e3b819",
+          "message": "[Identity] Rename Identity Extension to ManagedServiceIdentity for backwards compatibility of PS Az Module (#976)",
+          "timestamp": "2026-09-24T00:21:56Z",
+          "tree_id": "fbb1cbbb5f7f16e91a0126a3696fbac11d05d8d1",
+          "url": "https://github.com/Azure/azclips/commit/7ab5a9939d507f8ca6ec5b227fdccb2e92e3b819"
+        },
+        "date": 1790210693564,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3597239.6653861706,
+            "unit": "ns",
+            "range": "± 113443.16197873591"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3647485.498074975,
+            "unit": "ns",
+            "range": "± 117026.71698836524"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3570845.0636106622,
+            "unit": "ns",
+            "range": "± 115840.97763848225"
           }
         ]
       }
