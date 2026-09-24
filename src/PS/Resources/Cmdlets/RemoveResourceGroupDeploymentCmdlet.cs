@@ -1,0 +1,125 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Management.Automation;
+using System.Text.RegularExpressions;
+using Core.Abstractions;
+using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
+
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
+
+[Cmdlet(VerbsCommon.Remove, "AzResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = ByNameParameterSet)]
+[OutputType(typeof(void))]
+public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
+{
+    private const string ByNameParameterSet = "RemoveByResourceGroupName";
+    private const string ByIdParameterSet = "RemoveByResourceGroupDeploymentId";
+
+    private readonly CancellationTokenSource _cts = new();
+    private OutputStreams streams = null!;
+    private IEngine engine = null!;
+
+    [GeneratedRegex(
+        @"^/subscriptions/(?<subscriptionId>[^/]+)/resourcegroups/(?<resourceGroupName>[^/]+)/providers/Microsoft\.Resources/deployments/(?<name>[^/]+)/?$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DeploymentIdPattern();
+
+    [Parameter(ParameterSetName = ByNameParameterSet, Mandatory = false)]
+    [Parameter(ParameterSetName = ByIdParameterSet, Mandatory = false)]
+    public string SubscriptionId { get; set; } = "";
+
+    [Parameter(ParameterSetName = ByNameParameterSet, Position = 0, Mandatory = true)]
+    public string ResourceGroupName { get; set; } = "";
+
+    [Alias("DeploymentName")]
+    [Parameter(ParameterSetName = ByNameParameterSet, Position = 1, Mandatory = true)]
+    public string Name { get; set; } = "";
+
+    [Alias("DeploymentId", "ResourceId")]
+    [Parameter(ParameterSetName = ByIdParameterSet, Mandatory = true)]
+    public string Id { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
+    protected override void BeginProcessing()
+    {
+        streams = CmdletOutputStreamsFactory.Create(this, "ResourceGroupDeploymentError", ErrorCategory.NotSpecified);
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+    }
+
+    protected override void ProcessRecord()
+    {
+        var resourceGroupName = ResourceGroupName;
+        var deploymentName = Name;
+        var subscriptionId = SubscriptionId;
+        var hasSubscriptionId = MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId));
+
+        if (ParameterSetName == ByIdParameterSet)
+        {
+            var match = DeploymentIdPattern().Match(Id);
+            if (!match.Success)
+            {
+                ThrowTerminatingError(new ErrorRecord(
+                    new ArgumentException(
+                        $"'{Id}' is not a valid resource group deployment id. Expected '/subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Resources/deployments/{{deploymentName}}'.",
+                        nameof(Id)),
+                    "InvalidDeploymentId",
+                    ErrorCategory.InvalidArgument,
+                    Id));
+                return;
+            }
+
+            resourceGroupName = match.Groups["resourceGroupName"].Value;
+            deploymentName = match.Groups["name"].Value;
+
+            // An explicit -SubscriptionId still wins, so the two parameters never contradict each other
+            // silently; otherwise the id's own subscription is used rather than the active profile's.
+            if (!hasSubscriptionId)
+            {
+                subscriptionId = match.Groups["subscriptionId"].Value;
+                hasSubscriptionId = true;
+            }
+        }
+
+        if (!ShouldProcess($"deployment '{deploymentName}' in resource group '{resourceGroupName}'", "Delete"))
+        {
+            return;
+        }
+
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
+
+        var parameters = new Dictionary<string, object>
+        {
+            { "ResourceGroupName", resourceGroupName },
+            { "Name", deploymentName },
+        };
+
+        if (hasSubscriptionId)
+        {
+            parameters.Add("SubscriptionId", subscriptionId);
+        }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
+
+        var moduleName = MyInvocation.MyCommand.ModuleName;
+        var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
+        var invocation = new CommandInvocation("Resources", "Remove-AzResourceGroupDeployment", parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
+
+        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
+        session.Run();
+    }
+
+    protected override void EndProcessing()
+    {
+        _cts.Dispose();
+    }
+
+    protected override void StopProcessing() => _cts.Cancel();
+}
