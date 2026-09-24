@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 09/24/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzRoleAssignment
 ---
@@ -20,21 +20,22 @@ List Azure RBAC role assignments.
 ### SubscriptionScope (Default)
 
 ```
-Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-Profile <string>]
- [<CommonParameters>]
+Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-RoleDefinitionId <string>]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### ResourceGroup
 
 ```
 Get-AzRoleAssignment -ResourceGroupName <string> [-SubscriptionId <string>] [-ObjectId <string>]
- [-Profile <string>] [<CommonParameters>]
+ [-RoleDefinitionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Scope
 
 ```
-Get-AzRoleAssignment -Scope <string> [-ObjectId <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzRoleAssignment -Scope <string> [-ObjectId <string>] [-RoleDefinitionId <string>]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -78,6 +79,14 @@ Filter role assignments to the principal with the given object ID.
 
 ```powershell
 Get-AzRoleAssignment -ObjectId 11111111-2222-3333-4444-555555555555
+```
+
+### List role assignments for a specific role
+
+Filter role assignments to the given role definition ID. Role name resolution is not yet supported.
+
+```powershell
+Get-AzRoleAssignment -RoleDefinitionId b24988ac-6180-42a0-ab88-20f7382dd24c
 ```
 
 ## PARAMETERS
@@ -157,6 +166,39 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -RoleDefinitionId
+
+Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SubscriptionScope
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ResourceGroup
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Scope
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Scope
 
 Fully qualified scope to list role assignments at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.
@@ -228,4 +270,3 @@ Generated help for resources.
 
 
 - [Online Version]()
-

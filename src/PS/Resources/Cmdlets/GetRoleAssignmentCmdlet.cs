@@ -11,9 +11,10 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 /// <summary>
 /// Lists Azure RBAC role assignments (ARM RoleAssignments - List For Scope). The scope defaults to
 /// the active subscription and can be narrowed with -ResourceGroupName or overridden with -Scope
-/// (mutually exclusive). -ObjectId filters server-side by principal object ID. Name/UPN/service-
-/// principal resolution (-SignInName / -ServicePrincipalName) and role filtering are not yet
-/// supported; they require a Microsoft Graph lookup this ARM-only command does not perform.
+/// (mutually exclusive). -ObjectId filters server-side by principal object ID; -RoleDefinitionId
+/// filters client-side by role definition ID. Name/UPN/service-principal resolution (-SignInName /
+/// -ServicePrincipalName) and role-name resolution are not yet supported; they require a Microsoft
+/// Graph or role-definition lookup this command does not perform.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, "AzRoleAssignment", DefaultParameterSetName = "SubscriptionScope")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.RoleAssignment")]
@@ -37,6 +38,11 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "ResourceGroup", Mandatory = false)]
     [Parameter(ParameterSetName = "Scope", Mandatory = false)]
     public string? ObjectId { get; set; }
+
+    [Parameter(ParameterSetName = "SubscriptionScope", Mandatory = false)]
+    [Parameter(ParameterSetName = "ResourceGroup", Mandatory = false)]
+    [Parameter(ParameterSetName = "Scope", Mandatory = false)]
+    public string? RoleDefinitionId { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -68,6 +74,10 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ObjectId)))
         {
             parameters.Add("ObjectId", ObjectId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RoleDefinitionId)))
+        {
+            parameters.Add("RoleDefinitionId", RoleDefinitionId!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

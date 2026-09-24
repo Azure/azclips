@@ -29,11 +29,13 @@ public class RoleAssignmentPsTests
         Assert.Equal("Scope", metadata.Parameters["Scope"].Name);
         Assert.Equal("ResourceGroupName", metadata.Parameters["ResourceGroupName"].Name);
         Assert.Equal("AssigneeObjectId", metadata.Parameters["ObjectId"].Name);
+        Assert.Equal("RoleDefinitionId", metadata.Parameters["RoleDefinitionId"].Name);
 
         Assert.False(metadata.Parameters["SubscriptionId"].IsRequired);
         Assert.False(metadata.Parameters["Scope"].IsRequired);
         Assert.False(metadata.Parameters["ResourceGroupName"].IsRequired);
         Assert.False(metadata.Parameters["ObjectId"].IsRequired);
+        Assert.False(metadata.Parameters["RoleDefinitionId"].IsRequired);
 
         // CLI-only spellings are not part of the PowerShell surface.
         Assert.DoesNotContain("assignee", metadata.Parameters.Keys);
