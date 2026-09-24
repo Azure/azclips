@@ -322,25 +322,60 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
     Write-Host ''
     Write-Host '[4/15] Verify bundled Copilot CLI daemon starts'
-    $copilotInput = Join-Path $SimRoot 'copilot.stdin'
-    $copilotOutput = Join-Path $SimRoot 'copilot.stdout'
-    $copilotError = Join-Path $SimRoot 'copilot.stderr'
+    $agentTempRoot = if ([string]::IsNullOrWhiteSpace($env:AGENT_TEMPDIRECTORY)) {
+        [System.IO.Path]::GetTempPath()
+    }
+    else {
+        $env:AGENT_TEMPDIRECTORY
+    }
+    $copilotLogRoot = Join-Path $agentTempRoot "azclips-copilot-$([guid]::NewGuid())"
+    $null = New-Item -Path $copilotLogRoot -ItemType Directory -Force
+    $copilotInput = Join-Path $copilotLogRoot 'copilot.stdin'
+    $copilotOutput = Join-Path $copilotLogRoot 'copilot.stdout'
+    $copilotError = Join-Path $copilotLogRoot 'copilot.stderr'
     Set-Content -Path $copilotInput -Value '' -NoNewline
-    $copilotProcess = Start-Process -FilePath $copilotExe `
-        -ArgumentList '--server', '--stdio' `
-        -NoNewWindow `
-        -PassThru `
-        -RedirectStandardInput $copilotInput `
-        -RedirectStandardOutput $copilotOutput `
-        -RedirectStandardError $copilotError
-    if (-not $copilotProcess.WaitForExit(15000)) {
-        $copilotProcess.Kill($true)
+    $copilotProcess = $null
+    $copilotExitCode = $null
+    $copilotTimedOut = $false
+    try {
+        $copilotProcess = Start-Process -FilePath $copilotExe `
+            -ArgumentList '--server', '--stdio' `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardInput $copilotInput `
+            -RedirectStandardOutput $copilotOutput `
+            -RedirectStandardError $copilotError
+        if (-not $copilotProcess.WaitForExit(15000)) {
+            $copilotProcess.Kill($true)
+            $copilotTimedOut = $true
+        }
+        # The parameterless wait flushes asynchronous redirected streams after the timed wait.
         $copilotProcess.WaitForExit()
+        $copilotExitCode = $copilotProcess.ExitCode
+    }
+    finally {
+        if ($null -ne $copilotProcess) {
+            if (-not $copilotProcess.HasExited) {
+                $copilotProcess.Kill($true)
+                $copilotProcess.WaitForExit()
+            }
+            $copilotProcess.Dispose()
+        }
+        try {
+            Copy-Item -Path $copilotInput, $copilotOutput, $copilotError -Destination $SimRoot
+        }
+        finally {
+            Remove-Item -Path $copilotLogRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($copilotTimedOut) {
         throw 'FAIL: Bundled Copilot CLI daemon did not stop within 15 seconds.'
     }
-    if ($copilotProcess.ExitCode -ne 0) {
-        Get-Content -Path $copilotOutput, $copilotError | Select-Object -First 20 | Out-Host
-        throw "FAIL: Bundled Copilot CLI daemon exited with code $($copilotProcess.ExitCode)."
+    $publishedCopilotOutput = Join-Path $SimRoot 'copilot.stdout'
+    $publishedCopilotError = Join-Path $SimRoot 'copilot.stderr'
+    if ($copilotExitCode -ne 0) {
+        Get-Content -Path $publishedCopilotOutput, $publishedCopilotError | Select-Object -First 20 | Out-Host
+        throw "FAIL: Bundled Copilot CLI daemon exited with code $copilotExitCode."
     }
     Write-Host 'PASS: Bundled Copilot CLI daemon started and stopped cleanly'
 
