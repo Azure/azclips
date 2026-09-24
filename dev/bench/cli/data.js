@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790214363909,
+  "lastUpdate": 1790218590740,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8022,6 +8022,48 @@ window.BENCHMARK_DATA = {
             "value": 3570845.0636106622,
             "unit": "ns",
             "range": "± 115840.97763848225"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3bf6db63709752978e486ec6e58de8d60a921227",
+          "message": "[Resources] `az role assignment list`: Add RBAC role-assignment listing (#986)\n\n**Related command**\n`az role assignment list`\n\n**Description**\nAdds the `role` command group and its first RBAC command, `az role\nassignment list`, to the\nResources extension. It is backed by ARM RoleAssignments - List For\nScope\n(`GET {scope}/providers/Microsoft.Authorization/roleAssignments`) and\nlists role assignments at a\nsubscription, resource group, or explicit scope, with optional\nserver-side principal filtering.\n\nWhat changed:\n- New atomic processor `ListRoleAssignmentProcessor` (spec-shaped:\n`Scope` plus OData `Filter`) that\nunwraps the `{ value, nextLink }` envelope and follows `nextLink` for\nfull pagination.\n- New customization orchestrator\n`ListRoleAssignmentProcessor_Orchestrator` that adds the az-style\nconveniences (`--subscription-id`, `--resource-group`/`-g`, `--scope`,\n`--assignee`,\n`--assignee-object-id`) and resolves them into the atomic's scope and\nfilter.\n- Models `RoleAssignment` (plus `RoleAssignmentProperties`) and\n`RoleAssignmentListResult`, role help\n  docs, and offline tests.\n\nScope precedence is `--scope`, then `--subscription-id` with\n`--resource-group`, then the\nsubscription. `--scope` and `--resource-group` are mutually exclusive.\n`--assignee` and\n`--assignee-object-id` currently accept an object ID (GUID) only,\nmatching the ARM `principalId`\nfilter. Usage errors surface as `AzclipsErrorException.UsageError` (exit\ncode 2).\n\nUser impact: users can list RBAC role assignments from the CLI and\nfilter by scope or principal ID.\nKnown limitation (flagged for the team, not fixed here): the argument\nbinder's profile default-fill\nrequires a resolvable subscription for any command that exposes a\n`SubscriptionId` property, so\n`list --scope <management-group-or-tenant>` fails when the active\nprofile has no subscription. This is\na pre-existing framework behavior (it ignores `IsRequired` and the\nactive parameter set) and will be\naddressed in a separate framework PR.\n\n**Testing Guide**\nAutomated:\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignmentCliTests\"` (17 tests)\n- Full suite `dotnet test tests/Cli.Tests/Cli.Tests.csproj` stays green\n(983 passed, 8 skipped)\n\nManual (built `az`):\n- `az role assignment list --help` shows the command, arguments,\naliases, and examples\n- `az role assignment list --scope /subscriptions/S/resourceGroups/rg\n--resource-group rg2` returns UsageError, exit 2\n- `az role assignment list --assignee john@contoso.com` returns\nUsageError (name resolution not supported), exit 2\n- `az role assignment list --assignee-object-id not-a-guid` returns\nUsageError, exit 2\n- `az role assignment list --assignee <guid> --assignee-object-id\n<guid>` returns UsageError, exit 2\n- `az role assignment list --scope /subscriptions/S/resourceGroups/rg\n--assignee-object-id <guid> --debug` reaches ARM with the URL\n`.../roleAssignments?api-version=2022-04-01&$filter=principalId eq\n'<guid>'`, confirming scope and filter construction end to end\n\n**History Notes**\n[Resources] `az role assignment list`: Add command to list RBAC role\nassignments at a subscription, resource group, or scope\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-24T12:36:20+10:00",
+          "tree_id": "a572d72eb0382d4d7047add9ed58e00c20cc9f56",
+          "url": "https://github.com/Azure/azclips/commit/3bf6db63709752978e486ec6e58de8d60a921227"
+        },
+        "date": 1790218587229,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3557043.7574047954,
+            "unit": "ns",
+            "range": "± 114725.1145059118"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3579981.919427403,
+            "unit": "ns",
+            "range": "± 115551.9970119846"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3514662.024107323,
+            "unit": "ns",
+            "range": "± 112075.83451165001"
           }
         ]
       }
