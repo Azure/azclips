@@ -12,8 +12,8 @@
 # leaving the deployment Running and cancellable. No background job and no sleep-and-hope required.
 #
 # All names are STABLE, so repeated runs overwrite the same deployment record and reuse the same
-# storage accounts instead of accumulating new ones. The cleanup step at the bottom deletes the
-# storage accounts the cancelled deployment may have partially created.
+# storage account instead of accumulating new ones. The cleanup step at the bottom deletes the
+# storage account the cancelled deployment may have partially created.
 #
 # Prereq: Connect-AzAccount has run. Accounts must be imported before Resources -- its module
 # initializer is what calls AzclipsServiceProvider.Initialize(), and without it every cmdlet in
@@ -30,8 +30,7 @@ Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1'
 $SubscriptionId = '282bb33f-067d-4179-a7a4-b833c13af735'
 $ResourceGroupName = 'azclips-test-group-1'
 $DeploymentName = 'azclips-test-deployment-cancel'
-$StorageAccountPrefix = 'azclipsdeploycancel'
-$StorageAccountCount = 3
+$StorageAccountName = 'azclipsdeploycancel'
 
 # A deployment name that must never exist. Used twice on purpose: once without -WhatIf, where it has
 # to 404, and once with -WhatIf, where the identical call has to stay silent. Sharing one constant
@@ -66,16 +65,10 @@ $templatePayload = @'
         {
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
-          "name": "[concat('azclipsdeploycancel', copyIndex())]",
+          "name": "azclipsdeploycancel",
           "location": "australiaeast",
           "sku": { "name": "Standard_LRS" },
-          "kind": "StorageV2",
-          "copy": {
-            "name": "cancelWindow",
-            "count": 3,
-            "mode": "serial",
-            "batchSize": 1
-          }
+          "kind": "StorageV2"
         }
       ]
     }
@@ -86,25 +79,49 @@ $templatePayload = @'
 # Everything from the arrange onwards is inside try/finally so teardown runs even when a statement
 # terminates the script. Invoke-AzRestMethod surfaces a non-success response as a terminating error
 # (RestProcessor_Orchestrator throws on status >= 400), so without this a failed arrange PUT -- or a
-# transport/auth failure -- would exit before cleanup and strand the deployment's storage accounts.
+# transport/auth failure -- would exit before cleanup and strand the deployment's storage account.
 try {
-    # Arrange: start the deployment without waiting for it. ARM answers 201 Created and the
-    # deployment begins provisioning the storage accounts ONE AT A TIME (serial copy, batchSize 1),
-    # so the cancel window is deterministically wide instead of depending on how fast a single
-    # account happens to provision -- that variability is what made this test flake with
-    # DeploymentCannotBeCancelled.
+    # Arrange: start the deployment without waiting for it. ARM answers 201/200 the moment it
+    # accepts the request and the deployment begins provisioning the storage account, leaving it
+    # Running and cancellable.
     $put = Invoke-AzRestMethod -Method PUT -Uri $deploymentUri -Payload $templatePayload
 
     # The deployment name is stable and reused across runs, so a failed arrange would leave the
     # checks below asserting against STALE state from an earlier run. Skip straight to cleanup.
-    $arrangeOk = $put.StatusCode -eq 201
+    # ARM answers 201 the first time this name is created and 200 when it overwrites the existing
+    # record, so both mean the deployment was accepted and is now running.
+    $arrangeOk = $put.StatusCode -in @(200, 201)
     if (-not $arrangeOk) {
-        Fail "arrange PUT returned $($put.StatusCode), expected 201 - skipping the cancel checks"
+        Fail "arrange PUT returned $($put.StatusCode), expected 200 or 201 - skipping the cancel checks"
     } else {
-        Write-Host "ARRANGE: deployment '$DeploymentName' accepted (201), now cancellable"
+        Write-Host "ARRANGE: deployment '$DeploymentName' accepted (HTTP $($put.StatusCode)), now cancellable"
     }
 
+    # Synchronize on a cancellable state instead of assuming the PUT left one. A deployment is only
+    # cancellable while it is Accepted or Running, and assuming that window is open is exactly what
+    # made this test flake with DeploymentCannotBeCancelled. The loop exits on the first cancellable
+    # reading, so in practice it costs a single GET.
+    $cancellable = $false
     if ($arrangeOk) {
+        $preCancelState = $null
+        foreach ($attempt in 1..15) {
+            $preCancelState = (Get-AzResourceGroupDeployment `
+                -SubscriptionId $SubscriptionId `
+                -ResourceGroupName $ResourceGroupName `
+                -Name $DeploymentName).Properties.ProvisioningState
+            if ($preCancelState -in @('Accepted', 'Running')) { break }
+            Start-Sleep -Seconds 2
+        }
+
+        $cancellable = $preCancelState -in @('Accepted', 'Running')
+        if ($cancellable) {
+            Write-Host "ARRANGE: provisioningState is '$preCancelState', deployment is cancellable"
+        } else {
+            Fail "deployment settled at '$preCancelState' before it could be cancelled - skipping the cancel checks"
+        }
+    }
+
+    if ($cancellable) {
         # Happy path: cancel the in-flight deployment. ARM answers 204 No Content, so the cmdlet
         # emits NOTHING on success -- a silent return and no error is the pass condition.
         # ConfirmImpact is Medium and $ConfirmPreference defaults to High, so this does not prompt;
@@ -129,10 +146,12 @@ try {
             Fail "cancel threw: $($_.Exception.Message)"
         }
 
-        # Assert the cancel actually took effect. ARM flips provisioningState to Canceled
-        # asynchronously, so poll rather than sleeping a fixed amount and hoping.
+        # Assert the cancel actually took effect. ARM acknowledges the cancel with 204 immediately
+        # but only flips provisioningState to Canceled after the in-flight resource operation
+        # settles, so the budget has to outlast one storage account create rather than just the
+        # POST. The loop exits as soon as the state flips.
         $state = $null
-        foreach ($attempt in 1..15) {
+        foreach ($attempt in 1..30) {
             $state = (Get-AzResourceGroupDeployment `
                 -SubscriptionId $SubscriptionId `
                 -ResourceGroupName $ResourceGroupName `
@@ -240,28 +259,42 @@ try {
         Fail '-Name is not declared mandatory, so omitting it would silently bind an empty name'
     }
 }
+catch {
+    # Without this the script would swallow its own failure: a terminating error inside the try
+    # unwinds to the finally, cleanup runs, execution then resumes after the try/finally and the
+    # tally at the bottom sees zero failures -- printing PASS and exiting 0 on a broken run.
+    Fail "aborted before finishing the assertions: $($_.Exception.Message)"
+}
 finally {
-    # Cleanup: the cancelled deployment may have created storage accounts before it was stopped.
-    # Cancelling does not roll anything back, so delete them explicitly. ARM answers 200 when the
-    # account existed and 204 when it did not, so both are a clean teardown. Each delete is caught
-    # so one failure does not skip the remaining accounts, but the failure is still tallied -- a
-    # stranded storage account must make the run non-zero, not just print a warning.
-    foreach ($index in 0..($StorageAccountCount - 1)) {
-        $accountName = "$StorageAccountPrefix$index"
+    # Cleanup: the cancelled deployment may have created the storage account before it was stopped.
+    # Cancelling does not roll anything back, so delete it explicitly. ARM answers 200 when the
+    # account existed and 204 when it did not, so both are a clean teardown. An account whose create
+    # was already in flight when the cancel landed keeps provisioning in the Storage RP and answers
+    # 409 until it settles, so retry rather than stranding it -- but a delete that never succeeds is
+    # still tallied, because a leaked account must make the run non-zero.
+    $removed = $false
+    $lastResult = 'no attempt made'
+    foreach ($attempt in 1..12) {
         try {
             $delete = Invoke-AzRestMethod `
                 -Method DELETE `
-                -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/$accountName`?api-version=2023-01-01" `
+                -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/$StorageAccountName`?api-version=2023-01-01" `
                 -ErrorAction Stop
 
             if ($delete.StatusCode -in @(200, 204)) {
-                Write-Host "CLEANUP: storage account '$accountName' removed (HTTP $($delete.StatusCode))"
-            } else {
-                Fail "cleanup returned $($delete.StatusCode); '$accountName' may still exist"
+                Write-Host "CLEANUP: storage account '$StorageAccountName' removed (HTTP $($delete.StatusCode))"
+                $removed = $true
+                break
             }
+            $lastResult = "HTTP $($delete.StatusCode)"
         } catch {
-            Fail "cleanup of '$accountName' failed: $($_.Exception.Message)"
+            $lastResult = $_.Exception.Message
         }
+        Start-Sleep -Seconds 5
+    }
+
+    if (-not $removed) {
+        Fail "cleanup of '$StorageAccountName' never succeeded, last result: $lastResult"
     }
 }
 
