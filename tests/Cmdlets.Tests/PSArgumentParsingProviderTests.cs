@@ -83,4 +83,22 @@ public class PSArgumentParsingProviderTests
         var value = Assert.IsType<string[]>(result["Select"]);
         Assert.Equal(new[] { "id", "displayName" }, value);
     }
+
+    [Fact]
+    public void ParseArguments_PreservesAssignableDictionary()
+    {
+        var provider = new PSArgumentParsingProvider();
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["Tag"] = Meta("Tags", "Tag", typeof(Dictionary<string, string>)),
+        };
+        var tags = new Dictionary<string, string> { ["environment"] = "test" };
+
+        var result = provider.ParseArguments(
+            new Dictionary<string, object> { ["Tag"] = tags },
+            parameters,
+            parameterAliases: null);
+
+        Assert.Same(tags, result["Tags"]);
+    }
 }

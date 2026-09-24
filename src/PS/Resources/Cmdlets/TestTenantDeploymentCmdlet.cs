@@ -48,8 +48,7 @@ public class TestTenantDeploymentCmdlet : PSCmdlet
         foreach (string name in new[]
         {
             nameof(Name), nameof(TemplateFile), nameof(TemplateUri), nameof(TemplateSpecId),
-            nameof(TemplateObject), nameof(QueryString), nameof(TemplateParameterFile),
-            nameof(TemplateParameterUri), nameof(TemplateParameterObject), nameof(Parameter),
+            nameof(QueryString), nameof(TemplateParameterFile), nameof(TemplateParameterUri), nameof(Parameter),
             nameof(ValidationLevel), nameof(Profile),
         })
         {
@@ -57,6 +56,15 @@ public class TestTenantDeploymentCmdlet : PSCmdlet
             {
                 parameters[name] = value;
             }
+        }
+        if (TemplateObject is not null)
+        {
+            parameters[nameof(TemplateObject)] = TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject)!;
+        }
+        if (TemplateParameterObject is not null)
+        {
+            parameters[nameof(TemplateParameterObject)] =
+                TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject)!;
         }
         TenantDeploymentCmdletHelpers.Run(this, engine, streams, _cts.Token, "Test-AzTenantDeployment", parameters);
     }
@@ -68,6 +76,17 @@ public class TestTenantDeploymentCmdlet : PSCmdlet
 
 internal static class TenantDeploymentCmdletHelpers
 {
+    public static object? NormalizeJsonInput(object? value) =>
+        value switch
+        {
+            IDictionary dictionary => dictionary.Cast<DictionaryEntry>().ToDictionary(
+                entry => entry.Key.ToString()!,
+                entry => NormalizeJsonInput(entry.Value)),
+            IEnumerable values when value is not string =>
+                values.Cast<object?>().Select(NormalizeJsonInput).ToArray(),
+            _ => value,
+        };
+
     public static string NameFromId(string id)
     {
         string[] segments = id.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);

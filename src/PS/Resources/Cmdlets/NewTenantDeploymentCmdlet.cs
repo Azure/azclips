@@ -99,11 +99,11 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         AddBound(parameters, nameof(TemplateFile), TemplateFile);
         AddBound(parameters, nameof(TemplateUri), TemplateUri);
         AddBound(parameters, nameof(TemplateSpecId), TemplateSpecId);
-        AddBound(parameters, nameof(TemplateObject), TemplateObject);
+        AddBound(parameters, nameof(TemplateObject), TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject));
         AddBound(parameters, nameof(QueryString), QueryString);
         AddBound(parameters, nameof(TemplateParameterFile), TemplateParameterFile);
         AddBound(parameters, nameof(TemplateParameterUri), TemplateParameterUri);
-        AddBound(parameters, nameof(TemplateParameterObject), TemplateParameterObject);
+        AddBound(parameters, nameof(TemplateParameterObject), TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject));
         AddBound(parameters, nameof(Parameter), Parameter);
         AddBound(parameters, nameof(ValidationLevel), ValidationLevel);
         AddBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);

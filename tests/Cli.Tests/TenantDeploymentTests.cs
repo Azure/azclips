@@ -130,7 +130,7 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task Create_WaitsOnLocationThenReadsFinalDeployment()
+    public async Task Create_PrefersAsyncOperationThenReadsFinalDeployment()
     {
         List<Uri> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -139,9 +139,10 @@ public class TenantDeploymentTests
             return requests.Count switch
             {
                 1 => Json("""{ "name": "tenant-test" }"""),
-                2 => WithLocation(
+                2 => WithHeaders(
                     Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
-                    "https://management.azure.com/providers/Microsoft.Resources/operations/create-1"),
+                    ("Azure-AsyncOperation", "https://management.azure.com/providers/Microsoft.Resources/operations/create-async"),
+                    ("Location", "https://management.azure.com/providers/Microsoft.Resources/operations/create-location")),
                 3 => Json("""{ "status": "Succeeded" }"""),
                 4 => Json(
                     """{ "name": "tenant-test", "properties": { "provisioningState": "Succeeded" } }"""),
@@ -163,7 +164,7 @@ public class TenantDeploymentTests
 
         Assert.Equal(4, requests.Count);
         Assert.Equal(
-            "https://management.azure.com/providers/Microsoft.Resources/operations/create-1",
+            "https://management.azure.com/providers/Microsoft.Resources/operations/create-async",
             requests[2].ToString());
         Assert.Equal(
             "https://management.azure.com/providers/Microsoft.Resources/deployments/tenant-test?api-version=2025-04-01",
@@ -246,11 +247,13 @@ public class TenantDeploymentTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task WhatIf_FailedStatusWithoutErrorThrows(bool createPath)
+    [InlineData("Failed", false)]
+    [InlineData("Failed", true)]
+    [InlineData("Canceled", false)]
+    [InlineData("Canceled", true)]
+    public async Task WhatIf_NonSucceededStatusWithoutErrorThrows(string status, bool createPath)
     {
-        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "status": "Failed" }"""));
+        var pipeline = new FakeHttpPipeline((_, _) => Json($$"""{ "status": "{{status}}" }"""));
         IProcessor processor = createPath
             ? new NewTenantDeploymentProcessor_Orchestrator
             {
@@ -276,7 +279,75 @@ public class TenantDeploymentTests
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => processor.ProcessAsync());
 
-        Assert.Contains("what-if failed", error.Message);
+        Assert.Contains($"what-if {status.ToLowerInvariant()}", error.Message);
+    }
+
+    [Fact]
+    public async Task WhatIf_ReturnsTerminalLocationResponseWithoutFinalGet()
+    {
+        List<(HttpMethod Method, Uri Uri)> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!));
+            return requests.Count switch
+            {
+                1 => WithLocation(
+                    Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
+                    "https://management.azure.com/providers/Microsoft.Resources/operations/what-if-1"),
+                2 => Json("""{ "status": "Succeeded", "properties": { "changes": [] } }"""),
+                _ => throw new InvalidOperationException("Unexpected request."),
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = new WhatIfAtTenantScopeDeploymentsProcessor
+        {
+            DeploymentName = "tenant-test",
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, requests.Count);
+        Assert.Equal(HttpMethod.Post, requests[0].Method);
+        Assert.Equal(HttpMethod.Get, requests[1].Method);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Resources/operations/what-if-1",
+            requests[1].Uri.ToString());
+        Assert.Equal(
+            "Succeeded",
+            Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues)).Status);
+    }
+
+    [Fact]
+    public async Task Validate_ReturnsTerminalLocationResponseWithoutFinalGet()
+    {
+        List<Uri> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add(request.RequestUri!);
+            return requests.Count switch
+            {
+                1 => WithLocation(
+                    Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
+                    "https://management.azure.com/providers/Microsoft.Resources/operations/validate-1"),
+                2 => Json("""{ "error": null }"""),
+                _ => throw new InvalidOperationException("Unexpected request."),
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = new ValidateAtTenantScopeDeploymentsProcessor
+        {
+            DeploymentName = "tenant-test",
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, requests.Count);
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Resources/operations/validate-1",
+            requests[1].ToString());
+        Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
     }
 
     [Fact]
@@ -312,8 +383,11 @@ public class TenantDeploymentTests
         Assert.Equal("The template is invalid.", result.Error?.Message);
     }
 
-    [Fact]
-    public async Task Delete_WaitsOnLocationWithoutWritingOperationPayload()
+    [Theory]
+    [InlineData("Azure-AsyncOperation")]
+    [InlineData("Operation-Location")]
+    [InlineData("Location")]
+    public async Task Delete_WaitsOnAsyncHeaderWithoutWritingOperationPayload(string headerName)
     {
         List<Uri> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -321,9 +395,9 @@ public class TenantDeploymentTests
             requests.Add(request.RequestUri!);
             return requests.Count switch
             {
-                1 => WithLocation(
+                1 => WithHeaders(
                     Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
-                    "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1"),
+                    (headerName, "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1")),
                 2 => Json("""{ "status": "Succeeded" }"""),
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
@@ -391,6 +465,17 @@ public class TenantDeploymentTests
     private static HttpResponseMessage WithLocation(HttpResponseMessage response, string location)
     {
         response.Headers.Location = new Uri(location);
+        return response;
+    }
+
+    private static HttpResponseMessage WithHeaders(
+        HttpResponseMessage response,
+        params (string Name, string Value)[] headers)
+    {
+        foreach ((string name, string value) in headers)
+        {
+            response.Headers.TryAddWithoutValidation(name, value);
+        }
         return response;
     }
 }

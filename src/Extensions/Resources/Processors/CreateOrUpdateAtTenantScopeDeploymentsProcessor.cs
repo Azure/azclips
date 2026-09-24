@@ -24,6 +24,9 @@ public class CreateOrUpdateAtTenantScopeDeploymentsProcessor : ResourcesProcesso
 
     protected override Deployment? CreateRequestBody() => Body;
 
+    protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri =>
+        response => response.GetFirstHeader("Azure-AsyncOperation");
+
     protected override Func<HttpResponseMessage, string?> GetLocationUri =>
         response => response.GetFirstHeader("Location");
 

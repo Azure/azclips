@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
+using System.Collections;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 
@@ -45,6 +46,29 @@ public class TenantDeploymentCmdletTests
             attribute.Type.Select(type => type.Name));
     }
 
+    [Fact]
+    public void NormalizeJsonInput_ConvertsNestedHashtables()
+    {
+        Hashtable input = new()
+        {
+            ["properties"] = new Hashtable
+            {
+                ["items"] = new object[]
+                {
+                    new Hashtable { ["name"] = "one" },
+                },
+            },
+        };
+
+        var normalized = Assert.IsType<Dictionary<string, object?>>(
+            NormalizeJsonInput(input));
+        var properties = Assert.IsType<Dictionary<string, object?>>(normalized["properties"]);
+        var items = Assert.IsType<object?[]>(properties["items"]);
+        var item = Assert.IsType<Dictionary<string, object?>>(Assert.Single(items));
+
+        Assert.Equal("one", item["name"]);
+    }
+
     private static string NameFromId(string id)
     {
         Type helpers = typeof(GetTenantDeploymentCmdlet).Assembly.GetType(
@@ -55,5 +79,17 @@ public class TenantDeploymentCmdletTests
             BindingFlags.Public | BindingFlags.Static)!;
 
         return (string)method.Invoke(null, [id])!;
+    }
+
+    private static object? NormalizeJsonInput(object? value)
+    {
+        Type helpers = typeof(GetTenantDeploymentCmdlet).Assembly.GetType(
+            "Microsoft.Azure.Azclips.Cmdlets.Resources.TenantDeploymentCmdletHelpers",
+            throwOnError: true)!;
+        MethodInfo method = helpers.GetMethod(
+            "NormalizeJsonInput",
+            BindingFlags.Public | BindingFlags.Static)!;
+
+        return method.Invoke(null, [value]);
     }
 }

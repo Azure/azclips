@@ -27,5 +27,5 @@ public class ValidateAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<
         response => response.GetFirstHeader("Location");
 
     internal override Task<HttpResponseMessage> SendAsync() =>
-        SendAsyncLRO([HttpStatusCode.BadRequest]);
+        SendAsyncLRO(fetchFinalState: false, [HttpStatusCode.BadRequest]);
 }

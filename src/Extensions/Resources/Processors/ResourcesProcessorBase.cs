@@ -161,6 +161,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 GetLocationUri,
                 allowedResponseStatusCodes);
         }
+
+        protected Task<HttpResponseMessage> SendAsyncLRO(
+            bool fetchFinalState,
+            IReadOnlyCollection<HttpStatusCode>? allowedResponseStatusCodes = null)
+        {
+            return HttpRuntime.SendAsyncLRO(
+                CreateRequestMessage,
+                Publisher,
+                HttpPipeline,
+                GetFinalUri,
+                GetOperationLocationUri,
+                GetAsyncOperationUri,
+                GetLocationUri,
+                allowedResponseStatusCodes,
+                fetchFinalState);
+        }
     }
 
     /// <summary>

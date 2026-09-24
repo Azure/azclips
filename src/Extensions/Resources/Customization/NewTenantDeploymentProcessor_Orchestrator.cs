@@ -139,10 +139,12 @@ public class NewTenantDeploymentProcessor_Orchestrator
 
     internal static void ThrowIfWhatIfFailed(WhatIfOperationResult result)
     {
-        if (string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase)
+        if (!string.IsNullOrWhiteSpace(result.Status)
+            && !string.Equals(result.Status, "Succeeded", StringComparison.OrdinalIgnoreCase)
             && result.Error is null)
         {
-            throw new InvalidOperationException("Tenant deployment what-if failed.");
+            throw new InvalidOperationException(
+                $"Tenant deployment what-if {result.Status.ToLowerInvariant()}.");
         }
         ThrowIfError(result.Error, "Tenant deployment what-if");
     }

@@ -19,6 +19,12 @@ public class DeleteAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<ob
     protected override string CreateRequestUri() =>
         $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version={ApiVersion}";
 
+    protected override Func<HttpResponseMessage, string?> GetOperationLocationUri =>
+        response => response.GetFirstHeader("Operation-Location");
+
+    protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri =>
+        response => response.GetFirstHeader("Azure-AsyncOperation");
+
     protected override Func<HttpResponseMessage, string?> GetLocationUri =>
         response => response.GetFirstHeader("Location");
 
