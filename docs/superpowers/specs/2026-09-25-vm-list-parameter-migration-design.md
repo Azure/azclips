@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Status:** Approved, ready for planning
-**Scope:** `src/Extensions/Compute`, `src/Extensions/ExtensionRuntime`, `src/PS/Compute`, `src/CLI/Help/Docs/vm`
+**Scope:** `src/Extensions/Compute`, `src/Extensions/ExtensionRuntime`, `src/Core/Core.Engine`, `src/PS/Compute`, `src/CLI/Help/Docs/vm`
 
 ## Problem
 
@@ -155,6 +155,7 @@ exact name, enrich up to the cap, then write the whole enriched set once.
 | File | Change |
 |---|---|
 | `src/Extensions/ExtensionRuntime/Pagination.cs` | add `CollectWithPaginationAsync` returning the batched list; reimplement `WriteOutputWithPaginationAsync` as collect-then-write. No behaviour change for the seven existing callers |
+| `src/Core/Core.Engine/Engine.Subscriptions.cs` | subscribe `Events.Warning`, which is declared but has no subscriber today, so the cap notice is not silently dropped. It routes to `loggingService.Info` with a `WARNING:` prefix, because `ILoggingService` has no `Warning` method and adding one would mean touching four Core files for a single message. `Info` writes to stderr, so the notice cannot corrupt piped JSON |
 | `src/Extensions/Compute/Processors/ListVMProcessor.cs` | `ResourceGroupName` becomes optional; add `Location` and `Filter`; `CreateRequestUri()` selects one of three ARM paths and appends `$filter`. `Filter` is orchestrator-set and deliberately **not** registered in `ExtensionIndex`, so no client can inject a raw filter |
 | `src/Extensions/Compute/Processors/ComputeProcessorBase.cs` | widen `CreateExtendedProcessor<T>` from `protected` to `protected internal` so the extracted enricher can compose child processors |
 | `src/Extensions/Compute/Customization/GetVMProcessor_Orchestrator.cs` | move the private `EnrichAsync` and `ResolveExpand` into the shared enricher and call them; `az vm show` behaviour is unchanged |
