@@ -9,8 +9,8 @@
 # deployment Running and cancellable. No background job and no sleep-and-hope required.
 #
 # All names are STABLE, so repeated runs overwrite the same deployment record and reuse the same
-# storage account instead of accumulating new ones. The cleanup step at the bottom deletes the
-# storage account the cancelled deployment may have partially created.
+# storage accounts instead of accumulating new ones. The cleanup step at the bottom deletes the
+# storage accounts the cancelled deployment may have partially created.
 #
 # Shared test context:
 #   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
@@ -36,7 +36,8 @@ fail() {
 SUBSCRIPTION_ID=282bb33f-067d-4179-a7a4-b833c13af735
 RESOURCE_GROUP=azclips-test-group-1
 DEPLOYMENT_NAME=azclips-test-deployment-cancel
-STORAGE_ACCOUNT=azclipsdeploycancel
+STORAGE_ACCOUNT_PREFIX=azclipsdeploycancel
+STORAGE_ACCOUNT_COUNT=3
 
 DEPLOYMENT_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourcegroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$DEPLOYMENT_NAME?api-version=2025-04-01"
 
@@ -52,10 +53,16 @@ read -r -d '' TEMPLATE_PAYLOAD <<'JSON'
         {
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
-          "name": "azclipsdeploycancel",
+          "name": "[concat('azclipsdeploycancel', copyIndex())]",
           "location": "australiaeast",
           "sku": { "name": "Standard_LRS" },
-          "kind": "StorageV2"
+          "kind": "StorageV2",
+          "copy": {
+            "name": "cancelWindow",
+            "count": 3,
+            "mode": "serial",
+            "batchSize": 1
+          }
         }
       ]
     }
@@ -64,7 +71,9 @@ read -r -d '' TEMPLATE_PAYLOAD <<'JSON'
 JSON
 
 # Arrange: start the deployment without waiting for it. ARM answers 201 Created and the deployment
-# begins provisioning the storage account, which takes long enough to leave a wide cancel window.
+# begins provisioning the storage accounts ONE AT A TIME (serial copy, batchSize 1), so the cancel
+# window is deterministically wide instead of depending on how fast a single account happens to
+# provision -- that variability is what made this test flake with DeploymentCannotBeCancelled.
 PUT_STATUS=$(az rest \
     --method PUT \
     --uri "$DEPLOYMENT_URI" \
@@ -174,19 +183,22 @@ else
     echo 'EXPECTED FAILURE: --name is required'
 fi
 
-# Cleanup: the cancelled deployment may have created the storage account before it was stopped.
-# Cancelling does not roll anything back, so delete it explicitly. ARM answers 200 when the account
-# existed and 204 when it did not, so both are a clean teardown. This runs regardless of the
+# Cleanup: the cancelled deployment may have created storage accounts before it was stopped.
+# Cancelling does not roll anything back, so delete them explicitly. ARM answers 200 when the
+# account existed and 204 when it did not, so both are a clean teardown. This runs regardless of the
 # assertions above, which is why failures are tallied rather than exited on.
-DELETE_STATUS=$(az rest \
-    --method DELETE \
-    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT?api-version=2023-01-01" \
-    --output json | grep -o '"statusCode": *[0-9]*' | head -1)
-if [[ "$DELETE_STATUS" == *200* || "$DELETE_STATUS" == *204* ]]; then
-    echo "CLEANUP: storage account '$STORAGE_ACCOUNT' delete -> $DELETE_STATUS"
-else
-    fail "cleanup returned '$DELETE_STATUS'; '$STORAGE_ACCOUNT' may still exist"
-fi
+for ((i = 0; i < STORAGE_ACCOUNT_COUNT; i++)); do
+    ACCOUNT="$STORAGE_ACCOUNT_PREFIX$i"
+    DELETE_STATUS=$(az rest \
+        --method DELETE \
+        --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$ACCOUNT?api-version=2023-01-01" \
+        --output json | grep -o '"statusCode": *[0-9]*' | head -1)
+    if [[ "$DELETE_STATUS" == *200* || "$DELETE_STATUS" == *204* ]]; then
+        echo "CLEANUP: storage account '$ACCOUNT' delete -> $DELETE_STATUS"
+    else
+        fail "cleanup returned '$DELETE_STATUS'; '$ACCOUNT' may still exist"
+    fi
+done
 
 # The deployment record itself is left behind on purpose: the name is stable, so the next run
 # overwrites it rather than accumulating a new one.
