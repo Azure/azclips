@@ -51,7 +51,7 @@ public class GetAzUserAssignedIdentityCmdlet : PSCmdlet
         var commandName = $"Get-AzUserAssignedIdentity_{parameterSetName}";
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Identity", commandName, parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("ManagedServiceIdentity", commandName, parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
@@ -65,4 +65,3 @@ public class GetAzUserAssignedIdentityCmdlet : PSCmdlet
 
     protected override void StopProcessing() => _cts.Cancel();
 }
-

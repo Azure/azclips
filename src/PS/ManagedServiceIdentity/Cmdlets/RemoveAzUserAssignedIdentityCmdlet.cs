@@ -54,7 +54,7 @@ public class RemoveAzUserAssignedIdentityCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Identity", "Remove-AzUserAssignedIdentity", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("ManagedServiceIdentity", "Remove-AzUserAssignedIdentity", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
@@ -68,4 +68,3 @@ public class RemoveAzUserAssignedIdentityCmdlet : PSCmdlet
 
     protected override void StopProcessing() => _cts.Cancel();
 }
-
