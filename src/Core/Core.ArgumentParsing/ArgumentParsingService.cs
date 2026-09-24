@@ -13,7 +13,12 @@ namespace Core.ArgumentParsing
             IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
             if (validationErrors != null && validationErrors.Count > 0)
             {
-                throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
+                var message = $"Invalid arguments: {string.Join(", ", validationErrors)}";
+                if (parameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
+                {
+                    throw AzclipsErrorException.MissingRequiredParameters(message);
+                }
+                throw AzclipsErrorException.UsageError(message);
             }
 
             // Yabo: the applying default need to work with future parameter sets.
@@ -48,7 +53,12 @@ namespace Core.ArgumentParsing
             {
                 if (value != null)
                 {
-                    var convertedValue = Convert.ChangeType(value, propertyInfo.PropertyType);
+                    // Values already assignable to the target type (e.g. a string[] for a collection
+                    // parameter such as --scope/-Scope) must be assigned directly: Convert.ChangeType
+                    // only handles IConvertible scalars and throws for arrays and other collections.
+                    var convertedValue = propertyInfo.PropertyType.IsInstanceOfType(value)
+                        ? value
+                        : Convert.ChangeType(value, propertyInfo.PropertyType);
                     propertyInfo.SetValue(processor, convertedValue);
                 }
                 else

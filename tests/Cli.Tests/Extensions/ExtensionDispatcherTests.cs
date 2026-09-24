@@ -68,7 +68,7 @@ public class ExtensionDispatcherTests
         // `az version` / `az --version` are dispatched by GlobalArgParser before the dispatcher runs.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([verbToken, trailing]));
 
         Assert.Equal("UsageError", exception.Code);
         Assert.Equal(2, exception.ExitCode);
@@ -246,6 +246,10 @@ public class ExtensionDispatcherTests
         Assert.Equal("vm", ex.Verb);
         Assert.Empty(ex.Path);
         Assert.Contains("az vm --help", ex.Message, StringComparison.Ordinal);
+        // `az vm` alone now renders group help, so the message must name the offending token
+        // instead of claiming `az vm` is unrecognized.
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az vm' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -291,6 +295,22 @@ public class ExtensionDispatcherTests
         Assert.Equal(expectedVerb, ex.Verb);
         Assert.Equal(expectedPath, ex.Path);
         Assert.Contains("az agent --help", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ShouldNameUnrecognizedArguments_WhenResolvedVerbLandsOnCommandGroup()
+    {
+        // The resolved-extension path throws from a different site than the verb-only fallback,
+        // so it needs its own coverage that trailing flags survive into the message.
+        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["agent", "--list"]));
+
+        Assert.Empty(ex.Path);
+        Assert.Contains("--list", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'az agent' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

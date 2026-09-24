@@ -61,17 +61,20 @@ jobs:
           filters: |
             shared:
               - 'src/Core/**'
-              - 'src/CLI/**'
+              - 'src/CLI/*'
+              - 'src/CLI/!(Help)/**'
+              - 'src/CLI/Help/*'
+              - 'src/CLI/Help/!(Docs)/**'
               - 'tests/Benchmark/*.cs'
               - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
               - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
               - 'tests/Benchmark/PS/PSBenchmarkBase.cs'
               - 'tests/Benchmark/PS/PSManifestStager.cs'
               - 'tests/Common/**'
+              - '.github/workflows/benchmark.yml'
               - 'global.json'
               - 'azclips.slnx'
               - 'Shared.props'
-              - '.github/workflows/benchmark.yml'
               - '.github/scripts/detect-benchmark-changes.sh'
             startup:
               - 'tests/Benchmark/Startup/**'
@@ -121,7 +124,8 @@ jobs:
     name: Run CLI benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-cli-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
@@ -132,9 +136,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -164,7 +168,8 @@ jobs:
     name: Run PS benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-ps-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
@@ -175,9 +180,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -207,7 +212,8 @@ jobs:
     name: Run STARTUP benchmarks
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.run_startup == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-startup-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -215,9 +221,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4

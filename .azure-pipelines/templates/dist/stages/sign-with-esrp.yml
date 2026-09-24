@@ -1,10 +1,8 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: dependency_stage
   type: object
   default: 'Preflight'
@@ -49,10 +47,8 @@ parameters:
   default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
-  default: 'macOS-15-arm64'
 - name: macos_intel_pool
   type: string
-  default: 'macOS-15'
 - name: esrp_enable_nuget_verify
   type: boolean
   default: true
@@ -240,12 +236,11 @@ stages:
   - job: ValidateAndAssemble
     displayName: Validate And Assemble Final Signed Artifact
     pool:
-      vmImage: ${{ parameters.ubuntu_pool }}
+      name: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
       clean: true
       fetchDepth: 1
-      retryCountOnTaskFailure: 3
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed Windows Artifacts

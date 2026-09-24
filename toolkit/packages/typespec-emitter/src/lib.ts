@@ -10,9 +10,6 @@
  *   bumps will pick them up later):
  *
  *   - Examples (`@opExample`): IR has no `IRExample` node.
- *   - Open enums: TCGC's `isFixed: false` enums lose their open-ness in IR.
- *     A one-shot `open-enum-as-closed` info diagnostic is emitted on the
- *     first such enum.
  *   - Primitive constraints (`@minLength`, `@pattern`, etc.): dropped
  *     silently; the transformer layer (or a future IR bump) is the right
  *     home for these.
@@ -46,6 +43,18 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 export const $lib = createTypeSpecLibrary({
   name: "@azure-client-engine/typespec-emitter",
   diagnostics: {
+    "paging-property-unbound": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Paging property '${"property"}' on operation '${"operation"}' has no resolved HTTP binding; its source metadata is retained.`,
+      },
+    },
+    "paging-items-not-array": {
+      severity: "error",
+      messages: {
+        default: paramMessage`Paging items on operation '${"operation"}' must resolve to an array.`,
+      },
+    },
     "unsupported-type-kind": {
       severity: "warning",
       messages: {
@@ -139,7 +148,7 @@ export const $lib = createTypeSpecLibrary({
     "open-enum-as-closed": {
       severity: "warning",
       messages: {
-        default: paramMessage`Open enum '${"enum"}' is emitted as closed; IR has no open-enum variant.`,
+        default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
       },
     },
     "ir-validation-failed": {

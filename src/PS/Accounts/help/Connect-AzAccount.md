@@ -59,8 +59,7 @@ Client ID of the user-assigned managed identity to authenticate as. Use with `-I
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- AccountId
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -211,7 +210,8 @@ Azure Subscription Id.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Subscription
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -232,7 +232,8 @@ Tenant ID to login to.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Tenant
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -253,7 +254,11 @@ Use device code flow for authentication.
 Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeviceCode
+- DeviceAuth
+- Device
+- UseDeviceAuthentication
 ParameterSets:
 - Name: (All)
   Position: Named

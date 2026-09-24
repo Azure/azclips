@@ -1,6 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
-using Core.Recording;
+using Tests.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;

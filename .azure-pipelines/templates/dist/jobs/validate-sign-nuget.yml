@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: artifact_name
   type: string
   default: 'signed-nuget'
@@ -13,7 +12,7 @@ jobs:
 - job: ValidateNuget
   displayName: Validate ${{ parameters.display_name }}
   pool:
-    vmImage: ${{ parameters.windows_pool }}
+    name: ${{ parameters.windows_pool }}
   steps:
   - checkout: self
     clean: true

@@ -12,9 +12,11 @@ namespace Ace.Generator.Model;
 internal sealed class GenerationContext
 {
     private readonly List<GeneratorDiagnostic> _diagnostics;
+    private readonly Lazy<Generators.IrIndex> _index;
+    private readonly Lazy<Generators.Placement> _placement;
 
     internal GenerationContext(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions options,
         List<GeneratorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
@@ -23,10 +25,24 @@ internal sealed class GenerationContext
         Options = options;
         _diagnostics = diagnostics;
         CancellationToken = cancellationToken;
+        _index = new Lazy<Generators.IrIndex>(() => new Generators.IrIndex(ir));
+        _placement = new Lazy<Generators.Placement>(() => new Generators.Placement(ir, options));
     }
 
     /// <summary>The IR document being generated from.</summary>
-    public IRDocument Ir { get; }
+    public TransformedIR Ir { get; }
+
+    /// <summary>
+    /// Identity lookup over <see cref="Ir"/>, built once per run. Generation never mutates the
+    /// IR, so the snapshot stays valid for the whole run.
+    /// </summary>
+    public Generators.IrIndex Index => _index.Value;
+
+    /// <summary>
+    /// Where generated code lands and what it is called, resolved from the document's
+    /// <see cref="TransformedIR.Target"/>.
+    /// </summary>
+    public Generators.Placement Placement => _placement.Value;
 
     /// <summary>Host-resolved generation options.</summary>
     public GeneratorOptions Options { get; }

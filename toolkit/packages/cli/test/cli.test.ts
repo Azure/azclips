@@ -16,6 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { IR_SCHEMA_VERSION, idEquals, parseIR, parseTransformedIR, type IR } from "@azure-client-engine/ir";
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
@@ -86,6 +87,21 @@ beforeAll(() => {
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
+
+/**
+ * Parse a captured snapshot, whichever phase it belongs to.
+ *
+ * The document changes shape partway through the sequence: snapshots up to
+ * `create-command` are `IR`, and from it onward `TransformedIR`. Both roots are
+ * strict, so the wrong parser rejects — which is the point, and why this picks by
+ * content rather than assuming a position.
+ */
+function parseSnapshot(file: string): IR {
+  const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
+  return typeof raw === "object" && raw !== null && "commands" in raw
+    ? parseTransformedIR(raw)
+    : parseIR(raw);
+}
 
 describe("ace: dispatch", () => {
   it("prints usage and exits 0 with no args", async () => {
@@ -285,6 +301,37 @@ describe("createFsSink", () => {
 });
 
 describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
+  it("preserves multipart definitions through the real compiler and C# host", async () => {
+    const outDir = join(dir, "multipart-capture");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "typespec-emitter", "test", "fixtures", "multipart-service.tsp"),
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code, err).toBe(0);
+    const captures = walkFiles(join(outDir, "ir")).filter((file) => file.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      const ir = parseSnapshot(file);
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      const upload = ir.operations.find((operation) => operation.name === "upload");
+      const document = upload?.requestBody?.multipart?.parts.find((part) => part.name === "documents");
+      expect(document).toMatchObject({
+        multi: true, optional: true, filename: { name: "Filename" },
+        body: { kind: "file", isText: false, contents: { type: { kind: "primitive", name: "bytes" } } },
+      });
+      const tuple = ir.operations.find((operation) => operation.name === "tuple");
+      expect(tuple?.requestBody).not.toHaveProperty("type");
+      expect(tuple?.requestBody?.multipart?.parts.map((part) => part.name)).toEqual([undefined, undefined, "text"]);
+      const response = ir.operations.find((operation) => operation.name === "download")?.responses[0];
+      expect(response?.multipart).toEqual(upload?.requestBody?.multipart);
+      expect(response?.headers?.map((header) => header.wireName)).toEqual(["x-response-token"]);
+    }
+  });
+
   it("writes each pipeline IR to <out-dir>/ir when set", async () => {
     const outDir = join(dir, "capture");
     const { code } = await captureRun([
@@ -301,14 +348,20 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     // incidental decision — don't hardcode it).
     const irFiles = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
     expect(irFiles.length).toBeGreaterThan(0);
-    const ir = JSON.parse(readFileSync(irFiles[0]!, "utf8")) as {
-      schemaVersion: string;
-      models: { name: string }[];
-      operations: { name: string }[];
-    };
-    expect(typeof ir.schemaVersion).toBe("string");
-    expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
-    expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+    for (const file of irFiles) {
+      const ir = parseSnapshot(file);
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
+      expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+      expect(ir.servers).toHaveLength(1);
+      const server = ir.servers[0]!;
+      expect(idEquals(ir.sources[0]!.server, server.id)).toBe(true);
+      for (const operation of ir.operations) {
+        expect(operation.id.namespace).toEqual(["PetStore"]);
+        expect(operation.id.interface).toBe("Pets");
+        expect(idEquals(operation.server, server.id)).toBe(true);
+      }
+    }
   });
 
   it("does not create the ir/ directory when --capture-ir is absent", async () => {
@@ -350,7 +403,106 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
   });
 });
 
+describe("ace compile: stage toggles", () => {
+  /**
+   * Orchestration is compiler-owned: the catalog places `flatten-model` between
+   * emit and the generator and turns it on by default. A config's only verb is
+   * to flip it.
+   */
+  it("runs the catalog's default stages, flattening the IR the generator consumes", async () => {
+    const outDir = join(dir, "stages-default");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    // Regression guard: an unfulfilled stage fails with `unimplemented-stage`,
+    // and nothing downstream ever sees flattening.
+    expect(err).not.toMatch(/unimplemented-stage/);
+    expect(code).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(1);
+    // The last snapshot is the command projection — the document the generator sees.
+    const ir = parseSnapshot(captures.sort().at(-1)!);
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.rendering?.parameters?.length).toBeGreaterThan(0);
+  });
+
+  it("skips a stage the config turns off", async () => {
+    const outDir = join(dir, "stages-off");
+    const configPath = join(dir, "no-flatten.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "flatten-model": false } }), "utf8");
+
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--config",
+      configPath,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    // Emit, tweak-ir, and the command projection still snapshot; only flattening is gone.
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
+    expect(captures).toHaveLength(3);
+    for (const capture of captures) {
+      const ir = parseSnapshot(capture);
+      expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(
+        true,
+      );
+    }
+  });
+
+  it("rejects a config that names a stage the compiler does not declare", async () => {
+    const configPath = join(dir, "bogus-stage.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "no-such-stage": true } }), "utf8");
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      join(dir, "stages-bogus"),
+      "--config",
+      configPath,
+    ]);
+    expect(code).toBe(1);
+    expect(err).toMatch(/unknown-stage/);
+  });
+});
+
 describe("ace compile: csharp generation", () => {
+  it.runIf(generatorHostBuilt)(
+    "emits flattened body members when the flatten stage runs",
+    async () => {
+      const outDir = join(dir, "gen-flattened");
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--root-namespace",
+        "Contoso.Pets",
+        "--out-dir",
+        outDir,
+      ]);
+      expect(err).not.toMatch(/^error:/m);
+      expect(code).toBe(0);
+
+      // The end-to-end payoff: the stage's projection reaches the emitted C#.
+      const processors = walkFiles(outDir)
+        .filter((f) => f.endsWith(".cs") && f.includes("Processors"))
+        .map((f) => readFileSync(f, "utf8"));
+      expect(processors.some((source) => /get => Body\?\./.test(source))).toBe(true);
+    },
+  );
+
   it.runIf(generatorHostBuilt)(
     "generates C# files under out-dir with --generator csharp",
     async () => {

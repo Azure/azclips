@@ -12,12 +12,29 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { compile, noopGenerator } from "@azure-client-engine/compiler";
+import { compile, createRegistry, noopGenerator, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK_IR_STAGE, TSP_EMIT_STAGE } from "@azure-client-engine/compiler";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
 // built artifacts under dist — Node cannot execute the .ts worker directly, and
 // under vitest `import.meta.url` would otherwise point at the source tree.
 import { createHostRuntime } from "../dist/src/runtime.js";
+
+/**
+ * Emit-only fulfilment: stub out the catalog's downstream stages so these tests
+ * exercise the real out-of-process `tsp-emit` stage and nothing else.
+ *
+ * `create-command` is stubbed rather than disabled — the generate stage `requires`
+ * it, so turning it off is a config error. The no-op generator never validates the
+ * document, so an identity stub is enough here.
+ */
+const EMIT_ONLY = createRegistry({
+  transforms: {
+    [TWEAK_IR_STAGE]: () => ({ name: TWEAK_IR_STAGE, run: (ir) => ir }),
+    [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }),
+    [CREATE_COMMAND_STAGE]: () => ({ name: CREATE_COMMAND_STAGE, run: (ir) => ir }),
+  },
+  generators: { [CSHARP_STAGE]: () => noopGenerator },
+});
 
 const PETS_TSP = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -34,7 +51,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     // does not run (the pipeline now always ends in a generator).
     const result = await compile(
       { entrypoint: PETS_TSP },
-      { runtime: createHostRuntime(), generator: noopGenerator },
+      { runtime: createHostRuntime(), registry: EMIT_ONLY },
     );
 
     expect(result.success).toBe(true);
@@ -49,7 +66,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
   it("forwards config.emitter options to the emitter (sourceId overrides the module)", async () => {
     const result = await compile(
       { entrypoint: PETS_TSP, config: { emitter: { sourceId: "CustomSource" } } },
-      { runtime: createHostRuntime(), generator: noopGenerator },
+      { runtime: createHostRuntime(), registry: EMIT_ONLY },
     );
 
     expect(result.success).toBe(true);
@@ -63,7 +80,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     // selector *received* the value (TCGC warns + falls back).
     const result = await compile(
       { entrypoint: PETS_TSP, config: { apiVersion: "1999-01-01" } },
-      { runtime: createHostRuntime(), generator: noopGenerator },
+      { runtime: createHostRuntime(), registry: EMIT_ONLY },
     );
 
     expect(result.success).toBe(true);
@@ -75,7 +92,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
   it("surfaces emitter diagnostics across the process boundary", async () => {
     const result = await compile(
       { entrypoint: PETS_TSP },
-      { runtime: createHostRuntime(), generator: noopGenerator },
+      { runtime: createHostRuntime(), registry: EMIT_ONLY },
     );
 
     // pets.tsp has no @versioned api-version param -> emitter warns.
@@ -91,17 +108,18 @@ describe("built-in emit (host runtime tsp-emit)", () => {
   it("captures the subprocess IR when --capture-ir style snapshots are on", async () => {
     const result = await compile(
       { entrypoint: PETS_TSP },
-      { runtime: createHostRuntime(), captureIR: true, generator: noopGenerator },
+      { runtime: createHostRuntime(), captureIR: true, registry: EMIT_ONLY },
     );
 
-    expect(result.snapshots?.[0]?.step).toBe("emit");
+    // Snapshots are labeled by stage id, which is unique in the catalog.
+    expect(result.snapshots?.[0]?.step).toBe(TSP_EMIT_STAGE);
     expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
   });
 
   it("reports a structured error when the entrypoint does not exist", async () => {
     const result = await compile(
       { entrypoint: resolve(dirname(PETS_TSP), "no-such-file.tsp") },
-      { runtime: createHostRuntime(), generator: noopGenerator },
+      { runtime: createHostRuntime(), registry: EMIT_ONLY },
     );
 
     expect(result.success).toBe(false);

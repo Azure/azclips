@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
@@ -14,11 +15,39 @@ namespace Core.Telemetry;
 /// </summary>
 internal static class TelemetryExporters
 {
-    internal static void AddTraceExporters(TracerProviderBuilder builder, IReadOnlyList<TelemetryTarget> targets)
+    internal static void AddTraceExporters(
+        TracerProviderBuilder builder,
+        IReadOnlyList<TelemetryTarget> targets,
+        string? dataBoundary = null)
     {
         foreach (var target in targets)
         {
             AddTraceExporter(builder, target);
+        }
+
+        // Route Aria telemetry to the EU or Global collector based on the active
+        // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
+        // others (including unknown/missing) → Global endpoint.
+        if (targets.Contains(TelemetryTarget.Remote))
+        {
+            // dataBoundary supplied: the caller already knows the destination for this
+            // exporter's whole lifetime (buffered replay of an already-partitioned group) —
+            // build a fixed-destination exporter. Otherwise build a dynamic-destination
+            // exporter, since this exporter may live across many command invocations with
+            // different tenants/boundaries (e.g. PowerShell's singleton TracerProvider) — it
+            // resolves the boundary per exported Activity from that Activity's own tag.
+            AriaActivityExporter exporter;
+            if (dataBoundary is null)
+            {
+                exporter = new AriaActivityExporter();
+            }
+            else
+            {
+                var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary);
+                exporter = new AriaActivityExporter(connectionString, endpoint);
+            }
+
+            builder.AddProcessor(new SimpleActivityExportProcessor(exporter));
         }
 
         builder.SetSampler(new AlwaysOnSampler());
@@ -41,6 +70,17 @@ internal static class TelemetryExporters
         {
             throw new ArgumentOutOfRangeException(nameof(target), target, null);
         }
+    }
+
+    internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
+    {
+        var isEu = dataBoundary is null
+            ? DataBoundaryResolver.IsEuDataBoundary()
+            : DataBoundaryRouting.IsEu(dataBoundary);
+
+        return isEu
+            ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
+            : (WellKnownEndpoints.AriaConnectionString, null);
     }
 }
 

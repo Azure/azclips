@@ -1,13 +1,12 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 
 jobs:
 - job: ValidateLinux
   displayName: Validate Linux Artifact Set
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: none
   - task: DownloadPipelineArtifact@2

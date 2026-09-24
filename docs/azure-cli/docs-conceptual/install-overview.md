@@ -23,7 +23,7 @@ Private-preview artifacts live in a **private** GitHub repo; your account has **
 gh auth login    # verify with: gh auth status
 ```
 
-**Linux / macOS (Apple Silicon):**
+**Linux / macOS:**
 
 ```bash
 gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash
@@ -105,16 +105,17 @@ Removes the install directory. Pass `--force` / `-Force` to remove a folder that
 
 | Category | Files | Platforms | Notes |
 | --- | --- | --- | --- |
-| CLI archives | `azcli-lean-…` and `azcli-…` | 6 (Win/Linux/macOS × x64/Arm64) | Lean = built-in extensions only; Full = built-in + add-on extensions bundled. Self-contained, no .NET SDK needed. |
+| CLI archives | `azcli-lean-…` and `azcli-…` | 8 platform variants | Windows x64/Arm64, Linux glibc x64/Arm64, Linux musl x64/Arm64, and macOS x64/Arm64. Lean = built-in extensions only; Full = built-in + add-on extensions bundled. Self-contained, no .NET SDK needed. |
 | Extension roll-up | `azcli-extensions-<version>.tar.gz` | agnostic | Convenience bundle of all extension packages. |
 | CLI extension packages | `azcli.extensions.*.nupkg` | agnostic | Install into an existing CLI with `az extension add`. |
 
 ## Supported platforms
 
-| OS | x64 / Intel | Arm64 / Apple Silicon |
+| OS and C library | x64 / Intel | Arm64 / Apple Silicon |
 | --- | --- | --- |
 | Windows | `win-x64` | `win-arm64` |
-| Linux | `linux-x64` | `linux-arm64` |
-| macOS | — (not supported) | `macos-arm64` |
+| Linux with glibc (Ubuntu, Debian, Fedora, Azure Linux) | `linux-x64` | `linux-arm64` |
+| Linux with musl (Alpine Linux) | `linux-musl-x64` | `linux-musl-arm64` |
+| macOS | `macos-x86_64` | `macos-arm64` |
 
 Throughout these guides, replace `<version>` with the version in your downloaded file name (for example `0.1.0`). Preview and beta builds may include a `-preview` suffix in the file name.

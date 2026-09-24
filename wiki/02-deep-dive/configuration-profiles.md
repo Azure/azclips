@@ -104,25 +104,63 @@ Because the dictionary is keyed case-insensitively and rewritten in order, an en
 override wins over the file, which wins over the built-in default. Each surviving entry keeps
 its `Source` label so `az config list` can print `telemetry.enabled = true [global config]`.
 
-### Known keys come from typed options, not a hand-written list
+### How developers add or change a configuration setting
 
-There is no literal list of valid keys. The schema is _derived_ from the typed options
-records. `BuildDefaultEntries` seeds a section map and walks the schema's declared keys,
-reflecting the default value out of each options object (`ConfigCommandBase.cs:244`):
+Configuration models live together under `src/Core/Core.Abstractions/Config/`. The schema is
+discovered from those typed models; there is no separate list of keys to update.
 
-| Section prefix    | Options type             | Example keys                                             |
-| ----------------- | ------------------------ | -------------------------------------------------------- |
-| `core`            | `CoreOptions`            | `core.logging.level`, `core.http.maxRetries`             |
-| `telemetry`       | `TelemetryOptions`       | `telemetry.enabled`                                      |
-| `agent`           | `AgentOptions`           | `agent.enabled`, `agent.provider`, `agent.trace.enabled` |
-| `assemblyLoading` | `AssemblyLoadingOptions` | —                                                        |
-| `extensions`      | `ExtensionsOptions`      | —                                                        |
-| `clients`         | `ClientsOptions`         | —                                                        |
-| `defaults`        | `DefaultsOptions`        | per-parameter default values                             |
+Each public setting is a property with a `ConfigurationKey` attribute. The property owns its type
+and default value, while the attribute contains only the metadata that cannot be inferred safely:
+description, allowed values, URI status, and numeric bounds.
 
-For example `telemetry.enabled` defaults to `true` (`src/Core/Core.Abstractions/TelemetryOptions.cs:8`)
-and `agent.enabled` defaults to `false` (`src/Core/Core.Abstractions/AgentOptions.cs:11`) —
-both discovered by reflection, never typed out in the command layer.
+```csharp
+[ConfigurationKey("enabled", Description = "Enable or disable telemetry.")]
+public bool Enabled { get; set; } = true;
+```
+
+Nested option classes build dotted paths automatically. For example:
+
+```csharp
+[ConfigurationSection("clients")]
+public sealed class ClientsOptions
+{
+    public CliClientOptions Cli { get; set; } = new();
+}
+
+public sealed class CliClientOptions
+{
+    public CliOutputOptions Output { get; set; } = new();
+}
+```
+
+`CliOutputOptions.SimpleFormat` therefore becomes:
+
+```text
+clients.cli.output.simpleFormat
+```
+
+Root option classes use `ConfigurationSection` to declare their existing section name. A section
+can opt out of the user-facing schema when it is internal-only, as `BenchmarkOptions` does with
+`IncludeInSchema = false`.
+
+To add a setting:
+
+1. Add or update the property under `src/Core/Core.Abstractions/Config/`.
+2. Add `ConfigurationKey` metadata to the leaf property.
+3. Add or update the matching row in `docs/azure-cli/docs-conceptual/config.md` when the setting is
+   user-facing.
+4. Add schema/configuration tests as appropriate.
+5. Run both CLI and PowerShell regression suites because both consume the same configuration
+   service:
+
+    ```bash
+    dotnet test tests/Cli.Tests/Cli.Tests.csproj
+    dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj
+    ```
+
+The recursive builder lives in `src/Core/Core.Configuration/Schema/ConfigurationSchemaBuilder.cs`
+and produces the existing `ConfigurationKeyMetadata` interface used by validation, config commands,
+and PowerShell. Do not add settings to a separate hand-maintained schema list.
 
 ### When a config change takes effect
 
@@ -390,13 +428,13 @@ active pointer — even though `prod` happens to be active after the login.
 
 ## How the two systems relate
 
-| Aspect            | Configuration                               | Profiles                                             |
-| ----------------- | ------------------------------------------- | ---------------------------------------------------- |
-| Root              | `~/.azclips` (UserProfile)                  | `{LocalApplicationData}/.azclips`                    |
-| File(s)           | `config.json`                               | `profiles.json` + `active-profile`                   |
-| Abstraction       | `IConfigurationService`                     | `IProfileService`                                    |
-| Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
-| Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
+| Aspect            | Configuration                               | Profiles                                                |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------- |
+| Root              | `~/.azclips` (UserProfile)                  | `{LocalApplicationData}/.azclips`                       |
+| File(s)           | `config.json`                               | `profiles.json` + `active-profile`                      |
+| Abstraction       | `IConfigurationService`                     | `IProfileService`                                       |
+| Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                         |
+| Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename              |
 | Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
@@ -412,7 +450,8 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 - `src/Extensions/Config/Commands/SetConfigCommand.cs`, `GetConfigCommand.cs`, `ListConfigCommand.cs`, `DeleteConfigCommand.cs`, `InfoConfigCommand.cs`
 - `src/Core/Core.Configuration/Implementation/ConfigurationService.cs` — validation, file lock, nested set/delete
 - `src/Core/Core.Abstractions/IConfigurationService.cs`, `HomePaths.cs`
-- `src/Core/Core.Abstractions/CoreOptions.cs`, `TelemetryOptions.cs`, `AgentOptions.cs` — typed known keys
+- `src/Core/Core.Abstractions/Config/` — typed options, configuration attributes, and section declarations
+- `src/Core/Core.Configuration/Schema/ConfigurationSchemaBuilder.cs` — recursive schema discovery
 - `src/Core/Core.Runtime/ProfileService.cs` — file-backed store, `_gate`, atomic writes
 - `src/Core/Core.Abstractions/IProfileService.cs`, `Models/Profile.cs`, `ProfileNameValidator.cs`
 - `src/Extensions/Accounts/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`

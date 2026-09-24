@@ -72,17 +72,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteVM_PS = new(
-            Name: "DeleteVMProcessor",
+            Name: "DeleteVMProcessor_Orchestrator",
             InvocationName: "Remove-AzVM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            ProcessorType: typeof(Processors.DeleteVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]                = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ForceDeletion"]     = new("ForceDeletion", "ForceDeletion", typeof(bool), "Optional parameter to force delete the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -99,6 +101,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Id"]                = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_stopVM_PS = new(
+            Name: "StopVMProcessor_Orchestrator",
+            InvocationName: "Stop-AzVM",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StopVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.StopVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]                = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StayProvisioned"]   = new("StayProvisioned", "StayProvisioned", typeof(bool), "Keep the virtual machine provisioned. Powers the VM off instead of deallocating it, so it continues to be billed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SkipShutdown"]      = new("SkipShutdown", "SkipShutdown", typeof(bool), "Request a non-graceful VM shutdown. Applies when keeping the VM provisioned.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Hibernate"]         = new("Hibernate", "Hibernate", typeof(bool), "Hibernate the virtual machine while deallocating it.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ForceDeallocate"]   = new("ForceDeallocate", "ForceDeallocate", typeof(bool), "Force deallocation of the virtual machine. Cannot be combined with -StayProvisioned, -SkipShutdown or -Hibernate.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -133,6 +155,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["RuleDestinationPortRanges"]      = new("RuleDestinationPortRanges", "RuleDestinationPortRanges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleDestinationAddressPrefixes"] = new("RuleDestinationAddressPrefixes", "RuleDestinationAddressPrefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -259,19 +282,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteVM_CLI = new(
-            Name: "DeleteVMProcessor",
+            Name: "DeleteVMProcessor_Orchestrator",
             InvocationName: "vm delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            ProcessorType: typeof(Processors.DeleteVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["vm-name", "n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["force-deletion"]  = new("ForceDeletion", "force-deletion", typeof(bool), "Optional parameter to force delete virtual machines.", IsRequired: false, Aliases: [], AllowedValues: ["0", "1", "f", "false", "n", "no", "t", "true", "y", "yes"]),
             },
             ParameterAliases: new Dictionary<string, string>()
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
         );
         private static readonly CommandMetadata s_startVM_CLI = new(
             Name: "StartVMProcessor_Orchestrator",
@@ -288,6 +318,51 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_stopVM_CLI = new(
+            Name: "PowerOffVMProcessor_Orchestrator",
+            InvocationName: "vm stop",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.PowerOffVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.PowerOffVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["-vm-name", "n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["skip-shutdown"]   = new("SkipShutdown", "skip-shutdown", typeof(bool), "Skip shutdown and power off immediately.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
+        );
+        private static readonly CommandMetadata s_deallocateVM_CLI = new(
+            Name: "DeallocateVMProcessor_Orchestrator",
+            InvocationName: "vm deallocate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeallocateVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.DeallocateVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["-vm-name", "n"], AllowedValues: []),
+                ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]              = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["hibernate"]        = new("Hibernate", "hibernate", typeof(bool), "Hibernate the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["force-deallocate"] = new("ForceDeallocate", "force-deallocate", typeof(bool), "Force deallocate the virtual machine. Default is false.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
         );
         // Lives under the `disk` verb declared by the class-level [ExtensionVerb("disk")]
         // attribute — proves one extension can contribute to multiple top-level namespaces.
@@ -366,6 +441,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["rule-destination-port-ranges"]     = new("RuleDestinationPortRanges", "rule-destination-port-ranges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -378,6 +454,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["Get-AzVM_List"]               = s_listVM_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
             ["Start-AzVM"]                 = s_startVM_PS,
+            ["Stop-AzVM"]                  = s_stopVM_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
@@ -389,6 +466,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
             ["vm start"]    = s_startVM_CLI,
+            ["vm stop"]     = s_stopVM_CLI,
+            ["vm deallocate"] = s_deallocateVM_CLI,
             ["disk list"]   = s_listDisk_CLI,
         };
 

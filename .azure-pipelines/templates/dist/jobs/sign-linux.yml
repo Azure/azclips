@@ -1,7 +1,6 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 - name: SourceProject
   type: string
   default: 'public'
@@ -27,7 +26,7 @@ jobs:
   - job: SignLinux
     displayName: Collect Linux Release Artifacts (No Signing Yet)
     pool:
-      vmImage: ${{ parameters.ubuntu_pool }}
+      name: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: none
     - ${{ if eq(parameters.source_artifact_source, 'current') }}:

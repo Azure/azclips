@@ -50,4 +50,15 @@ public class TelemetryUploaderSpawnTests
         Assert.Equal(exePath, startInfo.FileName);
         Assert.Equal("--upload-telemetry", startInfo.Arguments);
     }
+
+    [Theory]
+    [InlineData(new[] { "vm", "list", "--profile", "eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "--profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "-profile", "eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list", "-profile=eu-profile" }, "eu-profile")]
+    [InlineData(new[] { "vm", "list" }, null)]
+    public void TryGetProfileOverride_ReturnsExplicitCliProfile_WhenPresent(string[] args, string? expected)
+    {
+        Assert.Equal(expected, Core.Cli.Program.TryGetProfileOverride(args));
+    }
 }
