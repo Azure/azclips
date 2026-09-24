@@ -29,10 +29,10 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "vm",
         ["", "create", "create-basic", "show", "list", "start", "stop", "deallocate", "delete"]);
 
-    public static readonly ExtensionUnderTest Identity = new(
-        "Identity",
-        "Microsoft.Azure.Azclips.Extensions.Identity",
-        typeof(Microsoft.Azure.Azclips.Extensions.Identity.ExtensionIndex).Assembly,
+    public static readonly ExtensionUnderTest ManagedServiceIdentity = new(
+        "ManagedServiceIdentity",
+        "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity",
+        typeof(Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex).Assembly,
         "identity",
         ["create", "list", "show", "update", "delete"]);
 

@@ -1,0 +1,368 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "ManagedServiceIdentityLifecycleScenarioTests/CreateListShowUpdateDeleteIdentity"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-identity-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-identity-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "f8c14c41-fe1f-4cde-89dd-04747f352a31"
+          ],
+          "x-ms-correlation-request-id": [
+            "f8c14c41-fe1f-4cde-89dd-04747f352a31"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20260831T085757Z:f8c14c41-fe1f-4cde-89dd-04747f352a31"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AE5BA6D7B2064864A6C5D422F004A55E Ref B: SYD281080712040 Ref C: 2026-08-31T08:57:54Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:57:57 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg\u0022,\u0022name\u0022:\u0022scenario-identity-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity?api-version=2025-05-31-preview",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022properties\u0022:{\u0022assignmentRestrictions\u0022:{\u0022providers\u0022:[\u0022Microsoft.Compute\u0022]},\u0022isolationScope\u0022:\u0022Regional\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "5ff9f4e6-1263-415b-a202-ee9875a8a799"
+          ],
+          "x-ms-correlation-request-id": [
+            "5ff9f4e6-1263-415b-a202-ee9875a8a799"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260831T085800Z:5ff9f4e6-1263-415b-a202-ee9875a8a799"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 64B96BAE23DF48F199EB5645D4E740C6 Ref B: SYD281080712040 Ref C: 2026-08-31T08:57:57Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:58:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity\u0022,\u0022name\u0022:\u0022scenario-identity\u0022,\u0022type\u0022:\u0022Microsoft.ManagedIdentity/userAssignedIdentities\u0022,\u0022properties\u0022:{\u0022isolationScope\u0022:\u0022Regional\u0022,\u0022assignmentRestrictions\u0022:{\u0022providers\u0022:[\u0022Microsoft.Compute\u0022]},\u0022tenantId\u0022:\u002200000000-0000-0000-0000-000000000000\u0022,\u0022principalId\u0022:\u002222222222-2222-2222-2222-222222222222\u0022,\u0022clientId\u0022:\u002211111111-1111-1111-1111-111111111111\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2025-05-31-preview",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-original-request-ids": [
+            ""
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "e32a4f1e-c48d-4ac7-93d6-7ecfda9d267a"
+          ],
+          "x-ms-correlation-request-id": [
+            "e32a4f1e-c48d-4ac7-93d6-7ecfda9d267a"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260831T085800Z:e32a4f1e-c48d-4ac7-93d6-7ecfda9d267a"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: C85432C9912741C58FEB8007EBA00F00 Ref B: SYD281080712040 Ref C: 2026-08-31T08:58:00Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:58:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity\u0022,\u0022name\u0022:\u0022scenario-identity\u0022,\u0022type\u0022:\u0022Microsoft.ManagedIdentity/userAssignedIdentities\u0022,\u0022properties\u0022:{\u0022isolationScope\u0022:\u0022Regional\u0022,\u0022assignmentRestrictions\u0022:{\u0022providers\u0022:[\u0022Microsoft.Compute\u0022]},\u0022tenantId\u0022:\u002200000000-0000-0000-0000-000000000000\u0022,\u0022principalId\u0022:\u002222222222-2222-2222-2222-222222222222\u0022,\u0022clientId\u0022:\u002211111111-1111-1111-1111-111111111111\u0022}}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity?api-version=2025-05-31-preview",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-request-id": [
+            "05eed3f7-ce49-406a-a85e-e3c805387764"
+          ],
+          "x-ms-correlation-request-id": [
+            "05eed3f7-ce49-406a-a85e-e3c805387764"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260831T085801Z:05eed3f7-ce49-406a-a85e-e3c805387764"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B2D3B54F265E491187EB7B83B334A847 Ref B: SYD281080712040 Ref C: 2026-08-31T08:58:00Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:58:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity\u0022,\u0022name\u0022:\u0022scenario-identity\u0022,\u0022type\u0022:\u0022Microsoft.ManagedIdentity/userAssignedIdentities\u0022,\u0022properties\u0022:{\u0022isolationScope\u0022:\u0022Regional\u0022,\u0022assignmentRestrictions\u0022:{\u0022providers\u0022:[\u0022Microsoft.Compute\u0022]},\u0022tenantId\u0022:\u002200000000-0000-0000-0000-000000000000\u0022,\u0022principalId\u0022:\u002222222222-2222-2222-2222-222222222222\u0022,\u0022clientId\u0022:\u002211111111-1111-1111-1111-111111111111\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity?api-version=2025-05-31-preview",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022tags\u0022:{\u0022env\u0022:\u0022scenario-updated\u0022},\u0022properties\u0022:{\u0022isolationScope\u0022:\u0022None\u0022}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "5718b087-4f75-4cb2-aa18-583bb3851940"
+          ],
+          "x-ms-correlation-request-id": [
+            "5718b087-4f75-4cb2-aa18-583bb3851940"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260831T085802Z:5718b087-4f75-4cb2-aa18-583bb3851940"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 5C4789385C1440FB8535CB4D3692D068 Ref B: SYD281080712040 Ref C: 2026-08-31T08:58:01Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:58:02 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario-updated\u0022},\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity\u0022,\u0022name\u0022:\u0022scenario-identity\u0022,\u0022type\u0022:\u0022Microsoft.ManagedIdentity/userAssignedIdentities\u0022,\u0022properties\u0022:{\u0022isolationScope\u0022:\u0022None\u0022,\u0022assignmentRestrictions\u0022:{\u0022providers\u0022:[\u0022Microsoft.Compute\u0022]},\u0022tenantId\u0022:\u002200000000-0000-0000-0000-000000000000\u0022,\u0022principalId\u0022:\u002222222222-2222-2222-2222-222222222222\u0022,\u0022clientId\u0022:\u002211111111-1111-1111-1111-111111111111\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-identity-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scenario-identity?api-version=2025-05-31-preview",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "1c4bceda-ace9-46c9-bc8b-3c100da524ec"
+          ],
+          "x-ms-correlation-request-id": [
+            "1c4bceda-ace9-46c9-bc8b-3c100da524ec"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260831T085807Z:1c4bceda-ace9-46c9-bc8b-3c100da524ec"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 5F763ED2A4A74DC789CC2E5CA2FB652C Ref B: SYD281080712040 Ref C: 2026-08-31T08:58:02Z"
+          ],
+          "Date": [
+            "Mon, 31 Aug 2026 08:58:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}
