@@ -36,7 +36,7 @@ SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID before r
 LOCATION="${AZCLIPS_LOCATION:-eastus}"
 SUFFIX="$$"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-vmshow-rg-$SUFFIX}"
-VM_NAME="azclips-vmshow-vm-$SUFFIX"
+VM_NAME="vmshw-vm-$SUFFIX"
 ADMIN_PASSWORD="${AZCLIPS_VM_ADMIN_PASSWORD:?Set AZCLIPS_VM_ADMIN_PASSWORD before running}"
 
 VM_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$VM_NAME"

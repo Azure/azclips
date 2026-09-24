@@ -43,7 +43,7 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId))
 $location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2' } else { $env:AZCLIPS_LOCATION }
 $suffix        = $PID
 $resourceGroup = if ($env:AZCLIPS_RESOURCE_GROUP) { $env:AZCLIPS_RESOURCE_GROUP } else { "azclips-vmshow-rg-$suffix" }
-$vmName        = "azclips-vmshow-vm-$suffix"
+$vmName        = "vmshw-vm-$suffix"
 
 if (-not $env:AZCLIPS_VM_ADMIN_PASSWORD)
 {
