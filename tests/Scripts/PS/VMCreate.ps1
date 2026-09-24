@@ -1,7 +1,3 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT License.
-
-New-AzVM `
     -SubscriptionId f758ac53-3e63-4317-a956-0997793808d7 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1 `

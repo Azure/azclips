@@ -173,6 +173,43 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listResourceGroupDeploymentOperation_PS = new(
+            Name: "ListResourceGroupDeploymentOperationProcessor",
+            InvocationName: "Get-AzResourceGroupDeploymentOperation_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupDeploymentOperationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListResourceGroupDeploymentOperationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["DeploymentName"]    = new("DeploymentName", "DeploymentName", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["Name"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["Name"] = "DeploymentName",
+            }
+        );
+        private static readonly CommandMetadata s_getResourceGroupDeploymentOperation_PS = new(
+            Name: "GetResourceGroupDeploymentOperationProcessor",
+            InvocationName: "Get-AzResourceGroupDeploymentOperation_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentOperationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.GetResourceGroupDeploymentOperationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["DeploymentName"]    = new("DeploymentName", "DeploymentName", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["Name"], AllowedValues: []),
+                ["OperationId"]       = new("OperationId", "OperationId", typeof(string), "The ID of the deployment operation to get.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["Name"] = "DeploymentName",
+            }
+        );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
             Name: "NewResourceGroupProcessor",
@@ -352,6 +389,45 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listResourceGroupDeploymentOperation_CLI = new(
+            Name: "ListResourceGroupDeploymentOperationProcessor",
+            InvocationName: "deployment operation group list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupDeploymentOperationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListResourceGroupDeploymentOperationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["name"]            = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+                ["n"] = "name",
+            }
+        );
+        private static readonly CommandMetadata s_showResourceGroupDeploymentOperation_CLI = new(
+            Name: "GetResourceGroupDeploymentOperationProcessor_Orchestrator",
+            InvocationName: "deployment operation group show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentOperationProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.GetResourceGroupDeploymentOperationProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["name"]            = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["operation-ids"]   = new("OperationIds", "operation-ids", typeof(string[]), "A space-separated list of operation ids to show.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+                ["n"] = "name",
+            }
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -362,6 +438,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
+            ["Get-AzResourceGroupDeploymentOperation_List"] = s_listResourceGroupDeploymentOperation_PS,
+            ["Get-AzResourceGroupDeploymentOperation_Get"]  = s_getResourceGroupDeploymentOperation_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -379,6 +457,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["group update"]              = s_updateResourceGroup_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
+            ["deployment operation group list"] = s_listResourceGroupDeploymentOperation_CLI,
+            ["deployment operation group show"] = s_showResourceGroupDeploymentOperation_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
