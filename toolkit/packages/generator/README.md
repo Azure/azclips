@@ -149,10 +149,16 @@ Re-run both steps whenever the IR schema changes. `src/Model/Ir/Ir.Generated.cs`
 committed so the library builds out-of-the-box; treat it as generated output (do
 not hand-edit).
 
+The root type is **`TransformedIR`**, not a neutral "document": the schema's root
+is `TransformedIRSchema`, so everything the generator sees already carries
+`Commands` and a resolved `Target`. Those two only exist once `create-command` has
+run, and the name says so rather than leaving them looking like optional fields on
+a bare IR.
+
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
-`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IRAuthScheme`,
+`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IROperationSemantics`, `IRAuthScheme`,
 `IROAuth2Flow` — are emitted by `zod-to-json-schema` as `anyOf` + `const`
 discriminators. `AceIrModelGen` maps each to an **`abstract` base + derived
 types** wired for `System.Text.Json` polymorphism (`[JsonPolymorphic]` /
@@ -166,7 +172,7 @@ throws on the out-of-order discriminator.
 
 ### Source unions and paging (IR 0.10.0 / 0.11.0)
 
-The POCOs preserve `IRDocument.DiscriminatedUnions`, their tagged/default/null
+The POCOs preserve `TransformedIR.DiscriminatedUnions`, their tagged/default/null
 variants, and `IRTypeRefDiscriminatedUnion` references. Operation semantics are
 now an object with independent `Pageable` and `LongRunning` properties rather
 than a `kind`-discriminated union. Paging types retain all input/output roles,
@@ -194,7 +200,7 @@ Both fields are consumed — see [Flattening](#flattening).
 
 ### Shared servers (IR 0.8.0)
 
-`IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
+`TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
 Both `IROperation.Server` and `IRSource.Server` are required `IRId` references;
 the endpoint retains the existing literal/parameterized/oneOf `IRServer` union.
 Processor generation resolves each operation's own reference by structural
@@ -337,7 +343,7 @@ Asynchronous, streaming:
 
 ```csharp
 Task<GenerationResult> GenerateAsync(
-    IRDocument ir, GeneratorOptions options,
+    TransformedIR ir, GeneratorOptions options,
     GeneratedFileHandler writeFile, CancellationToken ct = default);
 ```
 
@@ -391,14 +397,11 @@ The stages are at different maturity levels. **`ModelGenerator`,
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
 `optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
 
-**`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TRequest, TResponse>`
-per flat IR operation. `Verb` comes from the display `operation.name`; `Group`
-comes from `operation.id.interface`, the source TypeSpec interface name.
-`id.namespace` contains only the TypeSpec namespace, and `id.name` retains the
-original TypeSpec operation name even when its display name differs. Parameter
-IDs carry the same owner interface. Namespace-level operations have no interface
-group and emit `{Verb}Processor`; the generator never infers a group from the
-namespace tail. The public surface mirrors the API parameter surface exactly (one
+**`ProcessorGenerator`** emits one `{Command.Name}Processor : ProcessorBase<TRequest, TResponse>`
+per `IRCommand`. The name is used **verbatim** — `create-command` already composed
+it (`action` + `variant` + `subject`), resolved collisions, and applied C#
+identifier rules, so the generator never re-derives a name from an operation. The
+public surface mirrors the command's parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (`{Endpoint}` + path template with

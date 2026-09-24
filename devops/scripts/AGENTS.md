@@ -23,7 +23,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `compliance/` | NOTICE generation (`generate_notice.ps1`, `NOTICE.template`, `notice-overrides.json`). |
 | `packaging/common/` | Shared build steps (`build_common.sh`, `stage_agent.*`, `inject_builtin_extensions.*`, `create_component_archives.sh`, `rename_extension_packages.sh`). |
 | `packaging/config/` | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`. |
-| `packaging/linux/` | Linux tarball build + test. |
+| `packaging/linux/` | Linux tarball build + test, including offline installation of each runtime-compatible pipeline archive. |
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
@@ -61,11 +61,14 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 ## Editing Rules for Agents
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).
+- Contributor PRs may rename `.csproj` files only when their direct release-owned version properties are unchanged. CI uses a 1% similarity threshold and requires project additions and deletions to match one-to-one as renames, rejecting surplus paths so version validation cannot be bypassed through Git's rename classification.
 - Preserve encoding, line endings, and final-newline state when publishing scripts make version-only file updates.
 - Preserve env-var override points and script-relative path resolution.
 - Keep RID/output-root names aligned with `.azure-pipelines/templates/dist/variables/packaging.yml`.
 - Verify third-party archives against registry-provided checksums before extracting or executing them.
 - Validate SDK-bundled Copilot runtimes with their server contract (`--server --stdio`); they do not expose the user-facing CLI's `--version` command.
+- Keep active Windows process redirection files outside published artifact directories, wait for asynchronous stream handling to finish, and dispose process handles before copying diagnostics into artifacts.
+- Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).

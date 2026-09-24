@@ -6,8 +6,9 @@ using Tests.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Records the CLI-only resource-group update workflow against Azure. The scenario replaces all
-/// tags, applies a generic <c>--set</c> update that preserves a string value, and deletes the group.
+/// Records the CLI and PowerShell resource-group update workflows against Azure. Both surfaces
+/// share resource creation, deletion, and result assertions while retaining their client-specific
+/// update shapes.
 /// </summary>
 [Collection("Scenario Tests")]
 public class GroupUpdateScenarioTests
@@ -29,31 +30,25 @@ public class GroupUpdateScenarioTests
                 ClientType.CLI,
                 recording.CreateInterceptor(),
                 useLiveAuth: true);
-            RunWorkflow(host, host.LiveSubscriptionId());
+            RunCliWorkflow(host, host.LiveSubscriptionId());
             recording.Save();
             return;
         }
 
-        using var cli = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor());
-        RunWorkflow(cli, SubscriptionId);
+        using (var cli = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor()))
+        {
+            RunCliWorkflow(cli, SubscriptionId);
+        }
+
+        using (var powerShell = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor()))
+        {
+            RunPowerShellWorkflow(powerShell, SubscriptionId);
+        }
     }
 
-    private static void RunWorkflow(ScenarioHost host, string subscriptionId)
-    {
-        try
+    private static void RunCliWorkflow(ScenarioHost host, string subscriptionId) =>
+        RunWorkflow(host, subscriptionId, ClientType.CLI, () =>
         {
-            AssertResourceGroup(
-                host.RunCli(
-                    "group",
-                    "create",
-                    "--subscription-id",
-                    subscriptionId,
-                    "--name",
-                    ResourceGroupName,
-                    "--location",
-                    Location),
-                expectedTags: null);
-
             AssertResourceGroup(
                 host.RunCli(
                     "group",
@@ -79,21 +74,67 @@ public class GroupUpdateScenarioTests
                     subscriptionId,
                     "-g",
                     ResourceGroupName,
-                    "--set",
-                    "tags.CostCenter=042",
-                    "--force-string"),
+                    "--tags",
+                    "Owner=PowerShell"),
+                new Dictionary<string, string>
+                {
+                    ["Owner"] = "PowerShell",
+                });
+        });
+
+    private static void RunPowerShellWorkflow(ScenarioHost host, string subscriptionId) =>
+        RunWorkflow(host, subscriptionId, ClientType.PowerShell, () =>
+        {
+            AssertResourceGroup(
+                host.RunPowerShell("Set-AzResourceGroup", new Dictionary<string, object>
+                {
+                    ["SubscriptionId"] = subscriptionId,
+                    ["Name"] = ResourceGroupName,
+                    ["Tag"] = new Dictionary<string, string>
+                    {
+                        ["Environment"] = "Scenario",
+                        ["Owner"] = "AzClips",
+                    },
+                }),
                 new Dictionary<string, string>
                 {
                     ["Environment"] = "Scenario",
                     ["Owner"] = "AzClips",
-                    ["CostCenter"] = "042",
                 });
+
+            AssertResourceGroup(
+                host.RunPowerShell("Set-AzResourceGroup", new Dictionary<string, object>
+                {
+                    ["Id"] = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}",
+                    ["Tag"] = new Dictionary<string, string>
+                    {
+                        ["Owner"] = "PowerShell",
+                    },
+                }),
+                new Dictionary<string, string>
+                {
+                    ["Owner"] = "PowerShell",
+                });
+        });
+
+    private static void RunWorkflow(
+        ScenarioHost host,
+        string subscriptionId,
+        ClientType clientType,
+        Action updateResourceGroup)
+    {
+        try
+        {
+            AssertResourceGroup(
+                CreateResourceGroup(host, subscriptionId, clientType),
+                expectedTags: null);
+            updateResourceGroup();
         }
         catch (Exception workflowException)
         {
             try
             {
-                DeleteResourceGroup(host, subscriptionId);
+                DeleteResourceGroup(host, subscriptionId, clientType);
             }
             catch (Exception cleanupException)
             {
@@ -106,17 +147,57 @@ public class GroupUpdateScenarioTests
             throw;
         }
 
-        DeleteResourceGroup(host, subscriptionId);
+        DeleteResourceGroup(host, subscriptionId, clientType);
     }
 
-    private static void DeleteResourceGroup(ScenarioHost host, string subscriptionId) =>
-        Assert.Empty(host.RunCli(
-            "group",
-            "delete",
-            "--subscription-id",
-            subscriptionId,
-            "--name",
-            ResourceGroupName));
+    private static IReadOnlyList<object> CreateResourceGroup(
+        ScenarioHost host,
+        string subscriptionId,
+        ClientType clientType) =>
+        clientType switch
+        {
+            ClientType.CLI => host.RunCli(
+                "group",
+                "create",
+                "--subscription-id",
+                subscriptionId,
+                "--name",
+                ResourceGroupName,
+                "--location",
+                Location),
+            ClientType.PowerShell => host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
+            {
+                ["SubscriptionId"] = subscriptionId,
+                ["Name"] = ResourceGroupName,
+                ["Location"] = Location,
+            }),
+            _ => throw new ArgumentOutOfRangeException(nameof(clientType)),
+        };
+
+    private static void DeleteResourceGroup(
+        ScenarioHost host,
+        string subscriptionId,
+        ClientType clientType)
+    {
+        IReadOnlyList<object> outputs = clientType switch
+        {
+            ClientType.CLI => host.RunCli(
+                "group",
+                "delete",
+                "--subscription-id",
+                subscriptionId,
+                "--name",
+                ResourceGroupName),
+            ClientType.PowerShell => host.RunPowerShell("Remove-AzResourceGroup", new Dictionary<string, object>
+            {
+                ["SubscriptionId"] = subscriptionId,
+                ["Name"] = ResourceGroupName,
+            }),
+            _ => throw new ArgumentOutOfRangeException(nameof(clientType)),
+        };
+
+        Assert.Empty(outputs);
+    }
 
     private static void AssertResourceGroup(
         IReadOnlyList<object> outputs,

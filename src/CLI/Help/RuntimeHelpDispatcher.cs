@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
+using Core.Cli.Output;
 using Core.Extensions;
 using Core.Runtime;
 
@@ -420,16 +421,6 @@ public sealed class RuntimeHelpDispatcher
             command.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
             command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
     }
-    private static uint? TerminalWidth()
-    {
-        try
-        {
-            var width = (uint)Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static uint? TerminalWidth() =>
+        TerminalWidthProvider.Get() is { } width ? (uint)width : null;
 }

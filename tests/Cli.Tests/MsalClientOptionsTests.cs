@@ -178,4 +178,39 @@ public class MsalClientOptionsTests
 
         Assert.True(factory.WasInvoked, "MSAL did not use the injected IMsalHttpClientFactory.");
     }
+
+    [Fact]
+    public async Task LogoutAsync_ShouldNotThrow_WhenTokenCacheAccessFails()
+    {
+        // Point the cache directory at a path that is actually a file so MSAL's token-cache
+        // access fails. Removing an account from the cache is best-effort: the failure must not
+        // prevent the caller (logout) from completing, so LogoutAsync should swallow it and warn.
+        var fakeDirectory = Path.Combine(Path.GetTempPath(), "azclips-msal-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.GetDirectoryName(fakeDirectory)!);
+        File.WriteAllText(fakeDirectory, "this is a file, not a directory");
+
+        try
+        {
+            var logger = new RecordingLogger();
+            var options = new MsalClientOptions { CacheDirectory = fakeDirectory };
+            var service = CreateService(options, logger, new StubProfileService(userPrincipalName: Upn));
+
+            // Must complete without throwing despite the invalid cache location.
+            await service.LogoutAsync(Upn);
+
+            // Assert on a stable phrase describing the non-fatal condition rather than exact wording,
+            // and confirm the account UPN is not surfaced in the console-routed warning (PII).
+            Assert.Contains(logger.Messages, m =>
+                m.Contains("Non-fatal:", StringComparison.Ordinal) &&
+                m.Contains("token-cache cleanup failed during logout", StringComparison.Ordinal) &&
+                !m.Contains(Upn, StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (File.Exists(fakeDirectory))
+            {
+                File.Delete(fakeDirectory);
+            }
+        }
+    }
 }

@@ -8,7 +8,7 @@ using BenchmarkDotNet.Attributes;
 
 namespace Benchmark.CLI;
 
-[BenchmarkExtension("Identity")]
+[BenchmarkExtension("ManagedServiceIdentity")]
 public class UserAssignedIdentityBenchmarks : CLIBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";

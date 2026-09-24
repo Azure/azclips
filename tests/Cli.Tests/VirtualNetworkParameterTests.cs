@@ -46,7 +46,7 @@ public class VirtualNetworkParameterTests
         Json($$"""{ "name": "{{VNetName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
 
     /// <summary>Runs a create and returns the JSON body of the initial PUT.</summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewVirtualNetworkProcessor> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewVirtualNetworkProcessor_Customization> configure)
     {
         string? body = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -55,7 +55,7 @@ public class VirtualNetworkParameterTests
             return CreatedVNet();
         });
 
-        var processor = new NewVirtualNetworkProcessor
+        var processor = new NewVirtualNetworkProcessor_Customization
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
@@ -115,7 +115,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_CompoundSubnets_MapEachKeyOntoSubnetProperties()
     {
-        var body = await CaptureCreateBodyAsync(processor => processor.Subnets =
+        var body = await CaptureCreateBodyAsync(processor => processor.SubnetSpecs =
         [
             ["name=web", "address-prefixes=10.0.1.0/24", "default-outbound-access=false"],
             ["name=data", "address-prefix=10.0.2.0/24", "service-endpoints=Microsoft.Storage,Microsoft.Sql", "delegations=Microsoft.Web/serverFarms"]
@@ -146,7 +146,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_CompoundSubnets_AcceptPascalCaseKeys()
     {
-        var body = await CaptureCreateBodyAsync(processor => processor.Subnets =
+        var body = await CaptureCreateBodyAsync(processor => processor.SubnetSpecs =
         [
             ["Name=web", "AddressPrefix=10.0.1.0/24", "DefaultOutboundAccess=false", "ServiceEndpoint=Microsoft.Storage"]
         ]);
@@ -163,7 +163,7 @@ public class VirtualNetworkParameterTests
     public async Task Create_CompoundSubnets_UnknownKey_ListsSupportedKeys()
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => CaptureCreateBodyAsync(processor => processor.Subnets = [["name=web", "bogus=1"]]));
+            () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["name=web", "bogus=1"]]));
 
         Assert.Contains("bogus", error.Message);
         Assert.Contains("address-prefixes", error.Message);
@@ -180,7 +180,7 @@ public class VirtualNetworkParameterTests
     public async Task Create_CompoundSubnets_RejectKeysOutsideTheMigratedSurface(string key)
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => CaptureCreateBodyAsync(processor => processor.Subnets = [["name=web", $"{key}=value"]]));
+            () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["name=web", $"{key}=value"]]));
 
         Assert.Contains(key, error.Message);
         Assert.DoesNotContain($"{key}, ", error.Message);
@@ -213,7 +213,7 @@ public class VirtualNetworkParameterTests
     public async Task Create_CompoundSubnets_RequireName()
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => CaptureCreateBodyAsync(processor => processor.Subnets = [["address-prefixes=10.0.1.0/24"]]));
+            () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["address-prefixes=10.0.1.0/24"]]));
 
         Assert.Contains("name=", error.Message);
     }
@@ -222,7 +222,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_Tags_PreserveKeyCasing()
     {
-        var body = await CaptureCreateBodyAsync(processor => processor.Tags = ["Owner=team-A", "costCenter=42"]);
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["Owner=team-A", "costCenter=42"]);
 
         var tags = body.GetProperty("tags");
         Assert.Equal("team-A", tags.GetProperty("Owner").GetString());
@@ -233,7 +233,7 @@ public class VirtualNetworkParameterTests
     public async Task Create_Tags_RejectTokensWithoutSeparator()
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => CaptureCreateBodyAsync(processor => processor.Tags = ["owner"]));
+            () => CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner"]));
 
         Assert.Contains("--tags", error.Message);
     }

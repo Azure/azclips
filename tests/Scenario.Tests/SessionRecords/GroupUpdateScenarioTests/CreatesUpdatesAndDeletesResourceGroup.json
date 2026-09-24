@@ -31,13 +31,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+            "813fe66a-9c9d-4bce-aba8-b22550dff76c"
           ],
           "x-ms-correlation-request-id": [
-            "d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+            "813fe66a-9c9d-4bce-aba8-b22550dff76c"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260921T025756Z:d4a1f5de-d316-4b61-bc1b-7ea455b563f4"
+            "AUSTRALIASOUTHEAST:20260921T084438Z:813fe66a-9c9d-4bce-aba8-b22550dff76c"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -49,10 +49,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: D74F3028D33E4B68A8CE205EE97ABA6E Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:52Z"
+            "Ref A: 24ABC3CA353146DDB7665944DB432CC3 Ref B: SYD281080708042 Ref C: 2026-09-21T08:44:32Z"
           ],
           "Date": [
-            "Mon, 21 Sep 2026 02:57:55 GMT"
+            "Mon, 21 Sep 2026 08:44:38 GMT"
           ]
         },
         "contentHeaders": {
@@ -93,13 +93,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "52a3d38c-d382-41d4-9002-f83a85f6d26f"
+            "d51fa152-84be-470f-be0e-c90de9b4983d"
           ],
           "x-ms-correlation-request-id": [
-            "52a3d38c-d382-41d4-9002-f83a85f6d26f"
+            "d51fa152-84be-470f-be0e-c90de9b4983d"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20260921T025759Z:52a3d38c-d382-41d4-9002-f83a85f6d26f"
+            "WESTUS2:20260921T084440Z:d51fa152-84be-470f-be0e-c90de9b4983d"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -111,67 +111,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 0FE2C66F2B114405A9D9D703C63AA6F9 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:56Z"
+            "Ref A: 22D3E44AF6294ABDA4369A0178AF1487 Ref B: SYD281080708042 Ref C: 2026-09-21T08:44:38Z"
           ],
           "Date": [
-            "Mon, 21 Sep 2026 02:57:58 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-update-rg?api-version=2025-04-01",
-        "headers": {}
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-throttling-version": [
-            "v2"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-request-id": [
-            "3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
-          ],
-          "x-ms-correlation-request-id": [
-            "3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
-          ],
-          "x-ms-routing-request-id": [
-            "WESTUS2:20260921T025759Z:3abe9e38-f2e4-496d-a0d0-eaea341b5a75"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: E46CBDD5280D469496C14A13B76F81F1 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:59Z"
-          ],
-          "Date": [
-            "Mon, 21 Sep 2026 02:57:58 GMT"
+            "Mon, 21 Sep 2026 08:44:40 GMT"
           ]
         },
         "contentHeaders": {
@@ -194,7 +137,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022,\u0022CostCenter\u0022:\u0022042\u0022}}"
+        "body": "{\u0022tags\u0022:{\u0022Owner\u0022:\u0022PowerShell\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -212,13 +155,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "21fef36c-e097-4fd3-83a7-6a64186832a5"
+            "d0ef0c41-8f3e-48f8-b17e-ebccf9cb2038"
           ],
           "x-ms-correlation-request-id": [
-            "21fef36c-e097-4fd3-83a7-6a64186832a5"
+            "d0ef0c41-8f3e-48f8-b17e-ebccf9cb2038"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20260921T025801Z:21fef36c-e097-4fd3-83a7-6a64186832a5"
+            "WESTUS2:20260921T084442Z:d0ef0c41-8f3e-48f8-b17e-ebccf9cb2038"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -230,10 +173,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C2F96EB9512A47B59B6CED3040A598D2 Ref B: SYD281080711062 Ref C: 2026-09-21T02:57:59Z"
+            "Ref A: 98DC5B82A77B44948561B96BDAE24C29 Ref B: SYD281080708042 Ref C: 2026-09-21T08:44:40Z"
           ],
           "Date": [
-            "Mon, 21 Sep 2026 02:58:00 GMT"
+            "Mon, 21 Sep 2026 08:44:42 GMT"
           ]
         },
         "contentHeaders": {
@@ -244,7 +187,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Environment\u0022:\u0022Scenario\u0022,\u0022Owner\u0022:\u0022AzClips\u0022,\u0022CostCenter\u0022:\u0022042\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-update-rg\u0022,\u0022name\u0022:\u0022scenario-group-update-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:{\u0022Owner\u0022:\u0022PowerShell\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
       }
     },
     {
@@ -263,7 +206,7 @@
             "no-cache"
           ],
           "Location": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255562817875212\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255770833023394\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "Retry-After": [
             "15"
@@ -275,13 +218,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "1d767989-232c-4af9-b337-985268ea0d12"
+            "4e09bbf8-7cd3-4455-b1c0-f2a7c8c9c552"
           ],
           "x-ms-correlation-request-id": [
-            "1d767989-232c-4af9-b337-985268ea0d12"
+            "4e09bbf8-7cd3-4455-b1c0-f2a7c8c9c552"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20260921T025801Z:1d767989-232c-4af9-b337-985268ea0d12"
+            "WESTUS2:20260921T084443Z:4e09bbf8-7cd3-4455-b1c0-f2a7c8c9c552"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -293,10 +236,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: AC219FCD3770434AB00F3F619B514CE1 Ref B: SYD281080711062 Ref C: 2026-09-21T02:58:01Z"
+            "Ref A: 203DEE487B584742A65BE88851E7F485 Ref B: SYD281080708042 Ref C: 2026-09-21T08:44:42Z"
           ],
           "Date": [
-            "Mon, 21 Sep 2026 02:58:00 GMT"
+            "Mon, 21 Sep 2026 08:44:42 GMT"
           ]
         },
         "contentHeaders": {
@@ -310,7 +253,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255562817875212\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639255770833023394\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -329,13 +272,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "1575a6ee-bf9b-464b-998e-406d2501ed1c"
+            "038b0319-edef-431a-b09f-58060700ddac"
           ],
           "x-ms-correlation-request-id": [
-            "1575a6ee-bf9b-464b-998e-406d2501ed1c"
+            "038b0319-edef-431a-b09f-58060700ddac"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260921T025817Z:1575a6ee-bf9b-464b-998e-406d2501ed1c"
+            "AUSTRALIASOUTHEAST:20260921T084459Z:038b0319-edef-431a-b09f-58060700ddac"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -347,10 +290,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: B0BE6F3BC7114F87BD1FF5131AE5DB03 Ref B: SYD281080711062 Ref C: 2026-09-21T02:58:16Z"
+            "Ref A: 4D21E1EC4CD64743B3A5A3146734C49A Ref B: SYD281080708042 Ref C: 2026-09-21T08:44:58Z"
           ],
           "Date": [
-            "Mon, 21 Sep 2026 02:58:16 GMT"
+            "Mon, 21 Sep 2026 08:44:58 GMT"
           ]
         },
         "contentHeaders": {

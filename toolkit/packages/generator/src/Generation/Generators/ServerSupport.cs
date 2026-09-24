@@ -51,7 +51,7 @@ internal static class ServerSupport
     /// order. <c>null</c> when the document declares no usable server at all — then there is
     /// nothing to derive, and the base makes the endpoint itself a public input.
     /// </summary>
-    public static ResolvedEndpoint? Dominant(IRDocument ir) =>
+    public static ResolvedEndpoint? Dominant(TransformedIR ir) =>
         ir.Servers
             .Select(definition => Resolve(definition.Endpoint))
             .Where(endpoint => endpoint is not null)
@@ -66,7 +66,7 @@ internal static class ServerSupport
     /// member names. These become public inputs on the base — shared, because a server's parameters
     /// mean the same thing for every operation that uses it.
     /// </summary>
-    public static IReadOnlyList<string> Inputs(IRDocument ir) =>
+    public static IReadOnlyList<string> Inputs(TransformedIR ir) =>
         [.. ir.Servers
             .Select(definition => Resolve(definition.Endpoint))
             .Where(endpoint => endpoint is not null)
