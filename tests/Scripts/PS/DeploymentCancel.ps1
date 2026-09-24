@@ -216,8 +216,9 @@ try {
 finally {
     # Cleanup: the cancelled deployment may have created storage accounts before it was stopped.
     # Cancelling does not roll anything back, so delete them explicitly. ARM answers 200 when the
-    # account existed and 204 when it did not, so both are a clean teardown. Teardown is
-    # best-effort: a throw here must not mask the real failure or skip the remaining accounts.
+    # account existed and 204 when it did not, so both are a clean teardown. Each delete is caught
+    # so one failure does not skip the remaining accounts, but the failure is still tallied -- a
+    # stranded storage account must make the run non-zero, not just print a warning.
     foreach ($index in 0..($StorageAccountCount - 1)) {
         $accountName = "$StorageAccountPrefix$index"
         try {
@@ -232,7 +233,7 @@ finally {
                 Fail "cleanup returned $($delete.StatusCode); '$accountName' may still exist"
             }
         } catch {
-            Write-Warning "cleanup of '$accountName' failed: $($_.Exception.Message)"
+            Fail "cleanup of '$accountName' failed: $($_.Exception.Message)"
         }
     }
 }
