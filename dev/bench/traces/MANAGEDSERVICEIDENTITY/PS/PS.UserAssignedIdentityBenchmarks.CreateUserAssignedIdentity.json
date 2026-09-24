@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "benchmark": "PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+  "extension": "MANAGEDSERVICEIDENTITY",
+  "product": "PS",
+  "source": {
+    "commit": "64843ebf598b23b76002b4762b2ac6752b488010",
+    "ref": "refs/heads/main",
+    "run_id": "35942655363",
+    "generated": "2026-09-24T01:46:06Z"
+  },
+  "traces": 100,
+  "diagnostics": {
+    "malformed": 0,
+    "orphan_subtrees": 0,
+    "rootless_traces": 0
+  },
+  "nodes": [
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ]
+      ],
+      "avg_ms": 1.6834750000000003,
+      "occurrences": 100,
+      "offset_ms": 0.0
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "SessionCreated",
+          0
+        ]
+      ],
+      "avg_ms": 1.4653679999999998,
+      "occurrences": 100,
+      "offset_ms": 0.21622999999999998
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "ProcessorProcessAsyncStart",
+          0
+        ]
+      ],
+      "avg_ms": 0.8234939999999995,
+      "occurrences": 100,
+      "offset_ms": 0.84209
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          0
+        ]
+      ],
+      "avg_ms": 0.277694,
+      "occurrences": 100,
+      "offset_ms": 1.32157
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          0
+        ]
+      ],
+      "avg_ms": 0.254845,
+      "occurrences": 100,
+      "offset_ms": 1.3408899999999997
+    }
+  ]
+}
