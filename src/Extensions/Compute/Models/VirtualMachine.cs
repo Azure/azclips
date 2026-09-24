@@ -14,7 +14,7 @@ public class VirtualMachine
     public VirtualMachineProperties Properties { get; set; } = null!;
 
     // Synthetic fields computed by --show-details rather than returned by ARM. They sit outside
-    // Properties so the ARM-sourced payload stays untouched, matching legacy `az vm show -d`.
+    // Properties so the ARM-sourced payload stays untouched.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PowerState { get; set; }
 
