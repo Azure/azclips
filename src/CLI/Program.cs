@@ -107,8 +107,22 @@ public class Program
         var positional = args;
         CommandInvocation? invocation = null;
 
+        GlobalArgs globalArgs;
+        EffectiveSessionSettings sessionSettings;
+
         try
         {
+            globalArgs = GlobalArgParser.Parse(args);
+            var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+            var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+            sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+            ColorPolicy.Initialize(sessionSettings.Color);
+            streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+
+            // Startup/profile reads happen before the session logger is set in ExecutionSession, so
+            // scope the logger through the session-aware output stream before any early profile lookup.
+            using var startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
+
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
 
@@ -140,10 +154,10 @@ public class Program
                 performance.Replay(_telemetryService);
             }
 
-            GlobalArgs globalArgs;
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
             {
-                globalArgs = GlobalArgParser.Parse(args);
+                // Parse already happened before startup profile resolution so the config-backed session
+                // policy is active before any profile reads can log.
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
@@ -154,14 +168,9 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-                ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
                 errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
                     errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
-                    configuredFormat: settings.Format,
+                    configuredFormat: sessionSettings.Format,
                     explicitFormat: globalArgs.Output);
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
