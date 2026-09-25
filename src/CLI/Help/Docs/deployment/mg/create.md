@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Validates and creates an Incremental deployment. Supply exactly one template source. Use `--no-wait` to return after ARM accepts the request.
+Description: Validates and creates an Incremental deployment. Supply exactly one template source.
 
 ### Create a management-group deployment from Bicep
 

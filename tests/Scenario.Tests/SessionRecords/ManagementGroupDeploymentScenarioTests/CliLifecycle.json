@@ -13,7 +13,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022subscriptionId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022resourceGroupName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022azclips-management-group-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027subscriptionId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027resourceGroupName\\u0027)]\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}}}}],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -35,7 +35,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022subscriptionId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022resourceGroupName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022azclips-management-group-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027subscriptionId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027resourceGroupName\\u0027)]\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}}}}],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
       },
       "response": {
         "statusCode": 200,
@@ -57,7 +57,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022subscriptionId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022resourceGroupName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022azclips-management-group-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027subscriptionId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027resourceGroupName\\u0027)]\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}}}}],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -79,7 +79,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022subscriptionId\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022resourceGroupName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022azclips-management-group-deployment\u0022}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022apiVersion\u0022:\u00222022-09-01\u0022,\u0022name\u0022:\u0022azclips-management-group-nested\u0022,\u0022subscriptionId\u0022:\u0022[parameters(\\u0027subscriptionId\\u0027)]\u0022,\u0022resourceGroup\u0022:\u0022[parameters(\\u0027resourceGroupName\\u0027)]\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}},\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}}}}],\u0022outputs\u0022:{\u0022marker\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027marker\\u0027)]\u0022}}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -107,6 +107,40 @@
           ]
         },
         "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-management-group-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-management-group-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Running\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {},
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\r\n  \u0022id\u0022: \u0022/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment\u0022,\r\n  \u0022name\u0022: \u0022scenario-management-group-deployment\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/deployments\u0022,\r\n  \u0022location\u0022: \u0022eastus\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022provisioningState\u0022: \u0022Running\u0022,\r\n    \u0022mode\u0022: \u0022Incremental\u0022\r\n  }\r\n}"
       }
     },
     {

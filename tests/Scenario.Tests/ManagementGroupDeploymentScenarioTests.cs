@@ -100,8 +100,7 @@ public class ManagementGroupDeploymentScenarioTests
             "--management-group-id", ManagementGroupId,
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template,
-            "--no-wait")));
+            "--template-file", template)));
 
         Assert.Single(host.RunCli(
             "deployment", "mg", "wait",
