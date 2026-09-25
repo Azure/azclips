@@ -61,8 +61,23 @@ without Promptfoo caching, restores temporary Agent configuration and the
 `AZCLIPS_EXE` environment variable, and prints the artifact path and evaluation UI
 URL. Promptfoo telemetry and update checks are disabled during evaluation, without
 changing AZCLIPS telemetry settings, and their environment overrides are restored
-afterwards. Configuration restoration is attempted for every changed setting,
-even if one restore fails.
+afterwards.
+
+Before applying temporary settings, the wrapper backs up the original
+`config.json` to `config.json.evaluation-<id>.bak` in the same directory and prints
+the backup path. It uses `AZCLIPS_HOME` when set, otherwise `.azclips` under the
+current user's profile directory, matching the target CLI's configuration path.
+The whole file is restored byte-for-byte after evaluation or a setup/run failure,
+preserving JSON types, formatting, and encoding. If the file did not exist before
+the run, the temporary file is removed instead. Successful restoration consumes
+the backup; a backup failure stops before changing settings, and a restoration
+failure keeps the backup, reports its path, and prevents upload.
+
+Do not change configuration or run another evaluation against the same AZCLIPS
+home while the wrapper is running, because restoration replaces the whole file.
+If the process is forcibly terminated, automatic restoration may not run. Restore
+the printed backup to `config.json` manually before the next run; if the file
+originally did not exist, remove the newly created `config.json` instead.
 
 The wrapper captures the target CLI's active subscription before evaluation.
 Assertions use that recorded context: an optional `--subscription-id` can be
@@ -73,7 +88,7 @@ score. These temporary context variables are restored afterwards.
 Each invocation uses a unique artifact and trace path by default. An explicit
 `-OutputPath` must not already exist: the wrapper never overwrites a previous
 result or uploads it after a new evaluation fails. Missing, invalid, or empty
-artifacts and configuration-restoration failures are errors.
+artifacts and configuration backup/restoration failures are errors.
 
 Quality failures still produce an artifact and can be uploaded with `-Upload`;
 the wrapper preserves Promptfoo's nonzero exit code. Process failures such as a

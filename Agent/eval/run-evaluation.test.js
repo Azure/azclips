@@ -6,10 +6,14 @@ const path = require('node:path');
 const test = require('node:test');
 
 const initialConfig = {
-  'agent.enabled': 'false',
+  'agent.enabled': false,
   'agent.sessionStyle': 'interactive',
   'agent.trace.path': 'original-traces',
+  unrelated: { enabled: true, retries: 3, value: null },
 };
+const initialConfigurationBytes = Buffer.from(
+  `\uFEFF${JSON.stringify(initialConfig, null, '\t').replace(/\n/g, '\r\n')}\r\n`,
+);
 
 const fakeAzclips = String.raw`
 $ErrorActionPreference = 'Stop'
@@ -22,10 +26,12 @@ if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
     $global:LASTEXITCODE = 0
     return
 }
-$statePath = Join-Path $root 'state.json'
-$state = Get-Content $statePath -Raw | ConvertFrom-Json -AsHashtable
+$statePath = Join-Path $env:AZCLIPS_HOME 'config.json'
+$json = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $statePath -Raw }
+$state = if ([string]::IsNullOrWhiteSpace($json)) { @{} } else { $json | ConvertFrom-Json -AsHashtable }
 $operation = $args[1]
 $key = $args[3]
+Add-Content (Join-Path $root 'configuration-calls.txt') ($args -join ' ')
 if ($operation -eq 'get') {
     $value = if ($state.ContainsKey($key)) { $state[$key] } else { 'false' }
     $source = if ($state.ContainsKey($key)) { 'config' } else { 'Default' }
@@ -40,12 +46,11 @@ if ($operation -eq 'set') {
         $global:LASTEXITCODE = 7
         return
     }
-    if ($scenario.failRestoreKey -eq $key -and $args[5] -eq 'false') {
-        'Configuration restore rejected'
-        $global:LASTEXITCODE = 9
-        return
+    $state[$key] = switch -CaseSensitive ([string]$args[5]) {
+        'true' { $true }
+        'false' { $false }
+        default { [string]$args[5] }
     }
-    $state[$key] = [string]$args[5]
 }
 elseif ($operation -eq 'delete') {
     [void]$state.Remove($key)
@@ -53,7 +58,7 @@ elseif ($operation -eq 'delete') {
 else {
     throw "Unexpected fake command: $($args -join ' ')"
 }
-$state | ConvertTo-Json | Set-Content $statePath
+$state | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $statePath
 $global:LASTEXITCODE = 0
 `;
 
@@ -79,6 +84,23 @@ function global:npx {
     $outputIndex = [array]::IndexOf([object[]]$args, '--output') + 1
     $output = $args[$outputIndex]
     Add-Content (Join-Path $root 'calls.txt') "evaluate|$output"
+    $configPath = Join-Path $env:AZCLIPS_HOME 'config.json'
+    $configuration = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
+    if ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
+        $configuration['agent.sessionStyle'] -ne 'oneshot' -or
+        $configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
+        $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
+        throw "Expected temporary Agent configuration during evaluation: $($configuration | ConvertTo-Json -Depth 10 -Compress)"
+    }
+    $backups = @(Get-ChildItem -LiteralPath $env:AZCLIPS_HOME -Filter 'config.json.evaluation-*.bak' -File)
+    if ($backups.Count -eq 1) {
+        Copy-Item -LiteralPath $backups[0].FullName -Destination (Join-Path $root 'backup-during-evaluation.bin')
+    }
+    if ($scenario.failRestore) {
+        Remove-Item -LiteralPath $configPath
+        New-Item -Path $configPath -ItemType Directory | Out-Null
+    }
+    if ($scenario.evaluationThrows) { throw 'Evaluation invocation failed' }
     if ($scenario.produceArtifact) {
         $json = if ($scenario.invalidArtifact) { '{invalid json' }
             elseif ($scenario.emptyArtifact) { '{"results":{"results":[]}}' }
@@ -126,7 +148,7 @@ exit $exitCode
 `;
 
 function runWrapper(context, options = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-wrapper-test-'));
+  const directory = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-wrapper-test-')));
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const scenario = {
     produceArtifact: true,
@@ -134,8 +156,15 @@ function runWrapper(context, options = {}) {
     runs: 1,
     ...options,
   };
+  const home = path.join(directory, 'home');
+  const configurationPath = path.join(home, 'config.json');
+  fs.mkdirSync(home);
+  if (scenario.failBackup) {
+    fs.mkdirSync(configurationPath);
+  } else if (!scenario.missingConfiguration) {
+    fs.writeFileSync(configurationPath, scenario.emptyConfiguration ? Buffer.alloc(0) : initialConfigurationBytes);
+  }
   fs.writeFileSync(path.join(directory, 'scenario.json'), JSON.stringify(scenario));
-  fs.writeFileSync(path.join(directory, 'state.json'), JSON.stringify(initialConfig));
   fs.writeFileSync(path.join(directory, 'az.ps1'), fakeAzclips);
   fs.writeFileSync(path.join(directory, 'driver.ps1'), driver);
   if (scenario.existingArtifact) {
@@ -146,6 +175,7 @@ function runWrapper(context, options = {}) {
     timeout: 20_000,
     env: {
       ...process.env,
+      AZCLIPS_HOME: home,
       AZCLIPS_EVAL_TEST_ROOT: directory,
       AZCLIPS_EVAL_TEST_WRAPPER: path.join(__dirname, 'run-evaluation.ps1'),
       TEMP: directory,
@@ -158,18 +188,35 @@ function runWrapper(context, options = {}) {
   const summaryPath = path.join(directory, 'summary.json');
   assert.ok(fs.existsSync(summaryPath), `${result.stdout}\n${result.stderr}`);
   const callsPath = path.join(directory, 'calls.txt');
+  const configurationCallsPath = path.join(directory, 'configuration-calls.txt');
+  const configurationBytes = fs.existsSync(configurationPath) && fs.statSync(configurationPath).isFile()
+    ? fs.readFileSync(configurationPath)
+    : null;
+  const configurationText = configurationBytes?.toString('utf8').replace(/^\uFEFF/, '').trim();
+  const backupDuringEvaluationPath = path.join(directory, 'backup-during-evaluation.bin');
   return {
     ...result,
     directory,
+    configurationPath,
     summary: JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')),
-    configuration: JSON.parse(fs.readFileSync(path.join(directory, 'state.json'), 'utf8').replace(/^\uFEFF/, '')),
+    configuration: configurationText ? JSON.parse(configurationText) : null,
+    configurationBytes,
+    backups: fs.readdirSync(home)
+      .filter((name) => /^config\.json\.evaluation-[a-f0-9]{32}\.bak$/.test(name))
+      .map((name) => path.join(home, name)),
+    backupDuringEvaluation: fs.existsSync(backupDuringEvaluationPath)
+      ? fs.readFileSync(backupDuringEvaluationPath)
+      : null,
+    configurationCalls: fs.existsSync(configurationCallsPath)
+      ? fs.readFileSync(configurationCallsPath, 'utf8').trim().split(/\r?\n/)
+      : [],
     calls: fs.existsSync(callsPath)
       ? fs.readFileSync(callsPath, 'utf8').trim().split(/\r?\n/)
       : [],
   };
 }
 
-test('wrapper produces a fresh artifact and restores configuration and environment', (context) => {
+test('wrapper restores original configuration bytes, JSON types, and environment after evaluation', (context) => {
   const result = runWrapper(context);
   assert.equal(result.status, 0, result.summary.error);
   assert.equal(result.summary.executable, 'original-executable');
@@ -178,6 +225,11 @@ test('wrapper produces a fresh artifact and restores configuration and environme
   assert.equal(result.summary.signedIn, 'original-signed-in');
   assert.equal(result.summary.subscriptionId, 'original-subscription');
   assert.deepEqual(result.configuration, initialConfig);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backupDuringEvaluation, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
+  assert.equal(result.configurationCalls.length, 4);
+  assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
   assert.equal(result.calls.length, 1);
   assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
 });
@@ -188,6 +240,8 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   const paths = result.calls.map((call) => call.slice('evaluate|'.length));
   assert.equal(new Set(paths).size, 2);
   assert.ok(paths.every((file) => fs.existsSync(file)));
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
 });
 
 test('wrapper refuses to overwrite or upload a previous artifact', (context) => {
@@ -196,6 +250,8 @@ test('wrapper refuses to overwrite or upload a previous artifact', (context) => 
   assert.match(result.summary.error, /Output already exists/);
   assert.deepEqual(result.calls, []);
   assert.deepEqual(result.configuration, initialConfig);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
   assert.equal(fs.readFileSync(path.join(result.directory, 'result.json'), 'utf8'), 'previous-result');
 });
 
@@ -205,6 +261,8 @@ test('wrapper fails without uploading when Promptfoo does not export an artifact
   assert.match(result.summary.error, /did not produce an evaluation artifact \(exit code 9\)/);
   assert.equal(result.calls.includes('upload'), false);
   assert.deepEqual(result.configuration, initialConfig);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
   assert.equal(result.summary.executable, 'original-executable');
 });
 
@@ -213,6 +271,8 @@ test('wrapper uploads fresh quality failures and preserves their nonzero exit co
   assert.equal(result.status, 100, result.summary.error);
   assert.equal(result.calls.at(-1), 'upload');
   assert.deepEqual(result.configuration, initialConfig);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
 });
 
 for (const [option, message] of [
@@ -225,6 +285,8 @@ for (const [option, message] of [
     assert.match(result.summary.error, message);
     assert.equal(result.calls.includes('upload'), false);
     assert.deepEqual(result.configuration, initialConfig);
+    assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+    assert.deepEqual(result.backups, []);
   });
 }
 
@@ -234,19 +296,76 @@ test('wrapper restores prior settings after setup fails partway through', (conte
   assert.match(result.summary.error, /Configuration set rejected/);
   assert.deepEqual(result.calls, []);
   assert.deepEqual(result.configuration, initialConfig);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
   assert.equal(result.summary.executable, 'original-executable');
 });
 
-test('wrapper attempts remaining restores and blocks upload after a restore failure', (context) => {
-  const result = runWrapper(context, { failRestoreKey: 'agent.enabled', upload: true });
+test('wrapper restores original configuration after an evaluation exception', (context) => {
+  const result = runWrapper(context, { evaluationThrows: true, upload: true });
   assert.equal(result.status, 1);
-  assert.match(result.summary.error, /Failed to restore Agent configuration: agent.enabled/);
-  assert.equal(result.configuration['agent.sessionStyle'], initialConfig['agent.sessionStyle']);
-  assert.equal(result.configuration['agent.trace.path'], initialConfig['agent.trace.path']);
-  assert.equal(result.configuration['agent.trace.enabled'], undefined);
+  assert.match(result.summary.error, /Evaluation invocation failed/);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
   assert.equal(result.summary.executable, 'original-executable');
+  assert.equal(result.summary.telemetry, 'false');
+  assert.equal(result.summary.update, 'false');
+  assert.equal(result.summary.signedIn, 'original-signed-in');
+  assert.equal(result.summary.subscriptionId, 'original-subscription');
   assert.equal(result.calls.includes('upload'), false);
 });
+
+for (const failSetKey of [undefined, 'agent.trace.enabled']) {
+  test(`wrapper restores a missing configuration file after ${failSetKey ? 'setup failure' : 'evaluation'}`, (context) => {
+    const result = runWrapper(context, { missingConfiguration: true, failSetKey });
+    assert.equal(result.status, failSetKey ? 1 : 0, result.summary.error);
+    if (failSetKey) { assert.match(result.summary.error, /Configuration set rejected/); }
+    assert.equal(fs.existsSync(result.configurationPath), false);
+    assert.deepEqual(result.backups, []);
+    assert.equal(result.summary.executable, 'original-executable');
+  });
+}
+
+test('wrapper restores an originally empty configuration file without rewriting it', (context) => {
+  const result = runWrapper(context, { emptyConfiguration: true });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(result.configurationBytes, Buffer.alloc(0));
+  assert.deepEqual(result.backupDuringEvaluation, Buffer.alloc(0));
+  assert.deepEqual(result.backups, []);
+});
+
+test('wrapper stops before changing configuration or evaluating if backup fails', (context) => {
+  const result = runWrapper(context, { failBackup: true, upload: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /Failed to back up Agent configuration/);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
+  assert.deepEqual(result.backups, []);
+  assert.ok(fs.statSync(result.configurationPath).isDirectory());
+  assert.equal(result.summary.executable, 'original-executable');
+});
+
+for (const evaluationThrows of [false, true]) {
+  test(`wrapper retains a recoverable backup and blocks upload on restore failure${evaluationThrows ? ' after an evaluation exception' : ''}`, (context) => {
+    const result = runWrapper(context, { failRestore: true, evaluationThrows, upload: true });
+    assert.equal(result.status, 1);
+    assert.match(result.summary.error, /Failed to restore Agent configuration/);
+    if (evaluationThrows) { assert.match(result.summary.error, /Evaluation invocation failed/); }
+    assert.equal(result.backups.length, 1);
+    assert.ok(result.summary.error.includes(result.backups[0]), result.summary.error);
+    assert.deepEqual(fs.readFileSync(result.backups[0]), initialConfigurationBytes);
+    assert.equal(result.summary.executable, 'original-executable');
+    assert.equal(result.summary.telemetry, 'false');
+    assert.equal(result.summary.update, 'false');
+    assert.equal(result.summary.signedIn, 'original-signed-in');
+    assert.equal(result.summary.subscriptionId, 'original-subscription');
+    assert.equal(result.calls.includes('upload'), false);
+
+    fs.rmdirSync(result.configurationPath);
+    fs.renameSync(result.backups[0], result.configurationPath);
+    assert.deepEqual(fs.readFileSync(result.configurationPath), initialConfigurationBytes);
+  });
+}
 
 for (const option of ['signedOut', 'missingSubscription']) {
   test(`wrapper rejects ${option} before changing configuration or calling a model`, (context) => {
@@ -254,6 +373,8 @@ for (const option of ['signedOut', 'missingSubscription']) {
     assert.equal(result.status, 1);
     assert.match(result.summary.error, /requires an Azure-signed-in active profile/);
     assert.deepEqual(result.configuration, initialConfig);
+    assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+    assert.deepEqual(result.backups, []);
     assert.deepEqual(result.calls, []);
   });
 }

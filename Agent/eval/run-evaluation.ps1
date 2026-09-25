@@ -38,17 +38,6 @@ function Invoke-Azclips {
     return $output
 }
 
-function Get-ConfigurationSnapshot([string] $Key) {
-    $entry = Invoke-Azclips config get --key $Key --json | ConvertFrom-Json
-    $value = if ($null -ne $entry.Value) { $entry.Value } else { $entry.value }
-    $source = if ($null -ne $entry.Source) { $entry.Source } else { $entry.source }
-    return [pscustomobject]@{
-        Value = if ($null -eq $value) { $null } else { $value.ToString() }
-        WasDefault = [string]::IsNullOrWhiteSpace($source) -or
-            -not $source.Contains('config', [StringComparison]::OrdinalIgnoreCase)
-    }
-}
-
 $runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
 $subscriptionId = [guid]::Empty
 if ($runtimeEnvironment.signedIn -ne $true -or
@@ -57,7 +46,25 @@ if ($runtimeEnvironment.signedIn -ne $true -or
     throw 'The reference suite requires an Azure-signed-in active profile with a subscription.'
 }
 
-$snapshots = @{}
+$configurationRoot = if ($env:AZCLIPS_HOME) {
+    $env:AZCLIPS_HOME
+}
+else {
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
+}
+$configurationPath = [IO.Path]::GetFullPath((Join-Path $configurationRoot 'config.json'), $PWD.ProviderPath)
+$configurationExisted = Test-Path -LiteralPath $configurationPath
+$configurationBackupPath = "$configurationPath.evaluation-$([guid]::NewGuid().ToString('N')).bak"
+if ($configurationExisted) {
+    try {
+        [IO.File]::Copy($configurationPath, $configurationBackupPath)
+    }
+    catch {
+        throw "Failed to back up Agent configuration '$configurationPath'; no temporary settings were applied: $($_.Exception.Message)"
+    }
+    Write-Host "Agent configuration backup: $configurationBackupPath"
+}
+
 $evaluationExitCode = 1
 $previousAzclipsExe = $env:AZCLIPS_EXE
 $previousPromptfooTelemetry = $env:PROMPTFOO_DISABLE_TELEMETRY
@@ -65,10 +72,9 @@ $previousPromptfooUpdate = $env:PROMPTFOO_DISABLE_UPDATE
 $previousSignedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
 $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $runFailure = $null
-$restoreFailures = [Collections.Generic.List[string]]::new()
+$restoreFailure = $null
 try {
     foreach ($entry in $configuration.GetEnumerator()) {
-        $snapshots[$entry.Key] = Get-ConfigurationSnapshot $entry.Key
         Invoke-Azclips config set --key $entry.Key --value $entry.Value | Out-Null
     }
 
@@ -96,19 +102,21 @@ catch {
     $runFailure = $_
 }
 finally {
-    foreach ($entry in $configuration.GetEnumerator()) {
-        $snapshot = $snapshots[$entry.Key]
-        if ($null -eq $snapshot) { continue }
-        try {
-            if ($snapshot.WasDefault -or $null -eq $snapshot.Value) {
-                Invoke-Azclips config delete --key $entry.Key | Out-Null
-            }
-            else {
-                Invoke-Azclips config set --key $entry.Key --value $snapshot.Value | Out-Null
-            }
+    try {
+        if ($configurationExisted) {
+            [IO.File]::Move($configurationBackupPath, $configurationPath, $true)
         }
-        catch {
-            $restoreFailures.Add("$($entry.Key): $($_.Exception.Message)")
+        else {
+            [IO.File]::Delete($configurationPath)
+        }
+    }
+    catch {
+        $restoreFailure = "Failed to restore Agent configuration '$configurationPath': $($_.Exception.Message)"
+        if ($configurationExisted) {
+            $restoreFailure += " Backup path: '$configurationBackupPath'. Restore it before running evaluation again."
+        }
+        else {
+            $restoreFailure += " The file did not exist before this run; remove '$configurationPath' to restore the original state."
         }
     }
     $env:AZCLIPS_EXE = $previousAzclipsExe
@@ -118,12 +126,10 @@ finally {
     $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $previousSubscriptionId
 }
 
-if ($runFailure -or $restoreFailures.Count -gt 0) {
+if ($runFailure -or $restoreFailure) {
     $messages = @()
     if ($runFailure) { $messages += $runFailure.Exception.Message }
-    if ($restoreFailures.Count -gt 0) {
-        $messages += "Failed to restore Agent configuration: $($restoreFailures -join '; ')"
-    }
+    if ($restoreFailure) { $messages += $restoreFailure }
     throw ($messages -join "`n")
 }
 
