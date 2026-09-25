@@ -47,7 +47,7 @@ public static partial class RecoveryTelemetry
 
     public static void RecordModel(Activity? activity, string? model, AgentModelSource source)
     {
-        var recordedModel = string.IsNullOrWhiteSpace(model) ? null : model;
+        var recordedModel = IsExportableModel(model) ? model : null;
         activity?.SetTag(TelemetryTags.AgentModel, recordedModel);
         activity?.SetTag(TelemetryTags.AgentModelSource,
             (recordedModel is null ? AgentModelSource.Unavailable : source).Wire());

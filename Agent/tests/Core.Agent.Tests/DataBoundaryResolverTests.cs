@@ -19,6 +19,7 @@ namespace Core.Agent.Tests;
 /// <para>The other half is export discipline: ARM's string is the only untrusted input in the
 /// vocabulary, and it lands in a telemetry dimension.</para>
 /// </summary>
+[Collection("AgentTelemetry")]
 public class DataBoundaryResolverTests
 {
     private const string TenantId = "fake-tenant";
@@ -39,6 +40,34 @@ public class DataBoundaryResolverTests
 
     private static DataBoundaryResolver Build(HttpMessageHandler handler, string? tenantId = TenantId) =>
         new(new FakeProfileService(tenantId), new HttpClient(handler));
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, "eu")]
+    [InlineData(HttpStatusCode.Forbidden, "arm_status_403")]
+    public async Task Resolve_ExportsBoundaryOutcomeAndElapsedAfterFilters(
+        HttpStatusCode status, string expectedOutcome)
+    {
+        await using var harness = new AgentLayerTestHarness();
+        var scope = harness.CreateScope();
+        using var sessionScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+        var session = sessionScope?.Activity;
+        Assert.NotNull(session);
+        using var http = new HttpClient(new DelayedTelemetryHandler(status));
+        using var resolver = new DataBoundaryResolver(new FakeProfileService(TenantId), http, scope.Telemetry);
+        var result = await resolver.ResolveAsync(CallerToken);
+        Assert.Equal(expectedOutcome, result.Value);
+        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(session));
+
+        var entries = harness.ReadEntries();
+        var boundary = Assert.Single(entries, entry => entry.GetProperty("OperationName").GetString() == "Agent.DataBoundary");
+        var tags = AgentLayerTestHarness.Tags(boundary);
+        Assert.Equal(session.SpanId.ToString(), boundary.GetProperty("ParentSpanId").GetString());
+        Assert.Equal(expectedOutcome, tags[TelemetryTags.RecoveryDataBoundary].GetString());
+        Assert.InRange(tags[TelemetryTags.RecoveryDataBoundaryElapsedMs].GetInt64(), 15L, 5_000L);
+        Assert.Equal("agent-v1", tags[TelemetryLayerTags.Schema].GetString());
+        Assert.Equal("Agent", boundary.GetProperty("Resource").GetProperty("service.name").GetString());
+        Assert.Single(entries, entry => entry.GetProperty("OperationName").GetString() == "Agent.Session");
+    }
 
     /// <summary>
     /// Runs a lookup and turns a violated "never throws" contract into a named assertion failure.
@@ -386,6 +415,19 @@ public class DataBoundaryResolverTests
                 seen.TryGetValue(wire, out var owner),
                 $"{reason} and {owner} both emit '{wire}'.");
             seen[wire] = reason;
+        }
+    }
+
+    private sealed class DelayedTelemetryHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(30, cancellationToken);
+            return new HttpResponseMessage(status)
+            {
+                Content = new StringContent(BoundaryPayload("EU"), Encoding.UTF8, "application/json"),
+            };
         }
     }
 
