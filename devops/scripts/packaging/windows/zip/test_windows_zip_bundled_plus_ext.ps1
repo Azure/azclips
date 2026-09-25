@@ -270,6 +270,50 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     Write-Host '  PASS: corrupt archive preserved the existing installation'
     Remove-Item -Path $invalidArchivesRoot -Recurse -Force
 
+    Write-Host '[Preflight] Verify the default install path handles spaces and non-ASCII characters'
+    $defaultUserRoot = Join-Path $SimRoot 'Test User José'
+    $defaultLocalAppData = Join-Path $defaultUserRoot 'AppData/Local'
+    $defaultInstallRoot = Join-Path $defaultLocalAppData 'Programs/azcli'
+    $defaultHomeSentinel = Join-Path $defaultUserRoot 'sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalLocalAppData = $env:LOCALAPPDATA
+    $originalAzclipsHome = $env:AZCLIPS_HOME
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $defaultUserRoot -ItemType Directory -Force
+        Set-Content -Path $defaultHomeSentinel -Value 'default home sentinel'
+        $env:USERPROFILE = $defaultUserRoot
+        $env:LOCALAPPDATA = $defaultLocalAppData
+        $env:AZCLIPS_HOME = $null
+        $env:AZCLI_INSTALL_ROOT = $null
+
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        $defaultAzExe = Join-Path $defaultInstallRoot 'az.exe'
+        & $defaultAzExe --version *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --version failed.' }
+        & $defaultAzExe --help *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'FAIL: default-path az.exe --help failed.' }
+
+        $stalePath = Join-Path $defaultInstallRoot 'stale'
+        Set-Content -Path $stalePath -Value 'stale install sentinel'
+        & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+        if (Test-Path -LiteralPath $stalePath) {
+            throw 'FAIL: reinstall left a stale file under the default install path.'
+        }
+
+        & $uninstallerPath
+        if ((Test-Path -LiteralPath $defaultInstallRoot) -or (Get-Content -Path $defaultHomeSentinel -Raw).Trim() -ne 'default home sentinel') {
+            throw 'FAIL: default-path uninstall removed data outside the install root.'
+        }
+        Write-Host '  PASS: default-path install, runtime, reinstall, and uninstall succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
+        $env:LOCALAPPDATA = $originalLocalAppData
+        $env:AZCLIPS_HOME = $originalAzclipsHome
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
+
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
 

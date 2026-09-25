@@ -196,6 +196,38 @@ fi
 echo "  PASS: corrupt archive preserved the existing installation"
 rm -rf "$SIM_ROOT/invalid-archives"
 
+echo "[Preflight] Verify the default install path handles spaces and non-ASCII characters"
+default_home="$SIM_ROOT/Test User José"
+default_install_root="$default_home/.local/share/azcli"
+default_home_sentinel="$default_home/sentinel"
+mkdir -p "$default_home"
+printf 'default home sentinel\n' >"$default_home_sentinel"
+(
+  unset AZCLI_INSTALL_ROOT AZCLIPS_HOME
+  HOME="$default_home" "$REPO_ROOT/install/azcli-install.sh" --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+)
+default_az="$default_install_root/az"
+HOME="$default_home" AZCLIPS_HOME="$default_home/.azclips" "$default_az" --version >/dev/null
+HOME="$default_home" AZCLIPS_HOME="$default_home/.azclips" "$default_az" --help >/dev/null
+printf 'stale install sentinel\n' >"$default_install_root/stale"
+(
+  unset AZCLI_INSTALL_ROOT AZCLIPS_HOME
+  HOME="$default_home" "$REPO_ROOT/install/azcli-install.sh" --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+)
+if [[ -e "$default_install_root/stale" ]]; then
+  echo "FAIL: reinstall left a stale file under the default install path"
+  exit 1
+fi
+(
+  unset AZCLI_INSTALL_ROOT
+  HOME="$default_home" "$REPO_ROOT/install/azcli-uninstall.sh"
+)
+if [[ -e "$default_install_root" || "$(cat "$default_home_sentinel")" != "default home sentinel" ]]; then
+  echo "FAIL: default-path uninstall removed data outside the install root"
+  exit 1
+fi
+echo "  PASS: default-path install, runtime, reinstall, and uninstall succeeded"
+
 printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
 
