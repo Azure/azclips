@@ -35,11 +35,8 @@ internal static class TroubleshootCommand
 
             if (globals.Help is { } help)
             {
-                if (help.Path.Count != 1 ||
-                    !help.Path[0].Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
-                    throw AzclipsErrorException.UsageError("Use az troubleshoot --help.");
                 var renderer = new RuntimeHelpRenderer(ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected));
-                foreach (var line in renderer.RenderCommand(IntrinsicVerbs.CreateHelp(IntrinsicVerbs.Troubleshoot), 100))
+                foreach (var line in renderer.RenderCommand(IntrinsicVerbs.CreateHelp(help.Path), (uint?)TerminalWidthProvider.Get()))
                     Console.Out.WriteLine(line);
                 return 0;
             }
@@ -49,35 +46,38 @@ internal static class TroubleshootCommand
                 JmesPathEvaluator.Validate(globals.Query);
 
             AgentOptions? options = null;
-            if (!request.List)
+            if (!request.IsLocalView)
             {
                 options = config.GetConfiguration<AgentOptions>();
-                RequireAgentEnabled(options, Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1");
+                RequireAnalysis(options, request.Style,
+                    Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1",
+                    Console.IsInputRedirected, Console.IsOutputRedirected);
             }
 
             var store = AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>();
             var records = await store.ReadRecordsAsync(cancellationToken);
             if (request.List)
             {
-                var summaries = records.Select(record => new
-                {
-                    id = record.Id,
-                    occurredAtUtc = record.OccurredAtUtc,
-                    command = record.CommandName ?? "(unresolved command)",
-                    errorCode = record.ErrorCode ?? record.ExceptionType,
-                    exitCode = record.ExitCode,
-                }).ToArray();
                 Console.Out.WriteLine(CliOutputFormatter.FormatValue(
-                    summaries, settings.Format, settings.SimpleFormat,
-                    ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected), globals.Query));
+                    TroubleshootOutput.List(records), settings.Format, settings.SimpleFormat,
+                    ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected), globals.Query, TerminalWidthProvider.Get()));
                 return 0;
             }
 
-            var selected = SelectRecord(records, request.Id);
+            var selected = TroubleshootSelection.Select(
+                records, request.Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);
+            if (request.Show)
+            {
+                Console.Out.WriteLine(TroubleshootOutput.FormatDetail(
+                    selected, settings.Format, settings.SimpleFormat,
+                    ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected), globals.Query, TerminalWidthProvider.Get()));
+                return 0;
+            }
+
             var agentExe = Program.FindAgentExe()
                 ?? throw new AzclipsErrorException("AgentUnavailable", 1, "AI recovery is unavailable: azclips-agent was not found alongside az.");
             invokedAi = true;
-            return await RunRecoveryAsync(selected, options!, agentExe, cancellationToken);
+            return await RunRecoveryAsync(selected, options!, agentExe, request.Style, cancellationToken);
         }
         catch (AzclipsErrorException ex)
         {
@@ -89,7 +89,7 @@ internal static class TroubleshootCommand
             Program.EmitStructuredError(new(ex.Code, 1, ex.Message), format, color, null);
             return 1;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return 130;
         }
@@ -98,7 +98,8 @@ internal static class TroubleshootCommand
             Program.EmitStructuredError(new("InvalidConfiguration", 1, "The local configuration is not valid JSON."), format, color, null);
             return 1;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException or FormatException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or
+            InvalidOperationException or ArgumentException or FormatException or OperationCanceledException)
         {
             Program.EmitStructuredError(new("TroubleshootFailed", 1, ex.Message), format, color, null);
             return 1;
@@ -111,27 +112,22 @@ internal static class TroubleshootCommand
         }
     }
 
-    internal static void RequireAgentEnabled(AgentOptions options, bool inAgentMode)
+    internal static void RequireAnalysis(
+        AgentOptions options, string? styleOverride, bool inAgentMode, bool inputRedirected, bool outputRedirected)
     {
-        if (!options.Enabled)
+        if (!options.Recovery.IsEnabled)
             throw new AzclipsErrorException("AgentDisabled", 1,
-                "AI recovery is disabled. Run az config set --key agent.enabled --value true before troubleshooting.");
+                "AI recovery is off. Run az config set --key agent.recovery --value manual before troubleshooting.");
         if (inAgentMode)
             throw new AzclipsErrorException("RecursiveRecovery", 1, "An agent-internal command cannot start another recovery.");
-    }
-
-    internal static FailureRecord SelectRecord(IReadOnlyList<FailureRecord> records, string? id)
-    {
-        if (id is null)
-            return records.FirstOrDefault()
-                ?? throw new AzclipsErrorException("NoFailureHistory", 1, "No saved failures are available. Enable agent.enabled, then run the failing command again.");
-
-        return records.FirstOrDefault(record => record.Id.Equals(id, StringComparison.OrdinalIgnoreCase))
-            ?? throw new AzclipsErrorException("FailureRecordNotFound", 1, "The selected failure record was not found or has been evicted. Use az troubleshoot --list to select a saved failure.");
+        if (RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride).IsInteractive &&
+            (inputRedirected || outputRedirected))
+            throw AzclipsErrorException.UsageError(
+                "Interactive troubleshooting requires terminal input and output. Use --style oneshot when redirecting input or output.");
     }
 
     private static async Task<int> RunRecoveryAsync(
-        FailureRecord failure, AgentOptions options, string agentExe, CancellationToken cancellationToken)
+        FailureRecord failure, AgentOptions options, string agentExe, string? styleOverride, CancellationToken cancellationToken)
     {
         var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
@@ -145,8 +141,8 @@ internal static class TroubleshootCommand
         }
 
         return await RunAttemptAsync(failure, options, telemetry, routing,
-            (request, traceparent, token) => AgentProcessRunner.RunManualAsync(agentExe, request, traceparent, token),
-            cancellationToken);
+            (request, traceparent, token) => AgentProcessRunner.RunAsync(agentExe, request, traceparent, token),
+            cancellationToken, styleOverride);
     }
 
     internal static async Task<int> RunAttemptAsync(
@@ -155,8 +151,10 @@ internal static class TroubleshootCommand
         ITelemetryService telemetry,
         (string? TenantId, string? Boundary) routing,
         Func<RecoveryRequest, string?, CancellationToken, Task<int>> runAgent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? styleOverride = null)
     {
+        var session = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride);
         string? requestTraceId;
         string? requestSpanId;
         using (var activity = telemetry.StartRootActivity())
@@ -177,11 +175,17 @@ internal static class TroubleshootCommand
         recovery?.SetTag(TelemetryTags.RecoveryRequestTraceId, requestTraceId);
         recovery?.SetTag(TelemetryTags.RecoveryRequestSpanId, requestSpanId);
         recovery?.SetTag(TelemetryTags.RecoveryTrigger, "manual");
-        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, "oneshot");
+        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, session.SessionStyle);
         recovery?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
         var request = new RecoveryRequest
         {
-            Failure = failure,
+            Trigger = session.Trigger,
+            FailedCommand = failure.FailedCommand,
+            ErrorText = failure.ErrorText,
+            SessionStyle = session.SessionStyle,
+            FailureId = failure.Id,
+            CommandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32),
+            CommandSpanId = ValidTraceIdentifier(failure.CommandSpanId, 16),
             RequestTraceId = requestTraceId,
             RequestSpanId = requestSpanId,
             TenantId = routing.TenantId,
@@ -196,8 +200,15 @@ internal static class TroubleshootCommand
                 exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
             return exit;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            recovery?.SetTag(TelemetryTags.RecoveryExitCode, 130);
+            recovery?.SetStatus(ActivityStatusCode.Unset);
+            throw;
+        }
         catch
         {
+            recovery?.SetTag(TelemetryTags.RecoveryExitCode, 1);
             recovery?.SetStatus(ActivityStatusCode.Error);
             throw;
         }

@@ -7,10 +7,18 @@
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.83.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
   </ItemGroup>
   <PropertyGroup>
     <ExtName>Core</ExtName>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <InternalsVisibleTo Include="Cli.Tests" />
+  </ItemGroup>
 </Project>

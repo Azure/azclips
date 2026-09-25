@@ -11,6 +11,7 @@ using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
 using Core.Runtime.Handler;
+using Core.Runtime.Recovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
@@ -21,6 +22,52 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class ConfigCliTests
 {
+    [Fact]
+    public void PublicRecoveryKeys_PreserveSiblingsAndNeverExposeTriggerStorageKey()
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "agent.recovery.style", "interactive"]);
+        fixture.ExecuteCli(["config", "set", "agent.recovery", "auto"]);
+        fixture.ExecuteCli(["config", "set", "agent.recovery.historySize", "3"]);
+        var list = fixture.ExecuteCli(["config", "list", "--all"]).Single();
+        Assert.Contains("agent.recovery = auto [global config]", list);
+        Assert.DoesNotContain("agent.recovery.trigger", list);
+        var section = JsonNode.Parse(fixture.ExecuteCli(["config", "get", "agent", "--json"]).Single())!;
+        Assert.Equal("auto", section["recovery"]!.GetValue<string>());
+        Assert.Equal("interactive", section["recovery.style"]!.GetValue<string>());
+        Assert.Equal(3, section["recovery.historySize"]!.GetValue<int>());
+        fixture.ExecuteCli(["config", "set", "agent.recovery", "off"]);
+        fixture.ExecuteCli(["config", "delete", "agent.recovery"]);
+        Assert.Contains("agent.recovery = manual [default]", fixture.ExecuteCli(["config", "get", "agent.recovery"]).Single());
+        Assert.Contains("interactive", fixture.ExecuteCli(["config", "get", "agent.recovery.style"]).Single());
+    }
+
+    [Fact]
+    public void ExistingPowerShellConfigCommands_UseTheSameCoordinatedMutationPath()
+    {
+        using var fixture = new ConfigCommandFixture(ClientType.PowerShell);
+        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery.style", ["Value"] = "interactive" });
+        fixture.ExecutePowerShell("Set-AzConfig", new() { ["Key"] = "agent.recovery", ["Value"] = "off" });
+        Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(fixture.ConfigPath)!, "failure-history", EncryptedFailureHistoryStore.ControlFileName)));
+        fixture.ExecutePowerShell("Remove-AzConfig", new() { ["Key"] = "agent.recovery" });
+        Assert.Contains("agent.recovery = manual [default]",
+            fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery" }).Single());
+        Assert.Contains("interactive",
+            fixture.ExecutePowerShell("Get-AzConfig", new() { ["Key"] = "agent.recovery.style" }).Single());
+    }
+
+    [Fact]
+    public void ReadingLegacyKeys_EmitsMigrationWarningWithoutTheValue()
+    {
+        using var fixture = new ConfigCommandFixture();
+        File.WriteAllText(fixture.ConfigPath, """{"agent":{"enabled":"legacy-sensitive-value"}}""");
+        Assert.Contains("legacy-sensitive-value", fixture.ExecuteCli(["config", "get", "agent.enabled"]).Single());
+        Assert.Contains(fixture.Warnings, warning => warning.Contains("agent.recovery", StringComparison.Ordinal));
+        Assert.DoesNotContain(fixture.Warnings, warning => warning.Contains("legacy-sensitive-value", StringComparison.Ordinal));
+        fixture.ExecuteCli(["config", "delete", "agent.enabled"]);
+        Assert.DoesNotContain("enabled", File.ReadAllText(fixture.ConfigPath));
+    }
+
     [Fact]
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
@@ -334,16 +381,23 @@ public class ConfigCliTests
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
             "PS_HTTP_MAX_RETRIES_FOR_429",
-            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"
+            "AZURE_PS_HTTP_MAX_RETRIES_FOR_429",
+            "AZCLIPS_AGENT_RECOVERY",
+            "AZCLIPS_AGENT_RECOVERY_STYLE",
+            "AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE"
         ];
 
         private readonly string _configPath;
         private readonly List<string> _outputs = [];
+        private readonly List<string> _warnings = [];
         private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
-        public ConfigCommandFixture()
+        public string ConfigPath => _configPath;
+        public IReadOnlyList<string> Warnings => _warnings;
+
+        public ConfigCommandFixture(ClientType clientType = ClientType.CLI)
         {
-            var directory = Path.Combine(Path.GetTempPath(), "azclips-config-cli-tests", Guid.NewGuid().ToString("N"));
+            var directory = Path.GetFullPath(Path.Combine(".test-artifacts", "azclips-config-cli-tests", Guid.NewGuid().ToString("N")));
             Directory.CreateDirectory(directory);
             _configPath = Path.Combine(directory, "config.json");
 
@@ -358,6 +412,7 @@ public class ConfigCliTests
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
+                services.AddSingleton(new FailureHistoryStateStore(new FailureHistoryFiles(Path.Combine(directory, "failure-history"))));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService, StubProfileService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
@@ -365,15 +420,22 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(clientType);
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args)
         {
-            _outputs.Clear();
-
             var dispatcher = BuildDispatcher();
-            var invocation = dispatcher.Parse(args);
+            return ExecuteInvocation(dispatcher.Parse(args));
+        }
+
+        public IReadOnlyList<string> ExecutePowerShell(string commandName, Dictionary<string, object> parameters) =>
+            ExecuteInvocation(new CommandInvocation("Config", commandName, parameters, false, "Config", "0.0.0"));
+
+        private IReadOnlyList<string> ExecuteInvocation(CommandInvocation invocation)
+        {
+            _outputs.Clear();
+            _warnings.Clear();
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
             var streams = new OutputStreams(
@@ -384,7 +446,11 @@ public class ConfigCliTests
                 },
                 WriteVerbose: (_, _) => Task.CompletedTask,
                 WriteDebug: (_, _) => Task.CompletedTask,
-                WriteWarning: (_, _) => Task.CompletedTask,
+                WriteWarning: (value, _) =>
+                {
+                    _warnings.Add(Convert.ToString(value) ?? string.Empty);
+                    return Task.CompletedTask;
+                },
                 WriteError: (_, _) => Task.CompletedTask,
                 WriteInformation: (_, _) => Task.CompletedTask);
 
@@ -555,4 +621,3 @@ public class ConfigCliTests
         }
     }
 }
-

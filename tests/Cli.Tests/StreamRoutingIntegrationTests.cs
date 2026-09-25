@@ -27,11 +27,61 @@ public class StreamRoutingIntegrationTests
     [Fact]
     public async Task WriteError_GoesToStderr_NotStdout()
     {
-        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz");
+        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz", "--output", "table");
 
         Assert.NotEqual(0, exit);
         Assert.DoesNotContain("ERROR:", stdout);
         Assert.Contains("ERROR:", stderr);
+    }
+
+    [Fact]
+    public async Task UnstructuredFailure_UsesOneJsonErrorDocument()
+    {
+        var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz", "--output", "json");
+
+        Assert.NotEqual(0, exit);
+        Assert.Empty(stdout);
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Equal("CommandFailed", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Theory]
+    [InlineData("json")]
+    [InlineData("table")]
+    public async Task LegacyRecoverySettings_ReportMigrationWithoutHidingTheOriginalError(string format)
+    {
+        var (exit, stdout, stderr) = await RunCliWithConfigurationAsync(
+            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
+            "vm", "create", "--output", format);
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.Contains("--name", stderr);
+        Assert.Contains("agent.enabled", stderr);
+        Assert.Contains("agent.recovery", stderr);
+        if (format == "json")
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(stderr);
+            Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+            Assert.Contains("agent.enabled", document.RootElement.GetProperty("recoveryWarning").GetString());
+        }
+        else
+        {
+            Assert.True(stderr.IndexOf("--name", StringComparison.Ordinal) <
+                stderr.IndexOf("agent.enabled", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public async Task ConfigCommands_DoNotDuplicateTheirOwnMigrationWarning()
+    {
+        var (exit, _, stderr) = await RunCliWithConfigurationAsync(
+            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
+            "config", "get", "--key", "agent.enabled", "--output", "table");
+
+        Assert.Equal(0, exit);
+        Assert.Single(stderr.Split('\n'), line => line.Contains("agent.enabled", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -191,7 +241,8 @@ public class StreamRoutingIntegrationTests
         // ClientsOptions, OutputFormatPolicy resolves it -- not just the in-memory unit tests, which
         // construct ClientsOptions/CliOutputOptions directly and never touch config persistence.
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
-        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"),
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
         try
         {
             var (setExit, _, setStderr) = await RunCliInHomeAsync(
@@ -215,7 +266,12 @@ public class StreamRoutingIntegrationTests
         }
     }
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+    private static Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+        => RunCliWithConfigurationAsync(
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""", args);
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliWithConfigurationAsync(
+        string configuration, params string[] args)
     {
         // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
         // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
@@ -223,7 +279,7 @@ public class StreamRoutingIntegrationTests
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-stream-routing-tests-").FullName;
         // Telemetry off so Program.cs's detached --upload-telemetry child has nothing to read/write
         // under this home -- avoids racing our cleanup below rather than just tolerating the race.
-        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), configuration);
         try
         {
             return await RunCliInHomeAsync(homeDirectory, args);
@@ -254,6 +310,12 @@ public class StreamRoutingIntegrationTests
         // `args > env` precedence means the flag still wins over this pin.
         psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
         psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+        foreach (var key in psi.Environment.Keys.Where(key =>
+            key.StartsWith("AZCLIPS_AGENT_", StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            psi.Environment.Remove(key);
+        }
+        psi.Environment.Remove("AZCLIPS_IN_AGENT_MODE");
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);

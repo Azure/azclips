@@ -12,18 +12,18 @@ namespace Cli.Tests.Recovery;
 public class RecoveryContractTests
 {
     [Fact]
-    public void Defaults_KeepMasterOffAndAutomaticStyleButDisableAutomaticTrigger()
+    public void Defaults_AreManualOneShotAndTen()
     {
         var options = new AgentOptions();
-
-        Assert.False(options.Enabled);
-        Assert.False(options.AutoRecovery.Enabled);
-        Assert.Equal("oneshot", options.SessionStyle);
-        Assert.Equal(10, options.FailureHistory.MaxEntries);
-
+        Assert.True(options.Recovery.IsEnabled);
+        Assert.False(options.Recovery.IsAutomatic);
+        Assert.False(options.Recovery.IsInteractive);
+        Assert.Equal("manual", options.Recovery.Trigger);
+        Assert.Equal("oneshot", options.Recovery.Style);
+        Assert.Equal(10, options.Recovery.HistorySize);
         var schema = new ConfigurationSchema();
-        Assert.Equal("false", schema.GetKeyMetadata("agent.autoRecovery.enabled")!.DefaultValue);
-        var history = schema.GetKeyMetadata("agent.failureHistory.maxEntries")!;
+        Assert.Equal("manual", schema.GetKeyMetadata("agent.recovery")!.DefaultValue);
+        var history = schema.GetKeyMetadata("agent.recovery.historySize")!;
         Assert.Equal("10", history.DefaultValue);
         Assert.Equal(1, history.Minimum);
         Assert.Equal(typeof(int), history.ValueType);
@@ -40,90 +40,78 @@ public class RecoveryContractTests
     public void HistoryLimit_RequiresPositiveInteger(object value, bool valid)
     {
         var validator = new DefaultConfigurationValidator(new ConfigurationSchema());
-
-        Assert.Equal(valid, validator.ValidateValue("agent.failureHistory.maxEntries", value).IsValid);
+        Assert.Equal(valid, validator.ValidateValue("agent.recovery.historySize", value).IsValid);
     }
 
     [Theory]
-    [InlineData("oneshot", false)]
-    [InlineData("interactive", false)]
-    [InlineData("interactive", true)]
-    public void ManualStyle_IsOneShotWithoutChangingConfiguredOptions(string configuredStyle, bool automaticEnabled)
+    [InlineData("manual", "oneshot")]
+    [InlineData("manual", "interactive")]
+    [InlineData("auto", "oneshot")]
+    [InlineData("auto", "interactive")]
+    [InlineData("off", "oneshot")]
+    [InlineData("off", "interactive")]
+    public void TriggerAndStyle_AreOrthogonal(string trigger, string style)
     {
         var options = new AgentOptions
         {
-            Enabled = true,
-            SessionStyle = configuredStyle,
-            AutoRecovery = new() { Enabled = automaticEnabled },
+            Recovery = new() { Trigger = trigger, Style = style },
             Provider = "github",
             Builtin = new() { ModelId = "test-deployment" },
         };
-
-        var actual = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual);
-
-        Assert.Equal("oneshot", actual.SessionStyle);
-        Assert.False(actual.IsInteractive);
-        Assert.Equal(RecoveryTrigger.Manual, actual.Trigger);
-        Assert.Equal(configuredStyle, options.SessionStyle);
-        Assert.Equal(automaticEnabled, options.AutoRecovery.Enabled);
+        var manual = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual);
+        var automatic = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Automatic);
+        Assert.Equal(style, manual.SessionStyle);
+        Assert.Equal(style, automatic.SessionStyle);
+        Assert.Equal(trigger != "off", options.Recovery.IsEnabled);
+        Assert.Equal(trigger == "auto", options.Recovery.IsAutomatic);
+        Assert.Equal(style == "interactive", options.Recovery.IsInteractive);
         Assert.Equal("github", options.Provider);
         Assert.Equal("test-deployment", options.Builtin.ModelId);
     }
 
-    [Theory]
-    [InlineData("oneshot", false)]
-    [InlineData("interactive", true)]
-    [InlineData("INTERACTIVE", true)]
-    public void AutomaticStyle_UsesConfiguredStyle(string style, bool interactive)
+    [Fact]
+    public void StyleOverride_DoesNotMutatePersistentOptions()
     {
-        var actual = RecoverySessionSettings.Resolve(new() { SessionStyle = style }, RecoveryTrigger.Automatic);
-
-        Assert.Equal(interactive, actual.IsInteractive);
-        Assert.Equal(style.ToLowerInvariant(), actual.SessionStyle);
+        var options = new AgentOptions();
+        var actual = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, "INTERACTIVE");
+        Assert.True(actual.IsInteractive);
+        Assert.Equal("oneshot", options.Recovery.Style);
+        Assert.Throws<ArgumentException>(() => RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, "manual"));
     }
 
-    [Fact]
-    public void AutomaticStyle_RejectsInvalidConfiguration()
+    [Theory]
+    [InlineData("wrong", "oneshot", 10)]
+    [InlineData("manual", "wrong", 10)]
+    [InlineData("manual", "oneshot", 0)]
+    public void InvalidOptions_AreNotSilentlyConvertedToADifferentPolicy(string trigger, string style, int size)
     {
-        Assert.Throws<ArgumentException>(() =>
-            RecoverySessionSettings.Resolve(new() { SessionStyle = "manual" }, RecoveryTrigger.Automatic));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RecoverySessionSettings.Resolve(new(), (RecoveryTrigger)99));
+        var options = new RecoveryOptions { Trigger = trigger, Style = style, HistorySize = size };
+        Assert.ThrowsAny<ArgumentException>(() => options.Validate());
+        Assert.ThrowsAny<ArgumentException>(() => options.IsEnabled);
     }
 
     [Fact]
     public void Request_RoundTripsCompleteDiagnosticInput()
     {
-        var args = new[] { "vm", "create", "--name", "name with spaces", "--password", "test-only-secret", "", "\u4e2d\u6587" };
         var error = "test-only-secret\r\n" + new string('x', 70_000) + "\n\"quoted\"";
-        var record = new FailureRecord
+        var request = new RecoveryRequest
         {
-            Id = Guid.NewGuid().ToString("N"),
-            OccurredAtUtc = DateTimeOffset.UtcNow,
-            Arguments = args,
             FailedCommand = "vm create --name \"name with spaces\"",
             ErrorText = error,
-            ExitCode = 2,
-            ErrorDetails = JsonSerializer.SerializeToElement(new { detail = error }),
+            FailureId = "48213-2026-0923-1004-0000",
         };
-
-        var request = new RecoveryRequest { Failure = record };
         var actual = JsonSerializer.Deserialize<RecoveryRequest>(JsonSerializer.Serialize(request))!;
-
         Assert.Equal(RecoveryTrigger.Manual, actual.Trigger);
-        Assert.Equal(record.Id, actual.Failure.Id);
-        Assert.Equal(record.OccurredAtUtc, actual.Failure.OccurredAtUtc);
-        Assert.Equal(args, actual.Failure.Arguments);
-        Assert.Equal(error, actual.Failure.ErrorText);
-        Assert.Equal(error, actual.Failure.ErrorDetails!.Value.GetProperty("detail").GetString());
+        Assert.Equal(request.FailureId, actual.FailureId);
+        Assert.Equal(request.FailedCommand, actual.FailedCommand);
+        Assert.Equal(error, actual.ErrorText);
     }
 
     [Fact]
-    public void CompletionIndex_DoesNotContainDiagnosticInput()
+    public void CompletionIndex_ContainsOnlyIdAndTimestamp()
     {
-        var entry = new FailureHistoryEntry(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
+        var entry = new FailureHistoryEntry("48213-2026-0923-1004-0000", DateTimeOffset.UtcNow);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(entry));
-
         Assert.Equal(new[] { "Id", "OccurredAtUtc" }, json.RootElement.EnumerateObject().Select(property => property.Name));
     }
 }

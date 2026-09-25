@@ -107,10 +107,11 @@ public sealed class RuntimeHelpDispatcher
         }
 
         var verb = path[0];
-        if (IntrinsicVerbs.TryResolve(verb, out _) && path.Count == 1 &&
-            TryRenderIntrinsicHelp(verb, out var hostExitCode))
+        if (IntrinsicVerbs.TryResolve(verb, out var canonicalVerb) &&
+            (path.Count == 1 || canonicalVerb == IntrinsicVerbs.Troubleshoot))
         {
-            return hostExitCode;
+            WriteLines(_renderer.RenderCommand(IntrinsicVerbs.CreateHelp(path), TerminalWidth()));
+            return 0;
         }
         // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
@@ -223,6 +224,9 @@ public sealed class RuntimeHelpDispatcher
             var verbs = GetOwnedVerbs(info);
             foreach (var verb in verbs)
             {
+                if (verb.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 if (!seenVerbs.Add(verb))
                 {
                     // First owner wins; ordering above is stable package-id sort.

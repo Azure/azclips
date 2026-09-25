@@ -8,9 +8,18 @@ description: Learn how AI-based error recovery in Azure CLI analyzes command fai
 AI-based error recovery is a built-in capability in Azure CLI that helps you resolve command
 failures more efficiently.
 
-When enabled, Azure CLI saves command failures in a private encrypted history on your machine.
+By default, Azure CLI saves command failures in a private encrypted history on your machine.
 The original error remains visible. Use `az troubleshoot` when you want an integrated AI model to
 analyze a saved failure and provide guided troubleshooting.
+
+> [!IMPORTANT]
+> Encrypted capture requires accessible OS-protected storage. Windows uses DPAPI.
+> Linux requires an already running Secret Service on the local user-session
+> D-Bus and an existing, unlocked default keyring. Recovery never starts that
+> service or requests an unlock/authorization prompt. macOS uses a dedicated
+> Keychain adapter with user interaction disabled during key access.
+> Real desktop/keyring validation is still pending; offline tests are not
+> evidence of complete cross-platform recovery support.
 
 The AI model can:
 
@@ -27,8 +36,8 @@ following sections:
 - **Values to review:** Identifies parameters or inputs that you should review.
 - **Disclaimer:** Reminds you that AI-generated content may be inaccurate.
 
-The feature works in interactive terminals and headless environments, such as Azure DevOps agents
-and GitHub Actions workflows.
+One-shot analysis works in interactive terminals and headless environments. Interactive sessions
+require terminal input and output; use `--style oneshot` when redirecting either stream.
 
 The goal is to reduce debugging time, improve command success rates, and provide a more guided
 command-line experience.
@@ -39,39 +48,49 @@ command-line experience.
 
 ## Enable or disable AI-based error recovery
 
-AI-based error recovery is disabled by default.
+The default is **manual**: save eligible failures locally, but do not call AI until you run
+`az troubleshoot`. Recovery trigger and interaction style are independent settings:
 
-Enable the feature:
+| Setting | Values | Default |
+| --- | --- | --- |
+| `agent.recovery` | `off`, `manual`, `auto` | `manual` |
+| `agent.recovery.style` | `oneshot`, `interactive` | `oneshot` |
+| `agent.recovery.historySize` | Positive integer | `10` |
+
+Use manual recovery:
 
 ```azurecli
-az config set --key agent.enabled --value true
+az config set --key agent.recovery --value manual
 ```
 
-Disable the feature:
+Disable capture and analysis, and clear the local failure history:
 
 ```azurecli
-az config set --key agent.enabled --value false
+az config set --key agent.recovery --value off
 ```
 
 View the current setting:
 
 ```azurecli
-az config get --key agent.enabled
+az config get --key agent.recovery
 ```
 
-Enabling the feature does **not** automatically call AI. After a failure is securely saved, the CLI
+Manual recovery does **not** automatically call AI. After a failure is securely saved, the CLI
 prints a hint containing its record ID:
 
 ```text
 To troubleshoot this error with AI, run: az troubleshoot --id <failure-id>
+Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.
 ```
 
 If secure persistence fails, the CLI reports that it could not save the record and does not print
-an unusable ID. The original error and exit code remain unchanged.
+an unusable ID. The original error and exit code remain unchanged. In auto mode, a storage
+failure does not by itself prevent an otherwise eligible automatic diagnosis.
 
 ## Analyze a saved failure
 
-Analyze the latest saved failure:
+Analyze the latest saved failure in this terminal, falling back to the global latest if this
+shell has no matching record:
 
 ```azurecli
 az troubleshoot
@@ -81,59 +100,116 @@ List saved failures and choose a specific one:
 
 ```azurecli
 az troubleshoot --list --output table
+az troubleshoot show --id <failure-id> --output table
 az troubleshoot --id <failure-id>
 ```
 
-Shell Tab completion after `--id` offers saved IDs. Omitting `--id` selects the most recently saved
-failure. An unknown or evicted ID is an error; it never silently selects a different record.
+Shell Tab completion after `--id` or `--id=` offers saved IDs for analysis and `show`. An unknown,
+invalid, or evicted ID is an error; it never silently selects a different record.
 
-Explicit troubleshooting always uses **one-shot**: it returns an AI plan but does not execute the
-suggested commands or enter an approval/chat loop. It remains available whenever `agent.enabled`
-is true, regardless of the automatic recovery settings. `--output` and `--query` apply to `--list`,
-not to the AI plan display.
+Manual and automatic diagnosis use the same original command/error inputs, prompt, tools,
+and approval policy for a given interaction style. Both use `agent.recovery.style`. Override the
+style for one manual invocation without changing configuration:
 
-The list and ID completion are local-only operations and remain available for old records when
-`agent.enabled` is false. They do not start AI or perform Azure authentication. Tab completion
-uses only record IDs and timestamps, without unlocking the protected key store.
+```azurecli
+az troubleshoot --id <failure-id> --style interactive
+```
 
-## Enable automatic recovery separately
+`--list` and `show --id` expose exactly `id`, `command`, and `errorDetail`. The command is the
+original `FailedCommand`, not just a command name. Only the list's error detail is normalized to
+a single line and limited to 200 characters. `show` preserves full text and line breaks, even
+with narrow table output.
+
+`--output` and `--query` apply to these local views, not to a machine-readable AI plan.
+`--list` cannot be combined with an ID, `show`, or a style override. `show` requires an exact ID
+and rejects `--style`. Invalid or duplicate arguments fail before starting AI.
+
+List, show, help, and ID completion are read-only local operations: they never start AI, perform
+Azure authentication, or run history cleanup. Tab completion uses only record IDs and timestamps,
+without unlocking the protected key store. List/show decrypt existing records but never create a
+new key. After a successful off/reset, list is empty and an old exact ID no longer exists.
+Selecting a record does not replay the failed command or restore its old profile or working
+directory. Diagnosis uses the current Agent configuration and its existing approval policy.
+
+## Enable automatic recovery
 
 Automatic recovery is disabled by default. To also start AI after eligible command failures:
 
 ```azurecli
-az config set --key agent.autoRecovery.enabled --value true
+az config set --key agent.recovery --value auto
 ```
 
 Turn it off without disabling explicit troubleshooting:
 
 ```azurecli
-az config set --key agent.autoRecovery.enabled --value false
+az config set --key agent.recovery --value manual
 ```
 
 > [!IMPORTANT]
-> This is a change from the previous default. Existing users who only configured
-> `agent.enabled=true` must also enable `agent.autoRecovery.enabled` to continue automatic recovery.
-> Well-known structured CLI errors still do not trigger automatic AI; you can select them manually.
+> The legacy recovery keys `agent.enabled`, `agent.sessionStyle`, `agent.autoRecovery.enabled`,
+> and `agent.failureHistory.maxEntries` no longer control recovery. Existing values remain
+> readable/deletable, but new writes report migration guidance. If no new settings are present,
+> the defaults are manual/oneshot/10 regardless of legacy values. Explicitly set
+> `agent.recovery=auto` to enable automatic diagnosis.
+
+Use the public configuration keys shown above. See [Configuration Management][01] for the
+configuration-file representation and instructions for inspecting or deleting legacy settings.
 
 ## Local encrypted failure history
 
 The history belongs to the current **local operating-system user**, not to a shared service.
 It retains complete received command arguments and original error details, which can include
-credentials. The data is encrypted with a key protected by Windows DPAPI, macOS Keychain, or
-Linux Keyring. If protected storage is unavailable, the CLI reports the failure and never falls
-back to plaintext. No Azure login is required just to save local history.
+credentials. The data is encrypted with a key protected by Windows DPAPI, macOS Keychain,
+or the Linux Secret Service. The recovery-specific Unix adapters do not use the MSAL
+helpers that can request Keychain/keyring authorization. Unavailable or locked storage
+is an explicit error, not a reason to display UI or replace an existing key.
+If protected storage is unavailable, the CLI reports the failure and never falls back
+to plaintext. No Azure login is required just to save local history.
+
+On Linux, `DBUS_SESSION_BUS_ADDRESS` must identify a local Unix socket. If it is absent,
+the CLI uses the `bus` socket beneath `XDG_RUNTIME_DIR`; it does not discover a session
+through X11 or connect to a TCP bus. A headless environment without an accessible
+Secret Service cannot save new history. Configure and unlock your keyring separately
+when needed; recovery itself does not do so. Local marker files contain no key material.
+
+On macOS, the adapter uses no-UI Keychain queries and temporarily disables Keychain
+interaction for the current process, restoring its prior setting afterward. Capture
+runs in the isolated history worker. Local views finish key access before any Agent
+startup; they do not unlock or create a keychain.
 
 The history is kept in the local azclips data directory and respects `AZCLIPS_HOME`. The default
 limit is the latest **10** records:
 
 ```azurecli
-az config set --key agent.failureHistory.maxEntries --value 10
+az config set --key agent.recovery.historySize --value 10
 ```
 
 The limit must be a positive integer. Zero does not mean unlimited. Lowering the limit prunes old
-records on the next successful history write; listing and completion do not prune. Later successful
-commands neither remove old failures nor mark them resolved. Turning off `agent.enabled` stops new
-records and AI calls but leaves existing records in place.
+records on the next successful history write; listing, showing details, and completion do not
+prune. Later successful commands neither remove old failures nor mark them resolved. Switching between manual and auto
+preserves records. Setting `agent.recovery=off` clears controlled history/key files without
+decrypting history or unlocking native key stores. If cleanup is incomplete, recovery stays off
+and local views report the pending state; retry the explicit off command.
+
+Successful commands and normal user cancellation do not add records. Request timeouts still
+count as failures unless you also cancel the invocation. Troubleshoot, help, completion, and
+Agent-internal invocations do not create additional failure history.
+
+Record IDs have the form `<PID>-<yyyy>-<MMdd>-<HHmm>-<counter>`, such as
+`42-2026-0924-0000-0002`. The timestamp is UTC and the counter is a durable, per-home sequence
+with at least four digits. Retention and reset do not reuse old IDs. Lists group by numeric PID
+ascending, then timestamp and counter descending; default selection instead uses the latest
+successfully persisted sequence.
+
+Terminal association uses the original CLI process's parent-shell PID. It assumes the shell
+launches the CLI directly; Unix wrappers should use `exec`. Extra wrapper processes, PID reuse,
+and a state directory shared across hosts or PID namespaces can affect association. If the
+current parent PID cannot be resolved, no-ID analysis warns and uses the global latest.
+
+Incompatible v1 draft history, corrupt data, missing keys, and incomplete cleanup are explicit
+errors, not empty history. V1 bytes remain untouched until you explicitly set
+`agent.recovery=off`, then re-enable manual or auto. List, show, help, and Tab never perform that
+reset themselves.
 
 > [!NOTE]
 > Local encryption protects stored data; it does not redact the diagnostic input supplied to AI.
@@ -161,22 +237,22 @@ Use GitHub Copilot:
 az config set --key agent.provider --value github
 ```
 
-## Choose the automatic interaction style
+## Choose the interaction style
 
-When automatic recovery is enabled, its default interaction style is one-shot: generate a recovery
-plan and exit. `agent.sessionStyle` controls only this automatic flow; explicit `az troubleshoot`
-always stays one-shot.
+The default interaction style is one-shot: generate a recovery response and exit.
+`agent.recovery.style` applies to both manual and automatic diagnosis. Changing the trigger
+does not change the style, and a manual `--style` override applies only to that invocation.
 
 To use a multi-turn interactive session that remains open until you type `exit`, run:
 
 ```azurecli
-az config set --key agent.sessionStyle --value interactive
+az config set --key agent.recovery.style --value interactive
 ```
 
 To return to the default one-shot experience:
 
 ```azurecli
-az config set --key agent.sessionStyle --value oneshot
+az config set --key agent.recovery.style --value oneshot
 ```
 
 ## Frequently asked questions
@@ -218,19 +294,22 @@ In some cases, the AI can query Azure APIs to suggest valid alternatives, such a
 
 ### Is the feature enabled by default?
 
-No. AI-based error recovery is disabled by default.
+Manual recovery is enabled by default: eligible failures are saved, but AI is not started
+automatically.
 
-To enable the feature, run:
+To opt into automatic AI diagnosis, run:
 
 ```azurecli
-az config set --key agent.enabled --value true
+az config set --key agent.recovery --value auto
 ```
 
 ### Does it require authentication?
 
 AI analysis requires the configured provider's authentication. Local history recording, listing,
-and ID completion do not require Azure sign-in. If analysis cannot authenticate, it reports an
-actionable error without deleting the selected failure.
+showing details, and ID completion do not require Azure sign-in. If analysis cannot authenticate,
+it reports an actionable error without deleting the selected failure. An ID completion only suggests an ID
+from the local index; it does not prove that the encrypted record is still available or that its
+key can be read. The full record is checked when it is selected.
 
 The required sign-in depends on the configured AI provider:
 
@@ -278,8 +357,8 @@ To turn all of it off:
 az config set --key telemetry.enabled --value false
 ```
 
-This setting disables telemetry, not the separately encrypted local history. Use `agent.enabled=false`
-to stop new history records and AI calls.
+This setting disables telemetry, not the separately encrypted local history. Use `agent.recovery=off`
+to stop new history records and AI calls and clear local failure history.
 
 Separately, if you want a local record of the model input and output for debugging or auditing, enable tracing:
 

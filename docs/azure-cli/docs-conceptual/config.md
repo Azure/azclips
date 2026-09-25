@@ -21,11 +21,10 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add`. Controls where DLLs land, where `registry.json` is written (as `<root>/registry.json`), and every `az extension add/list/show/pin/remove/update` read/write path. Default: `~/.azclips/extensions`. Changing this key does not migrate existing state — move `registry.json` and the `<pkg>/<version>/` payload folders manually if needed. |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                                                                                                                                                            |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                                                                                                                                                            |
-| `agent.enabled`                               | bool   | `false`            | Master switch for encrypted local failure recording and AI analysis. Explicit `az troubleshoot` requires this switch; read-only history listing remains available when disabled. |
-| `agent.autoRecovery.enabled`                  | bool   | `false`            | Automatically start recovery after eligible command failures. Requires `agent.enabled`. Does not control explicit troubleshooting. |
-| `agent.failureHistory.maxEntries`              | int    | `10`               | Maximum encrypted failure records for the current local OS user; positive integers only. A lower limit takes effect on the next successful history write. |
+| `agent.recovery`                              | string | `manual`           | Recovery trigger: `off` disables recovery and clears saved failures; `manual` saves failures for explicit `az troubleshoot`; `auto` also starts AI after eligible failures. |
+| `agent.recovery.style`                        | string | `oneshot`          | Shared style for manual and automatic recovery: `oneshot` returns one answer; `interactive` opens a conversation. `az troubleshoot --style` overrides only that invocation. |
+| `agent.recovery.historySize`                  | int    | `10`               | Maximum encrypted failure records per local state home; positive integers only. A lower limit takes effect on the next successful history write, not during list/show/completion. |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login)                                                                                                                                                                                                                                      |
-| `agent.sessionStyle`                          | string | `oneshot`          | Automatic recovery interaction style: `oneshot` (single plan, then stop) or `interactive` (multi-turn). Explicit `az troubleshoot` always uses one-shot. |
 | `agent.interactive.verbose`                   | bool   | `false`            | In interactive mode, also show internal tool details (get*command / find*\* args and output), not just shell commands. Off by default to keep the session clean                                                                                                                                                                                                                                             |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                                                                                                                                                                                                                                                                 |
 | `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                                                                                                                                                                                                                                                           |
@@ -39,6 +38,59 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                                                                                                                                                                                                                                                             |
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                           |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## AI recovery configuration
+
+Trigger and style are independent. The default `manual` trigger records failed
+commands without contacting AI. The default `oneshot` style returns one answer
+when the user runs `az troubleshoot`. The same configured style applies when
+`auto` starts recovery.
+
+```bash
+az config set --key agent.recovery --value manual
+az config set --key agent.recovery.style --value interactive
+az config set --key agent.recovery.historySize --value 20
+
+# One answer for this request; the configured style remains interactive.
+az troubleshoot --style oneshot
+
+# Disable recording and AI, and clear saved failures.
+az config set --key agent.recovery --value off
+```
+
+You can set these three keys in any order. Deleting `agent.recovery` restores the
+default `manual` trigger without deleting the style or history size. The public
+trigger key maps to the `trigger` leaf in the JSON file:
+
+```json
+{
+  "agent": {
+    "recovery": {
+      "trigger": "manual",
+      "style": "oneshot",
+      "historySize": 10
+    }
+  }
+}
+```
+
+Do not replace the `recovery` object with a scalar such as `"recovery": "manual"`;
+that shape is invalid. Existing values for `agent.enabled`,
+`agent.autoRecovery.enabled`, `agent.sessionStyle`, and
+`agent.failureHistory.maxEntries` can be inspected and deleted, but new writes
+must use the keys above. Legacy values no longer gate recovery or change the new
+defaults.
+
+Turning recovery off does not unlock secure storage or decrypt old records.
+Cleanup preserves the non-sensitive ID counter and lock so IDs cannot be reused.
+If cleanup fails after `off` was saved, recovery remains off and the command
+reports that cleanup is incomplete; retry rather than assuming the configuration
+write was rolled back. Ordinary CLI invocations also observe off settings made
+through file/environment changes. History list, show, help, and completion are
+read-only and never perform cleanup.
+
+See [AI-based error recovery](./ai-based-error-recovery.md) for terminal-aware
+selection, readable IDs, secure-storage requirements, and platform limitations.
 
 ## CLI Usage
 
@@ -54,6 +106,11 @@ override does not persist to config.
 - **stderr** — every diagnostic level: `error`, `warn`, `info`, `verbose`, `debug`. Each line is prefixed with `LEVEL: ` (uppercase word, single colon, single space) — matching Azure CLI Python's `WARNING:` output, the Python `logging` default formatter, and the way the PowerShell host renders `cmdlet.WriteWarning(...)`.
 
 Because diagnostics never touch stdout, `az foo --output json 2>/dev/null` stays parseable even when warnings fire mid-command.
+
+An explicitly enabled automatic AI session has its own output on stdout, just
+like `az troubleshoot`. Its answer or startup failure is not a JSON command
+result. Original command errors and history metadata remain together in one
+stderr document in JSON mode; manual recovery hints never appear on stdout.
 
 The default level is `warn` — matches Azure CLI Python (console default `Warning`) and Az PowerShell (effective `Warning + Error` baseline). Under `warn`, `warn`/`error` surface on stderr and `info`/`verbose`/`debug` stay hidden; `--debug` (or `core.logging.level=debug`) opens the full stream.
 
@@ -145,6 +202,9 @@ You can override configuration using environment variables:
 | Environment Variable | Maps to              |
 | -------------------- | -------------------- |
 | `AZCLIPS_LOG_LEVEL`  | `core.logging.level` |
+| `AZCLIPS_AGENT_RECOVERY` | `agent.recovery` |
+| `AZCLIPS_AGENT_RECOVERY_STYLE` | `agent.recovery.style` |
+| `AZCLIPS_AGENT_RECOVERY_HISTORY_SIZE` | `agent.recovery.historySize` |
 
 ## Configuration File Location
 

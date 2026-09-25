@@ -1,219 +1,201 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using System.Security;
 using System.Security.Cryptography;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 
 namespace Core.Runtime.Recovery;
 
-/// <summary>
-/// Stores one authenticated, encrypted snapshot. Readers never create files or access the writer
-/// lock; replacing the snapshot atomically keeps the records and their selection index together.
-/// </summary>
+/// <summary>Atomic authenticated snapshots with an independent durable allocator and reset fence.</summary>
 public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
 {
-    public const string HistoryFileName = "history.v1.bin";
-    public const string LockFileName = "history.lock";
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver
-        {
-            Modifiers =
-            {
-                static typeInfo =>
-                {
-                    if (typeInfo.Type == typeof(FailureRecord))
-                    {
-                        typeInfo.Properties.Single(property => property.Name == "schemaVersion").IsRequired = true;
-                    }
-                },
-            },
-        },
-    };
+    public const string HistoryFileName = FailureHistoryFiles.HistoryFileName;
+    public const string LegacyHistoryFileName = FailureHistoryFiles.LegacyHistoryFileName;
+    public const string ControlFileName = FailureHistoryFiles.ControlFileName;
+    public const string LockFileName = FailureHistoryFiles.LockFileName;
 
     private readonly IFailureHistoryKeyStore _keyStore;
-    private readonly string _directory;
-    private readonly string _historyPath;
-    private readonly string _lockPath;
-    private readonly TimeSpan _lockTimeout;
-    private readonly Action<string, string> _replaceSnapshot;
+    private readonly IConfigurationService _configuration;
+    private readonly FailureHistoryStateStore _state;
 
-    public EncryptedFailureHistoryStore(IFailureHistoryKeyStore keyStore, string? historyDirectory = null)
-        : this(keyStore, historyDirectory, TimeSpan.FromSeconds(2), static (source, target) => File.Move(source, target, overwrite: true))
+    public EncryptedFailureHistoryStore(IFailureHistoryKeyStore keyStore, IConfigurationService configuration, string? historyDirectory = null)
+        : this(keyStore, configuration, new FailureHistoryStateStore(new FailureHistoryFiles(historyDirectory))) { }
+
+    internal EncryptedFailureHistoryStore(IFailureHistoryKeyStore keyStore, IConfigurationService configuration, FailureHistoryStateStore state)
     {
+        _keyStore = keyStore ?? throw new ArgumentNullException(nameof(keyStore));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _state = state;
     }
 
-    internal EncryptedFailureHistoryStore(
-        IFailureHistoryKeyStore keyStore,
-        string? historyDirectory,
-        TimeSpan lockTimeout,
-        Action<string, string> replaceSnapshot)
-    {
-        ArgumentNullException.ThrowIfNull(keyStore);
-        ArgumentNullException.ThrowIfNull(replaceSnapshot);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lockTimeout, TimeSpan.Zero);
-
-        _keyStore = keyStore;
-        _directory = Path.GetFullPath(historyDirectory ?? HomePaths.GetDefaultFailureHistoryDirectory());
-        _historyPath = Path.Combine(_directory, HistoryFileName);
-        _lockPath = Path.Combine(_directory, LockFileName);
-        _lockTimeout = lockTimeout;
-        _replaceSnapshot = replaceSnapshot;
-    }
-
-    public async Task<FailureHistoryEntry> SaveAsync(
-        FailureRecord record,
-        int maxEntries,
-        CancellationToken cancellationToken = default)
+    public async Task<FailureHistoryEntry> SaveAsync(FailureRecord record, int maxEntries, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxEntries);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateRecord(record);
-
+        record = FailureHistoryCodec.FreezePendingRecord(record);
         try
         {
-            // Freeze the mutable parts before waiting for another writer.
-            try
-            {
-                record = record with { Arguments = [.. record.Arguments], ErrorDetails = record.ErrorDetails?.Clone() };
-            }
-            catch (ObjectDisposedException)
-            {
-                throw SerializationFailure();
-            }
-
-            ValidateRecord(record);
-            if (OperatingSystem.IsWindows())
-            {
-                Directory.CreateDirectory(_directory);
-            }
-            else
-            {
-                Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
-
-            using var writerLock = await AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            ValidateWritePolicy(record, state ?? new());
+            ThrowIfLegacyHistory();
             var snapshot = await ReadSnapshotAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
-            byte[]? key = null;
+            ValidateSnapshotState(snapshot, state);
+            if (state is null)
+            {
+                state = new();
+                await _state.WriteAsync(state, cancellationToken).ConfigureAwait(false);
+            }
+
+            var key = await GetKeyAsync(state.Generation, createIfMissing: snapshot is null, cancellationToken).ConfigureAwait(false);
             try
             {
-                key = await GetKeyAsync(createIfMissing: snapshot is null, cancellationToken).ConfigureAwait(false);
-                IReadOnlyList<FailureRecord> previous = snapshot is null ? [] : DecryptRecords(snapshot, key);
-                if (previous.Any(existing => existing.Id == record.Id))
+                var previous = snapshot is null ? [] : FailureHistoryCodec.DecryptRecords(snapshot, key);
+                ValidateWritePolicy(record, state);
+                // Reserve before replacing the snapshot. A crash may leave a gap, never a reused ID.
+                await _state.ReserveSequenceAsync(state, cancellationToken).ConfigureAwait(false);
+                record = record with
                 {
-                    throw new FailureHistoryException("failure_history_duplicate_id", "A failure-history record with this ID already exists.");
-                }
-
-                var records = new List<FailureRecord>(Math.Min(maxEntries, previous.Count + 1)) { record };
-                records.AddRange(previous.Take(maxEntries - 1));
-                await WriteSnapshotAsync(records, key, cancellationToken).ConfigureAwait(false);
+                    Sequence = state.NextSequence,
+                    Id = FailureId.Format(record.TerminalSessionId, record.OccurredAtUtc, state.NextSequence),
+                };
+                var policy = ValidateWritePolicy(record, state);
+                var records = new List<FailureRecord>(Math.Min(policy.HistorySize, previous.Count + 1)) { record };
+                records.AddRange(previous.Take(policy.HistorySize - 1));
+                await FailureHistoryCodec.WriteAsync(_state.Files, records, state.Generation, key, cancellationToken).ConfigureAwait(false);
                 return new FailureHistoryEntry(record.Id, record.OccurredAtUtc);
             }
-            finally
-            {
-                if (key is not null)
-                {
-                    CryptographicOperations.ZeroMemory(key);
-                }
-            }
+            finally { CryptographicOperations.ZeroMemory(key); }
         }
-        catch (Exception exception) when (IsStorageException(exception))
-        {
-            throw StorageUnavailable();
-        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
 
     public async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var snapshot = await ReadSnapshotAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
+            var snapshot = await ReadForViewAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
             if (snapshot is null)
-            {
                 return [];
-            }
-
-            var key = await GetKeyAsync(createIfMissing: false, cancellationToken).ConfigureAwait(false);
+            var key = await GetKeyAsync(snapshot.Generation, createIfMissing: false, cancellationToken).ConfigureAwait(false);
             try
             {
-                return DecryptRecords(snapshot, key);
+                var records = FailureHistoryCodec.DecryptRecords(snapshot, key);
+                await ValidateViewStateAsync(snapshot, cancellationToken).ConfigureAwait(false);
+                return records;
             }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(key);
-            }
+            finally { CryptographicOperations.ZeroMemory(key); }
         }
-        catch (Exception exception) when (IsStorageException(exception))
-        {
-            throw StorageUnavailable();
-        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
 
     public async Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var snapshot = await ReadSnapshotAsync(includeCiphertext: false, cancellationToken).ConfigureAwait(false);
-            // Structural validation is possible without a key. The index's authenticity is checked
-            // as AES-GCM associated data before any selected record can be used.
+            var snapshot = await ReadForViewAsync(includeCiphertext: false, cancellationToken).ConfigureAwait(false);
+            // Without key access only structure is checked. Selected records authenticate the same
+            // index and generation as AES-GCM AAD before any diagnostic content can be used.
             return snapshot?.Entries ?? [];
         }
-        catch (Exception exception) when (IsStorageException(exception))
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+    }
+
+    public async Task<ulong> ReadGenerationAsync(CancellationToken cancellationToken = default)
+    {
+        try { return (await _state.ReadAsync(cancellationToken).ConfigureAwait(false))?.Generation ?? 0; }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+    }
+
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        try
         {
-            throw StorageUnavailable();
+            await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
+        {
+            throw FailureHistoryStateStore.ClearIncomplete(recoveryOff: false);
         }
     }
 
-    private async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken)
+    public async Task ApplyPolicyAsync(CancellationToken cancellationToken = default)
     {
-        byte[]? key = null;
         try
         {
-            key = await _keyStore.GetKeyAsync(createIfMissing, cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (key is not { Length: 32 })
-            {
-                throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
-            }
+            var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!NeedsPolicyCleanup(ReadPolicy(), state))
+                return;
+            await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (NeedsPolicyCleanup(ReadPolicy(), state))
+                await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
+        {
+            throw FailureHistoryStateStore.ClearIncomplete(recoveryOff: false);
+        }
+    }
 
-            var ownedKey = key;
-            key = null;
-            return ownedKey;
-        }
-        catch (FailureHistoryException)
-        {
-            throw;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is
-            IOException or UnauthorizedAccessException or SecurityException or CryptographicException or
-            FormatException or PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException)
-        {
-            // Native key-service exceptions can contain sensitive provider diagnostics.
-            throw new FailureHistoryException("failure_history_key_unavailable", "The protected failure-history key is unavailable.");
-        }
-        finally
-        {
-            if (key is not null)
-            {
-                CryptographicOperations.ZeroMemory(key);
-            }
-        }
+    private bool NeedsPolicyCleanup(RecoveryOptions policy, FailureHistoryControl? state) =>
+        // Empty history can still have a pre-off capture in flight. Observing off must fence it,
+        // including after an earlier reset and before an externally edited policy re-enables.
+        state?.ClearPending == true || !policy.IsEnabled;
+
+    private RecoveryOptions ReadPolicy()
+    {
+        var recovery = _configuration.GetConfiguration<AgentOptions>().Recovery;
+        recovery.Validate();
+        return recovery;
+    }
+
+    private RecoveryOptions ValidateWritePolicy(FailureRecord record, FailureHistoryControl state)
+    {
+        var policy = ReadPolicy();
+        if (!policy.IsEnabled)
+            throw new FailureHistoryException("failure_history_disabled", "Recovery is off; failure history was not saved.");
+        if (state.ClearPending)
+            throw FailureHistoryStateStore.PendingClear();
+        if (record.HistoryGeneration != state.Generation)
+            throw new FailureHistoryException("failure_history_stale_generation", "Recovery history was reset after this capture started. The stale failure was not saved.");
+        return policy;
+    }
+
+    private async Task<FailureHistorySnapshot?> ReadForViewAsync(bool includeCiphertext, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await ValidateViewStateAsync(null, cancellationToken).ConfigureAwait(false);
+        ThrowIfLegacyHistory();
+        var snapshot = await ReadSnapshotAsync(includeCiphertext, cancellationToken).ConfigureAwait(false);
+        await ValidateViewStateAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        return snapshot;
+    }
+
+    private async Task ValidateViewStateAsync(FailureHistorySnapshot? snapshot, CancellationToken cancellationToken)
+    {
+        var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+        if (state?.ClearPending == true || (!ReadPolicy().IsEnabled && _state.Files.HasControlledData()))
+            throw FailureHistoryStateStore.PendingClear();
+        ValidateSnapshotState(snapshot, state);
+    }
+
+    private static void ValidateSnapshotState(FailureHistorySnapshot? snapshot, FailureHistoryControl? state)
+    {
+        if (snapshot is null)
+            return;
+        if (state is null || snapshot.Generation != state.Generation ||
+            snapshot.Entries.Any(entry => !FailureId.TryParse(entry.Id, out var id) || id.Sequence >= state.NextSequence))
+            throw new FailureHistoryException("failure_history_state_mismatch", "Failure history does not match its durable allocator/generation state. No history was replaced.");
+    }
+
+    private void ThrowIfLegacyHistory()
+    {
+        if (_state.Files.HasLegacyHistory())
+            throw FailureHistoryStateStore.IncompatibleDraft();
     }
 
     private async Task<FailureHistorySnapshot?> ReadSnapshotAsync(bool includeCiphertext, CancellationToken cancellationToken)
@@ -221,216 +203,43 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         FileStream stream;
         try
         {
-            stream = new FileStream(_historyPath, new FileStreamOptions
+            stream = new FileStream(_state.Files.HistoryPath, new FileStreamOptions
             {
-                Mode = FileMode.Open,
-                Access = FileAccess.Read,
-                Share = FileShare.Read | FileShare.Delete,
+                Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read | FileShare.Delete,
                 Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
             });
         }
-        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
-        {
-            return null;
-        }
-
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { return null; }
         await using (stream.ConfigureAwait(false))
-        {
             return await FailureHistorySnapshot.ReadAsync(stream, includeCiphertext, cancellationToken).ConfigureAwait(false);
-        }
     }
 
-    private static IReadOnlyList<FailureRecord> DecryptRecords(FailureHistorySnapshot snapshot, byte[] key)
+    private async Task<byte[]> GetKeyAsync(ulong generation, bool createIfMissing, CancellationToken cancellationToken)
     {
-        var plaintext = new byte[snapshot.Ciphertext!.Length];
+        byte[]? key = null;
         try
         {
-            try
-            {
-                using var aes = new AesGcm(key, FailureHistorySnapshot.TagSize);
-                aes.Decrypt(snapshot.Nonce!, snapshot.Ciphertext, snapshot.Tag!, plaintext, snapshot.AuthenticatedHeader);
-            }
-            catch (CryptographicException)
-            {
-                throw new FailureHistoryException(
-                    "failure_history_authentication_failed",
-                    "Failure history could not be authenticated. Its protected key or encrypted data may be missing or damaged.");
-            }
-
-            FailureRecord[] records;
-            try
-            {
-                records = JsonSerializer.Deserialize<FailureRecord[]>(plaintext, JsonOptions) ?? throw FailureHistorySnapshot.Corrupt();
-            }
-            catch (JsonException)
-            {
-                throw FailureHistorySnapshot.Corrupt();
-            }
-
-            if (records.Length != snapshot.Entries.Count)
-            {
-                throw FailureHistorySnapshot.Corrupt();
-            }
-
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            for (var index = 0; index < records.Length; index++)
-            {
-                var record = records[index];
-                ValidateRecord(record);
-                if (!ids.Add(record.Id) ||
-                    record.Id != snapshot.Entries[index].Id ||
-                    record.OccurredAtUtc != snapshot.Entries[index].OccurredAtUtc)
-                {
-                    throw FailureHistorySnapshot.Corrupt();
-                }
-            }
-
-            return records;
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(plaintext);
-        }
-    }
-
-    private async Task WriteSnapshotAsync(
-        IReadOnlyList<FailureRecord> records,
-        byte[] key,
-        CancellationToken cancellationToken)
-    {
-        byte[] plaintext;
-        try
-        {
-            plaintext = JsonSerializer.SerializeToUtf8Bytes(records, JsonOptions);
-        }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-        {
-            throw SerializationFailure();
-        }
-
-        byte[] ciphertext;
-        byte[] header;
-        byte[] nonce;
-        var tag = new byte[FailureHistorySnapshot.TagSize];
-        try
-        {
-            nonce = RandomNumberGenerator.GetBytes(FailureHistorySnapshot.NonceSize);
-            header = FailureHistorySnapshot.CreateHeader(records, plaintext.Length);
-            ciphertext = new byte[plaintext.Length];
-            using var aes = new AesGcm(key, FailureHistorySnapshot.TagSize);
-            aes.Encrypt(nonce, plaintext, ciphertext, tag, header);
-        }
-        catch (CryptographicException)
-        {
-            throw SerializationFailure();
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(plaintext);
-        }
-
-        var stagingPath = Path.Combine(_directory, $".history-{Guid.NewGuid():N}.tmp");
-        try
-        {
-            await using (var stream = new FileStream(stagingPath, CreateFileOptions(FileMode.CreateNew)))
-            {
-                await stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-                await stream.WriteAsync(nonce, cancellationToken).ConfigureAwait(false);
-                await stream.WriteAsync(tag, cancellationToken).ConfigureAwait(false);
-                await stream.WriteAsync(ciphertext, cancellationToken).ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                stream.Flush(flushToDisk: true);
-            }
-
+            key = await _keyStore.GetKeyAsync(generation, createIfMissing, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            _replaceSnapshot(stagingPath, _historyPath);
+            if (key is not { Length: 32 })
+                throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
+            var owned = key;
+            key = null;
+            return owned;
+        }
+        catch (Exception exception) when (exception is
+            IOException or UnauthorizedAccessException or SecurityException or CryptographicException or FormatException or
+            PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException)
+        {
+            throw new FailureHistoryException("failure_history_key_unavailable", "The protected failure-history key is unavailable.");
         }
         finally
         {
-            try
-            {
-                File.Delete(stagingPath);
-            }
-            catch (Exception exception) when (IsStorageException(exception))
-            {
-                // A leftover staging file contains only ciphertext, never plaintext or a key.
-            }
+            if (key is not null)
+                CryptographicOperations.ZeroMemory(key);
         }
     }
 
-    private async Task<FileStream> AcquireWriterLockAsync(CancellationToken cancellationToken)
-    {
-        var started = Stopwatch.GetTimestamp();
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                // Never delete this file: unlinking a held lock permits two locks on different
-                // inodes on Unix. FileShare.None coordinates independent processes and instances.
-                return new FileStream(_lockPath, CreateFileOptions(FileMode.OpenOrCreate));
-            }
-            catch (IOException exception) when (IsLockContention(exception))
-            {
-                var remaining = _lockTimeout - Stopwatch.GetElapsedTime(started);
-                if (remaining <= TimeSpan.Zero)
-                {
-                    throw new FailureHistoryException("failure_history_locked", "Failure history is busy. Try again shortly.");
-                }
-
-                await Task.Delay(remaining < TimeSpan.FromMilliseconds(25) ? remaining : TimeSpan.FromMilliseconds(25), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-    }
-
-    private static FileStreamOptions CreateFileOptions(FileMode mode)
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = mode,
-            Access = FileAccess.ReadWrite,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-        };
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        }
-
-        return options;
-    }
-
-    private static bool IsLockContention(IOException exception)
-        => (exception.HResult & 0xffff) is 11 or 32 or 33 or 35;
-
-    private static bool IsStorageException(Exception exception)
-        => exception is IOException or UnauthorizedAccessException or SecurityException;
-
-    private static FailureHistoryException StorageUnavailable()
-        => new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.");
-
-    private static FailureHistoryException SerializationFailure()
-        => new("failure_history_invalid_record", "The failure record could not be securely serialized.");
-
-    private static void ValidateRecord(FailureRecord? record)
-    {
-        if (record is null ||
-            !FailureHistorySnapshot.IsCanonicalId(record.Id) ||
-            record.OccurredAtUtc.Offset != TimeSpan.Zero ||
-            record.OccurredAtUtc == default ||
-            record.Arguments is null ||
-            record.Arguments.Any(argument => argument is null) ||
-            record.FailedCommand is null ||
-            record.ErrorText is null ||
-            record.ExitCode == 0)
-        {
-            throw new FailureHistoryException("failure_history_invalid_record", "The failure record has invalid or missing required fields.");
-        }
-
-        if (record.SchemaVersion != FailureRecord.CurrentSchemaVersion)
-        {
-            throw FailureHistorySnapshot.UnsupportedSchema();
-        }
-    }
+    private static FailureHistoryException StorageUnavailable() =>
+        new("failure_history_io", "Failure history could not be accessed or saved. Check its directory permissions and available disk space.");
 }

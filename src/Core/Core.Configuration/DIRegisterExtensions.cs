@@ -19,6 +19,7 @@ public static class DIRegisterExtensions
             .AddSingleton<IConfigurationSchema, ConfigurationSchema>()
             .AddSingleton<ConfigurationService>()
             .AddSingleton<IConfigurationService>(services => services.GetRequiredService<ConfigurationService>())
+            .AddSingleton<IConfigurationDiagnostics>(services => services.GetRequiredService<ConfigurationService>())
             .AddSingleton<ISourceAwareConfigurationService>(services =>
             {
                 var configurationService = services.GetRequiredService<IConfigurationService>();

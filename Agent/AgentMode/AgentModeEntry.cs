@@ -29,7 +29,8 @@ public static class AgentModeEntry
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+        ConsoleCancelEventHandler cancelHandler = (_, e) => { e.Cancel = true; cts.Cancel(); };
+        Console.CancelKeyPress += cancelHandler;
 
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
@@ -48,11 +49,11 @@ public static class AgentModeEntry
         TraceAgentRenderer? trace = null;
         try
         {
-            var request = await ManualRecoveryInput.ReadAsync(args, cts.Token);
+            var request = await RecoveryInput.ReadAsync(args, cts.Token);
             if (request is not null)
             {
-                failedCommand = request.Failure.FailedCommand;
-                errorText = request.Failure.ErrorText;
+                failedCommand = request.FailedCommand;
+                errorText = request.ErrorText;
             }
 
             // Constructing the provider builds the TracerProvider and attaches the
@@ -71,19 +72,27 @@ public static class AgentModeEntry
             {
                 session?.SetTag(TelemetryTags.TenantId, request.TenantId);
                 session?.SetTag(TelemetryTags.DataBoundary, request.DataBoundary);
+                session?.SetTag(TelemetryTags.CommandTraceId, request.CommandTraceId);
+                session?.SetTag(TelemetryTags.CommandSpanId, request.CommandSpanId);
             }
 
-            var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
-            if (request is not null && !agentOpts.Enabled)
-                throw new InvalidOperationException("Agent features are disabled. Enable agent.enabled before troubleshooting.");
+            var trigger = agentOpts.Recovery?.Trigger?.ToLowerInvariant();
+            if (trigger is not ("off" or "manual" or "auto"))
+                throw new ArgumentException("agent.recovery must be off, manual, or auto.");
+            if (trigger == "off")
+                throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
-                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic);
+                agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);
+            if (recoverySettings.IsInteractive && (Console.IsInputRedirected || Console.IsOutputRedirected))
+                throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.");
             session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
-            session?.SetTag(TelemetryTags.RecoveryTrigger, request is null ? "automatic" : "manual");
+            session?.SetTag(TelemetryTags.RecoveryTrigger,
+                recoverySettings.Trigger == RecoveryTrigger.Manual ? "manual" : "automatic");
             session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
+            var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = recoverySettings.IsInteractive ? "inline" : "oneshot";
@@ -166,27 +175,18 @@ public static class AgentModeEntry
             agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
             trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = recoverySettings.SessionStyle });
 
-            var firstPrompt = request is not null
-                ? ManualRecoveryInput.BuildPrompt(request.Failure)
-                : string.IsNullOrWhiteSpace(errorText)
-                    ? $"I tried `{failedCommand}` but it failed. Help me fix it."
-                    : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
+            var firstPrompt = RecoveryInput.BuildPrompt(failedCommand, errorText);
 
             var interactive = recoverySettings.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
-            if (request is not null)
-            {
-                var hasResult = agent.SubmitRendered || agent.HasPendingPlan;
-                var exit = GetManualExitCode(agent.LastError, cts.Token, hasResult);
-                if (!hasResult && agent.LastError is null && !cts.IsCancellationRequested)
-                    WriteColor(ConsoleColor.Red, "AI diagnosis ended without a recovery plan or final response.");
-                session?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :
-                    exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
-                return exit;
-            }
-            session?.SetStatus(ActivityStatusCode.Ok);
-            return 0;
+            var hasResult = agent.SubmitRendered || agent.HasPendingPlan;
+            var exit = GetRecoveryExitCode(agent.LastError, cts.Token, hasResult);
+            if (!hasResult && agent.LastError is null && !cts.IsCancellationRequested)
+                WriteColor(ConsoleColor.Red, "AI diagnosis ended without a recovery plan or final response.");
+            session?.SetStatus(exit == 0 ? ActivityStatusCode.Ok :
+                exit == 130 ? ActivityStatusCode.Unset : ActivityStatusCode.Error);
+            return exit;
         }
         catch (OperationCanceledException)
         {
@@ -199,14 +199,15 @@ public static class AgentModeEntry
         }
         finally
         {
+            Console.CancelKeyPress -= cancelHandler;
             trace?.Dispose();
             AzclipsServiceProvider.Dispose();
         }
     }
 
-    internal static int GetManualExitCode(
+    internal static int GetRecoveryExitCode(
         SessionErrored? terminalError, CancellationToken cancellationToken, bool hasResult = true) =>
-        terminalError is not null ? 1 : cancellationToken.IsCancellationRequested ? 130 : hasResult ? 0 : 1;
+        cancellationToken.IsCancellationRequested ? 130 : terminalError is not null ? 1 : hasResult ? 0 : 1;
 
     private static async Task RunChatLoopAsync(
         ChatAgent agent,

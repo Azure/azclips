@@ -6,19 +6,10 @@ namespace Core.Abstractions;
 [ConfigurationSection("agent")]
 public sealed class AgentOptions
 {
-    // Off by default for Private Preview. The user opts in with
-    // `az config set --key agent.enabled --value true`; until then a failed
-    // command surfaces its original error and never spawns the agent.
-    [ConfigurationKey("enabled", Description = "Enable or disable agent features. Off by default; set true to opt in.")]
-    public bool Enabled { get; set; } = false;
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
     public BuiltinProviderOptions Builtin { get; set; } = new();
-    public AutoRecoveryOptions AutoRecovery { get; set; } = new();
-    public FailureHistoryOptions FailureHistory { get; set; } = new();
-
-    [ConfigurationKey("sessionStyle", Description = "Automatic recovery interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop). Explicit troubleshoot requests always use oneshot.", AllowedValues = ["oneshot", "interactive"])]
-    public string SessionStyle { get; set; } = "oneshot";
+    public RecoveryOptions Recovery { get; set; } = new();
 
     // Interactive-only display settings. Meaningless in oneshot (which prints no
     // tool events at all), hence namespaced under interactive.
@@ -30,22 +21,37 @@ public sealed class AgentOptions
     // alone). Local debugging / evaluation harness only.
     public TraceOptions Trace { get; set; } = new();
 
-    // Single source of truth for the SessionStyle string comparison, so the
-    // "interactive" literal doesn't drift across call sites.
-    public bool IsInteractive =>
-        string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed class AutoRecoveryOptions
+public sealed class RecoveryOptions
 {
-    [ConfigurationKey("enabled", Description = "Automatically start AI recovery after eligible command failures. Requires agent.enabled. Off by default; explicit troubleshoot requests do not require this switch.")]
-    public bool Enabled { get; set; } = false;
-}
+    [ConfigurationKey("trigger", PublicKey = "agent.recovery", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
+    public string Trigger { get; set; } = "manual";
 
-public sealed class FailureHistoryOptions
-{
-    [ConfigurationKey("maxEntries", Description = "Maximum encrypted failure records retained for the current local user. Must be positive. A lower limit takes effect on the next successful history write.", Minimum = 1)]
-    public int MaxEntries { get; set; } = 10;
+    [ConfigurationKey("style", Description = "Recovery interaction style for both manual and automatic diagnosis: oneshot or interactive.", AllowedValues = ["oneshot", "interactive"])]
+    public string Style { get; set; } = "oneshot";
+
+    [ConfigurationKey("historySize", Description = "Maximum encrypted failure records retained. Must be positive; reductions take effect on the next successful history write.", Minimum = 1)]
+    public int HistorySize { get; set; } = 10;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsEnabled { get { Validate(); return !string.Equals(Trigger, "off", StringComparison.OrdinalIgnoreCase); } }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAutomatic { get { Validate(); return string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase); } }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsInteractive { get { Validate(); return string.Equals(Style, "interactive", StringComparison.OrdinalIgnoreCase); } }
+
+    public void Validate()
+    {
+        if (!new[] { "off", "manual", "auto" }.Contains(Trigger, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Configuration 'agent.recovery' must be off, manual, or auto.");
+        if (!new[] { "oneshot", "interactive" }.Contains(Style, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Configuration 'agent.recovery.style' must be oneshot or interactive.");
+        if (HistorySize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(HistorySize), "Configuration 'agent.recovery.historySize' must be a positive integer.");
+    }
 }
 
 public sealed class InteractiveOptions

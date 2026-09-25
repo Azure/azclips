@@ -17,23 +17,25 @@ namespace Core.Authentication.Recovery;
 /// </summary>
 public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
 {
-    public const string KeyFileName = "master-key.v1.protected";
-    private const string Purpose = "Microsoft.Azclips.FailureHistory.v1";
+    private const string Purpose = "Microsoft.Azclips.FailureHistory.v2";
 
     private readonly string _directory;
-    private readonly string _keyPath;
-    private readonly Lazy<Storage> _storage;
+    private readonly Func<ulong, IProtectedHistoryKeyStorage> _createStorage;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public ProtectedFailureHistoryKeyStore(string? historyDirectory = null)
+        : this(historyDirectory, null) { }
+
+    internal ProtectedFailureHistoryKeyStore(string? historyDirectory, Func<ulong, IProtectedHistoryKeyStorage>? createStorage)
     {
         _directory = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(historyDirectory ?? HomePaths.GetDefaultFailureHistoryDirectory()));
-        _keyPath = Path.Combine(_directory, KeyFileName);
-        _storage = new Lazy<Storage>(CreateStorage);
+        _createStorage = createStorage ?? CreateStorage;
     }
 
-    public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
+    public static string GetKeyFileName(ulong generation) => FailureHistoryKeyNames.GetFileName(generation);
+
+    public async Task<byte[]> GetKeyAsync(ulong generation, bool createIfMissing, CancellationToken cancellationToken = default)
     {
         if (!await _gate.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false))
         {
@@ -45,12 +47,14 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var keyFileExists = CheckKeyFileAccess();
-            var storage = _storage.Value;
+            var keyPath = Path.Combine(_directory, GetKeyFileName(generation));
+            var keyFileExists = CheckKeyFileAccess(keyPath);
+            var storage = _createStorage(generation);
             key = storage.ReadData();
             cancellationToken.ThrowIfCancellationRequested();
             if (key.Length == 32)
             {
+                EnsureKeyMarker(storage, keyPath, keyFileExists, createIfMissing);
                 var ownedKey = key;
                 key = null;
                 return ownedKey;
@@ -70,15 +74,7 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                     "The protected failure-history key is missing or inaccessible. Existing history cannot be recovered without its key.");
             }
 
-            if (OperatingSystem.IsWindows())
-            {
-                Directory.CreateDirectory(_directory);
-            }
-            else
-            {
-                Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
-
+            EnsureKeyDirectory();
             key = RandomNumberGenerator.GetBytes(32);
             storage.WriteData(key);
             // MSAL's file adapter retries and then swallows some I/O failures. Verify the actual
@@ -90,6 +86,7 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
                 throw KeyUnavailable();
             }
 
+            EnsureKeyMarker(storage, keyPath, keyFileExists, createIfMissing);
             var createdKey = key;
             key = null;
             return createdKey;
@@ -128,11 +125,34 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         }
     }
 
-    private bool CheckKeyFileAccess()
+    private void EnsureKeyDirectory()
+    {
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(_directory);
+        else
+            Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    private void EnsureKeyMarker(IProtectedHistoryKeyStorage storage, string path, bool exists, bool canCreate)
+    {
+        if (!storage.RequiresMarker || exists || !canCreate)
+            return;
+
+        EnsureKeyDirectory();
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+        using var marker = new FileStream(path, options);
+        marker.WriteByte(1);
+        marker.Flush(flushToDisk: true);
+    }
+
+    private static bool CheckKeyFileAccess(string keyPath)
     {
         try
         {
-            using var stream = new FileStream(_keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var stream = new FileStream(keyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             return true;
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
@@ -141,28 +161,49 @@ public sealed class ProtectedFailureHistoryKeyStore : IFailureHistoryKeyStore
         }
     }
 
-    private Storage CreateStorage()
+    private IProtectedHistoryKeyStorage CreateStorage(ulong generation)
     {
         var canonicalDirectory = OperatingSystem.IsWindows() ? _directory.ToUpperInvariant() : _directory;
         var directoryId = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalDirectory)));
-        var properties = new StorageCreationPropertiesBuilder(KeyFileName, _directory)
-            .WithLinuxKeyring(
-                Purpose,
-                MsalCacheHelper.LinuxKeyRingDefaultCollection,
-                "Azclips encrypted failure history",
-                new KeyValuePair<string, string>("application", Purpose),
-                new KeyValuePair<string, string>("directory", directoryId))
-            .WithMacKeyChain(Purpose, directoryId)
-            .Build();
+        var keyId = $"{directoryId}:{generation.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        if (OperatingSystem.IsLinux())
+            return new LinuxFailureHistoryKeyStorage(Purpose, keyId);
+        if (OperatingSystem.IsMacOS())
+            return new MacOsFailureHistoryKeyStorage(Purpose, keyId);
+
+        EnsureNonInteractiveBackend(OperatingSystem.IsWindows());
+        var properties = new StorageCreationPropertiesBuilder(GetKeyFileName(generation), _directory).Build();
 
         var trace = new TraceSource(Purpose, SourceLevels.Off);
         trace.Listeners.Clear();
         trace.Switch.Level = SourceLevels.Off;
-        return Storage.Create(properties, trace);
+        return new MsalProtectedHistoryKeyStorage(Storage.Create(properties, trace));
+    }
+
+    internal static void EnsureNonInteractiveBackend(bool isWindows)
+    {
+        // Only the Windows MSAL fallback guarantees CRYPTPROTECT_UI_FORBIDDEN.
+        // Unix platforms must use the explicitly noninteractive adapters above.
+        if (!isWindows)
+            throw new FailureHistoryException("failure_history_key_unavailable",
+                "No noninteractive OS-protected history backend is registered for this platform. No native key access was attempted.");
     }
 
     private static FailureHistoryException KeyUnavailable()
         => new(
             "failure_history_key_unavailable",
             "OS-protected failure-history key storage is unavailable. Check that the current user's secure key service is accessible.");
+}
+
+internal interface IProtectedHistoryKeyStorage
+{
+    bool RequiresMarker => false;
+    byte[] ReadData();
+    void WriteData(byte[] data);
+}
+
+internal sealed class MsalProtectedHistoryKeyStorage(Storage storage) : IProtectedHistoryKeyStorage
+{
+    public byte[] ReadData() => storage.ReadData();
+    public void WriteData(byte[] data) => storage.WriteData(data);
 }

@@ -13,7 +13,7 @@
 # Uppercase in stdout marks the binary as non-azclips. The result is cached per exe.
 # Completions are cached for the current shell session and invalidated if the resolved exe path
 # changes (e.g., after an update) or if the config file changes.
-# Saved failure IDs use `--completion-values troubleshoot --id [prefix]` afresh
+# Saved failure IDs use `--completion-values troubleshoot --id` afresh
 # on every Tab press, separately from the static command-candidate cache.
 # To refresh manually, run: _az_clear_cache
 #
@@ -105,19 +105,18 @@ _az_query_candidates() {
     _az_cache_key="$cache_key"
 }
 
-# ID output is untrusted: require a successful query containing only complete GUIDs.
+# The endpoint validates IDs; reject unsafe tokens before using shell-native matching.
 _az_query_troubleshoot_ids() {
     _az_query_result=""
-    local exe="$1" prefix="$2"
+    local exe="$1"
     [[ -n "$exe" && "${_az_not_azclips:-}" != "$exe" ]] || return 1
-    [[ "$prefix" =~ ^[0-9a-fA-F]{0,32}$ ]] || return 1
 
     local raw candidate
-    raw="$("$exe" --completion-values troubleshoot --id "$prefix" 2>/dev/null)" || return 1
+    raw="$("$exe" --completion-values troubleshoot --id 2>/dev/null)" || return 1
     raw="${raw//$'\r'/}"
-    [[ "$raw" =~ ^[[:space:]0-9a-fA-F]*$ ]] || return 1
+    [[ "$raw" =~ ^[[:space:]0-9-]*$ ]] || return 1
     for candidate in ${=raw}; do
-        [[ "$candidate" =~ ^[0-9a-fA-F]{32}$ && "$candidate" != 00000000000000000000000000000000 ]] || return 1
+        [[ "$candidate" =~ ^[1-9][0-9]{0,9}-[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4,20}$ ]] || return 1
     done
     _az_query_result="$raw"
 }
@@ -157,28 +156,25 @@ _az() {
     local -a candidates used_params raw cmd_path
     local i candidate used_param already_used
 
-    local current_word="${words[CURRENT]}" id_prefix="" completion_prefix=""
+    local current_word="${words[CURRENT]}" completion_prefix=""
     local completing_id=0
-    if [[ "${words[2]:l}" == troubleshoot ]] && (( CURRENT > 2 )); then
+    if [[ "${words[2]:l}" == troubleshoot ]] && (( CURRENT > 2 )) &&
+        [[ "${words[3]}" == -* || "${words[3]:l}" == show ]]; then
         if [[ "${current_word:l}" == --id=* ]]; then
             completing_id=1
-            id_prefix="${current_word#*=}"
             completion_prefix="${current_word%%=*}="
         elif [[ "${words[CURRENT-1]:l}" == --id ]]; then
             completing_id=1
-            [[ "$current_word" != "=" ]] && id_prefix="$current_word"
         elif [[ "${words[CURRENT-1]}" == "=" && "${words[CURRENT-2]:l}" == --id ]]; then
             completing_id=1
-            id_prefix="$current_word"
         fi
     fi
     if (( completing_id )); then
-        _az_query_troubleshoot_ids "$exe" "$id_prefix" || return 0
+        _az_query_troubleshoot_ids "$exe" || return 0
         for candidate in ${=_az_query_result}; do
             candidates+=("$completion_prefix$candidate")
         done
-        # The endpoint already filters prefixes case-insensitively.
-        (( ${#candidates[@]} > 0 )) && compadd -U -a candidates
+        (( ${#candidates[@]} > 0 )) && compadd -a candidates
         return 0
     fi
 
@@ -198,7 +194,13 @@ _az() {
 
     # Filter out flags already present on the command line.
     for (( i = 2; i < CURRENT; i++ )); do
-        [[ "${words[i]}" == --* ]] && used_params+=("${words[i]%%=*}")
+        if [[ "${words[i]}" == --* ]]; then
+            if [[ "${words[2]:l}" == troubleshoot ]]; then
+                used_params+=("${words[i]%%=*}")
+            else
+                used_params+=("${words[i]}")
+            fi
+        fi
     done
 
     for candidate in "${raw[@]}"; do

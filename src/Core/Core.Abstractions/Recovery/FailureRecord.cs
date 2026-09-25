@@ -7,10 +7,13 @@ namespace Core.Abstractions.Recovery;
 
 public sealed record FailureRecord
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
-    public required string Id { get; init; }
+    public string Id { get; init; } = string.Empty;
+    public uint TerminalSessionId { get; init; }
+    public ulong Sequence { get; init; }
+    public ulong HistoryGeneration { get; init; }
     public required DateTimeOffset OccurredAtUtc { get; init; }
     public required string[] Arguments { get; init; }
     public required string FailedCommand { get; init; }

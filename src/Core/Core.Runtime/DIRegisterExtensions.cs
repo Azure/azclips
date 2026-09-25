@@ -28,7 +28,13 @@ public static class DIRegisterExtensions
         services.AddSingleton<IUserAgentHandler, DefaultUserAgentHandler>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
-        services.TryAddSingleton<IFailureHistoryStore, EncryptedFailureHistoryStore>();
+        services.TryAddSingleton(_ => new FailureHistoryStateStore(new FailureHistoryFiles()));
+        services.TryAddSingleton<IRecoveryConfigurationCoordinator>(provider =>
+            new RecoveryConfigurationCoordinator(provider.GetRequiredService<FailureHistoryStateStore>()));
+        services.TryAddSingleton<IFailureHistoryStore>(provider => new EncryptedFailureHistoryStore(
+            provider.GetRequiredService<IFailureHistoryKeyStore>(),
+            provider.GetRequiredService<IConfigurationService>(),
+            provider.GetRequiredService<FailureHistoryStateStore>()));
         return services;
     }
 }

@@ -17,9 +17,11 @@
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <InternalsVisibleTo Include="Core.Engine" Key="$(MSSharedLibPublicKey)" />
     <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="FailureHistory.TestWorker" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Engine" />
     <InternalsVisibleTo Include="Cli.Tests" />
+    <InternalsVisibleTo Include="FailureHistory.TestWorker" />
   </ItemGroup>
 </Project>

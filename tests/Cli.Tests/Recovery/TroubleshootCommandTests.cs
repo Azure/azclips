@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
@@ -19,284 +18,263 @@ namespace Cli.Tests.Recovery;
 [Collection("Azclips Service Provider Tests")]
 public class TroubleshootCommandTests
 {
+    internal const string Id = "42-2026-0924-0000-0000";
+
     [Theory]
     [InlineData(new[] { "troubleshoot" }, true)]
     [InlineData(new[] { "--output", "invalid", "troubleshoot", "--list" }, true)]
     [InlineData(new[] { "--query", "troubleshoot", "group", "list" }, false)]
-    [InlineData(new[] { "--debug", "help", "troubleshoot" }, true)]
+    [InlineData(new[] { "--debug", "help", "troubleshoot", "show" }, true)]
     [InlineData(new[] { "vm", "show", "--name", "troubleshoot" }, false)]
     [InlineData(new[] { "--output=json", "TROUBLESHOOT", "--list" }, true)]
-    public void EarlyRouting_RecognizesOnlyTheCommand(string[] args, bool expected)
-    {
+    public void EarlyRouting_RecognizesOnlyTheCommand(string[] args, bool expected) =>
         Assert.Equal(expected, GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot));
-    }
 
     [Fact]
-    public void Parser_DefaultsToLatestAndSupportsExactIdAndList()
+    public void Parser_RecognizesAnalysisAndLocalViews()
     {
-        var id = Guid.NewGuid().ToString("N");
-        Assert.Equal(new TroubleshootRequest(null, false), TroubleshootRequest.Parse(GlobalArgParser.Parse(["troubleshoot"])));
-        Assert.Equal(new TroubleshootRequest(id, false), TroubleshootRequest.Parse(GlobalArgParser.Parse(["troubleshoot", "--id=" + id])));
-        Assert.Equal(new TroubleshootRequest(null, true), TroubleshootRequest.Parse(GlobalArgParser.Parse(["troubleshoot", "--list", "--output", "json"])));
+        Assert.Equal(new TroubleshootRequest(null, false), Parse("troubleshoot"));
+        Assert.Equal(new TroubleshootRequest(Id, false), Parse("troubleshoot", "--id=" + Id));
+        Assert.Equal(new TroubleshootRequest(Id, false, Style: "interactive"),
+            Parse("troubleshoot", "--id", Id, "--style=INTERACTIVE"));
+        Assert.Equal(new TroubleshootRequest(null, true),
+            Parse("troubleshoot", "--list", "--output", "json", "--query", "[].id"));
+        Assert.Equal(new TroubleshootRequest(Id, false, Show: true),
+            Parse("TROUBLESHOOT", "SHOW", "--id", Id, "--output", "table"));
     }
 
     public static TheoryData<string[]> InvalidArguments => new()
     {
         new[] { "troubleshoot", "--id" },
+        new[] { "troubleshoot", "--id=" },
         new[] { "troubleshoot", "--id", "..\\history" },
+        new[] { "troubleshoot", "--id", "42-2026-0924-0000" },
+        new[] { "troubleshoot", "--id", "abcdef0123456789abcdef0123456789" },
+        new[] { "troubleshoot", "--id", Id, "--id=" + Id },
         new[] { "troubleshoot", "--unknown" },
         new[] { "troubleshoot", "--list", "--list" },
+        new[] { "troubleshoot", "--list", "--id", Id },
+        new[] { "troubleshoot", "--list", "show", "--id", Id },
+        new[] { "troubleshoot", "show", "--list", "--id", Id },
+        new[] { "troubleshoot", "show" },
+        new[] { "troubleshoot", "show", "--style", "oneshot", "--id", Id },
+        new[] { "troubleshoot", "show", "show", "--id", Id },
+        new[] { "troubleshoot", "--list", "--style=interactive" },
+        new[] { "troubleshoot", "--style" },
+        new[] { "troubleshoot", "--style=" },
+        new[] { "troubleshoot", "--style", "unknown" },
+        new[] { "troubleshoot", "--style=oneshot", "--style", "interactive" },
+        new[] { "troubleshoot", "--id", "--style", "oneshot" },
         new[] { "troubleshoot", "--output", "json" },
+        new[] { "troubleshoot", "--output", "yaml" },
         new[] { "troubleshoot", "--query", "@" },
     };
 
     [Theory]
     [MemberData(nameof(InvalidArguments))]
-    public void Parser_RejectsInvalidOrUnsupportedArguments(string[] args)
+    public async Task InvalidArguments_FailBeforeHistoryAuthOrAgent(string[] args)
     {
-        Assert.Equal(2, Assert.Throws<UsageErrorException>(() =>
-            TroubleshootRequest.Parse(GlobalArgParser.Parse(args))).ExitCode);
-    }
-
-    [Fact]
-    public void Parser_RejectsMixedSelection()
-    {
-        Assert.Throws<UsageErrorException>(() => TroubleshootRequest.Parse(
-            GlobalArgParser.Parse(["troubleshoot", "--list", "--id", Guid.NewGuid().ToString("N")])));
-    }
-
-    [Fact]
-    public void Selection_NeverSubstitutesLatestForAnUnknownId()
-    {
-        var first = MakeRecord();
-        var second = MakeRecord();
-        Assert.Same(first, TroubleshootCommand.SelectRecord([first, second], null));
-        Assert.Same(second, TroubleshootCommand.SelectRecord([first, second], second.Id.ToUpperInvariant()));
-        Assert.Equal("FailureRecordNotFound", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.SelectRecord([first], Guid.NewGuid().ToString("N"))).Code);
-        Assert.Equal("NoFailureHistory", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.SelectRecord([], null)).Code);
+        Assert.Equal(2, Assert.Throws<UsageErrorException>(() => Parse(args)).ExitCode);
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        var (exit, output, error) = await RunLocalAsync(args, LocalConfiguration(), history);
+        Assert.Equal(2, exit);
+        Assert.Empty(output);
+        Assert.NotEmpty(error);
+        history.VerifyNoOtherCalls();
     }
 
     [Theory]
-    [InlineData(false, "oneshot")]
-    [InlineData(true, "oneshot")]
-    [InlineData(false, "interactive")]
-    [InlineData(true, "interactive")]
-    public void ExplicitTrigger_OnlyRequiresMasterSwitch(bool autoEnabled, string style)
+    [InlineData("manual", "oneshot")]
+    [InlineData("manual", "interactive")]
+    [InlineData("auto", "oneshot")]
+    [InlineData("auto", "interactive")]
+    public void Analysis_UsesTheNewTriggerAndSharedStyle(string trigger, string style)
     {
-        TroubleshootCommand.RequireAgentEnabled(new()
-        {
-            Enabled = true,
-            AutoRecovery = new() { Enabled = autoEnabled },
-            SessionStyle = style,
-        }, inAgentMode: false);
+        var options = new AgentOptions { Recovery = new() { Trigger = trigger, Style = style } };
+        TroubleshootCommand.RequireAnalysis(options, null, false, false, false);
+        TroubleshootCommand.RequireAnalysis(options, "oneshot", false, true, true);
+        Assert.Equal(style, options.Recovery.Style);
     }
 
     [Fact]
-    public void ExplicitTrigger_RejectsDisabledAndRecursiveCalls()
+    public void Analysis_RejectsOffRecursionAndInteractiveRedirection()
     {
-        Assert.Equal("AgentDisabled", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.RequireAgentEnabled(new(), false)).Code);
+        var off = Assert.Throws<AzclipsErrorException>(() =>
+            TroubleshootCommand.RequireAnalysis(new() { Recovery = new() { Trigger = "off" } }, null, false, false, false));
+        Assert.Equal("AgentDisabled", off.Code);
+        Assert.Contains("agent.recovery --value manual", off.Message);
+        Assert.DoesNotContain("agent.enabled", off.Message);
         Assert.Equal("RecursiveRecovery", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootCommand.RequireAgentEnabled(new() { Enabled = true }, true)).Code);
-    }
-
-    [Theory]
-    [InlineData(false, false, "oneshot", false, false, false)]
-    [InlineData(false, true, "oneshot", false, false, false)]
-    [InlineData(true, false, "oneshot", false, false, false)]
-    [InlineData(true, true, "oneshot", true, true, true)]
-    [InlineData(true, true, "interactive", false, false, true)]
-    [InlineData(true, true, "interactive", true, false, false)]
-    [InlineData(true, true, "interactive", false, true, false)]
-    public void AutomaticTrigger_HonorsBothSwitchesAndTheExistingTtyGuard(
-        bool enabled, bool automatic, string style, bool inputRedirected, bool outputRedirected, bool expected)
-    {
-        var options = new AgentOptions
-        {
-            Enabled = enabled,
-            AutoRecovery = new() { Enabled = automatic },
-            SessionStyle = style,
-        };
-        Assert.Equal(expected, AutomaticRecoveryPolicy.ShouldStart(options, false, inputRedirected, outputRedirected));
-        Assert.False(AutomaticRecoveryPolicy.ShouldStart(options, true, inputRedirected, outputRedirected));
+            TroubleshootCommand.RequireAnalysis(new(), null, true, false, false)).Code);
+        Assert.Throws<UsageErrorException>(() =>
+            TroubleshootCommand.RequireAnalysis(new(), "interactive", false, true, false));
+        Assert.Throws<UsageErrorException>(() =>
+            TroubleshootCommand.RequireAnalysis(new(), "interactive", false, false, true));
     }
 
     [Fact]
-    public async Task List_ReadsLocalDataWithMasterOffAndNeverResolvesAuthOrTelemetry()
+    public async Task List_IsReadOnlyAndUsesOnlyTheThreeOriginalFields()
     {
-        var record = MakeRecord();
+        var record = MakeRecord() with { ErrorText = "original\r\nfailure é \"quoted\"" + new string('x', 220) };
         var config = LocalConfiguration();
-        var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-        store.Setup(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new[] { record });
-        var (exit, output, error) = await RunLocalAsync(["troubleshoot", "--list", "--output", "json"], config, store);
+        var history = ReadOnlyHistory(record);
+        var (exit, output, error) = await RunLocalAsync(["troubleshoot", "--list", "--output", "json"], config, history);
 
         Assert.Equal(0, exit);
         Assert.Empty(error);
         using var json = JsonDocument.Parse(output);
-        Assert.Equal(record.Id, json.RootElement[0].GetProperty("id").GetString());
-        Assert.DoesNotContain(record.ErrorText, output);
-        Assert.DoesNotContain("test-only-secret", output);
+        var entry = Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal(["id", "command", "errorDetail"], entry.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(record.FailedCommand, entry.GetProperty("command").GetString());
+        Assert.Equal(TroubleshootOutput.SummarizeError(record.ErrorText), entry.GetProperty("errorDetail").GetString());
+        Assert.Contains("é", output);
         config.Verify(c => c.GetConfiguration<AgentOptions>(null, null), Times.Never);
-        config.Verify(c => c.GetConfiguration<TelemetryOptions>(null, null), Times.Never);
-        store.Verify(s => s.SaveAsync(It.IsAny<FailureRecord>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        history.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Show_UsesFullOriginalContentAndSupportsQuery()
+    {
+        var record = MakeRecord() with { ErrorText = "first\nsecond\r\n" + new string('é', 400) };
+        foreach (var query in new[] { Array.Empty<string>(), new[] { "--query", "errorDetail" } })
+        {
+            var history = ReadOnlyHistory(record);
+            var (exit, output, error) = await RunLocalAsync(
+                ["troubleshoot", "show", "--id", record.Id, "--output", "json", .. query],
+                LocalConfiguration(), history);
+            Assert.Equal(0, exit);
+            Assert.Empty(error);
+            using var json = JsonDocument.Parse(output);
+            Assert.Equal(record.ErrorText, query.Length == 0
+                ? json.RootElement.GetProperty("errorDetail").GetString()
+                : json.RootElement.GetString());
+            history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
+            history.VerifyNoOtherCalls();
+        }
+    }
+
+    [Fact]
+    public async Task LocalViews_DistinguishEmptyAndMissingRecords()
+    {
+        var (exit, output, error) = await RunLocalAsync(
+            ["troubleshoot", "--list", "--output", "json"], LocalConfiguration(), ReadOnlyHistory());
+        Assert.Equal(0, exit);
+        Assert.Empty(error);
+        Assert.Equal("[]", output.Trim());
+
+        var missing = await RunLocalAsync(
+            ["troubleshoot", "show", "--id", Id, "--output", "json"], LocalConfiguration(), ReadOnlyHistory());
+        Assert.Equal(1, missing.Exit);
+        Assert.Empty(missing.Output);
+        Assert.Contains("FailureRecordNotFound", missing.Error);
+    }
+
+    [Theory]
+    [InlineData("failure_history_incompatible_draft")]
+    [InlineData("failure_history_key_unavailable")]
+    [InlineData("failure_history_corrupt")]
+    [InlineData("failure_history_clear_pending")]
+    public async Task LocalViews_ReportHistoryErrorsWithoutCleanupOrFallback(string code)
+    {
+        foreach (var view in new[] { new[] { "--list" }, new[] { "show", "--id", Id } })
+        {
+            var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+            history.Setup(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new FailureHistoryException(code, "Local history cannot be read."));
+            var result = await RunLocalAsync(
+                ["troubleshoot", .. view, "--output", "json"], LocalConfiguration(), history);
+            Assert.Equal(1, result.Exit);
+            Assert.Empty(result.Output);
+            using var json = JsonDocument.Parse(result.Error);
+            Assert.Equal(code, json.RootElement.GetProperty("error").GetProperty("code").GetString());
+            history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
+            history.VerifyNoOtherCalls();
+        }
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 130)]
+    public async Task LocalRead_OnlyCallerCancellationReturns130(bool cancelled, int expectedExit)
+    {
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        history.Setup(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TaskCanceledException("The read timed out."));
+        var result = await RunLocalAsync(
+            ["troubleshoot", "--list", "--output", "json"], LocalConfiguration(), history, new CancellationToken(cancelled));
+        Assert.Equal(expectedExit, result.Exit);
+        Assert.Empty(result.Output);
+        if (cancelled)
+            Assert.Empty(result.Error);
+        else
+            Assert.Contains("TroubleshootFailed", result.Error);
+        history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        history.VerifyNoOtherCalls();
     }
 
     [Fact]
     public async Task DisabledAnalysis_DoesNotReadHistoryOrStartAuth()
     {
         var config = LocalConfiguration();
-        config.Setup(c => c.GetConfiguration<AgentOptions>(null, null)).Returns(new AgentOptions());
-        var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-
-        var (exit, output, error) = await RunLocalAsync(["troubleshoot"], config, store);
-
-        Assert.Equal(1, exit);
-        Assert.Empty(output);
-        Assert.Contains("AgentDisabled", error);
-        store.VerifyNoOtherCalls();
-    }
-
-    [Fact]
-    public async Task Help_RemainsLocalAndDoesNotRequireAgentOrHistory()
-    {
-        var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-        var (exit, output, error) = await RunLocalAsync(["--debug", "help", "troubleshoot"], LocalConfiguration(), store);
-
-        Assert.Equal(0, exit);
-        Assert.Empty(error);
-        Assert.Contains("--id", output);
-        Assert.DoesNotContain("----id", output);
-        Assert.Contains("--list", output);
-        store.VerifyNoOtherCalls();
-    }
-
-    [Fact]
-    public async Task Capture_PreservesFullInputAndOnlyHintsWithAutomaticOff()
-    {
-        foreach (var automatic in new[] { false, true })
-        {
-            FailureRecord? saved = null;
-            var args = new[] { "group", "create", "--name", "test-only-secret", "--output", "json" };
-            var error = new HttpRequestException("original\n" + new string('e', 80_000), null, HttpStatusCode.BadRequest);
-            var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-            store.Setup(s => s.SaveAsync(It.IsAny<FailureRecord>(), 10, It.IsAny<CancellationToken>()))
-                .Callback<FailureRecord, int, CancellationToken>((record, _, _) => saved = record)
-                .ReturnsAsync((FailureRecord record, int _, CancellationToken _) => new FailureHistoryEntry(record.Id, record.OccurredAtUtc));
-
-            var result = await FailureCapture.SaveAsync(
-                args, "group create --name test-only-secret", error, 1, "group create", null,
-                () => new() { Enabled = true, AutoRecovery = new() { Enabled = automatic } },
-                () => store.Object, false);
-
-            Assert.NotNull(saved);
-            Assert.Equal(args, saved.Arguments);
-            Assert.Equal(error.Message, saved.ErrorText);
-            Assert.Equal(400, saved.HttpStatusCode);
-            Assert.Equal(!automatic, result.ShowHint);
-            Assert.NotNull(result.Entry);
-        }
-    }
-
-    [Fact]
-    public async Task Capture_ExcludesDisabledSuccessfulCancelledAndUtilityInvocations()
-    {
-        var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-        foreach (var args in new[]
-        {
-            new[] { "troubleshoot" },
-            new[] { "--output", "bad", "troubleshoot", "--list" },
-            new[] { "--completion-values", "troubleshoot", "--id" },
-            new[] { "--upload-telemetry" },
-        })
-        {
-            var result = await FailureCapture.SaveAsync(args, "unused", new Exception("unused"), 1, null, null,
-                () => new() { Enabled = true }, () => store.Object, false);
-            Assert.Null(result.Entry);
-        }
-        Assert.Null((await FailureCapture.SaveAsync(["group", "list"], "group list", new Exception("unused"), 1, null, null,
-            () => new(), () => store.Object, false)).Entry);
-        Assert.Null((await FailureCapture.SaveAsync(["group", "list"], "group list", new Exception("unused"), 0, null, null,
-            () => new() { Enabled = true }, () => store.Object, false)).Entry);
-        Assert.Null((await FailureCapture.SaveAsync(["group", "list"], "group list", new OperationCanceledException(), 1, null, null,
-            () => new() { Enabled = true }, () => store.Object, false, new CancellationToken(true))).Entry);
-        Assert.Null((await FailureCapture.SaveAsync(["group", "list"], "group list", new Exception("unused"), 1, null, null,
-            () => new() { Enabled = true }, () => store.Object, true)).Entry);
-        store.VerifyNoOtherCalls();
-    }
-
-    [Fact]
-    public async Task Capture_ReportsStorageFailureWithoutInventingAnId()
-    {
-        var store = new Mock<IFailureHistoryStore>();
-        store.Setup(s => s.SaveAsync(It.IsAny<FailureRecord>(), 10, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new FailureHistoryException("KeyUnavailable", "Protected key storage is unavailable."));
-
-        var result = await FailureCapture.SaveAsync(["group", "list"], "group list", new Exception("original failure"), 1, null, null,
-            () => new() { Enabled = true }, () => store.Object, false);
-
-        Assert.Null(result.Entry);
-        Assert.False(result.ShowHint);
-        Assert.Contains("KeyUnavailable", result.Warning);
-    }
-
-    [Fact]
-    public void StructuredError_ContainsRecoveryMetadataWithoutExtraText()
-    {
-        var oldError = Console.Error;
-        using var output = new StringWriter();
-        var entry = new FailureHistoryEntry(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
-        var capture = new FailureCaptureResult(entry, true);
-        Console.SetError(output);
-        try
-        {
-            Core.Cli.Program.EmitStructuredError(AzclipsErrorException.UsageError("original"), OutputFormat.Json, false, null, capture);
-            Core.Cli.Program.EmitRecoveryDiagnostic(capture, OutputFormat.Json, false, structuredErrorAlreadyWritten: true);
-        }
-        finally
-        {
-            Console.SetError(oldError);
-        }
-        using var json = JsonDocument.Parse(output.ToString());
-        Assert.Equal("original", json.RootElement.GetProperty("error").GetProperty("message").GetString());
-        Assert.Equal(entry.Id, json.RootElement.GetProperty("recovery").GetProperty("id").GetString());
-    }
-
-    [Fact]
-    public void ManualSpawn_OnlyPassesAPipeHandleAndPreservesInheritedStdio()
-    {
-        var start = AgentProcessRunner.BuildManualStartInfo(
-            Path.Combine(AppContext.BaseDirectory, "azclips-agent.exe"), "123", null);
-
-        Assert.Equal(new[] { "--agent-mode", RecoveryRequest.InputPipeArgument, "123" }, start.ArgumentList);
-        Assert.False(start.RedirectStandardInput);
-        Assert.False(start.RedirectStandardOutput);
-        Assert.False(start.RedirectStandardError);
-        Assert.Equal("1", start.Environment["AZCLIPS_IN_AGENT_MODE"]);
-        Assert.False(start.Environment.ContainsKey(Core.Cli.Program.RecoveryTraceparentEnvVar));
+        config.Setup(c => c.GetConfiguration<AgentOptions>(null, null))
+            .Returns(new AgentOptions { Recovery = new() { Trigger = "off" } });
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        var result = await RunLocalAsync(["troubleshoot"], config, history);
+        Assert.Equal(1, result.Exit);
+        Assert.Empty(result.Output);
+        Assert.Contains("agent.recovery", result.Error);
+        history.VerifyNoOtherCalls();
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("raw-command-or-secret")]
-    [InlineData("00000000000000000000000000000000")]
-    [InlineData("123456789012345678901234567890123!")]
-    public void HistoricalTelemetryIdentifiers_DoNotExportArbitraryText(string? value)
+    [InlineData(new[] { "troubleshoot" }, "NoFailureHistory")]
+    [InlineData(new[] { "troubleshoot", "--id", Id }, "FailureRecordNotFound")]
+    public async Task Analysis_EmptyOrEvictedSelectionCannotStartAgent(string[] args, string expectedCode)
     {
-        Assert.Null(TroubleshootCommand.ValidTraceIdentifier(value, 32));
+        var config = LocalConfiguration();
+        config.Setup(c => c.GetConfiguration<AgentOptions>(null, null)).Returns(new AgentOptions());
+        var history = ReadOnlyHistory();
+        var result = await RunLocalAsync(args, config, history);
+        Assert.Equal(1, result.Exit);
+        Assert.Empty(result.Output);
+        Assert.Contains(expectedCode, result.Error);
+        history.Verify(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        history.VerifyNoOtherCalls();
     }
 
-    [Fact]
-    public async Task ManualTelemetry_SeparatesOriginalRequestAndRecoveryAndHandsOffRouting()
+    [Theory]
+    [InlineData(new[] { "--debug", "help", "troubleshoot" }, "az troubleshoot", "--style")]
+    [InlineData(new[] { "troubleshoot", "show", "--help" }, "az troubleshoot show", "--id")]
+    public async Task Help_RemainsLocalWithExamplesLast(string[] args, string command, string parameter)
+    {
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        var (exit, output, error) = await RunLocalAsync(args, LocalConfiguration(), history);
+        Assert.Equal(0, exit);
+        Assert.Empty(error);
+        Assert.Contains(command, output);
+        Assert.Contains(parameter, output);
+        Assert.DoesNotContain("----id", output);
+        Assert.True(output.IndexOf("# EXAMPLES", StringComparison.Ordinal) >
+            output.IndexOf("# GLOBAL ARGUMENTS", StringComparison.Ordinal));
+        history.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("oneshot", null, "oneshot")]
+    [InlineData("interactive", null, "interactive")]
+    [InlineData("oneshot", "interactive", "interactive")]
+    [InlineData("interactive", "oneshot", "oneshot")]
+    public async Task ManualRecovery_UsesOriginalInputEffectiveStyleAndIndependentTelemetry(
+        string configured, string? styleOverride, string effective)
     {
         var failure = MakeRecord() with
         {
+            ErrorText = "original\n\"error\" 雪 " + new string('e', 80_000),
             CommandTraceId = ActivityTraceId.CreateRandom().ToHexString(),
             CommandSpanId = ActivitySpanId.CreateRandom().ToHexString(),
         };
-        var tenantId = Guid.NewGuid().ToString();
-        using var source = new ActivitySource("manual-recovery-test-" + Guid.NewGuid().ToString("N"));
+        using var source = new ActivitySource("troubleshoot-" + Guid.NewGuid().ToString("N"));
         var stopped = new List<Activity>();
         using var listener = new ActivityListener
         {
@@ -305,63 +283,96 @@ public class TroubleshootCommandTests
             ActivityStopped = activity => stopped.Add(activity),
         };
         ActivitySource.AddActivityListener(listener);
-        var telemetry = new Mock<ITelemetryService>(MockBehavior.Strict);
-        telemetry.Setup(service => service.StartRootActivity(It.IsAny<DateTimeOffset>(), It.IsAny<string?>()))
-            .Returns((DateTimeOffset _, string? name) => source.StartActivity(name ?? "CLI.Activity.Root", ActivityKind.Server));
-        var options = new AgentOptions { Enabled = true, SessionStyle = "interactive" };
+        var telemetry = CreateTelemetry(source);
+        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
 
         var exit = await TroubleshootCommand.RunAttemptAsync(
-            failure, options, telemetry.Object, (tenantId, "EU"),
-            (request, traceparent, _) =>
+            failure, options, telemetry.Object, ("test-tenant", "EU"), (request, traceparent, _) =>
             {
                 Assert.Single(stopped);
-                Assert.Equal("CLI.Activity.Root", stopped[0].OperationName);
-                Assert.Same(failure, request.Failure);
+                Assert.Equal(failure.FailedCommand, request.FailedCommand);
+                Assert.Equal(failure.ErrorText, request.ErrorText);
+                Assert.Equal(failure.Id, request.FailureId);
+                Assert.Equal(failure.CommandTraceId, request.CommandTraceId);
+                Assert.Equal(effective, request.SessionStyle);
+                Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
                 Assert.Equal(stopped[0].TraceId.ToHexString(), request.RequestTraceId);
                 Assert.Equal(stopped[0].SpanId.ToHexString(), request.RequestSpanId);
-                Assert.Equal(tenantId, request.TenantId);
+                Assert.Equal("test-tenant", request.TenantId);
                 Assert.Equal("EU", request.DataBoundary);
-                var recovery = Assert.IsType<Activity>(Activity.Current);
-                Assert.Equal("CLI.Activity.AiRecovery", recovery.OperationName);
-                Assert.Equal(default, recovery.ParentSpanId);
-                Assert.NotEqual(failure.CommandTraceId, recovery.TraceId.ToHexString());
-                Assert.NotEqual(request.RequestTraceId, recovery.TraceId.ToHexString());
-                Assert.Equal(recovery.Id, traceparent);
-                Assert.Equal(failure.CommandTraceId, recovery.GetTagItem(TelemetryTags.CommandTraceId));
-                Assert.Equal("oneshot", recovery.GetTagItem(TelemetryTags.RecoverySessionStyle));
-                Assert.Equal("manual", recovery.GetTagItem(TelemetryTags.RecoveryTrigger));
-                Assert.Equal(tenantId, recovery.GetTagItem(TelemetryTags.TenantId));
-                Assert.Equal("EU", recovery.GetTagItem(TelemetryTags.DataBoundary));
-                return Task.FromResult(0);
-            }, CancellationToken.None);
+                var activity = Assert.IsType<Activity>(Activity.Current);
+                Assert.Equal(default, activity.ParentSpanId);
+                Assert.NotEqual(failure.CommandTraceId, activity.TraceId.ToHexString());
+                Assert.NotEqual(request.RequestTraceId, activity.TraceId.ToHexString());
+                Assert.Equal(activity.Id, traceparent);
+                Assert.Equal(effective, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+                Assert.Equal("manual", activity.GetTagItem(TelemetryTags.RecoveryTrigger));
+                Assert.Equal("github", activity.GetTagItem(TelemetryTags.RecoveryProvider));
+                return Task.FromResult(17);
+            }, CancellationToken.None, styleOverride);
 
-        Assert.Equal(0, exit);
-        Assert.Equal("interactive", options.SessionStyle);
-        Assert.Equal(2, stopped.Count);
-        Assert.Equal(ActivityStatusCode.Ok, stopped[1].Status);
+        Assert.Equal(17, exit);
+        Assert.Equal(configured, options.Recovery.Style);
+        Assert.Equal(ActivityStatusCode.Error, stopped[1].Status);
+        Assert.Equal(17, stopped[1].GetTagItem(TelemetryTags.RecoveryExitCode));
     }
 
     [Fact]
-    public async Task ManualTelemetry_OptOutDoesNotPreventDiagnosisOrInventTraceIds()
+    public async Task ManualRecovery_OptOutDoesNotInventTraceIdsOrReplaceFailures()
     {
-        var telemetry = new Mock<ITelemetryService>(MockBehavior.Strict);
-        telemetry.Setup(service => service.StartRootActivity(It.IsAny<DateTimeOffset>(), It.IsAny<string?>()))
-            .Returns((Activity?)null);
-
+        var telemetry = CreateTelemetry();
+        var failure = MakeRecord() with { CommandTraceId = "private-command", CommandSpanId = "private-error" };
+        using var cancellation = new CancellationTokenSource();
         var exit = await TroubleshootCommand.RunAttemptAsync(
-            MakeRecord(), new() { Enabled = true }, telemetry.Object, (null, null),
-            (request, traceparent, _) =>
+            failure, new(), telemetry.Object, (null, null), (request, traceparent, token) =>
             {
                 Assert.Null(traceparent);
+                Assert.Null(request.CommandTraceId);
+                Assert.Null(request.CommandSpanId);
                 Assert.Null(request.RequestTraceId);
                 Assert.Null(request.RequestSpanId);
                 Assert.Null(request.TenantId);
                 Assert.Null(request.DataBoundary);
-                return Task.FromResult(17);
-            }, CancellationToken.None);
-
-        Assert.Equal(17, exit);
+                Assert.Equal(cancellation.Token, token);
+                return Task.FromResult(130);
+            }, cancellation.Token);
+        Assert.Equal(130, exit);
     }
+
+    [Theory]
+    [InlineData(false, ActivityStatusCode.Error, 1)]
+    [InlineData(true, ActivityStatusCode.Unset, 130)]
+    public async Task ManualRecovery_TimeoutsAreFailuresUnlessTheCallerCancelled(
+        bool cancelled, ActivityStatusCode expectedStatus, int expectedExit)
+    {
+        using var source = new ActivitySource("troubleshoot-cancellation-" + Guid.NewGuid().ToString("N"));
+        var stopped = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = candidate => candidate == source,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = stopped.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+        var telemetry = CreateTelemetry(source);
+        await Assert.ThrowsAsync<TaskCanceledException>(() => TroubleshootCommand.RunAttemptAsync(
+            MakeRecord(), new(), telemetry.Object, (null, null),
+            (_, _, _) => Task.FromException<int>(new TaskCanceledException("HTTP request timed out.")),
+            new CancellationToken(cancelled)));
+        Assert.Equal(expectedStatus, stopped[1].Status);
+        Assert.Equal(expectedExit, stopped[1].GetTagItem(TelemetryTags.RecoveryExitCode));
+    }
+
+    private static Mock<ITelemetryService> CreateTelemetry(ActivitySource? source = null)
+    {
+        var telemetry = new Mock<ITelemetryService>(MockBehavior.Strict);
+        telemetry.Setup(service => service.StartRootActivity(It.IsAny<DateTimeOffset>(), It.IsAny<string?>()))
+            .Returns((DateTimeOffset _, string? name) => source?.StartActivity(name ?? "CLI.Activity.Root", ActivityKind.Server));
+        return telemetry;
+    }
+
+    private static TroubleshootRequest Parse(params string[] args) =>
+        TroubleshootRequest.Parse(GlobalArgParser.Parse(args));
 
     private static Mock<IConfigurationService> LocalConfiguration()
     {
@@ -371,9 +382,19 @@ public class TroubleshootCommandTests
         return config;
     }
 
-    private static async Task<(int Exit, string Output, string Error)> RunLocalAsync(
-        string[] args, Mock<IConfigurationService> config, Mock<IFailureHistoryStore> store)
+    private static Mock<IFailureHistoryStore> ReadOnlyHistory(params FailureRecord[] records)
     {
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        history.Setup(s => s.ReadRecordsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(records);
+        return history;
+    }
+
+    private static async Task<(int Exit, string Output, string Error)> RunLocalAsync(
+        string[] args, Mock<IConfigurationService> config, Mock<IFailureHistoryStore> history,
+        CancellationToken cancellationToken = default)
+    {
+        var home = Path.Combine(Directory.GetCurrentDirectory(), ".test-artifacts", "troubleshoot", Guid.NewGuid().ToString("N"));
+        var previousHome = Environment.GetEnvironmentVariable("AZCLIPS_HOME");
         var auth = new Mock<IAuthService>(MockBehavior.Strict);
         var profiles = new Mock<IProfileService>(MockBehavior.Strict);
         var telemetry = new Mock<ITelemetryService>(MockBehavior.Strict);
@@ -381,11 +402,12 @@ public class TroubleshootCommandTests
         var oldError = Console.Error;
         using var output = new StringWriter();
         using var error = new StringWriter();
+        Environment.SetEnvironmentVariable("AZCLIPS_HOME", home);
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton(config.Object);
-            services.AddSingleton(store.Object);
+            services.AddSingleton(history.Object);
             services.AddSingleton(auth.Object);
             services.AddSingleton(profiles.Object);
             services.AddSingleton(telemetry.Object);
@@ -394,7 +416,8 @@ public class TroubleshootCommandTests
         Console.SetError(error);
         try
         {
-            var exit = await Core.Cli.Program.Main(args);
+            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            var exit = await TroubleshootCommand.RunAsync(args, cancellationToken);
             auth.VerifyNoOtherCalls();
             profiles.VerifyNoOtherCalls();
             telemetry.VerifyNoOtherCalls();
@@ -405,15 +428,21 @@ public class TroubleshootCommandTests
             Console.SetOut(oldOutput);
             Console.SetError(oldError);
             AzclipsServiceProvider.Dispose();
+            Environment.SetEnvironmentVariable("AZCLIPS_HOME", previousHome);
+            if (Directory.Exists(home))
+                Directory.Delete(home, recursive: true);
         }
     }
 
-    private static FailureRecord MakeRecord() => new()
+    internal static FailureRecord MakeRecord(uint pid = 42, ulong sequence = 0) => new()
     {
-        Id = Guid.NewGuid().ToString("N"),
-        OccurredAtUtc = DateTimeOffset.UtcNow,
+        Id = FailureId.Format(pid, new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero), sequence),
+        TerminalSessionId = pid,
+        Sequence = sequence,
+        HistoryGeneration = 1,
+        OccurredAtUtc = new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero),
         Arguments = ["group", "show", "--name", "test-only-secret"],
-        FailedCommand = "group show --name test-only-secret",
+        FailedCommand = "group show --name \"test-only-secret\"",
         ErrorText = "original failure with test-only-secret",
         CommandName = "group show",
         ErrorCode = "TestFailure",

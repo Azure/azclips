@@ -5,9 +5,9 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Diagnose the latest saved failure, or select one with --id. Explicit troubleshooting always returns a one-shot AI recovery plan without executing its commands, even when automatic recovery uses interactive sessions. AI analysis requires agent.enabled=true. --list reads local history without calling AI and remains available when Agent is disabled.
+Description: Diagnose a saved failure using the same AI flow as automatic recovery. Without --id, select this terminal's latest saved failure, falling back to the global latest. Use an exact --id to select another record. agent.recovery defaults to manual; off disables analysis and clears history. The default style is oneshot. --style overrides agent.recovery.style for this invocation only. --list and show --id are read-only local views that do not start AI, authenticate, or perform cleanup.
 
-### Analyze the most recent saved failure
+### Analyze this terminal's latest saved failure
 
 ```bash
 az troubleshoot
@@ -27,19 +27,36 @@ az troubleshoot --id $failureId
 
 Set $failureId to an ID from the failure hint or the history list. Shell Tab completion after --id offers saved IDs.
 
-### Control automatic recovery
+### Show the complete saved command and error locally
 
 ```bash
-az config set --key agent.enabled --value true
-az config set --key agent.autoRecovery.enabled --value true
+az troubleshoot show --id $failureId --output table
 ```
 
-Automatic recovery is off by default. Enabling it does not disable explicit troubleshooting.
+### Use an interactive session for this analysis
+
+```bash
+az troubleshoot --id $failureId --style interactive
+```
+
+### Enable automatic recovery
+
+```bash
+az config set --key agent.recovery --value auto
+```
+
+Automatic recovery does not disable explicit troubleshooting. Both use agent.recovery.style unless this invocation supplies --style.
 
 ### Notes
 
-Full command arguments and error details are encrypted for the current local OS user. The default history limit is 10; configure a positive integer with agent.failureHistory.maxEntries. A lower limit applies on the next successful history write. Later successful commands do not remove old failures.
+Full command arguments and error details are encrypted for the current local OS user. The default history limit is 10; configure a positive integer with agent.recovery.historySize. A lower limit applies on the next successful history write. Later successful commands do not remove old failures.
+
+IDs have the form <PID>-<yyyy>-<MMdd>-<HHmm>-<counter>, using UTC, the parent shell PID, and a durable sequence. List output has id, command, and errorDetail fields, sorted by numeric PID ascending, then time and counter descending. Only list error detail is single-line and limited to 200 characters. Show preserves the complete command and error, including line breaks, even in a narrow table.
 
 If the operating system's protected key storage is unavailable, az reports that the failure could not be saved; it does not store plaintext. Local encryption does not redact the selected diagnostic input sent to your configured AI provider.
 
---id and --list cannot be combined. --output and --query apply to --list, not to the AI-generated plan. An expired ID is an error and never selects a different failure automatically.
+--id and --list cannot be combined. show requires --id. --style is not valid with --list or show. --output and --query apply to local views, not to the AI-generated plan. An unknown or evicted ID is an error and never selects a different failure automatically.
+
+Interactive analysis requires terminal input and output. Parent-PID association assumes the CLI is launched directly by the shell; extra wrappers, reused PIDs, and shared directories across PID namespaces can affect association. If the parent PID cannot be resolved, no-ID analysis warns and uses the global latest.
+
+Incompatible v1 draft history, missing keys, corrupt data, and pending cleanup are errors, not empty history. Explicitly reset old draft history with az config set --key agent.recovery --value off before re-enabling manual or auto. Viewing history or pressing Tab never performs that reset.

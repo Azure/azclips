@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>FailureHistory.TestWorker</AssemblyName>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>..\..\..\..\src\MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Remove="@(PackageReference)" />
+    <Using Remove="Xunit" />
+    <ProjectReference Include="..\..\..\..\src\Core\Core.Configuration\Core.Configuration.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+  </ItemGroup>
+</Project>

@@ -86,7 +86,7 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Handles <c>az --completion-values troubleshoot --id [prefix] [--json]</c>.
+    /// Handles <c>az --completion-values troubleshoot [show] --id [fragment] [--json]</c>.
     /// Reads only the ID/timestamp index, without discovery, decryption, or AI.
     /// Values are queried on every completion request rather than cached with the command tree.
     /// </summary>
@@ -113,14 +113,10 @@ internal static class CompletionGenerator
 
         var json = args[^1].Equals("--json", StringComparison.OrdinalIgnoreCase);
         var valueEnd = args.Length - (json ? 1 : 0);
-        var prefix = valueEnd == 4 ? args[3] : string.Empty;
-        if (valueEnd is not (3 or 4) ||
-            !args[1].Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase) ||
-            !args[2].Equals("--id", StringComparison.OrdinalIgnoreCase) ||
-            prefix.Length > 32 || !prefix.All(char.IsAsciiHexDigit))
+        if (!IsFailureIdRequest(args, valueEnd))
         {
             await error.WriteLineAsync(
-                "Invalid completion request. Use az --completion-values troubleshoot --id [hex-prefix] [--json].");
+                "Invalid completion request. Use az --completion-values troubleshoot [show] --id [fragment] [--json].");
             return 2;
         }
 
@@ -143,19 +139,18 @@ internal static class CompletionGenerator
             or System.Security.SecurityException or JsonException or InvalidOperationException or OperationCanceledException)
         {
             // Store diagnostics may contain local paths or record content; never echo them to the shell.
-            await error.WriteLineAsync("Unable to read the local failure history index for completion.");
+            await error.WriteLineAsync(IndexReadError(ex));
             return 1;
         }
 
         var values = index
-            .Where(entry => entry is not null && IsFailureId(entry.Id) &&
-                entry.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Where(entry => entry is not null && FailureId.TryParse(entry.Id, out _))
             .OrderByDescending(entry => entry.OccurredAtUtc)
             .ThenBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .DistinctBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .Select(entry =>
             {
-                var value = entry.Id.ToLowerInvariant();
+                var value = entry.Id;
                 var timestamp = entry.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
                 var label = $"{value} ({timestamp})";
                 return new { value, label, description = label };
@@ -173,8 +168,40 @@ internal static class CompletionGenerator
         return 0;
     }
 
-    private static bool IsFailureId(string? id)
-        => id is { Length: 32 } && Guid.TryParseExact(id, "N", out var parsed) && parsed != Guid.Empty;
+    private static bool IsFailureIdRequest(string[] args, int end)
+    {
+        if (end < 3 || !args[1].Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var flag = args[2].Equals("show", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
+        if (flag >= end)
+            return false;
+        if (args[flag].StartsWith("--id=", StringComparison.OrdinalIgnoreCase))
+            return end == flag + 1 && !args[flag].Any(char.IsControl);
+        if (!args[flag].Equals("--id", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Fragments are accepted for protocol compatibility, but matching belongs to the shell.
+        return end == flag + 1 || (end == flag + 2 &&
+            !args[flag + 1].StartsWith("--", StringComparison.Ordinal) && !args[flag + 1].Any(char.IsControl));
+    }
+
+    private static string IndexReadError(Exception exception)
+    {
+        var reason = (exception as FailureHistoryException)?.Code switch
+        {
+            "failure_history_incompatible_draft" => " The saved history uses an incompatible draft format; reset it with agent.recovery=off.",
+            "failure_history_unsupported_schema" => " The saved history format is not supported by this CLI version.",
+            "failure_history_clear_pending" or "failure_history_clear_incomplete" =>
+                " Recovery cleanup is incomplete; retry setting agent.recovery=off.",
+            "failure_history_corrupt" or "failure_history_control_corrupt" or "failure_history_authentication_failed" =>
+                " The saved history is corrupt.",
+            "failure_history_control_missing" => " The failure-history allocator state is missing.",
+            "failure_history_key_unavailable" => " The protected history key is unavailable.",
+            _ => string.Empty,
+        };
+        return "Unable to read the local failure history index for completion." + reason;
+    }
 
     /// <summary>
     /// Resolves the configuration service and reports whether shell tab-completion
@@ -373,27 +400,34 @@ internal static class CompletionGenerator
     {
         foreach (var command in commands)
         {
-            if (!command.Key.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase))
+            if (!command.Key.Equals(IntrinsicVerbs.Troubleshoot, StringComparison.OrdinalIgnoreCase) &&
+                !command.Key.StartsWith(IntrinsicVerbs.Troubleshoot + " ", StringComparison.OrdinalIgnoreCase))
             {
                 yield return command;
             }
         }
 
-        // This command belongs to the CLI, not an installed Agent extension.
-        yield return new(IntrinsicVerbs.Troubleshoot, new CommandMetadata(
-            Name: IntrinsicVerbs.Troubleshoot,
-            InvocationName: IntrinsicVerbs.Troubleshoot,
+        foreach (var help in new[]
+        {
+            IntrinsicVerbs.CreateHelp(IntrinsicVerbs.Troubleshoot),
+            IntrinsicVerbs.CreateHelp(IntrinsicVerbs.Troubleshoot, "show"),
+        })
+        {
+            yield return new(help.CommandPath, CreateIntrinsicMetadata(help));
+        }
+    }
+
+    private static CommandMetadata CreateIntrinsicMetadata(RuntimeHelpCommand help) => new(
+            Name: help.CommandPath,
+            InvocationName: help.CommandPath,
             Aliases: [],
-            FullName: IntrinsicVerbs.Troubleshoot,
+            FullName: help.CommandPath,
             AssemblyName: string.Empty,
             ProcessorType: typeof(CompletionGenerator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["id"] = new("id", "Id", typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["list"] = new("list", "List", typeof(bool), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()));
-    }
+            Parameters: help.Parameters.ToDictionary(parameter => parameter.Name, parameter =>
+                new ParameterMetadata(parameter.Name, parameter.Name, parameter.Name == "list" ? typeof(bool) : typeof(string),
+                    parameter.Description, parameter.Required, parameter.Aliases, parameter.AllowedValues)),
+            ParameterAliases: new Dictionary<string, string>());
 
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="prefix"/> is a leading

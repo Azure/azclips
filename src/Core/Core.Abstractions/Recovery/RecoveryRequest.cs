@@ -11,12 +11,17 @@ public enum RecoveryTrigger
 
 public sealed record RecoveryRequest
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
     public const string InputPipeArgument = "--recovery-input";
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public RecoveryTrigger Trigger { get; init; } = RecoveryTrigger.Manual;
-    public required FailureRecord Failure { get; init; }
+    public required string FailedCommand { get; init; }
+    public required string ErrorText { get; init; }
+    public string? SessionStyle { get; init; }
+    public string? FailureId { get; init; }
+    public string? CommandTraceId { get; init; }
+    public string? CommandSpanId { get; init; }
     public string? RequestTraceId { get; init; }
     public string? RequestSpanId { get; init; }
     public string? TenantId { get; init; }
@@ -35,7 +40,8 @@ public sealed record RecoverySessionSettings
         SessionStyle = sessionStyle;
     }
 
-    public static RecoverySessionSettings Resolve(AgentOptions options, RecoveryTrigger trigger)
+    public static RecoverySessionSettings Resolve(
+        AgentOptions options, RecoveryTrigger trigger, string? styleOverride = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!Enum.IsDefined(trigger))
@@ -43,15 +49,10 @@ public sealed record RecoverySessionSettings
             throw new ArgumentOutOfRangeException(nameof(trigger));
         }
 
-        if (trigger == RecoveryTrigger.Manual)
-        {
-            return new(trigger, "oneshot");
-        }
-
-        var style = options.SessionStyle?.ToLowerInvariant();
+        var style = (styleOverride ?? options.Recovery?.Style)?.ToLowerInvariant();
         if (style is not ("oneshot" or "interactive"))
         {
-            throw new ArgumentException("agent.sessionStyle must be oneshot or interactive.", nameof(options));
+            throw new ArgumentException("agent.recovery.style must be oneshot or interactive.", nameof(options));
         }
 
         return new(trigger, style);

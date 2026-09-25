@@ -42,12 +42,14 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
     private static string? _lastStreamError;
+    private static readonly System.Collections.Concurrent.ConcurrentQueue<string> DeferredStreamErrors = new();
 
     private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
         _lastStreamError = null;
+        DeferredStreamErrors.Clear();
         var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -85,6 +87,14 @@ public class Program
             AzclipsServiceProvider.Initialize(_clientType);
         }
 
+        int? historyWorkerExit = await FailureHistoryWorker.TryHandleAsync(
+            args, () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>());
+        if (historyWorkerExit.HasValue)
+        {
+            AzclipsServiceProvider.Dispose();
+            return historyWorkerExit.Value;
+        }
+
         // Post-DI utility modes: completion generation needs the container to resolve
         // IEngine, but still returns before the root activity starts — no telemetry.
         int? valuesExit = await CompletionGenerator.TryHandleValuesAsync(args, _clientType);
@@ -117,6 +127,7 @@ public class Program
         var errorHelpAllowed = false;
         var positional = args;
         CommandInvocation? invocation = null;
+        string? historyWarning = null;
 
         try
         {
@@ -169,13 +180,13 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
                 errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
                     errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
                     configuredFormat: settings.Format,
                     explicitFormat: globalArgs.Output);
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
+                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query, errorFormat);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -194,12 +205,26 @@ public class Program
                 }
             }
 
+            if (Environment.GetEnvironmentVariable(AgentModeEnvVar) != "1" &&
+                !GlobalArgParser.IsCommandInvocation(args, "config"))
+            {
+                historyWarning = await FailureCapture.ReadConfigurationWarningAsync(
+                    _configurationService, _cancellationTokenSource.Token);
+            }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
             {
                 var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
                 invocation = dispatcher.Parse(positional);
                 _telemetryService.TagInvocation(invocation);
+            }
+
+            if (Environment.GetEnvironmentVariable(AgentModeEnvVar) != "1")
+            {
+                var policyWarning = await FailureCapture.ObservePolicyAsync(
+                    () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(), _cancellationTokenSource.Token);
+                historyWarning = historyWarning is null ? policyWarning :
+                    policyWarning is null ? historyWarning : $"{historyWarning} {policyWarning}";
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
@@ -210,23 +235,14 @@ public class Program
                     engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
                 await session.RunAsync();
 
+                if (!DeferredStreamErrors.IsEmpty)
+                    EmitStructuredError(new AzclipsErrorException("CommandError", 1, _lastStreamError ?? "Command error"),
+                        errorFormat, errorColorAllowed, invocation, new(Warning: historyWarning));
+                else if (historyWarning is not null)
+                    EmitRecoveryDiagnostic(new(Warning: historyWarning), errorFormat, errorColorAllowed);
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
-        }
-        catch (HttpRequestException ex)
-        {
-            if (!string.Equals(_lastStreamError, ex.Message, StringComparison.Ordinal))
-                _logger?.Error(ex.Message);
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.AddException(ex);
-            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
-            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed);
-
-            return await StopRootThenFallbackAsync(
-                activity,
-                (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
         // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -240,45 +256,44 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
-                EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
+                var failure = await ReportFailureAsync(ex, errorFormat, errorColorAllowed, invocation,
+                    () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity), historyWarning);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                return ex.ExitCode;
+                return failure.Canceled ? 130 : ex.ExitCode;
             }
         }
         catch (AzclipsErrorException ex)
         {
-            var failure = await CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity);
+            var failure = await ReportFailureAsync(ex, errorFormat, errorColorAllowed, invocation,
+                () => CaptureFailureAsync(args, positional, ex, ex.ExitCode, invocation, activity), historyWarning);
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
-                EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                return ex.ExitCode;
             }
 
-            // Structured AzClips error: render per --output mode and return the symbolic exit code.
-            // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation, failure);
-            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed, structuredErrorAlreadyWritten: true);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            return ex.ExitCode;
+            return failure.Canceled ? 130 : ex.ExitCode;
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
+            return 130;
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex.Message);
-
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
-            var failure = await CaptureFailureAsync(args, positional, ex, 1, invocation, activity);
-            EmitRecoveryDiagnostic(failure, errorFormat, errorColorAllowed);
+            var failure = await ReportFailureAsync(ex, errorFormat, errorColorAllowed, invocation,
+                () => CaptureFailureAsync(args, positional, ex, 1, invocation, activity), historyWarning);
+            if (failure.Canceled)
+                return 130;
 
+            var tenantId = activity?.GetTagItem(TelemetryTags.TenantId) as string;
+            var boundary = activity?.GetTagItem(TelemetryTags.DataBoundary) as string;
             return await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName,
+                        tenantId, boundary, failure.Entry?.Id, errorFormat));
         }
         finally
         {
@@ -296,7 +311,9 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(
+        CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null,
+        OutputFormat errorFormat = OutputFormat.Table)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -311,7 +328,10 @@ public class Program
             WriteError: (value, ct) =>
             {
                 _lastStreamError = value?.ToString() ?? string.Empty;
-                ConsoleSink.Error(_lastStreamError);
+                if (errorFormat is OutputFormat.Json or OutputFormat.Jsonc)
+                    DeferredStreamErrors.Enqueue(_lastStreamError);
+                else
+                    ConsoleSink.Error(_lastStreamError);
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>
@@ -437,13 +457,20 @@ public class Program
 
         if (format is OutputFormat.Json or OutputFormat.Jsonc)
         {
+            var priorErrors = new List<string>();
+            while (DeferredStreamErrors.TryDequeue(out var streamError))
+                if (!string.Equals(streamError, ex.Message, StringComparison.Ordinal))
+                    priorErrors.Add(streamError);
+            var details = new Dictionary<string, object?>(ex.Details);
+            if (priorErrors.Count != 0)
+                details["streamErrors"] = priorErrors;
             var payload = new Dictionary<string, object?>
             {
                 ["error"] = new
                 {
                     code = ex.Code,
                     message,
-                    details = ex.Details,
+                    details,
                 },
             };
             if (failure?.Recovery is { } recovery)
@@ -464,6 +491,30 @@ public class Program
         }
     }
 
+    internal static async Task<FailureCaptureResult> ReportFailureAsync(
+        Exception error, OutputFormat format, bool color, CommandInvocation? invocation,
+        Func<Task<FailureCaptureResult>> capture, string? policyWarning = null)
+    {
+        var structured = error as AzclipsErrorException ?? new AzclipsErrorException(
+            error is HttpRequestException ? "HttpRequestFailed" : "CommandFailed", 1, error.Message);
+        var isJson = format is OutputFormat.Json or OutputFormat.Jsonc;
+        if (!isJson)
+        {
+            if (error is AzclipsErrorException)
+                EmitStructuredError(structured, format, color, invocation);
+            else if (!string.Equals(_lastStreamError, error.Message, StringComparison.Ordinal))
+                ConsoleSink.Error(error.Message);
+        }
+
+        var failure = await capture().ConfigureAwait(false);
+        if (policyWarning is not null)
+            failure = failure with { Warning = failure.Warning is null ? policyWarning : $"{policyWarning} {failure.Warning}" };
+        if (isJson)
+            EmitStructuredError(structured, format, color, invocation, failure);
+        EmitRecoveryDiagnostic(failure, format, color, structuredErrorAlreadyWritten: true);
+        return failure;
+    }
+
     private static Task<FailureCaptureResult> CaptureFailureAsync(
         string[] args, string[] positional, Exception error, int exitCode,
         CommandInvocation? invocation, Activity? activity) =>
@@ -472,7 +523,8 @@ public class Program
             () => _configurationService!.GetConfiguration<AgentOptions>(),
             () => AzclipsServiceProvider.GetRequiredService<IFailureHistoryStore>(),
             Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1",
-            _cancellationTokenSource.Token);
+            _cancellationTokenSource.Token,
+            persist: FailureHistoryWorker.SaveAsync);
 
     internal static void EmitRecoveryDiagnostic(
         FailureCaptureResult result, OutputFormat format, bool color,
@@ -497,7 +549,10 @@ public class Program
         if (result.Warning is not null)
             ConsoleSink.Warn(result.Warning);
         if (result.ShowHint && result.Entry is not null)
+        {
             Console.Error.WriteLine($"To troubleshoot this error with AI, run: az troubleshoot --id {result.Entry.Id}");
+            Console.Error.WriteLine(FailureCaptureResult.DefaultHint);
+        }
     }
 
     /// <summary>
@@ -580,12 +635,9 @@ public class Program
     }
 
     private static async Task<int> TryAgentFallbackAsync(
-        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName,
+        string? tenantId, string? boundary, string? failureId, OutputFormat errorFormat)
     {
-        // Global enable switch: config `agent.enabled` (off by default for PP).
-        // The user opts in with `az config set --key agent.enabled --value true`.
-        // Fail-safe: if config can't be read, treat as disabled and surface the
-        // original error rather than spawning the agent on an unknown state.
         AgentOptions agentOptions;
         try
         {
@@ -598,16 +650,17 @@ public class Program
                 return 1;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+                                      System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
         {
-            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
+            WriteAgentFailure("AI recovery could not start. Check the recovery configuration.", errorFormat);
             return 1;
         }
 
         var agentExe = FindAgentExe();
         if (agentExe is null)
         {
-            _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
+            WriteAgentFailure("AI recovery is unavailable: azclips-agent.exe was not found alongside az.", errorFormat);
             return 1;
         }
 
@@ -621,54 +674,50 @@ public class Program
         {
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
         }
-        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
+        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.Recovery.Style);
         recovery?.SetTag(TelemetryTags.RecoveryTrigger, "automatic");
         recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
+        recovery?.SetTag(TelemetryTags.TenantId, tenantId);
+        recovery?.SetTag(TelemetryTags.DataBoundary, boundary);
 
         try
         {
-            var psi = BuildAgentStartInfo(agentExe, args, errorText, recovery?.Id);
-
-            // The child agent takes over Ctrl+C (it cancels the session). The parent
-            // must also intercept it — otherwise Ctrl+C kills the parent first, the
-            // shell redraws its prompt, and the child's remaining output prints onto
-            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
-            // actual cancellation and we just wait for it to exit cleanly.
-            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
-            Console.CancelKeyPress += cancelHandler;
-            try
+            var request = new RecoveryRequest
             {
-                using var proc = Process.Start(psi)
-                    ?? throw new InvalidOperationException("Process.Start returned null");
-                await proc.WaitForExitAsync();
-
-                recovery?.SetTag(TelemetryTags.RecoveryExitCode, proc.ExitCode);
-                recovery?.SetStatus(
-                    proc.ExitCode == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-
-                // Exit code semantics:
-                //   one-shot — the agent only PROPOSED a fix; it never ran anything, so the
-                //     user's original command still failed. Report failure (never let the
-                //     agent's own 0 mask it), so `&&`, CI, and $? see the command as failed.
-                //   interactive — the agent may have actually run commands and resolved the
-                //     task, so its real exit code is meaningful; pass it through unchanged.
-                if (agentOptions.IsInteractive)
-                {
-                    return proc.ExitCode;
-                }
-                return proc.ExitCode != 0 ? proc.ExitCode : 1;
-            }
-            finally
-            {
-                Console.CancelKeyPress -= cancelHandler;
-            }
+                Trigger = RecoveryTrigger.Automatic,
+                FailedCommand = JoinShellQuoted(args),
+                ErrorText = errorText ?? string.Empty,
+                SessionStyle = agentOptions.Recovery.Style,
+                FailureId = failureId,
+                CommandTraceId = commandTraceId,
+                CommandSpanId = commandSpanId,
+                RequestTraceId = recovery?.TraceId.ToHexString(),
+                RequestSpanId = recovery?.SpanId.ToHexString(),
+                TenantId = tenantId,
+                DataBoundary = boundary,
+            };
+            var exit = await AgentProcessRunner.RunAsync(
+                agentExe, request, recovery?.Id, _cancellationTokenSource.Token);
+            recovery?.SetTag(TelemetryTags.RecoveryExitCode, exit);
+            recovery?.SetStatus(exit == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            return exit == 130 ? 130 : 1;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or
+                                      System.ComponentModel.Win32Exception or TimeoutException or System.Text.Json.JsonException)
         {
-            _logger?.Error($"agent mode subprocess failed: {ex.Message}");
+            WriteAgentFailure("AI recovery subprocess failed. The original command is still unsuccessful.", errorFormat);
             recovery?.SetStatus(ActivityStatusCode.Error);
             return 1;
         }
+    }
+
+    private static void WriteAgentFailure(string message, OutputFormat errorFormat)
+    {
+        // Agent output has its own stdout channel; keep the original JSON error document intact.
+        if (errorFormat is OutputFormat.Json or OutputFormat.Jsonc)
+            Console.Out.WriteLine(message);
+        else
+            ConsoleSink.Error(message);
     }
 
     private static string JoinShellQuoted(string[] args)

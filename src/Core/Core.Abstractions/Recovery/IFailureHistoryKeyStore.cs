@@ -6,8 +6,10 @@ namespace Core.Abstractions.Recovery;
 public interface IFailureHistoryKeyStore
 {
     /// <summary>
-    /// Returns an owned copy of the protected key. Missing keys must fail when creation is disabled.
-    /// The caller must clear the returned bytes after use and serialize key creation across processes.
+    /// Returns an owned copy of the protected key in the requested reset generation's namespace.
+    /// Missing keys must fail when creation is disabled. Native operations must never prompt.
+    /// The caller must clear the returned bytes after use, serialize creation across processes,
+    /// and isolate uncancellable native latency when a request has a hard deadline.
     /// </summary>
-    Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default);
+    Task<byte[]> GetKeyAsync(ulong generation, bool createIfMissing, CancellationToken cancellationToken = default);
 }

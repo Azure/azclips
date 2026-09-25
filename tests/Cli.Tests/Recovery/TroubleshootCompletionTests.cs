@@ -6,80 +6,62 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Cli.Completions;
+using Moq;
 
 namespace Cli.Tests.Recovery;
 
 public class TroubleshootCompletionTests
 {
-    private const string FirstId = "abcdef0123456789abcdef0123456789";
-    private const string SecondId = "0123456789abcdef0123456789abcdef";
-    private static readonly DateTimeOffset Timestamp = new(2026, 9, 21, 12, 0, 0, TimeSpan.FromHours(10));
+    private const string FirstId = "42-2026-0924-0000-0002";
+    private const string SecondId = "2-2026-0924-0000-0001";
+    private static readonly DateTimeOffset Timestamp = new(2026, 9, 24, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Values_DefaultToPlainCanonicalIdsOnly()
+    public async Task Values_ReturnCanonicalIdsWithOnlyAnIndexRead()
     {
-        var history = new StubHistoryStore(
-            new(SecondId, Timestamp.AddMinutes(-1)),
-            new(FirstId.ToUpperInvariant(), Timestamp));
-        var config = new StubConfigurationService();
-
-        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id"], history, config);
-
+        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id"],
+            [new(SecondId, Timestamp.AddMinutes(-1)), new(FirstId, Timestamp)]);
         Assert.Equal(0, result.ExitCode);
         Assert.Equal($"{FirstId}\n{SecondId}{Environment.NewLine}", result.Output);
         Assert.Empty(result.Error);
-        Assert.Equal(1, history.IndexReads);
-        Assert.Equal(1, config.CompletionReads);
-        Assert.Equal(0, config.AgentReads);
-        Assert.False(config.Agent.Enabled);
     }
 
-    [Fact]
-    public async Task Values_JsonContainsOnlyIdsAndUtcTimestamps()
+    public static TheoryData<string[]> JsonValueRequests => new()
     {
-        var history = new StubHistoryStore(new FailureHistoryEntry(FirstId, Timestamp));
+        new[] { "--completion-values", "troubleshoot", "--id", "--json" },
+        new[] { "--completion-values", "troubleshoot", "show", "--id", "--json" },
+        new[] { "--completion-values", "troubleshoot", "--id=42", "--json" },
+        new[] { "--completion-values", "troubleshoot", "show", "--id=42", "--json" },
+    };
 
-        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id", "--json"], history);
-
+    [Theory]
+    [MemberData(nameof(JsonValueRequests))]
+    public async Task Values_JsonContainsOnlyIdsAndUtcTimestamps(string[] args)
+    {
+        var result = await CompleteAsync(args, [new(FirstId, Timestamp)]);
         Assert.Equal(0, result.ExitCode);
         Assert.Empty(result.Error);
         using var json = JsonDocument.Parse(result.Output);
         var entry = Assert.Single(json.RootElement.EnumerateArray());
         Assert.Equal(["value", "label", "description"], entry.EnumerateObject().Select(property => property.Name));
         Assert.Equal(FirstId, entry.GetProperty("value").GetString());
-        var label = $"{FirstId} ({Timestamp.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)})";
+        var label = $"{FirstId} ({Timestamp.ToString("O", CultureInfo.InvariantCulture)})";
         Assert.Equal(label, entry.GetProperty("label").GetString());
         Assert.Equal(label, entry.GetProperty("description").GetString());
     }
 
     [Theory]
-    [InlineData("abc")]
-    [InlineData("ABCDEF")]
+    [InlineData("")]
+    [InlineData("42")]
+    [InlineData("*0924*")]
+    [InlineData("nomatch")]
     [InlineData(FirstId)]
-    public async Task Values_FilterHexPrefixesCaseInsensitively(string prefix)
+    public async Task Values_LeaveAllMatchingToTheExistingShell(string fragment)
     {
-        var history = new StubHistoryStore(new(SecondId, Timestamp), new(FirstId, Timestamp));
-
-        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id", prefix], history);
-
+        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id", fragment],
+            [new(FirstId, Timestamp), new(SecondId, Timestamp.AddMinutes(-1))]);
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(FirstId + Environment.NewLine, result.Output);
-        Assert.Empty(result.Error);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Values_NoMatchingIdsIsSuccessfulEmptyOutput(bool json)
-    {
-        var args = new List<string> { "--completion-values", "troubleshoot", "--id", "ffff" };
-        if (json)
-            args.Add("--json");
-
-        var result = await CompleteAsync(args.ToArray(), new StubHistoryStore(new FailureHistoryEntry(FirstId, Timestamp)));
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(json ? "[]" + Environment.NewLine : string.Empty, result.Output);
+        Assert.Equal($"{FirstId}\n{SecondId}{Environment.NewLine}", result.Output);
         Assert.Empty(result.Error);
     }
 
@@ -88,12 +70,8 @@ public class TroubleshootCompletionTests
     [InlineData(true)]
     public async Task Values_EmptyHistoryIsSuccessfulEmptyOutput(bool json)
     {
-        var args = new List<string> { "--completion-values", "troubleshoot", "--id", "" };
-        if (json)
-            args.Add("--json");
-
-        var result = await CompleteAsync(args.ToArray(), new StubHistoryStore());
-
+        var args = ValueRequest(json);
+        var result = await CompleteAsync(args, []);
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(json ? "[]" + Environment.NewLine : string.Empty, result.Output);
         Assert.Empty(result.Error);
@@ -104,36 +82,27 @@ public class TroubleshootCompletionTests
     [InlineData(true)]
     public async Task Values_DisabledCompletionDoesNotResolveHistory(bool json)
     {
-        var args = new List<string> { "--completion-values", "troubleshoot", "--id" };
-        if (json)
-            args.Add("--json");
-        var config = new StubConfigurationService { Completion = new() { Enabled = false } };
         using var output = new StringWriter();
         using var error = new StringWriter();
-
         var result = await CompletionGenerator.TryHandleValuesAsync(
-            args.ToArray(), () => CompletionGenerator.ResolveEnabled(config),
-            () => throw new InvalidOperationException("History must not be resolved."),
+            ValueRequest(json), () => false,
+            () => throw new Xunit.Sdk.XunitException("History must not be resolved."),
             output, error);
-
         Assert.Equal(0, result);
         Assert.Equal(json ? "[]" + Environment.NewLine : string.Empty, output.ToString());
         Assert.Empty(error.ToString());
-        Assert.Equal(0, config.AgentReads);
     }
 
     [Fact]
-    public async Task Values_IgnoreOtherCommandsWithoutReadingConfigurationOrHistory()
+    public async Task Values_IgnoreOrdinaryRequestsWithoutReadingConfigurationOrHistory()
     {
-        foreach (var args in new[] { Array.Empty<string>(), new[] { "troubleshoot", "--id", FirstId }, new[] { "--completions" } })
+        foreach (var args in new[] { Array.Empty<string>(), new[] { "vm", "--id", FirstId }, new[] { "--completions" } })
         {
             using var output = new StringWriter();
             using var error = new StringWriter();
             var result = await CompletionGenerator.TryHandleValuesAsync(
-                args, () => throw new InvalidOperationException("Configuration must not be read."),
-                () => throw new InvalidOperationException("History must not be resolved."),
-                output, error);
-
+                args, () => throw new Xunit.Sdk.XunitException("Configuration must not be read."),
+                () => throw new Xunit.Sdk.XunitException("History must not be resolved."), output, error);
             Assert.Null(result);
             Assert.Empty(output.ToString());
             Assert.Empty(error.ToString());
@@ -144,123 +113,95 @@ public class TroubleshootCompletionTests
     {
         new[] { "--completion-values" },
         new[] { "--completion-values", "troubleshoot" },
+        new[] { "--completion-values", "troubleshoot", "show" },
         new[] { "--completion-values", "vm", "--id" },
         new[] { "--completion-values", "troubleshoot", "--list" },
-        new[] { "--completion-values", "troubleshoot", "--id=abc" },
-        new[] { "--completion-values", "troubleshoot", "--id", "not-hex" },
-        new[] { "--completion-values", "troubleshoot", "--id", " abc" },
-        new[] { "--completion-values", "troubleshoot", "--id", "abc\n" },
-        new[] { "--completion-values", "troubleshoot", "--id", "$(unsafe)" },
-        new[] { "--completion-values", "troubleshoot", "--id", new string('a', 33) },
-        new[] { "--completion-values", "troubleshoot", "--id", "--json", "abc" },
+        new[] { "--completion-values", "troubleshoot", "unknown", "--id" },
+        new[] { "--completion-values", "troubleshoot", "--id", "42\n" },
+        new[] { "--completion-values", "troubleshoot", "--id", "--json", "42" },
         new[] { "--completion-values", "troubleshoot", "--id", "--json", "--json" },
-        new[] { "--completion-values", "troubleshoot", "--id", "abc", "--json", "extra" },
+        new[] { "--completion-values", "troubleshoot", "--id", "42", "--json", "extra" },
     };
 
     [Theory]
     [MemberData(nameof(InvalidRequests))]
-    public async Task Values_InvalidRequestReturnsUsageErrorWithoutReadingConfigurationOrHistory(string[] args)
+    public async Task Values_InvalidRequestDoesNotResolveConfigurationOrHistory(string[] args)
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
         var result = await CompletionGenerator.TryHandleValuesAsync(
-            args, () => throw new InvalidOperationException("Configuration must not be read."),
-            () => throw new InvalidOperationException("History must not be resolved."),
-            output, error);
-
+            args, () => throw new Xunit.Sdk.XunitException("Configuration must not be read."),
+            () => throw new Xunit.Sdk.XunitException("History must not be resolved."), output, error);
         Assert.Equal(2, result);
         Assert.Empty(output.ToString());
         Assert.StartsWith("Invalid completion request.", error.ToString());
-        Assert.DoesNotContain("$(unsafe)", error.ToString());
     }
 
     [Fact]
-    public async Task Values_RejectUnsafeIndexEntriesAndDeduplicateCanonicalIds()
+    public async Task Values_ValidateIndexIdsUsingTheSharedParserAndDeduplicate()
     {
-        var history = new StubHistoryStore(
-            new(FirstId, Timestamp.AddMinutes(-1)),
-            new(FirstId.ToUpperInvariant(), Timestamp),
-            new(SecondId, Timestamp.AddMinutes(-2)),
-            new(Guid.Empty.ToString("N"), Timestamp),
-            new(Guid.ParseExact(FirstId, "N").ToString("D"), Timestamp),
-            new(FirstId + "\n", Timestamp),
-            new(" " + FirstId, Timestamp),
-            new("$(unsafe)", Timestamp),
-            new(FirstId.Replace('a', '\u0430'), Timestamp),
-            new(null!, Timestamp),
-            null!);
-
-        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id"], history);
-
+        var result = await CompleteAsync(ValueRequest(false),
+        [
+            new(FirstId, Timestamp.AddMinutes(-1)), new(FirstId, Timestamp),
+            new(SecondId, Timestamp.AddMinutes(-2)), new("00000000000000000000000000000000", Timestamp),
+            new("0-2026-0924-0000-0001", Timestamp), new(FirstId + "\n", Timestamp),
+            new(" " + FirstId, Timestamp), new("$(unsafe)", Timestamp), new(null!, Timestamp), null!,
+        ]);
         Assert.Equal(0, result.ExitCode);
         Assert.Equal($"{FirstId}\n{SecondId}{Environment.NewLine}", result.Output);
         Assert.Empty(result.Error);
     }
 
     [Theory]
-    [InlineData("history")]
-    [InlineData("io")]
-    [InlineData("unauthorized")]
-    [InlineData("security")]
-    [InlineData("json")]
-    [InlineData("unavailable")]
-    [InlineData("cancelled")]
-    public async Task Values_IndexReadFailureIsNotSuccessShapedAndDoesNotLeakDiagnosticText(string failure)
+    [InlineData("failure_history_incompatible_draft", "incompatible")]
+    [InlineData("failure_history_clear_pending", "cleanup")]
+    [InlineData("failure_history_corrupt", "corrupt")]
+    [InlineData("failure_history_key_unavailable", "key")]
+    public async Task Values_DistinguishHistoryFailuresWithoutLeakingStoredDiagnostics(string code, string expected)
     {
-        const string sensitiveDiagnostic = "private-command --secret private-value";
-        Exception exception = failure switch
-        {
-            "history" => new FailureHistoryException("CorruptIndex", sensitiveDiagnostic),
-            "io" => new IOException(sensitiveDiagnostic),
-            "unauthorized" => new UnauthorizedAccessException(sensitiveDiagnostic),
-            "security" => new System.Security.SecurityException(sensitiveDiagnostic),
-            "json" => new JsonException(sensitiveDiagnostic),
-            "cancelled" => new OperationCanceledException(sensitiveDiagnostic),
-            _ => new InvalidOperationException(sensitiveDiagnostic),
-        };
-        var history = new StubHistoryStore { IndexFailure = exception };
-
-        var result = await CompleteAsync(["--completion-values", "troubleshoot", "--id", "--json"], history);
-
+        var result = await CompleteAsync(ValueRequest(true), [],
+            new FailureHistoryException(code, "private-command --secret private-value"));
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Output);
-        Assert.StartsWith("Unable to read the local failure history index", result.Error);
-        Assert.DoesNotContain(sensitiveDiagnostic, result.Error);
+        Assert.Contains(expected, result.Error);
+        Assert.DoesNotContain("private", result.Error);
     }
 
     [Fact]
     public async Task Values_ReadFreshIndexAndForwardCancellationOnEachRequest()
     {
         using var cancellation = new CancellationTokenSource();
-        var history = new StubHistoryStore(new FailureHistoryEntry(FirstId, Timestamp));
-        string[] args = ["--completion-values", "troubleshoot", "--id"];
-
-        var first = await CompleteAsync(args, history, cancellationToken: cancellation.Token);
-        history.Entries = [new(SecondId, Timestamp)];
-        var second = await CompleteAsync(args, history, cancellationToken: cancellation.Token);
-
-        Assert.Equal(FirstId + Environment.NewLine, first.Output);
-        Assert.Equal(SecondId + Environment.NewLine, second.Output);
-        Assert.Equal(2, history.IndexReads);
-        Assert.Equal(cancellation.Token, history.LastCancellationToken);
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        history.SetupSequence(s => s.ReadIndexAsync(cancellation.Token))
+            .ReturnsAsync([new FailureHistoryEntry(FirstId, Timestamp)])
+            .ReturnsAsync([new FailureHistoryEntry(SecondId, Timestamp)]);
+        foreach (var expected in new[] { FirstId, SecondId })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var exit = await CompletionGenerator.TryHandleValuesAsync(
+                ValueRequest(false), () => true, () => history.Object, output, error, cancellation.Token);
+            Assert.Equal(0, exit);
+            Assert.Equal(expected + Environment.NewLine, output.ToString());
+            Assert.Empty(error.ToString());
+        }
+        history.Verify(s => s.ReadIndexAsync(cancellation.Token), Times.Exactly(2));
+        history.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public void StaticCompletion_IncludesIntrinsicRootAndFlagsWithoutExtensionDiscoveryOnEveryRequest()
+    public void StaticCompletion_UsesIntrinsicHelpMetadataForRootAndShow()
     {
-        for (var request = 0; request < 2; request++)
-        {
-            var full = CompletionGenerator.CreateCompletionTree([]);
-            var scoped = CompletionGenerator.CreateCompletionTree([], "TROUBLESHOOT");
-            var command = Assert.IsType<Dictionary<string, object>>(full["troubleshoot"]);
-
-            Assert.Equal(["--id", "--list"], Assert.IsType<List<string>>(command["_params"]));
-            Assert.Equal(["--id", "--list"], Assert.IsType<List<string>>(scoped["_params"]));
-            Assert.Equal(["troubleshoot"], CompletionGenerator.ComputeCandidates([], []));
-            Assert.Equal(["--id", "--list"], CompletionGenerator.ComputeCandidates([], ["TROUBLESHOOT"]));
-            Assert.Empty(CompletionGenerator.CreateCompletionTree([], "troubleshoot", "unknown"));
-            Assert.Empty(CompletionGenerator.ComputeCandidates([], ["troubleshoot", "unknown"]));
-        }
+        var full = CompletionGenerator.CreateCompletionTree([]);
+        var command = Assert.IsType<Dictionary<string, object>>(full["troubleshoot"]);
+        Assert.Equal(["--id", "--list", "--style"], Assert.IsType<List<string>>(command["_params"]));
+        Assert.Equal(["show"], Assert.IsType<List<string>>(command["_subcommands"]));
+        Assert.Equal(["--id"], Assert.IsType<List<string>>(command["show"]));
+        Assert.Equal(["--id"], Assert.IsType<List<string>>(command["show._req"]));
+        Assert.Equal(["--id", "--list", "--style", "show"],
+            CompletionGenerator.ComputeCandidates([], ["TROUBLESHOOT"]));
+        Assert.Equal(["--id"], CompletionGenerator.ComputeCandidates([], ["troubleshoot", "show"]));
+        Assert.Empty(CompletionGenerator.ComputeCandidates([], ["troubleshoot", "unknown"]));
     }
 
     [Fact]
@@ -275,11 +216,8 @@ public class TroubleshootCompletionTests
             Name: "create", InvocationName: "deployment group create", Aliases: [],
             FullName: "deployment group create", AssemblyName: "test", ProcessorType: typeof(object),
             Parameters: parameters, ParameterAliases: new Dictionary<string, string>());
-        var commands = new[] { new KeyValuePair<string, CommandMetadata>("deployment group create", metadata) };
-
+        KeyValuePair<string, CommandMetadata>[] commands = [new("deployment group create", metadata)];
         var scoped = CompletionGenerator.CreateCompletionTree(commands, "deployment");
-        var full = CompletionGenerator.CreateCompletionTree(commands);
-
         Assert.Equal(["group create"], Assert.IsType<List<string>>(scoped["_subcommands"]));
         Assert.Equal(["--name", "--mode"], Assert.IsType<List<string>>(scoped["group create"]));
         Assert.Equal(["--name"], Assert.IsType<List<string>>(scoped["group create._req"]));
@@ -289,100 +227,30 @@ public class TroubleshootCompletionTests
         Assert.False(scoped.ContainsKey("troubleshoot"));
         Assert.Equal(["deployment", "troubleshoot"], CompletionGenerator.ComputeCandidates(commands, []));
         Assert.Equal(["group"], CompletionGenerator.ComputeCandidates(commands, ["deployment"]));
-        Assert.True(full.ContainsKey("deployment"));
-        Assert.True(full.ContainsKey("troubleshoot"));
     }
 
+    private static string[] ValueRequest(bool json) =>
+        json ? ["--completion-values", "troubleshoot", "--id", "--json"] : ["--completion-values", "troubleshoot", "--id"];
+
     private static async Task<(int? ExitCode, string Output, string Error)> CompleteAsync(
-        string[] args, StubHistoryStore history, StubConfigurationService? config = null,
-        CancellationToken cancellationToken = default)
+        string[] args, FailureHistoryEntry[] entries, Exception? failure = null)
     {
-        config ??= new();
+        var history = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
+        var read = history.Setup(s => s.ReadIndexAsync(It.IsAny<CancellationToken>()));
+        if (failure is null)
+            read.ReturnsAsync(entries);
+        else
+            read.ThrowsAsync(failure);
+        var config = new Mock<IConfigurationService>(MockBehavior.Strict);
+        config.Setup(c => c.GetConfiguration<CompletionOptions>(null, null)).Returns(new CompletionOptions());
         using var output = new StringWriter();
         using var error = new StringWriter();
         var result = await CompletionGenerator.TryHandleValuesAsync(
-            args, () => CompletionGenerator.ResolveEnabled(config), () => history,
-            output, error, cancellationToken);
-
-        Assert.Equal(0, history.RecordReads);
-        Assert.Equal(0, history.Writes);
-        Assert.Equal(0, history.Keys.Accesses);
-        Assert.Equal(0, config.AgentReads);
+            args, () => CompletionGenerator.ResolveEnabled(config.Object), () => history.Object, output, error);
+        history.Verify(s => s.ReadIndexAsync(It.IsAny<CancellationToken>()), Times.Once);
+        history.VerifyNoOtherCalls();
+        config.Verify(c => c.GetConfiguration<CompletionOptions>(null, null), Times.Once);
+        config.VerifyNoOtherCalls();
         return (result, output.ToString(), error.ToString());
-    }
-
-    private sealed class StubHistoryStore(params FailureHistoryEntry[] entries) : IFailureHistoryStore
-    {
-        public IReadOnlyList<FailureHistoryEntry> Entries { get; set; } = entries;
-        public Exception? IndexFailure { get; init; }
-        public int IndexReads { get; private set; }
-        public int RecordReads { get; private set; }
-        public int Writes { get; private set; }
-        public CancellationToken LastCancellationToken { get; private set; }
-        public ThrowingKeyStore Keys { get; } = new();
-
-        public Task<IReadOnlyList<FailureHistoryEntry>> ReadIndexAsync(CancellationToken cancellationToken = default)
-        {
-            IndexReads++;
-            LastCancellationToken = cancellationToken;
-            return IndexFailure is null
-                ? Task.FromResult(Entries)
-                : Task.FromException<IReadOnlyList<FailureHistoryEntry>>(IndexFailure);
-        }
-
-        public async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(CancellationToken cancellationToken = default)
-        {
-            RecordReads++;
-            await Keys.GetKeyAsync(false, cancellationToken);
-            throw new InvalidOperationException("Completion must not read plaintext records.");
-        }
-
-        public async Task<FailureHistoryEntry> SaveAsync(FailureRecord record, int maxEntries, CancellationToken cancellationToken = default)
-        {
-            Writes++;
-            await Keys.GetKeyAsync(true, cancellationToken);
-            throw new InvalidOperationException("Completion must not write or prune history.");
-        }
-    }
-
-    private sealed class ThrowingKeyStore : IFailureHistoryKeyStore
-    {
-        public int Accesses { get; private set; }
-        public Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
-        {
-            Accesses++;
-            throw new InvalidOperationException("Completion must not access the key store.");
-        }
-    }
-
-    private sealed class StubConfigurationService : IConfigurationService
-    {
-        public CompletionOptions Completion { get; init; } = new() { Enabled = true };
-        public AgentOptions Agent { get; } = new() { Enabled = false };
-        public int CompletionReads { get; private set; }
-        public int AgentReads { get; private set; }
-
-        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
-        {
-            if (typeof(T) == typeof(CompletionOptions))
-            {
-                CompletionReads++;
-                return (T)(object)Completion;
-            }
-            if (typeof(T) == typeof(AgentOptions))
-            {
-                AgentReads++;
-                return (T)(object)Agent;
-            }
-            throw new InvalidOperationException("Unexpected configuration read.");
-        }
-
-        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public string GetConfigFilePath() => throw new NotSupportedException();
-        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
     }
 }

@@ -209,11 +209,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !(recoverySettings?.IsInteractive ?? options.IsInteractive),
-            IsManualRecovery = recoverySettings?.Trigger == RecoveryTrigger.Manual,
-            AllowedManualTools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
-                .Concat(submitTool.All).Concat(planTool.All)
-                .Select(tool => tool.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            IsOneShot = !(recoverySettings?.IsInteractive ?? options.Recovery.IsInteractive),
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
@@ -264,7 +260,7 @@ public sealed class ChatAgent : IAsyncDisposable
         "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
-    private static SessionConfig BuildBaseSessionConfig(
+    internal static SessionConfig BuildBaseSessionConfig(
         string systemPrompt,
         CachedResourceTools cacheTools,
         HelpTools helpTools,
@@ -318,7 +314,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
-            AvailableTools = state.IsManualRecovery ? state.AllowedManualTools.ToList() : null,
+            AvailableTools = null,
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(input, azExePath, approvalSink, state, ct),
@@ -352,10 +348,6 @@ public sealed class ChatAgent : IAsyncDisposable
             OnPermissionRequest = async (req, invocation) =>
             {
                 var toolName = (req as PermissionRequestCustomTool)?.ToolName;
-                if (state.IsManualRecovery)
-                {
-                    return ResolveManualPermission(toolName, state.AllowedManualTools);
-                }
                 // Cache tools are read-only — silently approve. Bash + every
                 // other built-in mutator goes through the user prompt.
                 if (toolName is not null && PreToolUseHook.IsReadOnlyCacheTool(toolName))
@@ -367,11 +359,6 @@ public sealed class ChatAgent : IAsyncDisposable
             OnEvent = eventRenderer.Forward,
         };
     }
-
-    internal static PermissionDecision ResolveManualPermission(string? toolName, IReadOnlySet<string> allowedTools) =>
-        toolName is not null && allowedTools.Contains(toolName)
-            ? PermissionDecision.ApproveOnce()
-            : PermissionDecision.Reject(feedback: "Explicit troubleshooting does not execute commands or request interactive approval.");
 
     public async Task SendAsync(string prompt, CancellationToken ct)
     {

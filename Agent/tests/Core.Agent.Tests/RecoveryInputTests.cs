@@ -4,6 +4,7 @@
 using System.Text.Json;
 using System.Diagnostics;
 using System.IO.Pipes;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Agent.AgentMode;
 using Core.Agent.Hooks;
@@ -13,51 +14,81 @@ using Xunit;
 
 namespace Core.Agent.Tests;
 
-public class ManualRecoveryTests
+public class RecoveryInputTests
 {
-    [Fact]
-    public async Task Input_PreservesCompleteDiagnosticData()
+    [Theory]
+    [InlineData(RecoveryTrigger.Automatic)]
+    [InlineData(RecoveryTrigger.Manual)]
+    public async Task Input_PreservesCompleteDiagnosticData(RecoveryTrigger trigger)
     {
-        var failure = CreateFailure();
-        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new RecoveryRequest { Failure = failure }));
+        var request = CreateRequest() with { Trigger = trigger };
+        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(request));
 
-        var actual = await ManualRecoveryInput.ReadRequestAsync(stream, CancellationToken.None);
+        var actual = await RecoveryInput.ReadRequestAsync(stream, CancellationToken.None);
 
-        Assert.Equal(failure.Arguments, actual.Failure.Arguments);
-        Assert.Equal(failure.ErrorText, actual.Failure.ErrorText);
-        Assert.Equal(failure.Id, actual.Failure.Id);
-        var prompt = ManualRecoveryInput.BuildPrompt(actual.Failure);
-        using var data = JsonDocument.Parse(prompt[prompt.IndexOf('{')..]);
-        Assert.Equal(failure.ErrorText, data.RootElement.GetProperty("error").GetString());
-        Assert.Equal(failure.Arguments, data.RootElement.GetProperty("arguments").EnumerateArray().Select(arg => arg.GetString()));
+        Assert.Equal(request, actual);
+        var prompt = RecoveryInput.BuildPrompt(actual.FailedCommand, actual.ErrorText);
+        Assert.Contains(request.FailedCommand, prompt);
+        Assert.Contains(request.ErrorText, prompt);
+        Assert.DoesNotContain(request.FailureId!, prompt);
     }
 
     [Theory]
-    [InlineData(2, RecoveryTrigger.Manual)]
-    [InlineData(1, RecoveryTrigger.Automatic)]
+    [InlineData("oneshot")]
+    [InlineData("interactive")]
+    public void Triggers_SharePromptAndEffectiveStyle(string style)
+    {
+        var options = new AgentOptions();
+        options.Recovery.Style = style;
+        var automatic = CreateRequest() with { Trigger = RecoveryTrigger.Automatic };
+        var manual = automatic with { Trigger = RecoveryTrigger.Manual };
+
+        Assert.Equal(
+            RecoveryInput.BuildPrompt(automatic.FailedCommand, automatic.ErrorText),
+            RecoveryInput.BuildPrompt(manual.FailedCommand, manual.ErrorText));
+        Assert.Equal(
+            RecoverySessionSettings.Resolve(options, automatic.Trigger).SessionStyle,
+            RecoverySessionSettings.Resolve(options, manual.Trigger).SessionStyle);
+        Assert.Equal("oneshot",
+            RecoverySessionSettings.Resolve(options, manual.Trigger, "oneshot").SessionStyle);
+        Assert.Equal(style, options.Recovery.Style);
+    }
+
+    [Theory]
+    [InlineData(" \r\n\t")]
+    [InlineData("\u4e2d\u6587\n\"quoted\"")]
+    public void Prompt_DoesNotNormalizeDiagnosticText(string error)
+    {
+        Assert.Contains(error, RecoveryInput.BuildPrompt("vm show", error));
+    }
+
+    [Theory]
+    [InlineData(1, RecoveryTrigger.Manual)]
+    [InlineData(3, RecoveryTrigger.Automatic)]
+    [InlineData(2, (RecoveryTrigger)42)]
     public async Task Input_RejectsUnsupportedRequest(int version, RecoveryTrigger trigger)
     {
-        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new RecoveryRequest
+        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(CreateRequest() with
         {
             SchemaVersion = version,
             Trigger = trigger,
-            Failure = CreateFailure(),
         }));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
-            ManualRecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
+            RecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("{}")]
+    [InlineData("null")]
     [InlineData("{invalid")]
     public async Task Input_RejectsIncompleteData(string json)
     {
         await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
-            ManualRecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
+            RecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
     }
 
     [Theory]
@@ -65,26 +96,25 @@ public class ManualRecoveryTests
     [InlineData(null, "untrusted-boundary")]
     public async Task Input_RejectsUntrustedRoutingValues(string? tenant, string? boundary)
     {
-        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new RecoveryRequest
+        await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(CreateRequest() with
         {
-            Failure = CreateFailure(),
             TenantId = tenant,
             DataBoundary = boundary,
         }));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
-            ManualRecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
+            RecoveryInput.ReadRequestAsync(stream, CancellationToken.None));
     }
 
     [Fact]
     public async Task LegacyArguments_DoNotOpenAPipe()
     {
-        Assert.Null(await ManualRecoveryInput.ReadAsync(
+        Assert.Null(await RecoveryInput.ReadAsync(
             ["--agent-mode", "--failed-command", "profile show", "--error", "failure"], CancellationToken.None));
     }
 
     [Fact]
-    public async Task RealAgentProcess_ReadsLargePipeInputBeforeRejectingDisabledAgent()
+    public async Task RealAgentProcess_ReadsLargePipeInputBeforeRejectingOffRecovery()
     {
         var root = FindRepositoryRoot();
 #if DEBUG
@@ -100,7 +130,7 @@ public class ManualRecoveryTests
         try
         {
             await File.WriteAllTextAsync(Path.Combine(home, "config.json"),
-                """{"agent":{"enabled":false},"telemetry":{"enabled":false}}""");
+                """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
             using var input = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
             var start = new ProcessStartInfo(agentExe)
             {
@@ -122,7 +152,7 @@ public class ManualRecoveryTests
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
             {
-                await JsonSerializer.SerializeAsync(input, new RecoveryRequest { Failure = CreateFailure() },
+                await JsonSerializer.SerializeAsync(input, CreateRequest(),
                     cancellationToken: timeout.Token);
                 await input.DisposeAsync();
                 await process.WaitForExitAsync(timeout.Token);
@@ -138,7 +168,7 @@ public class ManualRecoveryTests
 
             var text = await output + await error;
             Assert.Equal(1, process.ExitCode);
-            Assert.Contains("Agent features are disabled", text);
+            Assert.Contains("AI recovery is disabled", text);
             Assert.DoesNotContain("test-only-secret", text);
             Assert.DoesNotContain("Could not load", text);
         }
@@ -149,36 +179,30 @@ public class ManualRecoveryTests
     }
 
     [Theory]
-    [InlineData("bash")]
-    [InlineData("powershell")]
-    [InlineData("edit")]
-    [InlineData("write")]
-    [InlineData("get_unregistered_tool")]
-    public async Task ManualGate_DeniesNonDiagnosticToolsEvenWithAnApprovedPlan(string tool)
+    [InlineData("oneshot", "bash")]
+    [InlineData("oneshot", "powershell")]
+    [InlineData("interactive", "bash")]
+    [InlineData("interactive", "powershell")]
+    public async Task Triggers_KeepTheSameUnapprovedExecutionGate(string style, string tool)
     {
-        var state = new SessionState
+        var options = new AgentOptions();
+        options.Recovery.Style = style;
+        foreach (var trigger in new[] { RecoveryTrigger.Automatic, RecoveryTrigger.Manual })
         {
-            IsManualRecovery = true,
-            IsOneShot = true,
-            PlanApproved = true,
-            AllowedManualTools = new HashSet<string>(["get_command", "propose_plan", "submit_response"], StringComparer.OrdinalIgnoreCase),
-        };
-        var result = await PreToolUseHook.HandleAsync(
-            new PreToolUseHookInput { ToolName = tool, ToolArgs = JsonSerializer.SerializeToElement(new { command = "do-not-run" }) },
-            "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
+            var settings = RecoverySessionSettings.Resolve(options, trigger);
+            var state = new SessionState { IsOneShot = !settings.IsInteractive };
+            var result = await PreToolUseHook.HandleAsync(
+                new PreToolUseHookInput { ToolName = tool, ToolArgs = JsonSerializer.SerializeToElement(new { command = "az vm show" }) },
+                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
 
-        Assert.Equal("deny", result?.PermissionDecision);
+            Assert.Equal("deny", result?.PermissionDecision);
+        }
     }
 
     [Fact]
-    public async Task ManualGate_AllowsRegisteredReadOnlyTool()
+    public async Task SharedGate_AllowsRegisteredReadOnlyTool()
     {
-        var state = new SessionState
-        {
-            IsManualRecovery = true,
-            IsOneShot = true,
-            AllowedManualTools = new HashSet<string>(["get_command"], StringComparer.OrdinalIgnoreCase),
-        };
+        var state = new SessionState { IsOneShot = true };
 
         var result = await PreToolUseHook.HandleAsync(
             new PreToolUseHookInput { ToolName = "get_command" },
@@ -188,24 +212,23 @@ public class ManualRecoveryTests
     }
 
     [Fact]
-    public void ManualTerminalSdkError_IsNotSuccess()
+    public void TerminalSdkError_IsNotSuccessForEitherTrigger()
     {
         var error = new SessionErrored("test", "synthetic failure", null, null, null, DateTimeOffset.UtcNow);
 
-        Assert.Equal(1, AgentModeEntry.GetManualExitCode(error, CancellationToken.None));
-        Assert.Equal(130, AgentModeEntry.GetManualExitCode(null, new CancellationToken(canceled: true)));
-        Assert.Equal(0, AgentModeEntry.GetManualExitCode(null, CancellationToken.None));
-        Assert.Equal(1, AgentModeEntry.GetManualExitCode(null, CancellationToken.None, hasResult: false));
+        Assert.Equal(1, AgentModeEntry.GetRecoveryExitCode(error, CancellationToken.None));
+        Assert.Equal(130, AgentModeEntry.GetRecoveryExitCode(null, new CancellationToken(canceled: true)));
+        Assert.Equal(130, AgentModeEntry.GetRecoveryExitCode(error, new CancellationToken(canceled: true)));
+        Assert.Equal(0, AgentModeEntry.GetRecoveryExitCode(null, CancellationToken.None));
+        Assert.Equal(1, AgentModeEntry.GetRecoveryExitCode(null, CancellationToken.None, hasResult: false));
     }
 
-    private static FailureRecord CreateFailure() => new()
+    private static RecoveryRequest CreateRequest() => new()
     {
-        Id = Guid.NewGuid().ToString("N"),
-        OccurredAtUtc = DateTimeOffset.UtcNow,
-        Arguments = ["vm", "create", "--name", "with spaces", "", "test-only-secret", "\u4e2d\u6587"],
-        FailedCommand = "vm create --name \"with spaces\"",
+        FailureId = "1234-2026-0924-0810-0001",
+        FailedCommand = "vm create --name \"with spaces\" \"\" \u4e2d\u6587",
         ErrorText = "test-only-secret\r\n" + new string('x', 80_000) + "\n\"quoted\"",
-        ExitCode = 1,
+        SessionStyle = "oneshot",
     };
 
     private static string FindRepositoryRoot()

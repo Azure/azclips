@@ -10,19 +10,66 @@ using Core.Cli.Parser;
 
 namespace Core.Cli.Recovery;
 
-internal sealed record FailureCaptureResult(FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null)
+internal sealed record FailureCaptureResult(
+    FailureHistoryEntry? Entry = null, bool ShowHint = false, string? Warning = null, bool Canceled = false)
 {
+    internal const string DefaultHint =
+        "Or run az troubleshoot without arguments to troubleshoot the latest error in this terminal.";
+
     internal object? Recovery => ShowHint && Entry is not null
-        ? new { id = Entry.Id, command = $"az troubleshoot --id {Entry.Id}" }
+        ? new
+        {
+            id = Entry.Id,
+            command = $"az troubleshoot --id {Entry.Id}",
+            defaultCommand = "az troubleshoot",
+            defaultDescription = DefaultHint,
+        }
         : null;
 }
 
 internal static class FailureCapture
 {
+    internal static readonly TimeSpan CaptureBudget = TimeSpan.FromSeconds(2);
+
+    internal static async Task<string?> ReadConfigurationWarningAsync(
+        IConfigurationService configuration, CancellationToken cancellationToken)
+    {
+        if (configuration is not IConfigurationDiagnostics diagnostics)
+            return null;
+
+        var messages = await diagnostics.GetDiagnosticsAsync(cancellationToken).ConfigureAwait(false);
+        return messages.Count == 0 ? null : string.Join(" ", messages.Select(message => message.Message));
+    }
+
+    internal static async Task<string?> ObservePolicyAsync(
+        Func<IFailureHistoryStore> getStore, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(CaptureBudget);
+        try
+        {
+            await getStore().ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
+            return null;
+        }
+        catch (FailureHistoryException ex)
+        {
+            return $"Recovery history policy could not be applied ({ex.Code}). {ex.Message}";
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return "Recovery history policy exceeded its time limit. Cleanup may be incomplete.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            return "Recovery history policy could not be applied. Check the recovery configuration and local history directory.";
+        }
+    }
+
     internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
         !inAgentMode &&
         !GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot) &&
-        (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or "--completion-values" or "--print-probe"));
+        (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or
+                                           "--completion-values" or "--print-probe" or FailureHistoryWorker.Argument));
 
     internal static async Task<FailureCaptureResult> SaveAsync(
         string[] args,
@@ -34,50 +81,85 @@ internal static class FailureCapture
         Func<AgentOptions> getOptions,
         Func<IFailureHistoryStore> getStore,
         bool inAgentMode,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<FailureRecord, int, CancellationToken, Task<FailureHistoryEntry>>? persist = null,
+        Func<uint>? getParentProcessId = null)
     {
-        if (exitCode == 0 || cancellationToken.IsCancellationRequested || !ShouldCapture(args, error, inAgentMode))
+        if (cancellationToken.IsCancellationRequested)
+            return new(Canceled: true);
+        if (exitCode == 0 || !ShouldCapture(args, error, inAgentMode))
             return new();
 
+        using var userCancellation = new ConsoleCancellationScope(cancellationToken);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(userCancellation.Token);
+        deadline.CancelAfter(CaptureBudget);
         try
         {
             var options = getOptions();
-            if (!options.Enabled)
-                return new();
-            if (options.AutoRecovery is null || options.FailureHistory is null || options.FailureHistory.MaxEntries < 1)
-                throw new ArgumentException("Agent recovery configuration is invalid; failureHistory.maxEntries must be positive.");
-
-            var structured = error as AzclipsErrorException;
-            var record = new FailureRecord
+            var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
+            if (trigger is not ("off" or "manual" or "auto"))
+                throw new ArgumentException("agent.recovery must be off, manual, or auto.");
+            if (trigger == "off")
             {
-                Id = Guid.NewGuid().ToString("N"),
-                OccurredAtUtc = DateTimeOffset.UtcNow,
-                Arguments = args.ToArray(),
-                FailedCommand = failedCommand,
-                ErrorText = error.Message,
-                ExitCode = exitCode,
-                CommandName = commandName,
-                ErrorCode = structured?.Code,
-                ExceptionType = error.GetType().FullName,
-                ErrorDetails = structured is null ? null : JsonSerializer.SerializeToElement(structured.Details),
-                HttpStatusCode = error is HttpRequestException { StatusCode: { } status } ? (int)status : null,
-                WorkingDirectory = Directory.GetCurrentDirectory(),
-                ProfileName = Program.TryGetProfileOverride(args),
-                ClientVersion = typeof(Program).Assembly.GetName().Version?.ToString(),
-                CommandTraceId = activity?.TraceId.ToHexString(),
-                CommandSpanId = activity?.SpanId.ToHexString(),
-            };
-            var entry = await getStore().SaveAsync(record, options.FailureHistory.MaxEntries, cancellationToken);
-            return new(entry, !options.AutoRecovery.Enabled);
+                await getStore().ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
+                return new();
+            }
+            if (options.Recovery!.HistorySize < 1)
+                throw new ArgumentException("agent.recovery.historySize must be positive.");
+
+            var store = getStore();
+            var generation = await store.ReadGenerationAsync(deadline.Token).ConfigureAwait(false);
+            var parentId = (getParentProcessId ?? TerminalSession.GetParentProcessId)();
+            var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation);
+            var save = persist ?? store.SaveAsync;
+            var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
+            return new(entry, trigger == "manual");
+        }
+        catch (OperationCanceledException) when (userCancellation.Token.IsCancellationRequested)
+        {
+            return new(Canceled: true);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            return new(Warning: "Secure failure history exceeded its time limit. Saving was not confirmed.");
         }
         catch (FailureHistoryException ex)
         {
             return new(Warning: $"The failure could not be saved securely ({ex.Code}). {ex.Message}");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or
+                                      InvalidOperationException or NotSupportedException or TimeoutException or System.ComponentModel.Win32Exception)
         {
             // Do not echo configuration values or the raw diagnostic a second time.
             return new(Warning: "The failure could not be saved securely. Check the local history directory and Agent configuration.");
         }
+    }
+
+    private static FailureRecord CreateRecord(
+        string[] args, string failedCommand, Exception error, int exitCode, string? commandName,
+        Activity? activity, uint parentId, ulong generation)
+    {
+        var structured = error as AzclipsErrorException;
+        return new FailureRecord
+        {
+            Id = string.Empty,
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            TerminalSessionId = parentId,
+            HistoryGeneration = generation,
+            Arguments = args.ToArray(),
+            FailedCommand = failedCommand,
+            ErrorText = error.Message,
+            ExitCode = exitCode,
+            CommandName = commandName,
+            ErrorCode = structured?.Code,
+            ExceptionType = error.GetType().FullName,
+            ErrorDetails = structured is null ? null : JsonSerializer.SerializeToElement(structured.Details),
+            HttpStatusCode = error is HttpRequestException { StatusCode: { } status } ? (int)status : null,
+            WorkingDirectory = Directory.GetCurrentDirectory(),
+            ProfileName = Program.TryGetProfileOverride(args),
+            ClientVersion = typeof(Program).Assembly.GetName().Version?.ToString(),
+            CommandTraceId = activity?.TraceId.ToHexString(),
+            CommandSpanId = activity?.SpanId.ToHexString(),
+        };
     }
 }

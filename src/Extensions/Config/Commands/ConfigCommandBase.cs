@@ -68,7 +68,17 @@ public abstract class ConfigCommandBase : IProcessor
                 entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value.Value, entry.Value.Source);
         }
 
+        await WriteMigrationDiagnosticsAsync().ConfigureAwait(false);
         return entries;
+    }
+
+    protected async Task WriteMigrationDiagnosticsAsync()
+    {
+        if (GetConfigurationService() is not IConfigurationDiagnostics diagnostics)
+            return;
+        var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        foreach (var diagnostic in await diagnostics.GetDiagnosticsAsync(CancellationToken).ConfigureAwait(false))
+            logger.Warn(diagnostic.Message);
     }
 
     protected static object? ParseValue(string value)
@@ -130,7 +140,7 @@ public abstract class ConfigCommandBase : IProcessor
                 ? key.Substring(sectionPrefix.Length + 1)
                 : key;
 
-            var segments = suffix.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            var segments = GetUnambiguousSegments(sectionPrefix, suffix, entries);
 
             // Navigate/create nested structure
             var current = obj;
@@ -155,6 +165,22 @@ public abstract class ConfigCommandBase : IProcessor
         }
 
         return obj;
+    }
+
+    private static string[] GetUnambiguousSegments(string prefix, string suffix, List<KeyValuePair<string, ConfigValueView>> entries)
+    {
+        var segments = suffix.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        for (var index = 1; index < segments.Length; index++)
+        {
+            var ancestor = prefix + "." + string.Join('.', segments.Take(index));
+            if (entries.Any(entry => string.Equals(entry.Key, ancestor, StringComparison.OrdinalIgnoreCase)))
+            {
+                // A public scalar alias can also prefix public sibling keys. Preserve both
+                // using a dotted suffix rather than replacing a scalar or leaking storage keys.
+                return [.. segments.Take(index - 1), string.Join('.', segments.Skip(index - 1))];
+            }
+        }
+        return segments;
     }
 
     private static JsonNode? ToJsonNode(object? value)

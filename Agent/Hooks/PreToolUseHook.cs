@@ -34,16 +34,6 @@ internal static class PreToolUseHook
                 PermissionDecisionReason = "This turn already ended with submit_response.",
             };
 
-        if (state.IsManualRecovery &&
-            (input.ToolName is null || !state.AllowedManualTools.Contains(input.ToolName)))
-        {
-            return new PreToolUseHookOutput
-            {
-                PermissionDecision = "deny",
-                PermissionDecisionReason = "Explicit troubleshooting only diagnoses errors and proposes a plan; this tool is not permitted.",
-            };
-        }
-
         // submit_response is the one and only session terminator (unified mind).
         // No user approval — the LLM already decided to end. Validate args; on
         // failure deny + feed the reason back as additionalContext so the LLM
