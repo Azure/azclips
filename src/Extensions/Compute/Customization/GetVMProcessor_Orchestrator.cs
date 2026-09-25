@@ -21,7 +21,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public override async Task ProcessAsync()
         {
-            Expand = ResolveExpand();
+            Expand = VirtualMachineDetailEnricher.ResolveExpand(ShowDetails, IncludeUserData);
 
             if (Ids is null || Ids.Length == 0)
             {
@@ -67,19 +67,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// The one place the switches turn into a request. Mirrors legacy `az vm show` exactly:
-        /// --show-details needs the instance view for the power state, --include-user-data needs
-        /// userData, and both together ask for one comma-joined expand.
-        /// </summary>
-        private string? ResolveExpand() => (ShowDetails, IncludeUserData) switch
-        {
-            (true, true) => "instanceView,userData",
-            (true, false) => "instanceView",
-            (false, true) => "userData",
-            _ => null,
-        };
-
-        /// <summary>
         /// The base pipeline deserializes then writes. This is the seam that lets --show-details
         /// decorate the model in between; returning false leaves the write to the base.
         /// </summary>
@@ -106,88 +93,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// Resolves every NIC and public IP the VM references, flattens them into the comma-joined
-        /// summary fields legacy `az vm show -d` produces, then drops the instance view.
+        /// `az vm show -d` wants the full network view plus the power state, and never the four
+        /// -Status-only fields, so it passes includeStatusFields: false.
         /// </summary>
         private async Task EnrichAsync(VirtualMachine vm)
         {
-            var privateIps = new List<string>();
-            var publicIps = new List<string>();
-            var fqdns = new List<string>();
-            var macAddresses = new List<string>();
-
-            foreach (var nicReference in vm.Properties?.NetworkProfile?.NetworkInterfaces ?? [])
-            {
-                var nicId = VirtualMachineIdResolver.ParseResourceId(
-                    nicReference.Id, "Microsoft.Network", "networkInterfaces", "Network interface", "networkInterfaceName");
-
-                using HttpResponseMessage nicResponse = await CreateExtendedProcessor<GetNetworkInterfaceProcessor>(p =>
-                {
-                    p.SubscriptionId = nicId.SubscriptionId;
-                    p.ResourceGroupName = nicId.ResourceGroupName;
-                    p.Name = nicId.Name;
-                }).SendAsync();
-
-                if (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions) is not { } nic)
-                {
-                    continue;
-                }
-
-                Collect(macAddresses, nic.Properties?.MacAddress);
-
-                foreach (var ipConfiguration in nic.Properties?.IPConfigurations ?? [])
-                {
-                    Collect(privateIps, ipConfiguration.Properties?.PrivateIPAddress);
-
-                    if (ipConfiguration.Properties?.PublicIPAddress?.Id is not { } publicIpReference)
-                    {
-                        continue;
-                    }
-
-                    var publicIpId = VirtualMachineIdResolver.ParseResourceId(
-                        publicIpReference, "Microsoft.Network", "publicIPAddresses", "Public IP address", "publicIpAddressName");
-
-                    using HttpResponseMessage publicIpResponse = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
-                    {
-                        p.SubscriptionId = publicIpId.SubscriptionId;
-                        p.ResourceGroupName = publicIpId.ResourceGroupName;
-                        p.Name = publicIpId.Name;
-                    }).SendAsync();
-
-                    if (await publicIpResponse.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions) is not { } publicIp)
-                    {
-                        continue;
-                    }
-
-                    Collect(publicIps, publicIp.Properties?.IpAddress);
-                    Collect(fqdns, publicIp.Properties?.DnsSettings?.Fqdn);
-                }
-            }
-
-            vm.PowerState = string.Join(",", (vm.Properties?.InstanceView?.Statuses ?? [])
-                .Where(status => status.Code?.StartsWith("PowerState/", StringComparison.OrdinalIgnoreCase) == true)
-                .Select(status => status.DisplayStatus)
-                .Where(displayStatus => !string.IsNullOrWhiteSpace(displayStatus)));
-
-            vm.PublicIps = string.Join(",", publicIps);
-            vm.Fqdns = string.Join(",", fqdns);
-            vm.PrivateIps = string.Join(",", privateIps);
-            vm.MacAddresses = string.Join(",", macAddresses);
-
-            // Legacy drops the instance view once the power state is flattened out of it.
-            if (vm.Properties is not null)
-            {
-                vm.Properties.InstanceView = null;
-            }
-
-            // Blank entries are skipped so a VM without a public IP yields "" rather than ",".
-            static void Collect(List<string> target, string? value)
-            {
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    target.Add(value);
-                }
-            }
+            await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, vm);
+            VirtualMachineDetailEnricher.ApplyInstanceView(vm, includeStatusFields: false);
         }
     }
 }
