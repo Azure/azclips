@@ -10,7 +10,6 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsDiagnostic.Test, "AzManagementGroupDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult")]
 public class TestManagementGroupDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -52,8 +51,8 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
         foreach (string name in new[]
         {
             nameof(Name), nameof(TemplateFile), nameof(TemplateUri), nameof(TemplateSpecId),
-            nameof(TemplateObject), nameof(QueryString), nameof(TemplateParameterFile),
-            nameof(TemplateParameterUri), nameof(TemplateParameterObject), nameof(Parameter),
+            nameof(QueryString), nameof(TemplateParameterFile),
+            nameof(TemplateParameterUri), nameof(Parameter),
             nameof(ValidationLevel), nameof(Profile),
         })
         {
@@ -61,6 +60,16 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
             {
                 parameters[name] = value;
             }
+        }
+        if (TemplateObject is not null)
+        {
+            parameters[nameof(TemplateObject)] =
+                ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject)!;
+        }
+        if (TemplateParameterObject is not null)
+        {
+            parameters[nameof(TemplateParameterObject)] =
+                ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject)!;
         }
 
         ManagementGroupDeploymentCmdletHelpers.Run(

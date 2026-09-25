@@ -143,31 +143,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// (Succeeded/Canceled) or the operation fails. Mirrors the proven Compute poller. Atomic LRO
         /// processors override <see cref="SendAsync"/> to delegate here.
         /// </summary>
-        internal async virtual Task<HttpResponseMessage> SendAsyncLRO(bool fetchFinalState = true)
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
-            return await HttpRuntime.SendAsyncLRO(
-                CreateRequestMessage,
-                Publisher,
-                HttpPipeline,
-                GetFinalUri,
-                GetOperationLocationUri,
-                GetAsyncOperationUri,
-                GetLocationUri,
-                fetchFinalState);
-        }
-
-        protected Task<HttpResponseMessage> SendAsyncLRO(
-            IReadOnlyCollection<HttpStatusCode> allowedResponseStatusCodes)
-        {
-            return HttpRuntime.SendAsyncLRO(
-                CreateRequestMessage,
-                Publisher,
-                HttpPipeline,
-                GetFinalUri,
-                GetOperationLocationUri,
-                GetAsyncOperationUri,
-                GetLocationUri,
-                allowedResponseStatusCodes);
+            return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
         }
     }
 

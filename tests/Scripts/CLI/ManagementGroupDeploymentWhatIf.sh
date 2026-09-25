@@ -7,8 +7,8 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
 "$AZ" config set --key agent.enabled --value false >/dev/null
-MANAGEMENT_GROUP_ID="azclips-test-mg"
-SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
 DEPLOYMENT_LOCATION="eastus"
 TEST_RESOURCE_GROUP="azclips-mg-test-rg"
 

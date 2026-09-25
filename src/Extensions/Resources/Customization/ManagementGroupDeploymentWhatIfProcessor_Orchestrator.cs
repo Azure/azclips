@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
-    : ManagementGroupDeploymentOrchestratorBase<DeploymentWhatIf, WhatIfOperationResult>
+    : ManagementGroupDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     public string? ResultFormat { get; set; }
 
@@ -21,7 +21,7 @@ public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
         WhatIfAtManagementGroupScopeDeploymentsProcessor processor =
             CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildWhatIf(ResultFormat);
             });
@@ -43,10 +43,12 @@ public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
             WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
                 ?? throw new InvalidOperationException(
                     "Management group deployment what-if returned an empty result.");
-            if (string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(result.Status)
+                && !string.Equals(result.Status, "Succeeded", StringComparison.OrdinalIgnoreCase)
+                && result.Error is null)
             {
-                ThrowIfError(result.Error, "Management group deployment what-if");
-                throw new InvalidOperationException("Management group deployment what-if failed.");
+                throw new InvalidOperationException(
+                    $"Management group deployment what-if {result.Status.ToLowerInvariant()}.");
             }
             ThrowIfError(result.Error, "Management group deployment what-if");
             FilterChanges(result, ExcludeChangeTypes);

@@ -56,6 +56,47 @@ public class ManagementGroupDeploymentTests
     private static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
+    private static string RequestUri(IProcessor processor) =>
+        (string)processor.GetType()
+            .GetMethod("CreateRequestUri", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(processor, null)!;
+
+    [Theory]
+    [InlineData(typeof(CancelAtManagementGroupScopeDeploymentsProcessor), "/cancel?")]
+    [InlineData(typeof(CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor), "?api-version")]
+    [InlineData(typeof(DeleteAtManagementGroupScopeDeploymentsProcessor), "?api-version")]
+    [InlineData(typeof(ExportTemplateAtManagementGroupScopeDeploymentsProcessor), "/exportTemplate?")]
+    [InlineData(typeof(GetAtManagementGroupScopeDeploymentsProcessor), "?api-version")]
+    [InlineData(typeof(ValidateAtManagementGroupScopeDeploymentsProcessor), "/validate?")]
+    [InlineData(typeof(WhatIfAtManagementGroupScopeDeploymentsProcessor), "/whatIf?")]
+    public void ScopeAndDeploymentNames_AreEscapedAsPathSegments(Type processorType, string suffix)
+    {
+        var processor = (IProcessor)Activator.CreateInstance(processorType)!;
+        processorType.GetProperty("GroupId")!.SetValue(processor, "group/with?reserved#chars");
+        processorType.GetProperty("DeploymentName")!.SetValue(processor, "name/with?reserved#chars");
+
+        Assert.Contains(
+            "/managementGroups/group%2Fwith%3Freserved%23chars/providers/Microsoft.Resources/" +
+            $"deployments/name%2Fwith%3Freserved%23chars{suffix}",
+            RequestUri(processor));
+    }
+
+    [Fact]
+    public void List_ScopeAndFilter_AreEncoded()
+    {
+        var processor = new ListAtManagementGroupScopeDeploymentsProcessor
+        {
+            GroupId = "group/with?reserved#chars",
+            _filter = "provisioningState eq 'Succeeded' & name eq 'a/b'",
+        };
+        string uri = RequestUri(processor);
+
+        Assert.Contains("/managementGroups/group%2Fwith%3Freserved%23chars/", uri);
+        Assert.Contains(
+            "$filter=provisioningState%20eq%20%27Succeeded%27%20%26%20name%20eq%20%27a%2Fb%27",
+            uri);
+    }
+
     [Fact]
     public void ExtensionIndex_ExposesRequestedManagementGroupCommands()
     {
@@ -81,11 +122,13 @@ public class ManagementGroupDeploymentTests
         foreach (string command in new[]
         {
             "deployment mg create",
+            "deployment mg delete",
             "deployment mg validate",
             "deployment mg what-if",
         })
         {
             CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
+            Assert.DoesNotContain("no-wait", metadata.Parameters.Keys);
             Assert.DoesNotContain("mode", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-prompt", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-pretty-print", metadata.Parameters.Keys);
@@ -105,6 +148,30 @@ public class ManagementGroupDeploymentTests
                 .Where(key => key.Contains("ManagementGroupDeployment", StringComparison.Ordinal))
                 .Order()
                 .ToArray());
+
+        Assert.All(
+            index.GetCommandKeys(ClientType.PowerShell)
+                .Where(key => key.Contains("ManagementGroupDeployment", StringComparison.Ordinal)),
+            command => Assert.Contains(
+                "Profile",
+                index.GetCommandMetadata(command, ClientType.PowerShell).Parameters.Keys));
+
+        CommandMetadata createPs =
+            index.GetCommandMetadata("New-AzManagementGroupDeployment", ClientType.PowerShell);
+        Assert.Equal("ParametersFile", createPs.Parameters["TemplateParameterFile"].Name);
+        Assert.Equal("ParametersUri", createPs.Parameters["TemplateParameterUri"].Name);
+        Assert.Equal("ParametersObject", createPs.Parameters["TemplateParameterObject"].Name);
+        Assert.Equal("Tags", createPs.Parameters["Tag"].Name);
+
+        CommandMetadata getPs =
+            index.GetCommandMetadata("Get-AzManagementGroupDeployment_Get", ClientType.PowerShell);
+        Assert.Equal("GroupId", getPs.Parameters["ManagementGroupId"].Name);
+        Assert.Equal("DeploymentName", getPs.Parameters["Name"].Name);
+
+        CommandMetadata removePs =
+            index.GetCommandMetadata("Remove-AzManagementGroupDeployment", ClientType.PowerShell);
+        Assert.Equal("GroupId", removePs.Parameters["ManagementGroupId"].Name);
+        Assert.Equal("DeploymentName", removePs.Parameters["Name"].Name);
     }
 
     [Fact]
@@ -166,7 +233,7 @@ public class ManagementGroupDeploymentTests
         var output = new FakeOutputHandler();
         var processor = new ListAtManagementGroupScopeDeploymentsProcessor
         {
-            ManagementGroupId = "contoso",
+            GroupId = "contoso",
         };
         Init(processor, pipeline, output);
 
@@ -196,7 +263,7 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task PowerShellTest_WritesStructuredBadRequestResult()
+    public async Task PowerShellTest_ThrowsAndWritesNoSuccessOutput()
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(
             """
@@ -221,11 +288,8 @@ public class ManagementGroupDeploymentTests
         };
         Init(processor, pipeline, output);
 
-        await processor.ProcessAsync();
-
-        DeploymentValidateResult result =
-            Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
-        Assert.Equal("InvalidTemplate", result.Error?.Code);
+        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Empty(output.WrittenValues);
     }
 
     [Fact]
@@ -273,7 +337,7 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task WhatIfAsync_ReturnsLocationPayloadWithoutFinalActionGet()
+    public async Task WhatIfAsync_FollowsGeneratedFinalLocation()
     {
         List<(HttpMethod Method, Uri Uri)> requests = [];
         const string location =
@@ -288,7 +352,9 @@ public class ManagementGroupDeploymentTests
                     location),
                 2 => Json(
                     """{ "status": "Succeeded", "properties": { "changes": [] } }"""),
-                _ => throw new InvalidOperationException("Unexpected final action request."),
+                3 => Json(
+                    """{ "status": "Succeeded", "properties": { "changes": [] } }"""),
+                _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
         var processor = new ManagementGroupDeploymentWhatIfProcessor_Orchestrator
@@ -305,11 +371,12 @@ public class ManagementGroupDeploymentTests
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(3, requests.Count);
         Assert.Equal(HttpMethod.Post, requests[0].Method);
         Assert.EndsWith("/whatIf?api-version=2025-04-01", requests[0].Uri.ToString());
         Assert.Equal(HttpMethod.Get, requests[1].Method);
         Assert.Equal(location, requests[1].Uri.ToString());
+        Assert.Equal(requests[1], requests[2]);
     }
 
     [Fact]
@@ -371,21 +438,22 @@ public class ManagementGroupDeploymentTests
                 1 => WithLocation(
                     Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
                     "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1"),
-                2 => Json("""{ "status": "Succeeded" }"""),
+                2 => new HttpResponseMessage(HttpStatusCode.NoContent),
+                3 => new HttpResponseMessage(HttpStatusCode.NoContent),
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
         var output = new FakeOutputHandler();
-        var processor = new DeleteAtManagementGroupScopeDeploymentsProcessor
+        var processor = new DeleteAtManagementGroupScopeDeploymentsProcessor_Customization
         {
-            ManagementGroupId = "contoso",
+            GroupId = "contoso",
             DeploymentName = "mg-test",
         };
         Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(3, requests.Count);
         Assert.Equal(
             "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1",
             requests[1].ToString());

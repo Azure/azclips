@@ -2,8 +2,14 @@
 # Licensed under the MIT License.
 
 $ErrorActionPreference = 'Stop'
-$managementGroupId = 'azclips-test-mg'
-$subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
+$managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
+$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
+    throw 'Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.'
+}
+if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
+    throw 'Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.'
+}
 $location = 'eastus'
 # This dedicated test group is reused and intentionally not deleted by individual scripts.
 $resourceGroupName = 'azclips-mg-test-rg'

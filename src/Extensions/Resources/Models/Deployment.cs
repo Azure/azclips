@@ -44,14 +44,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 
-    public class DebugSetting
-    {
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? DetailLevel { get; set; }
-
-        public override string ToString() => JsonNode.FromObject(this).ToString();
-    }
-
     //
     // Summary:
     //     Deployment operation parameters. Request body for

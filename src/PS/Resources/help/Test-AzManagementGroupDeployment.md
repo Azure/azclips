@@ -354,9 +354,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult
+### None
 
-Returns the structured ARM validation result, including template validation errors.
+The cmdlet writes validation errors when the template is invalid and produces no output when validation succeeds.
+
+### System.Object
+
+Validation error details may be written when the template is invalid.
 
 ## NOTES
 

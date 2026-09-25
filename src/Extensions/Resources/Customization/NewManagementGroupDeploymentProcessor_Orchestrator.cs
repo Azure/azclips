@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class NewManagementGroupDeploymentProcessor_Orchestrator
-    : ManagementGroupDeploymentOrchestratorBase<Deployment, DeploymentExtended>
+    : ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentExtended>
 {
     public bool WhatIf { get; set; }
 
@@ -54,7 +54,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         ValidateAtManagementGroupScopeDeploymentsProcessor processor =
             CreateExtendedProcessor<ValidateAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment();
             });
@@ -74,7 +74,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         WhatIfAtManagementGroupScopeDeploymentsProcessor processor =
             CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildWhatIf(WhatIfResultFormat);
             });
@@ -83,10 +83,12 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
             ?? throw new InvalidOperationException("Management group deployment what-if returned an empty result.");
-        if (string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(result.Status)
+            && !string.Equals(result.Status, "Succeeded", StringComparison.OrdinalIgnoreCase)
+            && result.Error is null)
         {
-            ThrowIfError(result.Error, "Management group deployment what-if");
-            throw new InvalidOperationException("Management group deployment what-if failed.");
+            throw new InvalidOperationException(
+                $"Management group deployment what-if {result.Status.ToLowerInvariant()}.");
         }
         ThrowIfError(result.Error, "Management group deployment what-if");
         ManagementGroupDeploymentWhatIfProcessor_Orchestrator.FilterChanges(
@@ -100,7 +102,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor processor =
             CreateExtendedProcessor<CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment();
             });

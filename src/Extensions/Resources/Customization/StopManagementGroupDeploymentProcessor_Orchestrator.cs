@@ -18,7 +18,7 @@ public class StopManagementGroupDeploymentProcessor_Orchestrator
         GetAtManagementGroupScopeDeploymentsProcessor get =
             CreateExtendedProcessor<GetAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
             });
         using HttpResponseMessage response = await get.SendAsync();
@@ -36,9 +36,12 @@ public class StopManagementGroupDeploymentProcessor_Orchestrator
         CancelAtManagementGroupScopeDeploymentsProcessor cancel =
             CreateExtendedProcessor<CancelAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
             });
         return await cancel.SendAsync();
     }
+
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(object? body) =>
+        Task.FromResult(true);
 }

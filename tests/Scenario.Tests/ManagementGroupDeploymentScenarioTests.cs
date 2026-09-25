@@ -125,8 +125,7 @@ public class ManagementGroupDeploymentScenarioTests
         host.RunCli(
             "deployment", "mg", "delete",
             "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName,
-            "--no-wait");
+            "--name", DeploymentName);
         host.RunCli(
             "deployment", "mg", "wait",
             "--management-group-id", ManagementGroupId,
@@ -144,8 +143,8 @@ public class ManagementGroupDeploymentScenarioTests
             ["TemplateObject"] = s_template,
         };
 
-        Assert.IsType<DeploymentValidateResult>(Assert.Single(
-            host.RunPowerShell("Test-AzManagementGroupDeployment", body)));
+        Assert.Empty(host.RunPowerShell("Test-AzManagementGroupDeployment", body));
+        body["Tag"] = new Dictionary<string, string> { ["scenario"] = "management-group" };
         Assert.IsType<DeploymentExtended>(Assert.Single(
             host.RunPowerShell("New-AzManagementGroupDeployment", body)));
         Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell(
@@ -199,16 +198,16 @@ public class ManagementGroupDeploymentScenarioTests
             }
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("{}", HttpStatusCode.OK));
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
             if (request.Method == HttpMethod.Put)
             {
-                return Task.FromResult(Json(Deployment("Accepted")));
+                return Task.FromResult(Json(Deployment("Succeeded")));
             }
             if (request.Method == HttpMethod.Delete)
             {
                 _deleted = true;
-                return Task.FromResult(Json("{}", HttpStatusCode.OK));
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
             if (request.Method == HttpMethod.Get
                 && path.EndsWith("/providers/Microsoft.Resources/deployments", StringComparison.OrdinalIgnoreCase))

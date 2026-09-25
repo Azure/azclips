@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Deletes a management-group deployment and its operations from deployment history. Use `--no-wait` to return after ARM accepts the deletion.
+Description: Deletes a management-group deployment and its operations from deployment history.
 
 ### Delete deployment history
 

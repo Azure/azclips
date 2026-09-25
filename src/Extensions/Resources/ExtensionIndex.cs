@@ -195,11 +195,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterObject"] = new("ParametersObject", "TemplateParameterObject", typeof(object), "An inline parameter object.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Parameter"] = new("Parameter", "Parameter", typeof(string[]), "Inline KEY=VALUE parameter overlays.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
-                ["Tag"] = new("Tags", "Tag", typeof(Dictionary<string, string>), "Deployment tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tag"] = new("Tags", "Tag", typeof(object), "Deployment tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), "Deployment debug detail level.", IsRequired: false, Aliases: [], AllowedValues: ["RequestContent", "ResponseContent", "All", "None"]),
                 ["WhatIf"] = new("WhatIf", "WhatIf", typeof(bool), "Run an ARM what-if operation instead of creating the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["WhatIfResultFormat"] = new("WhatIfResultFormat", "WhatIfResultFormat", typeof(string), "The what-if result format.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["WhatIfExcludeChangeType"] = new("WhatIfExcludeChangeType", "WhatIfExcludeChangeType", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
@@ -225,6 +226,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterObject"] = new("ParametersObject", "TemplateParameterObject", typeof(object), "An inline parameter object.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Parameter"] = new("Parameter", "Parameter", typeof(string[]), "Inline KEY=VALUE parameter overlays.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
@@ -237,8 +239,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("DeploymentName", "Name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
@@ -251,7 +254,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -266,20 +270,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = new(
-            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor",
+            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "Remove-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("DeploymentName", "Name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
@@ -522,8 +528,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["filter"] = new("Filter", "filter", typeof(string), "Filter deployments by provisioning state.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["filter"] = new("_filter", "filter", typeof(string), "Filter deployments by provisioning state.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -536,7 +542,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
@@ -556,30 +562,29 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = new(
-            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor",
+            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "deployment mg delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return without waiting for deletion to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = new(
-            Name: "ExportTemplateAtManagementGroupScopeDeploymentsProcessor",
+            Name: "ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "deployment mg export",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()

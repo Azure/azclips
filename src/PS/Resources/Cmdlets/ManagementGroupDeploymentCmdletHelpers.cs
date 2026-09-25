@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -10,6 +11,17 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 internal static class ManagementGroupDeploymentCmdletHelpers
 {
+    public static object? NormalizeJsonInput(object? value) =>
+        value switch
+        {
+            IDictionary dictionary => dictionary.Cast<DictionaryEntry>().ToDictionary(
+                entry => entry.Key.ToString()!,
+                entry => NormalizeJsonInput(entry.Value)),
+            IEnumerable values when value is not string =>
+                values.Cast<object?>().Select(NormalizeJsonInput).ToArray(),
+            _ => value,
+        };
+
     public static (string ManagementGroupId, string Name) ParseId(string id)
     {
         string[] segments = id.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);

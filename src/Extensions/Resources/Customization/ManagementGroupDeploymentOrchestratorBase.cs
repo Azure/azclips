@@ -92,7 +92,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         }
     }
 
-    protected Deployment BuildDeployment()
+    protected ScopedDeployment BuildDeployment()
     {
         DeploymentProperties properties = new()
         {
@@ -107,7 +107,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
                 : new DebugSetting { DetailLevel = NormalizeDebugSetting(DeploymentDebugLogLevel) },
         };
 
-        return new Deployment
+        return new ScopedDeployment
         {
             Location = Location,
             Properties = properties,
@@ -115,7 +115,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         };
     }
 
-    protected DeploymentWhatIf BuildWhatIf(string? resultFormat) =>
+    protected ScopedDeploymentWhatIf BuildWhatIf(string? resultFormat) =>
         new()
         {
             Location = Location,

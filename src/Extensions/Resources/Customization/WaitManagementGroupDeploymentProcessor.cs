@@ -53,7 +53,7 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
                 GetAtManagementGroupScopeDeploymentsProcessor get =
                     CreateExtendedProcessor<GetAtManagementGroupScopeDeploymentsProcessor>(p =>
                     {
-                        p.ManagementGroupId = ManagementGroupId;
+                        p.GroupId = ManagementGroupId;
                         p.DeploymentName = Name;
                     });
                 using HttpResponseMessage response = await get.SendAsync();

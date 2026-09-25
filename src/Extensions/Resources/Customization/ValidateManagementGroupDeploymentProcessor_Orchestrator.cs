@@ -6,9 +6,11 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class ValidateManagementGroupDeploymentProcessor_Orchestrator
-    : ManagementGroupDeploymentOrchestratorBase<Deployment, DeploymentValidateResult>
+    : ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentValidateResult>
 {
     public bool ThrowOnError { get; set; } = true;
+
+    public bool SuppressSuccessOutput { get; set; }
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
@@ -16,7 +18,7 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
         ValidateAtManagementGroupScopeDeploymentsProcessor processor =
             CreateExtendedProcessor<ValidateAtManagementGroupScopeDeploymentsProcessor>(p =>
             {
-                p.ManagementGroupId = ManagementGroupId;
+                p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment();
             });
@@ -29,6 +31,6 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
         {
             ThrowIfError(body?.Error, "Management group deployment validation");
         }
-        return Task.FromResult(false);
+        return Task.FromResult(SuppressSuccessOutput);
     }
 }

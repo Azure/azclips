@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
@@ -112,6 +113,33 @@ public class ManagementGroupDeploymentCmdletTests
                 "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult",
             ],
             attribute.Type.Select(type => type.Name));
+    }
+
+    [Fact]
+    public void TestCmdlet_DeclaresNoSuccessOutputType()
+    {
+        Assert.Empty(
+            typeof(TestManagementGroupDeploymentCmdlet)
+                .GetCustomAttributes<OutputTypeAttribute>());
+    }
+
+    [Fact]
+    public void NormalizeJsonInput_ConvertsNestedHashtables()
+    {
+        Type helpers = typeof(GetManagementGroupDeploymentCmdlet).Assembly.GetType(
+            "Microsoft.Azure.Azclips.Cmdlets.Resources.ManagementGroupDeploymentCmdletHelpers",
+            throwOnError: true)!;
+        MethodInfo method = helpers.GetMethod(
+            "NormalizeJsonInput",
+            BindingFlags.Public | BindingFlags.Static)!;
+        Hashtable value = new()
+        {
+            ["outer"] = new Hashtable { ["inner"] = 42 },
+        };
+
+        var normalized = Assert.IsType<Dictionary<string, object?>>(method.Invoke(null, [value]));
+        var nested = Assert.IsType<Dictionary<string, object?>>(normalized["outer"]);
+        Assert.Equal(42, nested["inner"]);
     }
 
     private static (string ManagementGroupId, string Name) ParseId(string id)
