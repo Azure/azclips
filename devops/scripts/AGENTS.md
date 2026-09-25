@@ -27,7 +27,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
-| `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs. |
+| `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
 ## Path Resolution Convention (Bash)
