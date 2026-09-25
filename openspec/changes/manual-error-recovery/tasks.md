@@ -45,7 +45,7 @@
 - [x] 7.2 Run targeted offline tests and the solution build; record actual platform coverage and unresolved environment limits.
 - [x] 7.3 Have the same three original reviewers independently review the implementation, including reuse and function size.
 - [ ] 7.4 Resolve substantive review findings and re-run affected validation.
-- [ ] 7.5 Commit and update the existing PR #934, verify it remains Draft, and report completed work and remaining validation.
+- [x] 7.5 Commit and update the existing PR #934, verify it remains Draft, and report completed work and remaining validation.
 
 ## 8. User-requested desktop end-to-end validation
 
@@ -54,6 +54,11 @@
 
 ## Validation status
 
+- On 2026-09-25, the user explicitly requested publishing the current checkpoint.
+  Implementation and review repairs through `de480bb1b` were pushed to the existing
+  PR #934, and its remote head and Draft status were verified. This checkpoint
+  publication does not close task 7.4, approve the pending JSON timing decision,
+  or complete the final reviewer follow-up and native E2E gates.
 - All three original reviewers completed independent code review of `0134c6d`.
   Confirmed capture fencing, configuration compatibility, output consistency, and
   documentation findings are being repaired under task 7.4; review completion
