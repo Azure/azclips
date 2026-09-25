@@ -11,8 +11,8 @@
 #   4. Get-AzVM -Id -UserData              -> id-addressed get with expand
 #   5. Get-AzVM -ResourceGroupName         -> list in the resource group
 #
-# -ShowDetails has no PowerShell spelling: the design dropped -Status and did not
-# add a PowerShell detail view, so the CLI's --show-details is CLI-only.
+# --show-details stays CLI-only. PowerShell's detail view is -Status, which applies
+# to the list parameter sets only and is covered by VMList.ps1.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
 #     Import-Module ./src/PS/Accounts/Accounts.psd1
