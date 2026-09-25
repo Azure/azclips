@@ -249,7 +249,41 @@ jobs:
           exit 1
         fi
 
-        echo "Prepared $total_binaries Mach-O binaries and $total_bundles code bundles for Developer ID signing."
+        to_be_signed_dir="$work_root/toBeSigned"
+        hashes_tsv="$work_root/zip-hashes-before.tsv"
+        mkdir -p "$to_be_signed_dir"
+        : > "$hashes_tsv"
+
+        total_signing_zips=0
+        while IFS=$'\t' read -r zip_name base_name relative_path item_type; do
+          [[ -z "$base_name" ]] && continue
+          signing_path="$contents_dir/$base_name/$relative_path"
+          zip_path="$to_be_signed_dir/$zip_name"
+
+          case "$item_type" in
+            file)
+              [[ -f "$signing_path" ]] || { echo "ERROR: Signing input file not found: $signing_path"; exit 1; }
+              ;;
+            bundle)
+              [[ -d "$signing_path" ]] || { echo "ERROR: Signing input bundle not found: $signing_path"; exit 1; }
+              ;;
+            *)
+              echo "ERROR: Unsupported signing input type '$item_type' for $base_name/$relative_path"
+              exit 1
+              ;;
+          esac
+
+          rm -f "$zip_path"
+          (
+            cd "$(dirname "$signing_path")"
+            zip -r -y -q "$zip_path" "$(basename "$signing_path")"
+          )
+          zip_hash=$(shasum -a 256 "$zip_path" | awk '{print $1}')
+          printf '%s\t%s\n' "$zip_name" "$zip_hash" >> "$hashes_tsv"
+          total_signing_zips=$((total_signing_zips + 1))
+        done < "$mapping_tsv"
+
+        echo "Prepared $total_binaries Mach-O binaries and $total_bundles code bundles in $total_signing_zips symlink-preserving ZIPs for Developer ID signing."
       displayName: Prepare macOS Signing Inputs
     - task: PublishPipelineArtifact@1
       displayName: Publish macOS Signing Inputs
@@ -289,51 +323,6 @@ jobs:
         $jsonSafeEntitlementsPath = $entitlementsPath.Replace('\', '/')
         Write-Host "##vso[task.setvariable variable=MacOSEntitlementsPath]$jsonSafeEntitlementsPath"
       displayName: Resolve macOS Entitlements Path For ESRP
-    - pwsh: |
-        $ErrorActionPreference = 'Stop'
-        $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
-        $mappingPath = Join-Path $inputRoot 'file-mapping.tsv'
-        $toBeSignedDir = Join-Path $inputRoot 'toBeSigned'
-        $hashesPath = Join-Path $inputRoot 'zip-hashes-before.tsv'
-
-        New-Item -ItemType Directory -Path $toBeSignedDir -Force | Out-Null
-        if (Test-Path $hashesPath) {
-          Remove-Item -Force $hashesPath
-        }
-
-        $count = 0
-        Get-Content $mappingPath | ForEach-Object {
-          if ([string]::IsNullOrWhiteSpace($_)) {
-            return
-          }
-
-          $parts = $_ -split "`t", 4
-          if ($parts.Count -ne 4) {
-            throw "Invalid file mapping row: $_"
-          }
-
-          $zipName = $parts[0]
-          $baseName = $parts[1]
-          $relativePath = $parts[2]
-          $itemType = $parts[3]
-          $signingPath = "$inputRoot/contents/$baseName/$relativePath"
-          $zipPath = Join-Path $toBeSignedDir $zipName
-
-          if (-not (Test-Path $signingPath)) {
-            throw "Signing input not found: $signingPath"
-          }
-          if ($itemType -notin @('file', 'bundle')) {
-            throw "Unsupported signing input type '$itemType': $_"
-          }
-
-          Compress-Archive -Path $signingPath -DestinationPath $zipPath -Force
-          $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
-          "$zipName`t$hash" | Add-Content -Path $hashesPath
-          $count++
-        }
-
-        Write-Host "Created $count ZIP files for ESRP signing."
-      displayName: Create macOS Binary ZIPs For ESRP
     - task: EsrpCodeSigning@6
       displayName: Sign macOS Binaries [MacAppDeveloperSign]
       inputs:
@@ -368,11 +357,9 @@ jobs:
         $signedZipsDir = "$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned"
         $mappingPath = "$(Pipeline.Workspace)/macos-signing-inputs/file-mapping.tsv"
         $hashesPath = "$(Pipeline.Workspace)/macos-signing-inputs/zip-hashes-before.tsv"
-        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-binaries"
-        $tempRoot = "$(Pipeline.Workspace)/macos-signed-extract"
+        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-zips"
 
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
         $originalHashes = @{}
         Get-Content $hashesPath | ForEach-Object {
@@ -412,46 +399,26 @@ jobs:
             $unchangedZips += $zipName
           }
 
-          $extractPath = Join-Path $tempRoot ([IO.Path]::GetFileNameWithoutExtension($zipName))
-          if (Test-Path $extractPath) {
-            Remove-Item -Recurse -Force $extractPath
-          }
-          New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
-          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-
-          $extractedItem = Get-ChildItem -Path $extractPath | Select-Object -First 1
-          if (-not $extractedItem) {
-            throw "Signed zip was empty: $zipPath"
-          }
-          if ($itemType -eq 'file' -and -not $extractedItem.PSIsContainer) {
-            $signedItem = $extractedItem
-          }
-          elseif ($itemType -eq 'bundle' -and $extractedItem.PSIsContainer -and $extractedItem.Name -eq (Split-Path $relativePath -Leaf)) {
-            $signedItem = $extractedItem
-          }
-          else {
-            throw "Signed zip content did not match $itemType mapping for ${relativePath}: $zipPath"
+          if ($itemType -notin @('file', 'bundle')) {
+            throw "Unsupported signing input type '$itemType': $_"
           }
 
-          $targetPath = "$outputDir/$baseName/$relativePath"
-          $targetDir = Split-Path $targetPath -Parent
-          New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-          Copy-Item -Path $signedItem.FullName -Destination $targetPath -Recurse -Force
+          Copy-Item -Path $zipPath -Destination (Join-Path $outputDir $zipName) -Force
           $count++
         }
 
-        Write-Host "Extracted $count signed macOS binaries."
+        Write-Host "Collected $count signed macOS ZIPs without extracting them on Windows."
         if ($unchangedZips.Count -gt 0) {
           Write-Host "##vso[task.logissue type=error]ESRP did not modify $($unchangedZips.Count) macOS signing ZIP(s). MacAppDeveloperSign did not produce signed output."
           $unchangedZips | Select-Object -First 20 | ForEach-Object { Write-Host "  unchanged: $_" }
           throw 'ESRP macOS signing output matched the unsigned input.'
         }
-      displayName: Extract Signed macOS Binaries
+      displayName: Collect Signed macOS ZIPs
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed macOS Binaries
+      displayName: Publish Signed macOS ZIPs
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-binaries
-        artifact: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-zips
+        artifact: macos-signed-zips-$(MacOSArchitecture)
         publishLocation: pipeline
 
   - job: CreateMacOSNotarizationBundles
@@ -480,18 +447,19 @@ jobs:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed macOS Binaries
+      displayName: Download Signed macOS ZIPs
       inputs:
         buildType: current
-        artifactName: macos-signed-binaries-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
+        artifactName: macos-signed-zips-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-zips
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        signed_binary_root="$(Pipeline.Workspace)/macos-signed-binaries"
+        signed_zip_root="$(Pipeline.Workspace)/macos-signed-zips"
+        signed_extract_root="$(Pipeline.Workspace)/macos-signed-extract"
         signed_contents_root="$(Build.ArtifactStagingDirectory)/signed-contents"
         notarization_root="$(Build.ArtifactStagingDirectory)/macos-notarization-bundles"
-        mkdir -p "$signed_contents_root" "$notarization_root"
+        mkdir -p "$signed_extract_root" "$signed_contents_root" "$notarization_root"
 
         verify_macho_signature() {
           local candidate="$1"
@@ -568,12 +536,23 @@ jobs:
 
         cp -R "$input_root/contents/." "$signed_contents_root/"
 
-        while IFS=$'\t' read -r _zip_name base_name relative_path item_type; do
+        while IFS=$'\t' read -r zip_name base_name relative_path item_type; do
           [[ -z "$base_name" ]] && continue
-          signed_item="$signed_binary_root/$base_name/$relative_path"
+          signed_zip="$signed_zip_root/$zip_name"
+          extract_root="$signed_extract_root/${zip_name%.zip}"
+          signed_item="$extract_root/$(basename "$relative_path")"
           target="$signed_contents_root/$base_name/$relative_path"
-          if [[ -z "$signed_item" ]]; then
-            echo "ERROR: Empty signed item path for $base_name/$relative_path"
+          if [[ ! -f "$signed_zip" ]]; then
+            echo "ERROR: Signed ZIP not found: $signed_zip"
+            exit 1
+          fi
+
+          rm -rf "$extract_root"
+          mkdir -p "$extract_root"
+          unzip -q "$signed_zip" -d "$extract_root"
+          extracted_count=$(find "$extract_root" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')
+          if [[ "$extracted_count" -ne 1 ]]; then
+            echo "ERROR: Signed ZIP must contain exactly one top-level item: $signed_zip"
             exit 1
           fi
 
@@ -588,7 +567,7 @@ jobs:
               ;;
             bundle)
               if [[ ! -d "$signed_item" ]]; then
-                echo "ERROR: Signed app bundle not found: $signed_item"
+                echo "ERROR: Signed code bundle not found: $signed_item"
                 exit 1
               fi
               rm -rf "$target"
