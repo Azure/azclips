@@ -3,7 +3,11 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Agent.Providers;
+using Core.Telemetry;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 using Xunit;
+using DataBoundaryResolver = Core.Agent.Providers.DataBoundaryResolver;
 
 namespace Core.Agent.Tests;
 
@@ -19,6 +23,7 @@ namespace Core.Agent.Tests;
 /// <para>The other half is export discipline: ARM's string is the only untrusted input in the
 /// vocabulary, and it lands in a telemetry dimension.</para>
 /// </summary>
+[Collection("AgentTelemetry")]
 public class DataBoundaryResolverTests
 {
     private const string TenantId = "fake-tenant";
@@ -39,6 +44,39 @@ public class DataBoundaryResolverTests
 
     private static DataBoundaryResolver Build(HttpMessageHandler handler, string? tenantId = TenantId) =>
         new(new FakeProfileService(tenantId), new HttpClient(handler));
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, "eu")]
+    [InlineData(HttpStatusCode.Forbidden, "arm_status_403")]
+    public async Task Resolve_ExportsBoundaryOutcomeAndElapsedAfterFilters(
+        HttpStatusCode status, string expectedOutcome)
+    {
+        var exported = new List<Activity>();
+        using var provider = Sdk.CreateTracerProviderBuilder()
+            .AddSource(AgentTracing.SourceName)
+            .SetSampler(new AlwaysOnSampler())
+            .AddProcessor(new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()))
+            .AddProcessor(new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()))
+            .AddProcessor(new SimpleActivityExportProcessor(new BoundaryExporter(exported)))
+            .Build();
+        using var http = new HttpClient(new DelayedTelemetryHandler(status));
+        using var resolver = new DataBoundaryResolver(new FakeProfileService(TenantId), http);
+        ActivitySpanId sessionId;
+        using (var session = AgentTracing.Source.StartActivity("Agent.Session"))
+        {
+            Assert.NotNull(session);
+            sessionId = session.SpanId;
+            var result = await resolver.ResolveAsync(CallerToken);
+            Assert.Equal(expectedOutcome, result.Value);
+        }
+
+        var boundary = Assert.Single(exported, activity => activity.OperationName == "Agent.DataBoundary");
+        Assert.Equal(sessionId, boundary.ParentSpanId);
+        Assert.Equal(expectedOutcome, boundary.GetTagItem(TelemetryTags.RecoveryDataBoundary));
+        var elapsed = Assert.IsType<long>(boundary.GetTagItem(TelemetryTags.RecoveryDataBoundaryElapsedMs));
+        Assert.InRange(elapsed, 15L, 5_000L);
+        Assert.Single(exported, activity => activity.OperationName == "Agent.Session");
+    }
 
     /// <summary>
     /// Runs a lookup and turns a violated "never throws" contract into a named assertion failure.
@@ -386,6 +424,29 @@ public class DataBoundaryResolverTests
                 seen.TryGetValue(wire, out var owner),
                 $"{reason} and {owner} both emit '{wire}'.");
             seen[wire] = reason;
+        }
+    }
+
+    private sealed class BoundaryExporter(List<Activity> exported) : BaseExporter<Activity>
+    {
+        public override ExportResult Export(in Batch<Activity> batch)
+        {
+            foreach (var activity in batch)
+                exported.Add(activity);
+            return ExportResult.Success;
+        }
+    }
+
+    private sealed class DelayedTelemetryHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(30, cancellationToken);
+            return new HttpResponseMessage(status)
+            {
+                Content = new StringContent(BoundaryPayload("EU"), Encoding.UTF8, "application/json"),
+            };
         }
     }
 
