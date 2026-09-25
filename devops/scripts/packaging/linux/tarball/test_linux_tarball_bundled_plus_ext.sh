@@ -52,9 +52,10 @@ expect_install_failure() {
   local description="$1"
   local expected_message="$2"
   shift 2
+  local install_root="${INSTALL_FAILURE_ROOT:-$SIM_ROOT/install}"
   local output=""
 
-  if output=$(HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
+  if output=$(HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$install_root" "$REPO_ROOT/install/azcli-install.sh" "$@" 2>&1); then
     echo "FAIL: $description unexpectedly succeeded"
     exit 1
   fi
@@ -153,6 +154,24 @@ expect_install_failure "wrong package profile" "is not a $PACKAGE_PROFILE CLI pa
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_profile_name"
 expect_install_failure "wrong runtime identifier" "does not match platform $ASSET_RID" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$wrong_rid_name"
+printf 'home sentinel\n' >"$SIM_ROOT/home/sentinel"
+INSTALL_FAILURE_ROOT="$SIM_ROOT/home" expect_install_failure "unsafe install root" "Refusing to use unsafe install root" \
+  --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+if [[ "$(cat "$SIM_ROOT/home/sentinel")" != "home sentinel" ]]; then
+  echo "FAIL: rejected unsafe install root was modified"
+  exit 1
+fi
+echo "  PASS: rejected unsafe install root was preserved"
+unknown_install_root="$SIM_ROOT/unknown-install"
+mkdir -p "$unknown_install_root"
+printf 'unknown install sentinel\n' >"$unknown_install_root/sentinel"
+INSTALL_FAILURE_ROOT="$unknown_install_root" expect_install_failure "unknown nonempty install root" "does not look like an azcli install" \
+  --package "$PACKAGE_PROFILE" --archive "$CLI_TAR_PATH"
+if [[ "$(cat "$unknown_install_root/sentinel")" != "unknown install sentinel" ]]; then
+  echo "FAIL: rejected unknown install root was modified"
+  exit 1
+fi
+echo "  PASS: rejected unknown install root was preserved"
 printf 'existing install sentinel\n' >"$SIM_ROOT/install/az"
 expect_install_failure "corrupt archive" "tar:" \
   --package "$PACKAGE_PROFILE" --archive "$SIM_ROOT/invalid-archives/$archive_name"

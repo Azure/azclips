@@ -227,6 +227,37 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
         Package = $packageProfile
         ArchivePath = $wrongRidPath
     }
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $homeSentinel = Join-Path $homeRoot 'sentinel'
+        Set-Content -Path $homeSentinel -Value 'home sentinel'
+        $env:AZCLI_INSTALL_ROOT = $homeRoot
+        Assert-InstallFailure -Description 'unsafe install root' -ExpectedPattern 'Refusing to use unsafe install root' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $homeSentinel -Raw).Trim() -ne 'home sentinel') {
+            throw 'FAIL: rejected unsafe install root was modified.'
+        }
+        Write-Host '  PASS: rejected unsafe install root was preserved'
+
+        $unknownInstallRoot = Join-Path $SimRoot 'unknown-install'
+        $unknownInstallSentinel = Join-Path $unknownInstallRoot 'sentinel'
+        $null = New-Item -Path $unknownInstallRoot -ItemType Directory -Force
+        Set-Content -Path $unknownInstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownInstallRoot
+        Assert-InstallFailure -Description 'unknown nonempty install root' -ExpectedPattern 'does not look like an azcli install' -Arguments @{
+            Package = $packageProfile
+            ArchivePath = $CliZipPath
+        }
+        if ((Get-Content -Path $unknownInstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown install root was modified.'
+        }
+        Write-Host '  PASS: rejected unknown install root was preserved'
+    }
+    finally {
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
     $installSentinel = Join-Path $installRoot 'az.exe'
     Set-Content -Path $installSentinel -Value 'existing install sentinel'
     Assert-InstallFailure -Description 'corrupt archive' -ExpectedPattern 'archive|zip|central directory' -Arguments @{
