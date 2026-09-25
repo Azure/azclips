@@ -79,6 +79,31 @@ public class RecoveryTelemetryTests
             $"A blank model must report modelSource=unavailable, not the claimed source. Reported '{source}'.");
     }
 
+    public static TheoryData<string, bool> DirectModelValues => new()
+    {
+        { "model with spaces", false },
+        { "gpt-5\n", false },
+        { "gpt\0name", false },
+        { "\u6a21\u578b", false },
+        { new string('a', 129), false },
+        { new string('a', 128), true },
+        { "deployment.v2:model-1_0", true },
+    };
+
+    [Theory]
+    [MemberData(nameof(DirectModelValues))]
+    public void RecordModel_EnforcesExportBoundsAtTheWriter(string model, bool exportable)
+    {
+        using var activity = new Activity("recovery").Start();
+        RecoveryTelemetry.RecordModel(activity, "previous-valid-model", AgentModelSource.Sdk);
+
+        RecoveryTelemetry.RecordModel(activity, model, AgentModelSource.Usage);
+
+        Assert.Equal(exportable ? model : null, activity.GetTagItem(TelemetryTags.AgentModel));
+        Assert.Equal((exportable ? AgentModelSource.Usage : AgentModelSource.Unavailable).Wire(),
+            activity.GetTagItem(TelemetryTags.AgentModelSource));
+    }
+
     [Fact]
     public void RecordConfiguration_NoOps_WhenActivityIsMissing()
     {
