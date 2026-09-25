@@ -35,7 +35,7 @@ guide in the same PR so it stays accurate.
 - `ComponentGovernance` and `BuildPSModules` depend on `Init`.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
-- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
+- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Each archive receives one full installer, layout, and runtime validation in a compatible environment: glibc on Ubuntu and musl in Alpine. Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
@@ -47,7 +47,7 @@ guide in the same PR so it stays accurate.
 - `templates/dist/steps/validate-release-project.yml` enforces that signing/release pipelines only run in `release`. Preserve these guards when editing.
 
 ## Variables, Groups & Secrets
-- Shared values in `templates/variables.yml`: pools (`ubuntu-latest`, `windows-latest`, `macOS-15-arm64`, `macOS-15`), `public_project`/`release_project`, `github_target_repo: Azure/azclips`, `esrp_service_connection: ame_esrp_connection`, `macos_bundle_id`, and pipeline names.
+- Shared pool, project, repository, service-connection, bundle, and pipeline-name values are defined in `templates/variables.yml`.
 - Variable groups (attached only when `System.TeamProject == 'release'`): `AME ESRP Variable Group`, `esrp-signing-codes`, `get-github-pat-token`.
 - ESRP keycodes (`ESRPNuGetKeyCode`, `ESRPAuthenticodeKeyCode`, `ESRPThirdPartyKeyCode`, `ESRPStrongNameKeyCode`, `ESRPAppleKeyCode`) come from groups and are mapped in `release.yml`. Never hardcode them.
 - The GitHub PAT is fetched at runtime from Key Vault via `steps/get-github-pat-token.yml`; do not persist it.
@@ -74,5 +74,6 @@ guide in the same PR so it stays accurate.
 - Change shared behavior in `templates/dist/**`, not by copy-pasting into entry pipelines.
 - Keep project guards, branch/tag validation, and secret-source patterns intact.
 - Match existing parameter naming (`ubuntu_pool`, `release_channel`, `source_artifact_name`, etc.) and pass pools through parameters.
+- Keep checkout tasks on the Azure Pipelines default of no automatic task retries.
 - Validate YAML changes: check indentation, template `parameters`/`variables` wiring, and `dependsOn`/`stageDependencies` references before committing.
 - Do not add new triggers or `pr:` scopes without confirming the intended project and channel.

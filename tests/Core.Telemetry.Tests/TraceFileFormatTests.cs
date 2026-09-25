@@ -73,6 +73,8 @@ public class TraceFileFormatTests
                 TraceId = "0123456789abcdef0123456789abcdef",
                 OperationName = "round-trip",
                 Duration = 12.5,
+                TenantId = "tenant-1",
+                DataBoundary = "EU",
             },
         };
 
@@ -83,6 +85,8 @@ public class TraceFileFormatTests
         Assert.Equal("0123456789abcdef0123456789abcdef", entry.TraceId);
         Assert.Equal("round-trip", entry.OperationName);
         Assert.Equal(12.5, entry.Duration);
+        Assert.Equal("tenant-1", entry.TenantId);
+        Assert.Equal("EU", entry.DataBoundary);
     }
 
     [Fact]

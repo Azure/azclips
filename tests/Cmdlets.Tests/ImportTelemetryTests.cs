@@ -84,6 +84,33 @@ public class ImportTelemetryTests
             ImportTelemetry.Emit(new NullTelemetryService(), timeline, ImportTelemetry.Cold, DateTime.UtcNow)));
     }
 
+    [Fact]
+    public void Emit_InvokesTagRoot_BeforeReplayingPhaseSpans()
+    {
+        // tagRoot must run before Replay: RecordingTelemetryService's activities are stopped
+        // (and, in production, exported) as soon as each phase span is disposed inside Replay.
+        // A tag applied only after Replay returns would never reach those already-exported
+        // phase spans — this is exactly the bug class EmitInBackground's TenantId/DataBoundary
+        // tagging depends on not having.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        using (timeline.Measure(ImportTelemetry.ContainerSpanName))
+        {
+        }
+
+        ImportTelemetry.Emit(
+            telemetry,
+            timeline,
+            ImportTelemetry.Cold,
+            DateTime.UtcNow,
+            root => root?.SetTag(TelemetryTags.DataBoundary, "EU"));
+
+        var container = Assert.Single(telemetry.Stopped, a => a.OperationName == ImportTelemetry.ContainerSpanName);
+        // container's direct parent is the "enclosing" span Replay creates (named after the
+        // timeline itself); the DataBoundary tag lives one level further up, on the root.
+        Assert.Equal("EU", container.Parent?.Parent?.GetTagItem(TelemetryTags.DataBoundary));
+    }
+
     [Theory]
     [InlineData(1, ImportTelemetry.Cold)]
     [InlineData(2, ImportTelemetry.Warm)]

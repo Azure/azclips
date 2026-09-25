@@ -465,6 +465,18 @@ export type IROperation = {
   apiVersion: IRApiVersionStamp;
   /** Reference to a definition in IR.servers. */
   server: IRId;
+  /**
+   * The group the spec **explicitly** placed this operation in (`@clientLocation`),
+   * resolved for this emitter's scope. Absent when the operation sits where it was
+   * declared.
+   *
+   * Client-layer, not declaration-layer: `id` always records the declaration site,
+   * so this is carried beside it rather than folded into it. A brownfield spec
+   * routinely declares several resources in one interface and separates them only
+   * here, which makes this the author's own answer to "what does this act on?" —
+   * strictly better than inferring it from a name.
+   */
+  clientLocation?: string | undefined;
 
   // Optional Azure-flavoured semantics.
   semantics?: IROperationSemantics | undefined;
@@ -493,6 +505,7 @@ export const IROperationSchema: z.ZodType<IROperation> = z
 
     apiVersion: IRApiVersionStampSchema,
     server: IRIdSchema,
+    clientLocation: z.string().min(1).optional(),
 
     semantics: IROperationSemanticsSchema.optional(),
 

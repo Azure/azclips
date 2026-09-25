@@ -126,6 +126,8 @@ public class ConfigCliTests
             && string.Equals(entry?["Source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
 
         var infoOutput = fixture.ExecuteCli(["config", "info"]);
+        Assert.DoesNotContain("\\u0027", infoOutput.Single(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("'auto'", infoOutput.Single(), StringComparison.Ordinal);
         var infoEntries = JsonNode.Parse(infoOutput.Single())!.AsArray();
         Assert.Contains(infoEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
     }

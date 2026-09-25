@@ -101,14 +101,15 @@ unchanged, and telemetry-disabled operation emits no skip span.
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
-| `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
-| `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
+| `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
+| `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, `error`, or `unknown` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
 | `properties.recovery.failureReason` | `Agent.Session`             | Why it errored, from the closed list below. Classification only, never the message |
 | `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
-| `properties.agent.model`           | `Agent.Send`                | Model name                                      |
+| `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
+| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 
 `Agent.Session` records `ok` / `cancelled` / `error` before it stops and before provider
@@ -146,6 +147,53 @@ boundaries, so a session error queued during turn N-1 can arrive after turn N cl
 and be attributed to the wrong turn. The host reads and writes that state through
 `Volatile`, which guarantees it observes the write at all; it cannot fix the attribution,
 because the SDK's error payload carries no turn identifier to correlate against.
+
+`modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
+mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
+documented here. `agent.model` is bounded before export — 1–128 characters of
+`A-Z a-z 0-9 . _ : -` — because the value arrives from the remote runtime; a name outside
+those bounds is recorded as `unavailable` rather than exported.
+
+For `builtin`, the effective `agent.builtin.modelId` comes from configuration,
+falling back to the `AgentOptions` default when the key is absent. It is recorded
+on the recovery root before launching the child, and on `Agent.Session` and
+`Agent.Create` before startup work. Authentication failure or cancellation before
+the first send therefore need not lose a known configured model.
+
+For `github`, the SDK still chooses the model. Session start/resume/model-change
+events track its selection. If no selection event has arrived, startup performs
+one read-only `session.model.getCurrent` query with a five-second deadline.
+If no valid selection is available, any query failure — including a runtime failure the
+experimental RPC was not expected to raise — malformed/empty results, or timeout use the
+existing warning channel and leave an unavailable model; they do not prevent recovery.
+Caller cancellation still propagates. Delayed startup
+events cannot overwrite a queried selection, while an explicit model-change
+event wins over an in-flight query reply. No builtin default is substituted for
+a GitHub model.
+
+Some runtimes select their default model lazily: both `session.start` and
+`getCurrent` can legitimately have no model until the first send triggers
+`session.model_change`. Selecting the GitHub provider alone does not identify a
+model in that case. Keep startup metadata unavailable rather than guessing from
+the available-model list or issuing an extra LLM request to force selection.
+
+Each GitHub `Agent.Send` records the last non-empty main-agent model reported by
+`assistant.usage` before that send ends, or the SDK selection if no usage arrived.
+Main-agent usage accepts an absent/empty initiator or the runtime's explicit
+`initiator=user`; an event with `agentId` still belongs to a sub-agent and is ignored.
+Other auxiliary usage is ignored, and usage observations are not cached as the
+selection for the next send. Collection is gated by the serialized main-agent
+turn-start/turn-end events, so usage arriving before the next turn or after its
+end does not overwrite its model. Missing SDK event data is ignored safely.
+`Agent.Create` and the session retain available startup
+metadata even when there is no send. `modelSource` distinguishes a configured or
+selected model from a model observed in usage; none proves that an absent send ran.
+
+Dashboards should prefer named `Agent.Send` models, falling back to `Agent.Session`,
+then `Agent.Create`, then the recovery root only when higher-priority metadata is
+missing. Do not infer historical models from today's configuration. Telemetry
+opt-out, termination before spans stop, and storage/upload failures can still
+prevent delivery; model metadata does not override those boundaries.
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:
@@ -238,5 +286,4 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 - **Flush on Dispose**: `TelemetryService.Dispose()` calls `ForceFlush()` which can block CLI exit
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
 - **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time
-
 

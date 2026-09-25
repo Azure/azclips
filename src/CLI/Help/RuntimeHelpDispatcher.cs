@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
+using Core.Cli.Output;
 using Core.Extensions;
 using Core.Runtime;
 
@@ -47,11 +48,26 @@ public sealed class RuntimeHelpDispatcher
         : this(
             engine,
             ExtensionHintTable.Default,
-            new RuntimeHelpRenderer(),
+            new RuntimeHelpRenderer(ShouldBoldHeaders(output)),
             output ?? Console.Out,
             streams,
             registryStore)
     {
+    }
+
+    internal static bool ShouldBoldHeaders(TextWriter? output)
+    {
+        if (ReferenceEquals(output, Console.Error))
+        {
+            return ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        }
+
+        if (output is null || ReferenceEquals(output, Console.Out))
+        {
+            return ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        }
+
+        return false;
     }
 
     internal RuntimeHelpDispatcher(
@@ -412,16 +428,6 @@ public sealed class RuntimeHelpDispatcher
             command.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
             command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
     }
-    private static uint? TerminalWidth()
-    {
-        try
-        {
-            var width = (uint)Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static uint? TerminalWidth() =>
+        TerminalWidthProvider.Get() is { } width ? (uint)width : null;
 }

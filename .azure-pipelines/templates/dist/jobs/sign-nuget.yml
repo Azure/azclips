@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: SourceProject
   type: string
   default: 'public'
@@ -31,7 +30,7 @@ jobs:
   - job: SignNuget
     displayName: Sign NuGet Artifacts
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     steps:
     - checkout: self
       clean: true

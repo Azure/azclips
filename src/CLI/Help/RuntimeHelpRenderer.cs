@@ -12,112 +12,124 @@ public interface IHelpRenderer
     string[] RenderGroup(RuntimeHelpGroup group, uint? terminalWidth);
 
     string[] RenderCommand(RuntimeHelpCommand command, uint? terminalWidth);
+
 }
 
 public sealed class RuntimeHelpRenderer : IHelpRenderer
 {
-    private static string SectionHeader(string title) => $"# {title.ToUpperInvariant()}";
+    private const string Bold = "\u001b[1m";
+    private const string Reset = "\u001b[0m";
+    private const string ExamplePrompt = "$ ";
+
+    private readonly bool _boldHeaders;
+
+    public RuntimeHelpRenderer(bool boldHeaders = false)
+    {
+        _boldHeaders = boldHeaders;
+    }
+
+    private string SectionHeader(string title)
+    {
+        var header = $"# {title.ToUpperInvariant()}";
+        return _boldHeaders ? $"{Bold}{header}{Reset}" : header;
+    }
 
     public string[] RenderRoot(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
+        => RenderGroupsSection(groups, terminalWidth);
+
+    public string[] RenderGroup(RuntimeHelpGroup group, uint? terminalWidth)
+        => ComposeSections(
+            RenderGroupIdentitySection(group, terminalWidth),
+            RenderSubgroupsSection(group.Subgroups, terminalWidth),
+            RenderCommandsSection(group.Commands, terminalWidth),
+            RenderGlobalArgumentsSection(terminalWidth));
+
+    public string[] RenderCommand(RuntimeHelpCommand command, uint? terminalWidth)
+        => ComposeSections(
+            RenderCommandIdentitySection(command, terminalWidth),
+            RenderParameterSections(command.Parameters, terminalWidth),
+            RenderGlobalArgumentsSection(terminalWidth),
+            RenderExamplesSection(command.Examples, terminalWidth));
+
+    internal string[] RenderGroupsSection(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
     {
         var lines = new List<string>
         {
-            SectionHeader("Groups")
+            SectionHeader("Groups"),
         };
 
-        var ordered = groups.OrderBy(static g => g.GroupPath, StringComparer.OrdinalIgnoreCase).ToArray();
-        for (var i = 0; i < ordered.Length; i++)
+        var ordered = groups.OrderBy(static group => group.GroupPath, StringComparer.OrdinalIgnoreCase).ToArray();
+        for (var index = 0; index < ordered.Length; index++)
         {
-            if (i > 0)
+            if (index > 0)
             {
                 lines.Add(string.Empty);
             }
-            AppendNameAndSummary(lines, ordered[i].GroupPath, ordered[i].Summary);
+
+            AppendNameAndSummary(lines, ordered[index].GroupPath, ordered[index].Summary);
         }
 
         return [.. lines];
     }
 
-    public string[] RenderGroup(RuntimeHelpGroup group, uint? terminalWidth)
+    internal string[] RenderGroupIdentitySection(RuntimeHelpGroup group, uint? terminalWidth)
     {
-        var lines = new List<string>
-        {
-            SectionHeader("Group"),
-        };
+        var lines = new List<string> { SectionHeader("Group") };
         AppendNameAndSummary(lines, $"az {group.GroupPath}", group.Summary);
-        lines.Add(string.Empty);
+        return [.. lines];
+    }
 
-        if (group.Subgroups.Count > 0)
+    internal string[] RenderSubgroupsSection(IReadOnlyList<RuntimeHelpGroupSummary> subgroups, uint? terminalWidth)
+    {
+        if (subgroups.Count == 0)
         {
-            lines.Add(SectionHeader("Subgroups"));
-            for (var i = 0; i < group.Subgroups.Count; i++)
-            {
-                if (i > 0)
-                {
-                    lines.Add(string.Empty);
-                }
-                var subgroup = group.Subgroups[i];
-                AppendNameAndSummary(lines, subgroup.Name, subgroup.Summary);
-            }
-            lines.Add(string.Empty);
+            return [];
         }
 
-        lines.Add(SectionHeader("Commands"));
+        var lines = new List<string> { SectionHeader("Subgroups") };
+        for (var index = 0; index < subgroups.Count; index++)
+        {
+            if (index > 0)
+            {
+                lines.Add(string.Empty);
+            }
 
-        if (group.Commands.Count == 0)
+            AppendNameAndSummary(lines, subgroups[index].Name, subgroups[index].Summary);
+        }
+
+        return [.. lines];
+    }
+
+    internal string[] RenderCommandsSection(IReadOnlyList<RuntimeHelpCommandSummary> commands, uint? terminalWidth)
+    {
+        var lines = new List<string> { SectionHeader("Commands") };
+        if (commands.Count == 0)
         {
             lines.Add("(none)");
-        }
-        else
-        {
-            for (var i = 0; i < group.Commands.Count; i++)
-            {
-                if (i > 0)
-                {
-                    lines.Add(string.Empty);
-                }
-                var command = group.Commands[i];
-                var tags = command.Tags.Length == 0
-                    ? string.Empty
-                    : $" [{string.Join(",", command.Tags)}]";
-                AppendNameAndSummary(lines, $"{command.Name}{tags}", command.Summary);
-            }
+            return [.. lines];
         }
 
-        AppendGlobalArguments(lines);
+        for (var index = 0; index < commands.Count; index++)
+        {
+            if (index > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            var command = commands[index];
+            var tags = command.Tags.Length == 0
+                ? string.Empty
+                : $" [{string.Join(",", command.Tags)}]";
+            AppendNameAndSummary(lines, $"{command.Name}{tags}", command.Summary);
+        }
 
         return [.. lines];
     }
 
-    public string[] RenderCommand(RuntimeHelpCommand command, uint? terminalWidth)
+    internal string[] RenderCommandIdentitySection(RuntimeHelpCommand command, uint? terminalWidth)
     {
-        var lines = new List<string>
-        {
-            SectionHeader("Command"),
-        };
+        var lines = new List<string> { SectionHeader("Command") };
         AppendNameAndSummary(lines, $"az {command.CommandPath}", command.Summary);
-        lines.Add(string.Empty);
-
-        AppendParameterSections(lines, command.Parameters);
-
-        if (command.Examples.Count > 0)
-        {
-            lines.Add(string.Empty);
-            lines.Add(SectionHeader("Examples"));
-            for (var i = 0; i < command.Examples.Count; i++)
-            {
-                if (i > 0)
-                {
-                    lines.Add(string.Empty);
-                }
-                var example = command.Examples[i];
-                lines.Add($"{i + 1}. {example.Title}");
-                lines.Add(example.Command);
-            }
-        }
-
-        AppendGlobalArguments(lines);
-
         return [.. lines];
     }
 
@@ -133,10 +145,9 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         lines.Add(summary);
     }
 
-    private static void AppendGlobalArguments(List<string> lines)
+    internal string[] RenderGlobalArgumentsSection(uint? terminalWidth)
     {
-        lines.Add(string.Empty);
-        lines.Add(SectionHeader("Global Arguments"));
+        var lines = new List<string> { SectionHeader("Global Arguments") };
         for (var i = 0; i < KnownGlobalFlags.All.Count; i++)
         {
             if (i > 0)
@@ -150,19 +161,19 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             lines.Add($"{flag.Name}{aliases}:");
             lines.Add(flag.Summary);
         }
+
+        return [.. lines];
     }
 
     // Emits an "Arguments" section for ungrouped params, then a section per named GroupName in
     // alphabetical order. Sections with no params are skipped. When Parameters is empty, the
     // single "Arguments" header + "(none)" placeholder is emitted (preserves prior behavior for
     // no-param commands like `az logout`).
-    private static void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
+    internal string[] RenderParameterSections(IReadOnlyList<RuntimeHelpParameter> parameters, uint? terminalWidth)
     {
         if (parameters.Count == 0)
         {
-            lines.Add(SectionHeader("Arguments"));
-            lines.Add("(none)");
-            return;
+            return [SectionHeader("Arguments"), "(none)"];
         }
 
         var defaultBucket = new List<RuntimeHelpParameter>();
@@ -184,35 +195,39 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             bucket.Add(parameter);
         }
 
-        var wroteSection = false;
+        var sections = new List<string[]>();
         if (defaultBucket.Count > 0)
         {
-            AppendParameterBucket(lines, "Arguments", defaultBucket, leadingBlank: false);
-            wroteSection = true;
+            sections.Add(RenderParameterGroupSection("Arguments", defaultBucket, terminalWidth));
         }
 
         foreach (var (groupName, bucket) in groupedBuckets)
         {
-            AppendParameterBucket(lines, groupName, bucket, leadingBlank: wroteSection);
-            wroteSection = true;
+            sections.Add(RenderParameterGroupSection(groupName, bucket, terminalWidth));
         }
+
+        return ComposeSections([.. sections]);
     }
 
-    private static void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
+    internal string[] RenderParameterGroupSection(
+        string header,
+        IReadOnlyList<RuntimeHelpParameter> parameters,
+        uint? terminalWidth)
     {
-        if (leadingBlank)
+        if (parameters.Count == 0)
         {
-            lines.Add(string.Empty);
+            return [];
         }
-        lines.Add(SectionHeader(header));
-        for (var i = 0; i < bucket.Count; i++)
+
+        var lines = new List<string> { SectionHeader(header) };
+        for (var index = 0; index < parameters.Count; index++)
         {
-            if (i > 0)
+            if (index > 0)
             {
                 lines.Add(string.Empty);
             }
 
-            var parameter = bucket[i];
+            var parameter = parameters[index];
             var aliases = parameter.Aliases.Length == 0
                 ? string.Empty
                 : $" -{string.Join(" -", parameter.Aliases)}";
@@ -226,5 +241,51 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
                 lines.Add($"Values from: {parameter.ValueSources}{suffix}");
             }
         }
+
+        return [.. lines];
+    }
+
+    internal string[] RenderExamplesSection(IReadOnlyList<RuntimeHelpExample> examples, uint? terminalWidth)
+    {
+        if (examples.Count == 0)
+        {
+            return [];
+        }
+
+        var lines = new List<string> { SectionHeader("Examples") };
+        for (var index = 0; index < examples.Count; index++)
+        {
+            if (index > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.Add($"{index + 1}. {examples[index].Title}");
+            lines.Add(ExamplePrompt + examples[index].Command);
+        }
+
+        return [.. lines];
+    }
+
+    private static string[] ComposeSections(params IEnumerable<string>[] sections)
+    {
+        var lines = new List<string>();
+        foreach (var section in sections)
+        {
+            var sectionLines = section as IReadOnlyCollection<string> ?? section.ToArray();
+            if (sectionLines.Count == 0)
+            {
+                continue;
+            }
+
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sectionLines);
+        }
+
+        return [.. lines];
     }
 }

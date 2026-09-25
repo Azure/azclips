@@ -61,6 +61,18 @@ public sealed class ManagedIdentityCredentialTests
         Assert.Equal("https://management.core.windows.net/", ManagedIdentityCredential.ScopeToResource(System.Array.Empty<string>()));
     }
 
+    [Fact]
+    public void ScopeToResource_ShouldThrow_WhenMultipleScopesProvided()
+    {
+        var ex = Assert.Throws<UsageErrorException>(() =>
+            ManagedIdentityCredential.ScopeToResource(new[]
+            {
+                "https://graph.microsoft.com/User.Read",
+                "https://graph.microsoft.com/Mail.Read",
+            }));
+        Assert.Contains("single resource", ex.Message, System.StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

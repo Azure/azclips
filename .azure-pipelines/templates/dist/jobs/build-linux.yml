@@ -1,7 +1,8 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+- name: ubuntu_arm64_pool
+  type: string
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingCommonOutRoot
@@ -19,41 +20,48 @@ jobs:
         Rid: linux-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Lean
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_arm64_lean:
         Rid: linux-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Arm64_Lean
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_x64_full:
         Rid: linux-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Full
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_arm64_full:
         Rid: linux-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Arm64_Full
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_musl_x64_lean:
         Rid: linux-musl-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Musl_X64_Lean
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_musl_arm64_lean:
         Rid: linux-musl-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Musl_Arm64_Lean
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
       linux_musl_x64_full:
         Rid: linux-musl-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Musl_X64_Full
+        PoolName: ${{ parameters.ubuntu_pool }}
       linux_musl_arm64_full:
         Rid: linux-musl-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Musl_Arm64_Full
+        PoolName: ${{ parameters.ubuntu_arm64_pool }}
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: $(PoolName)
   steps:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - task: UseDotNet@2
     displayName: .NET SDK
