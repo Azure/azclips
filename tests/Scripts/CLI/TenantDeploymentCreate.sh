@@ -2,8 +2,8 @@
 # Tenant-scope deployment create/lifecycle smoke tests.
 #
 # Covers local ARM JSON, local Bicep, .bicepparam and inline-parameter precedence,
-# derived names, validation levels, waited/no-wait create, wait conditions, show,
-# list, export, cancel, waited/no-wait delete, and local input failures.
+# derived names, validation levels, wait conditions, show, list, export, waited
+# delete, and local input failures.
 #
 # Prerequisites:
 #   1. Build:    dotnet build azclips.slnx
@@ -18,7 +18,7 @@ BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
 LOCATION="eastus"
 TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
 STAMP="$(date +%y%m%d%H%M%S)-$$"
@@ -52,7 +52,7 @@ expect_failure() {
 cleanup() {
     local exit_code=$?
     for name in "${DEPLOYMENTS[@]}"; do
-        "$AZ" deployment tenant delete --name "$name" --no-wait >/dev/null 2>&1 || true
+        "$AZ" deployment tenant delete --name "$name" >/dev/null 2>&1 || true
     done
     rm -f "$EXPORT_FILE" "$DERIVED_TEMPLATE"
     exit "$exit_code"
@@ -126,30 +126,6 @@ DEPLOYMENTS+=("$DERIVED_NAME")
     --template-file "$DERIVED_TEMPLATE" \
     --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=derived-name
 
-NOWAIT_NAME="$PREFIX-nowait"
-DEPLOYMENTS+=("$NOWAIT_NAME")
-# Start a no-wait deployment and exercise the cancel race.
-"$AZ" deployment tenant create \
-    --location "$LOCATION" \
-    --name "$NOWAIT_NAME" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=no-wait \
-    --no-wait
-
-# The empty deployment can finish before cancel reaches ARM. Accept only a
-# successful cancel or ARM's expected terminal-state rejection.
-set +e
-CANCEL_OUTPUT=$("$AZ" deployment tenant cancel --name "$NOWAIT_NAME" 2>&1)
-CANCEL_STATUS=$?
-set -e
-if [[ $CANCEL_STATUS -ne 0 ]] &&
-    ! grep -Eiq "not running|cannot be cancel(l)?ed|DeploymentCannotBeCancelled" <<<"$CANCEL_OUTPUT"; then
-    echo "UNEXPECTED: tenant deployment cancel failed: $CANCEL_OUTPUT" >&2
-    exit "$CANCEL_STATUS"
-fi
-printf '%s\n' "$CANCEL_OUTPUT"
-"$AZ" deployment tenant wait --name "$NOWAIT_NAME" --exists --interval 2 --timeout 120
-
 # Verify malformed Bicep is rejected.
 expect_failure \
     "malformed Bicep create" \
@@ -179,18 +155,15 @@ expect_failure \
         --template-file "$BICEP_DIR/tenant-empty.json" \
         --parameters https://example.com/parameters.json marker=conflict
 
-# Delete deployments using waited and no-wait variants.
+# Delete deployments and verify their records disappear.
 "$AZ" deployment tenant delete --name "$JSON_NAME"
 "$AZ" deployment tenant wait --name "$JSON_NAME" --deleted --interval 2 --timeout 120
 
-"$AZ" deployment tenant delete --name "$BICEP_NAME" --no-wait
+"$AZ" deployment tenant delete --name "$BICEP_NAME"
 "$AZ" deployment tenant wait --name "$BICEP_NAME" --deleted --interval 2 --timeout 120
 
 "$AZ" deployment tenant delete --name "$DERIVED_NAME"
 "$AZ" deployment tenant wait --name "$DERIVED_NAME" --deleted --interval 2 --timeout 120
-
-"$AZ" deployment tenant delete --name "$NOWAIT_NAME" --no-wait
-"$AZ" deployment tenant wait --name "$NOWAIT_NAME" --deleted --interval 2 --timeout 120
 
 DEPLOYMENTS=()
 rm -f "$EXPORT_FILE" "$DERIVED_TEMPLATE"

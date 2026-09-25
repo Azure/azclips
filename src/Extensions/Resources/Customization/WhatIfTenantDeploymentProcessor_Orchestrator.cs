@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class WhatIfTenantDeploymentProcessor_Orchestrator
-    : TenantDeploymentOrchestratorBase<DeploymentWhatIf, WhatIfOperationResult>
+    : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     public string? ResultFormat { get; set; }
 

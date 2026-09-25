@@ -86,7 +86,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
         Parameter = overlays.Count == 0 ? null : [.. overlays];
     }
 
-    protected Deployment BuildDeployment()
+    protected ScopedDeployment BuildDeployment()
     {
         DeploymentProperties properties = new()
         {
@@ -101,7 +101,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
                 : new DebugSetting { DetailLevel = DeploymentDebugLogLevel },
         };
 
-        return new Deployment
+        return new ScopedDeployment
         {
             Location = Location,
             Properties = properties,
@@ -109,9 +109,9 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
         };
     }
 
-    protected DeploymentWhatIf BuildWhatIf(string? resultFormat)
+    protected ScopedDeploymentWhatIf BuildWhatIf(string? resultFormat)
     {
-        return new DeploymentWhatIf
+        return new ScopedDeploymentWhatIf
         {
             Location = Location,
             Properties = new DeploymentWhatIfProperties

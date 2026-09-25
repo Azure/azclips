@@ -10,7 +10,6 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsDiagnostic.Test, "AzTenantDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult")]
 public class TestTenantDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

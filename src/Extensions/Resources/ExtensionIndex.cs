@@ -398,7 +398,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             TenantPowerShellBodyParameters()
                 .Concat(new Dictionary<string, ParameterMetadata>
                 {
-                    ["Tag"] = new("Tags", "Tag", typeof(Dictionary<string, string>), "Deployment tags.", false, [], []),
+                    ["Tag"] = new("Tags", "Tag", typeof(object), "Deployment tags.", false, [], []),
                     ["DeploymentDebugLogLevel"] = new("DeploymentDebugLogLevel", "DeploymentDebugLogLevel", typeof(string), "RequestContent, ResponseContent, All, or None.", false, [], ["RequestContent", "ResponseContent", "All", "None"]),
                     ["WhatIfResultFormat"] = new("WhatIfResultFormat", "WhatIfResultFormat", typeof(string), "What-if result format.", false, [], ["FullResourcePayloads", "ResourceIdOnly"]),
                     ["WhatIfExcludeChangeType"] = new("WhatIfExcludeChangeType", "WhatIfExcludeChangeType", typeof(string[]), "Change types excluded from what-if output.", false, [], []),
@@ -440,12 +440,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             new Dictionary<string, string> { ["DeploymentName"] = "Name" });
         private static readonly CommandMetadata s_removeTenantDeployment_PS = new(
-            "DeleteAtTenantScopeDeploymentsProcessor",
+            "DeleteAtTenantScopeDeploymentsProcessor_Customization",
             "Remove-AzTenantDeployment",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization",
             ResourcesAssembly,
-            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor),
+            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization),
             new Dictionary<string, ParameterMetadata>
             {
                 ["Name"] = new("DeploymentName", "Name", typeof(string), "The tenant deployment name.", true, ["DeploymentName"], []),
@@ -471,7 +471,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             TenantCliBodyParameters()
                 .Concat(new Dictionary<string, ParameterMetadata>
                 {
-                    ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return after ARM accepts the deployment.", false, [], []),
                     ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Run what-if instead of creating.", false, ["w"], []),
                     ["confirm-with-what-if"] = new("ConfirmWithWhatIf", "confirm-with-what-if", typeof(bool), "Run what-if and confirm before creating.", false, ["c"], []),
                     ["proceed-if-no-change"] = new("ProceedIfNoChange", "proceed-if-no-change", typeof(bool), "Skip confirmation when no effective changes are predicted.", false, [], []),
@@ -494,7 +493,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             typeof(Processors.ListAtTenantScopeDeploymentsProcessor),
             new Dictionary<string, ParameterMetadata>
             {
-                ["filter"] = new("Filter", "filter", typeof(string), "OData deployment filter.", false, [], []),
+                ["filter"] = new("_filter", "filter", typeof(string), "OData deployment filter.", false, [], []),
             },
             new Dictionary<string, string>());
         private static readonly CommandMetadata s_getTenantDeployment_CLI = new(
@@ -522,25 +521,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             new Dictionary<string, string> { ["n"] = "name" });
         private static readonly CommandMetadata s_deleteTenantDeployment_CLI = new(
-            "DeleteAtTenantScopeDeploymentsProcessor",
+            "DeleteAtTenantScopeDeploymentsProcessor_Customization",
             "deployment tenant delete",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization",
             ResourcesAssembly,
-            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor),
+            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization),
             new Dictionary<string, ParameterMetadata>
             {
                 ["name"] = new("DeploymentName", "name", typeof(string), "The tenant deployment name.", true, ["n"], []),
-                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return after ARM accepts deletion.", false, [], []),
             },
             new Dictionary<string, string> { ["n"] = "name" });
         private static readonly CommandMetadata s_exportTenantDeployment_CLI = new(
-            "ExportTemplateAtTenantScopeDeploymentsProcessor",
+            "ExportTemplateAtTenantScopeDeploymentsProcessor_Customization",
             "deployment tenant export",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtTenantScopeDeploymentsProcessor",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtTenantScopeDeploymentsProcessor_Customization",
             ResourcesAssembly,
-            typeof(Processors.ExportTemplateAtTenantScopeDeploymentsProcessor),
+            typeof(Processors.ExportTemplateAtTenantScopeDeploymentsProcessor_Customization),
             new Dictionary<string, ParameterMetadata>
             {
                 ["name"] = new("DeploymentName", "name", typeof(string), "The tenant deployment name.", true, ["n"], []),

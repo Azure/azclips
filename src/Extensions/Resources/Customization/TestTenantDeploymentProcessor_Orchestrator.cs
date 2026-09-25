@@ -7,6 +7,6 @@ public class TestTenantDeploymentProcessor_Orchestrator : ValidateTenantDeployme
 {
     public TestTenantDeploymentProcessor_Orchestrator()
     {
-        ThrowOnError = false;
+        SuppressSuccessOutput = true;
     }
 }

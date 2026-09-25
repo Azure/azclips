@@ -27,12 +27,6 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
             }
             var targetName = metadata.Name;
 
-            if (metadata.ParameterType.IsInstanceOfType(rawValue))
-            {
-                parsedArguments[targetName] = rawValue;
-                continue;
-            }
-
             // 1. Arg is array/sequence AND parameter expects a collection -> convert.
             if (IsArrayLike(rawValue) && TryGetCollectionElementType(metadata.ParameterType, out var elementType))
             {

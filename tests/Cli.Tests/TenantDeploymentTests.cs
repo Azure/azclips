@@ -59,11 +59,13 @@ public class TenantDeploymentTests
         foreach (string command in new[]
         {
             "deployment tenant create",
+            "deployment tenant delete",
             "deployment tenant validate",
             "deployment tenant what-if",
         })
         {
             CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
+            Assert.DoesNotContain("no-wait", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-prompt", metadata.Parameters.Keys);
         }
 
@@ -88,7 +90,7 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task Create_NoWait_ValidatesThenSendsTenantBody()
+    public async Task Create_ValidatesThenSendsScopedTenantBody()
     {
         List<(HttpMethod Method, Uri Uri, string? Body)> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -96,7 +98,7 @@ public class TenantDeploymentTests
             requests.Add((request.Method, request.RequestUri!, request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
             return requests.Count == 1
                 ? Json("""{ "name": "tenant-test" }""")
-                : Json("""{ "name": "tenant-test", "location": "eastus", "properties": { "provisioningState": "Accepted" } }""");
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
         var output = new FakeOutputHandler();
         var processor = new NewTenantDeploymentProcessor_Orchestrator
@@ -109,7 +111,6 @@ public class TenantDeploymentTests
                 ["contentVersion"] = "1.0.0.0",
                 ["resources"] = Array.Empty<object>(),
             },
-            NoWait = true,
         };
         Init(processor, pipeline, output);
 
@@ -167,7 +168,7 @@ public class TenantDeploymentTests
             "https://management.azure.com/providers/Microsoft.Resources/operations/create-async",
             requests[2].ToString());
         Assert.Equal(
-            "https://management.azure.com/providers/Microsoft.Resources/deployments/tenant-test?api-version=2025-04-01",
+            "https://management.azure.com/providers/Microsoft.Resources/operations/create-location",
             requests[3].ToString());
     }
 
@@ -283,7 +284,7 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task WhatIf_ReturnsTerminalLocationResponseWithoutFinalGet()
+    public async Task WhatIf_FollowsGeneratedFinalLocation()
     {
         List<(HttpMethod Method, Uri Uri)> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -295,6 +296,7 @@ public class TenantDeploymentTests
                     Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
                     "https://management.azure.com/providers/Microsoft.Resources/operations/what-if-1"),
                 2 => Json("""{ "status": "Succeeded", "properties": { "changes": [] } }"""),
+                3 => Json("""{ "status": "Succeeded", "properties": { "changes": [] } }"""),
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
@@ -307,19 +309,21 @@ public class TenantDeploymentTests
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(3, requests.Count);
         Assert.Equal(HttpMethod.Post, requests[0].Method);
         Assert.Equal(HttpMethod.Get, requests[1].Method);
+        Assert.Equal(HttpMethod.Get, requests[2].Method);
         Assert.Equal(
             "https://management.azure.com/providers/Microsoft.Resources/operations/what-if-1",
             requests[1].Uri.ToString());
+        Assert.Equal(requests[1].Uri, requests[2].Uri);
         Assert.Equal(
             "Succeeded",
             Assert.IsType<WhatIfOperationResult>(Assert.Single(output.WrittenValues)).Status);
     }
 
     [Fact]
-    public async Task Validate_ReturnsTerminalLocationResponseWithoutFinalGet()
+    public async Task Validate_FollowsGeneratedFinalLocation()
     {
         List<Uri> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -351,7 +355,7 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task TestValidation_WritesStructuredBadRequestResult()
+    public async Task TestValidation_ThrowsAndWritesNoSuccessOutput()
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(
             """
@@ -375,12 +379,8 @@ public class TenantDeploymentTests
         };
         Init(processor, pipeline, output);
 
-        await processor.ProcessAsync();
-
-        DeploymentValidateResult result =
-            Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
-        Assert.Equal("InvalidTemplate", result.Error?.Code);
-        Assert.Equal("The template is invalid.", result.Error?.Message);
+        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Empty(output.WrittenValues);
     }
 
     [Theory]
@@ -398,12 +398,13 @@ public class TenantDeploymentTests
                 1 => WithHeaders(
                     Json("""{ "status": "Accepted" }""", HttpStatusCode.Accepted),
                     (headerName, "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1")),
-                2 => Json("""{ "status": "Succeeded" }"""),
+                2 => new HttpResponseMessage(HttpStatusCode.NoContent),
+                3 => new HttpResponseMessage(HttpStatusCode.NoContent),
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
         var output = new FakeOutputHandler();
-        var processor = new DeleteAtTenantScopeDeploymentsProcessor
+        var processor = new DeleteAtTenantScopeDeploymentsProcessor_Customization
         {
             DeploymentName = "tenant-test",
         };
@@ -411,7 +412,7 @@ public class TenantDeploymentTests
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(headerName == "Location" ? 3 : 2, requests.Count);
         Assert.Equal(
             "https://management.azure.com/providers/Microsoft.Resources/operations/delete-1",
             requests[1].ToString());

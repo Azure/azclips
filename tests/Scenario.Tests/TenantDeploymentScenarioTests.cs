@@ -96,8 +96,7 @@ public class TenantDeploymentScenarioTests
             "deployment", "tenant", "create",
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template,
-            "--no-wait")));
+            "--template-file", template)));
 
         Assert.Single(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
         Assert.IsType<DeploymentExtended>(Assert.Single(
@@ -105,7 +104,7 @@ public class TenantDeploymentScenarioTests
         Assert.NotEmpty(host.RunCli("deployment", "tenant", "list"));
         Assert.NotEmpty(host.RunCli("deployment", "tenant", "export", "--name", DeploymentName));
         host.RunCli("deployment", "tenant", "cancel", "--name", DeploymentName);
-        host.RunCli("deployment", "tenant", "delete", "--name", DeploymentName, "--no-wait");
+        host.RunCli("deployment", "tenant", "delete", "--name", DeploymentName);
         host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--deleted");
     }
 
@@ -118,11 +117,14 @@ public class TenantDeploymentScenarioTests
             ["TemplateObject"] = s_template,
         };
 
-        Assert.IsType<DeploymentValidateResult>(Assert.Single(
-            host.RunPowerShell("Test-AzTenantDeployment", body)));
+        Assert.Empty(host.RunPowerShell("Test-AzTenantDeployment", body));
 
+        var createBody = new Dictionary<string, object>(body)
+        {
+            ["Tag"] = new Dictionary<string, string> { ["scenario"] = "tenant" },
+        };
         Assert.IsType<DeploymentExtended>(Assert.Single(
-            host.RunPowerShell("New-AzTenantDeployment", body)));
+            host.RunPowerShell("New-AzTenantDeployment", createBody)));
 
         Assert.IsType<DeploymentExtended>(Assert.Single(
             host.RunPowerShell(
@@ -170,18 +172,18 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("{}", HttpStatusCode.OK));
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
 
             if (request.Method == HttpMethod.Put)
             {
-                return Task.FromResult(Json(Deployment("Accepted")));
+                return Task.FromResult(Json(Deployment("Succeeded")));
             }
 
             if (request.Method == HttpMethod.Delete)
             {
                 _deleted = true;
-                return Task.FromResult(Json("{}", HttpStatusCode.OK));
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
 
             if (request.Method == HttpMethod.Get &&

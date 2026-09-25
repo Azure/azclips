@@ -332,9 +332,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult
+### None
 
-Validates a tenant-scope deployment without creating resources. Supply exactly one template source and the location used to store deployment metadata.
+The cmdlet writes validation errors when the template is invalid and produces no output when validation succeeds.
 
 ## NOTES
 
@@ -343,4 +343,3 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 ## RELATED LINKS
 
 [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
-

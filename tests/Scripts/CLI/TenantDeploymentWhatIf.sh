@@ -18,7 +18,7 @@ BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-SUBSCRIPTION_ID="f758ac53-3e63-4317-a956-0997793808d7"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
 LOCATION="eastus"
 TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
 STAMP="$(date +%y%m%d%H%M%S)-$$"

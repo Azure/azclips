@@ -6,9 +6,11 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class ValidateTenantDeploymentProcessor_Orchestrator
-    : TenantDeploymentOrchestratorBase<Deployment, DeploymentValidateResult>
+    : TenantDeploymentOrchestratorBase<ScopedDeployment, DeploymentValidateResult>
 {
     public bool ThrowOnError { get; set; } = true;
+
+    public bool SuppressSuccessOutput { get; set; }
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
@@ -28,6 +30,6 @@ public class ValidateTenantDeploymentProcessor_Orchestrator
         {
             ThrowIfError(body?.Error, "Tenant deployment validation");
         }
-        return Task.FromResult(false);
+        return Task.FromResult(SuppressSuccessOutput);
     }
 }

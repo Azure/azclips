@@ -9,10 +9,8 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class NewTenantDeploymentProcessor_Orchestrator
-    : TenantDeploymentOrchestratorBase<Deployment, DeploymentExtended>
+    : TenantDeploymentOrchestratorBase<ScopedDeployment, DeploymentExtended>
 {
-    public bool NoWait { get; set; }
-
     public bool WhatIf { get; set; }
 
     public bool ConfirmWithWhatIf { get; set; }
@@ -156,7 +154,6 @@ public class NewTenantDeploymentProcessor_Orchestrator
             {
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment();
-                p.NoWait = NoWait;
             });
         return processor.SendAsync();
     }

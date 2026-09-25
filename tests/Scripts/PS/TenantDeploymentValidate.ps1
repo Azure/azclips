@@ -17,7 +17,10 @@
 # Usage: ./tests/Scripts/PS/TenantDeploymentValidate.ps1
 
 $ErrorActionPreference = 'Stop'
-$subscriptionId = 'f758ac53-3e63-4317-a956-0997793808d7'
+$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
+    throw 'Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.'
+}
 $location = 'eastus'
 # This dedicated test group is reused and intentionally not deleted by individual scripts.
 $resourceGroupName = 'azclips-tenant-test-rg'
