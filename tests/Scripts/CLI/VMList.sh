@@ -8,7 +8,7 @@
 #   3. vm list -g <rg> -d       -> per-VM fan-out for power state and IPs
 #   4. vm list --vmss <name>    -> $filter by scale set name
 #   5. vm list --vmss <id>      -> $filter by scale set resource id
-#   6. vm list --vmss <name>    -> without -g, expected to fail with a usage error
+#   6. vm list --vmss <name>    -> without -g, expected to fail with the resource-group usage error
 #
 # Cases 4 and 5 return an empty array unless the resource group actually holds a
 # scale set; that is a successful result for this script, which is checking that
@@ -113,12 +113,18 @@ echo "== 5. vm list --vmss by resource id (expect an empty array, not an error) 
     --vmss "$VMSS_ID"
 
 echo "== 6. vm list --vmss by name without --resource-group (expect a usage error) =="
-if "$AZ" vm list --subscription-id "$SUBSCRIPTION_ID" --vmss "$VMSS_NAME"
+if output=$("$AZ" vm list --subscription-id "$SUBSCRIPTION_ID" --vmss "$VMSS_NAME" 2>&1)
 then
+    echo "$output"
     echo "FAIL: expected a usage error when --vmss is a name and --resource-group is missing"
     exit 1
+elif grep -qF "Specify the resource group when listing virtual machine instances by scale set name" <<< "$output"
+then
+    echo "OK: command failed with the expected usage error"
 else
-    echo "OK: command failed as expected"
+    echo "$output"
+    echo "FAIL: the command failed, but not with the expected usage error"
+    exit 1
 fi
 
 echo "== vm list smoke test finished =="
