@@ -2190,9 +2190,6 @@ public partial class PsCommandDialect
     [JsonPropertyName("confirmImpact")]
     public PsCommandDialectConfirmImpact? ConfirmImpact { get; set; }
 
-    [JsonPropertyName("completer")]
-    public PSCompleterAttribute? Completer { get; set; }
-
     [JsonPropertyName("examples")]
     public IReadOnlyList<string>? Examples { get; set; }
 

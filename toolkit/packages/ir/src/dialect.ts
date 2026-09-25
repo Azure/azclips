@@ -155,7 +155,6 @@ export type PsCommandDialect = IRClientDialect & {
   /** Emit `SupportsShouldProcess` (`-WhatIf` / `-Confirm`). */
   supportsShouldProcess?: boolean | undefined;
   confirmImpact?: ConfirmImpact | undefined;
-  completer?: PSCompleterAttribute | undefined;
   examples?: string[] | undefined;
   lifecycleTag?: LifecycleTag | undefined;
   helpUri?: string | undefined;
@@ -177,7 +176,6 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     defaultParameterSet: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean().optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
-    completer: PSCompleterAttributeSchema.optional(),
     examples: z.array(z.string().min(1)).optional(),
     lifecycleTag: z.enum(LifecycleTags).optional(),
     helpUri: z.string().min(1).optional(),

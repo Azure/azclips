@@ -61,7 +61,12 @@ public sealed class IrModelDeserializationTests
               "confirmImpact": "High",
               "examples": ["Remove-AzWidget -Name example"],
               "lifecycleTag": "GA",
-              "helpUri": "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget"
+              "helpUri": "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
+              "supportsPaging": true,
+              "outputTypes": [
+                { "kind": "model", "id": { "module": "Widgets", "namespace": [], "name": "Widget" } }
+              ],
+              "httpPath": { "path": "/widgets/{name}", "apiVersion": "2025-01-01" }
             }
             """);
 
@@ -72,6 +77,11 @@ public sealed class IrModelDeserializationTests
         Assert.Equal(PsCommandDialectLifecycleTag.GA, commandRoundTrip.LifecycleTag);
         Assert.Equal("ByName", commandRoundTrip.DefaultParameterSet);
         Assert.Equal("Remove-AzWidget -Name example", Assert.Single(commandRoundTrip.Examples!));
+        Assert.Equal("https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget", commandRoundTrip.HelpUri);
+        Assert.True(commandRoundTrip.SupportsPaging);
+        Assert.IsType<IRTypeRefModel>(Assert.Single(commandRoundTrip.OutputTypes!));
+        Assert.Equal("/widgets/{name}", commandRoundTrip.HttpPath!.Path);
+        Assert.Equal("2025-01-01", commandRoundTrip.HttpPath.ApiVersion);
 
         PsParameterDialect parameter = Parse<PsParameterDialect>(
             """
@@ -82,6 +92,7 @@ public sealed class IrModelDeserializationTests
                 { "set": "ByName", "mandatory": true, "position": 0, "valueFromPipeline": true },
                 { "set": "ById", "mandatory": false, "valueFromPipelineByPropertyName": true }
               ],
+              "removed": true,
               "completer": { "name": "ResourceGroupCompleter" },
               "defaultValue": {
                 "script": "(Get-AzContext).Subscription.Id",
@@ -97,8 +108,38 @@ public sealed class IrModelDeserializationTests
         Assert.Equal(2, parameterRoundTrip.ParameterSets!.Count);
         Assert.True(parameterRoundTrip.ParameterSets[0].ValueFromPipeline);
         Assert.True(parameterRoundTrip.ParameterSets[1].ValueFromPipelineByPropertyName);
+        Assert.True(parameterRoundTrip.Removed);
         Assert.Equal("ResourceGroupCompleter", parameterRoundTrip.Completer!.Name);
         Assert.Contains("Subscription.Id", parameterRoundTrip.DefaultValue!.Script);
+    }
+
+    [Fact]
+    public void PowerShellModuleDialect_RoundTripsOnTarget()
+    {
+        IRTarget target = Parse<IRTarget>(
+            """
+            {
+              "rootNamespace": ["Microsoft", "Azure", "Widgets"],
+              "projectName": "Widgets",
+              "directories": { "models": "Models", "processors": "Processors" },
+              "dialect": {
+                "ps": {
+                  "name": "Widgets",
+                  "description": "Manages widgets.",
+                  "prefix": "Az",
+                  "subjectPrefix": "Widget"
+                }
+              }
+            }
+            """);
+
+        IRTarget roundTripped = Parse<IRTarget>(JsonSerializer.Serialize(target, IrJson.Options));
+
+        IRTargetDialectPs module = roundTripped.Dialect!.Ps!;
+        Assert.Equal("Widgets", module.Name);
+        Assert.Equal("Manages widgets.", module.Description);
+        Assert.Equal("Az", module.Prefix);
+        Assert.Equal("Widget", module.SubjectPrefix);
     }
 
     [Fact]

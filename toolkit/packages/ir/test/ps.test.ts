@@ -87,7 +87,7 @@ describe("PsCommandDialect", () => {
     expect(result.success).toBe(false);
   });
 
-  it("does not require each sibling to declare the family default locally", () => {
+  it("defers family default validation when parsing a standalone command", () => {
     const operation = { module: "Widgets", namespace: [], name: "getByIdentity" };
     const result = IRCommandSchema.safeParse({
       id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
@@ -290,6 +290,54 @@ describe("PowerShell command identity references", () => {
       target,
     };
   }
+
+  function familyDocument(defaults: (string | undefined)[]) {
+    const input = document();
+    const command = input.commands[0]!;
+    input.commands = defaults.map((defaultParameterSet, index) => ({
+      ...command,
+      id: { ...command.id, variant: `Variant${index}` },
+      name: `GetWidgetVariant${index}`,
+      parameters: command.parameters.map((parameter) => ({
+        ...parameter,
+        dialect: { ps: { parameterSets: [{ set: "ByName", mandatory: true }] } },
+      })),
+      dialect: {
+        ps: {
+          ...command.dialect.ps,
+          defaultParameterSet,
+        },
+      },
+    }));
+    return input;
+  }
+
+  it("accepts sibling commands that agree on a declared family default", () => {
+    expect(safeParseTransformedIR(familyDocument(["ByName", "ByName"])).success).toBe(true);
+  });
+
+  it("rejects a sibling that omits the family default", () => {
+    const result = safeParseTransformedIR(familyDocument(["ByName", undefined]));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 1, "dialect", "ps", "defaultParameterSet"] }),
+      ]));
+    }
+  });
+
+  it("rejects conflicting sibling defaults", () => {
+    const result = safeParseTransformedIR(familyDocument(["ByName", "ById"]));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "defaultParameterSet"] }),
+        expect.objectContaining({ path: ["commands", 1, "dialect", "ps", "defaultParameterSet"] }),
+      ]));
+    }
+  });
 
   it("rejects an identity that names no synthetic model parameter", () => {
     const result = safeParseTransformedIR(document({ identityParameter: "Missing" }));
