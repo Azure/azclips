@@ -62,8 +62,8 @@ public sealed class BuiltinProviderOptions
 {
     [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
     public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
-    [ConfigurationKey("scope", Description = "AAD scope requested when acquiring a token for the builtin provider.")]
-    public string Scope { get; set; } = "https://management.core.windows.net//.default";
+    [ConfigurationKey("scope", Description = "Delegated API scope requested when acquiring a token for the builtin APIM provider.")]
+    public string Scope { get; set; } = "api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/Azclis.Intelligent.All";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
     public string ModelId { get; set; } = "gpt-5.4";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]

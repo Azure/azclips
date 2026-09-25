@@ -38,6 +38,26 @@ Configuration follows strict precedence: **command args > environment variables 
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                           |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                            |
 
+## Built-in Agent authentication
+
+When `agent.provider` is `builtin`, the Agent uses your Azure sign-in to request
+a token for the model gateway. The default `agent.builtin.scope` is the delegated
+API permission
+`api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/Azclis.Intelligent.All`,
+rather than an Azure Resource Manager (ARM) scope.
+
+The existing Azure PowerShell public client ID,
+`1950a258-227b-4e31-a9cf-717495945fc2`, is unchanged. Users do not need to
+manually configure the scope for the default built-in provider. Normal sign-in,
+tenant access policies, and configuration precedence still apply; an explicitly
+configured `agent.builtin.scope` is not overwritten.
+
+This setting does not change the ARM scopes used by Azure resource commands,
+the `github` provider, or APIM's separate managed identity for backend access.
+It does not provision service-side access or application permissions for managed
+identities. Authentication failures are reported without silently retrying the
+previous ARM scope.
+
 ## CLI Usage
 
 `core.logging.level` controls runtime host logging verbosity in CLI sessions.
