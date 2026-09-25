@@ -45,7 +45,7 @@ const COMMAND_STUB = createRegistry({
       name: CREATE_COMMAND_STAGE,
       run: (ir: IR): TransformedIR => ({
         ...ir,
-        commands: { items: [], sharedTypes: [] },
+        commands: [],
         target: {
           rootNamespace: ["Stub"],
           projectName: "Stub",

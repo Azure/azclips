@@ -37,6 +37,7 @@
  */
 
 import { z } from "zod";
+import { IRIdSchema, type IRId } from "./id.js";
 import {
   ConfirmImpacts,
   LifecycleTags,
@@ -76,6 +77,34 @@ const clientDialectFields = {
 };
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
+
+export type PsCommandIdentityProperty = {
+  /** Property on the synthesized model used by the InputObject parameter. */
+  property: IRId;
+  /** Canonical path parameters this property supplies. Empty for a synthesized resource id. */
+  sourceParameters: IRId[];
+};
+
+export const PsCommandIdentityPropertySchema: z.ZodType<PsCommandIdentityProperty> = z
+  .object({
+    property: IRIdSchema,
+    sourceParameters: z.array(IRIdSchema),
+  })
+  .strict();
+
+export type PsCommandIdentity = {
+  /** Name of the synthetic command parameter whose model is the InputObject type. */
+  parameter: string;
+  /** Command-specific mapping from identity-model properties to canonical path parameters. */
+  properties: PsCommandIdentityProperty[];
+};
+
+export const PsCommandIdentitySchema: z.ZodType<PsCommandIdentity> = z
+  .object({
+    parameter: z.string().min(1),
+    properties: z.array(PsCommandIdentityPropertySchema).min(1),
+  })
+  .strict();
 
 /** PowerShell metadata shared by every command emitted into one module. */
 export type PsModuleDialect = {
@@ -136,6 +165,8 @@ export type PsCommandDialect = IRClientDialect & {
   outputTypes?: IRTypeRef[] | undefined;
   /** Runtime API-version metadata when the cmdlet must surface a dynamic version. */
   httpPath?: { path: string; apiVersion: string } | undefined;
+  /** InputObject metadata over a synthetic model-typed command parameter. */
+  identity?: PsCommandIdentity | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
@@ -156,6 +187,7 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
       .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
       .strict()
       .optional(),
+    identity: PsCommandIdentitySchema.optional(),
   })
   .strict();
 

@@ -61,15 +61,6 @@ export {
 } from "./discriminated-union.js";
 
 export {
-  IRCommandIdentityPropertySchema,
-  IRCommandIdentitySchema,
-  IRCommandSharedTypeSchema,
-  type IRCommandIdentityProperty,
-  type IRCommandIdentity,
-  type IRCommandSharedType,
-} from "./shared-type.js";
-
-export {
   FlattenHintSchema,
   FlattenedMemberSchema,
   FlattenedParameterSchema,
@@ -203,9 +194,7 @@ export {
   parseTransformedIR,
   safeParseTransformedIR,
   emptyIR,
-  IRCommandCollectionSchema,
   type IR,
-  type IRCommandCollection,
   type TransformedIR,
 } from "./ir.js";
 
@@ -248,6 +237,8 @@ export {
 
 export {
   PsModuleDialectSchema,
+  PsCommandIdentitySchema,
+  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -255,6 +246,8 @@ export {
   CliParameterDialectSchema,
   type IRClientDialect,
   type PsModuleDialect,
+  type PsCommandIdentity,
+  type PsCommandIdentityProperty,
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,

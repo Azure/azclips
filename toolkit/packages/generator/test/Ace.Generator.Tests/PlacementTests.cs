@@ -32,7 +32,7 @@ public sealed class PlacementTests
                 },
             ],
             Operations = [],
-            Commands = new IRCommandCollection(),
+            Commands = [],
         };
         if (target is not null)
         {

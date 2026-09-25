@@ -102,39 +102,30 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
-    public void PowerShellIdentity_RoundTripsAsSharedTypeReferencedBySyntheticParameter()
+    public void PowerShellIdentity_RoundTripsAsCommandDialectOverSyntheticModelParameter()
     {
         TransformedIR document = Parse<TransformedIR>(
             """
             {
-              "commands": {
-                "sharedTypes": [
-                  {
-                    "kind": "identity",
-                    "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
-                    "name": "WidgetIdentity",
-                    "properties": [
-                      {
-                        "name": "ResourceGroupName",
-                        "sourceParameters": [
-                          { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
-                        ]
-                      }
-                    ]
-                  }
-                ],
-                "items": [{
+              "models": [{
+                "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
+                "name": "WidgetIdentity",
+                "source": "Widgets",
+                "properties": [{
+                  "typeKind": "primitive",
+                  "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity.resourceGroupName" },
+                  "name": "ResourceGroupName",
+                  "wireName": "resourceGroupName",
+                  "type": { "kind": "primitive", "name": "string" },
+                  "optional": false,
+                  "nullable": false
+                }]
+              }],
+              "commands": [{
                   "parameters": [
                     {
                       "name": "InputObject",
-                      "source": {
-                        "kind": "synthetic",
-                        "purpose": "identity",
-                        "type": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" },
-                        "parameters": [
-                          { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
-                        ]
-                      },
+                      "source": { "kind": "synthetic" },
                       "type": {
                         "kind": "model",
                         "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" }
@@ -142,23 +133,45 @@ public sealed class IrModelDeserializationTests
                       "required": true,
                       "nullable": false
                     }
-                  ]
+                  ],
+                  "dialect": {
+                    "ps": {
+                      "verb": "Get",
+                      "noun": "AzWidget",
+                      "identity": {
+                        "parameter": "InputObject",
+                        "properties": [{
+                          "property": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity.resourceGroupName" },
+                          "sourceParameters": [
+                            { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
+                          ]
+                        }]
+                      }
+                    }
+                  }
                 }]
-              }
             }
             """);
 
         TransformedIR roundTripped = Parse<TransformedIR>(
             JsonSerializer.Serialize(document, IrJson.Options));
 
-        IRCommandIdentity identity = Assert.Single(roundTripped.Commands.SharedTypes);
-        Assert.Equal("WidgetIdentity", identity.Name);
-        Assert.Equal("ResourceGroupName", Assert.Single(identity.Properties).Name);
+        IRModel identityModel = Assert.Single(roundTripped.Models);
+        Assert.Equal("WidgetIdentity", identityModel.Name);
+        IRProperty identityProperty = Assert.Single(identityModel.Properties);
+        Assert.Equal("ResourceGroupName", identityProperty.Name);
 
-        IRCommandParameter parameter = Assert.Single(Assert.Single(roundTripped.Commands.Items).Parameters);
-        var source = Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
-        Assert.Equal(identity.Id.Name, source.Type.Name);
-        Assert.Equal("get.resourceGroupName", Assert.Single(source.Parameters).Name);
+        IRCommand command = Assert.Single(roundTripped.Commands);
+        IRCommandParameter parameter = Assert.Single(command.Parameters);
+        Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
+        var parameterType = Assert.IsType<IRTypeRefModel>(parameter.Type);
+        Assert.Equal(identityModel.Id!.Name, parameterType.Id.Name);
+
+        PsCommandIdentity identity = command.Dialect!.Ps!.Identity!;
+        Assert.Equal(parameter.Name, identity.Parameter);
+        PsCommandIdentityProperty binding = Assert.Single(identity.Properties);
+        Assert.Equal(identityProperty.Id!.Name, binding.Property.Name);
+        Assert.Equal("get.resourceGroupName", Assert.Single(binding.SourceParameters).Name);
     }
 
     [Fact]

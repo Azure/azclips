@@ -192,7 +192,7 @@ export function createCommandStep(
 
       const transformed: TransformedIR = {
         ...ir,
-        commands: { items: commands, sharedTypes: [] },
+        commands,
         target: buildTarget(pass),
       };
       return transformed;

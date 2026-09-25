@@ -19,10 +19,6 @@ import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discrim
 import { IRCommandSchema, commandActionKey, commandKey, type IRCommand } from "./command.js";
 import { IRTargetSchema, type IRTarget } from "./target.js";
 import { idKey, serializeId, type IRId } from "./id.js";
-import {
-  IRCommandSharedTypeSchema,
-  type IRCommandSharedType,
-} from "./shared-type.js";
 
 export type IR = {
   schemaVersion: string;
@@ -164,27 +160,10 @@ export function emptyIR(): IR {
  */
 type Flatten<T> = { [K in keyof T]: T[K] };
 
-export type IRCommandCollection = {
-  /** Every command, flat. Array order is not meaningful. */
-  items: IRCommand[];
-  /** Types synthesized once and shared by commands in this client surface. */
-  sharedTypes: IRCommandSharedType[];
-};
-
-export const IRCommandCollectionSchema: z.ZodType<IRCommandCollection> = z
-  .object({
-    items: z.array(IRCommandSchema),
-    sharedTypes: z.array(IRCommandSharedTypeSchema),
-  })
-  .strict();
-
 export type TransformedIR = Flatten<
   IR & {
-    /**
-     * The command-shaped client surface: canonical command items and declarations
-     * shared by those commands.
-     */
-    commands: IRCommandCollection;
+    /** Every command, flat. Array order is not meaningful. */
+    commands: IRCommand[];
     /** Resolved placement for the generated project. */
     target: IRTarget;
   }
@@ -192,7 +171,7 @@ export type TransformedIR = Flatten<
 
 /** Extends `IRSchemaRoot`, so a field added to `IR` reaches both roots. */
 const TransformedIRSchemaRoot = IRSchemaRoot.extend({
-  commands: IRCommandCollectionSchema,
+  commands: z.array(IRCommandSchema),
   target: IRTargetSchema,
 });
 
@@ -214,42 +193,19 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
-    const sharedTypes = new Set<string>();
+    const models = new Map(ir.models.map((model) => [idKey(model.id), model]));
+    const properties = new Map(ir.models.flatMap((model) => model.properties.map((property) => [idKey(property.id), { model, property }] as const)));
     const psFamilies = new Map<
       string,
       { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
     >();
 
-    ir.commands.sharedTypes.forEach((sharedType, index) => {
-      const key = idKey(sharedType.id);
-      if (sharedTypes.has(key)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Two shared types have the id ${serializeId(sharedType.id)}; shared type ids must be unique.`,
-          path: ["commands", "sharedTypes", index, "id"],
-        });
-      }
-      sharedTypes.add(key);
-
-      sharedType.properties.forEach((property, propertyIndex) => {
-        property.sourceParameters.forEach((parameter, parameterIndex) => {
-          if (!pathParameters.has(idKey(parameter))) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Shared identity '${sharedType.name}' property '${property.name}' references ${serializeId(parameter)}, which is not a canonical path parameter.`,
-              path: ["commands", "sharedTypes", index, "properties", propertyIndex, "sourceParameters", parameterIndex],
-            });
-          }
-        });
-      });
-    });
-
-    ir.commands.items.forEach((command, index) => {
+    ir.commands.forEach((command, index) => {
       if (!servers.has(idKey(command.server))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Command '${command.name}' references server ${serializeId(command.server)}, which has no definition in IR.servers.`,
-          path: ["commands", "items", index, "server"],
+          path: ["commands", index, "server"],
         });
       }
 
@@ -258,7 +214,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Command '${command.name}' step ${stepIndex} references operation ${serializeId(step.operation)}, which is not in IR.operations.`,
-            path: ["commands", "items", index, "steps", stepIndex, "operation"],
+            path: ["commands", index, "steps", stepIndex, "operation"],
           });
         }
       });
@@ -269,7 +225,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two commands are named '${command.name}'; command names must be unique across the document.`,
-          path: ["commands", "items", index, "name"],
+          path: ["commands", index, "name"],
         });
       }
       names.add(command.name);
@@ -280,40 +236,55 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Two commands share the identity ${key}; (module, group, action, variant) must be unique.`,
-          path: ["commands", "items", index, "id"],
+          path: ["commands", index, "id"],
         });
       }
       identities.add(key);
 
-      command.parameters.forEach((parameter, parameterIndex) => {
-        if (parameter.source.kind !== "synthetic") return;
-
-        if (!sharedTypes.has(idKey(parameter.source.type))) {
+      const identity = command.dialect?.ps?.identity;
+      if (identity !== undefined) {
+        const parameterIndex = command.parameters.findIndex((parameter) => parameter.name === identity.parameter);
+        const parameter = command.parameters[parameterIndex];
+        let identityModel: IRModel | undefined;
+        if (parameter === undefined || parameter.source.kind !== "synthetic" || parameter.type.kind !== "model") {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `Command '${command.name}' parameter '${parameter.name}' references shared identity ${serializeId(parameter.source.type)}, which is not in TransformedIR.commands.sharedTypes.`,
-            path: ["commands", "items", index, "parameters", parameterIndex, "source", "type"],
+            message: `Command '${command.name}' PowerShell identity must reference a synthetic model-typed command parameter.`,
+            path: ["commands", index, "dialect", "ps", "identity", "parameter"],
           });
-        }
-
-        if (parameter.type.kind !== "model" || idKey(parameter.type.id) !== idKey(parameter.source.type)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Command '${command.name}' parameter '${parameter.name}' must use its referenced shared identity as its model type.`,
-            path: ["commands", "items", index, "parameters", parameterIndex, "type"],
-          });
-        }
-
-        parameter.source.parameters.forEach((sourceParameter, sourceParameterIndex) => {
-          if (!pathParameters.has(idKey(sourceParameter))) {
+        } else {
+          identityModel = models.get(idKey(parameter.type.id));
+          if (identityModel === undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: `Command '${command.name}' parameter '${parameter.name}' supplies ${serializeId(sourceParameter)}, which is not a canonical path parameter.`,
-              path: ["commands", "items", index, "parameters", parameterIndex, "source", "parameters", sourceParameterIndex],
+              message: `Command '${command.name}' identity parameter '${parameter.name}' references model ${serializeId(parameter.type.id)}, which is not in IR.models.`,
+              path: ["commands", index, "parameters", parameterIndex, "type", "id"],
             });
           }
+        }
+
+        identity.properties.forEach((binding, propertyIndex) => {
+          if (identityModel !== undefined) {
+            const resolved = properties.get(idKey(binding.property));
+            if (resolved === undefined || idKey(resolved.model.id) !== idKey(identityModel.id)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Command '${command.name}' identity property ${serializeId(binding.property)} is not on its identity model.`,
+                path: ["commands", index, "dialect", "ps", "identity", "properties", propertyIndex, "property"],
+              });
+            }
+          }
+          binding.sourceParameters.forEach((sourceParameter, sourceParameterIndex) => {
+            if (!pathParameters.has(idKey(sourceParameter))) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Command '${command.name}' identity property supplies ${serializeId(sourceParameter)}, which is not a canonical path parameter.`,
+                path: ["commands", index, "dialect", "ps", "identity", "properties", propertyIndex, "sourceParameters", sourceParameterIndex],
+              });
+            }
+          });
         });
-      });
+      }
 
       if (command.dialect?.ps !== undefined) {
         const familyKey = commandActionKey(command.id);
@@ -346,7 +317,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `PowerShell sibling commands must agree on one default parameter set; '${command.name}' does not.`,
-            path: ["commands", "items", command.index, "dialect", "ps", "defaultParameterSet"],
+            path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
           });
         }
       });
@@ -356,7 +327,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `PowerShell command family names default parameter set '${defaultSet}', which none of its parameters declares.`,
-          path: ["commands", "items", command.index, "dialect", "ps", "defaultParameterSet"],
+          path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
         });
       }
     });

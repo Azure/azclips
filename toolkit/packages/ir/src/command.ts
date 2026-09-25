@@ -20,8 +20,8 @@
  *     or regroup commands, but must never re-derive a name — the same rule that
  *     keeps `ModelHints.flattened` authoritative for flattening.
  *
- * Commands live flat in `TransformedIR.commands.items`. **Array order is not
- * meaningful**; group with `id.subject` / `id.action`, not with position.
+ * Commands live flat in `TransformedIR.commands`. **Array order is not meaningful**;
+ * group with `id.subject` / `id.action`, not with position.
  *
  * The name is deliberate: `Core.Abstractions` — the client-neutral runtime layer both
  * the CLI and the PowerShell modules sit on — already calls this a command
@@ -184,14 +184,7 @@ export type IRCommandParameterSource =
   | { kind: "query"; parameter: IRId }
   | { kind: "header"; parameter: IRId }
   | { kind: "body"; path: IRId[] }
-  | {
-      kind: "synthetic";
-      purpose: "identity";
-      /** Shared identity declaration used as this parameter's type. */
-      type: IRId;
-      /** Canonical path parameters supplied by the synthesized InputObject. */
-      parameters: IRId[];
-    };
+  | { kind: "synthetic" };
 
 export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource> =
   z.discriminatedUnion("kind", [
@@ -199,14 +192,7 @@ export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource>
     z.object({ kind: z.literal("query"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("header"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("body"), path: z.array(IRIdSchema).min(1) }).strict(),
-    z
-      .object({
-        kind: z.literal("synthetic"),
-        purpose: z.literal("identity"),
-        type: IRIdSchema,
-        parameters: z.array(IRIdSchema).min(1),
-      })
-      .strict(),
+    z.object({ kind: z.literal("synthetic") }).strict(),
   ]);
 
 /**

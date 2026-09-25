@@ -815,15 +815,6 @@ public partial class IRCommand
     public IRCommandDialect? Dialect { get; set; }
 }
 
-public partial class IRCommandCollection
-{
-    [JsonPropertyName("items")]
-    public IReadOnlyList<IRCommand> Items { get; set; } = [];
-
-    [JsonPropertyName("sharedTypes")]
-    public IReadOnlyList<IRCommandIdentity> SharedTypes { get; set; } = [];
-}
-
 public partial class IRCommandDialect
 {
     [JsonPropertyName("ps")]
@@ -846,33 +837,6 @@ public partial class IRCommandId
 
     [JsonPropertyName("variant")]
     public string? Variant { get; set; }
-}
-
-public partial class IRCommandIdentity
-{
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = default !;
-
-    [JsonPropertyName("id")]
-    public IRId Id { get; set; } = default !;
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("properties")]
-    public IReadOnlyList<IRCommandIdentityProperty> Properties { get; set; } = [];
-}
-
-public partial class IRCommandIdentityProperty
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = default !;
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("sourceParameters")]
-    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class IRCommandPagination
@@ -974,14 +938,6 @@ public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
 
 public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSource
 {
-    [JsonPropertyName("purpose")]
-    public string Purpose { get; set; } = default !;
-
-    [JsonPropertyName("type")]
-    public IRId Type { get; set; } = default !;
-
-    [JsonPropertyName("parameters")]
-    public IReadOnlyList<IRId> Parameters { get; set; } = [];
 }
 
 public partial class IRCommandRequest
@@ -2254,6 +2210,9 @@ public partial class PsCommandDialect
 
     [JsonPropertyName("httpPath")]
     public PsCommandDialectHttpPath? HttpPath { get; set; }
+
+    [JsonPropertyName("identity")]
+    public PsCommandIdentity? Identity { get; set; }
 }
 
 public partial class PsCommandDialectHttpPath
@@ -2263,6 +2222,24 @@ public partial class PsCommandDialectHttpPath
 
     [JsonPropertyName("apiVersion")]
     public string ApiVersion { get; set; } = default !;
+}
+
+public partial class PsCommandIdentity
+{
+    [JsonPropertyName("parameter")]
+    public string Parameter { get; set; } = default !;
+
+    [JsonPropertyName("properties")]
+    public IReadOnlyList<PsCommandIdentityProperty> Properties { get; set; } = [];
+}
+
+public partial class PsCommandIdentityProperty
+{
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("sourceParameters")]
+    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class PsParameterDialect
@@ -2352,7 +2329,7 @@ public partial class TransformedIR
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
     [JsonPropertyName("commands")]
-    public IRCommandCollection Commands { get; set; } = default !;
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;

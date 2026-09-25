@@ -110,7 +110,6 @@ import {
   RequestBodyHintsSchema,
   // Commands — the transformer↔generator contract. Registered so the generated C#
   // gets named types rather than anonymous inline objects.
-  IRCommandCollectionSchema,
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
@@ -126,9 +125,9 @@ import {
   IRCommandWireEntrySchema,
   IRCommandDialectSchema,
   IRCommandParameterDialectSchema,
-  IRCommandIdentitySchema,
-  IRCommandIdentityPropertySchema,
   // Per-client dialects.
+  PsCommandIdentitySchema,
+  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -224,7 +223,6 @@ const definitions = {
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
   // Commands.
-  IRCommandCollection: IRCommandCollectionSchema,
   IRCommand: IRCommandSchema,
   IRCommandId: IRCommandIdSchema,
   IRCommandParameter: IRCommandParameterSchema,
@@ -240,11 +238,11 @@ const definitions = {
   IRCommandWireEntry: IRCommandWireEntrySchema,
   IRCommandDialect: IRCommandDialectSchema,
   IRCommandParameterDialect: IRCommandParameterDialectSchema,
-  IRCommandIdentity: IRCommandIdentitySchema,
-  IRCommandIdentityProperty: IRCommandIdentityPropertySchema,
   // Dialects. Each client's type is structurally distinct, which matters:
   // zodToJsonSchema collapses identical shapes into one definition.
   PsCommandDialect: PsCommandDialectSchema,
+  PsCommandIdentity: PsCommandIdentitySchema,
+  PsCommandIdentityProperty: PsCommandIdentityPropertySchema,
   PsParameterDialect: PsParameterDialectSchema,
   PsParameterSetMembership: PsParameterSetMembershipSchema,
   CliCommandDialect: CliCommandDialectSchema,
