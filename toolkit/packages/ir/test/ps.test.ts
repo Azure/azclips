@@ -87,6 +87,16 @@ describe("PsCommandDialect", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects a malformed help URI", () => {
+    const result = PsCommandDialectSchema.safeParse({
+      verb: "Get",
+      noun: "AzWidget",
+      helpUri: "docs",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("defers family default validation when parsing a standalone command", () => {
     const operation = { module: "Widgets", namespace: [], name: "getByIdentity" };
     const result = IRCommandSchema.safeParse({

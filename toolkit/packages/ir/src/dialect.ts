@@ -178,7 +178,7 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     confirmImpact: z.enum(ConfirmImpacts).optional(),
     examples: z.array(z.string().min(1)).optional(),
     lifecycleTag: z.enum(LifecycleTags).optional(),
-    helpUri: z.string().min(1).optional(),
+    helpUri: z.string().url().optional(),
     supportsPaging: z.boolean().optional(),
     outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
     httpPath: z
