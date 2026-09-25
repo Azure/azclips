@@ -122,8 +122,8 @@ their parent on upload.
 Explicit troubleshooting creates a new recovery attempt. Its `command.traceId`/`command.spanId`
 refer to the saved original failure when available; the request identifiers refer to the new
 `troubleshoot` invocation. Historical identifiers are correlation only, not an instruction to
-resume an ended parent span. The effective session style is always `oneshot` for manual recovery,
-even when the configured automatic style is `interactive`.
+resume an ended parent span. Both triggers use `agent.recovery.style`; a manual invocation can
+override it with `--style`. Record the effective style for that attempt, not its trigger.
 
 The current tenant and `dataBoundary` routing metadata accompany the manual process handoff and
 are applied to the agent session before its child activities begin. Traceparent does not itself

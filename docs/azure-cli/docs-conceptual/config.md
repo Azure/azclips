@@ -75,7 +75,10 @@ trigger key maps to the `trigger` leaf in the JSON file:
 ```
 
 Do not replace the `recovery` object with a scalar such as `"recovery": "manual"`;
-that shape is invalid. Existing values for `agent.enabled`,
+that shape is invalid. If the file already contains that shape, edit the file
+directly to replace it with the object above or remove the invalid node. Config
+commands reject the malformed file rather than overwriting its contents.
+Existing values for `agent.enabled`,
 `agent.autoRecovery.enabled`, `agent.sessionStyle`, and
 `agent.failureHistory.maxEntries` can be inspected and deleted, but new writes
 must use the keys above. Legacy values no longer gate recovery or change the new

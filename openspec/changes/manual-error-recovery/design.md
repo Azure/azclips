@@ -48,8 +48,9 @@ shell PID, and a per-home monotonically increasing UInt64 counter. Counters star
 at zero, have at least four displayed digits, and never reset at minute boundaries.
 Allocate under the existing cross-process writer lock.
 
-A minimal versioned control file retains the next sequence, generation, and
-pending-clear state independently of record retention. Reserve the counter
+A minimal versioned control file retains the next sequence, generation,
+pending-clear state, and a non-sensitive completed-off fence independently of
+record retention. Reserve the counter
 atomically before replacing the encrypted snapshot: a failed write can leave a
 gap, but cannot reuse an ID. Do not pretend two files form one atomic transaction.
 Off/reset keeps the lock and non-sensitive allocator state.
@@ -66,10 +67,20 @@ record/temporary/key-marker files without decrypting or opening native key store
 Report partial failures accurately, retain off, and retry idempotently. Never
 delete the lock file or recursively delete the history directory.
 
-Writers carry their starting generation and recheck fresh effective policy under
-the lock before allocation/commit. Re-enabling after off completes cleanup and
-advances generation before new writes are allowed. A reset uses a new protected
-key namespace so unreadable old secrets cannot prevent future valid writes.
+Writers register their starting generation through `BeginCaptureAsync` before
+reading capture options, and recheck fresh effective policy under the lock before
+allocation/commit. Read-only generation inspection is not capture registration.
+A capture spanning a generation change is rejected rather than adopting a newer
+generation. Re-enabling after off completes cleanup and advances generation before
+the completed-off fence is removed or new writes are allowed. A reset uses a new
+protected key namespace so unreadable old secrets cannot prevent future valid writes.
+
+The first observed off must persist its fence even if the history directory does
+not exist: a generation-zero capture may already be in flight. Once that fence is
+durable and no controlled data or pending cleanup remains, repeated off observation
+does not take the writer lock, advance generation, or rewrite state. A new enabled
+capture must reopen the generation under the same lock, including when its effective
+policy comes from an environment override.
 
 Manual file/environment changes are observed at the next ordinary CLI lifecycle.
 List, show, help, and Tab never perform cleanup. Pending cleanup is an explicit

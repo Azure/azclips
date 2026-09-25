@@ -94,7 +94,7 @@ public sealed class ConfigurationService(
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-            RecoveryConfigurationValidation.ValidateShape(root);
+            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
             var storageKey = schema.GetStorageKey(normalizedKey);
             RemoveLegacyFlatKey(root, storageKey);
             SetValue(root, storageKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
@@ -117,7 +117,7 @@ public sealed class ConfigurationService(
         {
             await using var lockStream = await AcquireMutationLockAsync(token).ConfigureAwait(false);
             var root = await provider.ReadAsync(token).ConfigureAwait(false);
-            RecoveryConfigurationValidation.ValidateShape(root);
+            RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
             var storageKey = schema.GetStorageKey(normalizedKey);
             DeleteValue(root, storageKey);
             RemoveLegacyFlatKey(root, storageKey);
@@ -199,7 +199,7 @@ public sealed class ConfigurationService(
 
     private Dictionary<string, object?> ReadConfiguredValues(JsonObject root)
     {
-        RecoveryConfigurationValidation.ValidateShape(root);
+        RecoveryConfigurationValidation.ValidateShape(root, provider.GetConfigFilePath());
         var values = Flatten(root);
         RecoveryConfigurationValidation.ValidateValues(values, schema, validator);
         return values;
@@ -433,8 +433,9 @@ public sealed class ConfigurationService(
 
     private static void AddConfigurationValue(IDictionary<string, object?> values, string key, object? value)
     {
-        if (!values.TryAdd(key, value))
+        if (RecoveryConfigurationValidation.IsRecoveryKey(key) && values.ContainsKey(key))
             throw new InvalidOperationException($"Configuration contains the duplicate key '{key}'. Remove the duplicate rather than relying on its order.");
+        values[key] = value;
     }
 
     private void FlattenNode(JsonObject root, string prefix, IDictionary<string, string?> destination)

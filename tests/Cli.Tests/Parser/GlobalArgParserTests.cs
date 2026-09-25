@@ -16,6 +16,37 @@ namespace Cli.Tests.Parser;
 /// </summary>
 public class GlobalArgParserTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(true, "help", "no-such-group")]
+    [InlineData(true, "--debug", "help", "no-such-group")]
+    [InlineData(true, "vm", "--help")]
+    [InlineData(true, "version", "--query", "[")]
+    [InlineData(true, "--output", "invalid", "--version")]
+    [InlineData(true, "--output=invalid", "vm", "-?")]
+    [InlineData(true, "version", "--output")]
+    [InlineData(false, "--help", "trailing")]
+    [InlineData(false, "version", "trailing")]
+    [InlineData(false, "vm", "create", "--name", "help")]
+    [InlineData(false, "vm", "create", "--query", "--help")]
+    [InlineData(false, "help", "")]
+    public void UtilityRouting_ReusesHelpAndVersionClassification(bool expected, params string[] args)
+    {
+        Assert.Equal(expected, GlobalArgParser.IsHelpOrVersionInvocation(args));
+    }
+
+    [Theory]
+    [InlineData(true, "troubleshoot", "--id", "id")]
+    [InlineData(true, "--output", "invalid", "troubleshoot", "--list")]
+    [InlineData(true, "--output=json", "help", "troubleshoot")]
+    [InlineData(false, "help", "vm")]
+    [InlineData(false, "vm", "show", "--name", "troubleshoot")]
+    [InlineData(false, "--query", "troubleshoot", "vm", "show")]
+    public void CommandRouting_PreservesExistingGlobalFlagHandling(bool expected, params string[] args)
+    {
+        Assert.Equal(expected, GlobalArgParser.IsCommandInvocation(args, "troubleshoot"));
+    }
+
     // ─── Bare invocation ─────────────────────────────────────────────────────────────
 
     [Fact]

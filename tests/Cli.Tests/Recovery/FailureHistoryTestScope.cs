@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
@@ -36,8 +37,8 @@ internal sealed class FailureHistoryTestScope : IDisposable
             new RecoveryConfigurationCoordinator(State));
     }
 
-    internal EncryptedFailureHistoryStore CreateStore(IFailureHistoryKeyStore? keys = null) =>
-        new(keys ?? new TestFailureHistoryKeys(), Configuration, State);
+    internal EncryptedFailureHistoryStore CreateStore(IFailureHistoryKeyStore? keys = null, IConfigurationService? configuration = null) =>
+        new(keys ?? new TestFailureHistoryKeys(), configuration ?? Configuration, State);
 
     internal static FailureRecord CreateRecord(ulong generation = 0, uint pid = 48213) => new()
     {

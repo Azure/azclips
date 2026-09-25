@@ -34,6 +34,13 @@ invocations, and SHALL capture each original failure at most once.
 - **AND** capture SHALL have a two-second deadline and SHALL not report an unconfirmed ID
 - **AND** existing automatic diagnosis SHALL remain eligible to proceed
 
+#### Scenario: Failed help and version requests do not replace business failures
+- **WHEN** a help or version request fails, including invalid global argument values
+- **THEN** its original error and exit status SHALL remain unchanged
+- **AND** the request SHALL not access history, start a capture worker, or produce
+  a saved-failure hint
+- **AND** utility classification SHALL reuse the existing global argument rules
+
 ### Requirement: Protected bounded history
 The system SHALL store complete original inputs in an authenticated encrypted
 snapshot isolated by local user and state home. Retention SHALL default to the
@@ -81,6 +88,21 @@ non-sensitive allocator state SHALL survive reset.
   writer subsequently tries to commit, even after manual is re-enabled
 - **THEN** the stale writer SHALL be rejected by fresh policy/generation checks
 - **AND** no old record SHALL be recreated after successful cleanup
+
+#### Scenario: Capture cannot adopt a generation created after it started
+- **WHEN** capture has registered its starting generation and another process
+  completes off followed by re-enabling before capture reads its options
+- **THEN** that capture SHALL be rejected without a confirmed saved ID
+- **AND** a new capture registered in the enabled generation SHALL remain eligible
+
+#### Scenario: Completed off observation is read-only without losing its fence
+- **WHEN** off has been durably fenced, cleanup is complete, and no controlled
+  history data remains
+- **THEN** repeated ordinary lifecycle observations of off SHALL not rewrite
+  control state or acquire the writer lock
+- **AND** the first off observation SHALL still persist a fence for an in-flight
+  generation-zero capture even if the history directory does not yet exist
+- **AND** re-enabling SHALL advance generation before removing the completed-off fence
 
 #### Scenario: Cleanup has a partial failure
 - **WHEN** off is persisted but a later generation update or deletion fails

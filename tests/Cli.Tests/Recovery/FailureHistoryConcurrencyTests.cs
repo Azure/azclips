@@ -87,6 +87,30 @@ public sealed class FailureHistoryConcurrencyTests
         Assert.False(File.Exists(staging));
     }
 
+    [Fact]
+    public async Task ProcessBarrier_ManualOverrideInvalidatesAnAlreadyCompletedOffFence()
+    {
+        using var scope = new FailureHistoryTestScope();
+        await scope.Configuration.SetConfigurationAsync("agent.recovery", "off");
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var release = Path.Combine(scope.Root, "release");
+        await using var stale = StartWorker(scope, "manual-override", "stale-ready", release);
+        await WaitForReadyAsync(stale, deadline.Token);
+        Assert.False((await scope.State.ReadAsync(default))!.OffFenced);
+        await RunConfigWorkerAsync(scope, "observe-off", deadline.Token);
+        await File.WriteAllTextAsync(release, "go", deadline.Token);
+        var result = await stale.CompleteAsync(deadline.Token);
+        Assert.Equal(23, result.ExitCode);
+        Assert.Contains("failure_history_stale_generation", result.Error);
+        Assert.Empty(result.Output);
+
+        await scope.Configuration.SetConfigurationAsync("agent.recovery", "manual");
+        var store = scope.CreateStore();
+        var generation = (await store.BeginCaptureAsync())!.Value;
+        var entry = await store.SaveAsync(CreateRecord(generation), 10);
+        Assert.Equal(entry, Assert.Single(await store.ReadIndexAsync()));
+    }
+
     private static async Task RunConfigWorkerAsync(FailureHistoryTestScope scope, string trigger, CancellationToken token)
     {
         await using var worker = StartWorker(scope, trigger, "unused", Path.Combine(scope.Root, "unused-release"));

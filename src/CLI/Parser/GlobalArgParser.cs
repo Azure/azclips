@@ -33,16 +33,8 @@ internal static class GlobalArgParser
     internal static bool IsCommandInvocation(IReadOnlyList<string> args, string command)
     {
         var help = false;
-        for (var i = 0; i < args.Count; i++)
+        foreach (var token in EnumerateRoutingPositionals(args))
         {
-            var token = args[i];
-            if (MatchKnownFlag(token)?.Action is { } action)
-            {
-                if (action.TakesValue && !token.Contains('='))
-                    i++;
-                continue;
-            }
-
             if (!help && token.Equals(HelpSubcommand, StringComparison.OrdinalIgnoreCase))
             {
                 help = true;
@@ -53,6 +45,27 @@ internal static class GlobalArgParser
         }
 
         return false;
+    }
+
+    internal static bool IsHelpOrVersionInvocation(IReadOnlyList<string> args)
+    {
+        var positional = EnumerateRoutingPositionals(args).ToArray();
+        return TryClassifyHelp(positional) is not null || TryClassifyVersion(positional) is not null;
+    }
+
+    private static IEnumerable<string> EnumerateRoutingPositionals(IReadOnlyList<string> args)
+    {
+        for (var i = 0; i < args.Count; i++)
+        {
+            var token = args[i];
+            if (MatchKnownFlag(token)?.Action is { } action)
+            {
+                if (action.TakesValue && !token.Contains('='))
+                    i++;
+                continue;
+            }
+            yield return token;
+        }
     }
 
     /// <summary>

@@ -3,11 +3,13 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Cli;
 using Core.Cli.Parser;
 using Core.Cli.Recovery;
+using Core.Runtime.Recovery;
 using Moq;
 using Xunit;
 
@@ -16,6 +18,46 @@ namespace Cli.Tests.Recovery;
 [Collection("Azclips Service Provider Tests")]
 public class FailureCaptureBehaviorTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(false, "help", "no-such-group")]
+    [InlineData(false, "--debug", "help", "no-such-group")]
+    [InlineData(false, "vm", "--help")]
+    [InlineData(false, "vm", "-?")]
+    [InlineData(false, "version", "--query", "[")]
+    [InlineData(false, "--output", "invalid", "--version")]
+    [InlineData(false, "--output=invalid", "vm", "-?")]
+    [InlineData(false, "version", "--output")]
+    [InlineData(false, "troubleshoot", "--id", "missing")]
+    [InlineData(false, "--completion-values")]
+    [InlineData(false, "--print-probe")]
+    [InlineData(true, "vm", "show")]
+    [InlineData(true, "vm", "create", "--name", "help")]
+    [InlineData(true, "vm", "create", "--query", "--help")]
+    [InlineData(true, "--query", "version", "vm", "show")]
+    public void Eligibility_ExcludesUtilitiesWithoutThrowingOnMalformedGlobalValues(bool expected, params string[] args)
+    {
+        Assert.Equal(expected, FailureCapture.ShouldCapture(args, new IOException("original failure"), false));
+    }
+
+    [Theory]
+    [InlineData("help", "no-such-group")]
+    [InlineData("version", "--query", "[")]
+    [InlineData("--output", "invalid", "--version")]
+    [InlineData("version", "--output")]
+    public async Task Save_UtilityFailureDoesNotOpenHistoryOrReadOptions(params string[] args)
+    {
+        var result = await FailureCapture.SaveAsync(args, string.Join(" ", args), new IOException("utility failed"),
+            1, null, null,
+            () => throw new Xunit.Sdk.XunitException("Utilities must not read recovery options."),
+            () => throw new Xunit.Sdk.XunitException("Utilities must not open failure history."),
+            false);
+        Assert.Null(result.Entry);
+        Assert.Null(result.Recovery);
+        Assert.Null(result.Warning);
+        Assert.False(result.ShowHint);
+    }
+
     [Fact]
     public async Task Save_PreservesInputAndOriginalTerminalBeforeWorkerLaunch()
     {
@@ -100,6 +142,84 @@ public class FailureCaptureBehaviorTests
         Assert.False(result.Canceled);
     }
 
+    [Fact]
+    public async Task Save_OptionsBarrierCannotAdoptThePostResetGeneration()
+    {
+        using var scope = new FailureHistoryTestScope();
+        var store = scope.CreateStore();
+        _ = scope.Configuration.GetConfiguration<AgentOptions>();
+        var optionsRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var capture = Task.Run(() => FailureCapture.SaveAsync(["vm", "show"], "vm show",
+            new IOException("original failure"), 1, "vm show", null, () =>
+            {
+                var options = scope.Configuration.GetConfiguration<AgentOptions>();
+                optionsRead.SetResult();
+                resume.Task.GetAwaiter().GetResult();
+                return options;
+            }, () => store, false, getParentProcessId: () => 321));
+
+        try
+        {
+            await optionsRead.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await scope.Configuration.SetConfigurationAsync("agent.recovery", "off");
+            await scope.Configuration.SetConfigurationAsync("agent.recovery", "manual");
+        }
+        finally
+        {
+            resume.TrySetResult();
+            await capture;
+        }
+
+        var stale = await capture;
+        Assert.Null(stale.Entry);
+        Assert.Null(stale.Recovery);
+        Assert.False(stale.ShowHint);
+        Assert.Contains("failure_history_stale_generation", stale.Warning);
+        Assert.Empty(await store.ReadIndexAsync());
+        var fresh = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("new failure"),
+            1, "vm show", null, () => scope.Configuration.GetConfiguration<AgentOptions>(), () => store, false,
+            getParentProcessId: () => 321);
+        Assert.NotNull(fresh.Entry);
+        Assert.True(fresh.ShowHint);
+        Assert.Equal(fresh.Entry, Assert.Single(await store.ReadIndexAsync()));
+    }
+
+    [Fact]
+    public async Task Save_SteadyOffDoesNotRepeatLifecycleCleanupOrTakeTheWriterLock()
+    {
+        var controlWrites = 0;
+        using var scope = new FailureHistoryTestScope(replace: (source, target) =>
+        {
+            if (Path.GetFileName(target) == EncryptedFailureHistoryStore.ControlFileName)
+                Interlocked.Increment(ref controlWrites);
+            File.Move(source, target, overwrite: true);
+        });
+        await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
+        var keys = new TestFailureHistoryKeys
+        {
+            Read = (_, _, _) => throw new InvalidOperationException("Off must not access keys."),
+        };
+        var store = scope.CreateStore(keys);
+        Assert.Null(await FailureCapture.ObservePolicyAsync(() => store, default));
+        var state = await scope.State.ReadAsync(default);
+        Assert.Equal(2, controlWrites);
+
+        using var held = new FileStream(Path.Combine(scope.DirectoryPath, EncryptedFailureHistoryStore.LockFileName),
+            FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Assert.Null(await FailureCapture.ObservePolicyAsync(() => store, default));
+        var result = await FailureCapture.SaveAsync(["vm", "show"], "vm show", new IOException("original failure"),
+            1, "vm show", null, () => scope.Configuration.GetConfiguration<AgentOptions>(), () => store, false,
+            persist: (_, _, _) => throw new InvalidOperationException("Off must not launch a writer."),
+            getParentProcessId: () => throw new InvalidOperationException("Off must not resolve a terminal."));
+        Assert.Null(result.Entry);
+        Assert.Null(result.Warning);
+        Assert.False(result.ShowHint);
+        Assert.Equal(state, await scope.State.ReadAsync(default));
+        Assert.Equal(2, controlWrites);
+        Assert.Empty(keys.CreateRequests);
+    }
+
     [Theory]
     [InlineData(OutputFormat.Table)]
     [InlineData(OutputFormat.Tsv)]
@@ -178,7 +298,7 @@ public class FailureCaptureBehaviorTests
     private static Mock<IFailureHistoryStore> CreateStore()
     {
         var store = new Mock<IFailureHistoryStore>(MockBehavior.Strict);
-        store.Setup(s => s.ReadGenerationAsync(It.IsAny<CancellationToken>())).ReturnsAsync(7ul);
+        store.Setup(s => s.BeginCaptureAsync(It.IsAny<CancellationToken>())).ReturnsAsync((ulong?)7);
         return store;
     }
 }

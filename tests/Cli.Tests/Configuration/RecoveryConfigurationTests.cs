@@ -131,10 +131,36 @@ public sealed class RecoveryConfigurationTests
         using var scope = new FailureHistoryTestScope();
         await scope.Provider.WriteAsync(JsonNode.Parse($"{{\"agent\":{{\"recovery\":{value}}}}}")!.AsObject());
         var original = await File.ReadAllBytesAsync(scope.Provider.GetConfigFilePath());
-        Assert.Throws<InvalidOperationException>(() => scope.Configuration.GetConfiguration<AgentOptions>());
+        var error = Assert.Throws<InvalidOperationException>(() => scope.Configuration.GetConfiguration<AgentOptions>());
+        Assert.Contains(scope.Provider.GetConfigFilePath(), error.Message);
+        Assert.Contains("Edit", error.Message);
+        Assert.Contains("replace or remove", error.Message);
+        Assert.DoesNotContain("az config set", error.Message);
         await Assert.ThrowsAsync<InvalidOperationException>(() => scope.Configuration.SetConfigurationAsync("agent.recovery.style", "interactive"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => scope.Configuration.DeleteConfigurationAsync("agent.recovery"));
         Assert.Equal(original, await File.ReadAllBytesAsync(scope.Provider.GetConfigFilePath()));
+    }
+
+    [Theory]
+    [InlineData(true, "warn")]
+    [InlineData(false, "error")]
+    public async Task NonRecoveryFlatAndNestedKeys_KeepExistingReadAndRepairBehavior(bool flatFirst, string listedValue)
+    {
+        using var scope = new FailureHistoryTestScope();
+        var flat = new KeyValuePair<string, JsonNode?>("core.logging.level", JsonValue.Create("error"));
+        var nested = new KeyValuePair<string, JsonNode?>("core", JsonNode.Parse("""{"logging":{"level":"warn"}}"""));
+        await scope.Provider.WriteAsync(new JsonObject(flatFirst ? [flat, nested] : [nested, flat]));
+
+        Assert.Equal("warn", scope.Configuration.GetConfiguration<CoreOptions>().Logging.Level);
+        Assert.Equal(listedValue, (await scope.Configuration.ListConfigurationAsync())["core.logging.level"]);
+        Assert.Equal("manual", scope.Configuration.GetConfiguration<AgentOptions>().Recovery.Trigger);
+
+        await scope.Configuration.SetConfigurationAsync("core.logging.level", "info");
+        var repaired = await scope.Provider.ReadAsync();
+        Assert.False(repaired.ContainsKey("core.logging.level"));
+        Assert.Equal("info", scope.Configuration.GetConfiguration<CoreOptions>().Logging.Level);
+        await scope.Configuration.DeleteConfigurationAsync("core.logging.level");
+        Assert.DoesNotContain("core.logging.level", (await scope.Configuration.ListConfigurationAsync()).Keys);
     }
 
     [Theory]

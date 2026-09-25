@@ -30,7 +30,11 @@ public sealed class RecoveryConfigurationCoordinator : IRecoveryConfigurationCoo
         if (!next.IsEnabled)
         {
             await commit(cancellationToken).ConfigureAwait(false);
-            try { await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false); }
+            try
+            {
+                if (!_state.IsClearComplete(await _state.ReadAsync(cancellationToken).ConfigureAwait(false)))
+                    await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+            }
             catch (Exception exception) when (IsClearFailure(exception))
             {
                 throw FailureHistoryStateStore.ClearIncomplete(recoveryOff: true, exception);
@@ -44,12 +48,18 @@ public sealed class RecoveryConfigurationCoordinator : IRecoveryConfigurationCoo
         // sufficient to fence pre-off writers before allowing a re-enable.
         if (string.Equals(previous, "off", StringComparison.OrdinalIgnoreCase) || state?.ClearPending == true)
         {
-            try { await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false); }
+            try
+            {
+                if (!_state.IsClearComplete(state))
+                    await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+            }
             catch (Exception exception) when (IsClearFailure(exception))
             {
                 throw FailureHistoryStateStore.ClearIncomplete(
                     recoveryOff: string.Equals(previous, "off", StringComparison.OrdinalIgnoreCase), exception);
             }
+            state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            await _state.RegisterCaptureUnderLockAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         await commit(cancellationToken).ConfigureAwait(false);

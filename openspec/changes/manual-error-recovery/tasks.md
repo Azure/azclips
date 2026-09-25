@@ -43,7 +43,7 @@
 
 - [x] 7.1 Update directly related configuration, recovery, help, and completion documentation.
 - [x] 7.2 Run targeted offline tests and the solution build; record actual platform coverage and unresolved environment limits.
-- [ ] 7.3 Have the same three original reviewers independently review the implementation, including reuse and function size.
+- [x] 7.3 Have the same three original reviewers independently review the implementation, including reuse and function size.
 - [ ] 7.4 Resolve substantive review findings and re-run affected validation.
 - [ ] 7.5 Commit and update the existing PR #934, verify it remains Draft, and report completed work and remaining validation.
 
@@ -54,15 +54,31 @@
 
 ## Validation status
 
-- Final integrated solution build: passed, zero errors and two existing Identity
-  test nullability warnings. An earlier Agent rebuild also reported its three
-  existing Copilot SDK experimental-API warnings.
+- All three original reviewers completed independent code review of `0134c6d`.
+  Confirmed capture fencing, configuration compatibility, output consistency, and
+  documentation findings are being repaired under task 7.4; review completion
+  does not imply those fixes or native E2E have passed.
+- Review-repair tests: 193 capture/store/configuration/concurrency tests passed
+  with fake keys, followed by 179 focused configuration/parser/console/real-CLI
+  routing tests. These selections overlap and are not additional E2E totals.
+- Capture now registers its starting generation before reading options. A durable
+  completed-off fence prevents stale writes while making repeated clean off
+  observations read-only. First off still fences an absent directory.
+- Failed help/version utilities are excluded using existing parser classification.
+  Configuration repair guidance, non-recovery flat-key compatibility, shared
+  console JSON formatting, and the telemetry style documentation are corrected.
+- Late automatic-Agent diagnostics in JSON mode still need the user's output
+  timing decision. No streaming-JSON change has been made and task 7.4 remains open.
+- Latest review-repair solution build: passed, zero errors and three existing
+  Copilot SDK experimental-API warnings. Earlier CLI rebuilds reported the two
+  existing Identity test nullability warnings.
 - Focused Agent tests: 56 passed, including common tool/permission policy and real
   pipe transport rejected before AI startup.
-- Integrated CLI/configuration/recovery/help/completion offline tests: 536 passed,
+- Integrated CLI/configuration/recovery/help/completion/parser/console offline tests: 678 passed,
   four existing live tests intentionally skipped, with `Category!=NativeKeyStore`.
-- This includes all 22 stream-routing tests and three new legacy-warning cases. Config commands
-  retain their existing diagnostics without duplicate host warnings.
+- This includes all 25 stream-routing tests, including migration warnings and
+  failed-help/version capture exclusions. Config commands retain their existing
+  diagnostics without duplicate host warnings.
 - Real PowerShell and Git Bash completion/baseline comparisons were rerun and
   passed against `83f27105`. Zsh and
   real macOS/Linux sessions remain unverified.

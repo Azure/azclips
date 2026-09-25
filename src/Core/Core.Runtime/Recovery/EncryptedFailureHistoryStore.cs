@@ -44,11 +44,7 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             ThrowIfLegacyHistory();
             var snapshot = await ReadSnapshotAsync(includeCiphertext: true, cancellationToken).ConfigureAwait(false);
             ValidateSnapshotState(snapshot, state);
-            if (state is null)
-            {
-                state = new();
-                await _state.WriteAsync(state, cancellationToken).ConfigureAwait(false);
-            }
+            state = await _state.RegisterCaptureUnderLockAsync(state, cancellationToken).ConfigureAwait(false);
 
             var key = await GetKeyAsync(state.Generation, createIfMissing: snapshot is null, cancellationToken).ConfigureAwait(false);
             try
@@ -110,6 +106,36 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
     }
 
+    public async Task<ulong?> BeginCaptureAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var observedState = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
+            var generation = observedState?.Generation ?? 0;
+            var observedOff = !ReadPolicy().IsEnabled;
+            if (observedOff && _state.IsClearComplete(observedState))
+                return null;
+
+            await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
+            var recoveryOff = !ReadPolicy().IsEnabled;
+            if (observedOff || recoveryOff)
+            {
+                if (NeedsPolicyCleanup(recoveryOff, state, observedOff ? generation : null))
+                    await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
+                return null;
+            }
+
+            if (state?.ClearPending == true)
+                throw FailureHistoryStateStore.PendingClear();
+            ValidateGeneration(generation, state);
+            ThrowIfLegacyHistory();
+            state = await _state.RegisterCaptureUnderLockAsync(state, cancellationToken).ConfigureAwait(false);
+            return state.Generation;
+        }
+        catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception)) { throw StorageUnavailable(); }
+    }
+
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -127,12 +153,14 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
     {
         try
         {
-            var state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
-            if (!NeedsPolicyCleanup(ReadPolicy(), state))
+            var state = await _state.ReadForMutationAsync(cancellationToken).ConfigureAwait(false);
+            var observedOff = !ReadPolicy().IsEnabled;
+            var generation = state?.Generation ?? 0;
+            if (!NeedsPolicyCleanup(observedOff, state))
                 return;
             await using var writerLock = await _state.Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
             state = await _state.ReadAsync(cancellationToken).ConfigureAwait(false);
-            if (NeedsPolicyCleanup(ReadPolicy(), state))
+            if (NeedsPolicyCleanup(!ReadPolicy().IsEnabled, state, observedOff ? generation : null))
                 await _state.ClearUnderLockAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (FailureHistoryFiles.IsStorageException(exception))
@@ -141,10 +169,11 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
         }
     }
 
-    private bool NeedsPolicyCleanup(RecoveryOptions policy, FailureHistoryControl? state) =>
-        // Empty history can still have a pre-off capture in flight. Observing off must fence it,
-        // including after an earlier reset and before an externally edited policy re-enables.
-        state?.ClearPending == true || !policy.IsEnabled;
+    // If policy becomes enabled while waiting, retain an observed off only for its original
+    // generation; an already completed reset/re-enable must not lose newer captures.
+    private bool NeedsPolicyCleanup(bool recoveryOff, FailureHistoryControl? state, ulong? observedOffGeneration = null) =>
+        state?.ClearPending == true ||
+        ((recoveryOff || observedOffGeneration == (state?.Generation ?? 0)) && !_state.IsClearComplete(state));
 
     private RecoveryOptions ReadPolicy()
     {
@@ -160,9 +189,18 @@ public sealed class EncryptedFailureHistoryStore : IFailureHistoryStore
             throw new FailureHistoryException("failure_history_disabled", "Recovery is off; failure history was not saved.");
         if (state.ClearPending)
             throw FailureHistoryStateStore.PendingClear();
-        if (record.HistoryGeneration != state.Generation)
-            throw new FailureHistoryException("failure_history_stale_generation", "Recovery history was reset after this capture started. The stale failure was not saved.");
+        if (state.OffFenced)
+            throw new FailureHistoryException("failure_history_stale_generation",
+                "Failure history is fenced. Begin a fresh capture before saving in a new generation.");
+        ValidateGeneration(record.HistoryGeneration, state);
         return policy;
+    }
+
+    private static void ValidateGeneration(ulong generation, FailureHistoryControl? state)
+    {
+        if (generation != (state?.Generation ?? 0))
+            throw new FailureHistoryException("failure_history_stale_generation",
+                "Recovery history was reset after this capture started. The stale failure was not saved.");
     }
 
     private async Task<FailureHistorySnapshot?> ReadForViewAsync(bool includeCiphertext, CancellationToken cancellationToken)

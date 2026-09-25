@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Runtime;
+using Core.Cli.Parser;
 
 namespace Cli.Tests;
 
@@ -95,6 +96,23 @@ public class ConsoleSinkTests
         var (stdout, _) = CaptureConsole(() => ConsoleSink.EmitStdout(ConsoleColor.Cyan, "line", newline: true));
 
         Assert.EndsWith(Environment.NewLine, stdout);
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Json)]
+    [InlineData(OutputFormat.Jsonc)]
+    public void RecoveryWarning_UsesConsoleJsonEscapingAndStderr(OutputFormat format)
+    {
+        const string warning = "Use 'agent.recovery': \u4E2D\u6587 <detail>.";
+        var (stdout, stderr) = CaptureConsole(() =>
+            Core.Cli.Program.EmitRecoveryDiagnostic(new(Warning: warning), format, color: false));
+
+        Assert.Empty(stdout);
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Equal(warning, document.RootElement.GetProperty("recoveryWarning").GetString());
+        Assert.Contains(warning, stderr);
+        Assert.Contains("\n  \"recoveryWarning\":", stderr);
+        Assert.DoesNotContain("\\u", stderr);
     }
 
     private static (string stdout, string stderr) CaptureConsole(Action action)

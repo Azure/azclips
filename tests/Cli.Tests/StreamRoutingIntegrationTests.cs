@@ -85,6 +85,49 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task SuccessfulCommand_MigrationWarningUsesConsoleJsonConventions()
+    {
+        var (exit, _, stderr) = await RunCliWithConfigurationAsync(
+            """{"agent":{"enabled":true,"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""",
+            "extension", "list", "--output", "json");
+
+        Assert.Equal(0, exit);
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Contains("'agent.enabled'", document.RootElement.GetProperty("recoveryWarning").GetString());
+        Assert.DoesNotContain("\\u0027", stderr, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\n  \"recoveryWarning\":", stderr);
+    }
+
+    [Theory]
+    [InlineData("help", "no-such-group", 4)]
+    [InlineData("version", "--query", 2)]
+    public async Task FailedHelpAndVersion_DoNotStartHistoryCapture(string command, string argument, int expectedExit)
+    {
+        var home = Directory.CreateTempSubdirectory("azclips-utility-capture-tests-").FullName;
+        await File.WriteAllTextAsync(Path.Combine(home, "config.json"),
+            """{"agent":{"recovery":{"trigger":"manual"}},"telemetry":{"enabled":false}}""");
+        try
+        {
+            var args = command == "version"
+                ? new[] { command, argument, "[", "--output", "json" }
+                : new[] { command, argument, "--output", "json" };
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(home, args);
+
+            Assert.Equal(expectedExit, exit);
+            Assert.Empty(stdout);
+            using var document = System.Text.Json.JsonDocument.Parse(stderr);
+            Assert.True(document.RootElement.TryGetProperty("error", out _));
+            Assert.False(document.RootElement.TryGetProperty("recovery", out _));
+            Assert.False(document.RootElement.TryGetProperty("recoveryWarning", out _));
+            Assert.False(Directory.Exists(Path.Combine(home, "failure-history")));
+        }
+        finally
+        {
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ConfigGet_WritesResultToStdout_UnderWarnDefault()
     {
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");

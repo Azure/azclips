@@ -13,6 +13,10 @@ internal sealed record FailureHistoryControl
     [JsonRequired] public ulong NextSequence { get; init; }
     [JsonRequired] public ulong Generation { get; init; }
     [JsonRequired] public bool ClearPending { get; init; }
+
+    // Older control files default to unfenced. A completed clear closes this generation;
+    // enabling capture must advance the generation before removing the fence.
+    public bool OffFenced { get; init; }
 }
 
 internal sealed class FailureHistoryStateStore(FailureHistoryFiles files)
@@ -48,12 +52,39 @@ internal sealed class FailureHistoryStateStore(FailureHistoryFiles files)
                 if (stream.Length > 1024)
                     throw CorruptControl();
                 var state = await JsonSerializer.DeserializeAsync<FailureHistoryControl>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
-                if (state is null || state.Version != 1)
+                if (state is null || state.Version != 1 ||
+                    (state.OffFenced && (state.ClearPending || state.Generation == 0)))
                     throw CorruptControl();
                 return state;
             }
             catch (JsonException) { throw CorruptControl(); }
         }
+    }
+
+    internal async Task<FailureHistoryControl?> ReadForMutationAsync(CancellationToken cancellationToken)
+    {
+        try { return await ReadAsync(cancellationToken).ConfigureAwait(false); }
+        catch (FailureHistoryException exception) when (exception.Code == "failure_history_control_missing")
+        {
+            // A first writer may have created its staging file but not replaced control yet.
+            // Retry under the existing lock; genuinely missing allocator state still fails.
+            await using var writerLock = await Files.AcquireWriterLockAsync(cancellationToken).ConfigureAwait(false);
+            return await ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    internal bool IsClearComplete(FailureHistoryControl? state) =>
+        state is { ClearPending: false, OffFenced: true } && !Files.HasControlledData();
+
+    internal async Task<FailureHistoryControl> RegisterCaptureUnderLockAsync(
+        FailureHistoryControl? state, CancellationToken cancellationToken)
+    {
+        var registered = state ?? new();
+        if (registered.OffFenced)
+            registered = registered with { Generation = NextGeneration(registered), OffFenced = false };
+        if (state is null || state.OffFenced)
+            await WriteAsync(registered, cancellationToken).ConfigureAwait(false);
+        return registered;
     }
 
     internal Task WriteAsync(FailureHistoryControl state, CancellationToken cancellationToken) =>
@@ -74,14 +105,19 @@ internal sealed class FailureHistoryStateStore(FailureHistoryFiles files)
         var state = await ReadAsync(cancellationToken).ConfigureAwait(false) ?? new();
         if (!state.ClearPending)
         {
-            if (state.Generation == ulong.MaxValue)
-                throw new FailureHistoryException("failure_history_generation_exhausted", "The failure-history generation is exhausted; it cannot wrap.");
-            state = state with { Generation = checked(state.Generation + 1), ClearPending = true };
+            state = state with { Generation = NextGeneration(state), ClearPending = true, OffFenced = false };
             await WriteAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         Files.DeleteControlledData(cancellationToken);
-        await WriteAsync(state with { ClearPending = false }, cancellationToken).ConfigureAwait(false);
+        await WriteAsync(state with { ClearPending = false, OffFenced = true }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static ulong NextGeneration(FailureHistoryControl state)
+    {
+        if (state.Generation == ulong.MaxValue)
+            throw new FailureHistoryException("failure_history_generation_exhausted", "The failure-history generation is exhausted; it cannot wrap.");
+        return checked(state.Generation + 1);
     }
 
     internal static FailureHistoryException PendingClear() =>

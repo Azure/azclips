@@ -67,6 +67,7 @@ internal static class FailureCapture
 
     internal static bool ShouldCapture(string[] args, Exception error, bool inAgentMode) =>
         !inAgentMode &&
+        !GlobalArgParser.IsHelpOrVersionInvocation(args) &&
         !GlobalArgParser.IsCommandInvocation(args, IntrinsicVerbs.Troubleshoot) &&
         (args.Length == 0 || args[0] is not ("--upload-telemetry" or "--completions" or "--completion-candidates" or
                                            "--completion-values" or "--print-probe" or FailureHistoryWorker.Argument));
@@ -95,22 +96,25 @@ internal static class FailureCapture
         deadline.CancelAfter(CaptureBudget);
         try
         {
+            var store = getStore();
+            var generation = await store.BeginCaptureAsync(deadline.Token).ConfigureAwait(false);
+            if (generation is null)
+                return new();
+
             var options = getOptions();
             var trigger = options.Recovery?.Trigger?.ToLowerInvariant();
             if (trigger is not ("off" or "manual" or "auto"))
                 throw new ArgumentException("agent.recovery must be off, manual, or auto.");
             if (trigger == "off")
             {
-                await getStore().ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
+                await store.ApplyPolicyAsync(deadline.Token).ConfigureAwait(false);
                 return new();
             }
             if (options.Recovery!.HistorySize < 1)
                 throw new ArgumentException("agent.recovery.historySize must be positive.");
 
-            var store = getStore();
-            var generation = await store.ReadGenerationAsync(deadline.Token).ConfigureAwait(false);
             var parentId = (getParentProcessId ?? TerminalSession.GetParentProcessId)();
-            var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation);
+            var record = CreateRecord(args, failedCommand, error, exitCode, commandName, activity, parentId, generation.Value);
             var save = persist ?? store.SaveAsync;
             var entry = await save(record, options.Recovery.HistorySize, deadline.Token).ConfigureAwait(false);
             return new(entry, trigger == "manual");

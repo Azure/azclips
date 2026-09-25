@@ -27,7 +27,7 @@ internal static class RecoveryConfigurationValidation
         string.Equals(key, TriggerKey, StringComparison.OrdinalIgnoreCase) ||
         key.StartsWith(TriggerKey + ".", StringComparison.OrdinalIgnoreCase);
 
-    internal static void ValidateShape(JsonObject root)
+    internal static void ValidateShape(JsonObject root, string configFilePath)
     {
         foreach (var agent in root.Where(entry => string.Equals(entry.Key, "agent", StringComparison.OrdinalIgnoreCase)))
         {
@@ -39,7 +39,8 @@ internal static class RecoveryConfigurationValidation
             {
                 if (recovery.Value is not JsonObject)
                     throw new InvalidOperationException(
-                        "Configuration 'agent.recovery' must be stored as an object, for example { \"trigger\": \"manual\", \"style\": \"oneshot\", \"historySize\": 10 }. Use 'az config set --key agent.recovery --value manual' for the public trigger key.");
+                        "Configuration 'agent.recovery' must be stored as an object, for example { \"trigger\": \"manual\", \"style\": \"oneshot\", \"historySize\": 10 }. " +
+                        $"Edit '{configFilePath}' directly to replace or remove the invalid 'agent.recovery' node; config commands cannot repair this file shape.");
             }
         }
 

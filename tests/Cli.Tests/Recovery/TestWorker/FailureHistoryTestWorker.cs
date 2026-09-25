@@ -19,6 +19,8 @@ internal static class FailureHistoryTestWorker
             return 64;
         var (home, mode, ready, release) = (args[0], args[1], args[2], args[3]);
         Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+        if (mode == "manual-override")
+            Environment.SetEnvironmentVariable("AZCLIPS_AGENT_RECOVERY", "manual");
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var token = deadline.Token;
         // This fixture tests allocator linearizability under 20 cold processes, separately
@@ -49,7 +51,14 @@ internal static class FailureHistoryTestWorker
                 return 0;
             }
 
-            var generation = await store.ReadGenerationAsync(token);
+            if (mode == "observe-off")
+            {
+                await store.ApplyPolicyAsync(token);
+                return 0;
+            }
+
+            var generation = await store.BeginCaptureAsync(token)
+                ?? throw new FailureHistoryException("failure_history_disabled", "Recovery is off.");
             if (mode != "crash-after-reservation")
             {
                 _ = config.GetConfiguration<AgentOptions>().Recovery.IsEnabled;

@@ -112,9 +112,12 @@ public sealed class FailureHistoryResetTests
         Assert.True(reset.Generation > state.Generation);
         Assert.False(reset.ClearPending);
         var keyGeneration = new TestFailureHistoryKeys();
-        var entry = await scope.CreateStore(keyGeneration).SaveAsync(CreateRecord(reset.Generation), 10);
+        var writer = scope.CreateStore(keyGeneration);
+        var generation = (await writer.BeginCaptureAsync())!.Value;
+        Assert.Equal(reset.Generation + 1, generation);
+        var entry = await writer.SaveAsync(CreateRecord(generation), 10);
         Assert.EndsWith("-0001", entry.Id);
-        Assert.Equal(reset.Generation, Assert.Single(keyGeneration.Generations));
+        Assert.Equal(generation, Assert.Single(keyGeneration.Generations));
     }
 
     [Theory]
@@ -282,7 +285,7 @@ public sealed class FailureHistoryResetTests
         using var scope = new FailureHistoryTestScope();
         var store = scope.CreateStore(NoKeyAccess());
         await store.ClearAsync();
-        var pending = CreateRecord(await store.ReadGenerationAsync());
+        var pending = CreateRecord((await store.BeginCaptureAsync())!.Value);
         await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"off"}}}""")!.AsObject());
         await store.ApplyPolicyAsync();
         await scope.Provider.WriteAsync(JsonNode.Parse("""{"agent":{"recovery":{"trigger":"manual"}}}""")!.AsObject());

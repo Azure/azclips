@@ -477,13 +477,7 @@ public class Program
                 payload["recovery"] = recovery;
             if (failure?.Warning is { } warning)
                 payload["recoveryWarning"] = warning;
-            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            });
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
+            Console.Error.WriteLine(CliOutputFormatter.FormatValue(payload, format, colorPolicyAllowsColor));
         }
         else
         {
@@ -541,8 +535,7 @@ public class Program
                 payload["recovery"] = recovery;
             if (result.Warning is { } warning)
                 payload["recoveryWarning"] = warning;
-            var json = System.Text.Json.JsonSerializer.Serialize(payload);
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && color ? JsonColorizer.Colorize(json) : json);
+            Console.Error.WriteLine(CliOutputFormatter.FormatValue(payload, format, color));
             return;
         }
 
