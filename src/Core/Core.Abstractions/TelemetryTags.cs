@@ -29,7 +29,13 @@ public static class TelemetryTags
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string AuthType = "authType";
+    public const string CloudName = "cloudName";
     public const string Mode = "mode";
+    /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
+    /// directly on the root activity (see ITelemetryService.AddTag) rather than read from
+    /// ambient async-local state, so it stays correct even when resolved from a different
+    /// async flow than the one that created/disposes the root (e.g. PowerShell's Run()).</summary>
+    public const string DataBoundary = "dataBoundary";
     /// <summary>cold or warm — whether this was the first module import in the process.</summary>
     public const string ImportKind = "importKind";
 
@@ -70,5 +76,16 @@ public static class TelemetryTags
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
+    public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";
+    /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
+    public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
+    /// <summary>
+    /// Why recovery ended in error; absent otherwise. A closed classification only — see
+    /// <c>RecoveryFailure</c> for the value list. Never the message, which can echo subscription
+    /// ids, resource names, or the user's own input.
+    /// </summary>
+    public const string RecoveryFailureReason = PropertyTagPrefix + "recovery.failureReason";
+    /// <summary>Why recovery did not run, on CLI.Activity.AiRecoverySkipped.</summary>
+    public const string RecoverySkipReason = PropertyTagPrefix + "recovery.skipReason";
 }

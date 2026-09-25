@@ -191,3 +191,39 @@ op startPagesBasic(): {
 
 @get @route("/ordinary")
 op ordinary(): Item;
+
+/**
+ * A shared parameter alias carrying a paging marker, spread onto an operation whose
+ * body is opaque. The client deserializes the payload itself, so there is no property
+ * `@pageItems` could be placed on.
+ */
+alias SharedMarker = {
+  @continuationToken
+  @query
+  marker?: string;
+};
+
+@get @route("/opaque")
+op opaqueWithMarker(...SharedMarker): {
+  @body body: bytes;
+};
+
+/**
+ * A page holding two heterogeneous collections. There is no single items property, and
+ * marking both would itself be an error, so `@pageItems` cannot be expressed — even
+ * though the response does carry a continuation token.
+ */
+model MixedSegment {
+  directoryItems: Item[];
+  fileItems: Item[];
+}
+
+model MixedListResponse {
+  segment: MixedSegment;
+
+  @continuationToken
+  nextMarker: string;
+}
+
+@get @route("/mixed")
+op mixedCollections(...SharedMarker): MixedListResponse;

@@ -19,6 +19,15 @@
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Extensions.Accounts.Tests" Key="$(MSSharedLibPublicKey)" />
+        <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Extensions.Accounts.Tests" />
+        <InternalsVisibleTo Include="Cmdlets.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>

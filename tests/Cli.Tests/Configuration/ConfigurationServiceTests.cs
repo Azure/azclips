@@ -27,6 +27,19 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripPowerShellOutputFormat()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        Assert.Equal("object", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+
+        await service.SetConfigurationAsync("clients.powershell.output.format", "json");
+
+        Assert.Equal("json", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+    }
+
+    [Fact]
     public async Task DeleteConfigurationAsync_ShouldPruneEmptyParents()
     {
         using var fixture = new TempConfigurationFixture();
@@ -115,17 +128,25 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ListConfigurationWithSourcesAsync_ShouldReturnOneSourceAwareSnapshot()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("core.logging.level", "debug");
+        var values = await service.ListConfigurationWithSourcesAsync();
+
+        Assert.Equal("debug", values["core.logging.level"].Value);
+        Assert.Equal("global config", values["core.logging.level"].Source);
+        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
+        Assert.Equal("default", values["agent.sessionStyle"].Source);
+    }
+
+    [Fact]
     public async Task ListConfigurationAsync_ShouldExposeExactlyTheSchemasAgentKeys()
     {
-        // Defaults are produced by serializing AgentOptions, while the configurable surface is
-        // ConfigurationSchema — two independent mechanisms. Any public getter that is not a real
-        // setting (a computed view, or a value deliberately kept out of the schema) silently shows
-        // up here as an apparent key. Pinning the whole set rather than individual names is what
-        // makes that structural: a name-specific assertion passes while a sibling leaks.
-        //
-        // agent.builtin.scope must stay out because the same token authorizes the ARM data boundary
-        // lookup, so a user-set value would break it with an opaque 401 and aim the model's bearer
-        // token at an arbitrary audience.
+        // Both schema and defaults now traverse configuration attributes. Their agent key sets
+        // must agree, and the shared ARM scope must remain non-configurable.
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
 
@@ -140,6 +161,7 @@ public class ConfigurationServiceTests
             .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(schema, exposed, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("agent.builtin.scope", exposed, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -168,6 +190,21 @@ public class ConfigurationServiceTests
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldUseConfiguredBuiltinModel_InsteadOfDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("custom-deployment", options.Builtin.ModelId);
+        Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
     }
 
     [Fact]
@@ -233,7 +270,7 @@ public class ConfigurationServiceTests
 
         public TestConfigurationProvider Provider { get; }
 
-        public IConfigurationService CreateService()
+        public ConfigurationService CreateService()
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
@@ -281,6 +318,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-
-
-

@@ -12,6 +12,7 @@ using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Sku;
 using Core.Agent.Tools.Shell;
+using Core.Telemetry;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
@@ -32,7 +33,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
     private readonly CopilotClient _client;
     private readonly CopilotSession _session;
-    private readonly string _model;
+    private readonly AgentModelTelemetry _modelTelemetry;
     private readonly SessionState? _state;
 
     private CancellationTokenSource? _activeTurnCts;
@@ -44,9 +45,47 @@ public sealed class ChatAgent : IAsyncDisposable
     // reads this after SendAsync to force a correction on a bare-prose turn.
     private int _sendCalledClosingTool;
 
-    public string Model => _model;
+    public string Model => _modelTelemetry.Current.Model ?? string.Empty;
 
-    public SessionErrored? LastError { get; private set; }
+    internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
+
+    private SessionErrored? _lastError;
+
+    /// <summary>
+    /// The terminal SDK error reported during the current turn, or null if the turn is clean.
+    /// </summary>
+    /// <remarks>
+    /// <para>Written on the SDK's event-dispatch thread and read on the host thread, so both sides
+    /// go through <see cref="Volatile"/>: without a barrier the host is not guaranteed to observe
+    /// the handler's write at all, and a session the user watched fail exports
+    /// <c>recovery.outcome=ok</c>.</para>
+    ///
+    /// <para>Visibility is all this closes. The dispatch loop is not synchronised with the host's
+    /// turn boundaries, so an error queued during turn N-1 can still be delivered after turn N
+    /// cleared this field, attributing it to the wrong turn. That is not fixable here: the SDK's
+    /// error payload carries no turn identifier, and a handler stamping the turn it sees at
+    /// dispatch time would record the same wrong turn. Closing it needs turn correlation from the
+    /// SDK.</para>
+    /// </remarks>
+    public SessionErrored? LastError => Volatile.Read(ref _lastError);
+
+    /// <summary>
+    /// A session error that arrived before the first turn could start.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kept apart from <see cref="LastError"/>, which describes the current turn and is
+    /// cleared at the start of every send. The host always sends a first prompt immediately after
+    /// creation, so an error stored on the per-turn field during creation was wiped every time
+    /// before anything could read it.</para>
+    ///
+    /// <para>Nothing consumes this yet, deliberately. <c>recovery.outcome</c> stays driven by the
+    /// last turn: a session whose turn completed did help the caller, whatever went wrong while it
+    /// was starting — and several of these are recoverable by design, which is what the SDK's
+    /// <c>eligibleForAutoSwitch</c> flag is for. The user already sees the error, since every event
+    /// is rendered. What is still missing is a measure of how often the upstream provider is flaky
+    /// at setup, which is a different question from whether recovery succeeded.</para>
+    /// </remarks>
+    public SessionErrored? StartupError { get; private set; }
 
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
@@ -85,11 +124,11 @@ public sealed class ChatAgent : IAsyncDisposable
         if (_state is not null) _state.OnFinalRendered = callback;
     }
 
-    private ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
+    internal ChatAgent(CopilotClient client, CopilotSession session, AgentModelTelemetry modelTelemetry, SessionState? state)
     {
         _client = client;
         _session = session;
-        _model = model;
+        _modelTelemetry = modelTelemetry;
         _state = state;
     }
 
@@ -120,6 +159,9 @@ public sealed class ChatAgent : IAsyncDisposable
         AuthResult? preAcquiredAuth = null)
     {
         ArgumentNullException.ThrowIfNull(options);
+        using var create = AgentTracing.Source.StartActivity("Agent.Create");
+        RecoveryTelemetry.RecordConfiguration(create, options);
+        var modelTelemetry = new AgentModelTelemetry(options, new RendererLoggingService(renderer).Warn);
         var sdkLogger = logger ?? NullLogger.Instance;
         // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
         // GitHub credential — so the daemon's default auto-login, which reads the
@@ -138,12 +180,16 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, preAcquiredAuth, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct).ConfigureAwait(false);
         }
         catch
         {
             await client.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+        finally
+        {
+            modelTelemetry.RecordTo(create);
         }
     }
 
@@ -159,6 +205,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         SpinnerService? spinner,
         string? failedCommand,
+        AgentModelTelemetry modelTelemetry,
         AuthResult? preAcquiredAuth,
         CancellationToken ct)
     {
@@ -187,7 +234,7 @@ public sealed class ChatAgent : IAsyncDisposable
             {
                 if (ev is SessionErrored err)
                 {
-                    if (self is not null) self.LastError = err;
+                    if (self is not null) Volatile.Write(ref self._lastError, err);
                     else                  earlyError = err;
                     try { self?._activeTurnCts?.Cancel(); } catch { }
                 }
@@ -223,12 +270,16 @@ public sealed class ChatAgent : IAsyncDisposable
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
             azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
 
-        string resolvedModel;
+        sessionConfig.OnEvent = ev =>
+        {
+            modelTelemetry.Observe(ev);
+            eventRenderer.Forward(ev);
+        };
+
         switch (options.Provider?.ToLowerInvariant())
         {
             case "builtin":
-                resolvedModel = options.Builtin.ModelId;
-                sessionConfig.Model = resolvedModel;
+                sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
                 sessionConfig.Provider = preAcquiredAuth is not null
@@ -237,7 +288,6 @@ public sealed class ChatAgent : IAsyncDisposable
                 break;
 
             case "github":
-                resolvedModel = string.Empty;
                 break;
 
             default:
@@ -248,9 +298,10 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
-        var agent = new ChatAgent(client, session, resolvedModel, state);
+        var agent = new ChatAgent(client, session, modelTelemetry, state);
         self = agent;
-        if (earlyError is not null) agent.LastError = earlyError;
+        if (earlyError is not null) agent.StartupError = earlyError;
+        await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
         return agent;
     }
 
@@ -367,16 +418,45 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
-        LastError = null;
+        Volatile.Write(ref _lastError, null);
         Volatile.Write(ref _sendCalledClosingTool, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         oldCts?.Dispose();
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
-        send?.SetTag(TelemetryTags.AgentModel, _model);
+        _modelTelemetry.RecordTo(send);
+        AgentModelObservation? observedModel = null;
+        var inMainTurn = false;
         try
         {
+            // SDK events run off-thread. Capture this send's model, then tag it before export.
+            using var modelSubscription = send is not null && !_modelTelemetry.IsBuiltin
+                ? _session.On<SessionEvent>(ev =>
+                {
+                    if (!string.IsNullOrEmpty(ev.AgentId))
+                        return;
+                    switch (ev)
+                    {
+                        case AssistantTurnStartEvent { Data.TurnId.Length: > 0 }:
+                            inMainTurn = true;
+                            break;
+                        case AssistantTurnEndEvent:
+                        case SessionIdleEvent:
+                        case SessionErrorEvent:
+                            inMainTurn = false;
+                            break;
+                        case AssistantUsageEvent { Data: { } usage } when inMainTurn:
+                            if (usage.Initiator is null or "" or "user" &&
+                                RecoveryTelemetry.IsExportableModel(usage.Model))
+                            {
+                                Volatile.Write(ref observedModel,
+                                    new AgentModelObservation(usage.Model, AgentModelSource.Usage));
+                            }
+                            break;
+                    }
+                })
+                : null;
             await _session.SendAndWaitAsync(
                 new MessageOptions { Prompt = prompt },
                 timeout: TurnTimeout,
@@ -384,6 +464,10 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         finally
         {
+            if (Volatile.Read(ref observedModel) is { } model)
+                RecoveryTelemetry.RecordModel(send, model.Model, model.Source);
+            else
+                _modelTelemetry.RecordTo(send);
             var done = Interlocked.Exchange(ref _activeTurnCts, null);
             done?.Dispose();
         }

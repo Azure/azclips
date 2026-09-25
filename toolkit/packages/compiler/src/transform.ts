@@ -30,8 +30,19 @@ export interface TransformContext {
  * A run has exactly one IR, so returning the same object mutated in place is the
  * expected shape; returning a replacement is equally valid, and the orchestrator
  * carries on with whatever comes back.
+ *
+ * `In` and `Out` let a step state the **document phase** it works in. Most steps
+ * leave both as `IR`; a step that projects commands declares
+ * `TransformStep<IR, TransformedIR>`, and one that annotates them declares
+ * `TransformStep<TransformedIR, TransformedIR>` — so it reads `ir.commands`
+ * without a cast.
+ *
+ * The orchestrator erases the parameters: it threads the widest document type, and
+ * *ordering* is what actually guarantees a phase, via `StageDescriptor.requires`.
+ * Nothing forces a step's declared phase and its catalog `requires` to agree —
+ * that stays review discipline, like the additive-after-generate rule.
  */
-export interface TransformStep {
+export interface TransformStep<In extends IR = IR, Out extends IR = In> {
   readonly name: string;
-  run(ir: IR, context: TransformContext): IR | Promise<IR>;
+  run(ir: In, context: TransformContext): Out | Promise<Out>;
 }

@@ -22,6 +22,9 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // trace so it does not count toward the command's duration.
         "CLI.Activity.AiRecovery",
 
+        // Disabled recovery is observable without inflating the execution count above.
+        "CLI.Activity.AiRecoverySkipped",
+
         // Spans from azclips-agent.exe, parented to CLI.Activity.AiRecovery through the
         // traceparent on its environment block.
         "Agent.Session",

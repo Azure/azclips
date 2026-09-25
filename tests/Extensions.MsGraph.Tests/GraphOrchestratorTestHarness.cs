@@ -3,7 +3,9 @@
 
 using System.Reflection;
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
 namespace Extensions.MsGraph.Tests;
@@ -29,6 +31,9 @@ internal static class GraphOrchestratorTestHarness
 
     private static readonly FieldInfo WriteOutputField =
         typeof(GraphProcessorBase).GetField("WriteOutput", Instance)!;
+
+    private static readonly FieldInfo AuthHandlerField =
+        typeof(GraphProcessorBase).GetField("AuthHandler", Instance)!;
 
     private static readonly MethodInfo SendAsyncMethod =
         typeof(GraphProcessorBase).GetMethod("SendAsync", Instance)!;
@@ -58,6 +63,47 @@ internal static class GraphOrchestratorTestHarness
     /// </summary>
     public static Task<HttpResponseMessage> InvokeSendAsync(this GraphProcessorBase processor) =>
         (Task<HttpResponseMessage>)SendAsyncMethod.Invoke(processor, null)!;
+
+    /// <summary>
+    /// Wires the fake runtime context (pipeline, publisher, JSON options) plus a fake auth handler,
+    /// and returns a list that captures everything written to output. Use this when driving the real
+    /// <c>ProcessAsync</c> path (which runs <c>BeforeProcessAsync</c>, so it needs an auth handler)
+    /// and asserting the emitted output shape.
+    /// </summary>
+    public static List<object?> WithCapturingContext<T>(
+        this T processor,
+        IRuntimeHttpPipeline pipeline,
+        IEventPublisher publisher,
+        JsonSerializerOptions? jsonOptions = null)
+        where T : GraphProcessorBase
+    {
+        var captured = new List<object?>();
+        HttpPipelineField.SetValue(processor, pipeline);
+        PublisherField.SetValue(processor, publisher);
+        JsonOptionsField.SetValue(processor, jsonOptions ?? DefaultJsonOptions());
+        WriteOutputField.SetValue(processor, (OutputStreamDelegate)((value, _) =>
+        {
+            captured.Add(value);
+            return Task.CompletedTask;
+        }));
+        AuthHandlerField.SetValue(processor, FakeAuthHandler());
+        return captured;
+    }
+
+    private static AuthHandler FakeAuthHandler() => new()
+    {
+        Profile = new Profile { TenantId = "tenant", SubscriptionId = "sub" },
+        AcquireTokenAsyncDefault = (scopes, tenantId, _, _, _) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = "token",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = scopes ?? [],
+                TenantId = tenantId ?? "",
+                CorrelationId = Guid.Empty,
+            }),
+        ApplyOverride = false,
+    };
 
     private static JsonSerializerOptions DefaultJsonOptions() => new()
     {

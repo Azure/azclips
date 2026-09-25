@@ -25,6 +25,7 @@ public class ActivityNameFilterTests
     // AI error-recovery: the CLI's second root, plus the spans azclips-agent.exe nests
     // under it. A missing entry drops the span silently, with no error or log.
     [InlineData("CLI.Activity.AiRecovery")]
+    [InlineData("CLI.Activity.AiRecoverySkipped")]
     [InlineData("Agent.Session")]
     [InlineData("Agent.Create")]
     [InlineData("Agent.Turn")]
@@ -74,6 +75,7 @@ public class ActivityNameFilterTests
     [InlineData("MsalAuthService")]                // MsalAuthService
     [InlineData("MsalAuthServiceX.Method")]        // substring
     [InlineData("Agent.NotARealSpan")]             // Agent.* is exact-matched, not a prefix
+    [InlineData("CLI.Activity.AiRecoverySkipped.Other")]
     [InlineData("toolbox.something")]              // "tool." prefix must not match "toolbox."
     public void IsAllowed_NameNotInAllowlist_IsDropped(string name)
     {

@@ -333,6 +333,9 @@ public sealed class ExtensionSelectionPathOverrideTests
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

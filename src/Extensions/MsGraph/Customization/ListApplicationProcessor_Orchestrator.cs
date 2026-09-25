@@ -50,7 +50,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        internal override async Task<HttpResponseMessage> SendAsync()
+        public override async Task ProcessAsync()
         {
             string? displayNameClause = string.IsNullOrWhiteSpace(DisplayName)
                 ? null
@@ -66,7 +66,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 p.Search = Search;
                 p.ConsistencyLevel = ConsistencyLevel;
             });
-            return await atomic.SendAsync();
+            // Full pipeline: unwraps the OData envelope and follows @odata.nextLink. Do not swap for SendAsync.
+            await atomic.ProcessAsync();
         }
     }
 }

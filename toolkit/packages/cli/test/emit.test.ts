@@ -12,7 +12,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { compile, createRegistry, noopGenerator, CSHARP_STAGE, FLATTEN_MODEL_STAGE, TSP_EMIT_STAGE } from "@azure-client-engine/compiler";
+import { compile, createRegistry, noopGenerator, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK_IR_STAGE, TSP_EMIT_STAGE } from "@azure-client-engine/compiler";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
 // built artifacts under dist — Node cannot execute the .ts worker directly, and
@@ -22,9 +22,17 @@ import { createHostRuntime } from "../dist/src/runtime.js";
 /**
  * Emit-only fulfilment: stub out the catalog's downstream stages so these tests
  * exercise the real out-of-process `tsp-emit` stage and nothing else.
+ *
+ * `create-command` is stubbed rather than disabled — the generate stage `requires`
+ * it, so turning it off is a config error. The no-op generator never validates the
+ * document, so an identity stub is enough here.
  */
 const EMIT_ONLY = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }) },
+  transforms: {
+    [TWEAK_IR_STAGE]: () => ({ name: TWEAK_IR_STAGE, run: (ir) => ir }),
+    [FLATTEN_MODEL_STAGE]: () => ({ name: FLATTEN_MODEL_STAGE, run: (ir) => ir }),
+    [CREATE_COMMAND_STAGE]: () => ({ name: CREATE_COMMAND_STAGE, run: (ir) => ir }),
+  },
   generators: { [CSHARP_STAGE]: () => noopGenerator },
 });
 

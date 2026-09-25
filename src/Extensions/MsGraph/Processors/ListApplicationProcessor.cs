@@ -12,8 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// accepts natively: OData <c>$filter</c>, <c>$select</c>, <c>$orderby</c>, <c>$search</c>, and
     /// the <c>ConsistencyLevel</c> header. Convenience filter shortcuts (<c>DisplayName</c>) live in
     /// <c>Customization/ListApplicationProcessor_Orchestrator</c>. Returns an OData envelope; this
-    /// processor writes its <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is intentionally
-    /// not followed yet.
+    /// processor writes its <c>value</c> array and follows <c>@odata.nextLink</c> to return every page.
     /// </summary>
     public class ListApplicationProcessor : GraphProcessorBase<object, ApplicationList>
     {
