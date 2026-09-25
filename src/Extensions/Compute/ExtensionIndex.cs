@@ -74,16 +74,35 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listVM_PS = new(
-            Name: "ListVMProcessor",
+            Name: "ListVMProcessor_Orchestrator",
             InvocationName: "Get-AzVM_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.ListVMProcessor),
+            ProcessorType: typeof(Processors.ListVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name. Omit to list every virtual machine in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "Return only the virtual machine with this exact name. Wildcards are not supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Status"]            = new("Status", "Status", typeof(bool), "Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["UserData"]          = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listVMByLocation_PS = new(
+            Name: "ListVMProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_ListLocation",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.ListVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Location"]       = new("Location", "Location", typeof(string), "List every virtual machine in this location.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Status"]         = new("Status", "Status", typeof(bool), "Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["UserData"]       = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -289,18 +308,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             }
         );
         private static readonly CommandMetadata s_listVM_CLI = new(
-            Name: "ListVMProcessor",
+            Name: "ListVMProcessor_Orchestrator",
             InvocationName: "vm list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.ListVMProcessor),
+            ProcessorType: typeof(Processors.ListVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Omit to list every virtual machine in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["vmss"]            = new("Vmss", "vmss", typeof(string), "List VM instances in a specific VMSS. Please specify the VMSS id or VMSS name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["show-details"]    = new("ShowDetails", "show-details", typeof(bool), "Show public ip address, FQDN, and power states. Command will run slow.", IsRequired: false, Aliases: ["d"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["d"] = "show-details",
+            }
         );
         private static readonly CommandMetadata s_deleteVM_CLI = new(
             Name: "DeleteVMProcessor",
@@ -467,6 +491,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["Get-AzVM_Get"]                   = s_getVM_PS,
             ["Get-AzVM_Id"]                = s_getVMById_PS,
             ["Get-AzVM_List"]               = s_listVM_PS,
+            ["Get-AzVM_ListLocation"]      = s_listVMByLocation_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
             ["Start-AzVM"]                 = s_startVM_PS,
             ["Stop-AzVM"]                  = s_stopVM_PS,
