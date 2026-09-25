@@ -101,9 +101,13 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         AddBound(parameters, nameof(TemplateSpecId), TemplateSpecId);
         AddBound(parameters, nameof(TemplateObject), TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject));
         AddBound(parameters, nameof(QueryString), QueryString);
-        AddBound(parameters, nameof(TemplateParameterFile), TemplateParameterFile);
-        AddBound(parameters, nameof(TemplateParameterUri), TemplateParameterUri);
-        AddBound(parameters, nameof(TemplateParameterObject), TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject));
+        AddBound(parameters, "ParametersFile", TemplateParameterFile, nameof(TemplateParameterFile));
+        AddBound(parameters, "ParametersUri", TemplateParameterUri, nameof(TemplateParameterUri));
+        AddBound(
+            parameters,
+            "ParametersObject",
+            TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject),
+            nameof(TemplateParameterObject));
         AddBound(parameters, nameof(Parameter), Parameter);
         AddBound(parameters, nameof(ValidationLevel), ValidationLevel);
         AddBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);
@@ -112,7 +116,7 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         AddBound(parameters, nameof(Profile), Profile);
         if (Tag is not null)
         {
-            parameters[nameof(Tag)] = Tag.Cast<DictionaryEntry>()
+            parameters["Tags"] = Tag.Cast<DictionaryEntry>()
                 .ToDictionary(entry => entry.Key.ToString()!, entry => entry.Value?.ToString() ?? string.Empty);
         }
         if (ProceedIfNoChange.IsPresent)
@@ -127,9 +131,13 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         Run("New-AzTenantDeployment", parameters);
     }
 
-    private void AddBound(Dictionary<string, object> parameters, string name, object? value)
+    private void AddBound(
+        Dictionary<string, object> parameters,
+        string name,
+        object? value,
+        string? boundName = null)
     {
-        if (MyInvocation.BoundParameters.ContainsKey(name) && value is not null)
+        if (MyInvocation.BoundParameters.ContainsKey(boundName ?? name) && value is not null)
         {
             parameters[name] = value;
         }

@@ -47,8 +47,7 @@ public class TestTenantDeploymentCmdlet : PSCmdlet
         foreach (string name in new[]
         {
             nameof(Name), nameof(TemplateFile), nameof(TemplateUri), nameof(TemplateSpecId),
-            nameof(QueryString), nameof(TemplateParameterFile), nameof(TemplateParameterUri), nameof(Parameter),
-            nameof(ValidationLevel), nameof(Profile),
+            nameof(QueryString), nameof(Parameter), nameof(ValidationLevel), nameof(Profile),
         })
         {
             if (MyInvocation.BoundParameters.TryGetValue(name, out object? value) && value is not null)
@@ -62,8 +61,16 @@ public class TestTenantDeploymentCmdlet : PSCmdlet
         }
         if (TemplateParameterObject is not null)
         {
-            parameters[nameof(TemplateParameterObject)] =
+            parameters["ParametersObject"] =
                 TenantDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject)!;
+        }
+        if (TemplateParameterFile is not null)
+        {
+            parameters["ParametersFile"] = TemplateParameterFile;
+        }
+        if (TemplateParameterUri is not null)
+        {
+            parameters["ParametersUri"] = TemplateParameterUri;
         }
         TenantDeploymentCmdletHelpers.Run(this, engine, streams, _cts.Token, "Test-AzTenantDeployment", parameters);
     }

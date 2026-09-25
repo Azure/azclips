@@ -87,6 +87,13 @@ public class TenantDeploymentTests
                 .Order()
                 .ToArray());
 
+        CommandMetadata createPs =
+            index.GetCommandMetadata("New-AzTenantDeployment", ClientType.PowerShell);
+        Assert.Equal("ParametersFile", createPs.Parameters["TemplateParameterFile"].Name);
+        Assert.Equal("ParametersUri", createPs.Parameters["TemplateParameterUri"].Name);
+        Assert.Equal("ParametersObject", createPs.Parameters["TemplateParameterObject"].Name);
+        Assert.Equal("Tags", createPs.Parameters["Tag"].Name);
+
         foreach (string command in new[]
         {
             "deployment tenant create",
@@ -159,6 +166,45 @@ public class TenantDeploymentTests
         Assert.Equal("eastus", body.GetProperty("location").GetString());
         Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
         Assert.Equal("Provider", body.GetProperty("properties").GetProperty("validationLevel").GetString());
+    }
+
+    [Theory]
+    [InlineData("RequestContent", "RequestContent")]
+    [InlineData("ResponseContent", "ResponseContent")]
+    [InlineData("All", "RequestContent,ResponseContent")]
+    [InlineData("None", null)]
+    public async Task Create_NormalizesPowerShellDebugLevel(string input, string? expected)
+    {
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return bodies.Count == 1
+                ? Json("""{ "name": "tenant-test" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        {
+            Name = "tenant-test",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+            DeploymentDebugLogLevel = input,
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement properties = JsonDocument.Parse(bodies[1]!).RootElement.GetProperty("properties");
+        if (expected is null)
+        {
+            Assert.False(properties.TryGetProperty("debugSetting", out _));
+        }
+        else
+        {
+            Assert.Equal(
+                expected,
+                properties.GetProperty("debugSetting").GetProperty("detailLevel").GetString());
+        }
     }
 
     [Fact]
