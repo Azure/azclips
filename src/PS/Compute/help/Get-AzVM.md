@@ -13,7 +13,7 @@ title: Get-AzVM
 
 ## SYNOPSIS
 
-Show details for a virtual machine.
+Get a virtual machine or list virtual machines.
 
 ## SYNTAX
 
@@ -352,7 +352,7 @@ You can pipe a virtual machine resource ID to this cmdlet by property name.
 
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
-One `VirtualMachine` object per matching VM — a single result when `-Name` is supplied (Get mode), and an array of results in List mode or when addressing by `-Id` (Id mode). Each includes the ARM resource ID, provisioning state, VM size, and network configuration.
+One `VirtualMachine` object per matching VM. `-ResourceGroupName` with `-Name`, or `-Id`, returns a single VM. The list forms return every match, and `-Name` on its own can match VMs in several resource groups. Each object includes the ARM resource ID, provisioning state, VM size, and network configuration; `-Status` adds the power state, OS name, OS version, hypervisor generation and maintenance status.
 
 ## NOTES
 

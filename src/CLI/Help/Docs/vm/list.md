@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Return a list of virtual machines, including each machine's name, size, location, and provisioning state. Omit `--resource-group` to list every virtual machine in the subscription. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.
+Description: Return a list of virtual machines, including each machine's name, size, location, and provisioning state. Omit `--resource-group` to list every virtual machine in the subscription. `--show-details` runs one extra request per virtual machine, so it is slow, and fetches details for at most 100 virtual machines. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.
 
 ### List all VMs in the subscription
 
@@ -32,8 +32,6 @@ az vm list --vmss /subscriptions/00000000-0000-0000-0000-000000000000/resourceGr
 ```
 
 ### List VMs with public IP addresses, FQDNs and power states
-
-Runs one extra request per virtual machine, so it is slow. Details are fetched for at most 100 virtual machines.
 
 ```bash
 az vm list --resource-group myrg -d
