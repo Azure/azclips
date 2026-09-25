@@ -563,11 +563,22 @@ jobs:
           rm -rf "$extract_root"
           mkdir -p "$extract_root"
           unzip -q "$signed_zip" -d "$extract_root"
-          extracted_count=$(find "$extract_root" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')
-          if [[ "$extracted_count" -ne 1 ]]; then
-            echo "ERROR: Signed ZIP must contain exactly one top-level item: $signed_zip"
+
+          expected_item_name=$(basename "$relative_path")
+          package_sidecar_name="${expected_item_name%.*}.pkg"
+          while IFS= read -r -d '' extracted_item; do
+            extracted_name=$(basename "$extracted_item")
+            if [[ "$extracted_name" == "$expected_item_name" ]]; then
+              continue
+            fi
+            if [[ "$item_type" == bundle && "$extracted_name" == "$package_sidecar_name" && -f "$extracted_item" ]]; then
+              echo "Ignoring ESRP package sidecar after bundle signing: $extracted_name"
+              continue
+            fi
+
+            echo "ERROR: Unexpected top-level item '$extracted_name' in signed ZIP: $signed_zip"
             exit 1
-          fi
+          done < <(find "$extract_root" -mindepth 1 -maxdepth 1 -print0)
 
           case "$item_type" in
             file)
