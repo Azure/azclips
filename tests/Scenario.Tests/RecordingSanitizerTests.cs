@@ -200,6 +200,33 @@ public class RecordingSanitizerTests
         Assert.Contains(expectedFragment, RecordingSanitizers.Default.Apply(input), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("operationresults")]
+    [InlineData("operationstatuses")]
+    public void DefaultSanitizers_ReplaceArmOperationTokensAndSignatures(string operationPath)
+    {
+        string input =
+            $"https://management.azure.com/subscriptions/sub/{operationPath}/eyJvcGVyYXRpb24iOiJkZWxldGUifQ" +
+            "?api-version=2025-04-01&t=123" +
+            "&c=MIIIJjCCBw6gAwIBAgIQQsgxla0MeyJ7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMg" +
+            "&s=Blz4IZVMAkTzpNTUjsP8zQv1uMZtfae9SpLcvcPZG5V84IiPVF7WQjMHjWzZb9loHtpzZz4YATj8AJFpioUjog" +
+            "&h=ioXPznzzuuVJqWfXc5s8ANTF7pMECBSDdFeFtXBbTL4";
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/sub/{operationPath}/sanitized-operation-token" +
+            "?api-version=2025-04-01&t=123&c=[redacted]&s=[redacted]&h=[redacted]",
+            RecordingSanitizers.Default.Apply(input));
+    }
+
+    /// <summary>Short query values keep their meaning; only the long opaque blobs are redacted.</summary>
+    [Theory]
+    [InlineData("https://example.com/api?s=eastus&h=1&c=abc")]
+    [InlineData("https://management.azure.com/x?api-version=2025-07-01&t=639244416561017720")]
+    public void DefaultSanitizers_DoNotRedactShortQueryValues(string uri)
+    {
+        Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
+    }
+
     [Fact]
     public void DefaultSanitizers_DropTheAzureOpenAiKeyHeader()
     {
@@ -217,5 +244,41 @@ public class RecordingSanitizerTests
         Assert.False(request.Headers.ContainsKey("api-key"));
         Assert.True(request.Headers.ContainsKey("Content-Type"));
         Assert.DoesNotContain("contoso-aoai", request.Uri, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// ARM async-operation URLs end in an opaque signed blob. It is random per operation, so it
+    /// intermittently contains a JWT-looking substring and trips the pre-merge secret scan; it also
+    /// adds tens of kilobytes to every recorded poll.
+    /// </summary>
+    [Fact]
+    public void DefaultSanitizers_RedactTheArmOperationSignature()
+    {
+        const string uri =
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network" +
+            "/locations/westus2/operations/2585b29c-a607-4f8d-9592-e36f365072ff?api-version=2025-07-01&t=639244416561017720" +
+            "&c=MIIIJjCCBw6gAwIBAgIQQsgxla0MeyJ7x6wLiaXV8gNzANBgkqhkiG9w0BAQsFADA2MTQwMg" +
+            "&s=Blz4IZVMAkTzpNTUjsP8zQv1uMZtfae9SpLcvcPZG5V84IiPVF7WQjMHjWzZb9loHtpzZz4YATj8AJFpioUjog" +
+            "&h=ioXPznzzuuVJqWfXc5s8ANTF7pMECBSDdFeFtXBbTL4";
+
+        var sanitized = RecordingSanitizers.Default.Apply(uri);
+
+        Assert.Equal(
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network" +
+            "/locations/westus2/operations/2585b29c-a607-4f8d-9592-e36f365072ff?api-version=2025-07-01&t=639244416561017720" +
+            "&c=[redacted]&s=[redacted]&h=[redacted]",
+            sanitized);
+
+        // Idempotent, because playback sanitises the recorded side as well as the outgoing request.
+        Assert.Equal(sanitized, RecordingSanitizers.Default.Apply(sanitized));
+    }
+
+    /// <summary>Short query values keep their meaning; only the long opaque blobs are redacted.</summary>
+    [Theory]
+    [InlineData("https://example.com/api?s=eastus&h=1&c=abc")]
+    [InlineData("https://management.azure.com/x?api-version=2025-07-01&t=639244416561017720")]
+    public void DefaultSanitizers_LeaveShortQueryValuesAlone(string uri)
+    {
+        Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
     }
 }

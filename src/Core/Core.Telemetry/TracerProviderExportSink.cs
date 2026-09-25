@@ -14,14 +14,19 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     private const int FlushTimeoutMilliseconds = 10_000;
 
     private readonly IReadOnlyList<TelemetryTarget> _targets;
+    private readonly Action<TracerProviderBuilder, TelemetryTarget, string?> _configureExporter;
 
-    internal TracerProviderExportSink(IReadOnlyList<TelemetryTarget> targets)
+    internal TracerProviderExportSink(
+        IReadOnlyList<TelemetryTarget> targets,
+        Action<TracerProviderBuilder, TelemetryTarget, string?>? configureExporter = null)
     {
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0)
             throw new ArgumentException("At least one target is required.", nameof(targets));
 
         _targets = targets;
+        _configureExporter = configureExporter ??
+            ((builder, target, boundary) => TelemetryExporters.AddTraceExporters(builder, [target], boundary));
     }
 
     /// <summary>
@@ -31,8 +36,12 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     internal static TelemetryTarget SelectAuthoritative(IReadOnlyList<TelemetryTarget> targets) =>
         targets.Contains(TelemetryTarget.Remote) ? TelemetryTarget.Remote : TelemetryTarget.Local;
 
-    public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries) =>
-        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries));
+    public bool TryExport(
+        string serviceName,
+        IReadOnlyList<TraceEntry> entries,
+        string? dataBoundary = null,
+        TraceReplayProfile profile = TraceReplayProfile.Legacy) =>
+        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries, dataBoundary, profile));
 
     /// <summary>
     /// Attempts every target and returns the authoritative target's verdict.
@@ -54,21 +63,23 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         return delivered;
     }
 
-    private static bool ExportTo(
+    private bool ExportTo(
         TelemetryTarget target,
         string serviceName,
-        IReadOnlyList<TraceEntry> entries)
+        IReadOnlyList<TraceEntry> entries,
+        string? dataBoundary,
+        TraceReplayProfile profile)
     {
         using var source = new ActivitySource(serviceName);
 
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
-        TelemetryExporters.AddTraceExporters(builder, [target]);
+        _configureExporter(builder, target, dataBoundary);
 
         using var provider = builder.Build()!;
 
-        TraceReplayer.ReplayEntries(source, entries);
+        TraceReplayer.ReplayEntries(source, entries, profile);
 
         return provider.ForceFlush(FlushTimeoutMilliseconds);
     }

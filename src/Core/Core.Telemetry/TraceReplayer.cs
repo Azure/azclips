@@ -10,8 +10,7 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Replays trace entries through an <see cref="ActivitySource"/>, preserving the original
-/// TraceId and source-recorded hierarchy tags. Exporter parent IDs can only be remapped
-/// within a batch; they are not the identity of a source-recorded span.
+/// TraceId and native parent relationships within the replay batch.
 /// </summary>
 internal static class TraceReplayer
 {
@@ -19,7 +18,10 @@ internal static class TraceReplayer
     /// Replays entries parent-before-child, remapping each child's parent context to the
     /// SpanId its parent was assigned during replay.
     /// </summary>
-    internal static void ReplayEntries(ActivitySource source, IEnumerable<TraceEntry> entries)
+    internal static void ReplayEntries(
+        ActivitySource source,
+        IEnumerable<TraceEntry> entries,
+        TraceReplayProfile profile = TraceReplayProfile.Legacy)
     {
         var entriesList = entries.ToList();
         if (entriesList.Count == 0)
@@ -30,9 +32,30 @@ internal static class TraceReplayer
         // Span identity is scoped by TraceId, even when a batch contains several traces.
         var spanIdMap = new Dictionary<SpanKey, ActivitySpanId>();
 
-        foreach (var entry in ordered)
+        var executionContext = ExecutionContext.Capture();
+        if (executionContext is not null)
         {
-            ReplayTrace(source, entry, spanIdMap);
+            ExecutionContext.Run(executionContext, _ => ReplayIsolated(), null);
+        }
+        else
+        {
+            var previous = Activity.Current;
+            try
+            {
+                ReplayIsolated();
+            }
+            finally
+            {
+                Activity.Current = previous;
+            }
+        }
+
+        void ReplayIsolated()
+        {
+            // A zero parent span otherwise borrows Activity.Current even with an explicit TraceId.
+            Activity.Current = null;
+            foreach (var entry in ordered)
+                ReplayTrace(source, entry, spanIdMap, profile);
         }
     }
 
@@ -123,21 +146,29 @@ internal static class TraceReplayer
     /// Reconstructs one Activity from an entry and records its new SpanId in
     /// <paramref name="spanIdMap"/> for its descendants.
     /// </summary>
-    private static void ReplayTrace(ActivitySource source, TraceEntry entry, Dictionary<SpanKey, ActivitySpanId> spanIdMap)
+    private static void ReplayTrace(
+        ActivitySource source,
+        TraceEntry entry,
+        Dictionary<SpanKey, ActivitySpanId> spanIdMap,
+        TraceReplayProfile profile)
     {
         if (string.IsNullOrEmpty(entry.TraceId))
             return;
 
         var kind = Enum.TryParse<ActivityKind>(entry.Kind, out var k) ? k : ActivityKind.Internal;
 
-        // Use the parent's new SpanId when the parent was replayed in this batch; otherwise a random one,
-        // since an all-zero SpanId is invalid and would lose the TraceId.
         ActivitySpanId parentSpanId;
-        if (!string.IsNullOrEmpty(entry.ParentSpanId)
-            && entry.ParentSpanId != "0000000000000000"
-            && spanIdMap.TryGetValue((entry.TraceId, entry.ParentSpanId), out var remapped))
+        if (string.IsNullOrEmpty(entry.ParentSpanId) || entry.ParentSpanId == "0000000000000000")
+        {
+            parentSpanId = default;
+        }
+        else if (spanIdMap.TryGetValue((entry.TraceId, entry.ParentSpanId), out var remapped))
         {
             parentSpanId = remapped;
+        }
+        else if (profile == TraceReplayProfile.ManagedLayer)
+        {
+            parentSpanId = ActivitySpanId.CreateFromString(entry.ParentSpanId.AsSpan());
         }
         else
         {
@@ -171,7 +202,6 @@ internal static class TraceReplayer
         if (!string.IsNullOrEmpty(entry.SpanId))
             spanIdMap[(entry.TraceId, entry.SpanId)] = activity.SpanId;
 
-        // Restore source tags verbatim, never deriving hierarchy from replay IDs or time.
         if (entry.Tags.ValueKind == JsonValueKind.Array)
         {
             foreach (var tag in entry.Tags.EnumerateArray())
@@ -182,7 +212,9 @@ internal static class TraceReplayer
                     var key = keyEl.GetString();
                     if (key != null)
                     {
-                        activity.SetTag(key, RestoreTagValue(valueEl));
+                        activity.SetTag(key, profile == TraceReplayProfile.ManagedLayer
+                            ? RestoreTagValue(valueEl)
+                            : valueEl.ValueKind == JsonValueKind.String ? valueEl.GetString() : valueEl.ToString());
                     }
                 }
             }
@@ -240,4 +272,3 @@ internal static class TraceReplayer
         _ => value.ToString(),
     };
 }
-

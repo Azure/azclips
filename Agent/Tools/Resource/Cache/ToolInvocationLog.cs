@@ -17,9 +17,10 @@ public static class ToolInvocationLog
 {
     private static readonly ConcurrentQueue<ToolInvocation> _entries = new();
 
-    public static Scope Start(string toolName, string? args = null)
+    public static Scope Start(
+        string toolName, string? args = null, Func<string, IDisposable?>? activityCreator = null)
     {
-        return new Scope(toolName, args);
+        return new Scope(toolName, args, activityCreator);
     }
 
     public static IReadOnlyList<ToolInvocation> DrainAndReset()
@@ -46,16 +47,16 @@ public static class ToolInvocationLog
         private readonly string _name;
         private readonly string? _args;
         private readonly Stopwatch _sw;
-        private readonly Activity? _activity;
+        private readonly IDisposable? _activity;
         private string? _result;
         private int _disposed;
 
-        public Scope(string name, string? args)
+        public Scope(string name, string? args, Func<string, IDisposable?>? activityCreator = null)
         {
             _name = name;
             _args = args;
             _sw = Stopwatch.StartNew();
-            _activity = AgentTracing.StartActivity($"tool.{name}");
+            _activity = activityCreator?.Invoke($"tool.{name}");
         }
 
         public void SetResult(string result) => _result = result;

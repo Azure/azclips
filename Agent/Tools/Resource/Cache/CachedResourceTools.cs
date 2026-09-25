@@ -24,11 +24,15 @@ public sealed class CachedResourceTools
 
     private readonly ArmDetailsClient _armDetails;
     private readonly IProfileService _profileService;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public CachedResourceTools(ArmDetailsClient armDetails, IProfileService profileService)
+    public CachedResourceTools(
+        ArmDetailsClient armDetails, IProfileService profileService,
+        Func<string, IDisposable?>? activityCreator = null)
     {
         _armDetails = armDetails;
         _profileService = profileService;
+        _activityCreator = activityCreator;
 
         FindResources = AIFunctionFactory.Create(FindResourcesAsync, new AIFunctionFactoryOptions
         {
@@ -119,7 +123,7 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("find_resources",
-            $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}");
+            $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}", _activityCreator);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -181,7 +185,7 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_resource_tree",
-            $"id={nameOrId} kind={kind} depth={maxDepth}");
+            $"id={nameOrId} kind={kind} depth={maxDepth}", _activityCreator);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -245,7 +249,7 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_resource_details",
-            $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}");
+            $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}", _activityCreator);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 

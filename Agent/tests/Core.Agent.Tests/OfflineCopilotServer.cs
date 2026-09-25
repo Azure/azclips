@@ -45,6 +45,8 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     internal ToolCall[] Calls { get; init; } = [];
     internal List<JsonElement> ToolResults { get; } = [];
     internal bool RejectNextSend { get; set; }
+    internal bool RejectCreate { get; init; }
+    internal int CreateCount { get; private set; }
     internal int SendCount { get; private set; }
     internal Task FirstToolHandled => _firstToolHandled.Task;
 
@@ -118,6 +120,16 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
                         result = new { ok = true, protocolVersion = 3, version = "offline-test" };
                         break;
                     case "session.create":
+                        CreateCount++;
+                        if (RejectCreate)
+                        {
+                            await WriteAsync(stream, new
+                            {
+                                jsonrpc = "2.0", id,
+                                error = new { code = -32603, message = "offline create failure" },
+                            });
+                            continue;
+                        }
                         if (request.TryGetProperty("params", out var createParams)
                             && createParams.TryGetProperty("sessionId", out var created)
                             && created.GetString() is { Length: > 0 } sessionId)

@@ -36,6 +36,42 @@ internal sealed class TraceFileStore
 
     private static string ClaimedFilePattern => FilePrefix + "*" + ClaimedExtension;
 
+    internal static bool IsLayerFile(string path) =>
+        Path.GetFileNameWithoutExtension(path) is { } name &&
+        name.StartsWith(FilePrefix, StringComparison.Ordinal) &&
+        name.AsSpan(FilePrefix.Length).Contains('-');
+
+    internal static bool TryGetLayerToken(string path, out string token)
+    {
+        token = string.Empty;
+        var name = Path.GetFileNameWithoutExtension(path);
+        if (!name.StartsWith(FilePrefix, StringComparison.Ordinal))
+            return false;
+
+        var separator = name.LastIndexOf('-');
+        if (separator < FilePrefix.Length + 1 ||
+            !Guid.TryParseExact(name.AsSpan(separator + 1), "N", out _))
+            return false;
+
+        token = name[FilePrefix.Length..separator];
+        return token.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character));
+    }
+
+    internal void Reject(string claimedFile, string reason)
+    {
+        try
+        {
+            var rejected = Path.ChangeExtension(claimedFile, ".rejected");
+            File.Move(claimedFile, rejected);
+            File.WriteAllText(rejected + ".diagnostic.json",
+                System.Text.Json.JsonSerializer.Serialize(new { reason, rejectedAt = DateTimeOffset.UtcNow }));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Cannot preserve rejected telemetry file diagnostics: {ex.GetType().Name}.");
+        }
+    }
+
     /// <summary>
     /// Reclaims abandoned claims, then takes ownership of pending files by renaming them.
     /// Returns only the files this caller won.

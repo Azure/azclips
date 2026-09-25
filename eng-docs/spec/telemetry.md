@@ -85,112 +85,227 @@ public async Task Foo()
 
 ### AI Error-Recovery Tags
 
-AI error recovery runs as a blocking subprocess, so it is recorded as its own trace
-rather than inside the command's root span (Azure/CLIPS#602). The command trace ends when
-the command fails; a second root covers the agent. Its canonical hierarchy path is
-`Agent`; `CLI.Activity.AiRecovery` remains its legacy `OperationName` for compatible
-queries. The agent's own spans nest under it via a W3C traceparent and source-recorded
-hierarchy handoff passed on the child environment block.
+AI error recovery runs as a blocking subprocess. The command root ends before recovery,
+so waiting for AI does not extend command execution time. Recovery records belong to
+`service.name=Agent`, including the invocation and disabled-skip records emitted by the
+CLI process. The CLI's normal provider does not listen to the Agent source.
+
+`CLI.Activity.AiRecovery` is the caller's independent invocation root. `Agent.Session`
+is a different root owned by the Agent process. They share
+`properties.recovery.invocationId`, not a native parent edge. The retained event-name
+prefix does not determine the telemetry role.
+
+With `agent.enabled=false`, failed-command fallback instead emits a separate
+`CLI.Activity.AiRecoverySkipped` root with `InstallationId` and the same optional,
+safe command name and command trace/span links. It is not an executed recovery or
+proof of explicit opt-out (default-off is included). Other fallback guards are
+unchanged, and telemetry-disabled operation emits no skip span.
 
 | Tag                                | Legacy OperationName        | Description                                     |
 |------------------------------------|-----------------------------|-------------------------------------------------|
 | `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
 | `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
-| `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
-| `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
+| `properties.recovery.invocationId` | Agent layer                 | Correlates records from one invocation across independent traces |
+| `schema`                           | Agent layer                 | Layer contract, currently `agent-v1`; distinct from common `schemaVersion` |
+| `service.name`                     | Agent layer                 | `Agent`; also persisted in the Resource used by the uploader |
+| `dataBoundary`                     | Agent layer                 | The command's effective existing EU/Global route, on every record |
+| `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
+| `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
+| `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, `error`, or `unknown` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
+| `properties.recovery.failureReason` | `Agent.Session`             | Why it errored, from the closed list below. Classification only, never the message |
+| `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
 | `properties.recovery.reprompts`   | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
-| `properties.agent.model`           | `Agent.Send`                | Model name                                      |
+| `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
+| `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+| `properties.recovery.dataBoundary` | `Agent.Session`, `Agent.DataBoundary` | The caller tenant's ARM data boundary, or why there is none — vocabulary below |
+| `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
+| `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
+
+`recovery.dataBoundary` is one field, not a boundary plus a separate reason. Every startup path
+records exactly one value, so it can never be half-written: either ARM's answer, or why there is
+none. Nothing branches on it yet — recording it is what this instrumentation is for. It is written
+once on `Agent.Session` by the startup path, and again on `Agent.DataBoundary` by the lookup itself
+whenever one ran.
+
+This Agent probe is diagnostic only. Its `properties.recovery.dataBoundary` value is
+separate from the command's `dataBoundary` and the shared telemetry routing resolver;
+it does not select the model endpoint or an export destination.
+
+ARM's answer passes through, lowercased: `eu`, `global`, or any value ARM adds later. It is the only
+untrusted string in this dimension, so it is the only one sanitised — it must match
+`^[a-z0-9_-]{1,32}$` or it is recorded as `unexpected_value`. That is a check on shape, not on
+recognition: an unfamiliar but well-shaped value is reported as itself, because discovering one is
+the point of the probe. Every other value is closed by the compiler — the emitting code takes a
+`DataBoundaryUnavailable` enum, so arbitrary error details cannot be written here. The one
+exception is `arm_status_<code>`, where the suffix is an HTTP status code.
+
+**None of the no-answer values is a boundary**, and none of them may be read as `global`.
+
+| Value | Meaning |
+| ----- | ------- |
+| `eu`, `global`, or another lowercase token | ARM's answer for the caller's tenant |
+| `skipped_github` | Provider is `github`; it never calls ARM, so no lookup was attempted |
+| `skipped_unsupported_provider` | Provider is neither `builtin` nor `github`. The boundary is recorded before startup rejects the value, so this is a misconfiguration, not a session that ran |
+| `no_tenant` | Nothing to ask ARM about: signed out, or the profile names no tenant |
+| `profile_unavailable` | The profile could not be read at all — a storage or permissions problem, not a signed-out user |
+| `timeout_profile` | The profile read exceeded the lookup budget |
+| `no_token` / `timeout_token` | Token acquisition ran and failed, or exceeded its budget |
+| `arm_status_<code>` | ARM answered with a non-success status, e.g. `arm_status_429` |
+| `timeout_arm` / `arm_failed` | The ARM call exceeded the lookup budget, or failed at the transport |
+| `unreadable` | ARM answered with success but no usable boundary: empty, malformed, or absent |
+| `tenant_mismatch` | ARM echoed a different tenant than the one asked about |
+| `tenant_unconfirmed` | ARM echoed no tenant at all, so the answer proves nothing about whose boundary it is. Distinct from `tenant_mismatch`, which is ARM answering about someone else |
+| `cancelled` | The caller's cancellation token was signalled — Ctrl+C during startup |
+| `unexpected_value` | ARM's value failed the shape check above |
+| `lookup_faulted` | The lookup threw despite contracting never to — our bug, not ARM's. The token was acquired and recovery continues; only the boundary is lost |
+| `not_started` | Unreachable by design: the startup seam never throws, so an outcome is always classified. Seeing this means that contract broke |
+
+`modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
+mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being
+documented here. `agent.model` is bounded before export — 1–128 characters of
+`A-Z a-z 0-9 . _ : -` — because the value arrives from the remote runtime; a name outside
+those bounds is recorded as `unavailable` rather than exported.
+
+For `builtin`, the effective `agent.builtin.modelId` comes from configuration,
+falling back to the `AgentOptions` default when the key is absent. It is recorded
+on the recovery root before launching the child, and on `Agent.Session` and
+`Agent.Create` before startup work. Authentication failure or cancellation before
+the first send therefore need not lose a known configured model.
+
+For `github`, the SDK still chooses the model. Session start/resume/model-change
+events track its selection. If no selection event has arrived, startup performs
+one read-only `session.model.getCurrent` query with a five-second deadline.
+If no valid selection is available, any query failure — including failures outside the
+experimental RPC's documented contract — malformed/empty results, or timeout use the
+existing warning channel and leave an unavailable model; they do not prevent recovery.
+Caller cancellation still propagates. Delayed startup
+events cannot overwrite a queried selection, while an explicit model-change
+event wins over an in-flight query reply. No builtin default is substituted for
+a GitHub model.
+
+Some runtimes select their default model lazily: both `session.start` and
+`getCurrent` can legitimately have no model until the first send triggers
+`session.model_change`. Selecting the GitHub provider alone does not identify a
+model in that case. Keep startup metadata unavailable rather than guessing from
+the available-model list or issuing an extra LLM request to force selection.
+
+Each GitHub `Agent.Send` records the last non-empty main-agent model reported by
+`assistant.usage` before that send ends, or the SDK selection if no usage arrived.
+Main-agent usage accepts an absent/empty initiator or the runtime's explicit
+`initiator=user`; an event with `agentId` still belongs to a sub-agent and is ignored.
+Other auxiliary usage is ignored, and usage observations are not cached as the
+selection for the next send. Collection is gated by the serialized main-agent
+turn-start/turn-end events, so usage arriving before the next turn or after its
+end does not overwrite its model. Missing SDK event data is ignored safely.
+`Agent.Create` and the session retain available startup
+metadata even when there is no send. `modelSource` distinguishes a configured or
+selected model from a model observed in usage; none proves that an absent send ran.
+
+Dashboards should prefer named `Agent.Send` models, falling back to `Agent.Session`,
+then `Agent.Create`, then the recovery root only when higher-priority metadata is
+missing. Do not infer historical models from today's configuration. Telemetry
+opt-out, termination before spans stop, and storage/upload failures can still
+prevent delivery; model metadata does not override those boundaries.
+`Agent.Session` records `ok` / `cancelled` / `error` before it stops and before provider
+disposal, with statuses `Ok` / `Unset` / `Error`. Cancellation still returns 130;
+CLI-side cancellation counts from `properties.recovery.exitCode` were already available.
+The value is written once, in a `finally`, so every exit records one. `unknown` is the
+pessimistic starting value and is not reachable from any exit path today — seeing it in
+the data means an exit was added that classifies nothing.
+
+#### `properties.recovery.failureReason` values
+
+A closed list (`RecoveryFailure` in `Agent/Telemetry/RecoveryOutcome.cs`). The tag is
+absent unless `properties.recovery.outcome` is `error`.
+
+| Value            | Meaning                                                             |
+|------------------|---------------------------------------------------------------------|
+| `rate_limit`     | SDK error type, on the observed-values allowlist                    |
+| `authentication` | SDK error type, on the observed-values allowlist                    |
+| `sdk_other`      | The SDK reported an error type that is not on the allowlist         |
+| `host_fault`     | The failure was ours rather than the model provider's               |
+| `unknown`        | The SDK reported a terminal failure carrying no error type          |
+
+The SDK's error-type set is not enumerable — it is a required string passed through from
+the service with no constants behind it — so the first three are simply the values this
+repository has observed. **`sdk_other` is expected to be common, and that is the point:**
+it measures how much of a vocabulary we do not control we have not yet seen, not how rare
+errors are. Promote a value out of `sdk_other` by adding a member when the data shows it
+is worth separating. A host failure exports `host_fault` and nothing finer: the runtime
+class of the failure is unbounded, an implementation detail, and tells an operator nothing
+that `host_fault` plus the printed error does not.
+
+`error` on a session the user watched succeed is possible in one narrow case. The SDK
+delivers events on its own thread, which is not synchronised with the host's turn
+boundaries, so a session error queued during turn N-1 can arrive after turn N cleared it
+and be attributed to the wrong turn. The host reads and writes that state through
+`Volatile`, which guarantees it observes the write at all; it cannot fix the attribution,
+because the SDK's error payload carries no turn identifier to correlate against.
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:
 
 ```kusto
 requests
+| where cloud_RoleName == "Agent"
 | where name == "CLI.Activity.AiRecovery"
 | where customDimensions["properties.command.traceId"] == "<command operation_Id>"
 ```
 
-The agent's `ActivitySource` is named `CLI`, matching the CLI's. `FileExporter` derives
-`service.name` from `ActivitySource.Name`. `TraceUploader` groups by this name and can
-remap exporter parent IDs only within the current upload batch. The source-recorded
-identity below, not the Azure exporter's generated span ID, is the durable tree contract.
+The Agent source is named `Agent`. Each layer owns its provider, processors, and file;
+the source name and Resource service name must agree. Role is determined at upload from
+the Resource, not merely from a span tag. New layer files are validated as homogeneous
+before they are replayed.
 
-### Source-Recorded Hierarchy (version 1)
+### Native hierarchy and invocation correlation
 
-The five vetted properties are recorded when an activity starts, before child work:
-
-| Tag | Type | Meaning |
-|-----|------|---------|
-| `properties.hierarchy.version` | integer | `1` only when this source's complete lineage is known |
-| `properties.hierarchy.spanId` | string | Original W3C `Activity.SpanId`, stable across buffering and replay |
-| `properties.hierarchy.parentSpanId` | string | Original parent span ID; empty string for a root, not an all-zero ID |
-| `properties.hierarchy.depth` | integer | Recorded depth, with root `0` |
-| `properties.hierarchy.path` | string | Canonical dot-separated full path; recovery trees have a single leading `Agent` namespace |
-
-Identity is scoped by `TraceId` (`operation_Id` in Application Insights). Consumers join
-`(operation_Id, properties.hierarchy.parentSpanId)` to
-`(operation_Id, properties.hierarchy.spanId)` and use the recorded depth/path as the
-primary hierarchy display, not the legacy operation names.
-Repeated or concurrent calls may have identical names and paths, but have distinct span
-IDs. Legacy `OperationName` values stay unchanged for compatible queries, metrics and
-allowlists. Paths never use `DisplayName`, prompts, tool arguments, error text, or model
-responses.
-
-An ordinary recovery path is:
+Within an Agent trace, consumers join `(operation_Id, operation_ParentId)` to
+`(operation_Id, id)`. Repeated names are separate calls with separate IDs. Do not use
+time containment, name prefixes, or a parallel hierarchy-property graph to infer edges.
+The new Agent dashboard starts with `cloud_RoleName == "Agent"` and does not read
+historical Agent records under the CLI role.
 
 ```text
-Agent                                                   depth 0
-  Agent.Session                                         depth 1
-    Agent.Session.Create                                depth 2
-      Agent.Session.Create.Tool.get_command              depth 3 (initialization)
-    Agent.Session.Turn                                   depth 2
-      Agent.Session.Turn.Send                            depth 3
-        Agent.Session.Turn.Send.Tool.get_command          depth 4 (execution)
-      Agent.Session.Turn.Reprompt                        depth 3
-        Agent.Session.Turn.Reprompt.Send                 depth 4
-          Agent.Session.Turn.Reprompt.Send.Tool.propose_plan  depth 5
+CLI.Activity.AiRecovery       independent Agent-role invocation trace
+           correlated by invocationId, not parented
+Agent.Session                independent Agent-role internal trace
+  Agent.Create
+    tool.get_command
+  Agent.Turn
+    Agent.Send
+      tool.get_command
+    Agent.Reprompt
+      Agent.Send
 ```
 
-The shared producer maps the legacy recovery root to `Agent`, appends `Session`,
-`Create`, `Turn`, `Send`, or `Reprompt` for the corresponding agent child operations,
-and appends `Tool.<operation>` for a legacy `tool.<operation>` span. Generic instrumented
-children append their stable code operation name to the known parent path, for example
-`Agent.Session.Turn.Send.Tool.get_command.MsalAuthService.AcquireTokenSilentlyAsync`.
+All application-owned activity creation goes through
+[`TelemetryService`](../../src/Core/Core.Telemetry/TelemetryService.cs).
+Its existing APIs retain ambient CLI/PS behavior; explicit-parent and independent-root
+APIs make the new boundary intentional. An Agent Session becomes current in its scope;
+a direct CLI tool's independent timing root restores the CLI ambient immediately.
+The two new APIs return an owned `TelemetryActivityScope`; use its `Activity` for tags
+and correlation and dispose the handle in the caller's flow. Root creation isolates
+ambient state through sampling and Start, not only while allocating the activity. The
+handle restores the caller after Stop, including when completion already stopped the
+underlying activity. This is required for ordinary parent-based samplers, not just an
+AlwaysOn-only test listener.
+The retained CLI graph is the original graph with migrated Agent nodes removed and
+their retained descendants attached to the nearest retained ancestor.
 
-**Depth counts actual parent-span edges, never dots.** `Tool.get_command` is one span,
-not a `Tool` span plus a `get_command` span; the dotted generic code name above also adds
-only one edge. No missing Session or Turn span is invented: a send directly under a
-standalone session has path `Agent.Session.Send` and depth `1`. Repeated turns/tools
-reuse canonical paths but retain unique source span IDs and their actual parent IDs.
-Non-agent traces retain their own code-named roots rather than becoming recovery traces.
+Only one live provider may own a layer source. Sequential tool/recovery scopes
+first use the previous scope's bounded completion to wait for provider disposal.
+If release is still unconfirmed, the factory immediately returns a diagnosed
+non-recording scope rather than stacking another wait or attaching a second
+listener. Direct concurrent contention is also refused immediately. This failure
+does not become user opt-out or change the child Agent's actual telemetry consent.
 
-#### Producer and process handoff
-
-[`TelemetryHierarchy.StartActivity/Record`](../../src/Core/Core.Abstractions/TelemetryHierarchy.cs)
-are the shared producer helpers. They store immutable in-process parent metadata and
-stamp the actual activity's identity; they do not reconstruct ancestors from exported
-tags. [`TelemetryService.StartActivity`](../../src/Core/Core.Telemetry/TelemetryService.cs)
-and [`AgentTracing.StartActivity`](../../Agent/Tools/AgentTracing.cs) use them.
-[`SourceHierarchyProcessor.OnStart`](../../src/Core/Core.Telemetry/SourceHierarchyProcessor.cs)
-also includes nested instrumentation whose operation names pass the product allowlist.
-An unknown ancestor is not skipped or silently replaced.
-
-[`Program.BuildAgentStartInfo`](../../src/CLI/Program.cs) passes
-`AZCLIPS_RECOVERY_TRACEPARENT` plus `AZCLIPS_RECOVERY_HIERARCHY`. The latter is a bounded
-JSON handoff containing `Version`, `TraceId`, `SpanId`, `Depth`, and `Path` from the recorded
-recovery root (`Depth = 0`, `Path = "Agent"`). Both inherited environment values are
-removed before setting this invocation's values, including when telemetry is disabled.
-[`RecoveryTraceContext.StartSession`](../../Agent/Telemetry/RecoveryTraceContext.cs)
-validates the version, root depth/path, and matching W3C identity together:
-
-- A valid handoff makes `Agent.Session` a recorded child of the recovery root.
-- A legacy traceparent without valid hierarchy metadata retains W3C correlation, but
-  neither the session nor its descendants is labelled version 1.
-- Missing/invalid traceparent starts an independent `Agent.Session` root at depth `0`. No recovery
-  parent or ambient caller is invented. Invalid supplied values produce a diagnostic
-  without echoing the handoff contents.
+[`TelemetryLayerEnvironment`](../../src/Core/Core.Abstractions/TelemetryLayerEnvironment.cs)
+passes a validated file ID, invocation/command metadata, routing snapshot, and explicit
+telemetry consent. Old traceparent/hierarchy environment values are removed. The Agent
+never consumes them as a parent. Ordinary CLI invocations ignore inherited Agent file IDs.
+The caller's recovery and the Agent each use a different file.
 
 #### Callback concurrency and lifetime
 
@@ -212,22 +327,56 @@ Cancellation leases are disposed in `finally`, and tools receive the send cancel
 snapshot lets in-flight nested work retain its original parent and cancellation token
 even if a later send starts. Idle callbacks use the live session, never a
 completed Create. Disposal rejects new operations and clears the holder after SDK cleanup.
-The existing telemetry opt-out remains in effect; no listener is created by these helpers.
+The real callback execution, including hooks without an Activity yet, is registered
+until its Task and finally have actually completed. Stopping the operation does not
+prove that its callbacks have stopped. All creation APIs observe the live telemetry
+opt-out and the launch consent.
 
 #### Buffering, replay, and boundaries
 
-[`FileExporter.Export`](../../src/Core/Core.Telemetry/FileExporter.cs) already buffers all
-source tags. [`TraceReplayer.ReplayEntries`](../../src/Core/Core.Telemetry/TraceReplayer.cs)
-restores them, including numeric version/depth values, without rewriting them with replay
-IDs. Replayed `OperationName` and `DisplayName` remain separate. Exporter ID remapping is
-scoped by trace and batch, but a child uploaded before its parent still retains its exact
-source parent ID, depth, and path for a later join.
+New layer files remain `traces-{layer}-{guid}.partial` until their owner confirms
+recording and file finalization. The caller-supplied child GUID does not authorize the
+caller to rename the child's file. Success, handled failure, and cancellation all take
+the same completion path; exit code zero is not a publication condition.
 
-Missing parents remain explicitly missing until their records arrive. Consumers must not
-infer edges from timestamps, durations, upload order, or matching names. Legacy buffers
-are not upgraded or assigned fabricated version-1 paths. This contract covers instrumented
-managed work and the explicit CLI-to-agent handoff; it does not synthesize spans for
-uninstrumented SDK/native-daemon internals or subprocesses without a hierarchy handoff.
+For these layers, Activity.Stop captures an immutable record and queues it without
+waiting for disk IO. One instrumentation-suppressed writer drains accepted records
+in order without inheriting the caller's ambient context. Admission is not
+persistence: completion waits for actual writes, handle closure and writer idle
+before sealing or disposing the provider. Pending-record memory grows with the
+queued records; the shutdown budgets are not a memory cap. Legacy senders keep
+their existing behavior.
+
+The layer scope uses a shared 10-second producer drain budget and a 2-second file
+completion budget. Timer setup and re-arming consume the same original deadline;
+observed activation skew above 1 ms shortens the timer again. The 1 ms scheduling
+tolerance avoids busy-rearming for ordinary call overhead, not a hard-real-time
+guarantee against OS pauses. Normal SDK teardown, create-failure cleanup, callbacks, and Agent-owned
+cache refreshes are covered without stacking hidden disposal waits. A deadline fences
+late writes and can produce explicit abandoned records from immutable identities;
+it does not pretend the underlying work completed. Unconfirmed IO or disposal returns
+`NotPublished`, retains the partial, and never changes the command result. Local append
+or rename retries are bounded; unrecovered storage failure is not reported as delivery.
+An already accepted OS rename cannot be cancelled. If its result is not yet known at
+the deadline, `PublicationUnconfirmed` distinguishes that state from a file that was
+definitely not submitted; no new retry or publication is scheduled after abort.
+
+[`TraceReplayer`](../../src/Core/Core.Telemetry/TraceReplayer.cs) orders parents first and
+maps IDs by `(TraceId, SpanId)`. True roots preserve TraceId with an empty parent, isolated
+from unrelated ambient activities. Validated new layers preserve missing nonzero parent
+IDs and restore primitive tag types; legacy buffers retain their previous missing-parent
+and tag-coercion behavior. OperationName and DisplayName remain separate.
+
+Every layer record carries the command's effective existing EU/Global routing result.
+Unknown routing keeps the existing Global fallback and does not suppress failure
+telemetry. Standalone startup reads the existing cache without adding an authentication
+round trip. The diagnostic startup boundary remains separate from telemetry routing.
+This does not change the fixed Azure Monitor destination or assert product-wide residency
+compliance.
+
+The uploader preserves deterministically invalid new-layer files as `.rejected` with a
+local reason record, rather than cycling them through the pending queue. There is no
+partial-file GC, PID/heartbeat protocol, or durable exactly-once mechanism.
 
 
 ### HTTP Tags (Auto-instrumented)
@@ -244,7 +393,7 @@ uninstrumented SDK/native-daemon internals or subprocesses without a hierarchy h
 
 | Tag | Description |
 |-----|-------------|
-| `service.name` | Service name (`AzureCLI`) |
+| `service.name` | Owning telemetry layer (`CLI`, `PowerShell`, `TUI`, `Agent`) |
 
 ### Events (within Span)
 
@@ -258,7 +407,7 @@ uninstrumented SDK/native-daemon internals or subprocesses without a hierarchy h
 
 | Exporter | Configuration | Enabled |
 |----------|---------------|---------|
-| **File** | `%LOCALAPPDATA%\AzureCLI\traces\` | Always (CLI and TUI) |
+| **File** | `HomePaths.GetDefaultTraceDirectory()` | CLI/TUI and opted-in layers |
 | **Azure Monitor** | App Insights connection string | Unless user disabled |
 | **OTLP (local)** | `http://localhost:4317`, port via `AZCLIPS_OTLP_PORT` | Debug builds only |
 
@@ -269,18 +418,22 @@ exports to Azure Monitor only. See [`wiki/02-deep-dive/telemetry.md#export-targe
 
 Traces are saved to:
 ```
-%LOCALAPPDATA%\AzureCLI\traces\traces-{traceId}.log
+%LOCALAPPDATA%\.azclips\traces\traces-{traceId}.log
+%LOCALAPPDATA%\.azclips\traces\traces-agent-{guid}.partial
 ```
 
-Each file contains JSON-formatted trace data:
+`AZCLIPS_HOME` overrides the home root. Each file contains timestamp headers followed
+by JSON arrays of trace records, not one JSON object or JSONL per file:
 ```json
-{
-  "TraceId": "abc123...",
-  "SpanId": "def456...",
-  "OperationName": "AzureCLI.Main",
-  "Duration": 1234.56,
-  "Tags": { "command": "group list", ... }
-}
+[
+  {
+    "TraceId": "0123456789abcdef0123456789abcdef",
+    "SpanId": "1111111111111111",
+    "OperationName": "Agent.Session",
+    "Duration": 1234.56,
+    "Tags": [{"Key": "schema", "Value": "agent-v1"}]
+  }
+]
 ```
 
 ### Azure Application Insights
@@ -303,6 +456,6 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 
 ## Performance Considerations
 
-- **Flush on Dispose**: `TelemetryService.Dispose()` calls `ForceFlush()` which can block CLI exit
+- **Layer completion**: the scope owns bounded producer/file finalization; a borrowed service does not dispose its provider
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
 - **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time

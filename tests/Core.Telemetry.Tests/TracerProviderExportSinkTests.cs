@@ -1,6 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
+using System.Text.Json;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
 namespace Core.Telemetry.Tests;
 
 public class TracerProviderExportSinkTests
@@ -126,5 +132,61 @@ public class TracerProviderExportSinkTests
 
         Assert.Contains(TelemetryTarget.Local, invoked);
         Assert.Contains(TelemetryTarget.Remote, invoked);
+    }
+
+    [Fact]
+    public void ActualReplayPipeline_UsesTheRequestedResourceAndProfileWithoutNetwork()
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        var captured = new List<(string? Role, ActivitySpanId Parent, object? Version)>();
+        var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, target, boundary) =>
+        {
+            Assert.Equal(TelemetryTarget.Remote, target);
+            Assert.Equal("EU", boundary);
+            builder.SetSampler(new AlwaysOnSampler())
+                .AddProcessor(new SimpleActivityExportProcessor(new ResourceExporter(captured)));
+        });
+        var entry = new TraceEntry
+        {
+            TraceId = "11111111111111111111111111111111",
+            SpanId = "2222222222222222",
+            OperationName = "Agent.Session",
+            ParentSpanId = "0000000000000000",
+            Kind = "Server",
+            StartTime = "2024-01-01T00:00:00.0000000Z",
+            Duration = 1,
+            Tags = JsonSerializer.SerializeToElement(new[] { new { Key = "schemaVersion", Value = 1 } }),
+            Events = JsonSerializer.SerializeToElement(Array.Empty<object>()),
+        };
+        using var unrelated = new Activity("ambient").Start();
+
+        Assert.True(sink.TryExport("Agent", [entry], "EU", TraceReplayProfile.ManagedLayer));
+
+        var actual = Assert.Single(captured);
+        Assert.Equal("Agent", actual.Role);
+        Assert.Equal(default, actual.Parent);
+        Assert.Equal(1, actual.Version);
+        Assert.Same(unrelated, Activity.Current);
+    }
+
+    [Fact]
+    public void RealNetworkSink_IsRejectedBeforeAConnectionCanBeCreated()
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        var sink = new TracerProviderExportSink([TelemetryTarget.Remote]);
+        Assert.Throws<InvalidOperationException>(() => sink.TryExport("Agent", []));
+    }
+
+    private sealed class ResourceExporter(
+        List<(string? Role, ActivitySpanId Parent, object? Version)> captured) : BaseExporter<Activity>
+    {
+        public override ExportResult Export(in Batch<Activity> batch)
+        {
+            var role = ParentProvider.GetResource().Attributes
+                .Single(attribute => attribute.Key == "service.name").Value as string;
+            foreach (var activity in batch)
+                captured.Add((role, activity.ParentSpanId, activity.GetTagItem("schemaVersion")));
+            return ExportResult.Success;
+        }
     }
 }

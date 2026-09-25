@@ -72,17 +72,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteVM_PS = new(
-            Name: "DeleteVMProcessor",
+            Name: "DeleteVMProcessor_Orchestrator",
             InvocationName: "Remove-AzVM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            ProcessorType: typeof(Processors.DeleteVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]                = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ForceDeletion"]     = new("ForceDeletion", "ForceDeletion", typeof(bool), "Optional parameter to force delete the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -280,19 +282,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteVM_CLI = new(
-            Name: "DeleteVMProcessor",
+            Name: "DeleteVMProcessor_Orchestrator",
             InvocationName: "vm delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            ProcessorType: typeof(Processors.DeleteVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["vm-name", "n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["force-deletion"]  = new("ForceDeletion", "force-deletion", typeof(bool), "Optional parameter to force delete virtual machines.", IsRequired: false, Aliases: [], AllowedValues: ["0", "1", "f", "false", "n", "no", "t", "true", "y", "yes"]),
             },
             ParameterAliases: new Dictionary<string, string>()
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
         );
         private static readonly CommandMetadata s_startVM_CLI = new(
             Name: "StartVMProcessor_Orchestrator",

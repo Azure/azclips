@@ -56,6 +56,26 @@ public class TraceFileFormatTests
     }
 
     [Fact]
+    public void CompleteParser_RejectsMalformedSiblingInsteadOfSilentlyDroppingIt()
+    {
+        var valid = TraceFileFormat.FormatBatch([new { OperationName = "root" }], DateTime.UtcNow);
+        var content = valid + "\n--- Batch at 2024-01-01T00:00:00.0000000Z ---\n[{";
+
+        Assert.False(TraceFileFormat.TryParseComplete(content, out _));
+        Assert.Single(TraceFileFormat.Parse(content));
+    }
+
+    [Fact]
+    public void CompleteParser_HandlesHeaderTextInsideJsonString()
+    {
+        var content = TraceFileFormat.FormatBatch(
+            [new { OperationName = "contains --- Batch at text" }], DateTime.UtcNow);
+
+        Assert.True(TraceFileFormat.TryParseComplete(content, out var entries));
+        Assert.Equal("contains --- Batch at text", Assert.Single(entries).OperationName);
+    }
+
+    [Fact]
     public void Parse_SkipsBatch_WhenBracketsAreOutOfOrder()
     {
         var entries = TraceFileFormat.Parse("--- Batch at x ---\n] [");
@@ -73,6 +93,8 @@ public class TraceFileFormatTests
                 TraceId = "0123456789abcdef0123456789abcdef",
                 OperationName = "round-trip",
                 Duration = 12.5,
+                TenantId = "tenant-1",
+                DataBoundary = "EU",
             },
         };
 
@@ -83,6 +105,8 @@ public class TraceFileFormatTests
         Assert.Equal("0123456789abcdef0123456789abcdef", entry.TraceId);
         Assert.Equal("round-trip", entry.OperationName);
         Assert.Equal(12.5, entry.Duration);
+        Assert.Equal("tenant-1", entry.TenantId);
+        Assert.Equal("EU", entry.DataBoundary);
     }
 
     [Fact]

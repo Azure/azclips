@@ -29,7 +29,13 @@ public static class TelemetryTags
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
     public const string AuthType = "authType";
+    public const string CloudName = "cloudName";
     public const string Mode = "mode";
+    /// <summary>ARM data boundary (EU/Global) resolved for the invocation's profile. Tagged
+    /// directly on the root activity (see ITelemetryService.AddTag) rather than read from
+    /// ambient async-local state, so it stays correct even when resolved from a different
+    /// async flow than the one that created/disposes the root (e.g. PowerShell's Run()).</summary>
+    public const string DataBoundary = "dataBoundary";
     /// <summary>cold or warm — whether this was the first module import in the process.</summary>
     public const string ImportKind = "importKind";
 
@@ -43,14 +49,44 @@ public static class TelemetryTags
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
+    /// <summary>
+    /// The caller tenant's ARM data boundary, or why there is none: <c>eu</c>, <c>global</c> or a
+    /// future ARM value, otherwise one of the closed no-answer values (e.g. <c>skipped_github</c>,
+    /// <c>no_tenant</c>, <c>arm_status_429</c>).
+    /// </summary>
+    /// <remarks>
+    /// One field, so it can never be half-written: every startup path records exactly one value
+    /// here. A no-answer value is not a boundary — consumers must not read any of them as
+    /// <c>global</c>. Full vocabulary in <c>eng-docs/spec/telemetry.md</c>.
+    /// </remarks>
+    public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
+    /// <summary>
+    /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
+    /// One acquisition serves both the model provider and the ARM data boundary lookup, so this is
+    /// the shared startup cost rather than something either one owns. Absent for any provider other
+    /// than builtin, which is the only one needing an Azure token.
+    /// </summary>
+    public const string RecoveryTokenElapsedMs = PropertyTagPrefix + "recovery.tokenElapsedMs";
+    /// <summary>
+    /// Wall-clock cost of the data boundary lookup: profile read, ARM call, parse. Excludes the
+    /// token, which is acquired by the caller and timed by
+    /// <see cref="RecoveryTokenElapsedMs"/> — pair the two for the full startup probe.
+    /// </summary>
+    public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
+    public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";
 
-    public const string HierarchyVersion = PropertyTagPrefix + "hierarchy.version";
-    public const string HierarchySpanId = PropertyTagPrefix + "hierarchy.spanId";
-    public const string HierarchyParentSpanId = PropertyTagPrefix + "hierarchy.parentSpanId";
-    public const string HierarchyDepth = PropertyTagPrefix + "hierarchy.depth";
-    public const string HierarchyPath = PropertyTagPrefix + "hierarchy.path";
+    /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
+    public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
+    /// <summary>
+    /// Why recovery ended in error; absent otherwise. A closed classification only — see
+    /// <c>RecoveryFailure</c> for the value list. Never the message, which can echo subscription
+    /// ids, resource names, or the user's own input.
+    /// </summary>
+    public const string RecoveryFailureReason = PropertyTagPrefix + "recovery.failureReason";
+    /// <summary>Why recovery did not run, on CLI.Activity.AiRecoverySkipped.</summary>
+    public const string RecoverySkipReason = PropertyTagPrefix + "recovery.skipReason";
 }

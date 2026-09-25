@@ -84,6 +84,33 @@ public class ImportTelemetryTests
             ImportTelemetry.Emit(new NullTelemetryService(), timeline, ImportTelemetry.Cold, DateTime.UtcNow)));
     }
 
+    [Fact]
+    public void Emit_InvokesTagRoot_BeforeReplayingPhaseSpans()
+    {
+        // tagRoot must run before Replay: RecordingTelemetryService's activities are stopped
+        // (and, in production, exported) as soon as each phase span is disposed inside Replay.
+        // A tag applied only after Replay returns would never reach those already-exported
+        // phase spans — this is exactly the bug class EmitInBackground's TenantId/DataBoundary
+        // tagging depends on not having.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        using (timeline.Measure(ImportTelemetry.ContainerSpanName))
+        {
+        }
+
+        ImportTelemetry.Emit(
+            telemetry,
+            timeline,
+            ImportTelemetry.Cold,
+            DateTime.UtcNow,
+            root => root?.SetTag(TelemetryTags.DataBoundary, "EU"));
+
+        var container = Assert.Single(telemetry.Stopped, a => a.OperationName == ImportTelemetry.ContainerSpanName);
+        // container's direct parent is the "enclosing" span Replay creates (named after the
+        // timeline itself); the DataBoundary tag lives one level further up, on the root.
+        Assert.Equal("EU", container.Parent?.Parent?.GetTagItem(TelemetryTags.DataBoundary));
+    }
+
     [Theory]
     [InlineData(1, ImportTelemetry.Cold)]
     [InlineData(2, ImportTelemetry.Warm)]
@@ -131,6 +158,27 @@ public class ImportTelemetryTests
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
             StartActivity(name ?? "Test.Activity.Root", ActivityKind.Server, startTime);
 
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+            parentContext == default
+                ? StartIndependentRootActivity(name, kind, startTime)
+                : TelemetryActivityScope.Wrap(_source.StartActivity(name, kind, parentContext, startTime: startTime));
+
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true)
+        {
+            var previous = Activity.Current;
+            Activity.Current = null;
+            var activity = _source.CreateActivity(name, kind, parentId: string.Empty, idFormat: ActivityIdFormat.W3C);
+            if (startTime != default)
+                activity?.SetStartTime(startTime.UtcDateTime);
+            activity?.Start();
+            if (!activate || activity is null)
+                Activity.Current = previous;
+            return activity is null ? null :
+                new TelemetryActivityScope(activity, previous, restoreAmbient: true, activated: activate);
+        }
+
         public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => activity;
@@ -147,6 +195,10 @@ public class ImportTelemetryTests
     {
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) => null;
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true) => null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => null;
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => null;
         public void Dispose() { }

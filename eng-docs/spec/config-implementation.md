@@ -108,7 +108,8 @@ Create defaults contract:
 **What was built:**
 
 - `src/Core/Core.Configuration/` — IConfigurationService, IConfigurationSchema, IConfigurationValidator
-- `src/Core/Core.Configuration/Options/` — CoreOptions, TelemetryOptions, AssemblyLoadingOptions, etc.
+- `src/Core/Core.Abstractions/Config/` — typed options and configuration metadata.
+- `src/Core/Core.Configuration/Schema/` — generated schema construction.
 
 **Key Pattern:** Options classes use reflection-based default extraction; schema keys are dotted paths matching property hierarchies (e.g., CoreOptions.Logging.Level → core.logging.level).
 

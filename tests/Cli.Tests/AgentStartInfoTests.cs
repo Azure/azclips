@@ -8,8 +8,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// The agent runs in its own process, so its spans join the CLI.Activity.AiRecovery
-/// trace through a W3C traceparent on the child environment block.
+/// The child receives correlation data and its own file ID, never a trace parent.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class AgentStartInfoTests
@@ -19,95 +18,64 @@ public class AgentStartInfoTests
     private static string AgentExe => Path.Combine(AppContext.BaseDirectory, "azclips-agent.exe");
 
 
+    private static TelemetryInvocationContext Context(bool enabled = true) =>
+        new(Guid.NewGuid().ToString("N"), enabled,
+            "4bf92f3577b34da6a3ce929d0e0e4736", "00f067aa0ba902b7", "profile show",
+            DataBoundary: "EU");
+
     [Fact]
-    public void RecoveryTraceparentEnvVar_UsesTheSharedLiteral()
+    public void BuildAgentStartInfo_ForwardsCorrelationAndCallerGeneratedFileIdWithoutAParent()
     {
-        // Keep this literal pinned here; Core.Agent.Tests asserts the counterpart on the
-        // agent side because neither test project can see both internals.
-        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", Core.Cli.Program.RecoveryTraceparentEnvVar);
+        var context = Context();
+        var fileId = Guid.NewGuid().ToString("N");
+        var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, ["profile", "show"], "private error", context, fileId);
+
+        Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
+            key => psi.Environment.TryGetValue(key, out var value) ? value : null,
+            out var actual, out var actualFileId, out var diagnostic));
+        Assert.Equal(context, actual);
+        Assert.Equal(fileId, actualFileId);
+        Assert.Null(diagnostic);
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
+        Assert.DoesNotContain("private error", psi.Environment[TelemetryLayerEnvironment.Context]);
     }
 
     [Fact]
-    public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
+    public void BuildAgentStartInfo_CarriesExplicitOptOutWithoutReusingTheOldParent()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
-
-        Assert.Equal(Traceparent, psi.Environment[Core.Cli.Program.RecoveryTraceparentEnvVar]);
-    }
-
-    [Fact]
-    public void BuildAgentStartInfo_ForwardsTheSourceRecordedHandoffWithoutEditingIt()
-    {
-        using var source = new ActivitySource("handoff-" + Guid.NewGuid());
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = candidate => candidate == source,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-        };
-        ActivitySource.AddActivityListener(listener);
-        using var recovery = TelemetryHierarchy.StartActivity(source, "CLI.Activity.AiRecovery");
-        Assert.NotNull(recovery);
-        var handoff = TelemetryHierarchy.CreateRecoveryHandoff(recovery);
-
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, ["profile", "show"], "private error", recovery.Id, handoff);
-
-        Assert.Equal(recovery.Id, psi.Environment[TelemetryHierarchy.RecoveryTraceparentEnvVar]);
-        Assert.Equal(handoff, psi.Environment[TelemetryHierarchy.RecoveryHierarchyEnvVar]);
-        Assert.DoesNotContain("private error", handoff);
-        Assert.True(TelemetryHierarchy.TryReadRecoveryHandoff(recovery.Context,
-            psi.Environment[TelemetryHierarchy.RecoveryHierarchyEnvVar], out var parent));
-        Assert.Equal(recovery.SpanId, parent!.ActivityContext.SpanId);
-        Assert.Equal(0, parent.Depth);
-        Assert.Equal("Agent", parent.Path);
-        Assert.Equal("CLI.Activity.AiRecovery", recovery.OperationName);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void BuildAgentStartInfo_OmitsTheTraceparent_WhenTelemetryProducedNoSpan(string? traceparent)
-    {
-        // StartRootActivity returns null when telemetry.enabled=false, so Id is null.
-        // An empty value would be parsed by the agent and rejected; absent is cleaner.
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", traceparent);
-
-        Assert.False(psi.Environment.ContainsKey(Core.Cli.Program.RecoveryTraceparentEnvVar));
-        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
-    }
-
-    [Fact]
-    public void BuildAgentStartInfo_DoesNotForwardHierarchyWithoutTraceparent()
-    {
-        var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, [], null, null, "{\"Version\":1}");
-
-        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryTraceparentEnvVar));
-        Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
+            AgentExe, ["profile", "show"], "boom", Context(enabled: false), Guid.NewGuid().ToString("N"));
+        Assert.Equal("false", psi.Environment[TelemetryLayerEnvironment.Enabled]);
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+        Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
     }
 
     [Fact]
     public void BuildAgentStartInfo_RemovesInheritedHandoffWhenTelemetryIsDisabled()
     {
-        var savedTraceparent = Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar);
-        var savedHierarchy = Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar);
+        var savedTraceparent = Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT");
+        var savedHierarchy = Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY");
+        var savedFile = Environment.GetEnvironmentVariable(TelemetryLayerEnvironment.FileId);
         try
         {
-            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar, Traceparent);
-            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar, "stale hierarchy");
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT", Traceparent);
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY", "stale hierarchy");
+            Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, "inherited-file");
 
-            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, null);
+            var fileId = Guid.NewGuid().ToString("N");
+            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, Context(enabled: false), fileId);
 
-            Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryTraceparentEnvVar));
-            Assert.False(psi.Environment.ContainsKey(TelemetryHierarchy.RecoveryHierarchyEnvVar));
-            Assert.Equal(Traceparent, Environment.GetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar));
+            Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
+            Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
+            Assert.Equal(fileId, psi.Environment[TelemetryLayerEnvironment.FileId]);
+            Assert.Equal(Traceparent, Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT"));
         }
         finally
         {
-            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryTraceparentEnvVar, savedTraceparent);
-            Environment.SetEnvironmentVariable(TelemetryHierarchy.RecoveryHierarchyEnvVar, savedHierarchy);
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT", savedTraceparent);
+            Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY", savedHierarchy);
+            Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, savedFile);
         }
     }
 
@@ -115,7 +83,7 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
+            AgentExe, new[] { "profile", "show" }, "boom", Context(), Guid.NewGuid().ToString("N"));
 
         // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
         Assert.Equal("1", psi.Environment["AZCLIPS_IN_AGENT_MODE"]);
@@ -135,7 +103,7 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, null, Traceparent);
+            AgentExe, new[] { "profile", "show" }, null, Context(), Guid.NewGuid().ToString("N"));
 
         Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
     }

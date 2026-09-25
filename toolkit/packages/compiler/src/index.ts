@@ -24,7 +24,9 @@ export { compile } from "./compile.js";
 export {
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
+  TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
+  CREATE_COMMAND_STAGE,
   CSHARP_STAGE,
   planStages,
   isStageEnabled,
@@ -99,6 +101,8 @@ export type {
 export {
   noopGenerator,
   type Generator,
+  type GeneratorAcceptance,
+  type GeneratorInputIssue,
   type GeneratorContext,
   type GeneratedArtifact,
 } from "./generate.js";

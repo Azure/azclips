@@ -20,6 +20,8 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.TelemetryVersion,
         TelemetryTags.ClientType,
         TelemetryTags.EventName,
+        TelemetryLayerTags.Schema,
+        TelemetryLayerTags.ServiceName,
 
         // Per-command tags
         TelemetryTags.Command,
@@ -29,8 +31,10 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
         TelemetryTags.AuthType,
+        TelemetryTags.CloudName,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
+        TelemetryTags.DataBoundary,
 
         // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
         "http.method",

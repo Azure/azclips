@@ -12,7 +12,9 @@ namespace Core.Agent.Telemetry;
 /// One holder per agent. SDK callbacks can retain Create's ExecutionContext, so the
 /// current operation is read at invocation time, never captured in the tool delegate.
 /// </summary>
-internal sealed class AgentInvocationContext(Activity? session) : IDisposable
+internal sealed class AgentInvocationContext(
+    Activity? session, ITelemetryService telemetry, ITelemetryLayerScope? scope = null,
+    CancellationToken lifetimeToken = default) : IDisposable
 {
     private readonly object _gate = new();
     private readonly AsyncLocal<CallbackBinding?> _callback = new();
@@ -20,6 +22,20 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
     private Operation? _operation;
     private bool _closing;
     private bool _disposed;
+    private int _teardown;
+
+    internal CancellationToken StoppingToken => scope?.StoppingToken ?? lifetimeToken;
+    internal CancellationToken CallbackCancellationToken => _callback.Value?.CancellationToken ?? lifetimeToken;
+    internal ITelemetryService Telemetry => telemetry;
+    internal IDisposable? StartToolActivity(string name) => telemetry.StartActivity(name);
+
+    internal IDisposable? EnterProducer()
+    {
+        var producer = scope?.TryEnterProducer();
+        if (scope is not null && producer is null)
+            throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
+        return producer;
+    }
 
     internal Operation StartOperation(string name, CancellationToken cancellationToken = default) =>
         StartOperation(name, turnCts: null, cancellationToken);
@@ -46,11 +62,20 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
             if (_operation is not null)
                 throw new InvalidOperationException("An agent session supports only one in-flight operation.");
 
-            var parent = IsWithin(Activity.Current, _session) ? Activity.Current : LiveSession();
-            var activity = TelemetryHierarchy.StartActivity(
-                AgentTracing.Source, name, parentContext: parent?.Context ?? default,
-                parentHierarchy: TelemetryHierarchy.Capture(parent));
-            return _operation = new Operation(this, activity, turnCts, cancellationToken);
+            var producer = scope?.TryEnterProducer();
+            if (scope is not null && producer is null)
+                throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
+            try
+            {
+                var parent = IsWithin(Activity.Current, _session) ? Activity.Current : LiveSession();
+                var activityScope = telemetry.StartActivityWithParent(name, parent?.Context ?? default);
+                return _operation = new Operation(this, activityScope, turnCts, cancellationToken, producer);
+            }
+            catch
+            {
+                producer?.Dispose();
+                throw;
+            }
         }
     }
 
@@ -120,11 +145,26 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
                 await InvokeCallbackAsync(async _ => await permission(request, invocation).ConfigureAwait(false))
                     .ConfigureAwait(false);
         if (config.OnEvent is { } onEvent)
-            config.OnEvent = ev => InvokeCallbackAsync(_ =>
-                {
-                    onEvent(ev);
-                    return ValueTask.FromResult(true);
-                }).GetAwaiter().GetResult();
+            config.OnEvent = ev => HandleEvent(() => onEvent(ev));
+    }
+
+    internal void HandleEvent(Action callback)
+    {
+        try
+        {
+            InvokeCallbackAsync(_ =>
+            {
+                callback();
+                return ValueTask.FromResult(true);
+            }).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (StoppingToken.IsCancellationRequested)
+        {
+            // Late events after the layer fence are not a second session failure.
+        }
+        catch (ObjectDisposedException) when (StoppingToken.IsCancellationRequested)
+        {
+        }
     }
 
     private async ValueTask<T> InvokeCallbackAsync<T>(
@@ -142,15 +182,22 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
     {
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            var enclosing = _callback.Value;
+            var enclosing = _callback.Value is { IsActive: true } active ? active : null;
+            var nested = enclosing is not null;
+            ObjectDisposedException.ThrowIf(_disposed && !nested, this);
+            if (_closing && _teardown == 0 && !nested)
+                throw new OperationCanceledException("The Agent callback admission is closed.", StoppingToken);
+            var producer = scope?.TryEnterProducer(teardown: nested || _teardown != 0);
+            if (scope is not null && producer is null)
+                throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
             var parent = enclosing?.Parent ?? _operation?.Activity ?? LiveSession();
             if (IsWithin(Activity.Current, parent, allowStoppedAncestor: enclosing is not null))
                 parent = Activity.Current;
             if (parent is { IsStopped: true } && !ReferenceEquals(Activity.Current, parent))
                 parent = LiveSession();
             var binding = new CallbackBinding(parent,
-                enclosing?.CancellationToken ?? _operation?.CancellationToken ?? default, cancellationToken);
+                enclosing?.CancellationToken ?? _operation?.CancellationToken ?? default,
+                cancellationToken, lifetimeToken, StoppingToken, producer);
             // Bind while the operation lease is locked, before it can be cleared/stopped.
             if (!ReferenceEquals(Activity.Current, parent))
                 Activity.Current = parent;
@@ -173,47 +220,38 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
         return false;
     }
 
-    internal bool BeginDispose()
+    internal IDisposable EnterTeardown()
     {
         lock (_gate)
         {
-            if (_closing)
-                return false;
             _closing = true;
-            return true;
+            _teardown++;
         }
+        return new TeardownLease(this);
     }
 
     public void Dispose()
     {
-        Operation? orphan;
         lock (_gate)
         {
             if (_disposed)
                 return;
             _closing = true;
             _disposed = true;
-            orphan = _operation;
             _operation = null;
             _session = null;
         }
-
-        // An operation still in the slot means a send outlived the dispose timeout. Stopping its
-        // activity here is what keeps it in the data: an Activity that is never stopped is never
-        // exported, so the one turn that hung -- the turn worth seeing -- would be the one turn
-        // missing. Its own Dispose is idempotent, so the late send closing afterwards is a no-op
-        // rather than a double stop. Done outside the lock: stopping an activity runs exporter
-        // callbacks, and this type's own callbacks take the same gate.
-        orphan?.MarkAbandoned();
-        orphan?.Dispose();
+        // The actual send/callback owns its activity and producer lease. At a deadline the layer
+        // writes an immutable abandoned record; this thread must not Stop another thread's span.
     }
 
     internal sealed class Operation(
-        AgentInvocationContext owner, Activity? activity,
-        CancellationTokenSource? turnCts, CancellationToken cancellationToken) : IDisposable
+        AgentInvocationContext owner, TelemetryActivityScope? activityScope,
+        CancellationTokenSource? turnCts, CancellationToken cancellationToken,
+        IDisposable? producer) : IDisposable
     {
         private int _disposed;
-        internal Activity? Activity { get; } = activity;
+        internal Activity? Activity => activityScope?.Activity;
 
         /// <summary>
         /// The turn's cancellation source, when the slot was reserved with one. Borrowed, not
@@ -237,17 +275,6 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
         /// </remarks>
         internal event Action? Disposed;
 
-        /// <summary>
-        /// Records that the owning context was torn down while this operation was still running, so
-        /// the exported span says the turn was abandoned rather than looking like a normal close.
-        /// </summary>
-        internal void MarkAbandoned()
-        {
-            if (Volatile.Read(ref _disposed) != 0)
-                return;
-            Activity?.SetStatus(ActivityStatusCode.Error, "Abandoned: the agent was disposed while this send was in flight.");
-        }
-
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -259,39 +286,66 @@ internal sealed class AgentInvocationContext(Activity? session) : IDisposable
             // while this one still looked live, so it was parented under an ending sibling instead
             // of the session. Outside the lock deliberately: stopping an activity runs the
             // telemetry processors synchronously, which should not happen while holding _gate.
-            Activity?.Dispose();
-
-            lock (owner._gate)
+            try
             {
-                if (ReferenceEquals(owner._operation, this))
-                    owner._operation = null;
+                activityScope?.Dispose();
             }
-
-            // After the slot is clear and outside the lock, so a subscriber sees the state it is
-            // there to observe. Swallowing is deliberate: this runs inside SendAsync's using and
-            // inside AgentInvocationContext.Dispose's tail, so an escaping subscriber exception
-            // would replace whatever real failure was already unwinding.
-            try { Disposed?.Invoke(); } catch { }
+            finally
+            {
+                lock (owner._gate)
+                {
+                    if (ReferenceEquals(owner._operation, this))
+                        owner._operation = null;
+                }
+                try { Disposed?.Invoke(); } catch { }
+                finally { producer?.Dispose(); }
+            }
         }
     }
 
     private sealed class CallbackBinding : IDisposable
     {
         private readonly CancellationTokenSource? _linked;
+        private readonly IDisposable? _producer;
+        private int _active = 1;
 
-        internal CallbackBinding(Activity? parent, CancellationToken operationToken, CancellationToken callbackToken)
+        internal CallbackBinding(
+            Activity? parent, CancellationToken operationToken, CancellationToken callbackToken,
+            CancellationToken lifetimeToken, CancellationToken stoppingToken, IDisposable? producer)
         {
-            if (operationToken.CanBeCanceled && callbackToken.CanBeCanceled && operationToken != callbackToken)
-                _linked = CancellationTokenSource.CreateLinkedTokenSource(operationToken, callbackToken);
-            CancellationToken = _linked?.Token
-                ?? (callbackToken.CanBeCanceled ? callbackToken : operationToken);
+            var tokens = new[] { operationToken, callbackToken, lifetimeToken, stoppingToken }
+                .Where(token => token.CanBeCanceled).Distinct().ToArray();
+            if (tokens.Length > 0)
+                _linked = CancellationTokenSource.CreateLinkedTokenSource(tokens);
+            CancellationToken = _linked?.Token ?? default;
             Parent = parent;
+            _producer = producer;
         }
 
         internal Activity? Parent { get; }
         internal CancellationToken CancellationToken { get; }
+        internal bool IsActive => Volatile.Read(ref _active) != 0;
 
-        public void Dispose() => _linked?.Dispose();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _active, 0) == 0)
+                return;
+            _linked?.Dispose();
+            _producer?.Dispose();
+        }
+    }
+
+    private sealed class TeardownLease(AgentInvocationContext owner) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                lock (owner._gate) owner._teardown--;
+            }
+        }
     }
 
     private sealed class BoundFunction(AgentInvocationContext owner, AIFunction inner) : DelegatingAIFunction(inner)

@@ -50,12 +50,16 @@ public sealed class AvailableLocationsTool
     private readonly IAuthService _authService;
     private readonly IProfileService _profileService;
     private readonly HttpClient _http;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public AvailableLocationsTool(IAuthService authService, IProfileService profileService, HttpClient? http = null)
+    public AvailableLocationsTool(
+        IAuthService authService, IProfileService profileService, HttpClient? http = null,
+        Func<string, IDisposable?>? activityCreator = null)
     {
         _authService = authService;
         _profileService = profileService;
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        _activityCreator = activityCreator;
 
         FindAvailableLocations = AIFunctionFactory.Create(FindAvailableLocationsAsync, new AIFunctionFactoryOptions
         {
@@ -92,7 +96,7 @@ public sealed class AvailableLocationsTool
             .ToArray();
 
         using var scope = ToolInvocationLog.Start("find_available_locations",
-            $"vmSize={vmSize} locations={probed.Length} sub={subscriptionId ?? "auth-context"}");
+            $"vmSize={vmSize} locations={probed.Length} sub={subscriptionId ?? "auth-context"}", _activityCreator);
 
         if (string.IsNullOrWhiteSpace(vmSize))
         {

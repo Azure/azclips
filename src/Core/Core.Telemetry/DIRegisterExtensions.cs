@@ -23,7 +23,6 @@ public static class DIRegisterExtensions
         services.AddSingleton<ITraceDirectoryProvider, DefaultTraceDirectoryProvider>();
         services.AddSingleton<ITelemetryPropertyFilter, DefaultTelemetryPropertyFilter>();
         services.AddSingleton<ITelemetryActivityNameFilter, DefaultTelemetryActivityNameFilter>();
-        services.AddSingleton<BaseProcessor<Activity>, SourceHierarchyProcessor>();
         services.AddSingleton<BaseProcessor<Activity>, DefaultActivityNameFilterProcessor>();
         services.AddSingleton<BaseProcessor<Activity>, DefaultTelemetryPropertyFilterProcessor>();
         return services;

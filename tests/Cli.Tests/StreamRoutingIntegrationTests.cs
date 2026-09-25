@@ -168,7 +168,10 @@ public class StreamRoutingIntegrationTests
         using var document = System.Text.Json.JsonDocument.Parse(stderr);
         var error = document.RootElement.GetProperty("error");
         Assert.Equal("UsageError", error.GetProperty("code").GetString());
-        Assert.Contains("az vm create --help", error.GetProperty("message").GetString());
+        var message = error.GetProperty("message").GetString();
+        Assert.Contains("'--name'", message);
+        Assert.Contains("az vm create --help", message);
+        Assert.DoesNotContain("\\u0027", stderr, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

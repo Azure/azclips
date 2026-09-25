@@ -19,10 +19,12 @@ namespace Core.Agent.Tools.Help;
 public sealed class HelpTools
 {
     private readonly string _azExePath;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public HelpTools(string azExePath)
+    public HelpTools(string azExePath, Func<string, IDisposable?>? activityCreator = null)
     {
         _azExePath = azExePath ?? throw new ArgumentNullException(nameof(azExePath));
+        _activityCreator = activityCreator;
 
         ListCommands = AIFunctionFactory.Create(ListCommandsAsync, new AIFunctionFactoryOptions
         {
@@ -69,7 +71,7 @@ public sealed class HelpTools
         // Async + await so ToolInvocationLog's scope stays alive for the entire
         // subprocess call — returning the Task without awaiting would dispose
         // the scope immediately, recording a near-zero duration.
-        using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
+        using var scope = ToolInvocationLog.Start("list_commands", "full catalog", _activityCreator);
         return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
     }
 
@@ -80,7 +82,7 @@ public sealed class HelpTools
         CancellationToken ct = default)
     {
         // See ListCommandsAsync — async so the scope covers the shell-out.
-        using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
+        using var scope = ToolInvocationLog.Start("get_command", $"name={name}", _activityCreator);
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
