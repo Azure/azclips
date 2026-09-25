@@ -410,12 +410,28 @@
   {
     "command": "vm list",
     "type": "command",
-    "short_summary": "List virtual machines in a resource group.",
-    "long_summary": "Return a list of virtual machines that live in the specified resource group, including each machine\u0027s name, size, location, and provisioning state. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.",
+    "short_summary": "List virtual machines.",
+    "long_summary": "Return a list of virtual machines, including each machine\u0027s name, size, location, and provisioning state. Omit \u0060--resource-group\u0060 to list every virtual machine in the subscription. \u0060--show-details\u0060 runs one extra request per virtual machine, so it is slow, and fetches details for at most 100 virtual machines. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.",
     "examples": [
+      {
+        "short_summary": "List all VMs in the subscription",
+        "command": "az vm list --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
       {
         "short_summary": "List VMs in a resource group",
         "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "List VM instances in a scale set by name",
+        "command": "az vm list --resource-group myrg --vmss myvmss"
+      },
+      {
+        "short_summary": "List VM instances in a scale set by resource id",
+        "command": "az vm list --vmss /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachineScaleSets/myvmss"
+      },
+      {
+        "short_summary": "List VMs with public IP addresses, FQDNs and power states",
+        "command": "az vm list --resource-group myrg -d"
       },
       {
         "short_summary": "List using shell variables",
@@ -431,14 +447,26 @@
       },
       {
         "name": "--resource-group",
-        "required": true,
-        "short_summary": "The resource group name.",
+        "required": false,
+        "short_summary": "The resource group name. Omit to list every virtual machine in the subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--show-details",
+        "required": false,
+        "short_summary": "Show public ip address, FQDN, and power states. Command will run slow.",
         "long_summary": ""
       },
       {
         "name": "--subscription-id",
         "required": false,
         "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--vmss",
+        "required": false,
+        "short_summary": "List VM instances in a specific VMSS. Please specify the VMSS id or VMSS name.",
         "long_summary": ""
       },
       {
