@@ -114,10 +114,16 @@ jobs:
           esac
         }
 
-        is_known_code_bundle_name() {
-          case "$1" in
-            *.app|*.framework|*.xpc|*.appex|*.plugin|*.bundle)
-              return 0
+        is_recognized_code_bundle() {
+          local candidate="$1"
+
+          case "$(basename "$candidate")" in
+            *.framework)
+              [[ -f "$candidate/Resources/Info.plist" ]] ||
+                [[ -n "$(find "$candidate/Versions" -mindepth 3 -maxdepth 3 -path '*/Resources/Info.plist' -print -quit 2>/dev/null)" ]]
+              ;;
+            *.app|*.xpc|*.appex|*.plugin|*.bundle)
+              [[ -f "$candidate/Contents/Info.plist" ]]
               ;;
             *)
               return 1
@@ -125,13 +131,16 @@ jobs:
           esac
         }
 
-        path_contains_known_code_bundle() {
-          local relative_path="$1"
+        path_contains_recognized_code_bundle() {
+          local content_root="$1"
+          local relative_path="$2"
+          local candidate="$content_root"
           local component
 
           while [[ -n "$relative_path" ]]; do
             component="${relative_path%%/*}"
-            if is_known_code_bundle_name "$component"; then
+            candidate="$candidate/$component"
+            if is_recognized_code_bundle "$candidate"; then
               return 0
             fi
             if [[ "$relative_path" != */* ]]; then
@@ -179,7 +188,7 @@ jobs:
           unknown_code_containers=0
           while IFS= read -r -d '' info_plist; do
             bundle_candidate="${info_plist%/Contents/Info.plist}"
-            if is_known_code_bundle_name "$(basename "$bundle_candidate")"; then
+            if is_recognized_code_bundle "$bundle_candidate"; then
               continue
             fi
 
@@ -198,12 +207,16 @@ jobs:
           fi
 
           while IFS= read -r -d '' bundle; do
+            if ! is_recognized_code_bundle "$bundle"; then
+              continue
+            fi
+
             relative_path="${bundle#$content_root/}"
             parent_path=''
             if [[ "$relative_path" == */* ]]; then
               parent_path="${relative_path%/*}"
             fi
-            if [[ -n "$parent_path" ]] && path_contains_known_code_bundle "$parent_path"; then
+            if [[ -n "$parent_path" ]] && path_contains_recognized_code_bundle "$content_root" "$parent_path"; then
               continue
             fi
 
@@ -227,7 +240,7 @@ jobs:
             fi
 
             relative_path="${binary#$content_root/}"
-            if path_contains_known_code_bundle "$relative_path"; then
+            if path_contains_recognized_code_bundle "$content_root" "$relative_path"; then
               continue
             fi
             if requires_dotnet_entitlements "$binary"; then
@@ -588,19 +601,14 @@ jobs:
         done < <(find "$signed_contents_root" -type f -print0)
 
         total_code_bundles=0
-        while IFS= read -r -d '' candidate; do
+        while IFS=$'\t' read -r _zip_name base_name relative_path item_type; do
+          [[ "$item_type" == bundle ]] || continue
+          candidate="$signed_contents_root/$base_name/$relative_path"
           total_code_bundles=$((total_code_bundles + 1))
           if ! verify_code_bundle "$candidate"; then
             verification_errors=1
           fi
-        done < <(find "$signed_contents_root" -type d \( \
-          -name '*.app' -o \
-          -name '*.framework' -o \
-          -name '*.xpc' -o \
-          -name '*.appex' -o \
-          -name '*.plugin' -o \
-          -name '*.bundle' \
-        \) -print0)
+        done < "$input_root/file-mapping.tsv"
 
         total_macho=0
         while IFS= read -r -d '' candidate; do
