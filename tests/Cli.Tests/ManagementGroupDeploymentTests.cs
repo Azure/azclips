@@ -108,7 +108,7 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task Create_NoWait_ValidatesThenSendsScopedBody()
+    public async Task Create_ValidatesThenSendsScopedBody()
     {
         List<(HttpMethod Method, Uri Uri, string? Body)> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -119,7 +119,7 @@ public class ManagementGroupDeploymentTests
                 request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
             return requests.Count == 1
                 ? Json("""{ "name": "mg-test" }""")
-                : Json("""{ "name": "mg-test", "location": "eastus", "properties": { "provisioningState": "Accepted" } }""");
+                : Json("""{ "name": "mg-test", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
         });
         var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
         {
@@ -130,13 +130,12 @@ public class ManagementGroupDeploymentTests
             {
                 ["resources"] = Array.Empty<object>(),
             },
-            NoWait = true,
         };
         Init(processor, pipeline, new FakeOutputHandler());
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(4, requests.Count);
         Assert.Equal(HttpMethod.Post, requests[0].Method);
         Assert.EndsWith("/validate?api-version=2025-04-01", requests[0].Uri.ToString());
         Assert.Equal(HttpMethod.Put, requests[1].Method);

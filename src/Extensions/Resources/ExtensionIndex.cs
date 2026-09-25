@@ -486,10 +486,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewManagementGroupDeploymentProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters())
-            {
-                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return without waiting for the deployment to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
+            Parameters: CreateManagementDeploymentBodyCliParameters(),
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = new(

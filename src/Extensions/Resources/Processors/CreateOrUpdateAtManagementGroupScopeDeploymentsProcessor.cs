@@ -18,8 +18,6 @@ public class CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor
 
     public Deployment Body { get; set; } = new();
 
-    public bool NoWait { get; set; }
-
     protected override HttpMethod Method => HttpMethod.Put;
 
     protected override string CreateRequestUri() =>
@@ -30,6 +28,5 @@ public class CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor
     protected override Func<HttpResponseMessage, string?> GetLocationUri =>
         response => response.GetFirstHeader("Location");
 
-    internal override Task<HttpResponseMessage> SendAsync() =>
-        NoWait ? base.SendAsync() : SendAsyncLRO();
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }

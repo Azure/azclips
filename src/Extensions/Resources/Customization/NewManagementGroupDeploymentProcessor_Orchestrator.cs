@@ -11,8 +11,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 public class NewManagementGroupDeploymentProcessor_Orchestrator
     : ManagementGroupDeploymentOrchestratorBase<Deployment, DeploymentExtended>
 {
-    public bool NoWait { get; set; }
-
     public bool WhatIf { get; set; }
 
     public string? WhatIfResultFormat { get; set; }
@@ -100,7 +98,6 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
                 p.ManagementGroupId = ManagementGroupId;
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment();
-                p.NoWait = NoWait;
             });
         return processor.SendAsync();
     }
