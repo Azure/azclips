@@ -16,5 +16,5 @@ public partial class CancelAtTenantScopeDeploymentsProcessor : ResourcesProcesso
     public string DeploymentName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}/cancel?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/cancel?api-version=2025-04-01";
 }

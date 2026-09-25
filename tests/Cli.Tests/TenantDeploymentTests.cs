@@ -34,6 +34,37 @@ public class TenantDeploymentTests
     private static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
+    private static string RequestUri(IProcessor processor) =>
+        (string)processor.GetType()
+            .GetMethod("CreateRequestUri", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(processor, null)!;
+
+    [Theory]
+    [InlineData(typeof(CancelAtTenantScopeDeploymentsProcessor), "/deployments/name%2Fwith%3Freserved%23chars/cancel?")]
+    [InlineData(typeof(DeleteAtTenantScopeDeploymentsProcessor), "/deployments/name%2Fwith%3Freserved%23chars?")]
+    [InlineData(typeof(ExportTemplateAtTenantScopeDeploymentsProcessor), "/deployments/name%2Fwith%3Freserved%23chars/exportTemplate?")]
+    [InlineData(typeof(GetAtTenantScopeDeploymentsProcessor), "/deployments/name%2Fwith%3Freserved%23chars?")]
+    public void DeploymentName_IsEscapedAsSinglePathSegment(Type processorType, string expected)
+    {
+        var processor = (IProcessor)Activator.CreateInstance(processorType)!;
+        processorType.GetProperty("DeploymentName")!.SetValue(processor, "name/with?reserved#chars");
+
+        Assert.Contains(expected, RequestUri(processor));
+    }
+
+    [Fact]
+    public void List_Filter_IsEncodedAsSingleQueryValue()
+    {
+        var processor = new ListAtTenantScopeDeploymentsProcessor
+        {
+            _filter = "provisioningState eq 'Succeeded' & name eq 'a/b'",
+        };
+
+        Assert.Contains(
+            "$filter=provisioningState%20eq%20%27Succeeded%27%20%26%20name%20eq%20%27a%2Fb%27",
+            RequestUri(processor));
+    }
+
     [Fact]
     public void ExtensionIndex_ExposesRequestedTenantCommands()
     {

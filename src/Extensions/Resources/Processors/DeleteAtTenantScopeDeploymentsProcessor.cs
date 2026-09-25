@@ -16,7 +16,7 @@ public partial class DeleteAtTenantScopeDeploymentsProcessor : ResourcesProcesso
     public string DeploymentName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version=2025-04-01";
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

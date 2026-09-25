@@ -16,5 +16,5 @@ public partial class ExportTemplateAtTenantScopeDeploymentsProcessor : Resources
     public string DeploymentName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}/exportTemplate?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/exportTemplate?api-version=2025-04-01";
 }

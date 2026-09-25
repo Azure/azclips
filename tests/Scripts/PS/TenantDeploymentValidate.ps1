@@ -115,22 +115,18 @@ Assert-ExpectedFailure 'malformed Bicep validation' 'Bicep compilation failed' {
         -ErrorAction Stop
 }
 
-# Verify ARM returns structured validation diagnostics.
-$invalidResult = Test-AzTenantDeployment `
-    -Location $location `
-    -Name "$prefix-invalid-template" `
-    -TemplateFile (Join-Path $bicepDir 'tenant-invalid-template.json') `
-    -TemplateParameterObject @{
-        subscriptionId = @{ value = $subscriptionId }
-        resourceGroupName = @{ value = $resourceGroupName }
-    }
-if (-not $invalidResult.Error) {
-    throw 'Invalid tenant template did not return validation diagnostics.'
+# Verify ARM returns structured validation diagnostics as an error.
+Assert-ExpectedFailure 'invalid tenant template validation' 'undefinedTenantParameter|parameter' {
+    Test-AzTenantDeployment `
+        -Location $location `
+        -Name "$prefix-invalid-template" `
+        -TemplateFile (Join-Path $bicepDir 'tenant-invalid-template.json') `
+        -TemplateParameterObject @{
+            subscriptionId = @{ value = $subscriptionId }
+            resourceGroupName = @{ value = $resourceGroupName }
+        } `
+        -ErrorAction Stop
 }
-if ($invalidResult.Error.Message -notmatch 'undefinedTenantParameter|parameter') {
-    throw "Unexpected validation diagnostic: $($invalidResult.Error.Message)"
-}
-$invalidResult
 
 # Verify a parameters URI cannot be combined with an inline override.
 Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {

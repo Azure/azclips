@@ -18,7 +18,7 @@ public partial class ListAtTenantScopeDeploymentsProcessor : ResourcesProcessorB
     public int? _top { get; set; }
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01&$filter={_filter}&$top={_top}";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments?api-version=2025-04-01&$filter={Uri.EscapeDataString(_filter ?? string.Empty)}&$top={_top}";
     private IEnumerable<DeploymentExtended>? pageItems(DeploymentListResult body) => body.Value;
     private string? nextLink(DeploymentListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentListResult? body)

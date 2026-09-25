@@ -16,5 +16,5 @@ public partial class GetAtTenantScopeDeploymentsProcessor : ResourcesProcessorBa
     public string DeploymentName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{DeploymentName}?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}?api-version=2025-04-01";
 }

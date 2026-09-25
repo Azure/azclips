@@ -336,6 +336,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 The cmdlet writes validation errors when the template is invalid and produces no output when validation succeeds.
 
+### System.Object
+
+Validation error details may be written when the template is invalid.
+
 ## NOTES
 
 Tenant deployments use API version 2025-04-01 and Incremental mode.
