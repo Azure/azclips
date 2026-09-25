@@ -20,8 +20,15 @@ Show details for a virtual machine.
 ### List (Default)
 
 ```
-Get-AzVM -ResourceGroupName <string> [-SubscriptionId <string>] [-Profile <string>]
- [<CommonParameters>]
+Get-AzVM [-ResourceGroupName <string>] [-Name <string>] [-SubscriptionId <string>] [-Status]
+ [-UserData] [-Profile <string>] [<CommonParameters>]
+```
+
+### ListLocation
+
+```
+Get-AzVM -Location <string> [-SubscriptionId <string>] [-Status] [-UserData]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
@@ -43,7 +50,9 @@ Get-AzVM [-Id] <string> [-SubscriptionId <string>] [-UserData] [-Profile <string
 ## DESCRIPTION
 
 Retrieves details of virtual machines in a subscription.
-Supply `-ResourceGroupName` together with `-Name` to retrieve a single virtual machine, or `-ResourceGroupName` alone to list every virtual machine in that resource group.
+Run without parameters to list every virtual machine in the subscription, or supply `-ResourceGroupName` to list the virtual machines in one resource group.
+Supply `-ResourceGroupName` together with `-Name` to retrieve a single virtual machine, or `-Name` alone to find a virtual machine by exact name across the subscription. Wildcards are not supported.
+Use `-Location` to list every virtual machine in a location.
 Alternatively, address a single virtual machine directly by its ARM resource ID with `-Id`.
 
 ## EXAMPLES
@@ -62,6 +71,36 @@ Return every virtual machine that lives in `myrg`.
 
 ```powershell
 Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
+```
+
+### List all VMs in the subscription
+
+Return every virtual machine the subscription contains.
+
+```powershell
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000
+```
+
+### Find a VM by name across the subscription
+
+Return the virtual machine named `myvm`, whichever resource group it lives in.
+
+```powershell
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm
+```
+
+### List all VMs in a location
+
+```powershell
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Location eastus
+```
+
+### List VMs with their power state
+
+Runs one extra request per virtual machine, so it is slow. Details are fetched for at most 100 virtual machines.
+
+```powershell
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Status
 ```
 
 ### Get a VM by resource ID
@@ -95,6 +134,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Location
+
+List every virtual machine in this location.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: ListLocation
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Name
 
 The name of the virtual machine.
@@ -108,6 +168,12 @@ ParameterSets:
 - Name: Get
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -155,7 +221,34 @@ ParameterSets:
   ValueFromRemainingArguments: false
 - Name: List
   Position: Named
-  IsRequired: true
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Status
+
+Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow. Details are retrieved for at most 100 virtual machines.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ListLocation
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -192,6 +285,12 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
+- Name: ListLocation
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -214,6 +313,18 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 - Name: Id
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ListLocation
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
