@@ -163,10 +163,11 @@ jobs:
       if [[ "$(Rid)" == "linux-musl-arm64" ]]; then
         docker_command=(sudo docker)
       fi
+      docker_run_options=(run --rm)
       if [[ -n '${{ parameters.signed_artifact_name }}' ]]; then
-        docker_command+=(-e "CLI_TAR_PATH=/out/linux/$(CliArchiveRelativePath)")
+        docker_run_options+=(-e "CLI_TAR_PATH=/out/linux/$(CliArchiveRelativePath)")
       fi
-      "${docker_command[@]}" run --rm \
+      "${docker_command[@]}" "${docker_run_options[@]}" \
         -v "$(Build.SourcesDirectory):/src" \
         -v "${{ parameters.PackagingLinuxOutRoot }}:/out/linux" \
         -v "${{ parameters.PackagingCommonOutRoot }}:/out/common" \
