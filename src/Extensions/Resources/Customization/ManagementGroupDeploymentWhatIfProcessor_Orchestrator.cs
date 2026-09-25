@@ -43,6 +43,11 @@ public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
             WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
                 ?? throw new InvalidOperationException(
                     "Management group deployment what-if returned an empty result.");
+            if (string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+            {
+                ThrowIfError(result.Error, "Management group deployment what-if");
+                throw new InvalidOperationException("Management group deployment what-if failed.");
+            }
             ThrowIfError(result.Error, "Management group deployment what-if");
             FilterChanges(result, ExcludeChangeTypes);
             await WriteOutput(result);

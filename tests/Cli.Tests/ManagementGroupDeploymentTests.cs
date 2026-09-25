@@ -313,6 +313,53 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
+    public async Task WhatIfAsync_ThrowsWhenStatusFailedWithoutError()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            Json("""{ "status": "Failed", "properties": { "changes": [] } }"""));
+        var processor = new ManagementGroupDeploymentWhatIfProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "whatif",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Management group deployment what-if failed.", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateWhatIf_ThrowsWhenStatusFailedWithoutError()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            Json("""{ "status": "Failed", "properties": { "changes": [] } }"""));
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "whatif",
+            Location = "eastus",
+            WhatIf = true,
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Management group deployment what-if failed.", exception.Message);
+    }
+
+    [Fact]
     public async Task Delete_WaitsOnLocationWithoutWritingOperationPayload()
     {
         List<Uri> requests = [];
