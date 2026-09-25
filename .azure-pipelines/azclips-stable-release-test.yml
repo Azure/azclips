@@ -1,0 +1,140 @@
+name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: allowed_source_branch
+  displayName: Allowed source branch
+  type: string
+  default: refs/heads/naga/signed-package-lifecycle-validation
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/release.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+  - group: 'esrp-signing-codes'
+- name: ReleasePipelineName
+  value: naga_azclips-stable-release
+- name: SourceProject
+  value: ${{ variables.release_project }}
+- name: SignedArtifactName
+  value: Final_Signed_Stable_Test_Distribution
+- name: ESRPServiceConnection
+  value: ${{ variables.esrp_service_connection }}
+- name: MacOSBundleId
+  value: ${{ variables.macos_bundle_id }}
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      name: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: azclips-stable-release-test must run in the 'release' project.
+    - bash: |
+        set -euo pipefail
+
+        source_branch='$(Build.SourceBranch)'
+        allowed_source_branch='${{ parameters.allowed_source_branch }}'
+
+        if [[ '$(Build.Reason)' != 'Manual' ]]; then
+          echo "ERROR: azclips-stable-release-test only supports manual runs. Got: $(Build.Reason)"
+          exit 1
+        fi
+        if [[ "$source_branch" != "$allowed_source_branch" ]]; then
+          echo "ERROR: Expected source branch $allowed_source_branch. Got: $source_branch"
+          exit 1
+        fi
+
+        echo "Stable release test source branch: $source_branch"
+        echo "Stable release test source commit: $(Build.SourceVersion)"
+        echo 'GitHub publication is not included in this pipeline.'
+      displayName: Validate Stable Release Test Input
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: beta
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    final_artifact_name: Final_Build_Distribution
+
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage:
+    - BuildCommon
+    - BuildLinux
+    - BuildWindows
+    - BuildMacOS
+    - BuildPSModules
+    - Test
+    - Benchmark
+    - ValidateLinux
+    - ValidateWindows
+    - ValidateMacOS
+    - Finalize
+    - ComponentGovernance
+    SourceProject: ${{ variables.SourceProject }}
+    source_pipeline_name: ${{ variables.ReleasePipelineName }}
+    source_build_id: $(Build.BuildId)
+    source_artifact_name: Final_Build_Distribution
+    source_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+    esrp_service_connection: ${{ variables.ESRPServiceConnection }}
+    esrp_nuget_keycode: ${{ variables.esrp_nuget_keycode }}
+    esrp_authenticode_keycode: ${{ variables.esrp_authenticode_keycode }}
+    esrp_third_party_keycode: ${{ variables.esrp_third_party_keycode }}
+    esrp_strong_name_keycode: ${{ variables.esrp_strong_name_keycode }}
+    esrp_apple_keycode: ${{ variables.esrp_apple_keycode }}
+    macos_bundle_id: ${{ variables.MacOSBundleId }}
+
+- template: templates/dist/stages/component-governance.yml
+  parameters:
+    stage_name: SignedComponentGovernance
+    display_name: Component Governance For Signed Artifacts
+    windows_pool: ${{ variables.windows_pool }}
+    depends_on: AssembleSignedArtifacts
+
+- template: templates/dist/stages/verify-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    dependency_stage: SignedComponentGovernance
+    SourceProject: ${{ variables.SourceProject }}
+    signed_pipeline_name: ${{ variables.ReleasePipelineName }}
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+    require_stable_version_tag: false
+
+- template: templates/dist/stages/validate-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: VerifySignedDistribution
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
