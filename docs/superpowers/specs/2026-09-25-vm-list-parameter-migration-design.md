@@ -57,15 +57,15 @@ Considered and explicitly excluded:
 | Parameter | Type | Parameter sets | State |
 |---|---|---|---|
 | `-ResourceGroupName` | string | `List` (optional), `Get` (mandatory) | **relaxes to optional in `List`** |
-| `-Name` | string | `List` (optional), `Get` (mandatory) | **new in `List`** |
+| `-Name` | string | `ListByName` (mandatory), `Get` (mandatory) | **new `ListByName` set** |
 | `-Location` | string | `ListLocation` (mandatory) | **new** |
-| `-Status` | SwitchParameter | `List`, `ListLocation` | **new** |
-| `-UserData` | SwitchParameter | `Get`, `Id`, **`List`**, **`ListLocation`** | **extended to the list sets** |
+| `-Status` | SwitchParameter | `List`, `ListByName`, `ListLocation` | **new** |
+| `-UserData` | SwitchParameter | `Get`, `Id`, **`List`**, **`ListByName`**, **`ListLocation`** | **extended to the list sets** |
 | `-SubscriptionId` | string | all | existing |
 | `-Profile` | string | all | existing |
 | `-Id` | string | `Id` (mandatory, position 0) | existing, unchanged |
 
-`ListLocation` is a new parameter set. `Get` and `Id` are untouched.
+`ListByName` and `ListLocation` are new parameter sets. `Get` and `Id` are untouched.
 
 ## Routing
 
@@ -80,10 +80,12 @@ Considered and explicitly excluded:
 | `Get-AzVM -ResourceGroupName rg -Name n` | single `VirtualMachines_Get` |
 | `Get-AzVM -Location loc` | `VirtualMachines_ListByLocation` |
 
-PowerShell should bind `-ResourceGroupName rg -Name n` to the `Get` set, because it satisfies more
-mandatory parameters. The list orchestrator nevertheless routes a concrete resource-group-plus-name
-pair to a single `GET`, so behaviour is identical whichever set wins. Legacy relies on the same
-value-based branching rather than trusting set selection.
+`-Name` has its own `ListByName` set rather than joining `List`. PowerShell keeps only the parameter
+sets that accept every parameter passed and breaks ties with the default set, so if `List` (the
+default) also accepted `-Name`, `-ResourceGroupName rg -Name n` would tie between `Get` and `List`
+and always bind `List`. With the split, only `Get` accepts that pair. The trade-off:
+`-ResourceGroupName -Name -Status` matches no parameter set, because `Get` has no `-Status`;
+`-Name -Status` covers that need.
 
 ## Behaviour consolidation
 
@@ -124,6 +126,7 @@ comma-joined expand, reusing the existing `GetVMProcessor_Orchestrator.ResolveEx
 flowchart TD
     CLI["az vm list"] --> ORCH
     PSL["Get-AzVM_List"] --> ORCH
+    PSNAME["Get-AzVM_ListByName"] --> ORCH
     PSLOC["Get-AzVM_ListLocation"] --> ORCH
 
     ORCH["ListVMProcessor_Orchestrator<br/>routing, filtering, enrichment, cap"] --> LVM["ListVMProcessor<br/>URI and filter only"]
@@ -160,10 +163,10 @@ exact name, enrich up to the cap, then write the whole enriched set once.
 | `src/Extensions/Compute/Processors/ComputeProcessorBase.cs` | widen `CreateExtendedProcessor<T>` from `protected` to `protected internal` so the extracted enricher can compose child processors |
 | `src/Extensions/Compute/Customization/GetVMProcessor_Orchestrator.cs` | move the private `EnrichAsync` and `ResolveExpand` into the shared enricher and call them; `az vm show` behaviour is unchanged |
 | `src/Extensions/Compute/Models/VirtualMachine.cs` | add four synthetic fields; document every synthetic field's consumers |
-| `src/Extensions/Compute/ExtensionIndex.cs` | repoint `vm list` and `Get-AzVM_List` at the orchestrator; add `Get-AzVM_ListLocation`; add parameter metadata and the `d` alias |
-| `src/PS/Compute/Cmdlets/GetVMCmdlet.cs` | relax `List`, add `-Name`, `-Status`, `-UserData` to the list sets, add the `ListLocation` set |
+| `src/Extensions/Compute/ExtensionIndex.cs` | repoint `vm list` and `Get-AzVM_List` at the orchestrator; add `Get-AzVM_ListByName` and `Get-AzVM_ListLocation`; add parameter metadata and the `d` alias |
+| `src/PS/Compute/Cmdlets/GetVMCmdlet.cs` | relax `List`; add the `ListByName` set (holding `-Name`) and the `ListLocation` set; add `-Status` and `-UserData` to the list sets |
 | `src/CLI/Help/Docs/vm/list.md` | document subscription-wide listing, `--vmss`, `-d` |
-| `src/PS/Compute/help/Get-AzVM.md` | `ListLocation` syntax block; `-Location`, `-Status`, list-mode `-Name` and `-UserData` |
+| `src/PS/Compute/help/Get-AzVM.md` | `ListByName` and `ListLocation` syntax blocks; `-Location`, `-Status`, list-mode `-Name` and `-UserData` |
 
 ### New
 
@@ -190,7 +193,7 @@ parameter that populates it, so the union model stays readable:
 /// <summary>
 /// Power state flattened out of the instance view.
 /// CLI: populated by `az vm show -d` and `az vm list -d`.
-/// PowerShell: populated by `Get-AzVM -Status` (parameter sets `List`, `ListLocation`).
+/// PowerShell: populated by `Get-AzVM -Status` (parameter sets `List`, `ListByName`, `ListLocation`).
 /// Null when no detail switch was supplied.
 /// </summary>
 public string? PowerState { get; set; }
@@ -198,9 +201,9 @@ public string? PowerState { get; set; }
 
 | Synthetic field | CLI | PowerShell |
 |---|---|---|
-| `PowerState` | `az vm show -d`, `az vm list -d` | `Get-AzVM -Status` (`List`, `ListLocation`) |
+| `PowerState` | `az vm show -d`, `az vm list -d` | `Get-AzVM -Status` (`List`, `ListByName`, `ListLocation`) |
 | `PublicIps`, `Fqdns`, `PrivateIps`, `MacAddresses` | `az vm show -d`, `az vm list -d` | not populated |
-| `OsName`, `OsVersion`, `HyperVGeneration`, `MaintenanceRedeployStatus` | not populated | `Get-AzVM -Status` (`List`, `ListLocation`) |
+| `OsName`, `OsVersion`, `HyperVGeneration`, `MaintenanceRedeployStatus` | not populated | `Get-AzVM -Status` (`List`, `ListByName`, `ListLocation`) |
 
 ## Error handling
 
@@ -229,9 +232,7 @@ unaffected by the `Pagination` refactor.
 
 ## Risks
 
-- **PowerShell parameter-set resolution.** Relaxing `List` makes `-ResourceGroupName` plus `-Name`
-  bindable by both `List` and `Get`. The value-based routing in the orchestrator makes the outcome
-  identical either way, but the bound set name still selects the command metadata, so this must be
-  exercised in the smoke script.
+- **`-ResourceGroupName -Name -Status` does not bind.** It is the cost of giving `-Name` its own
+  `ListByName` set so that `-ResourceGroupName -Name` reaches `Get`; `-Name -Status` covers the need.
 - **VMSS `$filter` quoting** is unverified against a live ARM endpoint; the smoke script covers it.
 - **`Pagination` refactor** touches a helper shared by seven processors across four extensions.

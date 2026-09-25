@@ -10,11 +10,11 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     /// <summary>
-    /// Shared list orchestrator behind <c>az vm list</c>, <c>Get-AzVM_List</c> and
-    /// <c>Get-AzVM_ListLocation</c>. It owns every client-facing switch and reduces them to an
-    /// endpoint choice, an optional ARM <c>$filter</c>, an exact-match name filter, and a capped
-    /// per-VM fan-out for the detail switches. <c>ExtensionIndex</c> decides which switches each
-    /// client exposes.
+    /// Shared list orchestrator behind <c>az vm list</c>, <c>Get-AzVM_List</c>,
+    /// <c>Get-AzVM_ListByName</c> and <c>Get-AzVM_ListLocation</c>. It owns every
+    /// client-facing switch and reduces them to an endpoint choice, an optional ARM <c>$filter</c>,
+    /// an exact-match name filter, and a capped per-VM fan-out for the detail switches.
+    /// <c>ExtensionIndex</c> decides which switches each client exposes.
     /// </summary>
     public class ListVMProcessor_Orchestrator : ListVMProcessor
     {
@@ -43,19 +43,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public override async Task ProcessAsync()
         {
             ResolveVmssFilter();
-
-            // ParameterMetadata cannot express "this set means list unless both are given", and
-            // PowerShell may bind a concrete resource-group-plus-name pair to either the Get or the
-            // List set. Branching on the values, exactly as legacy does, makes the outcome identical
-            // whichever set won.
-            if (string.IsNullOrWhiteSpace(Location)
-                && !string.IsNullOrWhiteSpace(ResourceGroupName)
-                && !string.IsNullOrWhiteSpace(Name))
-            {
-                await ListSingleAsync();
-                return;
-            }
-
             await base.ProcessAsync();
         }
 
@@ -125,40 +112,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             }
 
             Filter = $"'virtualMachineScaleSet/id' eq '{vmssId}'";
-        }
-
-        /// <summary>
-        /// Insurance path for a concrete resource group plus name. Writes a one-element collection
-        /// rather than a bare object, because this is still a list command.
-        /// </summary>
-        private async Task ListSingleAsync()
-        {
-            try
-            {
-                await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-
-                var results = new List<VirtualMachine>();
-
-                using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
-                {
-                    p.SubscriptionId = SubscriptionId;
-                    p.ResourceGroupName = ResourceGroupName;
-                    p.Name = Name!;
-                    p.Expand = NeedsDetail ? VirtualMachineDetailEnricher.ResolveExpand(NeedsInstanceView, IncludeUserData) : null;
-                }).SendAsync();
-
-                if (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions) is { } virtualMachine)
-                {
-                    await ApplyDetailAsync(virtualMachine);
-                    results.Add(virtualMachine);
-                }
-
-                await WriteOutput(results);
-            }
-            finally
-            {
-                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-            }
         }
 
         /// <summary>

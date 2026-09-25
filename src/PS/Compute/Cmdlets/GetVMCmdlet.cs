@@ -19,6 +19,7 @@ public class GetVMCmdlet : PSCmdlet
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
     [Parameter(ParameterSetName = "Id", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
@@ -27,14 +28,20 @@ public class GetVMCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string ResourceGroupName { get; set; } = "";
 
+    // -Name has its own ListByName set instead of joining List. PowerShell keeps only the sets that
+    // accept every parameter passed and breaks ties with the default set (List), so if List also
+    // accepted -Name, -ResourceGroupName -Name would always bind List and never reach Get.
+    // Trade-off: -ResourceGroupName -Name -Status matches no set, because Get has no -Status
+    // (GetVMProcessor_Orchestrator does not implement it). Use -Name -Status instead.
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = true)]
     public string? Name { get; set; }
 
     [Parameter(ParameterSetName = "ListLocation", Mandatory = true)]
     public string Location { get; set; } = "";
 
     [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
     public SwitchParameter Status { get; set; }
 
@@ -44,6 +51,7 @@ public class GetVMCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
     [Parameter(ParameterSetName = "Id", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
     public SwitchParameter UserData { get; set; }
 

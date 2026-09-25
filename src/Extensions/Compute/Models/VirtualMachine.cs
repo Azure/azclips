@@ -20,7 +20,7 @@ public class VirtualMachine
     /// <summary>
     /// Power state, flattened out of the instance view.
     /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListLocation</c>).
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// Set to "Info Not Available" when a per-VM lookup failed during a list fan-out.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -60,7 +60,7 @@ public class VirtualMachine
 
     /// <summary>
     /// Operating system name, flattened out of the instance view.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListLocation</c>).
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// CLI: never populated — --show-details does not surface this field.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -68,7 +68,7 @@ public class VirtualMachine
 
     /// <summary>
     /// Operating system version, flattened out of the instance view.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListLocation</c>).
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// CLI: never populated — --show-details does not surface this field.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -76,7 +76,7 @@ public class VirtualMachine
 
     /// <summary>
     /// Hypervisor generation, flattened out of the instance view.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListLocation</c>).
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// CLI: never populated — --show-details does not surface this field.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -84,7 +84,7 @@ public class VirtualMachine
 
     /// <summary>
     /// Maintenance and redeploy status, flattened out of the instance view.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListLocation</c>).
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// CLI: never populated — --show-details does not surface this field.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

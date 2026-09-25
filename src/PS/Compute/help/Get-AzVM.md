@@ -20,8 +20,15 @@ Get a virtual machine or list virtual machines.
 ### List (Default)
 
 ```
-Get-AzVM [-ResourceGroupName <string>] [-Name <string>] [-SubscriptionId <string>] [-Status]
- [-UserData] [-Profile <string>] [<CommonParameters>]
+Get-AzVM [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Status] [-UserData]
+ [-Profile <string>] [<CommonParameters>]
+```
+
+### ListByName
+
+```
+Get-AzVM -Name <string> [-SubscriptionId <string>] [-Status] [-UserData] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### ListLocation
@@ -171,9 +178,9 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: List
+- Name: ListByName
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -232,7 +239,7 @@ HelpMessage: ''
 
 ### -Status
 
-Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow. Details are retrieved for at most 100 virtual machines.
+Retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. Command will run slow. Details are retrieved for at most 100 virtual machines. Cannot be combined with `-ResourceGroupName` and `-Name` together; use `-Name` alone to get the status of one virtual machine.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -247,6 +254,12 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 - Name: ListLocation
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ListByName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -291,6 +304,12 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
+- Name: ListByName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -325,6 +344,12 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 - Name: ListLocation
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: ListByName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
