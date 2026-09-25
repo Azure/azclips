@@ -64,6 +64,31 @@ function Assert-InstallFailure {
     }
 }
 
+function Assert-UninstallFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedPattern
+    )
+
+    try {
+        & $uninstallerPath *> $null
+        throw "FAIL: $Description unexpectedly succeeded."
+    }
+    catch {
+        if ($_.Exception.Message -like 'FAIL:*unexpectedly succeeded.*') {
+            throw
+        }
+        $failureText = $_ | Out-String
+        if ($failureText -notmatch $ExpectedPattern) {
+            throw "FAIL: $Description did not report the expected error. Actual error: $failureText"
+        }
+        Write-Host "  PASS: $Description was rejected"
+    }
+}
+
 function Get-ArtifactConfigValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -311,6 +336,52 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
         $env:USERPROFILE = $originalUserProfile
         $env:LOCALAPPDATA = $originalLocalAppData
         $env:AZCLIPS_HOME = $originalAzclipsHome
+        $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
+    }
+
+    Write-Host '[Preflight] Verify uninstaller safety'
+    $uninstallHome = Join-Path $SimRoot 'uninstall-safety-home'
+    $absentInstallRoot = Join-Path $uninstallHome 'already-absent'
+    $unknownUninstallRoot = Join-Path $uninstallHome 'unknown-install'
+    $forcedUninstallRoot = Join-Path $uninstallHome 'forced-install'
+    $outsideSentinel = Join-Path $uninstallHome 'outside-sentinel'
+    $originalUserProfile = $env:USERPROFILE
+    $originalInstallRoot = $env:AZCLI_INSTALL_ROOT
+    try {
+        $null = New-Item -Path $uninstallHome -ItemType Directory -Force
+        Set-Content -Path (Join-Path $uninstallHome 'sentinel') -Value 'home sentinel'
+        $env:USERPROFILE = $uninstallHome
+
+        $env:AZCLI_INSTALL_ROOT = $absentInstallRoot
+        & $uninstallerPath *> $null
+        if (Test-Path -LiteralPath $absentInstallRoot) {
+            throw 'FAIL: idempotent uninstall created the absent install root.'
+        }
+
+        $env:AZCLI_INSTALL_ROOT = $uninstallHome
+        Assert-UninstallFailure -Description 'unsafe uninstall root' -ExpectedPattern 'Refusing to operate on unsafe install root'
+
+        $null = New-Item -Path $unknownUninstallRoot -ItemType Directory -Force
+        $unknownUninstallSentinel = Join-Path $unknownUninstallRoot 'sentinel'
+        Set-Content -Path $unknownUninstallSentinel -Value 'unknown install sentinel'
+        $env:AZCLI_INSTALL_ROOT = $unknownUninstallRoot
+        Assert-UninstallFailure -Description 'unknown nonempty uninstall root' -ExpectedPattern 'does not look like an azcli install'
+        if ((Get-Content -Path $unknownUninstallSentinel -Raw).Trim() -ne 'unknown install sentinel') {
+            throw 'FAIL: rejected unknown uninstall root was modified.'
+        }
+
+        $null = New-Item -Path $forcedUninstallRoot -ItemType Directory -Force
+        Set-Content -Path (Join-Path $forcedUninstallRoot 'sentinel') -Value 'forced install sentinel'
+        Set-Content -Path $outsideSentinel -Value 'outside sentinel'
+        $env:AZCLI_INSTALL_ROOT = $forcedUninstallRoot
+        & $uninstallerPath -Force *> $null
+        if ((Test-Path -LiteralPath $forcedUninstallRoot) -or (Get-Content -Path $outsideSentinel -Raw).Trim() -ne 'outside sentinel') {
+            throw 'FAIL: forced uninstall was not limited to the selected root.'
+        }
+        Write-Host '  PASS: idempotent, guarded, and forced uninstall behavior succeeded'
+    }
+    finally {
+        $env:USERPROFILE = $originalUserProfile
         $env:AZCLI_INSTALL_ROOT = $originalInstallRoot
     }
 

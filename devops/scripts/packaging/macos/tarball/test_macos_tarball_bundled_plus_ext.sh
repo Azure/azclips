@@ -67,6 +67,26 @@ expect_install_failure() {
   echo "  PASS: $description was rejected"
 }
 
+expect_uninstall_failure() {
+  local description="$1"
+  local expected_pattern="$2"
+  local home_root="$3"
+  local install_root="$4"
+  shift 4
+  local output=""
+
+  if output=$(HOME="$home_root" AZCLI_INSTALL_ROOT="$install_root" "$REPO_ROOT/install/azcli-uninstall.sh" "$@" 2>&1); then
+    echo "FAIL: $description unexpectedly succeeded"
+    exit 1
+  fi
+  if ! grep -Eqi -e "$expected_pattern" <<<"$output"; then
+    echo "FAIL: $description did not report the expected error"
+    printf '%s\n' "$output" | sed -n '1,20p'
+    exit 1
+  fi
+  echo "  PASS: $description was rejected"
+}
+
 OUT_ROOT="$(absolute_path "${OUT_ROOT:-$REPO_ROOT/devops/out/macos}")"
 COMMON_OUT_ROOT="$(absolute_path "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/macos-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/macos-tarball-bundled-plus-ext}")"
@@ -227,6 +247,39 @@ if [[ -e "$default_install_root" || "$(cat "$default_home_sentinel")" != "defaul
   exit 1
 fi
 echo "  PASS: default-path install, runtime, reinstall, and uninstall succeeded"
+
+echo "[Preflight] Verify uninstaller safety"
+uninstall_home="$SIM_ROOT/uninstall-safety-home"
+absent_install_root="$uninstall_home/already-absent"
+unknown_uninstall_root="$uninstall_home/unknown-install"
+forced_uninstall_root="$uninstall_home/forced-install"
+outside_sentinel="$uninstall_home/outside-sentinel"
+mkdir -p "$uninstall_home"
+printf 'home sentinel\n' >"$uninstall_home/sentinel"
+HOME="$uninstall_home" AZCLI_INSTALL_ROOT="$absent_install_root" "$REPO_ROOT/install/azcli-uninstall.sh" >/dev/null
+if [[ -e "$absent_install_root" ]]; then
+  echo "FAIL: idempotent uninstall created the absent install root"
+  exit 1
+fi
+expect_uninstall_failure "unsafe uninstall root" "Refusing to operate on unsafe install root" \
+  "$uninstall_home" "$uninstall_home"
+mkdir -p "$unknown_uninstall_root"
+printf 'unknown install sentinel\n' >"$unknown_uninstall_root/sentinel"
+expect_uninstall_failure "unknown nonempty uninstall root" "does not look like an azcli install" \
+  "$uninstall_home" "$unknown_uninstall_root"
+if [[ "$(cat "$unknown_uninstall_root/sentinel")" != "unknown install sentinel" ]]; then
+  echo "FAIL: rejected unknown uninstall root was modified"
+  exit 1
+fi
+mkdir -p "$forced_uninstall_root"
+printf 'forced install sentinel\n' >"$forced_uninstall_root/sentinel"
+printf 'outside sentinel\n' >"$outside_sentinel"
+HOME="$uninstall_home" AZCLI_INSTALL_ROOT="$forced_uninstall_root" "$REPO_ROOT/install/azcli-uninstall.sh" --force >/dev/null
+if [[ -e "$forced_uninstall_root" || "$(cat "$outside_sentinel")" != "outside sentinel" ]]; then
+  echo "FAIL: forced uninstall was not limited to the selected root"
+  exit 1
+fi
+echo "  PASS: idempotent, guarded, and forced uninstall behavior succeeded"
 
 printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"

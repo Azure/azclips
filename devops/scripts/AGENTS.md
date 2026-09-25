@@ -68,6 +68,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Verify third-party archives against registry-provided checksums before extracting or executing them.
 - Validate SDK-bundled Copilot runtimes with their server contract (`--server --stdio`); they do not expose the user-facing CLI's `--version` command.
 - Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
+- Preserve installer and uninstaller safety coverage for default paths, unsafe roots, unknown nonempty directories, and forced removal boundaries.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).
