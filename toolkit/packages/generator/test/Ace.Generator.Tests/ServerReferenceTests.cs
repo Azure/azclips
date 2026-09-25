@@ -41,7 +41,7 @@ public sealed class ServerReferenceTests
     /// </summary>
     private static TransformedIR Document(IRId? reference = null) => new()
     {
-        SchemaVersion = "0.12.0",
+        SchemaVersion = "0.13.0",
         Sources = [new IRSource { Id = "First", Server = ServerId() }],
         Servers = [Definition(ServerId())],
         Operations = [Operation("get", ServerId())],
