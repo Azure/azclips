@@ -137,6 +137,7 @@ jobs:
         printf '  %s\n' "${mac_assets[@]}"
 
         total_binaries=0
+        total_bundles=0
         for asset in "${mac_assets[@]}"; do
           file_name=$(basename "$asset")
           base_name="${file_name%.tar.gz}"
@@ -146,12 +147,28 @@ jobs:
           mkdir -p "$content_root"
           tar -xzf "$asset" -C "$content_root"
 
+          while IFS= read -r -d '' bundle; do
+            relative_path="${bundle#$content_root/}"
+            if [[ "$relative_path" == *.app/* ]]; then
+              continue
+            fi
+
+            safe_relative=$(printf '%s' "$relative_path" | sed 's#[/\\]#__#g; s#[^A-Za-z0-9._-]#_#g')
+            zip_name="${base_name}__${safe_relative}.zip"
+
+            printf '%s\t%s\t%s\tbundle\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
+            total_bundles=$((total_bundles + 1))
+          done < <(find "$content_root" -type d -name '*.app' -print0)
+
           while IFS= read -r -d '' binary; do
             if ! file "$binary" | grep -q 'Mach-O'; then
               continue
             fi
 
             relative_path="${binary#$content_root/}"
+            if [[ "$relative_path" == *.app/* ]]; then
+              continue
+            fi
             if requires_dotnet_entitlements "$binary"; then
               chmod +x "$binary"
               codesign --force --sign - --options runtime --entitlements "$entitlements_source" "$binary"
@@ -161,17 +178,17 @@ jobs:
             safe_relative=$(printf '%s' "$relative_path" | sed 's#[/\\]#__#g; s#[^A-Za-z0-9._-]#_#g')
             zip_name="${base_name}__${safe_relative}.zip"
 
-            printf '%s\t%s\t%s\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
+            printf '%s\t%s\t%s\tfile\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
             total_binaries=$((total_binaries + 1))
           done < <(find "$content_root" -type f -print0)
         done
 
-        if [[ "$total_binaries" -eq 0 ]]; then
-          echo 'ERROR: No Mach-O binaries were found in the selected macOS artifacts.'
+        if [[ $((total_binaries + total_bundles)) -eq 0 ]]; then
+          echo 'ERROR: No Mach-O binaries or app bundles were found in the selected macOS artifacts.'
           exit 1
         fi
 
-        echo "Prepared $total_binaries Mach-O binaries for Developer ID signing."
+        echo "Prepared $total_binaries Mach-O binaries and $total_bundles app bundles for Developer ID signing."
       displayName: Prepare macOS Signing Inputs
     - task: PublishPipelineArtifact@1
       displayName: Publish macOS Signing Inputs
@@ -229,22 +246,26 @@ jobs:
             return
           }
 
-          $parts = $_ -split "`t", 3
-          if ($parts.Count -ne 3) {
+          $parts = $_ -split "`t", 4
+          if ($parts.Count -ne 4) {
             throw "Invalid file mapping row: $_"
           }
 
           $zipName = $parts[0]
           $baseName = $parts[1]
           $relativePath = $parts[2]
-          $binaryPath = "$inputRoot/contents/$baseName/$relativePath"
+          $itemType = $parts[3]
+          $signingPath = "$inputRoot/contents/$baseName/$relativePath"
           $zipPath = Join-Path $toBeSignedDir $zipName
 
-          if (-not (Test-Path $binaryPath)) {
-            throw "Binary to sign not found: $binaryPath"
+          if (-not (Test-Path $signingPath)) {
+            throw "Signing input not found: $signingPath"
+          }
+          if ($itemType -notin @('file', 'bundle')) {
+            throw "Unsupported signing input type '$itemType': $_"
           }
 
-          Compress-Archive -Path $binaryPath -DestinationPath $zipPath -Force
+          Compress-Archive -Path $signingPath -DestinationPath $zipPath -Force
           $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
           "$zipName`t$hash" | Add-Content -Path $hashesPath
           $count++
@@ -310,14 +331,15 @@ jobs:
             return
           }
 
-          $parts = $_ -split "`t", 3
-          if ($parts.Count -ne 3) {
+          $parts = $_ -split "`t", 4
+          if ($parts.Count -ne 4) {
             throw "Invalid file mapping row: $_"
           }
 
           $zipName = $parts[0]
           $baseName = $parts[1]
           $relativePath = $parts[2]
+          $itemType = $parts[3]
           $zipPath = Join-Path $signedZipsDir $zipName
 
           if (-not (Test-Path $zipPath)) {
@@ -336,15 +358,24 @@ jobs:
           New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
           Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-          $extractedFile = Get-ChildItem -Path $extractPath -File | Select-Object -First 1
-          if (-not $extractedFile) {
-            throw "Signed zip did not contain a file: $zipPath"
+          $extractedItem = Get-ChildItem -Path $extractPath | Select-Object -First 1
+          if (-not $extractedItem) {
+            throw "Signed zip was empty: $zipPath"
+          }
+          if ($itemType -eq 'file' -and -not $extractedItem.PSIsContainer) {
+            $signedItem = $extractedItem
+          }
+          elseif ($itemType -eq 'bundle' -and $extractedItem.PSIsContainer -and $extractedItem.Name -eq (Split-Path $relativePath -Leaf)) {
+            $signedItem = $extractedItem
+          }
+          else {
+            throw "Signed zip content did not match $itemType mapping for ${relativePath}: $zipPath"
           }
 
           $targetPath = "$outputDir/$baseName/$relativePath"
           $targetDir = Split-Path $targetPath -Parent
           New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-          Copy-Item -Path $extractedFile.FullName -Destination $targetPath -Force
+          Copy-Item -Path $signedItem.FullName -Destination $targetPath -Recurse -Force
           $count++
         }
 
@@ -401,24 +432,158 @@ jobs:
         notarization_root="$(Build.ArtifactStagingDirectory)/macos-notarization-bundles"
         mkdir -p "$signed_contents_root" "$notarization_root"
 
+        verify_macho_signature() {
+          local candidate="$1"
+          local signature_details
+          local failed=0
+
+          if ! codesign --verify --deep --strict --verbose=4 "$candidate"; then
+            echo "ERROR: Strict codesign verification failed before notarization: $candidate"
+            failed=1
+          fi
+
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Microsoft TeamIdentifier missing before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+            echo "ERROR: Hardened runtime flag missing before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+            echo "ERROR: Signing timestamp missing before notarization: $candidate"
+            failed=1
+          fi
+
+          return "$failed"
+        }
+
+        verify_app_bundle() {
+          local candidate="$1"
+          local signature_details
+          local failed=0
+
+          if ! codesign --verify --deep --strict --verbose=4 "$candidate"; then
+            echo "ERROR: Strict app bundle verification failed before notarization: $candidate"
+            failed=1
+          fi
+
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Microsoft TeamIdentifier missing from app bundle before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+            echo "ERROR: Hardened runtime flag missing from app bundle before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+            echo "ERROR: Signing timestamp missing from app bundle before notarization: $candidate"
+            failed=1
+          fi
+
+          return "$failed"
+        }
+
+        verify_dotnet_entitlements() {
+          local candidate="$1"
+          local entitlements
+          local failed=0
+
+          entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
+          for entitlement in \
+            'com.apple.security.cs.allow-jit' \
+            'com.apple.security.cs.allow-unsigned-executable-memory' \
+            'com.apple.security.cs.disable-library-validation'; do
+            if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+              echo "ERROR: Required .NET entitlement '$entitlement' missing before notarization: $candidate"
+              failed=1
+            fi
+          done
+
+          return "$failed"
+        }
+
         cp -R "$input_root/contents/." "$signed_contents_root/"
 
-        while IFS=$'\t' read -r _zip_name base_name relative_path; do
+        while IFS=$'\t' read -r _zip_name base_name relative_path item_type; do
           [[ -z "$base_name" ]] && continue
-          signed_file="$signed_binary_root/$base_name/$relative_path"
+          signed_item="$signed_binary_root/$base_name/$relative_path"
           target="$signed_contents_root/$base_name/$relative_path"
-          if [[ -z "$signed_file" ]]; then
-            echo "ERROR: Empty signed file path for $base_name/$relative_path"
-            exit 1
-          fi
-          if [[ ! -f "$signed_file" ]]; then
-            echo "ERROR: Signed binary not found: $signed_file"
+          if [[ -z "$signed_item" ]]; then
+            echo "ERROR: Empty signed item path for $base_name/$relative_path"
             exit 1
           fi
 
-          cp "$signed_file" "$target"
-          chmod +x "$target" || true
+          case "$item_type" in
+            file)
+              if [[ ! -f "$signed_item" ]]; then
+                echo "ERROR: Signed binary not found: $signed_item"
+                exit 1
+              fi
+              cp "$signed_item" "$target"
+              chmod +x "$target" || true
+              ;;
+            bundle)
+              if [[ ! -d "$signed_item" ]]; then
+                echo "ERROR: Signed app bundle not found: $signed_item"
+                exit 1
+              fi
+              rm -rf "$target"
+              cp -R "$signed_item" "$target"
+              ;;
+            *)
+              echo "ERROR: Unsupported signing input type '$item_type' for $base_name/$relative_path"
+              exit 1
+              ;;
+          esac
         done < "$input_root/file-mapping.tsv"
+
+        verification_errors=0
+        while IFS= read -r -d '' candidate; do
+          if file "$candidate" | grep -q 'Mach-O'; then
+            chmod +x "$candidate"
+          fi
+        done < <(find "$signed_contents_root" -type f -print0)
+
+        total_app_bundles=0
+        while IFS= read -r -d '' candidate; do
+          total_app_bundles=$((total_app_bundles + 1))
+          if ! verify_app_bundle "$candidate"; then
+            verification_errors=1
+          fi
+        done < <(find "$signed_contents_root" -type d -name '*.app' -print0)
+
+        total_macho=0
+        while IFS= read -r -d '' candidate; do
+          if ! file "$candidate" | grep -q 'Mach-O'; then
+            continue
+          fi
+
+          total_macho=$((total_macho + 1))
+          if ! verify_macho_signature "$candidate"; then
+            verification_errors=1
+          fi
+
+          case "$(basename "$candidate")" in
+            az|azclips-agent)
+              if ! verify_dotnet_entitlements "$candidate"; then
+                verification_errors=1
+              fi
+              ;;
+          esac
+        done < <(find "$signed_contents_root" -type f -print0)
+
+        if [[ "$total_macho" -eq 0 ]]; then
+          echo 'ERROR: No Mach-O binaries found before notarization.'
+          verification_errors=1
+        fi
+        if [[ "$verification_errors" -ne 0 ]]; then
+          echo 'ERROR: macOS payload validation failed; notarization ZIPs will not be created.'
+          exit 1
+        fi
+        echo "Validated $total_macho signed Mach-O binaries and $total_app_bundles app bundles before notarization."
 
         for content_dir in "$signed_contents_root"/*; do
           [[ -d "$content_dir" ]] || continue
