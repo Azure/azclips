@@ -20,11 +20,11 @@
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
 #
-# Cleanup: the VM is always removed on exit. The NIC/VNet/NSG and the resource
-# group are left behind because this module has no cmdlet for them; remove them
-# with the system Azure CLI:
-#     az group delete --name <group> --yes
-# Set $env:AZCLIPS_DELETE_GROUP = '1' to have this script attempt that automatically.
+# Cleanup: on exit, whether the run passed or failed, the VM is removed and then the
+# resource group this script created is deleted with Remove-AzResourceGroup. Deleting
+# the group also removes the NIC, VNet, NSG, OS disk and anything a failed run left
+# half-created. A group named through $env:AZCLIPS_RESOURCE_GROUP may already hold
+# other resources, so the script never deletes it; clean that group up yourself.
 #
 # Usage: ./tests/Scripts/PS/VMList.ps1
 
@@ -51,10 +51,11 @@ if (-not $env:AZCLIPS_VM_ADMIN_PASSWORD)
 # auto-loads them on first use, so an un-imported azclips module silently resolves to
 # the official one — which rejects -SubscriptionId and fails mid-script.
 $requiredCommands = [ordered]@{
-    'New-AzResourceGroup' = 'Resources'
-    'New-AzVM'            = 'Compute'
-    'Get-AzVM'            = 'Compute'
-    'Remove-AzVM'         = 'Compute'
+    'New-AzResourceGroup'    = 'Resources'
+    'Remove-AzResourceGroup' = 'Resources'
+    'New-AzVM'               = 'Compute'
+    'Get-AzVM'               = 'Compute'
+    'Remove-AzVM'            = 'Compute'
 }
 
 foreach ($requiredCommand in $requiredCommands.Keys)
@@ -81,9 +82,14 @@ foreach ($requiredCommand in $requiredCommands.Keys)
     }
 }
 
-# Guards the cleanup block: without it, a failure before the VM exists triggers a
-# Remove-AzVM that 404s and masks the real error.
-$vmCreated = $false
+# Guard the cleanup block: each resource is only deleted once it exists, so a failure
+# before then doesn't trigger a delete that 404s.
+$groupCreated = $false
+$vmCreated    = $false
+
+# Only a group this script named itself is safe to delete. One supplied through
+# AZCLIPS_RESOURCE_GROUP may already hold other resources.
+$ownsResourceGroup = -not $env:AZCLIPS_RESOURCE_GROUP
 
 try
 {
@@ -91,6 +97,8 @@ try
         -SubscriptionId $subscriptionId `
         -Name $resourceGroup `
         -Location $location
+
+    $groupCreated = $true
 
     New-AzVM `
         -SubscriptionId $subscriptionId `
@@ -131,23 +139,40 @@ try
 }
 finally
 {
+    # Cleanup failures are warnings, not throws: a throw here would skip the remaining
+    # steps and replace the exception that ended the run.
     if ($vmCreated)
     {
         Write-Host "== cleanup: removing VM $vmName =="
-        Remove-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName
+        try
+        {
+            Remove-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName
+        }
+        catch
+        {
+            Write-Warning "Could not remove VM ${vmName}. Error: $($_.Exception.Message)"
+        }
     }
     else
     {
-        Write-Host '== cleanup: skipped, the VM was never created =='
+        Write-Host '== cleanup: skipped VM removal, the VM was never created =='
     }
 
-    if ($vmCreated -and $env:AZCLIPS_DELETE_GROUP -eq '1' -and (Get-Command az -ErrorAction SilentlyContinue))
+    if ($groupCreated -and $ownsResourceGroup)
     {
         Write-Host "== cleanup: deleting resource group $resourceGroup =="
-        az group delete --subscription $subscriptionId --name $resourceGroup --yes --no-wait
+        try
+        {
+            $null = Remove-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroup -Force
+        }
+        catch
+        {
+            Write-Warning ("Could not delete resource group ${resourceGroup}. Remove it with " +
+                "'az group delete --name $resourceGroup --yes'. Error: $($_.Exception.Message)")
+        }
     }
-    elseif ($vmCreated)
+    elseif ($groupCreated)
     {
-        Write-Host "== cleanup: remove leftover network resources with: az group delete --name $resourceGroup --yes =="
+        Write-Host "== cleanup: kept resource group $resourceGroup because AZCLIPS_RESOURCE_GROUP supplied it; remove leftover resources yourself =="
     }
 }
