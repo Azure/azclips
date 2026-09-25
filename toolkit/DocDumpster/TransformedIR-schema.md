@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.12.0"`. _(2026-09-21)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-09-21)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -254,6 +254,7 @@ IRCommandParameter = {
   name              // final C#-facing member, unique within the command
   source            // path | query | header  → { parameter: IRId }
                     // body                   → { path: IRId[] }  (crosses nesting hops)
+                    // synthetic              → no direct operation parameter
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
   nullable, defaultValue?, collectionFormat?, format?, access?
@@ -268,6 +269,9 @@ for client transforms, and the thing that did not exist anywhere before.
   generator emits a member without a lookup.
 - **`source` resolves back to the declaration**, which is what lets a client
   transform read facts it must not rewrite — enum values, docs, visibility.
+- **`synthetic` has no request binding of its own.** It marks a transform-created
+  parameter, such as a model-typed PowerShell InputObject. Client-specific mappings
+  belong in that client's dialect metadata.
 - **Protocol headers** (`Content-Type`, `Accept`) are carried but marked
   `access: "internal"`: the request needs them, no client should surface them.
 - **There is no `apiVersion` source kind** — see above.
@@ -311,10 +315,10 @@ IRCommandDialect          = { ps?: PsCommandDialect,   cli?: CliCommandDialect }
 IRCommandParameterDialect = { ps?: PsParameterDialect, cli?: CliParameterDialect }
 ```
 
-**Dialects live on commands and their parameters, and nowhere else.** Models are
+**Surface dialects live on commands, their parameters, and the target.** Models are
 client-neutral: they are output shapes that serialize themselves. Hints on models and
-properties shape the emitted **C# type**; dialects shape the **client surface**. That
-bounds growth at `clients × {command, parameter}` rather than `clients × node kinds`.
+properties shape the emitted **C# type**; dialects shape the **client surface** and
+module output. That bounds growth to client-owned presentation metadata.
 
 Each client's type spreads `clientDialectFields` — the **intersection**
 (`name`, `aliases`, `hidden`, `description`), never the union. A field enters the
@@ -328,11 +332,12 @@ better C# POCOs than an open map.
 `dialect` is **absent** until a client transform runs. `create-command` writes none:
 it knows nothing about clients.
 
-> These are skeletons. `PsCommandDialect` carries `verb`, `noun`,
-> `defaultParameterSet`, `supportsShouldProcess`; `PsParameterDialect` carries
-> `parameterSets[]` of `PsParameterSetMembership` (per-set `mandatory`, `position`,
-> pipeline flags), mirroring one `[Parameter(...)]` attribute each. `CliCommandDialect`
-> carries `path[]`; `CliParameterDialect` carries `flag`, `shorthand`, `group`.
+`PsCommandDialect` carries naming, help, lifecycle, paging/output, HTTP-path, and
+parameter-family metadata. Its optional `identity` names a synthetic model-typed
+command parameter and maps properties of that canonical `IRModel` to canonical path
+parameter IDs. `PsParameterDialect` carries `parameterSets[]`, parameter completion,
+script defaults, and removal metadata. `CliCommandDialect` carries `path[]`;
+`CliParameterDialect` carries `flag`, `shorthand`, `group`.
 
 ## Target
 
@@ -341,6 +346,7 @@ IRTarget = {
   rootNamespace: string[]
   projectName:   string
   directories:   { models: string, processors: string }
+  dialect?:      { ps?: PsModuleDialect, cli?: CliModuleDialect }
 }
 ```
 
@@ -350,7 +356,8 @@ IR where a captured document can show them.
 
 Document-level rather than per-command because models, the processor base, and the
 project file all need placement. Anything that genuinely varies per command stays on
-the command.
+the command. PowerShell module naming (`name`, `description`, `prefix`, and
+`subjectPrefix`) therefore lives in `IRTarget.dialect.ps`.
 
 ## Validation
 
@@ -368,7 +375,10 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - every `command.server` resolves into `IR.servers`;
 - every `steps[].operation` resolves into `IR.operations`;
 - `name` is unique document-wide (it is the generated C# type stem);
-- `commandKey(id)` is unique.
+- `commandKey(id)` is unique;
+- PowerShell sibling commands agree on a declared family default parameter set;
+- a PowerShell identity names an existing synthetic model parameter, model-owned
+  properties, and canonical path parameters.
 
 ## Consuming it
 
@@ -395,15 +405,9 @@ stays review discipline, like the additive-after-generate rule.
 
 ## Codegen
 
-> **Pending, and the one thing still blocking a C# consumer.**
-> `emit-json-schema.mjs` currently roots the JSON Schema at `IRSchema`, so
-> `Ir.Generated.cs` contains **no `IRCommand`, dialect, or `IRTarget` POCOs** — the
-> C# generator cannot yet read anything in this document.
->
-> The fix is to emit from `TransformedIRSchema` and register the new types as
-> definitions. `Ir.Generated.cs` then roots at the transformed document with `IR`'s
-> types as shared definitions; because the generator only ever reads a transformed
-> document, it needs no second root and `AceIrModelGen` stays single-rooted.
+`emit-json-schema.mjs` roots the JSON Schema at `TransformedIRSchema` and registers
+the command, dialect, target, and neutral IR types as definitions. `AceIrModelGen`
+then emits the single transformed-document C# model consumed by the generator.
 
 ```
 packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ──AceIrModelGen──▶  Ir.Generated.cs
