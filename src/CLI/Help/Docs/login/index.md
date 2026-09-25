@@ -14,7 +14,7 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Login with device code
-
+ 
 ```bash
 az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
 ```

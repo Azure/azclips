@@ -260,7 +260,210 @@ public class RuntimeHelpRendererTests
 
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
-        Assert.Contains("1. First example\naz vm create --name vm1\n\n2. Second example\naz vm create --name vm2", actual);
+        Assert.Contains("1. First example\n$ az vm create --name vm1\n\n2. Second example\n$ az vm create --name vm2", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldNotEmitEscapeCodes_WhenBoldHeadersIsFalse()
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders: false);
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("\n# COMMAND\n", "\n" + actual + "\n");
+        Assert.DoesNotContain("\u001b[", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldWrapSectionHeaders_WhenBoldHeadersIsTrue()
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders: true);
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("\u001b[1m# COMMAND\u001b[0m", actual);
+        Assert.Contains("\u001b[1m# ARGUMENTS\u001b[0m", actual);
+        Assert.Contains("\u001b[1m# GLOBAL ARGUMENTS\u001b[0m", actual);
+        // Only the header text itself is wrapped, not the name/summary line beneath it.
+        Assert.DoesNotContain("\u001b[1maz vm create", actual);
+    }
+
+    [Fact]
+    public void RenderGroupsSection_ShouldSortGroupsAndHaveNoExteriorBlankLines()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        RuntimeHelpGroup[] groups =
+        [
+            new("vm", "Manage VMs.", [], []),
+            new("group", "Manage groups.", [], []),
+        ];
+
+        var lines = renderer.RenderGroupsSection(groups, terminalWidth: null);
+
+        Assert.Equal("# GROUPS", lines[0]);
+        Assert.Equal("group:", lines[1]);
+        Assert.Equal("vm:", lines[4]);
+        Assert.NotEqual(string.Empty, lines[0]);
+        Assert.NotEqual(string.Empty, lines[^1]);
+    }
+
+    [Fact]
+    public void RenderIdentitySections_ShouldRenderHeadingsAndSummaries()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var group = new RuntimeHelpGroup("vm", "Manage VMs.", [], []);
+        var command = Command(parameters: [], examples: []);
+
+        Assert.Equal(["# GROUP", "az vm:", "Manage VMs."], renderer.RenderGroupIdentitySection(group, null));
+        Assert.Equal(["# COMMAND", "az vm create:", "Create a VM."], renderer.RenderCommandIdentitySection(command, null));
+    }
+
+    [Fact]
+    public void RenderSubgroupsSection_ShouldBeOptionalAndRenderEntries()
+    {
+        var renderer = new RuntimeHelpRenderer();
+
+        Assert.Empty(renderer.RenderSubgroupsSection([], null));
+        Assert.Equal(
+            ["# SUBGROUPS", "role:", "Manage roles.", "", "tag"],
+            renderer.RenderSubgroupsSection(
+                [new("role", "Manage roles."), new("tag", string.Empty)],
+                null));
+    }
+
+    [Fact]
+    public void RenderCommandsSection_ShouldRenderEmptyMarkerAndTags()
+    {
+        var renderer = new RuntimeHelpRenderer();
+
+        Assert.Equal(["# COMMANDS", "(none)"], renderer.RenderCommandsSection([], null));
+        Assert.Equal(
+            ["# COMMANDS", "create [Preview]:", "Create a VM."],
+            renderer.RenderCommandsSection(
+                [new("create", "Create a VM.", [HelpTag.Preview])],
+                null));
+    }
+
+    [Fact]
+    public void RenderParameterSections_ShouldPreserveGroupingAndFormatting()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        RuntimeHelpParameter[] parameters =
+        [
+            new("name", ["n"], true, "VM name.", "VM name.", [], "(All)", false, false, ValueSources: "az vm list"),
+            new("vnet", [], false, "VNet.", "VNet.", [], "(All)", false, false, GroupName: "Network Arguments"),
+            new("user", [], false, "User.", "User.", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+        ];
+
+        var actual = string.Join("\n", renderer.RenderParameterSections(parameters, null));
+
+        Assert.StartsWith("# ARGUMENTS\n--name -n [Required]:\nVM name.\nValues from: az vm list.", actual);
+        Assert.True(actual.IndexOf("# AUTHENTICATION ARGUMENTS", StringComparison.Ordinal)
+            < actual.IndexOf("# NETWORK ARGUMENTS", StringComparison.Ordinal));
+        Assert.False(actual.StartsWith('\n'));
+        Assert.False(actual.EndsWith('\n'));
+    }
+
+    [Fact]
+    public void RenderParameterGroupSection_ShouldRenderOneNamedGroupIndependently()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        RuntimeHelpParameter[] parameters =
+        [
+            new("admin-username", ["u"], true, "Admin user.", "Admin user.", [], "(All)", false, false),
+        ];
+
+        var lines = renderer.RenderParameterGroupSection("Authentication Arguments", parameters, null);
+
+        Assert.Equal(
+            ["# AUTHENTICATION ARGUMENTS", "--admin-username -u [Required]:", "Admin user."],
+            lines);
+    }
+
+    [Fact]
+    public void RenderParameterGroupSection_ShouldOmitEmptyGroup()
+    {
+        var renderer = new RuntimeHelpRenderer();
+
+        Assert.Empty(renderer.RenderParameterGroupSection("Authentication Arguments", [], null));
+    }
+
+    [Fact]
+    public void RenderExamplesAndGlobalArgumentsSections_ShouldRenderIndependently()
+    {
+        var renderer = new RuntimeHelpRenderer();
+
+        Assert.Empty(renderer.RenderExamplesSection([], null));
+        Assert.Equal(
+            ["# EXAMPLES", "1. Create", "$ az vm create", "", "2. List", "$ az vm list"],
+            renderer.RenderExamplesSection(
+                [new("Create", "az vm create"), new("List", "az vm list")],
+                null));
+        Assert.Equal("# GLOBAL ARGUMENTS", renderer.RenderGlobalArgumentsSection(null)[0]);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldEqualCompositionOfItsSections()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = Command(
+            parameters: [new("name", [], true, "VM name.", "VM name.", [], "(All)", false, false)],
+            examples: [new("Create", "az vm create --name vm1")]);
+
+        var expected = Compose(
+            renderer.RenderCommandIdentitySection(command, null),
+            renderer.RenderParameterSections(command.Parameters, null),
+            renderer.RenderGlobalArgumentsSection(null),
+            renderer.RenderExamplesSection(command.Examples, null));
+
+        Assert.Equal(expected, renderer.RenderCommand(command, null));
+    }
+
+    [Fact]
+    public void RenderStandaloneSection_ShouldHonorBoldHeaders()
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders: true);
+
+        var lines = renderer.RenderExamplesSection([new("Create", "az vm create")], null);
+
+        Assert.Equal("\u001b[1m# EXAMPLES\u001b[0m", lines[0]);
+        Assert.DoesNotContain("\u001b[", lines[1]);
+        Assert.Contains("$ az vm create", lines[2]);
+    }
+
+    private static RuntimeHelpCommand Command(
+        IReadOnlyList<RuntimeHelpParameter> parameters,
+        IReadOnlyList<RuntimeHelpExample> examples)
+        => new("vm create", "Create a VM.", string.Empty, parameters, examples, []);
+
+    private static string[] Compose(params string[][] sections)
+    {
+        var lines = new List<string>();
+        foreach (var section in sections.Where(static section => section.Length > 0))
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(section);
+        }
+
+        return [.. lines];
     }
 
     private static string LoadFixture(string fileName)

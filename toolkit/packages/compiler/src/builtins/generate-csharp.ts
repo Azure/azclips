@@ -12,7 +12,8 @@
  * already knows how to stream and surface.
  */
 
-import type { IR } from "@azure-client-engine/ir";
+import type { TransformedIR } from "@azure-client-engine/ir";
+import { safeParseTransformedIR } from "@azure-client-engine/ir";
 import type { Generator, GeneratorContext } from "../generate.js";
 import type { CompilerDiagnostic } from "../types.js";
 import { CSHARP_GENERATE_TOOL, type Runtime } from "../runtime.js";
@@ -25,10 +26,16 @@ export const CSHARP_GENERATOR_ID = "csharp";
 export function createCsharpGenerator(
   runtime: Runtime,
   options: Record<string, unknown> = {},
-): Generator {
+): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
-    async generate(ir: IR, context: GeneratorContext): Promise<void> {
+    // This backend renders commands and a resolved target, not bare operations, and
+    // says so in its contract: the orchestrator checks the document before calling
+    // `generate`, so "the command stage never ran" or "the projection is malformed"
+    // becomes a diagnostic at the boundary instead of a null dereference inside the
+    // out-of-process host it is about to be serialized to.
+    accepts: safeParseTransformedIR,
+    async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
       const rootNamespace =
         typeof options.rootNamespace === "string" ? options.rootNamespace : undefined;
       const request: GenerateToolRequest = {

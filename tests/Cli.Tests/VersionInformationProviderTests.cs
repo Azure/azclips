@@ -182,6 +182,9 @@ public class VersionInformationProviderTests
         public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

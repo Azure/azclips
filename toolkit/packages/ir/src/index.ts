@@ -11,6 +11,7 @@ export { IR_SCHEMA_VERSION } from "./version.js";
 export {
   IRIdSchema,
   serializeId,
+  idKey,
   idEquals,
   type IRId,
 } from "./id.js";
@@ -187,8 +188,75 @@ export {
 
 export {
   IRSchema,
+  TransformedIRSchema,
   parseIR,
   safeParseIR,
+  parseTransformedIR,
+  safeParseTransformedIR,
   emptyIR,
   type IR,
+  type TransformedIR,
 } from "./ir.js";
+
+export {
+  IRCommandSchema,
+  IRCommandIdSchema,
+  IRCommandParameterSchema,
+  IRCommandParameterSourceSchema,
+  IRCommandRequestSchema,
+  IRCommandRequestBodySchema,
+  IRCommandResponseSchema,
+  IRCommandStepSchema,
+  IRCommandSurfaceSchema,
+  IRCommandPaginationSchema,
+  IRCommandUriSegmentSchema,
+  IRCommandValueSchema,
+  IRCommandWireEntrySchema,
+  IRCommandDialectSchema,
+  IRCommandParameterDialectSchema,
+  CommandTemplates,
+  commandKey,
+  commandActionKey,
+  type IRCommand,
+  type IRCommandId,
+  type IRCommandParameter,
+  type IRCommandParameterSource,
+  type IRCommandRequest,
+  type IRCommandRequestBody,
+  type IRCommandResponse,
+  type IRCommandStep,
+  type IRCommandSurface,
+  type IRCommandPagination,
+  type IRCommandTemplate,
+  type IRCommandUriSegment,
+  type IRCommandValue,
+  type IRCommandWireEntry,
+  type IRCommandDialect,
+  type IRCommandParameterDialect,
+} from "./command.js";
+
+export {
+  PsCommandDialectSchema,
+  PsParameterDialectSchema,
+  PsParameterSetMembershipSchema,
+  CliCommandDialectSchema,
+  CliParameterDialectSchema,
+  type IRClientDialect,
+  type PsCommandDialect,
+  type PsParameterDialect,
+  type PsParameterSetMembership,
+  type CliCommandDialect,
+  type CliParameterDialect,
+} from "./dialect.js";
+
+export {
+  IRTargetSchema,
+  IRTargetDirectoriesSchema,
+  type IRTarget,
+  type IRTargetDirectories,
+} from "./target.js";
+
+export {
+  indexIR,
+  type IRIndex,
+} from "./lookup.js";

@@ -37,6 +37,17 @@ internal static class ErrorHelpPolicy
         && requestedFormat is not (OutputFormat.Json or OutputFormat.Jsonc);
 
     /// <summary>
+    /// Resolves the error-output format for the current invocation. Human terminal errors should stay
+    /// readable even when the configured default is JSON; explicit <c>--output json</c> still wins
+    /// for scripting and redirected streams.
+    /// </summary>
+    internal static OutputFormat ResolveErrorFormat(
+        bool errorStreamIsHumanReadable,
+        OutputFormat configuredFormat,
+        OutputFormat? explicitFormat)
+        => errorStreamIsHumanReadable ? OutputFormat.Table : (explicitFormat ?? configuredFormat);
+
+    /// <summary>
     /// True when a resolved command failed only because required parameters were missing,
     /// so its help page is worth rendering beneath the error.
     /// </summary>

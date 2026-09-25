@@ -66,7 +66,7 @@ public sealed class FlatteningTests
     private static IRId ServerId() => Id("server");
 
     /// <summary>Thing { properties -&gt; ThingProperties { size, sku -&gt; Sku { name } } }.</summary>
-    private static IRDocument Document(bool withOperation = false, bool hoisted = false)
+    private static TransformedIR Document(bool withOperation = false, bool hoisted = false)
     {
         IRModel thing = Model("Thing", Obj("Thing", "Properties", "ThingProperties", optional: false, hoisted: hoisted));
         thing.Rendering = new ModelHints
@@ -89,7 +89,7 @@ public sealed class FlatteningTests
             Flattened = [Member("SkuName", true, Id("ThingProperties.sku"), Id("Sku.name"))],
         };
 
-        var ir = new IRDocument
+        var ir = new TransformedIR
         {
             SchemaVersion = "0.12.0",
             Sources = [new IRSource { Id = Module, Server = ServerId() }],
@@ -101,10 +101,36 @@ public sealed class FlatteningTests
         if (withOperation)
         {
             ir.Operations = [Operation()];
+            ir.Commands = [Command()];
         }
 
         return ir;
     }
+
+    /// <summary>
+    /// The projected command for <see cref="Operation()"/>: a PUT whose body is covered by flat
+    /// members, so the generator hides <c>Body</c> and emits views over it.
+    /// </summary>
+    private static IRCommand Command(IReadOnlyList<IRCommandParameter>? parameters = null) =>
+        Commands.Atomic(
+            "Create",
+            ServerId(),
+            Id("create"),
+            method: IRCommandRequestMethod.PUT,
+            path: [Commands.Literal("/things")],
+            body: Commands.Body(Id("Thing"), projected: true),
+            surface: Commands.Surface(request: new IRTypeRefModel { Id = Id("Thing") }),
+            parameters: parameters ??
+            [
+                Commands.Parameter(
+                    "Size",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.size")),
+                    new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int64 }),
+                Commands.Parameter(
+                    "SkuName",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    required: false),
+            ]);
 
     private static IROperation Operation(IReadOnlyList<FlattenedParameter>? parameters = null) => new()
     {
@@ -130,7 +156,7 @@ public sealed class FlatteningTests
         },
     };
 
-    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(IRDocument ir)
+    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
@@ -215,7 +241,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Renamed_Body_Parameter_Still_Resolves_To_Its_Model_Member_By_Path()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         // The transform renames a body parameter when it collides with an operation
         // parameter, so the name must not be how the generator finds the model member.
         ir.Operations =
@@ -227,6 +253,15 @@ public sealed class FlatteningTests
                     Path = [Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")],
                     Required = false,
                 },
+            ]),
+        ];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "ThingSkuName",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    required: false),
             ]),
         ];
 
@@ -241,7 +276,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task An_Unresolvable_Path_Warns_And_Skips_Only_That_Member()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened =
@@ -269,7 +304,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Model_Without_Flattening_Metadata_Is_Emitted_Exactly_As_Before()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = null;
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -318,7 +353,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Read_Only_Flattened_Member_Gets_No_Setter()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened =
@@ -345,7 +380,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task A_Member_Visible_For_A_Write_Phase_Keeps_Its_Setter()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened = [Writable("Size", false, Id("Thing.properties"), Id("ThingProperties.size"))],
@@ -362,7 +397,7 @@ public sealed class FlatteningTests
     [Fact]
     public async Task Body_Stays_Public_When_No_Flat_Member_Resolves()
     {
-        IRDocument ir = Document();
+        TransformedIR ir = Document();
         // Every projected parameter is unresolvable, so the processor gets no flat surface.
         // Hiding Body here would leave the operation with no way to send a payload at all.
         ir.Operations =
@@ -374,6 +409,15 @@ public sealed class FlatteningTests
                     Path = [Id("Thing.properties"), Id("ThingProperties.missing")],
                     Required = false,
                 },
+            ]),
+        ];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "Ghost",
+                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.missing")),
+                    required: false),
             ]),
         ];
 

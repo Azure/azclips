@@ -16,28 +16,11 @@ namespace Ace.Generator.Generators;
 /// </remarks>
 internal static class FlattenSupport
 {
-    /// <summary>Index every model property in the document by its serialized id.</summary>
-    public static Dictionary<string, IRProperty> IndexProperties(IRDocument ir)
-    {
-        var index = new Dictionary<string, IRProperty>(StringComparer.Ordinal);
-        foreach (IRModel model in ir.Models)
-        {
-            foreach (IRProperty property in model.Properties)
-            {
-                index[IrIds.Serialize(property.Id)] = property;
-            }
-        }
-
-        return index;
-    }
-
     /// <summary>
     /// Resolve a flattening path to the properties it walks, or <c>null</c> when a hop is
     /// unknown or cannot be walked (only a named model can sit between the root and the leaf).
     /// </summary>
-    public static IRProperty[]? ResolvePath(
-        IReadOnlyList<IRId>? path,
-        IReadOnlyDictionary<string, IRProperty> index)
+    public static IRProperty[]? ResolvePath(IReadOnlyList<IRId>? path, IrIndex index)
     {
         if (path is null || path.Count == 0)
         {
@@ -47,7 +30,7 @@ internal static class FlattenSupport
         var hops = new IRProperty[path.Count];
         for (int i = 0; i < path.Count; i++)
         {
-            if (!index.TryGetValue(IrIds.Serialize(path[i]), out IRProperty? hop))
+            if (index.Property(path[i]) is not { } hop)
             {
                 return null;
             }
@@ -91,15 +74,15 @@ internal static class FlattenSupport
         !phases.Contains(FlattenedMemberVisibility.Update);
 
     /// <summary>The leaf's own C# type, carrying its own declared nullability.</summary>
-    public static string DeclaredType(IRProperty leaf) =>
-        IrTypeMapper.ToCSharp(leaf) + (IsNullable(leaf) ? "?" : "");
+    public static string DeclaredType(IRProperty leaf, IrIndex index) =>
+        IrTypeMapper.ToCSharp(leaf, index) + (IsNullable(leaf) ? "?" : "");
 
     /// <summary>
     /// The accessor's C# type: the leaf's type, widened to nullable when any hop along the
     /// path may be absent (so a <c>?.</c> chain can legitimately produce null).
     /// </summary>
-    public static string AccessorType(IRProperty leaf, bool optional) =>
-        IrTypeMapper.ToCSharp(leaf) + (optional || IsNullable(leaf) ? "?" : "");
+    public static string AccessorType(IRProperty leaf, bool optional, IrIndex index) =>
+        IrTypeMapper.ToCSharp(leaf, index) + (optional || IsNullable(leaf) ? "?" : "");
 
     /// <summary>True when the accessor is nullable but the leaf it assigns to is not.</summary>
     public static bool WidensLeaf(IRProperty leaf, bool optional) => optional && !IsNullable(leaf);
@@ -142,7 +125,7 @@ internal static class FlattenSupport
     /// are always null-coalesced — a hop the spec marks required can still arrive null from
     /// deserialization, and assigning through it would otherwise throw.
     /// </summary>
-    public static IEnumerable<string> SetterStatements(IReadOnlyList<IRProperty> hops, string assignedValue)
+    public static IEnumerable<string> SetterStatements(IReadOnlyList<IRProperty> hops, string assignedValue, IrIndex index)
     {
         var chain = new StringBuilder();
         for (int i = 0; i < hops.Count - 1; i++)
@@ -153,7 +136,7 @@ internal static class FlattenSupport
             }
 
             chain.Append(hops[i].Name.Identifier());
-            yield return $"{chain} ??= new {IrTypeMapper.ToCSharp(hops[i])}();";
+            yield return $"{chain} ??= new {IrTypeMapper.ToCSharp(hops[i], index)}();";
         }
 
         if (hops.Count > 1)

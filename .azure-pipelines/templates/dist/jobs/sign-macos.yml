@@ -1,7 +1,6 @@
 parameters:
 - name: windows_pool
   type: string
-  default: 'windows-latest'
 - name: SourceProject
   type: string
   default: 'public'
@@ -28,10 +27,8 @@ parameters:
   default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
-  default: 'macOS-15-arm64'
 - name: macos_intel_pool
   type: string
-  default: 'macOS-15'
 
 jobs:
   - job: AnalyzeMacOS
@@ -194,7 +191,7 @@ jobs:
         x64:
           MacOSArchitecture: x64
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     timeoutInMinutes: 60
     steps:
     - checkout: none
@@ -451,7 +448,7 @@ jobs:
         x64:
           MacOSArchitecture: x64
     pool:
-      vmImage: ${{ parameters.windows_pool }}
+      name: ${{ parameters.windows_pool }}
     timeoutInMinutes: 60
     steps:
     - checkout: none
