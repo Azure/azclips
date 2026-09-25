@@ -114,6 +114,35 @@ jobs:
           esac
         }
 
+        is_known_code_bundle_name() {
+          case "$1" in
+            *.app|*.framework|*.xpc|*.appex|*.plugin|*.bundle)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        path_contains_known_code_bundle() {
+          local relative_path="$1"
+          local component
+
+          while [[ -n "$relative_path" ]]; do
+            component="${relative_path%%/*}"
+            if is_known_code_bundle_name "$component"; then
+              return 0
+            fi
+            if [[ "$relative_path" != */* ]]; then
+              break
+            fi
+            relative_path="${relative_path#*/}"
+          done
+
+          return 1
+        }
+
         raw_mac_assets=()
         while IFS= read -r asset; do
           raw_mac_assets+=("$asset")
@@ -147,9 +176,34 @@ jobs:
           mkdir -p "$content_root"
           tar -xzf "$asset" -C "$content_root"
 
+          unknown_code_containers=0
+          while IFS= read -r -d '' info_plist; do
+            bundle_candidate="${info_plist%/Contents/Info.plist}"
+            if is_known_code_bundle_name "$(basename "$bundle_candidate")"; then
+              continue
+            fi
+
+            while IFS= read -r -d '' candidate_file; do
+              if file "$candidate_file" | grep -q 'Mach-O'; then
+                echo "ERROR: Unrecognized macOS code container contains Mach-O code: $bundle_candidate"
+                unknown_code_containers=1
+                break
+              fi
+            done < <(find "$bundle_candidate" -type f -print0)
+          done < <(find "$content_root" -type f -path '*/Contents/Info.plist' -print0)
+
+          if [[ "$unknown_code_containers" -ne 0 ]]; then
+            echo 'ERROR: Refusing to sign a payload containing unrecognized macOS code containers.'
+            exit 1
+          fi
+
           while IFS= read -r -d '' bundle; do
             relative_path="${bundle#$content_root/}"
-            if [[ "$relative_path" == *.app/* ]]; then
+            parent_path=''
+            if [[ "$relative_path" == */* ]]; then
+              parent_path="${relative_path%/*}"
+            fi
+            if [[ -n "$parent_path" ]] && path_contains_known_code_bundle "$parent_path"; then
               continue
             fi
 
@@ -158,7 +212,14 @@ jobs:
 
             printf '%s\t%s\t%s\tbundle\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
             total_bundles=$((total_bundles + 1))
-          done < <(find "$content_root" -type d -name '*.app' -print0)
+          done < <(find "$content_root" -type d \( \
+            -name '*.app' -o \
+            -name '*.framework' -o \
+            -name '*.xpc' -o \
+            -name '*.appex' -o \
+            -name '*.plugin' -o \
+            -name '*.bundle' \
+          \) -print0)
 
           while IFS= read -r -d '' binary; do
             if ! file "$binary" | grep -q 'Mach-O'; then
@@ -166,7 +227,7 @@ jobs:
             fi
 
             relative_path="${binary#$content_root/}"
-            if [[ "$relative_path" == *.app/* ]]; then
+            if path_contains_known_code_bundle "$relative_path"; then
               continue
             fi
             if requires_dotnet_entitlements "$binary"; then
@@ -184,11 +245,11 @@ jobs:
         done
 
         if [[ $((total_binaries + total_bundles)) -eq 0 ]]; then
-          echo 'ERROR: No Mach-O binaries or app bundles were found in the selected macOS artifacts.'
+          echo 'ERROR: No Mach-O binaries or recognized code bundles were found in the selected macOS artifacts.'
           exit 1
         fi
 
-        echo "Prepared $total_binaries Mach-O binaries and $total_bundles app bundles for Developer ID signing."
+        echo "Prepared $total_binaries Mach-O binaries and $total_bundles code bundles for Developer ID signing."
       displayName: Prepare macOS Signing Inputs
     - task: PublishPipelineArtifact@1
       displayName: Publish macOS Signing Inputs
@@ -459,27 +520,27 @@ jobs:
           return "$failed"
         }
 
-        verify_app_bundle() {
+        verify_code_bundle() {
           local candidate="$1"
           local signature_details
           local failed=0
 
           if ! codesign --verify --deep --strict --verbose=4 "$candidate"; then
-            echo "ERROR: Strict app bundle verification failed before notarization: $candidate"
+            echo "ERROR: Strict code bundle verification failed before notarization: $candidate"
             failed=1
           fi
 
           signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
           if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
-            echo "ERROR: Microsoft TeamIdentifier missing from app bundle before notarization: $candidate"
+            echo "ERROR: Microsoft TeamIdentifier missing from code bundle before notarization: $candidate"
             failed=1
           fi
           if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
-            echo "ERROR: Hardened runtime flag missing from app bundle before notarization: $candidate"
+            echo "ERROR: Hardened runtime flag missing from code bundle before notarization: $candidate"
             failed=1
           fi
           if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
-            echo "ERROR: Signing timestamp missing from app bundle before notarization: $candidate"
+            echo "ERROR: Signing timestamp missing from code bundle before notarization: $candidate"
             failed=1
           fi
 
@@ -547,13 +608,20 @@ jobs:
           fi
         done < <(find "$signed_contents_root" -type f -print0)
 
-        total_app_bundles=0
+        total_code_bundles=0
         while IFS= read -r -d '' candidate; do
-          total_app_bundles=$((total_app_bundles + 1))
-          if ! verify_app_bundle "$candidate"; then
+          total_code_bundles=$((total_code_bundles + 1))
+          if ! verify_code_bundle "$candidate"; then
             verification_errors=1
           fi
-        done < <(find "$signed_contents_root" -type d -name '*.app' -print0)
+        done < <(find "$signed_contents_root" -type d \( \
+          -name '*.app' -o \
+          -name '*.framework' -o \
+          -name '*.xpc' -o \
+          -name '*.appex' -o \
+          -name '*.plugin' -o \
+          -name '*.bundle' \
+        \) -print0)
 
         total_macho=0
         while IFS= read -r -d '' candidate; do
@@ -583,7 +651,7 @@ jobs:
           echo 'ERROR: macOS payload validation failed; notarization ZIPs will not be created.'
           exit 1
         fi
-        echo "Validated $total_macho signed Mach-O binaries and $total_app_bundles app bundles before notarization."
+        echo "Validated $total_macho signed Mach-O binaries and $total_code_bundles code bundles before notarization."
 
         for content_dir in "$signed_contents_root"/*; do
           [[ -d "$content_dir" ]] || continue
