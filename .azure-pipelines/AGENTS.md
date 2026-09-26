@@ -21,7 +21,6 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Pipeline resource `betaBuild` tagged `sign-beta` | release | ESRP-signs a completed beta build, verifies, runs component governance. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → publish GitHub release. |
-| `azclips-stable-release-test.yml` | Manual only | release | Uses the selected source's CLI version for all artifacts and image tags, builds/signs release inputs, then builds, publishes, and verifies Azure Linux 3 Docker images in test ACR repositories without GitHub publication or alias promotion. |
 
 ## Template Layout (`templates/`)
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
@@ -40,16 +39,13 @@ guide in the same PR so it stays accurate.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - The unit-test job restores and builds the complete solution before running tests with `--no-build`, ensuring exporter fixture tests see a complete, current set of extension artifacts.
 - `build-unsigned-distribution.yml` retains the established combined Docker behavior behind `build_docker_images` (default `true`) and independently selects unsigned CLI and PowerShell images through `build_cli_docker_images` and `build_powershell_docker_images` (both default `true`). Alpha and beta therefore continue producing both image families from unsigned artifacts.
-- Stable-release-test leaves unsigned CLI enabled, disables unsigned PowerShell, and excludes Docker archives from `Final_Build_Distribution`; CLI image work can run outside the signing critical path, while release PowerShell images are built only from signed modules.
 - Docker build, publish, verification, and promotion stages depend directly on `Init` and consume `SetCoreVersion.ArtifactVersion`; they do not independently derive a Docker version.
-- The stable-release test flow publishes the validated unsigned CLI image archives and rebuilds PowerShell images from `Final_Signed_Distribution`; ACR publication joins both paths.
 - ACR publish/promotion and the AMD64 published-image pull job follow classic release-agent convention and expect `az` on the AMD64 agent. The AMD64 job pulls every published digest and exports per-image pipeline artifacts; native verification jobs load those artifacts and run smoke tests, so ARM64 agents require Docker but not Azure CLI or ACR credentials.
 - Docker publication follows classic retry behavior in both test and production: existing immutable version tags are retained and verified downstream rather than rebuilt under candidate tags.
 - CLI tags follow the classic `azurelinux3.0` convention; `VERSION-azurelinux3.0` is the default full multi-architecture image, and production promotion points both `azurelinux3.0` and `latest` at it. PowerShell tags follow classic `azurelinux-3.0` spelling.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
-The manual Docker test pipeline uses `release_channel: source`, which emits the selected commit's explicit CLI `<Version>` unchanged as `ArtifactVersion`.
 
 ## Projects & Context Guards
 - **`public`** — PR (`pr-alpha`) and `beta` builds. No ESRP access.

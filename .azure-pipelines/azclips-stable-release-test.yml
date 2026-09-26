@@ -3,6 +3,12 @@ name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: artifact_version_override
+  displayName: Artifact version override (use auto for source version)
+  type: string
+  default: auto
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -69,7 +75,7 @@ stages:
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
-    artifact_version_override: auto
+    artifact_version_override: ${{ parameters.artifact_version_override }}
     bump_type: patch
     release_channel: source
     release_date: auto

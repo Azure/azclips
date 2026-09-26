@@ -60,7 +60,7 @@ stages:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildSignedPowerShellDockerImages
-    displayName: PowerShell Docker Image From Signed Distribution
+    displayName: Docker Image
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -154,12 +154,12 @@ stages:
         EXPECTED_VERSION="$expected_version" \
         "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
         echo "##vso[task.setvariable variable=ReleaseDockerOutputRoot]$output_root/Release/docker"
-      displayName: Build And Validate PowerShell Docker Image From Signed Distribution
+      displayName: Build And Validate Docker Image
       env:
         ARTIFACT_VERSION: $(ArtifactVersion)
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish PowerShell Docker Image From Signed Distribution
+      displayName: Publish Docker Image
       inputs:
         targetPath: $(ReleaseDockerOutputRoot)
         artifact: $(ReleaseDockerArtifact)
