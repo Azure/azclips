@@ -1,0 +1,59 @@
+---
+document type: cmdlet
+external help file: Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml
+HelpUri: ''
+Locale: en-US
+Module Name: Accounts
+ms.date: 09/25/2026
+PlatyPS schema version: 2024-05-01
+title: Open-AzSurvey
+---
+
+# Open-AzSurvey
+
+## SYNOPSIS
+
+Opens the Az survey in the system browser.
+
+## SYNTAX
+
+### __AllParameterSets
+
+```
+Open-AzSurvey [<CommonParameters>]
+```
+
+## ALIASES
+
+## DESCRIPTION
+
+Opens the Az survey URL in the system's default browser.
+
+## EXAMPLES
+
+### Open the survey
+
+```powershell
+Open-AzSurvey
+```
+
+## PARAMETERS
+
+### CommonParameters
+
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
+
+## INPUTS
+
+## OUTPUTS
+
+### System.Void
+
+This cmdlet does not emit an object on the pipeline.
+
+## NOTES
+
+## RELATED LINKS
