@@ -13,7 +13,7 @@ title: Open-AzSurvey
 
 ## SYNOPSIS
 
-Opens the Az survey in the system browser.
+Opens the feedback form in the default System Browser to provide feedback about Azure Powershell.
 
 ## SYNTAX
 
@@ -27,7 +27,7 @@ Open-AzSurvey [<CommonParameters>]
 
 ## DESCRIPTION
 
-Opens the Az survey URL in the system's default browser.
+Opens the feedback form in the default System Browser to provide feedback about Azure Powershell.
 
 ## EXAMPLES
 
