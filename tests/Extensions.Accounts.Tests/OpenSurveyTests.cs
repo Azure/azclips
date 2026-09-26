@@ -19,7 +19,7 @@ public class OpenSurveyTests
             .InformationalVersion
             .Split('+')[0];
 
-        Assert.Equal($"https://aka.ms/bing?version={projectVersion}", AccountsLinks.Survey);
+Assert.Equal($"https://aka.ms/azclipsfeedback?rea2af1a1b73d4b38969cd14f4757cabc={Uri.EscapeDataString(projectVersion)}", AccountsLinks.Survey);
         Assert.Equal(AccountsLinks.Survey, startInfo.FileName);
         Assert.True(startInfo.UseShellExecute);
     }
