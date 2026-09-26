@@ -38,6 +38,15 @@ parameters:
 - name: build_docker_images
   type: boolean
   default: true
+- name: build_cli_docker_images
+  type: boolean
+  default: true
+- name: build_powershell_docker_images
+  type: boolean
+  default: true
+- name: include_docker_images_in_final_distribution
+  type: boolean
+  default: true
 
 stages:
 - template: init-resolve-version.yml
@@ -98,8 +107,9 @@ stages:
   dependsOn:
   - Init
   - BuildLinux
-  - BuildPSModules
-  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true))
+  - ${{ if eq(parameters.build_powershell_docker_images, true) }}:
+    - BuildPSModules
+  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), or(eq(${{ parameters.build_cli_docker_images }}, true), eq(${{ parameters.build_powershell_docker_images }}, true)))
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
@@ -109,6 +119,12 @@ stages:
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
       PackagingDockerOutRoot: $(PackagingDockerOutRoot)
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      ${{ if and(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true)) }}:
+        image_flavor: all
+      ${{ elseif eq(parameters.build_cli_docker_images, true) }}:
+        image_flavor: cli
+      ${{ else }}:
+        image_flavor: pwsh
 
 - stage: BuildWindows
   displayName: Build (CLI) Windows
@@ -186,13 +202,19 @@ stages:
   dependsOn:
   - Init
   - BuildDockerAzureLinux3
-  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true))
+  condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), or(eq(${{ parameters.build_cli_docker_images }}, true), eq(${{ parameters.build_powershell_docker_images }}, true)))
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - template: ../jobs/validate-build-docker.yml
     parameters:
       PackagingScriptsRoot: $(PackagingScriptsRoot)
+      ${{ if and(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true)) }}:
+        image_flavor: all
+      ${{ elseif eq(parameters.build_cli_docker_images, true) }}:
+        image_flavor: cli
+      ${{ else }}:
+        image_flavor: pwsh
 
 - stage: ValidateWindows
   displayName: Validate (CLI) Windows
@@ -233,7 +255,7 @@ stages:
   - Init
   - BuildCommon
   - BuildLinux
-  - ${{ if eq(parameters.build_docker_images, true) }}:
+  - ${{ if and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}:
     - BuildDockerAzureLinux3
     - ValidateDockerAzureLinux3
   - BuildWindows
@@ -250,7 +272,7 @@ stages:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
-    ${{ if eq(parameters.build_docker_images, true) }}:
+    ${{ if and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}:
       BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
       ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
     ${{ else }}:
@@ -271,4 +293,4 @@ stages:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       final_artifact_name: ${{ parameters.final_artifact_name }}
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
-      build_docker_images: ${{ parameters.build_docker_images }}
+      build_docker_images: ${{ and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}

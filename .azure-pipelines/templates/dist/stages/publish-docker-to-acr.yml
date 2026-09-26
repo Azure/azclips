@@ -2,6 +2,9 @@ parameters:
 - name: dependency_stage
   type: object
   default: VerifySignedDistribution
+- name: cli_dependency_stage
+  type: object
+  default: ValidateDockerAzureLinux3
 - name: azure_subscription
   type: string
 - name: cli_registry_name
@@ -33,9 +36,6 @@ parameters:
 - name: signed_artifact_name
   type: string
   default: Final_Signed_Distribution
-- name: cli_base_image
-  type: string
-  default: mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0
 - name: pwsh_base_image
   type: string
   default: mcr.microsoft.com/dotnet/runtime:10.0-azurelinux3.0
@@ -50,8 +50,8 @@ parameters:
   default: true
 
 stages:
-- stage: BuildSignedDockerImages
-  displayName: Build Docker Images From Signed Artifacts
+- stage: BuildSignedPowerShellDockerImages
+  displayName: Build PowerShell Docker Images From Signed Artifacts
   dependsOn:
   - ${{ parameters.dependency_stage }}
   - Init
@@ -59,55 +59,21 @@ stages:
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
-  - job: BuildSignedDockerImages
-    displayName: Docker Image From Signed Distribution
+  - job: BuildSignedPowerShellDockerImages
+    displayName: PowerShell Docker Image From Signed Distribution
     timeoutInMinutes: 45
     strategy:
       matrix:
-        cli_azurelinux3_lean_amd64:
-          Pool: ${{ parameters.amd64_pool }}
-          Rid: linux-x64
-          Platform: linux/amd64
-          ImageFlavor: cli
-          PackageProfile: lean
-          BaseImage: ${{ parameters.cli_base_image }}
-          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Lean_Amd64
-        cli_azurelinux3_lean_arm64:
-          Pool: ${{ parameters.arm64_pool }}
-          Rid: linux-arm64
-          Platform: linux/arm64
-          ImageFlavor: cli
-          PackageProfile: lean
-          BaseImage: ${{ parameters.cli_base_image }}
-          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Lean_Arm64
-        cli_azurelinux3_full_amd64:
-          Pool: ${{ parameters.amd64_pool }}
-          Rid: linux-x64
-          Platform: linux/amd64
-          ImageFlavor: cli
-          PackageProfile: full
-          BaseImage: ${{ parameters.cli_base_image }}
-          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Full_Amd64
-        cli_azurelinux3_full_arm64:
-          Pool: ${{ parameters.arm64_pool }}
-          Rid: linux-arm64
-          Platform: linux/arm64
-          ImageFlavor: cli
-          PackageProfile: full
-          BaseImage: ${{ parameters.cli_base_image }}
-          ReleaseDockerArtifact: Release_Docker_CLI_AzureLinux3_Full_Arm64
         powershell_azurelinux3_amd64:
           Pool: ${{ parameters.amd64_pool }}
           Platform: linux/amd64
           ImageFlavor: pwsh
-          PackageProfile: none
           BaseImage: ${{ parameters.pwsh_base_image }}
           ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Amd64
         powershell_azurelinux3_arm64:
           Pool: ${{ parameters.arm64_pool }}
           Platform: linux/arm64
           ImageFlavor: pwsh
-          PackageProfile: none
           BaseImage: ${{ parameters.pwsh_base_image }}
           ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Arm64
     pool:
@@ -143,70 +109,43 @@ stages:
         rm -rf "$output_root"
         mkdir -p "$output_root"
 
-        if [[ "$(ImageFlavor)" == "cli" ]]; then
-          archive_name="azcli-${version}-$(Rid).tar.gz"
-          if [[ "$(PackageProfile)" == "lean" ]]; then
-            archive_name="azcli-lean-${version}-$(Rid).tar.gz"
-          fi
-          mapfile -t archives < <(find "$signed_root" -type f -name "$archive_name" | sort)
-          if [[ ${#archives[@]} -ne 1 ]]; then
-            echo "ERROR: Expected exactly one signed CLI archive named '$archive_name', found ${#archives[@]}."
-            printf '%s\n' "${archives[@]}"
-            exit 1
-          fi
-
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
-          ARTIFACT_VERSION="$version" \
-          OUT_ROOT="$output_root" \
-          RID="$(Rid)" \
-          PLATFORM="$(Platform)" \
-          PACKAGE_PROFILE="$(PackageProfile)" \
-          BASE_IMAGE="$(BaseImage)" \
-          IMAGE_VARIANT=azurelinux3 \
-          DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.cli" \
-          TARBALL_PATH="${archives[0]}" \
-          "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
-          image_tag="azclips:${version}-azurelinux3-$(PackageProfile)-${PLATFORM#linux/}"
-          expected_version="$version"
-        else
-          archive_name="azps-cmdlets-${version}.tar.gz"
-          mapfile -t archives < <(find "$signed_root" -type f -name "$archive_name" | sort)
-          if [[ ${#archives[@]} -ne 1 ]]; then
-            echo "ERROR: Expected exactly one signed PowerShell archive named '$archive_name', found ${#archives[@]}."
-            printf '%s\n' "${archives[@]}"
-            exit 1
-          fi
-
-          module_repo="$output_root/signed-module-repo"
-          mkdir -p "$module_repo"
-          tar -xzf "${archives[0]}" -C "$module_repo"
-          mapfile -t rollup_packages < <(find "$module_repo" -maxdepth 1 -type f -name 'Az.[0-9]*.nupkg' | sort)
-          if [[ ${#rollup_packages[@]} -ne 1 ]]; then
-            echo "ERROR: Expected exactly one signed Az rollup package, found ${#rollup_packages[@]}."
-            printf '%s\n' "${rollup_packages[@]}"
-            exit 1
-          fi
-          rollup_name="$(basename "${rollup_packages[0]}")"
-          expected_version="${rollup_name#Az.}"
-          expected_version="${expected_version%.nupkg}"
-          if [[ ! "$expected_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-            echo "ERROR: Unable to derive a valid Az module version from '$rollup_name'."
-            exit 1
-          fi
-          chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
-          ARTIFACT_VERSION="$version" \
-          OUT_ROOT="$output_root" \
-          PLATFORM="$(Platform)" \
-          BASE_IMAGE="$(BaseImage)" \
-          POWERSHELL_BUILDER_IMAGE="${{ parameters.pwsh_builder_image }}" \
-          IMAGE_VARIANT=azurelinux3 \
-          DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
-          MODULE_REPO_ROOT="$module_repo" \
-          INSTALL_MODULE_SCRIPT="$module_repo/InstallModule.ps1" \
-          "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
-          image_tag="azclips-powershell:${version}-azurelinux3-${PLATFORM#linux/}"
-          printf '%s\n' "$expected_version" > "$output_root/Release/docker/powershell-version.txt"
+        archive_name="azps-cmdlets-${version}.tar.gz"
+        mapfile -t archives < <(find "$signed_root" -type f -name "$archive_name" | sort)
+        if [[ ${#archives[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one signed PowerShell archive named '$archive_name', found ${#archives[@]}."
+          printf '%s\n' "${archives[@]}"
+          exit 1
         fi
+
+        module_repo="$output_root/signed-module-repo"
+        mkdir -p "$module_repo"
+        tar -xzf "${archives[0]}" -C "$module_repo"
+        mapfile -t rollup_packages < <(find "$module_repo" -maxdepth 1 -type f -name 'Az.[0-9]*.nupkg' | sort)
+        if [[ ${#rollup_packages[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one signed Az rollup package, found ${#rollup_packages[@]}."
+          printf '%s\n' "${rollup_packages[@]}"
+          exit 1
+        fi
+        rollup_name="$(basename "${rollup_packages[0]}")"
+        expected_version="${rollup_name#Az.}"
+        expected_version="${expected_version%.nupkg}"
+        if [[ ! "$expected_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Unable to derive a valid Az module version from '$rollup_name'."
+          exit 1
+        fi
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+        ARTIFACT_VERSION="$version" \
+        OUT_ROOT="$output_root" \
+        PLATFORM="$(Platform)" \
+        BASE_IMAGE="$(BaseImage)" \
+        POWERSHELL_BUILDER_IMAGE="${{ parameters.pwsh_builder_image }}" \
+        IMAGE_VARIANT=azurelinux3 \
+        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
+        MODULE_REPO_ROOT="$module_repo" \
+        INSTALL_MODULE_SCRIPT="$module_repo/InstallModule.ps1" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+        image_tag="azclips-powershell:${version}-azurelinux3-${PLATFORM#linux/}"
+        printf '%s\n' "$expected_version" > "$output_root/Release/docker/powershell-version.txt"
 
         chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
         IMAGE_TAG="$image_tag" \
@@ -215,12 +154,12 @@ stages:
         EXPECTED_VERSION="$expected_version" \
         "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
         echo "##vso[task.setvariable variable=ReleaseDockerOutputRoot]$output_root/Release/docker"
-      displayName: Build And Validate Docker Image From Signed Distribution
+      displayName: Build And Validate PowerShell Docker Image From Signed Distribution
       env:
         ARTIFACT_VERSION: $(ArtifactVersion)
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Docker Image From Signed Distribution
+      displayName: Publish PowerShell Docker Image From Signed Distribution
       inputs:
         targetPath: $(ReleaseDockerOutputRoot)
         artifact: $(ReleaseDockerArtifact)
@@ -229,7 +168,8 @@ stages:
 - stage: PublishDockerImagesToAcr
   displayName: Publish Docker Images To ACR
   dependsOn:
-  - BuildSignedDockerImages
+  - BuildSignedPowerShellDockerImages
+  - ${{ parameters.cli_dependency_stage }}
   - Init
   condition: succeeded()
   lockBehavior: sequential
@@ -259,22 +199,22 @@ stages:
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Lean Amd64 Image
             inputs:
-              artifact: Release_Docker_CLI_AzureLinux3_Lean_Amd64
+              artifact: Docker_CLI_AzureLinux3_Lean_Amd64
               path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Lean_Amd64
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Lean Arm64 Image
             inputs:
-              artifact: Release_Docker_CLI_AzureLinux3_Lean_Arm64
+              artifact: Docker_CLI_AzureLinux3_Lean_Arm64
               path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Lean_Arm64
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Full Amd64 Image
             inputs:
-              artifact: Release_Docker_CLI_AzureLinux3_Full_Amd64
+              artifact: Docker_CLI_AzureLinux3_Full_Amd64
               path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Full_Amd64
           - task: DownloadPipelineArtifact@2
             displayName: Download CLI Azure Linux 3 Full Arm64 Image
             inputs:
-              artifact: Release_Docker_CLI_AzureLinux3_Full_Arm64
+              artifact: Docker_CLI_AzureLinux3_Full_Arm64
               path: $(Pipeline.Workspace)/docker-publish/Release_Docker_CLI_AzureLinux3_Full_Arm64
           - task: DownloadPipelineArtifact@2
             displayName: Download PowerShell Azure Linux 3 Amd64 Image

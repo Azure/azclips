@@ -80,7 +80,10 @@ stages:
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
-    build_docker_images: false
+    build_docker_images: true
+    build_cli_docker_images: true
+    build_powershell_docker_images: false
+    include_docker_images_in_final_distribution: false
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -129,6 +132,7 @@ stages:
 - template: templates/dist/stages/publish-docker-to-acr.yml
   parameters:
     dependency_stage: VerifySignedDistribution
+    cli_dependency_stage: ValidateDockerAzureLinux3
     azure_subscription: ${{ variables.DockerAzureServiceConnection }}
     cli_registry_name: $(DockerCliRegistryName)
     cli_registry_server: $(DockerCliRegistryServer)

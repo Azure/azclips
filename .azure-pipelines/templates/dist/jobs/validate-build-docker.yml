@@ -7,6 +7,9 @@ parameters:
   default: 'pool-ubuntu-latest-arm64'
 - name: PackagingScriptsRoot
   type: string
+- name: image_flavor
+  type: string
+  default: 'all'
 
 jobs:
 - job: DockerValidation
@@ -14,54 +17,56 @@ jobs:
   timeoutInMinutes: 30
   strategy:
     matrix:
-      cli_azurelinux3_lean_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        ImageFlavor: cli
-        PackageProfile: lean
-        Platform: linux/amd64
-        ImageRepository: azclips
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
-      cli_azurelinux3_lean_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        ImageFlavor: cli
-        PackageProfile: lean
-        Platform: linux/arm64
-        ImageRepository: azclips
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
-      cli_azurelinux3_full_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        ImageFlavor: cli
-        PackageProfile: full
-        Platform: linux/amd64
-        ImageRepository: azclips
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
-      cli_azurelinux3_full_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        ImageFlavor: cli
-        PackageProfile: full
-        Platform: linux/arm64
-        ImageRepository: azclips
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
-      powershell_azurelinux3_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        ImageFlavor: pwsh
-        PackageProfile: none
-        Platform: linux/amd64
-        ImageRepository: azclips-powershell
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
-      powershell_azurelinux3_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        ImageFlavor: pwsh
-        PackageProfile: none
-        Platform: linux/arm64
-        ImageRepository: azclips-powershell
-        ImageVariant: azurelinux3
-        DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'cli')) }}:
+        cli_azurelinux3_lean_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/amd64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
+        cli_azurelinux3_lean_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/arm64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
+        cli_azurelinux3_full_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/amd64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
+        cli_azurelinux3_full_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/arm64
+          ImageRepository: azclips
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'pwsh')) }}:
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/amd64
+          ImageRepository: azclips-powershell
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/arm64
+          ImageRepository: azclips-powershell
+          ImageVariant: azurelinux3
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
   pool:
     name: $(Pool)
   steps:

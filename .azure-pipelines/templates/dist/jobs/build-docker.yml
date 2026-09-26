@@ -14,6 +14,9 @@ parameters:
 - name: ps_modules_artifact_name
   type: string
   default: 'PSModules'
+- name: image_flavor
+  type: string
+  default: 'all'
 - name: cli_base_image
   type: string
   default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-azurelinux3.0'
@@ -30,67 +33,69 @@ jobs:
   timeoutInMinutes: 30
   strategy:
     matrix:
-      # .NET RIDs use x64, while Docker platforms and image tags use amd64.
-      cli_azurelinux3_lean_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        Rid: linux-x64
-        ImageFlavor: cli
-        PackageProfile: lean
-        Platform: linux/amd64
-        BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: Distribution_Linux_Lean
-        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
-      cli_azurelinux3_lean_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        Rid: linux-arm64
-        ImageFlavor: cli
-        PackageProfile: lean
-        Platform: linux/arm64
-        BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: Distribution_Linux_Arm64_Lean
-        DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
-      cli_azurelinux3_full_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        Rid: linux-x64
-        ImageFlavor: cli
-        PackageProfile: full
-        Platform: linux/amd64
-        BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: Distribution_Linux_Full
-        DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
-      cli_azurelinux3_full_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        Rid: linux-arm64
-        ImageFlavor: cli
-        PackageProfile: full
-        Platform: linux/arm64
-        BaseImage: ${{ parameters.cli_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: Distribution_Linux_Arm64_Full
-        DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
-      powershell_azurelinux3_amd64:
-        Pool: ${{ parameters.amd64_pool }}
-        Rid: linux-x64
-        ImageFlavor: pwsh
-        PackageProfile: none
-        Platform: linux/amd64
-        BaseImage: ${{ parameters.pwsh_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
-      powershell_azurelinux3_arm64:
-        Pool: ${{ parameters.arm64_pool }}
-        Rid: linux-arm64
-        ImageFlavor: pwsh
-        PackageProfile: none
-        Platform: linux/arm64
-        BaseImage: ${{ parameters.pwsh_base_image }}
-        ImageVariant: azurelinux3
-        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'cli')) }}:
+        # .NET RIDs use x64, while Docker platforms and image tags use amd64.
+        cli_azurelinux3_lean_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Rid: linux-x64
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/amd64
+          BaseImage: ${{ parameters.cli_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: Distribution_Linux_Lean
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Amd64
+        cli_azurelinux3_lean_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Rid: linux-arm64
+          ImageFlavor: cli
+          PackageProfile: lean
+          Platform: linux/arm64
+          BaseImage: ${{ parameters.cli_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: Distribution_Linux_Arm64_Lean
+          DockerArtifact: Docker_CLI_AzureLinux3_Lean_Arm64
+        cli_azurelinux3_full_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Rid: linux-x64
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/amd64
+          BaseImage: ${{ parameters.cli_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: Distribution_Linux_Full
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Amd64
+        cli_azurelinux3_full_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Rid: linux-arm64
+          ImageFlavor: cli
+          PackageProfile: full
+          Platform: linux/arm64
+          BaseImage: ${{ parameters.cli_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: Distribution_Linux_Arm64_Full
+          DockerArtifact: Docker_CLI_AzureLinux3_Full_Arm64
+      ${{ if or(eq(parameters.image_flavor, 'all'), eq(parameters.image_flavor, 'pwsh')) }}:
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Rid: linux-x64
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/amd64
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Rid: linux-arm64
+          ImageFlavor: pwsh
+          PackageProfile: none
+          Platform: linux/arm64
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ImageVariant: azurelinux3
+          DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
+          DockerArtifact: Docker_PowerShell_AzureLinux3_Arm64
   pool:
     name: $(Pool)
   steps:
