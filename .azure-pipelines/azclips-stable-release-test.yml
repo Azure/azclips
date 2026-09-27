@@ -3,12 +3,6 @@ name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
-parameters:
-- name: artifact_version_override
-  displayName: Artifact version override (use auto for source version)
-  type: string
-  default: auto
-
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -31,14 +25,15 @@ variables:
   value: azurecli3
 - name: DockerCliRegistryServer
   value: azurecli3.azurecr.io
+# TEST ONLY: After validation, revert to public/azure-cli-v3 and public/azure-powershell-v3.
 - name: DockerCliRepository
-  value: public/azure-cli-v3
+  value: public/test/$(Build.BuildId)/azure-cli-v3
 - name: DockerPowerShellRegistryName
   value: azurecli3
 - name: DockerPowerShellRegistryServer
   value: azurecli3.azurecr.io
 - name: DockerPowerShellRepository
-  value: public/azure-powershell-v3
+  value: public/test/$(Build.BuildId)/azure-powershell-v3
 - name: DockerAzureServiceConnection
   value: 'Azure CLI release'
 
@@ -75,7 +70,7 @@ stages:
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
-    artifact_version_override: ${{ parameters.artifact_version_override }}
+    artifact_version_override: auto
     bump_type: patch
     release_channel: source
     release_date: auto
