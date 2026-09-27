@@ -44,7 +44,7 @@ stages:
   - job: EnsureReleaseProject
     displayName: Ensure Release Project Context
     pool:
-      vmImage: $(ubuntu_pool)
+      name: $(ubuntu_pool)
     steps:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
@@ -77,7 +77,9 @@ stages:
     pr_number: auto
     sequence: auto
     ubuntu_pool: ${{ variables.ubuntu_pool }}
+    ubuntu_arm64_pool: ${{ variables.ubuntu_arm64_pool }}
     windows_pool: ${{ variables.windows_pool }}
+    windows_arm64_pool: ${{ variables.windows_arm64_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
@@ -119,10 +121,17 @@ stages:
     esrp_apple_keycode: ${{ variables.esrp_apple_keycode }}
     macos_bundle_id: ${{ variables.MacOSBundleId }}
 
+- template: templates/dist/stages/component-governance.yml
+  parameters:
+    stage_name: SignedComponentGovernance
+    display_name: Component Governance For Signed Artifacts
+    windows_pool: ${{ variables.windows_pool }}
+    depends_on: AssembleSignedArtifacts
+
 - template: templates/dist/stages/verify-signed-distribution.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
-    dependency_stage: AssembleSignedArtifacts
+    dependency_stage: SignedComponentGovernance
     SourceProject: ${{ variables.SourceProject }}
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)
