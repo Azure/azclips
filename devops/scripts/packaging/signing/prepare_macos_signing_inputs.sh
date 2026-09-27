@@ -17,11 +17,15 @@ entitlements_source="$PACKAGING_ROOT/macos/signing/azclips-runtime.entitlements.
 tarball_dir="$work_root/tarballs"
 contents_dir="$work_root/contents"
 mapping_tsv="$work_root/file-mapping.tsv"
+to_be_signed_dir="$work_root/toBeSigned"
+hashes_tsv="$work_root/zip-hashes-before.tsv"
 asset_arch_label="macos-$current_arch"
 if [[ "$current_arch" == "x64" ]]; then
   asset_arch_label="macos-x86_64"
 fi
 
+rm -rf "$tarball_dir" "$contents_dir" "$to_be_signed_dir"
+rm -f "$mapping_tsv" "$hashes_tsv" "$work_root/azclips-runtime.entitlements.plist"
 mkdir -p "$tarball_dir" "$contents_dir"
 : > "$mapping_tsv"
 if [[ ! -f "$entitlements_source" ]]; then
@@ -222,8 +226,6 @@ if [[ $((total_binaries + total_bundles)) -eq 0 ]]; then
   exit 1
 fi
 
-to_be_signed_dir="$work_root/toBeSigned"
-hashes_tsv="$work_root/zip-hashes-before.tsv"
 mkdir -p "$to_be_signed_dir"
 : > "$hashes_tsv"
 
