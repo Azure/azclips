@@ -103,6 +103,28 @@ public class ErrorHelpPolicyTests
         Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat));
     }
 
+    [Fact]
+    public void ResolveErrorFormat_UsesPlainText_WhenInteractiveHumanHasDefaultJsonOutput()
+    {
+        var format = ErrorHelpPolicy.ResolveErrorFormat(
+            errorStreamIsHumanReadable: true,
+            configuredFormat: OutputFormat.Json,
+            explicitFormat: null);
+
+        Assert.Equal(OutputFormat.Table, format);
+    }
+
+    [Fact]
+    public void ResolveErrorFormat_PrefersExplicitJsonOutput_WhenStructuredErrorWasRequested()
+    {
+        var format = ErrorHelpPolicy.ResolveErrorFormat(
+            errorStreamIsHumanReadable: false,
+            configuredFormat: OutputFormat.Table,
+            explicitFormat: OutputFormat.Json);
+
+        Assert.Equal(OutputFormat.Json, format);
+    }
+
     [Theory]
     [InlineData(OutputFormat.Table)]
     [InlineData(OutputFormat.Tsv)]

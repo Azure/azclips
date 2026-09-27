@@ -19,16 +19,16 @@ parameters:
   default: 'auto'
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
+- name: ubuntu_arm64_pool
+  type: string
 - name: windows_pool
   type: string
-  default: 'windows-latest'
+- name: windows_arm64_pool
+  type: string
 - name: macos_arm64_pool
   type: string
-  default: 'macOS-15-arm64'
 - name: macos_intel_pool
   type: string
-  default: 'macOS-15'
 - name: final_artifact_name
   type: string
   default: 'Final_Build_Distribution'
@@ -98,6 +98,7 @@ stages:
   - template: ../jobs/build-linux.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
@@ -138,6 +139,7 @@ stages:
   - template: ../jobs/build-windows.yml
     parameters:
       windows_pool: ${{ parameters.windows_pool }}
+      windows_arm64_pool: ${{ parameters.windows_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
@@ -193,6 +195,7 @@ stages:
   - template: ../jobs/validate-build-linux.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      ubuntu_arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
@@ -228,6 +231,7 @@ stages:
   - template: ../jobs/validate-build-windows.yml
     parameters:
       windows_pool: ${{ parameters.windows_pool }}
+      windows_arm64_pool: ${{ parameters.windows_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)

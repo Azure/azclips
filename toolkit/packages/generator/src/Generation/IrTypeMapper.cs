@@ -1,35 +1,42 @@
+using Ace.Generator.Generators;
 using Ace.Generator.Model.Ir;
 
 namespace Ace.Generator;
 
 /// <summary>
-/// Maps an <see cref="IRTypeRef"/> to a C# type expression. Deliberately literal
-/// ("garbage in, garbage out"): named model/enum references become their IR name
-/// verbatim (no resolution or validation), primitives map to their obvious CLR
-/// type, and structural unions fall back to <c>object</c>.
+/// Maps an <see cref="IRTypeRef"/> to a C# type expression. Primitives map to their
+/// obvious CLR type and structural unions fall back to <c>object</c>.
 /// </summary>
+/// <remarks>
+/// A model or enum reference is resolved <em>through the document</em> rather than
+/// read off the reference's own id. An <see cref="IRId"/> records where a declaration
+/// came from and never changes; the rendered name can, because a transform may rename
+/// a declaration to keep two same-named types apart. Reading `id.Name` here would then
+/// emit references to a type nobody declares. Resolution falls back to the id's name
+/// when the document does not contain the target, so a partial document still renders.
+/// </remarks>
 internal static class IrTypeMapper
 {
     /// <summary>Render <paramref name="typeRef"/> as a C# type expression.</summary>
-    public static string ToCSharp(IRTypeRef typeRef) => typeRef switch
+    public static string ToCSharp(IRTypeRef typeRef, IrIndex index) => typeRef switch
     {
         IRTypeRefPrimitive p => Primitive(p.Name),
-        IRTypeRefModel m => m.Id.Name.Identifier(),
-        IRTypeRefEnum e => e.Id.Name.Identifier(),
-        IRTypeRefArray a => $"IList<{ToCSharp(a.Element)}>",
-        IRTypeRefDictionary d => $"IDictionary<string, {ToCSharp(d.Value)}>",
+        IRTypeRefModel m => (index.Model(m.Id)?.Name ?? m.Id.Name).Identifier(),
+        IRTypeRefEnum e => (index.Enum(e.Id)?.Name ?? e.Id.Name).Identifier(),
+        IRTypeRefArray a => $"IList<{ToCSharp(a.Element, index)}>",
+        IRTypeRefDictionary d => $"IDictionary<string, {ToCSharp(d.Value, index)}>",
         IRTypeRefUnion => "object",
         _ => "object",
     };
 
     /// <summary>The C# type of a property, dispatched over the property variant.</summary>
-    public static string ToCSharp(IRProperty property) => property switch
+    public static string ToCSharp(IRProperty property, IrIndex index) => property switch
     {
-        IRPropertyPrimitive p => ToCSharp(p.Type),
-        IRPropertyObject p => ToCSharp(p.Type),
-        IRPropertyCollection p => ToCSharp(p.Type),
-        IRPropertyEnum p => ToCSharp(p.Type),
-        IRPropertyUnion p => ToCSharp(p.Type),
+        IRPropertyPrimitive p => ToCSharp(p.Type, index),
+        IRPropertyObject p => ToCSharp(p.Type, index),
+        IRPropertyCollection p => ToCSharp(p.Type, index),
+        IRPropertyEnum p => ToCSharp(p.Type, index),
+        IRPropertyUnion p => ToCSharp(p.Type, index),
         _ => "object",
     };
 

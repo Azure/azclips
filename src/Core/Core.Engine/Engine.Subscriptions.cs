@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Telemetry;
 using Core.Runtime;
 using System.Diagnostics;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -238,6 +239,8 @@ namespace Core.Engine
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
                 }
+                // Data-boundary resolution/tagging lives in ExecutionSession.RunAsync/Run
+                // instead of here — see TagDataBoundary's remarks on ExecutionSession.
             });
 
             return subscriber;

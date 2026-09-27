@@ -25,7 +25,7 @@ import type { IR } from "@azure-client-engine/ir";
 
 import type { EmitContext, EmitProducer } from "./emit-producer.js";
 import type { TransformContext, TransformStep } from "./transform.js";
-import type { Generator, GeneratorContext } from "./generate.js";
+import type { Generator, GeneratorContext, GeneratorInputIssue } from "./generate.js";
 import { createBuiltinEmit } from "./builtins/emit.js";
 import { createCsharpGenerator } from "./builtins/generate-csharp.js";
 import { createCollectorSink, type OutputDelegate } from "./output.js";
@@ -148,6 +148,17 @@ export async function compile(
     const generator = resolveGenerator(stage.descriptor, options, config, reportDiagnostic);
     if (generator === undefined) return false;
 
+    // A generator declares what it renders; the orchestrator checks it. The pipeline
+    // carries one `IR` and a generate stage may sit anywhere, so this is the only
+    // point where "the document this backend needs" can actually be established.
+    // Doing it here rather than inside each generator keeps the failure uniform and
+    // keeps a backend's signature honest about its input.
+    const accepted = generator.accepts?.(current) ?? { success: true as const, data: current };
+    if (!accepted.success) {
+      reportDiagnostic(unacceptableInput(id, generator.name, accepted.error.issues));
+      return false;
+    }
+
     let outputFailed = false;
     const generatorContext: GeneratorContext = {
       reportDiagnostic,
@@ -195,7 +206,7 @@ export async function compile(
       // Awaited in place, so the generator sees the IR exactly as it stands at
       // its position. Handing a live IR to something that runs concurrently
       // would let a later transform change what it renders.
-      await generator.generate(current, generatorContext);
+      await generator.generate(accepted.data, generatorContext);
     } catch (error) {
       if (isAbortError(error)) throw error;
       reportDiagnostic(stageError("generate", id, error));
@@ -321,6 +332,33 @@ function stageError(stage: string, name: string, error: unknown): CompilerDiagno
     severity: "error",
     code: `@azure-client-engine/compiler/${stage}-stage-failed`,
     message: `${stage} stage '${name}' threw: ${detail}`,
+  };
+}
+
+/**
+ * A document the generate stage's backend will not render.
+ *
+ * Reported by the orchestrator rather than the generator so every backend fails the
+ * same way, and so the message can name the stage whose position produced the
+ * document — which is what a reader needs to know to fix it (usually an earlier
+ * transform that did not run).
+ */
+function unacceptableInput(
+  stage: string,
+  name: string,
+  issues: readonly GeneratorInputIssue[],
+): CompilerDiagnostic {
+  const detail = issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
+    .join("; ");
+  const more = issues.length > 3 ? ` (+${issues.length - 3} more)` : "";
+  return {
+    severity: "error",
+    code: "@azure-client-engine/compiler/invalid-generator-input",
+    message:
+      `Generator '${name}' (stage '${stage}') cannot render the document it was given ` +
+      `— ${detail}${more}`,
   };
 }
 

@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Options;
+using Core.Configuration.Schema;
 using Microsoft.Extensions.Configuration;
 
 namespace Core.Configuration.Implementation;
@@ -14,30 +15,11 @@ namespace Core.Configuration.Implementation;
 public sealed class ConfigurationService(
     Core.Configuration.Abstractions.IConfigurationProvider provider,
     IConfigurationSchema schema,
-    IConfigurationValidator validator) : IConfigurationService
+    IConfigurationValidator validator) : IConfigurationService, ISourceAwareConfigurationService
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         WriteIndented = true
-    };
-
-    private readonly JsonSerializerOptions _defaultFlattenSerializerOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
-    private readonly IReadOnlyDictionary<Type, string> _sectionNames = new Dictionary<Type, string>
-    {
-        [typeof(CoreOptions)] = "core",
-        [typeof(AssemblyLoadingOptions)] = "assemblyLoading",
-        [typeof(TelemetryOptions)] = "telemetry",
-        [typeof(AgentOptions)] = "agent",
-        [typeof(CompletionOptions)] = "completion",
-        [typeof(ExtensionsOptions)] = "extensions",
-        [typeof(ClientsOptions)] = "clients",
-        [typeof(DefaultsOptions)] = "defaults",
-        [typeof(BenchmarkOptions)] = "benchmark"
     };
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
@@ -88,9 +70,11 @@ public sealed class ConfigurationService(
             return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
         }
 
-        if (_sectionNames.TryGetValue(typeof(T), out var sectionName))
+        if (typeof(T).GetCustomAttributes(typeof(ConfigurationSectionAttribute), inherit: true)
+            .OfType<ConfigurationSectionAttribute>()
+            .SingleOrDefault() is { } section)
         {
-            return configuration.GetSection(sectionName).Get<T>() ?? defaults;
+            return configuration.GetSection(section.Name).Get<T>() ?? defaults;
         }
 
         return configuration.Get<T>() ?? defaults;
@@ -156,6 +140,52 @@ public sealed class ConfigurationService(
         return results;
     }
 
+    public async Task<IReadOnlyDictionary<string, ConfigurationValue>> ListConfigurationWithSourcesAsync(CancellationToken cancellationToken = default)
+    {
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+        var configured = Flatten(root);
+        var result = new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in BuildDefaultKeyValues())
+        {
+            result[entry.Key] = new ConfigurationValue(entry.Key, entry.Value, "default");
+        }
+
+        foreach (var entry in configured)
+        {
+            result[entry.Key] = new ConfigurationValue(entry.Key, entry.Value, "global config");
+        }
+
+        foreach (var (environmentVariable, key) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentVariable);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                result[key] = new ConfigurationValue(key, ParseEnvironmentValue(value), "environment");
+            }
+        }
+
+        return result;
+    }
+
+    private object? ParseEnvironmentValue(string value)
+    {
+        try
+        {
+            var parsed = JsonNode.Parse(value);
+            return parsed switch
+            {
+                JsonValue jsonValue => ConvertNodeToValue(jsonValue),
+                null => null,
+                _ => parsed
+            };
+        }
+        catch (JsonException)
+        {
+            return value;
+        }
+    }
+
     public async Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -207,7 +237,10 @@ public sealed class ConfigurationService(
             return results;
         }
 
-        if (!_sectionNames.TryGetValue(typeof(T), out var sectionName))
+        var sectionName = typeof(T).GetCustomAttributes(typeof(ConfigurationSectionAttribute), inherit: true)
+            .OfType<ConfigurationSectionAttribute>()
+            .SingleOrDefault()?.Name;
+        if (sectionName is null)
         {
             FlattenNode(node, string.Empty, results);
             return results;
@@ -324,30 +357,7 @@ public sealed class ConfigurationService(
 
     private Dictionary<string, object?> BuildDefaultKeyValues()
     {
-        var defaults = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        AddDefaults(defaults, new CoreOptions(), "core");
-        AddDefaults(defaults, new AssemblyLoadingOptions(), "assemblyLoading");
-        AddDefaults(defaults, new TelemetryOptions(), "telemetry");
-        AddDefaults(defaults, new AgentOptions(), "agent");
-        AddDefaults(defaults, new CompletionOptions(), "completion");
-        AddDefaults(defaults, new ExtensionsOptions(), "extensions");
-        AddDefaults(defaults, new ClientsOptions(), "clients");
-        AddDefaults(defaults, new DefaultsOptions(), "defaults");
-        return defaults;
-    }
-
-    private void AddDefaults<T>(IDictionary<string, object?> target, T options, string sectionName) where T : class
-    {
-        var node = JsonSerializer.SerializeToNode(options, _defaultFlattenSerializerOptions) as JsonObject;
-        if (node is null)
-        {
-            return;
-        }
-
-        foreach (var entry in Flatten(node, sectionName))
-        {
-            target[entry.Key] = entry.Value;
-        }
+        return ConfigurationSchemaBuilder.BuildDefaultValues(typeof(ConfigurationSectionAttribute).Assembly);
     }
 
     private Dictionary<string, object?> Flatten(JsonObject root, string? prefix = null)

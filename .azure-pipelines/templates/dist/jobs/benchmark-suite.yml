@@ -1,14 +1,13 @@
 parameters:
 - name: ubuntu_pool
   type: string
-  default: 'ubuntu-latest'
 
 jobs:
 - job: BenchmarkSuite
   displayName: Benchmark Suite (Dummy)
   timeoutInMinutes: 10
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.ubuntu_pool }}
   steps:
   - checkout: none
 

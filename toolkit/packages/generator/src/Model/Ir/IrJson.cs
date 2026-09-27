@@ -20,7 +20,7 @@ public static class IrJson
     };
 
     /// <summary>Deserialize an IR document from JSON using <see cref="Options"/>.</summary>
-    public static IRDocument Deserialize(string json) =>
-        JsonSerializer.Deserialize<IRDocument>(json, Options)
+    public static TransformedIR Deserialize(string json) =>
+        JsonSerializer.Deserialize<TransformedIR>(json, Options)
         ?? throw new JsonException("IR document deserialized to null.");
 }

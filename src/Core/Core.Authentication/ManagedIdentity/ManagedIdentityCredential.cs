@@ -82,6 +82,16 @@ public sealed class ManagedIdentityCredential : TokenCredential
     /// <summary>Converts a scope to the resource format expected by MI endpoints.</summary>
     public static string ScopeToResource(string[] scopes)
     {
+        // Managed identity acquires tokens through AcquireTokenForManagedIdentity, which takes a
+        // single resource rather than a scope list, so a request with more than one scope cannot be
+        // honored. Reject it with a usage error rather than silently keeping only the first scope and
+        // dropping the rest, which would hand back a token for a resource the caller did not ask for.
+        if (scopes is { Length: > 1 })
+        {
+            throw AzclipsErrorException.UsageError(
+                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account.");
+        }
+
         var scope = scopes is { Length: > 0 } ? scopes[0] : AuthConstants.ArmDefaultScope;
         return scope.EndsWith("/.default", StringComparison.Ordinal)
             ? scope[..^"/.default".Length]
