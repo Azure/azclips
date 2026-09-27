@@ -6,7 +6,7 @@ using Tests.Common.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// The virtual machine lifecycle: create, show, stop, deallocate, start, delete, driven through the
+/// The virtual machine lifecycle: create, list, show, stop, deallocate, start, delete, driven through the
 /// real dispatcher/binder and ARM request pipeline. Record mode runs the CLI surface against live
 /// Azure and rewrites the recording; playback replays the committed recording on both surfaces
 /// without credentials.
@@ -25,9 +25,9 @@ public class VmLifecycleScenarioTests
     private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute];
 
     [Fact]
-    public void CreateShowStopDeallocateStartDeleteVirtualMachine()
+    public void CreateListShowStopDeallocateStartDeleteVirtualMachine()
     {
-        var recording = SessionRecordFiles.OpenSession(typeof(VmLifecycleScenarioTests), nameof(CreateShowStopDeallocateStartDeleteVirtualMachine));
+        var recording = SessionRecordFiles.OpenSession(typeof(VmLifecycleScenarioTests), nameof(CreateListShowStopDeallocateStartDeleteVirtualMachine));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -37,6 +37,8 @@ public class VmLifecycleScenarioTests
             var subscriptionId = host.LiveSubscriptionId();
             RunGroupCreate(host, subscriptionId);
             AssertVm(RunCreate(host, subscriptionId));
+            AssertListed(RunList(host, subscriptionId, showDetails: false));
+            AssertListedWithDetails(RunList(host, subscriptionId, showDetails: true));
             AssertVm(RunShow(host, subscriptionId));
             AssertActionCompleted(RunStop(host, subscriptionId));
             AssertActionCompleted(RunDeallocate(host, subscriptionId));
@@ -50,6 +52,8 @@ public class VmLifecycleScenarioTests
         {
             RunGroupCreate(cli, SubscriptionId);
             AssertVm(RunCreate(cli, SubscriptionId), SubscriptionId);
+            AssertListed(RunList(cli, SubscriptionId, showDetails: false), SubscriptionId);
+            AssertListedWithDetails(RunList(cli, SubscriptionId, showDetails: true), SubscriptionId);
             AssertVm(RunShow(cli, SubscriptionId), SubscriptionId);
             AssertActionCompleted(RunStop(cli, SubscriptionId));
             AssertActionCompleted(RunDeallocate(cli, SubscriptionId));
@@ -61,6 +65,12 @@ public class VmLifecycleScenarioTests
         {
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId), extension: "Compute"), SubscriptionId);
+            AssertListed(ps.RunPowerShell("Get-AzVM_List", PsListParameters(SubscriptionId, status: false), extension: "Compute"), SubscriptionId);
+
+            // List-mode -UserData isn't covered: it needs a GET with $expand=userData, which only a
+            // PowerShell call makes. Both surfaces replay this one CLI-recorded session, so nothing
+            // records that request and its playback would fail.
+            AssertListedWithStatus(ps.RunPowerShell("Get-AzVM_List", PsListParameters(SubscriptionId, status: true), extension: "Compute"), SubscriptionId);
             AssertVm(ps.RunPowerShell("Get-AzVM_Get", PsVmParameters(SubscriptionId), extension: "Compute"), SubscriptionId);
 
             // Stop-AzVM spans both REST operations the CLI splits across two commands, so these two
@@ -97,6 +107,25 @@ public class VmLifecycleScenarioTests
             "--subnet-names", "default",
             "--subnet-address-prefixes", "10.0.0.0/24",
             "--address-prefixes", "10.0.0.0/16");
+
+    /// <summary>
+    /// <c>vm list</c> scoped to the scenario's resource group. <paramref name="showDetails"/> passes the
+    /// short alias <c>-d</c>, so the step also exercises the alias wiring.
+    /// </summary>
+    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, bool showDetails)
+    {
+        var args = new List<string>
+        {
+            "vm", "list",
+            "--subscription-id", subscriptionId,
+            "--resource-group", ResourceGroupName,
+        };
+        if (showDetails)
+        {
+            args.Add("-d");
+        }
+        return host.RunCli(args.ToArray());
+    }
 
     private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId) =>
         host.RunCli("vm", "show",
@@ -160,6 +189,24 @@ public class VmLifecycleScenarioTests
     };
 
     /// <summary>
+    /// <c>Get-AzVM_List</c> scoped to the scenario's resource group; <paramref name="status"/> adds
+    /// <c>-Status</c>.
+    /// </summary>
+    private static Dictionary<string, object> PsListParameters(string subscriptionId, bool status)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            ["SubscriptionId"] = subscriptionId,
+            ["ResourceGroupName"] = ResourceGroupName,
+        };
+        if (status)
+        {
+            parameters["Status"] = true;
+        }
+        return parameters;
+    }
+
+    /// <summary>
     /// Stop-AzVM addressing plus the switch that selects the REST operation: <c>-StayProvisioned</c>
     /// powers the VM off, and its absence deallocates.
     /// </summary>
@@ -186,6 +233,62 @@ public class VmLifecycleScenarioTests
         {
             Assert.Equal(VmId(expectedSubscriptionId), vm.Id);
         }
+    }
+
+    /// <summary>
+    /// Every list step writes exactly one object, the <c>List&lt;VirtualMachine&gt;</c> the list
+    /// orchestrator builds, holding the scenario's single VM. <c>Assert.IsType</c> is an exact match,
+    /// so an array, another collection, or VMs written one at a time all fail. Returns the VM so the
+    /// detail checks can build on it.
+    /// </summary>
+    private static VirtualMachine AssertListed(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var vms = Assert.IsType<List<VirtualMachine>>(Assert.Single(outputs));
+        AssertVm(vms, expectedSubscriptionId);
+        return vms[0];
+    }
+
+    /// <summary>
+    /// <c>vm list -d</c>: the power state comes from the instance view, and the network fields from
+    /// the NIC lookup. <c>vm create</c> allocates no public IP, so <c>PublicIps</c> and <c>Fqdns</c>
+    /// are empty strings, not null; null would mean the lookup never ran.
+    /// </summary>
+    private static void AssertListedWithDetails(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var vm = AssertListed(outputs, expectedSubscriptionId);
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.StartsWith("10.0.0.", vm.PrivateIps);
+        Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
+        Assert.Equal("", vm.PublicIps);
+        Assert.Equal("", vm.Fqdns);
+        Assert.Null(vm.Properties.InstanceView);
+
+        // Regression guard: can't fail with today's wiring. The CLI has no -Status, so vm list -d passes
+        // includeStatusFields: false and must never surface the -Status-only fields.
+        Assert.Null(vm.OsName);
+        Assert.Null(vm.OsVersion);
+        Assert.Null(vm.HyperVGeneration);
+        Assert.Null(vm.MaintenanceRedeployStatus);
+    }
+
+    /// <summary>
+    /// <c>Get-AzVM -Status</c>: the power state and the -Status-only fields come from the instance view.
+    /// Of those fields only <c>HyperVGeneration</c> is asserted: the platform reports it, while the
+    /// guest agent reports <c>OsName</c> and <c>OsVersion</c> and can lag on a freshly created VM.
+    /// </summary>
+    private static void AssertListedWithStatus(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var vm = AssertListed(outputs, expectedSubscriptionId);
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.False(string.IsNullOrEmpty(vm.HyperVGeneration));
+        Assert.Null(vm.Properties.InstanceView);
+
+        // Regression guard: can't fail with today's wiring. PowerShell has no -ShowDetails, so -Status
+        // must never run the NIC lookup that fills the network fields.
+        Assert.Null(vm.PublicIps);
+        Assert.Null(vm.Fqdns);
+        Assert.Null(vm.PrivateIps);
+        Assert.Null(vm.MacAddresses);
     }
 
     /// <summary>
