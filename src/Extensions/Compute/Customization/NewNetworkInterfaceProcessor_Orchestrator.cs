@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
@@ -28,9 +29,25 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public List<string> RuleAccesses { get; set; } = [];
     public bool AcceleratedNetworking { get; set; }
 
+    /// <summary>
+    /// The public IP to attach, with legacy <c>az vm create --public-ip-address</c> semantics: null
+    /// creates or updates <see cref="DefaultPublicIpAddressName"/> without a lookup, empty or
+    /// whitespace attaches none, a value containing '/' is the resource id of an existing public IP,
+    /// and any other value is a name in <see cref="ResourceGroupName"/>, reused when it exists and
+    /// created when it does not.
+    /// </summary>
+    public string? PublicIpAddress { get; set; }
+
+    /// <summary>The public IP created when <see cref="PublicIpAddress"/> is null. Empty means none.</summary>
+    public string DefaultPublicIpAddressName { get; set; } = string.Empty;
+
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-         NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
+        // Explicit names and ids are looked up before anything is created, as legacy CLI checks
+        // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
+        (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await ClassifyPublicIpAddressAsync();
+
+        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
             p.Name = VirtualNetworkName;
@@ -60,8 +77,12 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
         Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
         Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsync();
+        Task<string?> publicIpAddressIdTask = publicIpAddressNameToCreate is null
+            ? Task.FromResult(existingPublicIpAddressId)
+            : CreatePublicIpAddressAsync(publicIpAddressNameToCreate);
         using HttpResponseMessage vnetResponse = await vnetResponseTask;
         using HttpResponseMessage nsgResponse = await nsgResponseTask;
+        string? publicIpAddressId = await publicIpAddressIdTask;
         VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
         NetworkSecurityGroup nsg = (await nsgResponse.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
 
@@ -74,7 +95,80 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
             p.NetworkSecurityGroupId = nsg.Id!;
             p.AcceleratedNetworking = AcceleratedNetworking;
+            p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
         });
         return await nicProcessor.SendAsync();
+    }
+
+    /// <summary>
+    /// Legacy CLI's <c>public_ip_address_type</c>: the id of an existing public IP to attach, or the
+    /// name of one to create, or neither when no public IP is wanted.
+    /// </summary>
+    private async Task<(string? ExistingId, string? NameToCreate)> ClassifyPublicIpAddressAsync()
+    {
+        string? value = PublicIpAddress;
+
+        if (value is null)
+        {
+            if (string.IsNullOrWhiteSpace(DefaultPublicIpAddressName))
+            {
+                return (null, null);
+            }
+            return (null, DefaultPublicIpAddressName);
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return (null, null);
+        }
+
+        if (value.Contains('/'))
+        {
+            var parsed = VirtualMachineIdResolver.ParseResourceId(
+                value, "Microsoft.Network", "publicIPAddresses", "Public IP address", "publicIpAddressName");
+            string existingId = await FindPublicIpAddressIdAsync(parsed.SubscriptionId, parsed.ResourceGroupName, parsed.Name)
+                ?? throw new InvalidOperationException($"Public IP address '{value}' was not found.");
+            return (existingId, null);
+        }
+
+        string? existingByName = await FindPublicIpAddressIdAsync(SubscriptionId, ResourceGroupName, value);
+        if (existingByName is not null)
+        {
+            return (existingByName, null);
+        }
+        return (null, value);
+    }
+
+    /// <summary>Returns the public IP's id, or null when ARM answers 404.</summary>
+    private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
+    {
+        using HttpResponseMessage response = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
+        {
+            p.SubscriptionId = subscriptionId;
+            p.ResourceGroupName = resourceGroupName;
+            p.Name = name;
+        }).SendAllowingNotFoundAsync();
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
+        return publicIp.Id;
+    }
+
+    private async Task<string?> CreatePublicIpAddressAsync(string name)
+    {
+        using HttpResponseMessage response = await CreateExtendedProcessor<NewPublicIPAddressProcessor>(p =>
+        {
+            p.SubscriptionId = SubscriptionId;
+            p.Name = name;
+            p.Location = Location;
+            p.ResourceGroupName = ResourceGroupName;
+        }).SendAsync();
+
+        PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
+        return publicIp.Id;
     }
 }

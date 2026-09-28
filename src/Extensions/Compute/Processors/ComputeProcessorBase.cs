@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
@@ -147,6 +148,33 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
             return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
+        }
+
+        /// <summary>
+        /// Existence probe for get-or-create flows. Sends the request like <see cref="SendAsync"/>, but a
+        /// 404 is handed back to the caller instead of failing. <c>EnsureSuccessAsync</c> publishes the
+        /// error before it throws, so catching a 404 afterwards would still print one.
+        /// </summary>
+        internal async Task<HttpResponseMessage> SendAllowingNotFoundAsync()
+        {
+            using HttpRequestMessage request = await CreateRequestMessage();
+            HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return response;
+            }
+
+            try
+            {
+                await response.EnsureSuccessAsync(Publisher);
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+            return response;
         }
     }
 
