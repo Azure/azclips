@@ -44,6 +44,7 @@ $parameterObject = @{
     resourceGroupName = @{ value = $resourceGroupName }
     marker = @{ value = 'from-object' }
 }
+
 $objectValidation = Test-AzManagementGroupDeployment `
     -ManagementGroupId $managementGroupId `
     -Location $location `
@@ -64,7 +65,7 @@ $bicepValidation = Test-AzManagementGroupDeployment `
     -ValidationLevel Template
 $bicepValidation
 
-# Invalid templates return a structured validation result from Test.
+# Invalid templates return validation errors, matching Test-AzManagementGroupDeployment.
 $invalid = Test-AzManagementGroupDeployment `
     -ManagementGroupId $managementGroupId `
     -Location $location `

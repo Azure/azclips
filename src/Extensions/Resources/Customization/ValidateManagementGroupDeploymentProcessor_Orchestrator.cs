@@ -31,6 +31,6 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
         {
             ThrowIfError(body?.Error, "Management group deployment validation");
         }
-        return Task.FromResult(SuppressSuccessOutput);
+        return Task.FromResult(SuppressSuccessOutput && body?.Error is null);
     }
 }

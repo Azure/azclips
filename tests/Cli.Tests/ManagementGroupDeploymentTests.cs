@@ -215,6 +215,27 @@ public class ManagementGroupDeploymentTests
         Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
     }
 
+    [Theory]
+    [InlineData("RequestContent", "RequestContent")]
+    [InlineData("ResponseContent", "ResponseContent")]
+    [InlineData("All", "RequestContent,ResponseContent")]
+    [InlineData("None", null)]
+    public void Create_NormalizesPowerShellDebugLevel(string input, string? expected)
+    {
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+            DeploymentDebugLogLevel = input,
+        };
+        MethodInfo method = processor.GetType().GetMethod(
+            "BuildDeployment",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var deployment = Assert.IsType<ScopedDeployment>(method.Invoke(processor, null));
+
+        Assert.Equal(expected, deployment.Properties.DebugSetting?.DetailLevel);
+    }
+
     [Fact]
     public async Task List_UnwrapsManagementGroupDeploymentPage()
     {
@@ -263,7 +284,7 @@ public class ManagementGroupDeploymentTests
     }
 
     [Fact]
-    public async Task PowerShellTest_ThrowsAndWritesNoSuccessOutput()
+    public async Task PowerShellTest_ReturnsValidationError()
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(
             """
@@ -273,8 +294,7 @@ public class ManagementGroupDeploymentTests
                 "message": "The template is invalid."
               }
             }
-            """,
-            HttpStatusCode.BadRequest));
+            """));
         var output = new FakeOutputHandler();
         var processor = new TestManagementGroupDeploymentProcessor_Orchestrator
         {
@@ -288,8 +308,40 @@ public class ManagementGroupDeploymentTests
         };
         Init(processor, pipeline, output);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
-        Assert.Empty(output.WrittenValues);
+        await processor.ProcessAsync();
+
+        var result = Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
+        Assert.Equal("InvalidTemplate", result.Error?.Code);
+    }
+
+    [Fact]
+    public async Task CliValidate_ThrowsValidationError()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            """
+            {
+              "error": {
+                "code": "InvalidTemplate",
+                "message": "The template is invalid."
+              }
+            }
+            """));
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "invalid",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("InvalidTemplate", exception.Message);
     }
 
     [Fact]
@@ -322,7 +374,8 @@ public class ManagementGroupDeploymentTests
                 ["resources"] = Array.Empty<object>(),
             },
         };
-        Init(processor, pipeline, new FakeOutputHandler());
+        var output = new FakeOutputHandler();
+        Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
@@ -334,6 +387,7 @@ public class ManagementGroupDeploymentTests
             Assert.Equal(HttpMethod.Get, request.Method);
             Assert.Equal(location, request.Uri.ToString());
         });
+        Assert.Empty(output.WrittenValues);
     }
 
     [Fact]

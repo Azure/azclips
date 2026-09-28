@@ -8,6 +8,7 @@ public class TestManagementGroupDeploymentProcessor_Orchestrator
 {
     public TestManagementGroupDeploymentProcessor_Orchestrator()
     {
+        ThrowOnError = false;
         SuppressSuccessOutput = true;
     }
 }

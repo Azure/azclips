@@ -94,6 +94,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
 
     protected ScopedDeployment BuildDeployment()
     {
+        string? debugLevel = NormalizeDebugSetting(DeploymentDebugLogLevel);
         DeploymentProperties properties = new()
         {
             Mode = DeploymentMode.Incremental,
@@ -102,9 +103,9 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             Parameters = BuildParameters(out ParametersLink? parametersLink),
             ParametersLink = parametersLink,
             ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
-            DebugSetting = string.IsNullOrWhiteSpace(DeploymentDebugLogLevel)
+            DebugSetting = debugLevel is null
                 ? null
-                : new DebugSetting { DetailLevel = NormalizeDebugSetting(DeploymentDebugLogLevel) },
+                : new DebugSetting { DetailLevel = debugLevel },
         };
 
         return new ScopedDeployment
@@ -145,16 +146,18 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
                     "ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'."),
             };
 
-    private static string NormalizeDebugSetting(string detailLevel) =>
-        detailLevel.Trim().ToLowerInvariant() switch
-        {
-            "requestcontent" => "RequestContent",
-            "responsecontent" => "ResponseContent",
-            "all" => "All",
-            "none" => "None",
-            _ => throw new ArgumentException(
-                "DeploymentDebugLogLevel must be one of 'RequestContent', 'ResponseContent', 'All', or 'None'."),
-        };
+    private static string? NormalizeDebugSetting(string? detailLevel) =>
+        string.IsNullOrWhiteSpace(detailLevel)
+            ? null
+            : detailLevel.Trim().ToLowerInvariant() switch
+            {
+                "requestcontent" => "RequestContent",
+                "responsecontent" => "ResponseContent",
+                "all" => "RequestContent,ResponseContent",
+                "none" => null,
+                _ => throw new ArgumentException(
+                    "DeploymentDebugLogLevel must be one of 'RequestContent', 'ResponseContent', 'All', or 'None'."),
+            };
 
     protected static void ThrowIfError(ErrorResponse? error, string operation)
     {
