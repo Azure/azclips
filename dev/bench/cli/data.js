@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790578443809,
+  "lastUpdate": 1790578506255,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -13098,6 +13098,54 @@ window.BENCHMARK_DATA = {
             "value": 3512992.3886427707,
             "unit": "ns",
             "range": "± 120057.35931114935"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "814439b4c61e76b66a9b45644244046c4a96c338",
+          "message": "{Tests} Resolve build and test warnings (#1012)\n\nTLDR: get rid of 8 warnings during build and test\n\n## Summary\n- mark benchmark and shared test utilities as non-test projects so test\ndiscovery skips them\n- suppress the required preview API diagnostic around permission\ndecisions\n- make nullable assertions explicit in identity extension tests\n\n## Validation\n- `dotnet build azclips.slnx` (0 warnings, 0 errors)\n- `dotnet test azclips.slnx --no-build --verbosity minimal` (2,147\npassed, 10 skipped, 0 failed)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-28T16:29:53+10:00",
+          "tree_id": "c10b8cd1caf78664888f7b1006cfbbd1ee066406",
+          "url": "https://github.com/Azure/azclips/commit/814439b4c61e76b66a9b45644244046c4a96c338"
+        },
+        "date": 1790578502208,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3556799.179492345,
+            "unit": "ns",
+            "range": "± 110700.17242291018"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 3625896.5384304207,
+            "unit": "ns",
+            "range": "± 110571.4884329615"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3538306.655043461,
+            "unit": "ns",
+            "range": "± 114025.07357734548"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3450087.7147461725,
+            "unit": "ns",
+            "range": "± 113601.83015982308"
           }
         ]
       }
