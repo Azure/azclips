@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790556908722,
+  "lastUpdate": 1790556965606,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11176,6 +11176,48 @@ window.BENCHMARK_DATA = {
             "value": 1963248.0527494908,
             "unit": "ns",
             "range": "± 47239.49099961708"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b00f2e53faca4bc136a435680f575608dbf2d3ca",
+          "message": "{Telemetry} route non-EU Aria telemetry to an explicit ROW regional endpoint (#998)\n\nGlobal tenants' Aria telemetry relied on OneCollector's default/global\ningestion endpoint (a null TransportOptions.Endpoint), unlike EU tenants\nwhich already pin an explicit regional endpoint (AriaEuEndpoint). The\nglobal Collector endpoint can route traffic to any regional\nCollector/AEF instance -- including the EU one -- which can cause Geneva\nDelivery Service (GDS) to misroute non-EU (ROW) data into the EU Kusto\ncluster.\n\nAdded WellKnownEndpoints.AriaRowEndpoint\n(https://us-mobile.events.data.microsoft.com/OneCollector/1.0/) and\nwired it into both places that previously passed null for the non-EU\npath: TelemetryExporters.ResolveAriaExporter (used for the CLI's\nbuffered per-boundary-group upload replay) and AriaActivityExporter's\ndynamic-routing constructor (used by PowerShell's long-lived\nTracerProvider). EU routing is unchanged.\n\nVerified: dotnet build succeeds; Core.Telemetry.Tests (264, including\nthe live Export_SendsActivityToAria integration test now hitting the new\nROW endpoint), Cli.Tests (972), Cmdlets.Tests (115) all pass.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-28T00:30:24Z",
+          "tree_id": "ded2b3176ec2ef7c283ec650c4a55bb848bd42a6",
+          "url": "https://github.com/Azure/azclips/commit/b00f2e53faca4bc136a435680f575608dbf2d3ca"
+        },
+        "date": 1790556961021,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2212180.731949274,
+            "unit": "ns",
+            "range": "± 78691.62156418418"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2308083.3204656863,
+            "unit": "ns",
+            "range": "± 72268.72026062534"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2192070.6818369026,
+            "unit": "ns",
+            "range": "± 75854.50912098405"
           }
         ]
       }
