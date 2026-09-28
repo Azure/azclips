@@ -27,7 +27,7 @@ Open-AzSurvey [<CommonParameters>]
 
 ## DESCRIPTION
 
-Opens the feedback form in the default System Browser to provide feedback about Azure Powershell.
+Opens the feedback form in the default System Browser to provide feedback about Azure PowerShell.
 
 ## EXAMPLES
 
