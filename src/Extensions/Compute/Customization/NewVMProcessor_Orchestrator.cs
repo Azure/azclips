@@ -123,5 +123,45 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
              });
             return await vmProcessor.SendAsync();
         }
+
+        /// <summary>
+        /// Writes the created VM the way <c>az vm show -d</c> shows it, as legacy <c>az vm create</c>
+        /// prints its public IP. The VM already exists by now, so a failed lookup only costs the
+        /// detail fields: it is reported as a warning and the VM from the create is written instead.
+        /// </summary>
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
+        {
+            if (body is null)
+            {
+                return false;
+            }
+
+            VirtualMachine output = body;
+            try
+            {
+                using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.Name = Name;
+                    p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+                }).SendAsync();
+
+                VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
+                await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
+                VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
+                output = detailed;
+            }
+            catch (Exception exception)
+            {
+                await Publisher.Publish(Events.Warning, new EventData
+                {
+                    Message = $"Created virtual machine '{Name}' but could not retrieve its details: {exception.Message}"
+                });
+            }
+
+            await WriteOutput(output);
+            return true;
+        }
     }
 }
