@@ -22,18 +22,17 @@ variables:
 - name: MacOSBundleId
   value: ${{ variables.macos_bundle_id }}
 - name: DockerCliRegistryName
-  value: azurecli3
+  value: azclips
 - name: DockerCliRegistryServer
-  value: azurecli3.azurecr.io
-# TEST ONLY: After validation, revert to public/azure-cli-v3 and public/azure-powershell-v3.
+  value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: public/test/$(Build.BuildId)/azure-cli-v3
+  value: internal/azure-cli
 - name: DockerPowerShellRegistryName
-  value: azurecli3
+  value: azclips
 - name: DockerPowerShellRegistryServer
-  value: azurecli3.azurecr.io
+  value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: public/test/$(Build.BuildId)/azure-powershell-v3
+  value: internal/azure-powershell
 - name: DockerAzureServiceConnection
   value: 'Azure CLI release'
 
