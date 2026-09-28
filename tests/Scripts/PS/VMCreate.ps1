@@ -3,32 +3,34 @@
 #
 # Smoke test for New-AzVM's public IP workflows through the built Compute module.
 #
-# Creates three VMs in one resource group, one per public IP mode, and checks the
+# Creates four VMs in one resource group, one per public IP mode, and checks the
 # detail fields New-AzVM returns:
 #   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set
 #   2. New-AzVM -PublicIpAddressName <new name>    -> creates that public IP; PublicIps is set
-#   3. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty
-#   4. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
+#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
+#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty
+#   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
 #                                                     anything is created
-#   5. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
+#   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
 #
 # PrivateIps is checked alongside PublicIps to prove the output was enriched: an
 # empty PublicIps with an empty PrivateIps means the detail lookup never ran.
 #
-# Reusing an existing public IP is not covered: an unattached public IP can't be
-# created with these modules.
+# Case 3 pre-creates its public IP through Invoke-AzRestMethod, then verifies
+# New-AzVM attaches that resource without replacing its tags.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
 #     Import-Module ./src/PS/Accounts/Accounts.psd1
 #     Import-Module ./src/PS/Resources/Resources.psd1
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
-# The subscription needs quota for three Standard_D2s_v3 VMs and two Standard public IPs.
+# The subscription needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
 #
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
 # created is deleted with Remove-AzResourceGroup, which removes the VMs, public IPs,
-# NICs, VNets and NSGs with it. A group named through $env:AZCLIPS_RESOURCE_GROUP may
-# already hold other resources, so the script only removes its VMs there.
+# NICs, VNets and NSGs with it, including the pre-created public IP. A group named
+# through $env:AZCLIPS_RESOURCE_GROUP may already hold other resources, so the script
+# only removes its VMs there and leaves the public IPs and network resources to you.
 #
 # Usage: ./tests/Scripts/PS/VMCreate.ps1
 
@@ -46,15 +48,17 @@ if (-not $env:AZCLIPS_VM_ADMIN_PASSWORD)
 }
 
 $location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2' } else { $env:AZCLIPS_LOCATION }
-$suffix        = $PID
+$suffix        = $PID % 1000000
 $resourceGroup = if ($env:AZCLIPS_RESOURCE_GROUP) { $env:AZCLIPS_RESOURCE_GROUP } else { "azclips-vmcreate-rg-$suffix" }
 
 # Azure caps the Windows computer name, derived from the VM name, at 15 characters.
 $defaultVm         = "vmc-def-$suffix"
 $namedVm           = "vmc-nam-$suffix"
+$reuseVm           = "vmc-reu-$suffix"
 $noneVm            = "vmc-non-$suffix"
 $missingVm         = "vmc-mis-$suffix"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
+$reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
 $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$suffix"
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
@@ -64,6 +68,7 @@ $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGro
 $requiredCommands = [ordered]@{
     'New-AzResourceGroup'    = 'Resources'
     'Remove-AzResourceGroup' = 'Resources'
+    'Invoke-AzRestMethod'    = 'Resources'
     'New-AzVM'               = 'Compute'
     'Get-AzVM'               = 'Compute'
     'Remove-AzVM'            = 'Compute'
@@ -101,6 +106,45 @@ function Add-Failure([string]$Message)
     $failures.Add($Message)
 }
 
+function Get-PublicIpUrl([string]$Name)
+{
+    "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/${Name}?api-version=2025-05-01"
+}
+
+function Get-PublicIpByName([string]$Name)
+{
+    $response = Invoke-AzRestMethod -Method GET -Uri (Get-PublicIpUrl -Name $Name)
+    $response.Content | ConvertFrom-Json
+}
+
+function Wait-PublicIpSucceeded([string]$Label, [string]$Name)
+{
+    $lastResult = $null
+    for ($attempt = 0; $attempt -lt 24; $attempt++)
+    {
+        try
+        {
+            $publicIp = Get-PublicIpByName -Name $Name
+            $lastResult = $publicIp.properties.provisioningState
+            if ($lastResult -eq 'Succeeded')
+            {
+                Write-Host "OK: ${Label}: public IP '$Name' provisioningState is Succeeded"
+                return $true
+            }
+            Write-Host "== waiting for public IP ${Name}: provisioningState='$lastResult' =="
+        }
+        catch
+        {
+            $lastResult = $_.Exception.Message
+            Write-Host "== waiting for public IP ${Name}: GET failed: $lastResult =="
+        }
+        Start-Sleep -Seconds 5
+    }
+
+    Add-Failure "${Label}: public IP '$Name' did not reach provisioningState Succeeded after about 2 minutes (last result: $lastResult)"
+    $false
+}
+
 # New-AzVM with per-VM network resource names; $Extra is splatted on top.
 function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
 {
@@ -122,8 +166,35 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
     New-AzVM @parameters @Extra
 }
 
+function Test-PublicIpResource([string]$Label, [string]$ExpectedName, [string]$ExpectedAddress, [string]$ExpectedSmokeTag = '')
+{
+    try
+    {
+        $publicIp = Get-PublicIpByName -Name $ExpectedName
+    }
+    catch
+    {
+        Add-Failure "${Label}: could not read public IP '$ExpectedName': $($_.Exception.Message)"
+        return
+    }
+
+    if ($publicIp.properties.ipAddress -ne $ExpectedAddress)
+    {
+        Add-Failure "${Label}: public IP '$ExpectedName' address '$($publicIp.properties.ipAddress)' did not match PublicIps '$ExpectedAddress'"
+        return
+    }
+
+    if ($ExpectedSmokeTag -and $publicIp.tags.'azclips-smoke' -ne $ExpectedSmokeTag)
+    {
+        Add-Failure "${Label}: public IP '$ExpectedName' azclips-smoke tag '$($publicIp.tags.'azclips-smoke')' did not match '$ExpectedSmokeTag'"
+        return
+    }
+
+    Write-Host "OK: ${Label}: public IP '$ExpectedName' address matches PublicIps='$ExpectedAddress'"
+}
+
 # PrivateIps proves the detail lookup ran; then PublicIps must be set or empty as expected.
-function Test-PublicIp([string]$Label, $Vm, [bool]$ExpectPublicIp)
+function Test-PublicIp([string]$Label, $Vm, [bool]$ExpectPublicIp, [string]$ExpectedPublicIpName = '', [string]$ExpectedSmokeTag = '')
 {
     if ([string]::IsNullOrEmpty($Vm.PrivateIps))
     {
@@ -140,6 +211,11 @@ function Test-PublicIp([string]$Label, $Vm, [bool]$ExpectPublicIp)
     else
     {
         Write-Host "OK: ${Label}: PublicIps='$($Vm.PublicIps)' PrivateIps='$($Vm.PrivateIps)'"
+    }
+
+    if ($ExpectPublicIp -and -not [string]::IsNullOrEmpty($Vm.PublicIps) -and -not [string]::IsNullOrEmpty($ExpectedPublicIpName))
+    {
+        Test-PublicIpResource -Label $Label -ExpectedName $ExpectedPublicIpName -ExpectedAddress $Vm.PublicIps -ExpectedSmokeTag $ExpectedSmokeTag
     }
 }
 
@@ -158,17 +234,52 @@ try
 
     Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP) =="
     $createdVms.Add($defaultVm)
-    Test-PublicIp -Label 'default' -Vm (New-SmokeVM -Name $defaultVm) -ExpectPublicIp $true
+    $defaultResult = New-SmokeVM -Name $defaultVm
+    Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
 
     Write-Host "== 2. New-AzVM -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)
-    Test-PublicIp -Label 'named' -Vm (New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }) -ExpectPublicIp $true
+    $namedResult = New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }
+    Test-PublicIp -Label 'named' -Vm $namedResult -ExpectPublicIp $true -ExpectedPublicIpName $namedPublicIp
 
-    Write-Host "== 3. New-AzVM -PublicIpAddressName '' (no public IP) =="
+    Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp (existing name) =="
+    $body = @{
+        location = $location
+        sku = @{ name = 'Standard' }
+        tags = @{ 'azclips-smoke' = 'reuse' }
+        properties = @{ publicIPAllocationMethod = 'Static' }
+    }
+    $reusePublicIpCreated = $false
+    try
+    {
+        $null = Invoke-AzRestMethod -Method PUT -Uri (Get-PublicIpUrl -Name $reusePublicIp) -Payload ($body | ConvertTo-Json -Depth 5 -Compress)
+        $reusePublicIpCreated = $true
+    }
+    catch
+    {
+        Add-Failure "reuse: failed to pre-create public IP '$reusePublicIp': $($_.Exception.Message)"
+    }
+
+    if ($reusePublicIpCreated)
+    {
+        if (Wait-PublicIpSucceeded -Label 'reuse' -Name $reusePublicIp)
+        {
+            $createdVms.Add($reuseVm)
+            $reuseResult = New-SmokeVM -Name $reuseVm -Extra @{ PublicIpAddressName = $reusePublicIp }
+            Test-PublicIp -Label 'reuse' -Vm $reuseResult -ExpectPublicIp $true -ExpectedPublicIpName $reusePublicIp -ExpectedSmokeTag 'reuse'
+        }
+        else
+        {
+            Write-Host '== reuse: skipping New-AzVM because public IP pre-create did not complete =='
+        }
+    }
+
+    Write-Host "== 4. New-AzVM -PublicIpAddressName '' (no public IP) =="
     $createdVms.Add($noneVm)
     Test-PublicIp -Label 'none' -Vm (New-SmokeVM -Name $noneVm -Extra @{ PublicIpAddressName = '' }) -ExpectPublicIp $false
 
-    Write-Host "== 4. New-AzVM -PublicIpAddressName <missing resource id> (expect 'was not found') =="
+    Write-Host "== 5. New-AzVM -PublicIpAddressName <missing resource id> (expect 'was not found') =="
+    $createdVms.Add($missingVm)
     $expected = "Public IP address '$missingPublicIpId' was not found."
     try
     {
@@ -187,7 +298,7 @@ try
         }
     }
 
-    Write-Host '== 5. Get-AzVM, Remove-AzVM, Get-AzVM (the last get is expected to fail) =='
+    Write-Host '== 6. Get-AzVM, Remove-AzVM, Get-AzVM (the last get is expected to fail) =='
     Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $defaultVm
     Remove-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $defaultVm -Force
     $null = $createdVms.Remove($defaultVm)
