@@ -69,7 +69,8 @@ attaches to the NIC's primary IP configuration (`ipconfig0`) only.
 
 **Output.** Both commands return the created `VirtualMachine`, enriched exactly like
 `az vm show -d`: `powerState`, `publicIps`, `fqdns`, `privateIps`, `macAddresses`. `fqdns` is empty
-because no DNS label is set; `publicIps` is empty when the caller opts out with `""`.
+unless an attached existing public IP has a DNS label — public IPs this command creates have none;
+`publicIps` is empty when the caller opts out with `""`.
 
 **Breaking change.** Both commands now create a billable public IP by default. Scripts that must
 not get one pass `--public-ip-address ""` or `-PublicIpAddressName ""`.
