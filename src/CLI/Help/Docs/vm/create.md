@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Provision an Azure virtual machine in the specified resource group along with the supporting virtual network, subnet, network security group, and network interface in a single orchestrated call. The VM size, administrator credentials, and target location must all be provided. Resource names supplied for `--virtual-network-name`, `--network-security-group-name`, and `--network-interface-name` are created if they do not already exist in the resource group.
+Description: Provision an Azure virtual machine in the specified resource group along with the supporting virtual network, subnet, network security group, network interface, and public IP address in a single orchestrated call. The VM size, administrator credentials, and target location must all be provided. Resource names supplied for `--virtual-network-name`, `--network-security-group-name`, and `--network-interface-name` are created if they do not already exist in the resource group. By default a Standard, static public IP address named `{vm}PublicIP` is created, or updated if it already exists. Pass `--public-ip-address` a name to reuse the public IP address of that name when it exists and create it when it does not, a resource ID to attach an existing public IP address, or `""` to create none. The command returns the new virtual machine with the power state and the public and private IP addresses that `az vm show -d` reports.
 
 ### Create a Linux VM in East US
 
@@ -17,4 +17,16 @@ az vm create --name myvm --resource-group myrg --location eastus --vm-size Stand
 
 ```bash
 az vm create --name $vmName --resource-group $rg --location eastus --vm-size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId
+```
+
+### Create a VM with a named public IP address
+
+```bash
+az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password 'P@ssw0rd123!' --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address myvm-ip
+```
+
+### Create a VM without a public IP address
+
+```bash
+az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password 'P@ssw0rd123!' --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address ""
 ```
