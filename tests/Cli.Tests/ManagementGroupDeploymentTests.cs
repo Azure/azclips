@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -264,11 +265,16 @@ public class ManagementGroupDeploymentTests
         Assert.Equal(["one", "two"], values.Select(value => value.Name));
     }
 
-    [Fact]
-    public async Task Stop_RejectsTerminalDeploymentBeforeCancel()
+    [Theory]
+    [InlineData("Succeeded")]
+    [InlineData("Failed")]
+    [InlineData("Canceled")]
+    [InlineData("Created")]
+    [InlineData("Updating")]
+    public async Task Stop_RejectsNonCancelableDeploymentBeforeCancel(string state)
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(
-            """{ "name": "done", "properties": { "provisioningState": "Succeeded" } }"""));
+            $$"""{ "name": "done", "properties": { "provisioningState": "{{state}}" } }"""));
         var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
@@ -281,6 +287,25 @@ public class ManagementGroupDeploymentTests
 
         Assert.Contains("not running", error.Message);
         Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("Accepted")]
+    [InlineData("Running")]
+    public async Task Stop_CancelsCancelableDeployment(string state)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            $$"""{ "name": "active", "properties": { "provisioningState": "{{state}}" } }"""));
+        var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "active",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
     }
 
     [Fact]
@@ -556,6 +581,28 @@ public class ManagementGroupDeploymentTests
             new FakeEventPublisher { Token = cancellation.Token });
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.ProcessAsync());
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Wait_CapsPollingDelayAtRemainingTimeout()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            """{ "name": "running", "properties": { "provisioningState": "Running" } }"""));
+        var processor = new WaitManagementGroupDeploymentProcessor
+        {
+            ManagementGroupId = "contoso",
+            Name = "running",
+            Updated = true,
+            Interval = 30,
+            Timeout = 1,
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+        var stopwatch = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<TimeoutException>(() => processor.ProcessAsync());
+
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
         Assert.Equal(1, pipeline.SendCount);
     }
 

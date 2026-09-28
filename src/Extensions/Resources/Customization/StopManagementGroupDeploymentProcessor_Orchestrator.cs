@@ -25,9 +25,8 @@ public class StopManagementGroupDeploymentProcessor_Orchestrator
         string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(rawBody, JsonOptions);
         string? state = deployment?.Properties?.ProvisioningState;
-        if (string.Equals(state, "Succeeded", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(state, "Canceled", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(state, "Accepted", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(state, "Running", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
                 $"Management group deployment '{Name}' is not running and cannot be canceled.");

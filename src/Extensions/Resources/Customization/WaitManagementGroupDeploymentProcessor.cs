@@ -77,7 +77,14 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
                 }
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(Interval), Publisher.Token);
+            TimeSpan remaining = deadline - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+            await Task.Delay(
+                TimeSpan.FromSeconds(Math.Min(Interval, remaining.TotalSeconds)),
+                Publisher.Token);
         }
 
         throw new TimeoutException(
