@@ -62,7 +62,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     public AriaActivityExporter()
     {
         _dynamicRouting = true;
-        _globalLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaConnectionString, null);
+        _globalLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
         _globalLogger = _globalLoggerFactory.CreateLogger("Azclips");
         _euLoggerFactory = BuildLoggerFactory(WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
         _euLogger = _euLoggerFactory.CreateLogger("Azclips");

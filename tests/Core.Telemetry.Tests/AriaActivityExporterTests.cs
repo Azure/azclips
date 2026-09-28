@@ -24,7 +24,7 @@ public class AriaActivityExporterTests
     public void Export_SendsActivityToAria()
     {
         // Arrange
-        var exporter = new AriaActivityExporter(WellKnownEndpoints.AriaConnectionString);
+        var exporter = new AriaActivityExporter(WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
         var source = new ActivitySource("AriaIntegrationTest");
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource("AriaIntegrationTest")
