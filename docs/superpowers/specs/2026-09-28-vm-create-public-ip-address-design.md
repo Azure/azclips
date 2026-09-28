@@ -144,7 +144,7 @@ The VM orchestrator then `PUT`s the VM and, in `BeforeWriteOutputAsyncAndReturn`
 | `tests/Scenario.Tests/VmCreateScenarioTests.cs` and its recording | Assert `PublicIps` and `PowerState`; re-recorded live. |
 | `tests/Scenario.Tests/VmLifecycleScenarioTests.cs` and its recording | Flip the "vm create allocates no public IP" expectation; re-recorded live. |
 | `tests/Scenario.Tests/FakeVmArmBackend.cs` | Maintenance only: serve the public IP `PUT` and the enrichment reads so the existing `VmCreateOrchestrationTests` keep passing. |
-| `tests/Scripts/CLI/VMCreate.sh`, `tests/Scripts/PS/VMCreate.ps1` | Cover the default public IP, an explicit new name, the `""` opt-out and a missing resource id. |
+| `tests/Scripts/CLI/VMCreate.sh`, `tests/Scripts/PS/VMCreate.ps1` | Cover the default public IP, an explicit new name, the `""` opt-out, reuse of an existing public IP by name, and a missing resource id. |
 
 The benchmark stub (`tests/Common/Stubs`) needs no change: unmapped paths return `{}`, which
 carries no `provisioningState`, so the public IP's long-running operation ends immediately and the
@@ -188,8 +188,11 @@ namespace, matching the existing orchestrators.
   `VmCreateScriptScenarioTests` replays the re-recorded vm create file through its three scripts
   and must still consume every entry. These tests fail playback until the recordings are refreshed.
 - **Smoke scripts** `tests/Scripts/CLI/VMCreate.sh` and `tests/Scripts/PS/VMCreate.ps1`: the
-  default public IP, an explicit new name, the `""` opt-out, and a resource id that does not exist
-  (expected to fail with the "not found" message).
+  default public IP, an explicit new name, the `""` opt-out, reuse of an existing public IP by
+  name (created and tagged through `az rest` / `Invoke-AzRestMethod` beforehand, then checked to be
+  attached with its tag intact), and a resource id that does not exist (expected to fail with the
+  "not found" message). Each created or reused public IP is read back by name through `az rest` /
+  `Invoke-AzRestMethod`, and its address must match the `publicIps` the command returned.
 - **Maintenance only:** `FakeVmArmBackend`, so the existing `VmCreateOrchestrationTests` keep
   passing. No new orchestration tests.
 - **Build and suites:** `dotnet build azclips.slnx`; `Scenario.Tests`, `Azclips.Help.Tool.Tests`
@@ -206,8 +209,8 @@ full suite and secret scan.
   CLI parity.
 - **Recordings must be refreshed live** before CI is green. That needs credentials, quota for the
   VMs plus two Standard public IPs, and the `Microsoft.Compute` and `Microsoft.Network` providers.
-- **Reusing an existing public IP** by name or resource id is covered by neither CI nor the smoke
-  scripts: an unattached public IP cannot be created with AzClips commands.
+- **Reusing an existing public IP** is covered only by the manual smoke scripts (by name), not by
+  CI. Reusing one by resource id is covered by neither.
 - **Stale comments** in `tests/Scripts/CLI/VMShow.sh`, `tests/Scripts/PS/VMShow.ps1` and
   `tests/Scripts/CLI/VMList.sh` say `vm create` allocates no public IP. Out of scope here; worth a
   follow-up.
