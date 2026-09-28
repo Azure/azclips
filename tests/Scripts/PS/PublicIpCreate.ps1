@@ -38,10 +38,26 @@ if (-not $resourceGroup)
 }
 
 $location = 'eastus'
-$pipName  = 'azclips-test-pip-2'
-# The DNS label must be unique within the region, so a fixed default collides between runs and
-# between developers.
+# Both names get a per-run suffix. The finally block below removes $pipName unconditionally and
+# New- issues a PUT, so a fixed name would silently overwrite a colliding address in the caller's
+# resource group and then destroy it - most likely another developer's run against a shared group.
+# The DNS label additionally has to be unique within the whole region.
+$pipName  = "azclips-test-pip-$(Get-Random -Maximum 99999)"
 $dnsName  = "$pipName-$(Get-Random -Maximum 99999)"
+
+# Never touch an address this run did not create: the finally block removes $pipName
+# unconditionally. This has to run before entering the try, otherwise that cleanup would delete
+# the very address being protected.
+$existing = Get-AzPublicIpAddress `
+    -SubscriptionId $subscriptionId `
+    -ResourceGroupName $resourceGroup `
+    -Name $pipName `
+    -ErrorAction SilentlyContinue
+
+if ($existing)
+{
+    throw "Public IP address '$pipName' already exists in '$resourceGroup'. Refusing to overwrite and remove it; re-run to generate a different name."
+}
 
 try
 {
