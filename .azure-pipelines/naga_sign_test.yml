@@ -55,11 +55,11 @@ stages:
       displayName: Validate Alpha Build Source
 
 - stage: SignLinuxTrial
-  displayName: Sign Linux Checksum Manifest Trial
+  displayName: Sign Linux Tarballs Trial
   dependsOn: Preflight
   jobs:
   - job: SignLinuxTarballs
-    displayName: Sign All Linux Tarball Checksums
+    displayName: Sign All Linux Tarballs
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -105,14 +105,16 @@ stages:
           exit 1
         fi
 
-        sha256sum "${target_names[@]}" > SHA256SUMS
-        cp SHA256SUMS SHA256SUMS.sig
+        sha256sum "${target_names[@]}" > "$(Agent.TempDirectory)/linux-archive-sha256s"
+        for target_name in "${target_names[@]}"; do
+          cp "$target_name" "$target_name.sig"
+        done
 
-        echo 'Prepared signing input for these Linux tarballs:'
-        cat SHA256SUMS
-      displayName: Prepare All Linux Checksums
+        echo 'Prepared detached-signature inputs for these Linux tarballs:'
+        printf '  %s.sig\n' "${target_names[@]}"
+      displayName: Prepare Linux Tarball Signature Inputs
     - task: EsrpCodeSigning@6
-      displayName: ESRP Sign Linux Checksum Manifest
+      displayName: ESRP Sign Linux Tarballs
       inputs:
         ConnectedServiceName: $(ESRPServiceConnection)
         AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -124,7 +126,7 @@ stages:
         ciPolicyFile: ''
         FolderPath: '$(Build.ArtifactStagingDirectory)/linux-sign-test'
         UseMinimatch: true
-        Pattern: 'SHA256SUMS.sig'
+        Pattern: '*.tar.gz.sig'
         signConfigType: inlineSignParams
         inlineOperation: |
           [
@@ -141,20 +143,26 @@ stages:
         signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
         cd "$signing_root"
 
-        checksum_output="$(sha256sum --check SHA256SUMS)"
-        printf '%s\n' "$checksum_output"
-        checked_count="$(printf '%s\n' "$checksum_output" | awk '/: OK$/ { count++ } END { print count + 0 }')"
-        if [[ "$checked_count" -ne 8 ]]; then
-          echo "ERROR: Expected eight verified Linux tarballs; got $checked_count."
-          exit 1
-        fi
-        if cmp --silent SHA256SUMS SHA256SUMS.sig; then
-          echo 'ERROR: ESRP did not replace SHA256SUMS.sig with a detached signature.'
+        sha256sum --check "$(Agent.TempDirectory)/linux-archive-sha256s"
+
+        mapfile -t archives < <(find . -maxdepth 1 -type f -name 'azcli-*.tar.gz' -printf '%f\n' | sort)
+        mapfile -t signatures < <(find . -maxdepth 1 -type f -name 'azcli-*.tar.gz.sig' -printf '%f\n' | sort)
+        if [[ ${#archives[@]} -ne 8 || ${#signatures[@]} -ne 8 ]]; then
+          echo "ERROR: Expected eight archives and eight signatures; found ${#archives[@]} archives and ${#signatures[@]} signatures."
           exit 1
         fi
 
-        gpg --batch --list-packets SHA256SUMS.sig
-        echo 'ESRP produced a structurally valid OpenPGP detached signature.'
+        for archive in "${archives[@]}"; do
+          signature="$archive.sig"
+          if cmp --silent "$archive" "$signature"; then
+            echo "ERROR: ESRP did not replace $signature with a detached signature."
+            exit 1
+          fi
+          echo "Validating OpenPGP structure: $signature"
+          gpg --batch --list-packets "$signature" >/dev/null
+        done
+
+        echo 'ESRP produced eight structurally valid OpenPGP detached signatures.'
         ls -lh
       displayName: Validate ESRP Signing Result
     - task: PublishPipelineArtifact@1
