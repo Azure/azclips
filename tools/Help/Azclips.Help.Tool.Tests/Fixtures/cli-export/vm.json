@@ -345,8 +345,21 @@
     ],
     "parameters": [
       {
+        "name": "--force-deletion",
+        "required": false,
+        "short_summary": "Optional parameter to force delete virtual machines.",
+        "long_summary": "",
+        "choices": "0, 1, f, false, n, no, t, true, y, yes"
+      },
+      {
+        "name": "--ids",
+        "required": false,
+        "short_summary": "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
         "name": "--name",
-        "required": true,
+        "required": false,
         "short_summary": "The name of the virtual machine.",
         "long_summary": ""
       },
@@ -358,7 +371,7 @@
       },
       {
         "name": "--resource-group",
-        "required": true,
+        "required": false,
         "short_summary": "The resource group name.",
         "long_summary": ""
       },

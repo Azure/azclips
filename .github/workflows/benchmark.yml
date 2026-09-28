@@ -124,7 +124,8 @@ jobs:
     name: Run CLI benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-cli-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
@@ -135,9 +136,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -167,7 +168,8 @@ jobs:
     name: Run PS benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-ps-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
@@ -178,9 +180,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4
@@ -210,7 +212,8 @@ jobs:
     name: Run STARTUP benchmarks
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.run_startup == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-startup-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -218,9 +221,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
         uses: actions/download-artifact@v4

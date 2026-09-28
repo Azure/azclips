@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Cli.Tests;
@@ -104,5 +105,91 @@ public class TableFormatterTests
 
         Assert.Contains("True", result);
         Assert.Contains("False", result);
+    }
+
+    [Fact]
+    public void Format_ShouldConstrainColumnsToTerminalWidth()
+    {
+        var json = """[{"name":"resource-group-with-a-long-name","location":"eastus"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 30);
+
+        Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 30, line));
+        Assert.Contains("...", result);
+    }
+
+    [Fact]
+    public void Format_ShouldConstrainSeparatorsAtMinimumTwoColumnWidth()
+    {
+        var json = """[{"name":"alpha","location":"beta"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 3);
+
+        Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 3, line));
+    }
+
+    [Fact]
+    public void Format_ShouldPreserveWideCjkWhenItFitsDisplayWidth()
+    {
+        var json = """["漢字漢字"]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 8);
+
+        Assert.Equal("漢字漢字", result);
+        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
+    }
+
+    [Fact]
+    public void Format_ShouldConstrainEmojiByDisplayWidth()
+    {
+        var json = """["😀😀😀😀"]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
+
+        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 4, line));
+    }
+
+    [Fact]
+    public void Format_ShouldExpandTabsBeforeMeasuringDisplayWidth()
+    {
+        var json = """["a\t"]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 8);
+
+        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
+    }
+
+    private static int MeasureDisplayCells(string value)
+    {
+        var total = 0;
+        foreach (var rune in value.EnumerateRunes())
+        {
+            if (rune.Value is 0x0A or 0x0D)
+            {
+                continue;
+            }
+
+            total += IsWideRune(rune) ? 2 : 1;
+        }
+
+        return total;
+    }
+
+    private static bool IsWideRune(Rune rune)
+    {
+        var value = rune.Value;
+        return value switch
+        {
+            >= 0x1100 and <= 0x115F => true,
+            >= 0x2E80 and <= 0xA4CF => true,
+            >= 0xAC00 and <= 0xD7A3 => true,
+            >= 0xF900 and <= 0xFAFF => true,
+            >= 0xFE30 and <= 0xFE4F => true,
+            >= 0xFF00 and <= 0xFF60 => true,
+            >= 0xFFE0 and <= 0xFFE6 => true,
+            >= 0x1F300 and <= 0x1FAFF => true,
+            >= 0x2600 and <= 0x27BF => true,
+            _ => false
+        };
     }
 }

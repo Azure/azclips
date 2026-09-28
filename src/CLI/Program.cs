@@ -280,7 +280,10 @@ public class Program
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query));
+                var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
+                    ? TerminalWidthProvider.Get()
+                    : null;
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
