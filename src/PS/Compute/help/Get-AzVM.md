@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/23/2026
+ms.date: 09/28/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzVM
 ---
@@ -20,7 +20,7 @@ Get a virtual machine or list virtual machines.
 ### List (Default)
 
 ```
-Get-AzVM [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Status] [-UserData]
+Get-AzVM [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Status] [-UserData]
  [-Profile <string>] [<CommonParameters>]
 ```
 
@@ -34,8 +34,8 @@ Get-AzVM -Name <string> [-SubscriptionId <string>] [-Status] [-UserData] [-Profi
 ### ListLocation
 
 ```
-Get-AzVM -Location <string> [-SubscriptionId <string>] [-Status] [-UserData]
- [-Profile <string>] [<CommonParameters>]
+Get-AzVM -Location <string> [-SubscriptionId <string>] [-Status] [-UserData] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### Get
@@ -253,13 +253,13 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: ListLocation
+- Name: ListByName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: ListByName
+- Name: ListLocation
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -292,7 +292,7 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: Id
+- Name: ListByName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -304,7 +304,7 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: ListByName
+- Name: Id
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -343,13 +343,13 @@ ParameterSets:
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: ListLocation
+- Name: ListByName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-- Name: ListByName
+- Name: ListLocation
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
