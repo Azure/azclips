@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790578531354,
+  "lastUpdate": 1790578608599,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11260,6 +11260,48 @@ window.BENCHMARK_DATA = {
             "value": 2192070.6818369026,
             "unit": "ns",
             "range": "± 75854.50912098405"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "814439b4c61e76b66a9b45644244046c4a96c338",
+          "message": "{Tests} Resolve build and test warnings (#1012)\n\nTLDR: get rid of 8 warnings during build and test\n\n## Summary\n- mark benchmark and shared test utilities as non-test projects so test\ndiscovery skips them\n- suppress the required preview API diagnostic around permission\ndecisions\n- make nullable assertions explicit in identity extension tests\n\n## Validation\n- `dotnet build azclips.slnx` (0 warnings, 0 errors)\n- `dotnet test azclips.slnx --no-build --verbosity minimal` (2,147\npassed, 10 skipped, 0 failed)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-28T16:29:53+10:00",
+          "tree_id": "c10b8cd1caf78664888f7b1006cfbbd1ee066406",
+          "url": "https://github.com/Azure/azclips/commit/814439b4c61e76b66a9b45644244046c4a96c338"
+        },
+        "date": 1790578604441,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2037974.884640452,
+            "unit": "ns",
+            "range": "± 82715.4772097277"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2105037.585677196,
+            "unit": "ns",
+            "range": "± 84444.96240322443"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2024059.999463404,
+            "unit": "ns",
+            "range": "± 89191.98128275642"
           }
         ]
       }
