@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790556934807,
+  "lastUpdate": 1790578443809,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11468,6 +11468,48 @@ window.BENCHMARK_DATA = {
             "value": 3683746.6028698464,
             "unit": "ns",
             "range": "± 113602.9292619572"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "814439b4c61e76b66a9b45644244046c4a96c338",
+          "message": "{Tests} Resolve build and test warnings (#1012)\n\nTLDR: get rid of 8 warnings during build and test\n\n## Summary\n- mark benchmark and shared test utilities as non-test projects so test\ndiscovery skips them\n- suppress the required preview API diagnostic around permission\ndecisions\n- make nullable assertions explicit in identity extension tests\n\n## Validation\n- `dotnet build azclips.slnx` (0 warnings, 0 errors)\n- `dotnet test azclips.slnx --no-build --verbosity minimal` (2,147\npassed, 10 skipped, 0 failed)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-28T16:29:53+10:00",
+          "tree_id": "c10b8cd1caf78664888f7b1006cfbbd1ee066406",
+          "url": "https://github.com/Azure/azclips/commit/814439b4c61e76b66a9b45644244046c4a96c338"
+        },
+        "date": 1790578440126,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3681838.9216259834,
+            "unit": "ns",
+            "range": "± 105131.66402112374"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 6302737.225629569,
+            "unit": "ns",
+            "range": "± 138906.20172874274"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3689584.4517499493,
+            "unit": "ns",
+            "range": "± 114290.51433997297"
           }
         ]
       }
