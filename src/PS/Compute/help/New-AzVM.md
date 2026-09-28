@@ -668,7 +668,8 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
 The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration, plus the `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, and `MacAddresses` detail fields.
-`Fqdns` is empty because no DNS name label is set, and `PublicIps` is empty when `-PublicIpAddressName` is an empty string.
+`Fqdns` is empty unless an attached existing public IP address has a DNS name label; public IP addresses this command creates have none.
+`PublicIps` is empty when `-PublicIpAddressName` is an empty string.
 
 ## NOTES
 
