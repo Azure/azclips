@@ -25,9 +25,9 @@
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\ManagedServiceIdentity\ManagedServiceIdentity.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Resources\Resources.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity\ManagedServiceIdentity.psd1') -Force
 
 $subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
 if ([string]::IsNullOrWhiteSpace($subscriptionId)) {

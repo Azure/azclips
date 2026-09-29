@@ -14,7 +14,7 @@
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Accounts\Accounts.psd1') -Force
 
 function Section($title) {
     Write-Host ""

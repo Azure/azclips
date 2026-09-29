@@ -17,7 +17,7 @@ function Invoke-AzclipsBuild
     dotnet build "$PSScriptRoot/../azclips.slnx" --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)." }
 
-    # Update .psd1 module manifests to reference the correct artifact paths.
+    # Stage configuration-neutral module manifests beside their artifacts.
     & "$PSScriptRoot/Set-ModuleConfiguration.ps1" -Configuration $Configuration
 }
 
@@ -158,7 +158,7 @@ function ConvertTo-AzclipsModuleMaml
 }
 
 # Emits repaired MAML for every src/PS/<Module>/help/ corpus to both
-# src/PS/<Module>/en-US (gitignored) and <ArtifactsRoot>/PS/<Module>/en-US.
+# src/PS/<Module>/en-US (gitignored) and the module's extension artifact directory.
 function Publish-AzclipsHelpArtifacts
 {
     [CmdletBinding()]
@@ -167,7 +167,6 @@ function Publish-AzclipsHelpArtifacts
         [Parameter(Mandatory)][string]$ArtifactsRoot
     )
 
-    $stagedPsRoot = Join-Path $ArtifactsRoot "PS"
     $moduleCount = 0
 
     Get-ChildItem "$RepoRoot/src/PS" -Directory | ForEach-Object {
@@ -191,7 +190,7 @@ function Publish-AzclipsHelpArtifacts
 
                 Copy-Item -Path $xml.FullName -Destination (Join-Path $enUs $xml.Name) -Force
 
-                $stagedModuleDir = Join-Path $stagedPsRoot $moduleDir.Name
+                $stagedModuleDir = Join-Path $ArtifactsRoot "Microsoft.Azure.Azclips.Extensions.$($moduleDir.Name)"
                 if (Test-Path $stagedModuleDir)
                 {
                     $stagedEnUs = Join-Path $stagedModuleDir "en-US"

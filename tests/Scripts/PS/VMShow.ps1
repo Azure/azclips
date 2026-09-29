@@ -15,9 +15,9 @@
 # to the list parameter sets only and is covered by VMList.ps1.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
-#     Import-Module ./src/PS/Accounts/Accounts.psd1
-#     Import-Module ./src/PS/Resources/Resources.psd1
-#     Import-Module ./src/PS/Compute/Compute.psd1
+#     Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+#     Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
+#     Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1
 #     Connect-AzAccount
 #
 # Resources is required because this script calls New-AzResourceGroup; importing
@@ -71,9 +71,9 @@ foreach ($requiredCommand in $requiredCommands.Keys)
     if (-not $resolved)
     {
         throw "$requiredCommand is not available. Import the azclips modules first:`n" +
-              "    Import-Module ./src/PS/Accounts/Accounts.psd1`n" +
-              "    Import-Module ./src/PS/Resources/Resources.psd1`n" +
-              "    Import-Module ./src/PS/Compute/Compute.psd1"
+              "    Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1`n" +
+              "    Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1`n" +
+              "    Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1"
     }
 
     if ($resolved.ModuleName -ne $expectedModule)
@@ -81,7 +81,7 @@ foreach ($requiredCommand in $requiredCommands.Keys)
         throw "$requiredCommand resolves to module '$($resolved.ModuleName)' " +
               "(version $($resolved.Version)), not the azclips '$expectedModule' module.`n" +
               "The official Az modules shadow azclips unless you import it first:`n" +
-              "    Import-Module ./src/PS/$expectedModule/$expectedModule.psd1`n" +
+              "    Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.$expectedModule/$expectedModule.psd1`n" +
               "If the official Az module is already loaded in this session, start a fresh " +
               "pwsh session and import the azclips modules before running this script."
     }

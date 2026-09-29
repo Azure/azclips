@@ -35,7 +35,7 @@ Configuration follows strict precedence: **command args > environment variables 
 ### Import the Config module
 
 ```powershell
-Import-Module ./src/PS/Config/Config.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Config/Config.psd1
 ```
 
 ### Get configuration values or sections

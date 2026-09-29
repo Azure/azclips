@@ -913,8 +913,8 @@ PowerShell modules are available in `src/PS/` and can be used directly:
 
 ```powershell
 # Import modules from source
-Import-Module ./src/PS/Accounts/Accounts.psd1
-Import-Module ./src/PS/Resources/Resources.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
 
 # Use cmdlets and functions
 Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>

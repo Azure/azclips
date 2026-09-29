@@ -152,7 +152,7 @@ Get-ChildItem -Path (Join-Path $RepoRoot 'src/Extensions') -Directory | ForEach-
     }
 
     $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
-    $rollupModulePath = "../$moduleName/$moduleName.psd1"
+    $rollupModulePath = "../Microsoft.Azure.Azclips.Extensions.$moduleName/$moduleName.psd1"
     $rollupDependencyPattern = Get-ModuleDependencyPattern -ModuleName $rollupModulePath
     $requiredModules = @(@($rollupData.RequiredModules) | Where-Object {
         $_ -is [hashtable] -and $_.ModuleName -eq $rollupModulePath
@@ -242,7 +242,7 @@ foreach ($moduleName in $changedModules) {
     $projectPath = Join-Path $RepoRoot $projectRelativePath
     $moduleManifestPath = Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1"
     $moduleChangeLogPath = Join-Path $RepoRoot "src/PS/$moduleName/ChangeLog.md"
-    $rollupModulePath = "../$moduleName/$moduleName.psd1"
+    $rollupModulePath = "../Microsoft.Azure.Azclips.Extensions.$moduleName/$moduleName.psd1"
     $rollupDependencyPattern = Get-ModuleDependencyPattern -ModuleName $rollupModulePath
 
     if ($moduleName -notin $packageableModules) {
@@ -293,7 +293,7 @@ foreach ($moduleName in $packageableModules) {
     $manifestVersion = [string](Import-PowerShellDataFile -Path (Join-Path $RepoRoot "src/PS/$moduleName/$moduleName.psd1")).ModuleVersion
     $updatedRollupData = Import-PowerShellDataFile -Path $rollupManifestPath
     $rollupVersion = [string](@($updatedRollupData.RequiredModules) |
-        Where-Object { $_.ModuleName -eq "../$moduleName/$moduleName.psd1" } |
+        Where-Object { $_.ModuleName -eq "../Microsoft.Azure.Azclips.Extensions.$moduleName/$moduleName.psd1" } |
         Select-Object -ExpandProperty ModuleVersion -First 1)
     if ($projectVersion -ne $manifestVersion -or $projectVersion -ne $rollupVersion) {
         throw "Version metadata is not aligned for packageable extension $moduleName."

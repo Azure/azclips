@@ -9,7 +9,7 @@
 @{
 
 # Binary module file associated with this manifest.
-RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
+RootModule = './Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
 ModuleVersion = '0.1.0'
@@ -56,15 +56,15 @@ PowerShellVersion = '7.5'
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
 
-RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
-                        '../../../artifacts/Debug/Core/Core.Engine.dll',
-                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
-                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
-                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll'
+RequiredAssemblies = './Core.Abstractions.dll',
+                        './Core.Telemetry.dll',
+                        './Core.Runtime.dll',
+                        './Core.Engine.dll',
+                        './Core.AssemblyLoading.dll',
+                        './Core.ArgumentParsing.dll',
+                        './Core.DependencyInjection.dll',
+                        './Microsoft.Extensions.DependencyInjection.Abstractions.dll',
+                        './Microsoft.Azure.Azclips.Extensions.Accounts.dll'
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()

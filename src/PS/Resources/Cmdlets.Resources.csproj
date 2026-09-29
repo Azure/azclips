@@ -2,6 +2,8 @@
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Resources</AssemblyName>
         <ExtName>Microsoft.Azure.Azclips.Cmdlets.Resources</ExtName>
+        <PowerShellModuleArtifactName>Microsoft.Azure.Azclips.Extensions.Resources</PowerShellModuleArtifactName>
+        <PowerShellModuleManifest>Resources.psd1</PowerShellModuleManifest>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Resources</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips Resources module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -18,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Accounts\Cmdlets.Accounts.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

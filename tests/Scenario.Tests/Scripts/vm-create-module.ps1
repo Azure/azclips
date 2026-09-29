@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
-Import-Module ./artifacts/Debug/PS/Accounts/Accounts.psd1
-Import-Module ./artifacts/Debug/PS/Resources/Resources.psd1
-Import-Module ./artifacts/Debug/PS/Compute/Compute.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1
 
 # subscription resolves from the active profile
 $rg = New-AzResourceGroup -Name scenario-vm-rg -Location westus2

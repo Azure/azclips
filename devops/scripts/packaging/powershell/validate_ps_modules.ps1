@@ -7,8 +7,8 @@ param(
 
     [string]$PwshPath = 'pwsh',
 
-    [ValidateSet('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')]
-    [string[]]$Module = @('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')
+    [ValidateSet('Accounts', 'Config', 'Resources', 'Compute', 'ManagedServiceIdentity', 'MsGraph', 'Network')]
+    [string[]]$Module = @('Accounts', 'Config', 'Resources', 'Compute', 'ManagedServiceIdentity', 'MsGraph', 'Network')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,12 +37,6 @@ function Resolve-ManifestReference
 }
 
 $resolvedArtifactsRoot = (Resolve-Path -Path $ArtifactsRoot).Path
-$modulesRoot = Join-Path $resolvedArtifactsRoot 'PS'
-
-if (-not (Test-Path -Path $modulesRoot -PathType Container))
-{
-    throw "PowerShell module artifact root was not found: $modulesRoot"
-}
 
 $resolvedSourcePsRoot = $null
 if ($SourcePsRoot -and (Test-Path -Path $SourcePsRoot -PathType Container))
@@ -54,7 +48,7 @@ $validated = New-Object System.Collections.Generic.List[string]
 
 foreach ($moduleName in $Module)
 {
-    $manifestPath = Join-Path $modulesRoot "$moduleName/$moduleName.psd1"
+    $manifestPath = Join-Path $resolvedArtifactsRoot "Microsoft.Azure.Azclips.Extensions.$moduleName/$moduleName.psd1"
     if (-not (Test-Path -Path $manifestPath -PathType Leaf))
     {
         throw "Missing staged module manifest: $manifestPath"
@@ -103,11 +97,10 @@ foreach ($moduleName in $Module)
         }
     }
 
-    # Staged manifests intentionally use absolute RequiredAssemblies paths. Validate the
-    # real import path in an isolated pwsh process because binary modules and their
-    # dependencies are not reliably unloadable within a long-running PowerShell session.
+    # Validate the real import path in an isolated pwsh process because binary modules and
+    # their dependencies are not reliably unloadable within a long-running PowerShell session.
     $expectedJson = $declaredCmdlets | ConvertTo-Json -Compress
-    $accountsManifestPath = Join-Path $modulesRoot 'Accounts/Accounts.psd1'
+    $accountsManifestPath = Join-Path $resolvedArtifactsRoot 'Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'
     & $PwshPath -NoProfile -Command {
         param($ManifestPath, $ModuleName, $ExpectedJson, $AccountsManifestPath)
         $ErrorActionPreference = 'Stop'

@@ -15,8 +15,8 @@
 # -Force is used throughout so the confirmation prompt does not block.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
-#     Import-Module ./src/PS/Accounts/Accounts.psd1
-#     Import-Module ./src/PS/Compute/Compute.psd1
+#     Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+#     Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1
 #     Connect-AzAccount
 #
 # Cleanup: the VM is always removed on exit. The NIC/VNet/NSG and the resource

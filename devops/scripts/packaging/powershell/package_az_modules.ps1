@@ -359,30 +359,15 @@ function Resolve-ModuleDependency
         [string]$ManifestDirectory
     )
 
-    # A bare name means a sibling module directory; a path points at the manifest itself.
-    if ($ModuleName -notmatch '[\\/]')
+    $dependencyName = [System.IO.Path]::GetFileNameWithoutExtension($ModuleName)
+    $sourceRoot = Split-Path $ManifestDirectory -Parent
+    $sourceManifest = Join-Path $sourceRoot "$dependencyName/$dependencyName.psd1"
+    if (-not (Test-Path -Path $sourceManifest -PathType Leaf))
     {
-        $siblingManifest = Join-Path (Split-Path $ManifestDirectory -Parent) $ModuleName "$ModuleName.psd1"
-        if (-not (Test-Path -Path $siblingManifest -PathType Leaf))
-        {
-            throw "Required module manifest was not found: $siblingManifest"
-        }
-        return $ModuleName
+        throw "Required module manifest was not found: $sourceManifest"
     }
 
-    $dependencyPath = $ModuleName
-    if (-not [System.IO.Path]::IsPathRooted($dependencyPath))
-    {
-        $dependencyPath = Join-Path $ManifestDirectory $dependencyPath
-    }
-
-    $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
-    if (-not (Test-Path -Path $dependencyPath -PathType Leaf))
-    {
-        throw "Required module manifest was not found: $dependencyPath"
-    }
-
-    return [System.IO.Path]::GetFileNameWithoutExtension($dependencyPath)
+    return $dependencyName
 }
 
 function Assert-InstalledModuleImport

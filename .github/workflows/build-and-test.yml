@@ -44,7 +44,7 @@ jobs:
       - name: E2E - PowerShell Module
         shell: pwsh
         run: |
-          Import-Module ./src/PS/Accounts/Accounts.psd1
+          Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
           $commands = Get-Command -Module Accounts
           if ($commands.Count -eq 0) {
             Write-Error "No commands found in Accounts module"
