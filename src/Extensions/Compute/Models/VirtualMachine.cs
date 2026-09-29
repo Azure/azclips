@@ -12,6 +12,84 @@ public class VirtualMachine
     public string Name { get; set; } = null!;
     public string Location { get; set; } = null!;
     public VirtualMachineProperties Properties { get; set; } = null!;
+
+    // Synthetic fields computed by the detail switches rather than returned by ARM. They sit
+    // outside Properties so the ARM-sourced payload stays untouched, and every one is null unless
+    // the command named in its comment asked for it.
+
+    /// <summary>
+    /// Power state, flattened out of the instance view.
+    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// Set to "Info Not Available" when a per-VM lookup failed during a list fan-out.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PowerState { get; set; }
+
+    /// <summary>
+    /// Comma-joined public IP addresses across every NIC.
+    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PublicIps { get; set; }
+
+    /// <summary>
+    /// Comma-joined fully-qualified domain names across every public IP.
+    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Fqdns { get; set; }
+
+    /// <summary>
+    /// Comma-joined private IP addresses across every NIC IP configuration.
+    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PrivateIps { get; set; }
+
+    /// <summary>
+    /// Comma-joined MAC addresses across every NIC.
+    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MacAddresses { get; set; }
+
+    /// <summary>
+    /// Operating system name, flattened out of the instance view.
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// CLI: never populated — --show-details does not surface this field.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OsName { get; set; }
+
+    /// <summary>
+    /// Operating system version, flattened out of the instance view.
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// CLI: never populated — --show-details does not surface this field.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OsVersion { get; set; }
+
+    /// <summary>
+    /// Hypervisor generation, flattened out of the instance view.
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// CLI: never populated — --show-details does not surface this field.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HyperVGeneration { get; set; }
+
+    /// <summary>
+    /// Maintenance and redeploy status, flattened out of the instance view.
+    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// CLI: never populated — --show-details does not surface this field.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MaintenanceRedeployStatus? MaintenanceRedeployStatus { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -27,6 +105,14 @@ public class VirtualMachineProperties
     // Set by ARM on responses; null when this model is used as a create request body.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProvisioningState { get; set; }
+
+    // Returned only when the request asks for $expand=userData.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? UserData { get; set; }
+
+    // Returned only with $expand=instanceView; cleared once --show-details has read the power state.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VirtualMachineInstanceView? InstanceView { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
@@ -161,5 +247,47 @@ public class DiagnosticsProfile
 public class BootDiagnostics
 {
     public bool Enabled { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+public class VirtualMachineInstanceView
+{
+    public List<InstanceViewStatus> Statuses { get; set; } = [];
+
+    // Returned inside $expand=instanceView. Flattened onto VirtualMachine by -Status, then dropped.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OsName { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OsVersion { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HyperVGeneration { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MaintenanceRedeployStatus? MaintenanceRedeployStatus { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+/// <summary>
+/// ARM's maintenance and redeploy status block, returned inside <c>$expand=instanceView</c>.
+/// Surfaced by <c>Get-AzVM -Status</c> only.
+/// </summary>
+public class MaintenanceRedeployStatus
+{
+    public bool? IsCustomerInitiatedMaintenanceAllowed { get; set; }
+    public string? PreMaintenanceWindowStartTime { get; set; }
+    public string? PreMaintenanceWindowEndTime { get; set; }
+    public string? MaintenanceWindowStartTime { get; set; }
+    public string? MaintenanceWindowEndTime { get; set; }
+    public string? LastOperationResultCode { get; set; }
+    public string? LastOperationMessage { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class InstanceViewStatus
+{
+    public string? Code { get; set; }
+    public string? DisplayStatus { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
