@@ -236,7 +236,7 @@ fi
 echo "== 3. vm create --public-ip-address $REUSE_PUBLIC_IP (existing name) =="
 reuse_public_ip_url=$(public_ip_url "$REUSE_PUBLIC_IP")
 reuse_public_ip_body=$(printf '{"location":"%s","sku":{"name":"Standard"},"tags":{"azclips-smoke":"reuse"},"properties":{"publicIPAllocationMethod":"Static"}}' "$LOCATION")
-if "$AZ" rest --method PUT --uri "$reuse_public_ip_url" --body "$reuse_public_ip_body" --output none
+if "$AZ" rest --method PUT --uri "$reuse_public_ip_url" --body "$reuse_public_ip_body" --output json >/dev/null
 then
     if wait_public_ip_succeeded "reuse" "$REUSE_PUBLIC_IP"
     then
