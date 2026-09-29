@@ -129,7 +129,7 @@ wait_public_ip_succeeded()
     local url
     url=$(public_ip_url "$name")
 
-    for _ in {1..60}
+    for _ in {1..24}
     do
         if state=$("$AZ" rest --method GET --uri "$url" --query json.properties.provisioningState --output tsv 2>&1)
         then
@@ -145,7 +145,7 @@ wait_public_ip_succeeded()
         sleep 5
     done
 
-    fail "$label: public IP '$name' did not reach provisioningState Succeeded after about 5 minutes (last result: ${state:-<none>})"
+    fail "$label: public IP '$name' did not reach provisioningState Succeeded after about 2 minutes (last result: ${state:-<none>})"
     return 1
 }
 
