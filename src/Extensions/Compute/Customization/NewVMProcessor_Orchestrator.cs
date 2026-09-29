@@ -78,6 +78,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
+            {
+                throw new ArgumentException("Specify either --admin-password or --ssh-key-values.");
+            }
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
