@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Network</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.Network</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Network</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips Network module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

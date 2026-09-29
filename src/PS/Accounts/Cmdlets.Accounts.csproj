@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Accounts</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.Accounts</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Accounts</RootNamespace>
         <Description>PowerShell binary cmdlets for Azclips Accounts module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

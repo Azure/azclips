@@ -80,7 +80,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 #                'Resources.format.ps1xml', 'Tags.format.ps1xml'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Resources.dll')
+NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Resources/Microsoft.Azure.Azclips.Cmdlets.Resources.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()

@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.MsGraph</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.MsGraph</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.MsGraph</RootNamespace>
         <Description>PowerShell binary cmdlets for Azclips MsGraph module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

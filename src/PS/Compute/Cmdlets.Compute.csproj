@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Compute</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.Compute</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Compute</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips Compute module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

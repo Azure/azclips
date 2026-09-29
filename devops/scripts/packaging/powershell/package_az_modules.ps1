@@ -161,7 +161,9 @@ function New-AzModulePackage
             -DestinationDirectory $extensionsRoot
     }
 
-    Copy-RequiredFile -Path (Join-Path $ArtifactsRoot "Microsoft.Azure.Azclips.Cmdlets.$($Definition.SourceModule).dll") -Destination (Join-Path $binRoot "Microsoft.Azure.Azclips.Cmdlets.$($Definition.SourceModule).dll")
+    $cmdletAssemblyName = "Microsoft.Azure.Azclips.Cmdlets.$($Definition.SourceModule)"
+    $cmdletAssemblyPath = Join-Path (Join-Path $ArtifactsRoot $cmdletAssemblyName) "$cmdletAssemblyName.dll"
+    Copy-RequiredFile -Path $cmdletAssemblyPath -Destination (Join-Path $binRoot "$cmdletAssemblyName.dll")
 
     $helpFileName = "Microsoft.Azure.Azclips.Cmdlets.$($Definition.SourceModule).dll-Help.xml"
     $sourceHelp = Join-Path $SourcePsRoot "$($Definition.SourceModule)/en-US/$helpFileName"

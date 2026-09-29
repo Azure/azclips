@@ -19,4 +19,8 @@
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 
+  <Target Name="StagePowerShellModuleManifests" AfterTargets="Build">
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\..\build\Set-ModuleConfiguration.ps1&quot; -Configuration $(Configuration)" />
+  </Target>
+
 </Project>

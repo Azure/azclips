@@ -9,7 +9,7 @@
 @{
 
 # Binary module file associated with this manifest.
-RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
+RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
 ModuleVersion = '0.1.0'

@@ -54,7 +54,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity/Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.dll'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.dll')
+NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity/Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()
@@ -84,4 +84,3 @@ PrivateData = @{
  } # End of PrivateData hashtable
 
 }
-

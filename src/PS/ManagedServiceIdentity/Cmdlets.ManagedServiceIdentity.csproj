@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips ManagedServiceIdentity module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -27,4 +28,3 @@
         </ProjectReference>
     </ItemGroup>
 </Project>
-

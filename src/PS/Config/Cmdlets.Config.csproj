@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Config</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.Config</ExtName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Config</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips Config module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
