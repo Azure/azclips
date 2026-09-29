@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790578563826,
+  "lastUpdate": 1790645462170,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11552,6 +11552,48 @@ window.BENCHMARK_DATA = {
             "value": 3689584.4517499493,
             "unit": "ns",
             "range": "± 114290.51433997297"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea206213e37dedf659cffa042ee97bae04218650",
+          "message": "[Compute] `az vm create`: Update `--size` (#1007)\n\nImplements --size on az vm create, including documentation and scenario\ntest updates (previously referred to as vm-size, which is an API\nspecification name)",
+          "timestamp": "2026-09-29T09:10:42+08:00",
+          "tree_id": "888d0073da118bc81f77519859b769f4a5ee2020",
+          "url": "https://github.com/Azure/azclips/commit/ea206213e37dedf659cffa042ee97bae04218650"
+        },
+        "date": 1790645458251,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3868227.355122247,
+            "unit": "ns",
+            "range": "± 135626.46160565113"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 6589400.019611808,
+            "unit": "ns",
+            "range": "± 206410.551934978"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3877237.023838507,
+            "unit": "ns",
+            "range": "± 130545.39072807133"
           }
         ]
       }
