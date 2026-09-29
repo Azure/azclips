@@ -77,7 +77,7 @@ trap cleanup EXIT
     --resource-group "$RESOURCE_GROUP" \
     --name "$VM_NAME" \
     --location "$LOCATION" \
-    --vm-size Standard_D2s_v3 \
+    --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
     --network-interface-name "azclips-vmlist-nic-$SUFFIX" \
