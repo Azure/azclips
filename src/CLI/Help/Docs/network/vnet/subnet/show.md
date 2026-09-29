@@ -7,6 +7,8 @@ online version:
 
 Description: Show a subnet in a virtual network.
 
+### Show a subnet
+
 ```bash
 az network vnet subnet show --resource-group myrg --vnet-name myvnet --name web
 ```
