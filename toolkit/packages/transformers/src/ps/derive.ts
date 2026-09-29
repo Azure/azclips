@@ -47,6 +47,7 @@ import {
   type IRCommandParameter,
   type IRId,
   type IRModel,
+  type IRParameter,
   type IRProperty,
   type PsParameterDialect,
   type TransformedIR,
@@ -129,6 +130,11 @@ function deriveIdentity(
   options: DeriveDialectOptions,
 ): DerivedIdentity | undefined {
   const candidates = new Map<string, IRCommandParameter>();
+  const pathParameters = new Map(
+    ir.operations.flatMap((operation) =>
+      operation.pathParameters.map((parameter) => [idKey(parameter.id), parameter] as const),
+    ),
+  );
   for (const command of ir.commands) {
     for (const parameter of command.parameters) {
       if (parameter.source.kind !== "path") continue;
@@ -146,7 +152,10 @@ function deriveIdentity(
   const id: IRId = { module: source, namespace: [], name };
   const propertiesByParameterName = new Map<string, IRProperty>();
   for (const [key, parameter] of candidates) {
-    propertiesByParameterName.set(key, identityProperty(id, parameter));
+    const declaration = parameter.source.kind === "path"
+      ? pathParameters.get(idKey(parameter.source.parameter))
+      : undefined;
+    propertiesByParameterName.set(key, identityProperty(id, parameter, declaration));
   }
 
   return {
@@ -161,11 +170,15 @@ function deriveIdentity(
   };
 }
 
-function identityProperty(model: IRId, parameter: IRCommandParameter): IRProperty {
+function identityProperty(
+  model: IRId,
+  parameter: IRCommandParameter,
+  declaration: IRParameter | undefined,
+): IRProperty {
   const common = {
     id: { ...model, name: `${model.name}.${parameter.name}` },
     name: parameter.name,
-    wireName: parameter.name,
+    wireName: declaration?.wireName ?? parameter.name,
     optional: false,
     nullable: parameter.nullable,
     ...(parameter.docs !== undefined ? { docs: parameter.docs } : {}),

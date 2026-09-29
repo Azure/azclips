@@ -199,8 +199,8 @@ describe("deriveDialect", () => {
       name: "ContosoIdentity",
       usage: ["input"],
       properties: [
-        { name: "ResourceGroupName" },
-        { name: "WidgetsName" },
+        { name: "ResourceGroupName", wireName: "resourceGroupName" },
+        { name: "WidgetsName", wireName: "widgetsName" },
       ],
     });
 
