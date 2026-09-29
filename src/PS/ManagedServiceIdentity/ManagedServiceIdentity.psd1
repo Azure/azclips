@@ -40,21 +40,21 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' }
+    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' }
 )
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
-                        '../../../artifacts/Debug/Core/Core.Engine.dll',
-                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
-                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
-                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity/Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.dll'
+RequiredAssemblies = './Core.Abstractions.dll',
+                        './Core.Telemetry.dll',
+                        './Core.Runtime.dll',
+                        './Core.Engine.dll',
+                        './Core.AssemblyLoading.dll',
+                        './Core.ArgumentParsing.dll',
+                        './Core.DependencyInjection.dll',
+                        './Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.dll'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.dll')
+NestedModules = @('./Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()
@@ -84,4 +84,3 @@ PrivateData = @{
  } # End of PrivateData hashtable
 
 }
-

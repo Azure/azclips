@@ -1,6 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.MsGraph</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.MsGraph</ExtName>
+        <PowerShellModuleArtifactName>Microsoft.Azure.Azclips.Extensions.MsGraph</PowerShellModuleArtifactName>
+        <PowerShellModuleManifest>MsGraph.psd1</PowerShellModuleManifest>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.MsGraph</RootNamespace>
         <Description>PowerShell binary cmdlets for Azclips MsGraph module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -17,6 +20,8 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Accounts\Cmdlets.Accounts.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Extensions\MsGraph\Extensions.MsGraph.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

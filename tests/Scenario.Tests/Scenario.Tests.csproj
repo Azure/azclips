@@ -16,6 +16,8 @@
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
          parameters exactly the way an imported module does. -->
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj" />
+    <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 

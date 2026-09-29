@@ -72,7 +72,7 @@ This means:
 
     ```powershell
     .\build\build.ps1 -GenerateHelpArtifacts
-    Import-Module .\artifacts\Debug\PS\Compute\Compute.psd1 -Force
+    Import-Module .\artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Compute\Compute.psd1 -Force
     Get-Help New-AzVM -Full
     ```
 
@@ -302,7 +302,7 @@ Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build co
 
 `Get-Help <Cmdlet>` reads MAML XML from `<ModuleBase>/<culture>/<dll>-Help.xml`. The build:
 
-1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
+1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/Microsoft.Azure.Azclips.Extensions.<Module>/en-US/` (next to the staged `.psd1`).
 2. Copies that XML to `artifacts/<Config>/PS/<Module>/en-US/` so `Import-Module artifacts/<Config>/PS/<Module>/<Module>.psd1` resolves help next to the manifest.
 
 ## Build Process
@@ -330,7 +330,7 @@ This:
     - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries (PSL1–PSL8, PSL12, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
     - `PsCompletenessValidator` — every cmdlet in `<Module>.psd1`'s `CmdletsToExport` has a `help/<Verb-Noun>.md` file (PSL9–PSL11).
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
-4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
+4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/Microsoft.Azure.Azclips.Extensions.<Module>/en-US/`.
 
 The build fails non-zero if any validator emits errors.
 
@@ -355,7 +355,7 @@ dotnet .\artifacts\Debug\Core.Cli\az.dll vm --help
 dotnet .\artifacts\Debug\Core.Cli\az.dll vm create --help
 
 # PowerShell surface
-Import-Module .\artifacts\Debug\PS\Compute\Compute.psd1 -Force
+Import-Module .\artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Compute\Compute.psd1 -Force
 Get-Help New-AzVM -Full
 Get-Help Get-AzVM -Examples
 
@@ -378,7 +378,7 @@ dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
 **`Get-Help` returns empty `REMARKS`:**
 
 - The MAML XML wasn't deployed next to the cmdlet DLL. Run `.\build\build.ps1 -GenerateHelpArtifacts`.
-- Confirm the XML landed: `Get-ChildItem artifacts\Debug\PS\<Module>\en-US\`.
+- Confirm the XML landed: `Get-ChildItem artifacts\Debug\Microsoft.Azure.Azclips.Extensions.<Module>\en-US\`.
 - `Remove-Module <Module>` and re-`Import-Module ... -Force` — PowerShell caches the help-not-found result per session.
 
 **CLI help shows no examples:**

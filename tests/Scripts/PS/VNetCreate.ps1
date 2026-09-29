@@ -9,12 +9,12 @@
 #
 # Prereqs (run in a fresh pwsh, so an installed gallery Az.Network cannot shadow this module):
 #   1. Build:     dotnet build azclips.slnx
-#   2. Sign in:   Import-Module ./src/PS/Accounts/Accounts.psd1
+#   2. Sign in:   Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
 #                 Connect-AzAccount
-#   3. Module:    Import-Module ./src/PS/Network/Network.psd1
+#   3. Module:    Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Network/Network.psd1
 #   4. A resource group must already exist - the script creates and removes only the virtual
 #      network. If you don't have one:
-#                 Import-Module ./src/PS/Resources/Resources.psd1
+#                 Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
 #                 New-AzResourceGroup -SubscriptionId <id> -Name <rg> -Location eastus
 #
 # Usage:

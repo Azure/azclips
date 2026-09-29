@@ -13,18 +13,10 @@ namespace Benchmark.PS;
 /// </summary>
 internal static class PSManifestStager
 {
-    // Relative artifact references embedded in the source manifests. Both Debug and
-    // Release source forms are accepted and rewritten to the Release staging target.
-    private static readonly string[] SourceArtifactPrefixes =
-    {
-        "../../../artifacts/Debug/",
-        "../../../artifacts/Release/",
-    };
-
     // Matches a RequiredModules entry that references a sibling manifest by relative path,
-    // e.g. ModuleName = '../Accounts/Accounts.psd1' — capturing the module (directory) name.
+    // e.g. ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'.
     private static readonly Regex RequiredModuleReference = new(
-        @"ModuleName\s*=\s*'(?:\.\./)+(?<name>[^'/]+)/[^']*\.psd1'",
+        @"ModuleName\s*=\s*'[^']*/(?<name>[^'/]+)\.psd1'",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // Matches a RequiredModules entry that references a sibling module by bare name,
@@ -34,9 +26,8 @@ internal static class PSManifestStager
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
-    /// Stages a single module's manifest — plus the transitive <c>RequiredModules</c> closure
-    /// it depends on — into <c>artifacts/Benchmark/PS</c>, with artifact references rewritten to
-    /// absolute Release paths and the manifests otherwise left intact.
+    /// Stages a single module's complete artifact directory — plus the transitive
+    /// <c>RequiredModules</c> closure it depends on — into <c>artifacts/Benchmark/PS</c>.
     ///
     /// </summary>
     /// <param name="repoRoot">Absolute path to the repository root.</param>
@@ -59,23 +50,20 @@ internal static class PSManifestStager
     private sealed class StagingContext
     {
         private readonly string _sourceRoot;
+        private readonly string _releaseArtifactsRoot;
         private readonly string _stagingRoot;
-        private readonly string _absReleaseArtifacts;
         private readonly HashSet<string> _staged = new(StringComparer.OrdinalIgnoreCase);
 
         public StagingContext(string repoRoot)
         {
             _sourceRoot = Path.Combine(repoRoot, "src", "PS");
+            _releaseArtifactsRoot = Path.Combine(repoRoot, "artifacts", "Release");
             _stagingRoot = Path.Combine(repoRoot, "artifacts", "Benchmark", "PS");
-
-            // Absolute path to artifacts/Release/ with forward slashes (psd1-friendly on all
-            // platforms; PowerShell accepts forward slashes on Windows too).
-            _absReleaseArtifacts = Path.Combine(repoRoot, "artifacts", "Release").Replace('\\', '/') + "/";
         }
 
         // The absolute path to a module's staged manifest, whether or not it has been staged yet.
         public string StagedManifestPath(string moduleName) =>
-            Path.Combine(_stagingRoot, moduleName, $"{moduleName}.psd1");
+            Path.Combine(_stagingRoot, ArtifactName(moduleName), $"{moduleName}.psd1");
 
         // Recursively stages a module and every sibling it lists in RequiredModules.
         public void StageClosure(string moduleName)
@@ -94,7 +82,8 @@ internal static class PSManifestStager
                     sourceManifest);
             }
 
-            var manifestContent = StageManifest(moduleName, sourceManifest);
+            StageArtifact(moduleName);
+            var manifestContent = File.ReadAllText(sourceManifest);
 
             foreach (Match reference in RequiredModuleReference.Matches(manifestContent))
             {
@@ -106,29 +95,28 @@ internal static class PSManifestStager
             }
         }
 
-        // Copies a single manifest into the staging tree with artifact references rewritten to
-        // absolute Release paths. Returns the manifest's (source) content so the caller can
-        // inspect its RequiredModules.
-        private string StageManifest(string moduleName, string sourceManifest)
+        private void StageArtifact(string moduleName)
         {
-            var targetDir = Path.Combine(_stagingRoot, moduleName);
-            Directory.CreateDirectory(targetDir);
-
-            var content = File.ReadAllText(sourceManifest);
-            var rewritten = content;
-            foreach (var prefix in SourceArtifactPrefixes)
+            var artifactName = ArtifactName(moduleName);
+            var sourceDir = Path.Combine(_releaseArtifactsRoot, artifactName);
+            if (!Directory.Exists(sourceDir))
             {
-                rewritten = rewritten.Replace(prefix, _absReleaseArtifacts);
+                throw new DirectoryNotFoundException(
+                    $"PowerShell module artifact directory not found: '{sourceDir}'. Build Release artifacts first.");
             }
 
-            // A bare-name requirement only resolves against loaded modules or PSModulePath;
-            // the staged tree is neither, so point it at the staged sibling manifest, which
-            // PowerShell auto-imports.
-            rewritten = NamedModuleReference.Replace(
-                rewritten, m => $"ModuleName = '../{m.Groups["name"].Value}/{m.Groups["name"].Value}.psd1'");
-
-            File.WriteAllText(Path.Combine(targetDir, $"{moduleName}.psd1"), rewritten);
-            return content;
+            var targetDir = Path.Combine(_stagingRoot, artifactName);
+            Directory.CreateDirectory(targetDir);
+            foreach (var sourceFile in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(sourceDir, sourceFile);
+                var targetFile = Path.Combine(targetDir, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+                File.Copy(sourceFile, targetFile, overwrite: true);
+            }
         }
+
+        private static string ArtifactName(string moduleName) =>
+            $"Microsoft.Azure.Azclips.Extensions.{moduleName}";
     }
 }

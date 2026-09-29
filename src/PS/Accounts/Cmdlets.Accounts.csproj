@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Accounts</AssemblyName>
+        <ExtName>Microsoft.Azure.Azclips.Cmdlets.Accounts</ExtName>
+        <PowerShellModuleArtifactName>Microsoft.Azure.Azclips.Extensions.Accounts</PowerShellModuleArtifactName>
+        <PowerShellModuleManifest>Accounts.psd1</PowerShellModuleManifest>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Accounts</RootNamespace>
         <Description>PowerShell binary cmdlets for Azclips Accounts module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -27,6 +30,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\Extensions\Accounts\Extensions.Accounts.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

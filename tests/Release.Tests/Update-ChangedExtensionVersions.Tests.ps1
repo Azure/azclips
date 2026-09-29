@@ -41,8 +41,8 @@ BeforeAll {
         Write-TestFile -Root $root -RelativePath 'src/PS/Az/Az.psd1' -Content @'
 @{
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },
-    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' }
+    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },
+    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1'; ModuleVersion = '0.1.0' }
 )
 }
 '@
@@ -215,7 +215,7 @@ Describe 'Update-ChangedExtensionVersions' {
         $root = New-TestRepository
         $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
         (Get-Content -Raw $rollupPath).Replace(
-            "    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
+            "    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
             ''
         ) | Set-Content -NoNewline $rollupPath
         Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
@@ -230,8 +230,8 @@ Describe 'Update-ChangedExtensionVersions' {
         $root = New-TestRepository
         $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
         (Get-Content -Raw $rollupPath).Replace(
-            "    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
-            "    # @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n"
+            "    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n",
+            "    # @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },`n"
         ) | Set-Content -NoNewline $rollupPath
         Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
         git -C $root add --all
@@ -239,15 +239,15 @@ Describe 'Update-ChangedExtensionVersions' {
 
         { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
             Should -Throw '*Az rollup dependency was not found for packageable extension Accounts*'
-        Get-Content -Raw $rollupPath | Should -Match "# @\{ ModuleName = '../Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.0' \}"
+        Get-Content -Raw $rollupPath | Should -Match "# @\{ ModuleName = '../Microsoft\.Azure\.Azclips\.Extensions\.Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.0' \}"
     }
 
     It 'rejects an Az-only rollup version mismatch' {
         $root = New-TestRepository
         $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
         (Get-Content -Raw $rollupPath).Replace(
-            "ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0'",
-            "ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.2.0'"
+            "ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.0'",
+            "ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.2.0'"
         ) | Set-Content -NoNewline $rollupPath
         git -C $root add --all
         git -C $root commit --quiet -m 'change only the Accounts rollup version'
@@ -283,8 +283,8 @@ Describe 'Update-ChangedExtensionVersions' {
         $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
         $rollupContent = Get-Content -Raw $rollupPath
         $rollupContent = $rollupContent.Replace(
-            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' }`n)",
-            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },`n    @{ ModuleName = '../ManagedServiceIdentity/ManagedServiceIdentity.psd1'; ModuleVersion = '0.1.0' }`n)"
+            "    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1'; ModuleVersion = '0.1.0' }`n)",
+            "    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1'; ModuleVersion = '0.1.0' },`n    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity/ManagedServiceIdentity.psd1'; ModuleVersion = '0.1.0' }`n)"
         )
         [System.IO.File]::WriteAllText($rollupPath, $rollupContent, [System.Text.UTF8Encoding]::new($false))
         git -C $root add .
@@ -314,7 +314,7 @@ Describe 'Update-ReleaseChangelog extension versions' {
 @{
 ModuleVersion = '0.1.2'
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.1' }
+    @{ ModuleName = '../Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1'; ModuleVersion = '0.1.1' }
 )
 }
 '@

@@ -63,7 +63,7 @@ guide in the same PR so it stays accurate.
 - `Final_Build_Distribution` — unsigned build output.
 - `Final_Signed_Distribution` — stable ESRP-signed output.
 - `Final_Signed_Beta_Distribution` — beta ESRP-signed output.
-- `PSModules` — packaged PowerShell modules.
+- `PSModules` — packaged PowerShell modules. Build-time manifests and cmdlet assemblies are staged beside their corresponding `Microsoft.Azure.Azclips.Extensions.<Module>` artifacts.
 
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.

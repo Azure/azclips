@@ -213,7 +213,7 @@ function Set-RollupRequiredModuleVersions {
     $lines.AddRange([string[]](Get-Content -Path $ManifestPath))
     for ($index = 0; $index -lt $lines.Count; $index++) {
         foreach ($moduleName in $ModuleVersions.Keys) {
-            $escapedModuleName = [regex]::Escape("../$moduleName/$moduleName.psd1")
+            $escapedModuleName = [regex]::Escape("../Microsoft.Azure.Azclips.Extensions.$moduleName/$moduleName.psd1")
             if ($lines[$index] -match "(?<prefix>ModuleName\s*=\s*'$escapedModuleName';\s*ModuleVersion\s*=\s*)'[^']+'(?<suffix>.*)") {
                 $lines[$index] = $lines[$index] -replace "ModuleVersion\s*=\s*'[^']+'", "ModuleVersion = '$($ModuleVersions[$moduleName])'"
                 break

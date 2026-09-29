@@ -6,8 +6,8 @@
 #
 # Prereq: import Accounts + Resources modules, then Connect-AzAccount.
 
-Import-Module ../../../src/PS/Accounts/Accounts.psd1
-Import-Module ../../../src/PS/Resources/Resources.psd1
+Import-Module ../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+Import-Module ../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
 
 # Happy path: relative ARM path. {subscriptionId} is substituted from the auth context,
 # the ARM endpoint is prepended, and the request is authenticated automatically.
@@ -119,4 +119,3 @@ try {
 } catch {
     Write-Host "PASS (expected failure): $($_.Exception.Message)"
 }
-

@@ -27,7 +27,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- PowerShell assets -->
-    <None Update="*.psd1" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="*.psd1" CopyToOutputDirectory="Never" />
   </ItemGroup>
+
+  <Target Name="StagePowerShellModule"
+          AfterTargets="Build"
+          Condition="'$(PowerShellModuleArtifactName)' != ''">
+    <PropertyGroup>
+      <PowerShellModuleArtifactPath>$(RepoArtifacts)$(Configuration)/$(PowerShellModuleArtifactName)/</PowerShellModuleArtifactPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <PowerShellModuleDependency Include="$(RepoArtifacts)$(Configuration)/Core/*.dll" />
+    </ItemGroup>
+    <MakeDir Directories="$(PowerShellModuleArtifactPath)" />
+    <Copy SourceFiles="$(TargetPath);$(MSBuildProjectDirectory)/$(PowerShellModuleManifest)"
+          DestinationFolder="$(PowerShellModuleArtifactPath)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PowerShellModuleDependency)"
+          DestinationFolder="$(PowerShellModuleArtifactPath)"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

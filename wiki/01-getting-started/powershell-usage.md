@@ -27,8 +27,8 @@ The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `C
 
 ```powershell
 # Import a built module (manifests reference artifact DLLs by relative path)
-Import-Module ./src/PS/Accounts/Accounts.psd1
-Import-Module ./src/PS/Compute/Compute.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Compute/Compute.psd1
 
 # Authenticate, then create a resource group and a VM
 Connect-AzAccount -SubscriptionId <sub-id>

@@ -136,7 +136,7 @@ jobs:
         echo "source_version=$(Build.SourceVersion)"
         echo ""
         echo "ps_manifests:"
-        find "$final_root/artifacts/PS" -type f -name '*.psd1' -printf '  %P\n' | sort
+        find "$final_root/artifacts" -maxdepth 2 -type f -name '*.psd1' -printf '  %P\n' | sort
         echo ""
         echo "ps_module_packages:"
         find "$final_root/artifacts/PSGallery/local-repo" -type f -name '*.nupkg' -printf '  %P\n' | sort

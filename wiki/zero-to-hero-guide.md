@@ -724,9 +724,9 @@ az group --help
 **PowerShell:**
 
 ```powershell
-Import-Module ./src/PS/Accounts/Accounts.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Accounts.psd1
 Connect-AzAccount -SubscriptionId <sub> -TenantId <tenant>
-Import-Module ./src/PS/Resources/Resources.psd1
+Import-Module ./artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources/Resources.psd1
 New-AzResourceGroup -Name demo -Location eastus
 ```
 

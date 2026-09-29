@@ -19,8 +19,8 @@
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\MsGraph\MsGraph.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\Microsoft.Azure.Azclips.Extensions.MsGraph\MsGraph.psd1') -Force
 
 # Defaults match the shared test tenant (azclitools20260430.onmicrosoft.com).
 $groupId          = $env:AZCLIPS_MSGRAPH_GROUP_ID          ?? 'e311fa4a-a740-4a3b-af0d-e538e2b01926'

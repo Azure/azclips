@@ -23,8 +23,8 @@
 
 ## PowerShell Modules
 - Build the solution before importing binary-backed modules.
-- Import module manifests from `src/PS/<Module>/<Module>.psd1` during local development.
-- Use `build/Set-ModuleConfiguration.ps1` when staging modules under `artifacts/<Configuration>/PS`.
+- Import module manifests from `artifacts/<Configuration>/Microsoft.Azure.Azclips.Extensions.<Module>/<Module>.psd1` during local development.
+- Use `build/Set-ModuleConfiguration.ps1` to restage module manifests under `artifacts/<Configuration>/`.
 
 ## DevOps & CI/CD
 - For Azure DevOps pipeline YAML (`.azure-pipelines/`), see [.azure-pipelines/AGENTS.md](.azure-pipelines/AGENTS.md).
