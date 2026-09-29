@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790578608599,
+  "lastUpdate": 1790645490689,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -7772,6 +7772,48 @@ window.BENCHMARK_DATA = {
             "value": 2889890.880450657,
             "unit": "ns",
             "range": "± 86131.66227037272"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea206213e37dedf659cffa042ee97bae04218650",
+          "message": "[Compute] `az vm create`: Update `--size` (#1007)\n\nImplements --size on az vm create, including documentation and scenario\ntest updates (previously referred to as vm-size, which is an API\nspecification name)",
+          "timestamp": "2026-09-29T09:10:42+08:00",
+          "tree_id": "888d0073da118bc81f77519859b769f4a5ee2020",
+          "url": "https://github.com/Azure/azclips/commit/ea206213e37dedf659cffa042ee97bae04218650"
+        },
+        "date": 1790645486493,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2150833.9558044807,
+            "unit": "ns",
+            "range": "± 46958.5457816071"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 5290574.797633619,
+            "unit": "ns",
+            "range": "± 65291.11388357362"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2136603.5709895515,
+            "unit": "ns",
+            "range": "± 46536.450790516916"
           }
         ]
       }
