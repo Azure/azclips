@@ -26,13 +26,13 @@ variables:
 - name: DockerCliRegistryServer
   value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: internal/azure-cli
+  value: public/azclips-cli
 - name: DockerPowerShellRegistryName
   value: azclips
 - name: DockerPowerShellRegistryServer
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: internal/azure-powershell
+  value: public/azclips-powershell
 - name: DockerAzureServiceConnection
   value: 'Azure CLI release'
 
