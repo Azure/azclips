@@ -120,7 +120,7 @@ function Get-PublicIpByName([string]$Name)
 function Wait-PublicIpSucceeded([string]$Label, [string]$Name)
 {
     $lastResult = $null
-    for ($attempt = 0; $attempt -lt 24; $attempt++)
+    for ($attempt = 0; $attempt -lt 60; $attempt++)
     {
         try
         {
@@ -141,7 +141,7 @@ function Wait-PublicIpSucceeded([string]$Label, [string]$Name)
         Start-Sleep -Seconds 5
     }
 
-    Add-Failure "${Label}: public IP '$Name' did not reach provisioningState Succeeded after about 2 minutes (last result: $lastResult)"
+    Add-Failure "${Label}: public IP '$Name' did not reach provisioningState Succeeded after about 5 minutes (last result: $lastResult)"
     $false
 }
 
