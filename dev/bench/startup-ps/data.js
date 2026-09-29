@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790654138560,
+  "lastUpdate": 1790654143286,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -7742,6 +7742,42 @@ window.BENCHMARK_DATA = {
             "value": 379399355.26,
             "unit": "ns",
             "range": "± 4797589.848402144"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "19d61a7e82ad97d1f60b89cfb3e994a24635fc68",
+          "message": "[Compute] `az vm list` / `Get-AzVM`: Add `--show-details` `-Id` `-Status` `-UserData` (#1008)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm list`\n`Get-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nAdd missing `--show-details / -d` for `az vm list`\nAdd missing `-Id` `-Status` `-UserData` for `Get-AzVM\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\n\"FullyQualifiedName~VmLifecycleScenarioTests\"`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <copilot@github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-29T11:28:34+08:00",
+          "tree_id": "b8676328b48fce257193328bcb7545c73b9ca4b5",
+          "url": "https://github.com/Azure/azclips/commit/19d61a7e82ad97d1f60b89cfb3e994a24635fc68"
+        },
+        "date": 1790654143059,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 416747456.7,
+            "unit": "ns",
+            "range": "± 40112787.52330079"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 400725325.83,
+            "unit": "ns",
+            "range": "± 24576850.408889893"
           }
         ]
       }
