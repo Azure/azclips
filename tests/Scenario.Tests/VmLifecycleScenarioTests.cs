@@ -104,7 +104,7 @@ public class VmLifecycleScenarioTests
             "--name", vmName,
             "--location", Location,
             "--resource-group", ResourceGroupName,
-            "--vm-size", "Standard_D2s_v3",
+            "--size", "Standard_D2s_v3",
             "--admin-username", "azadmin",
             "--admin-password", Password,
             "--network-interface-name", $"scenario-lifecycle-nic-{suffix}",

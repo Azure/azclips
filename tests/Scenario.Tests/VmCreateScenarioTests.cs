@@ -70,7 +70,7 @@ public class VmCreateScenarioTests
         "--name", VmName,
         "--location", Location,
         "--resource-group", "scenario-vm-rg",
-        "--vm-size", "Standard_D2s_v3",
+        "--size", "Standard_D2s_v3",
         "--admin-username", "azadmin",
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
