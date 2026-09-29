@@ -28,7 +28,10 @@ public class SubnetScenarioTests
         AssertSubnet(Assert.Single(cli.RunCli(CreateArgs())));
         AssertSubnet(Assert.Single(cli.RunCli(ShowArgs())));
         var listed = Assert.IsType<List<Subnet>>(Assert.Single(cli.RunCli(ListArgs())));
-        AssertSubnet(Assert.Single(listed));
+        Assert.Collection(
+            listed,
+            subnet => AssertSubnet(subnet),
+            subnet => AssertSubnet(subnet, "scenario-subnet-page-2"));
         cli.RunCli(DeleteArgs());
     }
 
@@ -41,6 +44,7 @@ public class SubnetScenarioTests
         Assert.Contains($"/virtualNetworks/{VirtualNetworkName}/subnets/{SubnetName}", create.Request.Uri);
         Assert.Contains("api-version=2025-07-01", create.Request.Uri);
         Assert.Contains("\"addressPrefixes\":[\"10.20.1.0/24\"]", create.Request.Body);
+        Assert.DoesNotContain("\"addressPrefix\":", create.Request.Body);
         Assert.Contains("\"service\":\"Microsoft.Storage\"", create.Request.Body);
         Assert.Contains("\"serviceName\":\"Microsoft.Web/serverFarms\"", create.Request.Body);
         Assert.Contains("\"defaultOutboundAccess\":false", create.Request.Body);
@@ -76,6 +80,49 @@ public class SubnetScenarioTests
         AssertSubnet(Assert.Single(output));
     }
 
+    [Fact]
+    public void PowerShellConfig_ComposesWithVirtualNetworkCreate()
+    {
+        var record = new SessionRecord();
+        using var ps = new ScenarioHost(
+            ClientType.PowerShell,
+            new RecordPlaybackInterceptor(RecorderMode.Record, record),
+            new FakeSubnetArmBackend(SubscriptionId, ResourceGroupName, VirtualNetworkName),
+            extensions: [ExtensionUnderTest.Network]);
+
+        var subnet = Assert.Single(ps.RunPowerShell(
+            "New-AzVirtualNetworkSubnetConfig",
+            new Dictionary<string, object>
+            {
+                ["Name"] = SubnetName,
+                ["AddressPrefix"] = new List<string> { "10.20.1.0/24" }
+            },
+            extension: "Network"));
+
+        var output = ps.RunPowerShell(
+            "New-AzVirtualNetwork",
+            new Dictionary<string, object>
+            {
+                ["SubscriptionId"] = SubscriptionId,
+                ["ResourceGroupName"] = ResourceGroupName,
+                ["Name"] = VirtualNetworkName,
+                ["Location"] = "westus2",
+                ["AddressPrefix"] = new List<string> { "10.20.0.0/16" },
+                ["Subnet"] = new List<object> { subnet }
+            },
+            extension: "Network");
+
+        var request = record.Entries.Single(entry =>
+            entry.Request.Method == "PUT"
+            && entry.Request.Uri.Contains($"/virtualNetworks/{VirtualNetworkName}?"));
+        Assert.Contains($"\"name\":\"{SubnetName}\"", request.Request.Body);
+        Assert.Contains("\"addressPrefixes\":[\"10.20.1.0/24\"]", request.Request.Body);
+        var vnet = Assert.IsType<VirtualNetwork>(Assert.Single(output));
+        var createdSubnet = Assert.Single(vnet.Properties.Subnets);
+        Assert.Equal(SubnetName, createdSubnet.Name);
+        Assert.Equal("10.20.1.0/24", Assert.Single(createdSubnet.Properties.AddressPrefixes ?? []));
+    }
+
     private static SessionRecord RecordFromCli()
     {
         var record = new SessionRecord();
@@ -87,7 +134,7 @@ public class SubnetScenarioTests
 
         AssertSubnet(Assert.Single(host.RunCli(CreateArgs())));
         AssertSubnet(Assert.Single(host.RunCli(ShowArgs())));
-        Assert.Single(Assert.IsType<List<Subnet>>(Assert.Single(host.RunCli(ListArgs()))));
+        Assert.Equal(2, Assert.IsType<List<Subnet>>(Assert.Single(host.RunCli(ListArgs()))).Count);
         host.RunCli(DeleteArgs());
         return record;
     }
@@ -131,11 +178,11 @@ public class SubnetScenarioTests
         "--name", SubnetName
     ];
 
-    private static void AssertSubnet(object output)
+    private static void AssertSubnet(object output, string expectedName = SubnetName)
     {
         var subnet = Assert.IsType<Subnet>(output);
-        Assert.Equal(SubnetName, subnet.Name);
-        Assert.Equal("10.20.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes));
+        Assert.Equal(expectedName, subnet.Name);
+        Assert.Equal("10.20.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes ?? []));
         Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
         Assert.Equal("Microsoft.Web/serverFarms", Assert.Single(subnet.Properties.Delegations).Properties.ServiceName);
         Assert.False(subnet.Properties.DefaultOutboundAccess);

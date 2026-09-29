@@ -37,8 +37,7 @@ public class NewSubnetProcessor : NetworkProcessorBase<Subnet, Subnet>
         Name = Name,
         Properties = new SubnetProperties
         {
-            AddressPrefix = AddressPrefixes.FirstOrDefault() ?? string.Empty,
-            AddressPrefixes = AddressPrefixes,
+            AddressPrefixes = AddressPrefixes.Count > 0 ? AddressPrefixes : null,
             NetworkSecurityGroup = NetworkSecurityGroup.Length > 0 ? new SubResource { Id = NetworkSecurityGroup } : null,
             RouteTable = RouteTable.Length > 0 ? new SubResource { Id = RouteTable } : null,
             NatGateway = NatGateway.Length > 0 ? new SubResource { Id = NatGateway } : null,

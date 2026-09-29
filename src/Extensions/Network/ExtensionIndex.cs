@@ -17,6 +17,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         private const string ResourceGroupHelp = "The resource group name.";
         private const string AddressPrefixesHelp = "Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16 unless IPAM pool allocations are supplied.";
         private const string SubnetsHelp = "Subnets to create, one occurrence per subnet, each a space-separated list of KEY=VALUE pairs. Supported keys: name, address-prefix, address-prefixes, nsg, route-table, nat-gateway, default-outbound-access, service-endpoints, service-endpoint-policy, delegations, ipam-pool-prefix-allocations, disable-private-endpoint-network-policies, disable-private-link-service-network-policies. Multi-valued keys take a comma-separated value.";
+        private const string PowerShellSubnetsHelp = "Subnet objects from New-AzVirtualNetworkSubnetConfig or hashtables describing subnets to create.";
         private const string SubnetNamesHelp = "Names of the subnets to create. Simple alternative to the compound subnet argument.";
         private const string SubnetAddressPrefixesHelp = "Address prefixes for each subnet, positionally matched to the subnet names.";
         private const string DnsServersHelp = "DNS server IP addresses for the virtual network.";
@@ -64,7 +65,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["Location"]                    = new("Location", "Location", typeof(string), "Location for the virtual network.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]           = new("ResourceGroupName", "ResourceGroupName", typeof(string), ResourceGroupHelp, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AddressPrefix"]               = new("AddressPrefixes", "AddressPrefix", typeof(List<string>), AddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Subnet"]                      = new("SubnetSpecs", "Subnet", typeof(List<List<string>>), SubnetsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Subnet"]                      = new("SubnetInputs", "Subnet", typeof(List<object>), PowerShellSubnetsHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetNames"]                 = new("SubnetNames", "SubnetNames", typeof(List<string>), SubnetNamesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetAddressPrefixes"]       = new("SubnetAddressPrefixes", "SubnetAddressPrefixes", typeof(List<List<string>>), SubnetAddressPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["DnsServer"]                   = new("DnsServers", "DnsServer", typeof(List<string>), DnsServersHelp, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -263,19 +264,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
                 ["vnet-name"]                             = new("VirtualNetworkName", "vnet-name", typeof(string), VNetNameHelp, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"]                                  = new("Name", "name", typeof(string), SubnetNameHelp, IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["address-prefixes"]                      = new("AddressPrefixes", "address-prefixes", typeof(List<string>), SubnetPrefixesHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["network-security-group"]                = new("NetworkSecurityGroup", "network-security-group", typeof(string), NetworkSecurityGroupHelp, IsRequired: false, Aliases: ["nsg"], AllowedValues: []),
+                ["network-security-group"]                = new("NetworkSecurityGroup", "network-security-group", typeof(string), NetworkSecurityGroupHelp, IsRequired: false, Aliases: ["-nsg"], AllowedValues: []),
                 ["route-table"]                           = new("RouteTable", "route-table", typeof(string), RouteTableHelp, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["nat-gateway"]                           = new("NatGateway", "nat-gateway", typeof(string), NatGatewayHelp, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["service-endpoints"]                     = new("ServiceEndpoints", "service-endpoints", typeof(List<string>), ServiceEndpointsHelp, IsRequired: false, Aliases: ["endpoints"], AllowedValues: []),
-                ["service-endpoint-policy"]               = new("ServiceEndpointPolicies", "service-endpoint-policy", typeof(List<string>), ServiceEndpointPoliciesHelp, IsRequired: false, Aliases: ["service-endpoint-policies", "policies"], AllowedValues: []),
-                ["delegations"]                           = new("DelegatedServices", "delegations", typeof(List<string>), DelegatedServicesHelp, IsRequired: false, Aliases: ["delegated-services"], AllowedValues: []),
-                ["ipam-allocations"]                      = new("IpamPoolPrefixAllocationSpecs", "ipam-allocations", typeof(List<List<string>>), SubnetIpamAllocationsHelp, IsRequired: false, Aliases: ["ipam-pool-prefix-allocations"], AllowedValues: []),
-                ["private-endpoint-network-policies"]     = new("PrivateEndpointNetworkPolicies", "private-endpoint-network-policies", typeof(string), "Network policies for private endpoints.", IsRequired: false, Aliases: ["ple-network-policies"], AllowedValues: s_privateEndpointPolicies),
-                ["private-link-service-network-policies"] = new("PrivateLinkServiceNetworkPolicies", "private-link-service-network-policies", typeof(string), "Network policies for private link services.", IsRequired: false, Aliases: ["pls-network-policies"], AllowedValues: s_privateLinkServicePolicies),
+                ["service-endpoints"]                     = new("ServiceEndpoints", "service-endpoints", typeof(List<string>), ServiceEndpointsHelp, IsRequired: false, Aliases: ["-endpoints"], AllowedValues: []),
+                ["service-endpoint-policy"]               = new("ServiceEndpointPolicies", "service-endpoint-policy", typeof(List<string>), ServiceEndpointPoliciesHelp, IsRequired: false, Aliases: ["-service-endpoint-policies", "-policies"], AllowedValues: []),
+                ["delegations"]                           = new("DelegatedServices", "delegations", typeof(List<string>), DelegatedServicesHelp, IsRequired: false, Aliases: ["-delegated-services"], AllowedValues: []),
+                ["ipam-allocations"]                      = new("IpamPoolPrefixAllocationSpecs", "ipam-allocations", typeof(List<List<string>>), SubnetIpamAllocationsHelp, IsRequired: false, Aliases: ["-ipam-pool-prefix-allocations"], AllowedValues: []),
+                ["private-endpoint-network-policies"]     = new("PrivateEndpointNetworkPolicies", "private-endpoint-network-policies", typeof(string), "Network policies for private endpoints.", IsRequired: false, Aliases: ["-ple-network-policies"], AllowedValues: s_privateEndpointPolicies),
+                ["private-link-service-network-policies"] = new("PrivateLinkServiceNetworkPolicies", "private-link-service-network-policies", typeof(string), "Network policies for private link services.", IsRequired: false, Aliases: ["-pls-network-policies"], AllowedValues: s_privateLinkServicePolicies),
                 ["disable-private-endpoint-network-policies"] = new("DisablePrivateEndpointNetworkPolicies", "disable-private-endpoint-network-policies", typeof(bool), "Disable network policies for private endpoints.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["disable-private-link-service-network-policies"] = new("DisablePrivateLinkServiceNetworkPolicies", "disable-private-link-service-network-policies", typeof(bool), "Disable network policies for private link services.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sharing-scope"]                         = new("SharingScope", "sharing-scope", typeof(string), "Tenant sharing scope for the subnet.", IsRequired: false, Aliases: [], AllowedValues: ["DelegatedServices", "Tenant"]),
-                ["default-outbound-access"]               = new("DefaultOutboundAccessValue", "default-outbound-access", typeof(bool), "Whether default outbound access is enabled.", IsRequired: false, Aliases: ["default-outbound"], AllowedValues: []),
+                ["default-outbound-access"]               = new("DefaultOutboundAccessValue", "default-outbound-access", typeof(bool), "Whether default outbound access is enabled.", IsRequired: false, Aliases: ["-default-outbound"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

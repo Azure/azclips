@@ -55,7 +55,8 @@ public class SubnetParameterTests
 
         var body = JsonDocument.Parse(requestBody!).RootElement;
         var properties = body.GetProperty("properties");
-        Assert.Equal("10.0.1.0/24", properties.GetProperty("addressPrefix").GetString());
+        Assert.False(properties.TryGetProperty("addressPrefix", out _));
+        Assert.Equal("10.0.1.0/24", properties.GetProperty("addressPrefixes")[0].GetString());
         Assert.EndsWith("/networkSecurityGroups/web-nsg", properties.GetProperty("networkSecurityGroup").GetProperty("id").GetString());
         Assert.EndsWith("/routeTables/web-routes", properties.GetProperty("routeTable").GetProperty("id").GetString());
         Assert.Equal("Microsoft.Storage", properties.GetProperty("serviceEndpoints")[0].GetProperty("service").GetString());
@@ -120,8 +121,8 @@ public class SubnetParameterTests
         Assert.Equal("256", allocation.GetProperty("numberOfIpAddresses").GetString());
         Assert.Equal("Disabled", properties.GetProperty("privateEndpointNetworkPolicies").GetString());
         Assert.Equal("Enabled", properties.GetProperty("privateLinkServiceNetworkPolicies").GetString());
-        Assert.Equal(string.Empty, properties.GetProperty("addressPrefix").GetString());
-        Assert.Empty(properties.GetProperty("addressPrefixes").EnumerateArray());
+        Assert.False(properties.TryGetProperty("addressPrefix", out _));
+        Assert.False(properties.TryGetProperty("addressPrefixes", out _));
     }
 
     [Fact]
@@ -158,8 +159,50 @@ public class SubnetParameterTests
 
         var subnet = Assert.IsType<Subnet>(Assert.Single(output.WrittenValues));
         Assert.Equal("web", subnet.Name);
-        Assert.Equal("10.0.1.0/24", subnet.Properties.AddressPrefix);
+        Assert.Equal("10.0.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes ?? []));
+        Assert.Null(subnet.Properties.AddressPrefix);
         Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
+    }
+
+    [Fact]
+    public async Task NewVirtualNetwork_AcceptsSubnetConfigObject()
+    {
+        var configOutput = new FakeOutputHandler();
+        var configProcessor = new NewSubnetConfigProcessor_Customization
+        {
+            Name = "web",
+            AddressPrefixes = ["10.0.1.0/24"]
+        };
+        Init(
+            configProcessor,
+            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Subnet config creation must not call ARM.")),
+            configOutput);
+        await configProcessor.ProcessAsync();
+
+        string? requestBody = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requestBody ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json("""{ "name": "my-vnet", "location": "westus2", "properties": { "addressSpace": { "addressPrefixes": ["10.0.0.0/16"] }, "subnets": [] } }""");
+        });
+        var subnet = Assert.IsType<Subnet>(Assert.Single(configOutput.WrittenValues));
+        var processor = new NewVirtualNetworkProcessor_Customization
+        {
+            SubscriptionId = SubscriptionId,
+            ResourceGroupName = "my-rg",
+            Name = "my-vnet",
+            Location = "westus2",
+            AddressPrefixes = ["10.0.0.0/16"],
+            SubnetInputs = [subnet]
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        var serializedSubnet = JsonDocument.Parse(requestBody!).RootElement
+            .GetProperty("properties").GetProperty("subnets")[0];
+        Assert.Equal("web", serializedSubnet.GetProperty("name").GetString());
+        Assert.Equal("10.0.1.0/24", serializedSubnet.GetProperty("properties").GetProperty("addressPrefixes")[0].GetString());
     }
 
     [Theory]
@@ -175,6 +218,6 @@ public class SubnetParameterTests
         var metadata = new NetworkIndex().GetCommandMetadata(command, ClientType.CLI);
 
         Assert.Equal(canonical, metadata.ParameterAliases[alias]);
-        Assert.Contains(alias, metadata.Parameters[canonical].Aliases);
+        Assert.Contains(alias.Length == 1 ? alias : $"-{alias}", metadata.Parameters[canonical].Aliases);
     }
 }

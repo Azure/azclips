@@ -32,8 +32,7 @@ public class NewSubnetConfigProcessor_Customization : NetworkProcessorBase<objec
         Name = Name,
         Properties = new SubnetProperties
         {
-            AddressPrefix = AddressPrefixes.FirstOrDefault() ?? string.Empty,
-            AddressPrefixes = AddressPrefixes,
+            AddressPrefixes = AddressPrefixes.Count > 0 ? AddressPrefixes : null,
             NetworkSecurityGroup = NetworkSecurityGroupId.Length > 0 ? new SubResource { Id = NetworkSecurityGroupId } : null,
             RouteTable = RouteTableId.Length > 0 ? new SubResource { Id = RouteTableId } : null,
             NatGateway = NatGatewayId.Length > 0 ? new SubResource { Id = NatGatewayId } : null,

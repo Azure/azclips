@@ -128,8 +128,12 @@ public class Subnet
 
 public class SubnetProperties
 {
-    public string AddressPrefix { get; set; } = string.Empty;
-    public List<string> AddressPrefixes { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AddressPrefix { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? AddressPrefixes { get; set; }
+
     public List<ServiceEndpoint> ServiceEndpoints { get; set; } = [];
     public List<SubResource> ServiceEndpointPolicies { get; set; } = [];
     public List<SubResource> IpAllocations { get; set; } = [];
