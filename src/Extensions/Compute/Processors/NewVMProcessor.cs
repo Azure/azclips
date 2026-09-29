@@ -16,13 +16,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string ResourceGroupName { get; set; } = string.Empty;
         public string VmSize { get; set; } = string.Empty;
         public string AdminUsername { get; set; } = string.Empty;
-        public string AdminPassword { get; set; } = string.Empty;
+        public string? AdminPassword { get; set; }
         public string OsDiskCreateOption { get; set; } = "FromImage";
         public string ImagePublisher { get; set; } = "MicrosoftWindowsServer";
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
         public string NetworkInterfaceId { get; set; } = string.Empty;
+        public LinuxConfiguration? LinuxConfiguration { get; set; }
         public string SecurityType { get; set; } = "trustedlaunch";
         public bool SecureBootEnabled { get; set; } = true;
         public bool VTpmEnabled { get; set; } = true;
@@ -56,7 +57,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         ComputerName = Name,
                         AdminUsername = AdminUsername,
                         AdminPassword = AdminPassword,
-                        WindowsConfiguration = new WindowsConfiguration()
+                        //TODO: improve this once --image is supported, for now we will just use the LinuxConfiguration if provided,
+                        //otherwise default to WindowsConfiguration
+                        WindowsConfiguration = LinuxConfiguration is null ? new WindowsConfiguration() : null,
+                        LinuxConfiguration = LinuxConfiguration
                     },
                     NetworkProfile = new NetworkProfile
                     {
@@ -99,6 +103,3 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }
-
-
-

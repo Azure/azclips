@@ -60,13 +60,40 @@ public class OSProfile
 {
     public string ComputerName { get; set; } = null!;
     public string AdminUsername { get; set; } = null!;
-    public string AdminPassword { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AdminPassword { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public WindowsConfiguration? WindowsConfiguration { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinuxConfiguration? LinuxConfiguration { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class WindowsConfiguration
 {
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class LinuxConfiguration
+{
+    public bool DisablePasswordAuthentication { get; set; }
+    public SshConfiguration? Ssh { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshConfiguration
+{
+    public IList<SshPublicKey> PublicKeys { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshPublicKey
+{
+    public string Path { get; set; } = null!;
+    public string KeyData { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -136,7 +163,3 @@ public class BootDiagnostics
     public bool Enabled { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
-
-
-
-

@@ -18,6 +18,10 @@
       {
         "short_summary": "Create using shell variables for credentials",
         "command": "az vm create --name $vmName --resource-group $rg --location eastus --size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId"
+      },
+      {
+        "short_summary": "Create with an SSH public key",
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --ssh-key-values ~/.ssh/id_rsa.pub --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
       }
     ],
     "parameters": [
@@ -37,7 +41,7 @@
       },
       {
         "name": "--admin-password",
-        "required": true,
+        "required": false,
         "short_summary": "The administrator password.",
         "long_summary": "",
         "group_name": "Authentication Arguments"
@@ -156,6 +160,13 @@
         "required": true,
         "short_summary": "The size of the virtual machine.",
         "long_summary": ""
+      },
+      {
+        "name": "--ssh-key-values",
+        "required": false,
+        "short_summary": "Space-separated SSH public key values or public key file paths.",
+        "long_summary": "",
+        "group_name": "Authentication Arguments"
       },
       {
         "name": "--subnet-address-prefixes",

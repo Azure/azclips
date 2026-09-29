@@ -25,6 +25,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Authentication Arguments")]
         public string AdminPassword { get; set; } = string.Empty;
 
+        [ParameterGroup("Authentication Arguments")]
+        public List<string> SshKeyValues { get; set; } = [];
+
         [ParameterGroup("Network Arguments")]
         public string NetworkInterfaceName { get; set; } = string.Empty;
 
@@ -108,7 +111,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.ResourceGroupName = ResourceGroupName;
                 p.VmSize = VmSize;
                 p.AdminUsername = AdminUsername;
-                p.AdminPassword = AdminPassword;
+                p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
+                p.LinuxConfiguration = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
