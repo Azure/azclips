@@ -152,6 +152,12 @@
         "group_name": "Network Arguments"
       },
       {
+        "name": "--size",
+        "required": true,
+        "short_summary": "The size of the virtual machine.",
+        "long_summary": ""
+      },
+      {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
@@ -177,12 +183,6 @@
         "short_summary": "The virtual network name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
-      },
-      {
-        "name": "--vm-size",
-        "required": true,
-        "short_summary": "The size of the virtual machine.",
-        "long_summary": ""
       },
       {
         "name": "--debug",
