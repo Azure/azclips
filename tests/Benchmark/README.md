@@ -115,12 +115,12 @@ tests/Benchmark/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
-│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [Identity]
+│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [ManagedServiceIdentity]
 │   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
     ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
     ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
-    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [Identity]
+    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [ManagedServiceIdentity]
     └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
@@ -133,7 +133,7 @@ tests/Benchmark/
 | `--local`, `-l` | Skip App Insights upload | `-- --local` |
 | `--product <name>` | Run a specific product only (`CLI`, `PS`, or `ALL`) | `-- --product CLI` |
 | `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<EXTENSION>/<PRODUCT>/` path | `-- --ci --product CLI` |
-| `--extension <name>` | Run a specific extension only (`Compute`, `Resources`, or `ALL`) | `-- --extension Compute` |
+| `--extension <name>` | Run a specific extension only (for example `Compute`, `ManagedServiceIdentity`, `Resources`, or `ALL`) | `-- --extension Compute` |
 | `--list` | Print the discovered benchmark classes (extension / product / name) and exit | `-- --list` |
 
 ---
@@ -162,7 +162,7 @@ Create is a long-running operation; the benchmark stub returns `Retry-After: 0` 
 minimally-shaped virtual-network body so the orchestrated create completes without
 real polling. See "Project Structure" and `tests/Common/Stubs/`.
 
-### Identity (User-Assigned Managed Identity)
+### ManagedServiceIdentity (User-Assigned Managed Identity)
 
 Azure user-assigned managed identity operations, run against the resource-aware stubbed HTTP (no real Azure calls):
 

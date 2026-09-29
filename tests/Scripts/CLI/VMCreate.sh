@@ -27,7 +27,7 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
     --resource-group yabo-test-group-2 \
     --name yabo-test-vm-2 \
     --location eastus \
-    --vm-size Standard_D2s_v3 \
+    --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password 'ArtemisCriticalX4!' \
     --network-interface-name yabo-test-nic-2 \

@@ -19,14 +19,36 @@ public class GetVMCmdlet : PSCmdlet
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = true)]
     public string? Name { get; set; }
+
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = true)]
+    public string Location { get; set; } = "";
+
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    public SwitchParameter Status { get; set; }
+
+    [Parameter(ParameterSetName = "Id", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    public string Id { get; set; } = "";
+
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
+    [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    public SwitchParameter UserData { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -53,6 +75,23 @@ public class GetVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
         {
             parameters.Add("Name", Name!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Location)))
+        {
+            parameters.Add("Location", Location);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Id)))
+        {
+            // The processor addresses VMs by id array; -Id is the single-target PowerShell spelling of it.
+            parameters.Add(nameof(Id), new[] { Id });
+        }
+        if (UserData.IsPresent)
+        {
+            parameters.Add(nameof(UserData), true);
+        }
+        if (Status.IsPresent)
+        {
+            parameters.Add(nameof(Status), true);
         }
 
         var parameterSetName = ParameterSetName;

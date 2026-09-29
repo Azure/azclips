@@ -38,7 +38,7 @@ public class VmCreateOrchestrationTests
         "--name", VmName,
         "--location", "westus2",
         "--resource-group", "scenario-vm-rg",
-        "--vm-size", "Standard_D2s_v3",
+        "--size", "Standard_D2s_v3",
         "--admin-username", "azadmin",
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
@@ -74,6 +74,21 @@ public class VmCreateOrchestrationTests
         host.RunCli(s_groupArgs);
         AssertVm(host.RunCli(s_cliArgs));
         return record;
+    }
+
+    [Fact]
+    public void Size_BindsVmSize()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(s_cliArgs));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"vmSize\":\"Standard_D2s_v3\"", vmBody);
     }
 
     [Fact]
