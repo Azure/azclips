@@ -12,6 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
     [ExtensionVerb("logout")]
     [ExtensionVerb("profile")]
     [ExtensionVerb("account")]
+    [ExtensionVerb("survey")]
     public class ExtensionIndex : IExtensionIndex
     {
         private const string PSCommandPrefix = "Az";
@@ -56,6 +57,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             FullName: typeof(Processors.LogoutProcessor).FullName!,
             AssemblyName: typeof(Processors.LogoutProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LogoutProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata psOpenSurvey = new(
+            Name: nameof(Processors.OpenSurveyProcessor),
+            InvocationName: $"Open-{PSCommandPrefix}Survey",
+            Aliases: [],
+            FullName: typeof(Processors.OpenSurveyProcessor).FullName!,
+            AssemblyName: typeof(Processors.OpenSurveyProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.OpenSurveyProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -171,6 +182,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata cliSurvey = new(
+            Name: nameof(Processors.OpenSurveyProcessor),
+            InvocationName: "survey",
+            Aliases: [],
+            FullName: typeof(Processors.OpenSurveyProcessor).FullName!,
+            AssemblyName: typeof(Processors.OpenSurveyProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.OpenSurveyProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata cliProfileList = new(
             Name: nameof(Processors.ProfileListProcessor),
             InvocationName: "profile list",
@@ -249,6 +270,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
         private static readonly Dictionary<string, CommandMetadata> psTable = BuildCommandTable(
             psLogin,
             psLogout,
+            psOpenSurvey,
             psProfileList,
             psProfileShow,
             psProfileSet,
@@ -258,6 +280,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
         private static readonly Dictionary<string, CommandMetadata> cliTable = BuildCommandTable(
             cliLogin,
             cliLogout,
+            cliSurvey,
             cliProfileList,
             cliProfileShow,
             cliProfileSet,
