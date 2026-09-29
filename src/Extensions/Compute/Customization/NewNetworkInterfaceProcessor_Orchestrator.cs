@@ -29,13 +29,6 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public List<string> RuleAccesses { get; set; } = [];
     public bool AcceleratedNetworking { get; set; }
 
-    /// <summary>
-    /// The public IP to attach, with legacy <c>az vm create --public-ip-address</c> semantics: null
-    /// creates or updates <see cref="DefaultPublicIpAddressName"/> without a lookup, empty or
-    /// whitespace attaches none, a value containing '/' is the resource id of an existing public IP,
-    /// and any other value is a name in <see cref="ResourceGroupName"/>, reused when it exists and
-    /// created when it does not.
-    /// </summary>
     public string? PublicIpAddress { get; set; }
 
     /// <summary>The public IP created when <see cref="PublicIpAddress"/> is null. Empty means none.</summary>
@@ -101,7 +94,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     }
 
     /// <summary>
-    /// Legacy CLI's <c>public_ip_address_type</c>: the id of an existing public IP to attach, or the
+    /// Determines the id of an existing public IP to attach, or the
     /// name of one to create, or neither when no public IP is wanted.
     /// </summary>
     private async Task<(string? ExistingId, string? NameToCreate)> ClassifyPublicIpAddressAsync()
@@ -139,7 +132,6 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         return (null, value);
     }
 
-    /// <summary>Returns the public IP's id, or null when ARM answers 404.</summary>
     private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
     {
         using HttpResponseMessage response = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>

@@ -73,11 +73,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Network Arguments")]
         public bool AcceleratedNetworking { get; set; }
 
-        /// <summary>
-        /// <c>--public-ip-address</c> / <c>-PublicIpAddressName</c>, passed through to
-        /// <see cref="NewNetworkInterfaceProcessor_Orchestrator.PublicIpAddress"/>. Null (omitted)
-        /// creates or updates "{Name}PublicIP", legacy Azure CLI's default.
-        /// </summary>
         [ParameterGroup("Network Arguments")]
         public string? PublicIpAddress { get; set; }
 
@@ -125,9 +120,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// Writes the created VM the way <c>az vm show -d</c> shows it, as legacy <c>az vm create</c>
-        /// prints its public IP. The VM already exists by now, so a failed lookup only costs the
-        /// detail fields: it is reported as a warning and the VM from the create is written instead.
+        /// For the time being shows az vm show -d output, with enriched network details
+        /// TODO: Jayson - client side rendering of views for different clients.
         /// </summary>
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
         {

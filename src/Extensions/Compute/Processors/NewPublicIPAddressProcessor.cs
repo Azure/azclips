@@ -30,7 +30,6 @@ public class NewPublicIPAddressProcessor : ComputeProcessorBase<PublicIPAddress,
         },
     };
 
-    // Wired like the NSG and NIC processors: poll Azure-AsyncOperation, then re-read the resource.
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
