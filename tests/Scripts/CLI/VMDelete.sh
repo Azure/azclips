@@ -95,7 +95,7 @@ create_vm() {
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --vm-size "$VM_SIZE" \
+        --size "$VM_SIZE" \
         --admin-username azadmin \
         --admin-password 'ArtemisCriticalX4!' \
         --network-interface-name "${PREFIX}-nic-$suffix" \

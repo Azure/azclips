@@ -110,7 +110,7 @@ create_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --vm-size Standard_D2s_v3 \
+        --size Standard_D2s_v3 \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
         --network-interface-name "$name-nic" \

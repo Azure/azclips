@@ -25,9 +25,13 @@ internal static class TelemetryExporters
             AddTraceExporter(builder, target);
         }
 
-        // Route Aria telemetry to the EU or Global collector based on the active
-        // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
-        // others (including unknown/missing) → Global endpoint.
+        // Route Aria telemetry to the EU or ROW (Rest of World) regional collector based on
+        // the active profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
+        // others (including unknown/missing) → explicit ROW endpoint. Both destinations are
+        // pinned explicitly rather than leaving either to OneCollector's default/global
+        // endpoint, which can route traffic to any regional Collector/AEF instance — including
+        // the EU one — causing Geneva Delivery Service (GDS) to misroute ROW data into the EU
+        // Kusto cluster.
         if (targets.Contains(TelemetryTarget.Remote))
         {
             // dataBoundary supplied: the caller already knows the destination for this
@@ -80,7 +84,7 @@ internal static class TelemetryExporters
 
         return isEu
             ? (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint)
-            : (WellKnownEndpoints.AriaConnectionString, null);
+            : (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
     }
 }
 

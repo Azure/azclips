@@ -13,19 +13,19 @@
     "examples": [
       {
         "short_summary": "Create a Linux VM in East US",
-        "command": "az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Create using shell variables for credentials",
-        "command": "az vm create --name $vmName --resource-group $rg --location eastus --vm-size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId"
+        "command": "az vm create --name $vmName --resource-group $rg --location eastus --size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId"
       },
       {
         "short_summary": "Create a VM with a named public IP address",
-        "command": "az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address myvm-ip"
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address myvm-ip"
       },
       {
         "short_summary": "Create a VM without a public IP address",
-        "command": "az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address \u0022\u0022"
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --public-ip-address \u0022\u0022"
       }
     ],
     "parameters": [
@@ -167,6 +167,12 @@
         "group_name": "Network Arguments"
       },
       {
+        "name": "--size",
+        "required": true,
+        "short_summary": "The size of the virtual machine.",
+        "long_summary": ""
+      },
+      {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
@@ -192,12 +198,6 @@
         "short_summary": "The virtual network name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
-      },
-      {
-        "name": "--vm-size",
-        "required": true,
-        "short_summary": "The size of the virtual machine.",
-        "long_summary": ""
       },
       {
         "name": "--debug",
