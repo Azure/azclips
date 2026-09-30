@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="System.Management.Automation" Version="7.6.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
@@ -16,6 +20,7 @@
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
          parameters exactly the way an imported module does. -->
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/Network/Cmdlets.Network.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 

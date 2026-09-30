@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Manage Azure networking resources. Currently exposes virtual network (VNet) lifecycle management under `az network vnet`.
+Description: Manage Azure networking resources, including virtual networks under `az network vnet` and network security groups under `az network nsg`.
 
 ### Discover network commands
 

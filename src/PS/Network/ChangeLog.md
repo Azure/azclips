@@ -17,6 +17,8 @@
 -->
 ## Upcoming Release
 
+* Added `New-AzNetworkSecurityGroup`.
+
 ## Version 0.1.0
 
 * First preview
