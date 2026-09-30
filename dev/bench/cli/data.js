@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790734570834,
+  "lastUpdate": 1790740434231,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11804,6 +11804,48 @@ window.BENCHMARK_DATA = {
             "value": 4534321.196118075,
             "unit": "ns",
             "range": "± 121968.60947883657"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
+          "message": "[CLI] Respect startup log level during profile loading (#995)\n\nFixes https://github.com/Azure/CLIPS/issues/947\n\n## Summary\n- resolve the effective CLI session policy before the early startup\nprofile lookup\n- scope startup logging through the gated output stream so verbose\nmessages honor warn/debug settings\n- add a regression covering profile-file startup under warn\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~StreamRoutingIntegrationTests --nologo`\n\n**History Notes**\n[CLI] Respect startup log level during profile loading",
+          "timestamp": "2026-09-30T13:30:56+10:00",
+          "tree_id": "c96755d8c7f97d256ce54bc2edfd36b0787438d8",
+          "url": "https://github.com/Azure/azclips/commit/f55dbcb08cd1e944fa3719377fb95672fe68ca20"
+        },
+        "date": 1790740429616,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4399858.721883882,
+            "unit": "ns",
+            "range": "± 127718.44457928064"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7405628.668176204,
+            "unit": "ns",
+            "range": "± 159811.6787789239"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4417362.188169827,
+            "unit": "ns",
+            "range": "± 133970.37303270356"
           }
         ]
       }
