@@ -463,8 +463,8 @@ Expected: `syntax OK`.
 
 - [ ] **Step 3: Confirm nothing else references the removed helpers**
 
-Run: `git grep -n -e "wait_public_ip_succeeded" -e "public_ip_url" -- tests/Scripts/CLI`
-Expected: no output.
+Run: `git grep -n -w -e "wait_public_ip_succeeded" -e "public_ip_url" -- tests/Scripts/CLI`
+Expected: no output. `-w` keeps `public_ip_url` from matching inside the script's `reuse_public_ip_url` variable.
 
 - [ ] **Step 4: Commit**
 
