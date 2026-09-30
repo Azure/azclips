@@ -45,9 +45,8 @@ optional too.
 - **Pre-flight checks** that an existing NSG is in the VM's region or subscription. ARM reports it.
 - **Deleting the NSG with the VM.** Neither legacy does.
 - **New NSG smoke-script cases.** The NSG modes are covered by fake-ARM orchestration tests in CI.
-- **Exposing `vm nic create-orchestrated` or `vm nsg create`.** The dormant
-  `vm nic create-orchestrated` metadata only follows the NIC orchestrator's property changes;
-  `vm nsg create` and `NewNetworkSecurityGroupProcessor` are untouched.
+- **Exposing `vm nic create-orchestrated`.** Its unused metadata, which no dispatch table
+  registered, is removed rather than migrated.
 
 ## Parameter surface
 
@@ -162,7 +161,7 @@ The VM orchestrator then `PUT`s the VM and enriches the output exactly as today.
 |---|---|
 | `src/Extensions/Compute/Customization/NewNetworkInterfaceProcessor_Orchestrator.cs` | `NetworkSecurityGroupName` becomes `string? NetworkSecurityGroup`, plus `DefaultNetworkSecurityGroupName`; null with an empty default means none, as for the public IP. The nine `Rule*` properties give way to `OsType`; a new NSG's `PUT` carries `NetworkSecurityGroupDefaultRule.For(OsType)`, passed to `NewNetworkSecurityGroupProcessor` as one-element rule lists. `ClassifyPublicIpAddressAsync` is replaced by `NewOrExistingResourceResolver`, keeping the public IP's behaviour and messages. The NSG and public IP lookups share one `FindIdAsync<TGetProcessor>`, which reads the ID as a `ResourceReference`; thin `FindNetworkSecurityGroupIdAsync` / `FindPublicIpAddressIdAsync` wrappers configure the Get processor. The NSG `PUT` runs only when the NSG is new; the NIC's `NetworkSecurityGroupId` is the existing or new ID, or empty. |
 | `src/Extensions/Compute/Customization/NewVMProcessor_Orchestrator.cs` | `[ParameterGroup("Network Arguments")] string? NetworkSecurityGroup` replaces `NetworkSecurityGroupName`, and the nine `Rule*` properties are removed. Passes the NSG value, `"{Name}NSG"` and the image's OS type, `Windows`, to the NIC orchestrator. |
-| `src/Extensions/Compute/ExtensionIndex.cs` | `vm create`: `["nsg"]` replaces `["network-security-group-name"]` and the nine `rule-*` entries are removed. `New-AzVM`: `["SecurityGroupName"]` replaces `["NetworkSecurityGroupName"]` and the nine `Rule*` entries are removed. Both new entries map to `NetworkSecurityGroup` with `IsRequired: false` and the help text above. The dormant `vm nic create-orchestrated` entry re-points `network-security-group-name` to `NetworkSecurityGroup` and drops its `rule-*` entries, whose properties no longer exist. |
+| `src/Extensions/Compute/ExtensionIndex.cs` | `vm create`: `["nsg"]` replaces `["network-security-group-name"]` and the nine `rule-*` entries are removed. `New-AzVM`: `["SecurityGroupName"]` replaces `["NetworkSecurityGroupName"]` and the nine `Rule*` entries are removed. Both new entries map to `NetworkSecurityGroup` with `IsRequired: false` and the help text above. The unused `vm nic create-orchestrated` metadata is removed. |
 | `src/Extensions/Compute/Models/NetworkInterface.cs` | `NetworkInterfaceProperties.NetworkSecurityGroup` is omitted when null, as `publicIPAddress` already is, so `--nsg ""` sends no `networkSecurityGroup` rather than `"networkSecurityGroup": null`. |
 | `src/Extensions/Compute/Extensions.Compute.csproj` | `InternalsVisibleTo` `Extensions.Compute.Tests`, in the shape `Extensions.Accounts.csproj` uses, so the default rule can be unit-tested for Linux, which no command reaches yet. |
 | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs` | `[Parameter(Mandatory = false)] string? SecurityGroupName` replaces the mandatory `NetworkSecurityGroupName`; it is forwarded only when bound and non-null, so omitted and `""` stay distinct. The nine `Rule*` parameters and their forwarding are removed. |

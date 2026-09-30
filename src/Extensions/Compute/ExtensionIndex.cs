@@ -434,27 +434,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_CLI = new(
-            Name: "NewNetworkInterfaceProcessor_Orchestrator",
-            InvocationName: "vm nic create-orchestrated",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]                  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                             = new("Name", "name", typeof(string), "The name of the network interface.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["virtual-network-name"]             = new("VirtualNetworkName", "virtual-network-name", typeof(string), "The virtual network name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["network-security-group-name"]      = new("NetworkSecurityGroup", "network-security-group-name", typeof(string), "The network security group name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["subnet-names"]                     = new("SubnetNames", "subnet-names", typeof(List<string>), "Names of the subnets.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["subnet-address-prefixes"]          = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         private static readonly CommandMetadata s_newVMOrchestrator_CLI = new(
             Name: "NewVMProcessor_Orchestrator",
             InvocationName: "vm create",
