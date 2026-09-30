@@ -15,8 +15,8 @@
 - Quota stays at four Standard_D2s_v3 VMs (8 vCPUs) and three Standard public IPs: no new VMs.
 - Network api-version is `2025-05-01`.
 - Default NSG name: the VM name followed by the literal `NSG`, e.g. `vmc-def-<suffix>NSG`.
-- Default rule, as the scripts compare it: `rdp/Tcp/3389/Allow/Inbound/1000` (name/protocol/destination port/access/direction/priority).
-- Pre-created NSG: name `azclips-vmcreate-existing-nsg-<suffix>`, tag `azclips-smoke=reuse-nsg`, exactly one rule `smoke-allow-https` — compared as `smoke-allow-https/Tcp/443/Allow/Inbound/1100`, with source address, source port and destination address `*`.
+- Default rule, as the scripts compare it: `rdp/Tcp/*/*/*/3389/Allow/Inbound/1000` (name/protocol/source address/source port/destination address/destination port/access/direction/priority).
+- Pre-created NSG: name `azclips-vmcreate-existing-nsg-<suffix>`, tag `azclips-smoke=reuse-nsg`, exactly one rule `smoke-allow-https` — compared as `smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100`, with source address, source port and destination address `*`.
 - Case 3 attaches it by name (`--nsg` / `-SecurityGroupName`), case 4 by resource ID. If its pre-create fails, the failure is recorded and cases 3 and 4 run their public IP checks without the NSG argument.
 - NSG IDs are compared case-insensitively: ARM can return the resource group name in a different case.
 - The scripts create real Azure resources: agents must NOT run them. Verify them with the bash and PowerShell parsers only; the user runs them live.
@@ -1000,8 +1000,8 @@ AZCLIPS_SUBSCRIPTION_ID=<test-subscription> AZCLIPS_VM_ADMIN_PASSWORD='<strong-p
 ```
 
 Expected: `OK:` lines for the pre-created NSG, then for each case. In particular:
-- `OK: default: NIC '<vm>-nic' uses NSG '<vm>NSG', whose only rule is 'rdp/Tcp/3389/Allow/Inbound/1000'`
-- the same line for `reuse` and for `none`, naming `azclips-vmcreate-existing-nsg-<suffix>` and `smoke-allow-https/Tcp/443/Allow/Inbound/1100`
+- `OK: default: NIC '<vm>-nic' uses NSG '<vm>NSG', whose only rule is 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'`
+- the same line for `reuse` and for `none`, naming `azclips-vmcreate-existing-nsg-<suffix>` and `smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100`
 
 The run should end with `== vm create smoke test finished ==` and delete its resource group.
 

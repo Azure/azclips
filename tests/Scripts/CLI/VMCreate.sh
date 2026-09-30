@@ -72,10 +72,10 @@ EXISTING_NSG="azclips-vmcreate-existing-nsg-$SUFFIX"
 EXISTING_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/$EXISTING_NSG"
 DEFAULT_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/${DEFAULT_VM}NSG"
 
-# A rule as name/protocol/port/access/direction/priority, so whole rules compare as one string.
-NSG_RULE_QUERY="json.properties.securityRules[0] | join('/', [name, properties.protocol, properties.destinationPortRange, properties.access, properties.direction, to_string(properties.priority)])"
-DEFAULT_NSG_RULE="rdp/Tcp/3389/Allow/Inbound/1000"
-EXISTING_NSG_RULE="smoke-allow-https/Tcp/443/Allow/Inbound/1100"
+# A rule as name/protocol/source address/source port/destination address/destination port/access/direction/priority, so whole rules compare as one string.
+NSG_RULE_QUERY="json.properties.securityRules[0] | join('/', [name, properties.protocol, properties.sourceAddressPrefix, properties.sourcePortRange, properties.destinationAddressPrefix, properties.destinationPortRange, properties.access, properties.direction, to_string(properties.priority)])"
+DEFAULT_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
+EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
 
 FAILURES=0
 

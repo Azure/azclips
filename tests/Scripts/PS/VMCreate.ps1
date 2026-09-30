@@ -76,9 +76,9 @@ $existingNsg       = "azclips-vmcreate-existing-nsg-$suffix"
 $existingNsgId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/$existingNsg"
 $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/${defaultVm}NSG"
 
-# Rules as name/protocol/port/access/direction/priority; see Format-NsgRule.
-$defaultNsgRule    = 'rdp/Tcp/3389/Allow/Inbound/1000'
-$existingNsgRule   = 'smoke-allow-https/Tcp/443/Allow/Inbound/1100'
+# Rules as name/protocol/source address/source port/destination address/destination port/access/direction/priority; see Format-NsgRule.
+$defaultNsgRule    = 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'
+$existingNsgRule   = 'smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100'
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
 # Az modules (Az.Resources, Az.Compute) export the same cmdlet names and PowerShell
@@ -240,11 +240,11 @@ function Test-PublicIp([string]$Label, $Vm, [bool]$ExpectPublicIp, [string]$Expe
     }
 }
 
-# A rule as name/protocol/port/access/direction/priority, so whole rules compare as one string.
+# A rule as name/protocol/source address/source port/destination address/destination port/access/direction/priority, so whole rules compare as one string.
 function Format-NsgRule($Rule)
 {
     $p = $Rule.properties
-    "$($Rule.name)/$($p.protocol)/$($p.destinationPortRange)/$($p.access)/$($p.direction)/$($p.priority)"
+    "$($Rule.name)/$($p.protocol)/$($p.sourceAddressPrefix)/$($p.sourcePortRange)/$($p.destinationAddressPrefix)/$($p.destinationPortRange)/$($p.access)/$($p.direction)/$($p.priority)"
 }
 
 # The NIC <vm>-nic must reference the NSG $ExpectedId; -ne compares case-insensitively, which
