@@ -18,16 +18,10 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
-    public List<string> RuleNames { get; set; } = [];
-    public List<string> RuleDirections { get; set; } = [];
-    public List<string> RuleProtocols { get; set; } = [];
-    public List<int> RulePriorities { get; set; } = [];
-    public List<string> RuleSourceAddressPrefixes { get; set; } = [];
-    public List<string> RuleSourcePortRanges { get; set; } = [];
-    public List<string> RuleDestinationPortRanges { get; set; } = [];
-    public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
-    public List<string> RuleAccesses { get; set; } = [];
     public bool AcceleratedNetworking { get; set; }
+
+    /// <summary>OS type of the VM's image, which picks the default rule of a new NSG.</summary>
+    public string OsType { get; set; } = string.Empty;
 
     public string? PublicIpAddress { get; set; }
 
@@ -53,21 +47,22 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.AddressPrefixes = AddressPrefixes;
         });
 
+        SecurityRule defaultRule = NetworkSecurityGroupDefaultRule.For(OsType);
         NewNetworkSecurityGroupProcessor nsgProcessor = CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
             p.Name = NetworkSecurityGroupName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
-            p.RuleNames = RuleNames;
-            p.RuleDirections = RuleDirections;
-            p.RuleProtocols = RuleProtocols;
-            p.RulePriorities = RulePriorities;
-            p.RuleSourceAddressPrefixes = RuleSourceAddressPrefixes;
-            p.RuleSourcePortRanges = RuleSourcePortRanges;
-            p.RuleDestinationPortRanges = RuleDestinationPortRanges;
-            p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
-            p.RuleAccesses = RuleAccesses;
+            p.RuleNames = [defaultRule.Name];
+            p.RuleDirections = [defaultRule.Properties.Direction];
+            p.RuleProtocols = [defaultRule.Properties.Protocol];
+            p.RulePriorities = [defaultRule.Properties.Priority];
+            p.RuleSourceAddressPrefixes = [defaultRule.Properties.SourceAddressPrefix];
+            p.RuleSourcePortRanges = [defaultRule.Properties.SourcePortRange];
+            p.RuleDestinationPortRanges = [defaultRule.Properties.DestinationPortRange];
+            p.RuleDestinationAddressPrefixes = [defaultRule.Properties.DestinationAddressPrefix];
+            p.RuleAccesses = [defaultRule.Properties.Access];
         });
 
         Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();

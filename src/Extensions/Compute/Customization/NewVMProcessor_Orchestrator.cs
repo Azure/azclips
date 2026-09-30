@@ -10,6 +10,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine, VirtualMachine>
     {
+        // The OS of the image vm create deploys: NewVMProcessor's default, Windows Server 2022.
+        // --image will supply the chosen image's OS type instead.
+        private const string ImageOsType = "Windows";
+
         public string SubscriptionId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
@@ -44,33 +48,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public List<string> AddressPrefixes { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
-        public List<string> RuleNames { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDirections { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleProtocols { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<int> RulePriorities { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourceAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourcePortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationPortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleAccesses { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
         public bool AcceleratedNetworking { get; set; }
 
         [ParameterGroup("Network Arguments")]
@@ -89,18 +66,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.SubnetNames = SubnetNames;
                 p.SubnetAddressPrefixes = SubnetAddressPrefixes;
                 p.AddressPrefixes = AddressPrefixes;
-                p.RuleNames = RuleNames;
-                p.RuleDirections = RuleDirections;
-                p.RuleProtocols = RuleProtocols;
-                p.RulePriorities = RulePriorities;
-                p.RuleSourceAddressPrefixes = RuleSourceAddressPrefixes;
-                p.RuleSourcePortRanges = RuleSourcePortRanges;
-                p.RuleDestinationPortRanges = RuleDestinationPortRanges;
-                p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
-                p.RuleAccesses = RuleAccesses;
                 p.AcceleratedNetworking = AcceleratedNetworking;
                 p.PublicIpAddress = PublicIpAddress;
                 p.DefaultPublicIpAddressName = $"{Name}PublicIP";
+                p.OsType = ImageOsType;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;

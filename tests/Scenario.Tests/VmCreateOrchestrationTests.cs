@@ -250,6 +250,17 @@ public class VmCreateOrchestrationTests
         Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
     }
 
+    [Fact]
+    public void NewNetworkSecurityGroup_GetsTheDefaultRdpRule()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        // vm create deploys a Windows image, so the new NSG gets legacy CLI's RDP rule and nothing else.
+        Assert.Contains(
+            "\"securityRules\":[{\"name\":\"rdp\",\"properties\":{\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"*\",\"access\":\"Allow\",\"priority\":1000,\"direction\":\"Inbound\"}}]",
+            PutBody(record, "/networkSecurityGroups/"));
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));

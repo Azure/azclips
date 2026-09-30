@@ -104,69 +104,6 @@
         "value_sources": "az group list"
       },
       {
-        "name": "--rule-accesses",
-        "required": false,
-        "short_summary": "Access types (Allow/Deny) of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-destination-address-prefixes",
-        "required": false,
-        "short_summary": "Destination address prefixes of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-destination-port-ranges",
-        "required": false,
-        "short_summary": "Destination port ranges of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-directions",
-        "required": false,
-        "short_summary": "Directions of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-names",
-        "required": false,
-        "short_summary": "Names of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-priorities",
-        "required": false,
-        "short_summary": "Priorities of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-protocols",
-        "required": false,
-        "short_summary": "Protocols of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-source-address-prefixes",
-        "required": false,
-        "short_summary": "Source address prefixes of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
-        "name": "--rule-source-port-ranges",
-        "required": false,
-        "short_summary": "Source port ranges of the security rules.",
-        "long_summary": "",
-        "group_name": "Network Arguments"
-      },
-      {
         "name": "--size",
         "required": true,
         "short_summary": "The size of the virtual machine.",
