@@ -4,7 +4,8 @@
 **Status:** Approved, ready for planning
 **Scope:** `src/Extensions/Compute`, `src/PS/Compute`, `src/CLI/Help/Docs/vm`,
 `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export`, `wiki/01-getting-started`,
-`tests/Scenario.Tests`, `tests/Benchmark`, `tests/Scripts`
+`tests/Scenario.Tests`, `tests/Extensions.Compute.Tests` (new), `azclips.slnx`, `tests/Benchmark`,
+`tests/Scripts`
 
 ## Problem
 
@@ -162,9 +163,10 @@ The VM orchestrator then `PUT`s the VM and enriches the output exactly as today.
 | `src/Extensions/Compute/Customization/NewNetworkInterfaceProcessor_Orchestrator.cs` | `NetworkSecurityGroupName` becomes `string? NetworkSecurityGroup`, plus `DefaultNetworkSecurityGroupName`; null with an empty default means none, as for the public IP. The nine `Rule*` properties give way to `OsType`; a new NSG's `PUT` carries `NetworkSecurityGroupDefaultRule.For(OsType)`, passed to `NewNetworkSecurityGroupProcessor` as one-element rule lists. `ClassifyPublicIpAddressAsync` is replaced by `NewOrExistingResourceResolver`, keeping the public IP's behaviour and messages. Add `FindNetworkSecurityGroupIdAsync` beside `FindPublicIpAddressIdAsync`. The NSG `PUT` runs only when the NSG is new; the NIC's `NetworkSecurityGroupId` is the existing or new ID, or empty. |
 | `src/Extensions/Compute/Customization/NewVMProcessor_Orchestrator.cs` | `[ParameterGroup("Network Arguments")] string? NetworkSecurityGroup` replaces `NetworkSecurityGroupName`, and the nine `Rule*` properties are removed. Passes the NSG value, `"{Name}NSG"` and the image's OS type, `Windows`, to the NIC orchestrator. |
 | `src/Extensions/Compute/ExtensionIndex.cs` | `vm create`: `["nsg"]` replaces `["network-security-group-name"]` and the nine `rule-*` entries are removed. `New-AzVM`: `["SecurityGroupName"]` replaces `["NetworkSecurityGroupName"]` and the nine `Rule*` entries are removed. Both new entries map to `NetworkSecurityGroup` with `IsRequired: false` and the help text above. The dormant `vm nic create-orchestrated` entry re-points `network-security-group-name` to `NetworkSecurityGroup` and drops its `rule-*` entries, whose properties no longer exist. |
-| `src/Extensions/Compute/Extensions.Compute.csproj` | `InternalsVisibleTo` `Scenario.Tests`, in the shape `Extensions.Accounts.csproj` uses, so the default rule can be unit-tested for Linux, which no command reaches yet. |
+| `src/Extensions/Compute/Models/NetworkInterface.cs` | `NetworkInterfaceProperties.NetworkSecurityGroup` is omitted when null, as `publicIPAddress` already is, so `--nsg ""` sends no `networkSecurityGroup` rather than `"networkSecurityGroup": null`. |
+| `src/Extensions/Compute/Extensions.Compute.csproj` | `InternalsVisibleTo` `Extensions.Compute.Tests`, in the shape `Extensions.Accounts.csproj` uses, so the default rule can be unit-tested for Linux, which no command reaches yet. |
 | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs` | `[Parameter(Mandatory = false)] string? SecurityGroupName` replaces the mandatory `NetworkSecurityGroupName`; it is forwarded only when bound and non-null, so omitted and `""` stay distinct. The nine `Rule*` parameters and their forwarding are removed. |
-| `src/CLI/Help/Docs/vm/create.md` | Describe the default `{vm}NSG` with its default rule, reuse by name or ID, and `""`; drop `--network-security-group-name` from the description and examples; add an example that reuses an existing NSG. |
+| `src/CLI/Help/Docs/vm/create.md` | Describe the default `{vm}NSG` with its default rule, reuse by name or ID, and `""`; drop `--network-security-group-name` from the description and examples; add an example that reuses an existing NSG. Retitle the first example from "Create a Linux VM in East US" to "Create a VM in East US": it deploys Windows, and the NSG rule now follows the image's OS. |
 | `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` | Mirror the parameter and `create.md` changes. |
 | `src/PS/Compute/help/New-AzVM.md` | Syntax; a `-SecurityGroupName` block replacing `-NetworkSecurityGroupName`; the nine `-Rule*` blocks removed; description and examples. |
 | `wiki/01-getting-started/powershell-usage.md` | The `New-AzVM` example uses `-SecurityGroupName`. |
@@ -179,7 +181,7 @@ The test changes are listed under [Testing](#testing).
 | `GetNetworkSecurityGroupProcessor` | Explicit name and ID lookup. Present today but unused. |
 | `ComputeProcessorBase.SendAllowingNotFoundAsync` | A 404 comes back to the resolver instead of printing an error. |
 | `VirtualMachineIdResolver.ParseResourceId` | Resource-ID validation and its error wording. |
-| `NewNetworkInterfaceProcessor` | Already omits `networkSecurityGroup` when `NetworkSecurityGroupId` is empty. |
+| `NewNetworkInterfaceProcessor` | Already leaves the NSG reference null when `NetworkSecurityGroupId` is empty. |
 | `SecurityRule` / `SecurityRuleProperties` models | The default rule's shape. |
 
 Compute orchestrators live under `Customization/` but declare the `...Compute.Processors`
@@ -215,8 +217,11 @@ namespace; the two new helpers follow suit.
     resource ID. CI has none today, and this change refactors that code.
   - The existing tests switch to `--nsg scenario-vm-nsg` / `SecurityGroupName` and keep their
     assertions.
-- **Default-rule unit test** in `tests/Scenario.Tests`: `Windows` in any casing gives `rdp` on 3389,
-  and `Linux` gives `default-allow-ssh` on 22.
+- **Default-rule unit test** in a new `tests/Extensions.Compute.Tests` project, in the shape of
+  `Extensions.Accounts.Tests` — delay-signed in Release so the Release `InternalsVisibleTo` key
+  matches — and added to `azclips.slnx`: `Windows` in any casing gives `rdp` on 3389, and `Linux`
+  gives `default-allow-ssh` on 22. `Scenario.Tests` is not signed in Release, so it cannot be the
+  friend assembly.
 - **`tests/Scenario.Tests/FakeVmArmBackend.cs`:** remember NSGs once `PUT`, so unknown names answer
   404 as public IPs already do; accept pre-existing NSGs and public IPs to seed; and build NSG and
   public IP IDs from the request path, so resources in other resource groups resolve.
