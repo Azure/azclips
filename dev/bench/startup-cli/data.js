@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790733393869,
+  "lastUpdate": 1790740605991,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -4578,6 +4578,48 @@ window.BENCHMARK_DATA = {
             "value": 241622033.96,
             "unit": "ns",
             "range": "± 3372861.230406536"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
+          "message": "[CLI] Respect startup log level during profile loading (#995)\n\nFixes https://github.com/Azure/CLIPS/issues/947\n\n## Summary\n- resolve the effective CLI session policy before the early startup\nprofile lookup\n- scope startup logging through the gated output stream so verbose\nmessages honor warn/debug settings\n- add a regression covering profile-file startup under warn\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~StreamRoutingIntegrationTests --nologo`\n\n**History Notes**\n[CLI] Respect startup log level during profile loading",
+          "timestamp": "2026-09-30T13:30:56+10:00",
+          "tree_id": "c96755d8c7f97d256ce54bc2edfd36b0787438d8",
+          "url": "https://github.com/Azure/azclips/commit/f55dbcb08cd1e944fa3719377fb95672fe68ca20"
+        },
+        "date": 1790740602790,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 248372980.23,
+            "unit": "ns",
+            "range": "± 3890426.202512202"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 249759177.07,
+            "unit": "ns",
+            "range": "± 3879461.3710475257"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 246871130.25,
+            "unit": "ns",
+            "range": "± 4340784.8245045915"
           }
         ]
       }
