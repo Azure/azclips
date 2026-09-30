@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790733207921,
+  "lastUpdate": 1790733264701,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -13404,6 +13404,54 @@ window.BENCHMARK_DATA = {
             "value": 3866966.671307506,
             "unit": "ns",
             "range": "± 152419.74448380934"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumi@microsoft.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a356e0f6ab7b34457436579857b6452800f55951",
+          "message": "[Auth] `az login` / `Connect-AzAccount`: Add federated credential sign-in for service principals (#968)\n\n**Related command**\n\n`az login --service-principal`, `Connect-AzAccount -ServicePrincipal`\n\n**Description**\n\nAdds `--service-principal` with `--federated-token`, the workload\nidentity\nfederation flow, so a pipeline can sign in with an OIDC assertion from a\ntrusted external issuer instead of a stored secret or certificate.\n\nThe assertion is short-lived and is kept in a new service principal\nsecret\nstore, separate from the MSAL token cache: a logout has to be able to\ndrop the\ncached tokens without dropping the credential that mints the next one.\nBoth go\nto the OS credential store through the same tiers.\n\n- The token cache and the new service principal store are protected by\nDPAPI,\nKeychain or libsecret where one is available, and fall back to an\nunprotected\n  file otherwise, with a warning\n- Every service principal shares one app cache, keyed by application\n- Logout removes the stored credential, the cached tokens and the\nprofile\n- `az rest` accepts `--profile`\n- The TUI prompt reads the cache that actually exists rather than the\n  `~/.azclips/context.json` that went away with AuthContext\n\n**Manual Testing**\n1. Create a Github action with script to login with federated credential\ncheck token cache is persisted in plaintext and warning in stderr\n\n2. Create a Github action with script create temp password keyring and\nlogin with federated credential check token cache is persisted in\nKeyring",
+          "timestamp": "2026-09-30T11:28:52+10:00",
+          "tree_id": "090ee4d8b204f4ebc905f8ab58af17802bf56249",
+          "url": "https://github.com/Azure/azclips/commit/a356e0f6ab7b34457436579857b6452800f55951"
+        },
+        "date": 1790733260297,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3956862.6845562966,
+            "unit": "ns",
+            "range": "± 145880.4842971548"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 4061317.7810218977,
+            "unit": "ns",
+            "range": "± 143064.57251059465"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3925962.4449169706,
+            "unit": "ns",
+            "range": "± 154284.22699590924"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3840420.6590084643,
+            "unit": "ns",
+            "range": "± 152575.8944536378"
           }
         ]
       }
