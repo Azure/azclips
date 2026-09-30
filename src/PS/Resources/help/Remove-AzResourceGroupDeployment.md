@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-11-2026
+ms.date: 09-30-2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzResourceGroupDeployment
 ---
@@ -263,4 +263,6 @@ Deleting a name that does not exist is not an error. Azure Resource Manager answ
 The delete is a long-running operation. The cmdlet polls until Azure Resource Manager reports the operation complete before returning.
 
 ## RELATED LINKS
+
+{{ Fill in the related links here }}
 

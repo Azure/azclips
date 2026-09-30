@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-21-2026
+ms.date: 09-30-2026
 PlatyPS schema version: 2024-05-01
 title: Save-AzResourceGroupDeploymentTemplate
 ---
@@ -106,7 +106,7 @@ Overwrite the destination file when it already exists. Without this switch an ex
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: 'False'
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -270,4 +270,6 @@ An object with a single `Path` property carrying the full path of the template f
 The exported template is the template as submitted, not the resolved deployment output: parameter references and variables are preserved rather than replaced with their runtime values. Use `Get-AzResourceGroupDeployment` to inspect the parameter values a deployment actually ran with.
 
 ## RELATED LINKS
+
+{{ Fill in the related links here }}
 

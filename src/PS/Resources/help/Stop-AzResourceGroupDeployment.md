@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-10-2026
+ms.date: 09-30-2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzResourceGroupDeployment
 ---
@@ -207,4 +207,6 @@ Nothing is emitted on success. Azure Resource Manager answers the cancel request
 Only a deployment whose provisioning state is `Accepted` or `Running` can be cancelled. Cancelling stops the deployment where it stands and leaves the resource group partially deployed; resources already created are not rolled back. Use `Get-AzResourceGroupDeployment` to confirm the deployment reached the `Canceled` state.
 
 ## RELATED LINKS
+
+{{ Fill in the related links here }}
 

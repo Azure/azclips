@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/01/2026
+ms.date: 09-30-2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzResourceGroupDeployment
 ---
@@ -20,11 +20,11 @@ Validate whether an ARM or Bicep template would be accepted for a resource group
 ### __AllParameterSets
 
 ```
-Test-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string>
- [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
- [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
- [-RollbackOnError] [-RollbackToDeploymentName <string>] [-ValidationLevel <string>]
- [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
+Test-AzResourceGroupDeployment -ResourceGroupName <string> [-Name <string>] [-TemplateUri <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
+ [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>]
+ [-Parameter <string[]>] [-RollbackOnError] [-RollbackToDeploymentName <string>]
+ [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -90,7 +90,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -294,6 +294,27 @@ Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -TemplateObject
+
+{{ Fill TemplateObject Description }}
+
+```yaml
+Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
