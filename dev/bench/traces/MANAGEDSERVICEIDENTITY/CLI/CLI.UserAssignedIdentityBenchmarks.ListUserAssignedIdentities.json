@@ -4,10 +4,10 @@
   "extension": "MANAGEDSERVICEIDENTITY",
   "product": "CLI",
   "source": {
-    "commit": "a356e0f6ab7b34457436579857b6452800f55951",
+    "commit": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
     "ref": "refs/heads/main",
-    "run_id": "36655315238",
-    "generated": "2026-09-30T01:53:39Z"
+    "run_id": "36664747173",
+    "generated": "2026-09-30T03:54:22Z"
   },
   "traces": 100,
   "diagnostics": {
@@ -23,7 +23,7 @@
           0
         ]
       ],
-      "avg_ms": 3.633090000000002,
+      "avg_ms": 3.1687829999999995,
       "occurrences": 100,
       "offset_ms": 0.0
     },
@@ -38,24 +38,9 @@
           0
         ]
       ],
-      "avg_ms": 1.452846,
+      "avg_ms": 1.297573,
       "occurrences": 100,
       "offset_ms": 0.0
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ParseGlobalArgs",
-          0
-        ]
-      ],
-      "avg_ms": 0.0037770000000000004,
-      "occurrences": 100,
-      "offset_ms": 1.47639
     },
     {
       "path": [
@@ -68,9 +53,9 @@
           0
         ]
       ],
-      "avg_ms": 0.09118300000000001,
+      "avg_ms": 0.0022820000000000006,
       "occurrences": 100,
-      "offset_ms": 1.501190000000001
+      "offset_ms": 1.3169899999999997
     },
     {
       "path": [
@@ -83,9 +68,9 @@
           0
         ]
       ],
-      "avg_ms": 0.41195100000000023,
+      "avg_ms": 0.3797529999999999,
       "occurrences": 100,
-      "offset_ms": 1.6192
+      "offset_ms": 1.3409
     },
     {
       "path": [
@@ -98,9 +83,9 @@
           0
         ]
       ],
-      "avg_ms": 1.5637659999999998,
+      "avg_ms": 1.4121120000000003,
       "occurrences": 100,
-      "offset_ms": 2.05788
+      "offset_ms": 1.7461999999999998
     },
     {
       "path": [
@@ -117,9 +102,9 @@
           0
         ]
       ],
-      "avg_ms": 0.024624,
+      "avg_ms": 0.021322000000000015,
       "occurrences": 100,
-      "offset_ms": 0.00046000000000000034
+      "offset_ms": 0.00048000000000000034
     },
     {
       "path": [
@@ -136,9 +121,28 @@
           0
         ]
       ],
-      "avg_ms": 0.5818900000000001,
+      "avg_ms": 0.5361029999999998,
       "occurrences": 100,
-      "offset_ms": 0.025539999999999993
+      "offset_ms": 0.02226999999999997
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.Startup",
+          0
+        ],
+        [
+          "AzureCLI.ParseGlobalArgs",
+          0
+        ]
+      ],
+      "avg_ms": 0.003955000000000001,
+      "occurrences": 100,
+      "offset_ms": 0.5585900000000003
     },
     {
       "path": [
@@ -155,9 +159,9 @@
           0
         ]
       ],
-      "avg_ms": 0.8360610000000002,
+      "avg_ms": 0.7279450000000002,
       "occurrences": 100,
-      "offset_ms": 0.6077399999999998
+      "offset_ms": 0.5625799999999996
     },
     {
       "path": [
@@ -174,9 +178,9 @@
           0
         ]
       ],
-      "avg_ms": 0.12329299999999996,
+      "avg_ms": 0.11497299999999999,
       "occurrences": 100,
-      "offset_ms": 1.87626
+      "offset_ms": 1.5761499999999997
     },
     {
       "path": [
@@ -193,9 +197,9 @@
           0
         ]
       ],
-      "avg_ms": 1.3599230000000002,
+      "avg_ms": 1.227256,
       "occurrences": 100,
-      "offset_ms": 2.24115
+      "offset_ms": 1.9130099999999997
     },
     {
       "path": [
@@ -212,9 +216,9 @@
           0
         ]
       ],
-      "avg_ms": 0.7707530000000001,
+      "avg_ms": 0.7040569999999999,
       "occurrences": 100,
-      "offset_ms": 2.78455
+      "offset_ms": 2.39596
     },
     {
       "path": [
@@ -231,9 +235,9 @@
           0
         ]
       ],
-      "avg_ms": 0.20656200000000005,
+      "avg_ms": 0.18471599999999996,
       "occurrences": 100,
-      "offset_ms": 2.805459999999999
+      "offset_ms": 2.41429
     },
     {
       "path": [
@@ -250,9 +254,9 @@
           0
         ]
       ],
-      "avg_ms": 0.1692520000000001,
+      "avg_ms": 0.15064099999999997,
       "occurrences": 100,
-      "offset_ms": 2.818809999999999
+      "offset_ms": 2.4265100000000004
     }
   ]
 }
