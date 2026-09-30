@@ -2200,8 +2200,8 @@ Expected: no output.
 
 - [ ] **Step 9: Confirm no caller still uses a removed parameter**
 
-Run: `git grep -n -e "network-security-group-name" -e "NetworkSecurityGroupName" -e "--rule-" -e "-Rule[A-Z]" -- src tests wiki tools ":!*.json"`
-Expected: exactly one hit, which is intentional: the dormant `vm nic create-orchestrated` entry `["network-security-group-name"]` in `src/Extensions/Compute/ExtensionIndex.cs`. The dormant `vm nsg create` entries are keyed `"rule-names"` and so on, without the leading `--`, and don't match.
+Run: `git grep -n -E -e "network-security-group-name" -e "(^|[^A-Za-z])NetworkSecurityGroupName" -e "--rule-" -e "-Rule[A-Z]" -- src tests wiki tools ":!*.json"`
+Expected: exactly one hit, which is intentional: the dormant `vm nic create-orchestrated` entry `["network-security-group-name"]` in `src/Extensions/Compute/ExtensionIndex.cs`. The dormant `vm nsg create` entries are keyed `"rule-names"` and so on, without the leading `--`, and don't match. The `(^|[^A-Za-z])` anchor keeps the pattern from matching inside Task 4's `DefaultNetworkSecurityGroupName`.
 
 Any other hit is a missed caller: fix it.
 
