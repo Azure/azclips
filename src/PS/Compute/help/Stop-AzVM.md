@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/10/2026
+ms.date: 09/28/2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzVM
 ---

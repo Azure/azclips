@@ -13,11 +13,11 @@
     "examples": [
       {
         "short_summary": "Create a Linux VM in East US",
-        "command": "az vm create --name myvm --resource-group myrg --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Create using shell variables for credentials",
-        "command": "az vm create --name $vmName --resource-group $rg --location eastus --vm-size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId"
+        "command": "az vm create --name $vmName --resource-group $rg --location eastus --size Standard_D2s_v5 --admin-username $adminUser --admin-password $adminPwd --network-interface-name $vmName-nic --virtual-network-name $vmName-vnet --network-security-group-name $vmName-nsg --subscription-id $subId"
       }
     ],
     "parameters": [
@@ -152,6 +152,12 @@
         "group_name": "Network Arguments"
       },
       {
+        "name": "--size",
+        "required": true,
+        "short_summary": "The size of the virtual machine.",
+        "long_summary": ""
+      },
+      {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
@@ -177,12 +183,6 @@
         "short_summary": "The virtual network name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
-      },
-      {
-        "name": "--vm-size",
-        "required": true,
-        "short_summary": "The size of the virtual machine.",
-        "long_summary": ""
       },
       {
         "name": "--debug",
@@ -423,12 +423,28 @@
   {
     "command": "vm list",
     "type": "command",
-    "short_summary": "List virtual machines in a resource group.",
-    "long_summary": "Return a list of virtual machines that live in the specified resource group, including each machine\u0027s name, size, location, and provisioning state. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.",
+    "short_summary": "List virtual machines.",
+    "long_summary": "Return a list of virtual machines, including each machine\u0027s name, size, location, and provisioning state. Omit \u0060--resource-group\u0060 to list every virtual machine in the subscription. \u0060--show-details\u0060 runs one extra request per virtual machine, so it is slow, and fetches details for at most 100 virtual machines. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.",
     "examples": [
+      {
+        "short_summary": "List all VMs in the subscription",
+        "command": "az vm list --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
       {
         "short_summary": "List VMs in a resource group",
         "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "List VM instances in a scale set by name",
+        "command": "az vm list --resource-group myrg --vmss myvmss"
+      },
+      {
+        "short_summary": "List VM instances in a scale set by resource id",
+        "command": "az vm list --vmss /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachineScaleSets/myvmss"
+      },
+      {
+        "short_summary": "List VMs with public IP addresses, FQDNs and power states",
+        "command": "az vm list --resource-group myrg -d"
       },
       {
         "short_summary": "List using shell variables",
@@ -444,14 +460,26 @@
       },
       {
         "name": "--resource-group",
-        "required": true,
-        "short_summary": "The resource group name.",
+        "required": false,
+        "short_summary": "The resource group name. Omit to list every virtual machine in the subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--show-details",
+        "required": false,
+        "short_summary": "Show public ip address, FQDN, and power states. Command will run slow.",
         "long_summary": ""
       },
       {
         "name": "--subscription-id",
         "required": false,
         "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
+        "long_summary": ""
+      },
+      {
+        "name": "--vmss",
+        "required": false,
+        "short_summary": "List VM instances in a specific VMSS. Please specify the VMSS id or VMSS name.",
         "long_summary": ""
       },
       {
@@ -506,13 +534,37 @@
       {
         "short_summary": "Show using shell variables",
         "command": "az vm show --name $vmName --resource-group $rg --subscription-id $subId"
+      },
+      {
+        "short_summary": "Show several virtual machines by resource ID",
+        "command": "az vm show --ids /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm"
+      },
+      {
+        "short_summary": "Include the user data",
+        "command": "az vm show --name myvm --resource-group myrg --include-user-data"
+      },
+      {
+        "short_summary": "Show public IPs, FQDNs and power state",
+        "command": "az vm show --name myvm --resource-group myrg --show-details"
       }
     ],
     "parameters": [
       {
+        "name": "--ids",
+        "required": false,
+        "short_summary": "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--include-user-data",
+        "required": false,
+        "short_summary": "Include the user data properties in the query result.",
+        "long_summary": ""
+      },
+      {
         "name": "--name",
-        "required": true,
-        "short_summary": "The name of the virtual machine.",
+        "required": false,
+        "short_summary": "The name of the virtual machine. Provide either --ids or --name and --resource-group.",
         "long_summary": ""
       },
       {
@@ -523,8 +575,14 @@
       },
       {
         "name": "--resource-group",
-        "required": true,
-        "short_summary": "The resource group name.",
+        "required": false,
+        "short_summary": "The resource group name. Provide either --ids or --name and --resource-group.",
+        "long_summary": ""
+      },
+      {
+        "name": "--show-details",
+        "required": false,
+        "short_summary": "Show public ip address, FQDN, and power states. Command will run slow.",
         "long_summary": ""
       },
       {

@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Core.Authentication;
 
 namespace Benchmark.Auth;
 
@@ -26,7 +27,9 @@ internal static class MsalCacheFixture
     private static readonly Lazy<string> s_accessTokenSecret = new(ReadAccessTokenSecret);
 
     private const string SeedFileName = "MsalCache.seed.json";
-    private const string CacheFileName = "MSAL.cache.plaintext";
+
+    /// <summary>Where the factory puts an unprotected user cache, which is what benchmarks force.</summary>
+    public static string CacheFileName { get; } = MsalTokenCacheFactory.GetCacheFileName(plaintextUnsafe: true);
 
     /// <summary>
     /// Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file,
