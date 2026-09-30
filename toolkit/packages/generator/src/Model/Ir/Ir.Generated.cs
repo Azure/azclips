@@ -563,19 +563,6 @@ public enum PsCommandDialectConfirmImpact
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum PsCommandDialectLifecycleTag
-{
-    [JsonStringEnumMemberName("Preview")]
-    Preview,
-    [JsonStringEnumMemberName("Deprecated")]
-    Deprecated,
-    [JsonStringEnumMemberName("Experimental")]
-    Experimental,
-    [JsonStringEnumMemberName("GA")]
-    GA
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SerializationHintOmitWhen
 {
     [JsonStringEnumMemberName("never")]
@@ -893,6 +880,15 @@ public partial class IRCommandParameter
     public IRCommandParameterDialect? Dialect { get; set; }
 }
 
+public partial class IRCommandParameterBinding
+{
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("targetParameters")]
+    public IReadOnlyList<IRId> TargetParameters { get; set; } = [];
+}
+
 public partial class IRCommandParameterDialect
 {
     [JsonPropertyName("ps")]
@@ -938,6 +934,8 @@ public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
 
 public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSource
 {
+    [JsonPropertyName("bindings")]
+    public IReadOnlyList<IRCommandParameterBinding>? Bindings { get; set; }
 }
 
 public partial class IRCommandRequest
@@ -2152,6 +2150,15 @@ public partial class PSDefaultValueAttribute
     public string? SetCondition { get; set; }
 }
 
+public partial class PSPreview
+{
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = default !;
+
+    [JsonPropertyName("estimatedGaDate")]
+    public string? EstimatedGaDate { get; set; }
+}
+
 public partial class ParameterHints
 {
     [JsonPropertyName("clientApi")]
@@ -2193,23 +2200,20 @@ public partial class PsCommandDialect
     [JsonPropertyName("examples")]
     public IReadOnlyList<string>? Examples { get; set; }
 
-    [JsonPropertyName("lifecycleTag")]
-    public PsCommandDialectLifecycleTag? LifecycleTag { get; set; }
+    [JsonPropertyName("deprecated")]
+    public bool? Deprecated { get; set; }
+
+    [JsonPropertyName("preview")]
+    public PSPreview? Preview { get; set; }
 
     [JsonPropertyName("helpUri")]
     public string? HelpUri { get; set; }
-
-    [JsonPropertyName("supportsPaging")]
-    public bool? SupportsPaging { get; set; }
 
     [JsonPropertyName("outputTypes")]
     public IReadOnlyList<IRTypeRef>? OutputTypes { get; set; }
 
     [JsonPropertyName("httpPath")]
     public PsCommandDialectHttpPath? HttpPath { get; set; }
-
-    [JsonPropertyName("identity")]
-    public PsCommandIdentity? Identity { get; set; }
 }
 
 public partial class PsCommandDialectHttpPath
@@ -2219,24 +2223,6 @@ public partial class PsCommandDialectHttpPath
 
     [JsonPropertyName("apiVersion")]
     public string ApiVersion { get; set; } = default !;
-}
-
-public partial class PsCommandIdentity
-{
-    [JsonPropertyName("parameter")]
-    public string Parameter { get; set; } = default !;
-
-    [JsonPropertyName("properties")]
-    public IReadOnlyList<PsCommandIdentityProperty> Properties { get; set; } = [];
-}
-
-public partial class PsCommandIdentityProperty
-{
-    [JsonPropertyName("property")]
-    public IRId Property { get; set; } = default !;
-
-    [JsonPropertyName("sourceParameters")]
-    public IReadOnlyList<IRId> SourceParameters { get; set; } = [];
 }
 
 public partial class PsParameterDialect

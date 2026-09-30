@@ -202,6 +202,7 @@ export {
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
+  IRCommandParameterBindingSchema,
   IRCommandParameterSourceSchema,
   IRCommandRequestSchema,
   IRCommandRequestBodySchema,
@@ -220,7 +221,9 @@ export {
   type IRCommand,
   type IRCommandId,
   type IRCommandParameter,
+  type IRCommandParameterBinding,
   type IRCommandParameterSource,
+  type IRCommandParameterSourceSynthetic,
   type IRCommandRequest,
   type IRCommandRequestBody,
   type IRCommandResponse,
@@ -237,8 +240,6 @@ export {
 
 export {
   PsModuleDialectSchema,
-  PsCommandIdentitySchema,
-  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -246,8 +247,6 @@ export {
   CliParameterDialectSchema,
   type IRClientDialect,
   type PsModuleDialect,
-  type PsCommandIdentity,
-  type PsCommandIdentityProperty,
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,
@@ -269,11 +268,11 @@ export {
 
 export {
   ConfirmImpacts,
-  LifecycleTags,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
+  PSPreviewSchema,
   type ConfirmImpact,
-  type LifecycleTag,
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
+  type PSPreview,
 } from "./ps.js";

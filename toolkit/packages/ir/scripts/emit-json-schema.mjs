@@ -38,6 +38,7 @@ import {
   // PowerShell metadata definitions consumed by command dialect generation.
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
+  PSPreviewSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.
   // Registering the structurally-recursive types (IRId, IRTypeRef, IRServer)
@@ -113,6 +114,7 @@ import {
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
+  IRCommandParameterBindingSchema,
   IRCommandParameterSourceSchema,
   IRCommandRequestSchema,
   IRCommandRequestBodySchema,
@@ -126,8 +128,6 @@ import {
   IRCommandDialectSchema,
   IRCommandParameterDialectSchema,
   // Per-client dialects.
-  PsCommandIdentitySchema,
-  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -226,6 +226,7 @@ const definitions = {
   IRCommand: IRCommandSchema,
   IRCommandId: IRCommandIdSchema,
   IRCommandParameter: IRCommandParameterSchema,
+  IRCommandParameterBinding: IRCommandParameterBindingSchema,
   IRCommandParameterSource: IRCommandParameterSourceSchema,
   IRCommandRequest: IRCommandRequestSchema,
   IRCommandRequestBody: IRCommandRequestBodySchema,
@@ -241,8 +242,6 @@ const definitions = {
   // Dialects. Each client's type is structurally distinct, which matters:
   // zodToJsonSchema collapses identical shapes into one definition.
   PsCommandDialect: PsCommandDialectSchema,
-  PsCommandIdentity: PsCommandIdentitySchema,
-  PsCommandIdentityProperty: PsCommandIdentityPropertySchema,
   PsParameterDialect: PsParameterDialectSchema,
   PsParameterSetMembership: PsParameterSetMembershipSchema,
   CliCommandDialect: CliCommandDialectSchema,
@@ -253,6 +252,7 @@ const definitions = {
   // PowerShell metadata shared by dialects.
   PSCompleterAttribute: PSCompleterAttributeSchema,
   PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
+  PSPreview: PSPreviewSchema,
 };
 
 const jsonSchema = zodToJsonSchema(TransformedIRSchema, {

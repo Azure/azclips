@@ -2,10 +2,10 @@ import { assert, describe, expect, it } from "vitest";
 import {
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
+  PSPreviewSchema,
   PsCommandDialectSchema,
   PsModuleDialectSchema,
   PsParameterDialectSchema,
-  PsCommandIdentitySchema,
   IRCommandSchema,
   IRCommandParameterSourceSchema,
   emptyIR,
@@ -31,14 +31,14 @@ describe("PsModuleDialect", () => {
   });
 });
 
-describe("PsCommandIdentity", () => {
-  it("maps synthesized model properties to canonical path parameters", () => {
-    const result = PsCommandIdentitySchema.safeParse({
-      parameter: "InputObject",
-      properties: [
+describe("IRCommandParameterSourceSynthetic", () => {
+  it("maps model properties to canonical path parameters", () => {
+    const result = IRCommandParameterSourceSchema.safeParse({
+      kind: "synthetic",
+      bindings: [
         {
           property: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity.resourceGroupName" },
-          sourceParameters: [
+          targetParameters: [
             { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
           ],
         },
@@ -48,8 +48,8 @@ describe("PsCommandIdentity", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects identity metadata with no property bindings", () => {
-    const result = PsCommandIdentitySchema.safeParse({ parameter: "InputObject", properties: [] });
+  it("rejects an explicitly empty binding list", () => {
+    const result = IRCommandParameterSourceSchema.safeParse({ kind: "synthetic", bindings: [] });
 
     expect(result.success).toBe(false);
   });
@@ -65,9 +65,12 @@ describe("PsCommandDialect", () => {
       supportsShouldProcess: true,
       confirmImpact: "High",
       examples: ["Remove-AzWidget -Name example"],
-      lifecycleTag: "GA",
+      deprecated: true,
+      preview: {
+        message: "This command is in preview.",
+        estimatedGaDate: "2027-01-01",
+      },
       helpUri: "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
-      supportsPaging: true,
       outputTypes: [
         { kind: "model", id: { module: "Widgets", namespace: [], name: "Widget" } },
       ],
@@ -75,6 +78,12 @@ describe("PsCommandDialect", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("requires a message for preview metadata", () => {
+    const result = PSPreviewSchema.safeParse({ estimatedGaDate: "2027-01-01" });
+
+    expect(result.success).toBe(false);
   });
 
   it("rejects an unknown ConfirmImpact value", () => {
@@ -116,7 +125,15 @@ describe("PsCommandDialect", () => {
       parameters: [
         {
           name: "InputObject",
-          source: { kind: "synthetic" },
+          source: {
+            kind: "synthetic",
+            bindings: [{
+              property: { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" },
+              targetParameters: [
+                { module: "Widgets", namespace: [], name: "get.resourceGroupName" },
+              ],
+            }],
+          },
           type: {
             kind: "model",
             id: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
@@ -132,13 +149,6 @@ describe("PsCommandDialect", () => {
           verb: "Get",
           noun: "AzWidget",
           defaultParameterSet: "ByName",
-          identity: {
-            parameter: "InputObject",
-            properties: [{
-              property: { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" },
-              sourceParameters: [],
-            }],
-          },
         },
       },
     });
@@ -209,7 +219,7 @@ describe("PowerShell synthetic parameters", () => {
   });
 });
 
-describe("PowerShell command identity references", () => {
+describe("Synthetic parameter bindings", () => {
   const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
   const identityPropertyId = { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" };
   const serverId = { module: "Widgets", namespace: [], name: "server" };
@@ -233,8 +243,7 @@ describe("PowerShell command identity references", () => {
 
   function document({
     parameterType = identityId,
-    sourceParameters = [pathParameterId],
-    identityParameter = "InputObject",
+    targetParameters = [pathParameterId],
     property = identityPropertyId,
   } = {}) {
     return {
@@ -278,22 +287,30 @@ describe("PowerShell command identity references", () => {
           request: { method: "GET", path: [], query: [], headers: [] },
           responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
         }],
-        parameters: [{
-          name: "InputObject",
-          source: { kind: "synthetic" },
-          type: { kind: "model", id: parameterType },
-          required: true,
-          nullable: false,
-        }],
+        parameters: [
+          {
+            name: "ResourceGroupName",
+            source: { kind: "path", parameter: pathParameterId },
+            type: { kind: "primitive", name: "string" },
+            required: true,
+            nullable: false,
+          },
+          {
+            name: "InputObject",
+            source: {
+              kind: "synthetic",
+              bindings: [{ property, targetParameters }],
+            },
+            type: { kind: "model", id: parameterType },
+            required: true,
+            nullable: false,
+          },
+        ],
         surface: { paginated: false },
         dialect: {
           ps: {
             verb: "Get",
             noun: "AzWidget",
-            identity: {
-              parameter: identityParameter,
-              properties: [{ property, sourceParameters }],
-            },
           },
         },
       }],
@@ -349,23 +366,11 @@ describe("PowerShell command identity references", () => {
     }
   });
 
-  it("rejects an identity that names no synthetic model parameter", () => {
-    const result = safeParseTransformedIR(document({ identityParameter: "Missing" }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const identityIssues = result.error.issues.filter((issue) => issue.path.includes("identity"));
-      expect(identityIssues).toEqual([
-        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "identity", "parameter"] }),
-      ]);
-    }
-  });
-
-  it("accepts a synthetic model parameter with command-specific identity bindings", () => {
+  it("accepts a synthetic model parameter with command-specific bindings", () => {
     expect(safeParseTransformedIR(document()).success).toBe(true);
   });
 
-  it("rejects an identity parameter whose model does not exist", () => {
+  it("rejects a bound synthetic parameter whose model does not exist", () => {
     const result = safeParseTransformedIR(document({
       parameterType: { ...identityId, name: "OtherIdentity" },
     }));
@@ -373,32 +378,32 @@ describe("PowerShell command identity references", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "type", "id"] }),
+        expect.objectContaining({ path: ["commands", 0, "parameters", 1, "type", "id"] }),
       ]));
     }
   });
 
-  it("rejects an identity property bound to a non-path declaration", () => {
-    const result = safeParseTransformedIR(document({ sourceParameters: [operationId] }));
+  it("rejects a binding target that is not a command path parameter", () => {
+    const result = safeParseTransformedIR(document({ targetParameters: [operationId] }));
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          path: ["commands", 0, "dialect", "ps", "identity", "properties", 0, "sourceParameters", 0],
+          path: ["commands", 0, "parameters", 1, "source", "bindings", 0, "targetParameters", 0],
         }),
       ]));
     }
   });
 
-  it("rejects an identity property outside the parameter model", () => {
+  it("rejects a binding property outside the parameter model", () => {
     const result = safeParseTransformedIR(document({ property: pathParameterId }));
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          path: ["commands", 0, "dialect", "ps", "identity", "properties", 0, "property"],
+          path: ["commands", 0, "parameters", 1, "source", "bindings", 0, "property"],
         }),
       ]));
     }

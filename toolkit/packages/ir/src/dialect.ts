@@ -37,16 +37,15 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, type IRId } from "./id.js";
 import {
   ConfirmImpacts,
-  LifecycleTags,
   PSCompleterAttributeSchema,
   PSDefaultValueAttributeSchema,
+  PSPreviewSchema,
   type ConfirmImpact,
-  type LifecycleTag,
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
+  type PSPreview,
 } from "./ps.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
@@ -77,34 +76,6 @@ const clientDialectFields = {
 };
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
-
-export type PsCommandIdentityProperty = {
-  /** Property on the synthesized model used by the InputObject parameter. */
-  property: IRId;
-  /** Canonical path parameters this property supplies. Empty for a synthesized resource id. */
-  sourceParameters: IRId[];
-};
-
-export const PsCommandIdentityPropertySchema: z.ZodType<PsCommandIdentityProperty> = z
-  .object({
-    property: IRIdSchema,
-    sourceParameters: z.array(IRIdSchema),
-  })
-  .strict();
-
-export type PsCommandIdentity = {
-  /** Name of the synthetic command parameter whose model is the InputObject type. */
-  parameter: string;
-  /** Command-specific mapping from identity-model properties to canonical path parameters. */
-  properties: PsCommandIdentityProperty[];
-};
-
-export const PsCommandIdentitySchema: z.ZodType<PsCommandIdentity> = z
-  .object({
-    parameter: z.string().min(1),
-    properties: z.array(PsCommandIdentityPropertySchema).min(1),
-  })
-  .strict();
 
 /** PowerShell metadata shared by every command emitted into one module. */
 export type PsModuleDialect = {
@@ -156,16 +127,13 @@ export type PsCommandDialect = IRClientDialect & {
   supportsShouldProcess?: boolean | undefined;
   confirmImpact?: ConfirmImpact | undefined;
   examples?: string[] | undefined;
-  lifecycleTag?: LifecycleTag | undefined;
+  deprecated?: boolean | undefined;
+  preview?: PSPreview | undefined;
   helpUri?: string | undefined;
-  /** Opt in to client-side paging when the canonical operation is not pageable. */
-  supportsPaging?: boolean | undefined;
   /** PowerShell output types when the cmdlet writes more than the canonical primary output. */
   outputTypes?: IRTypeRef[] | undefined;
   /** Runtime API-version metadata when the cmdlet must surface a dynamic version. */
   httpPath?: { path: string; apiVersion: string } | undefined;
-  /** InputObject metadata over a synthetic model-typed command parameter. */
-  identity?: PsCommandIdentity | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
@@ -177,15 +145,14 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     supportsShouldProcess: z.boolean().optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
     examples: z.array(z.string().min(1)).optional(),
-    lifecycleTag: z.enum(LifecycleTags).optional(),
+    deprecated: z.boolean().optional(),
+    preview: PSPreviewSchema.optional(),
     helpUri: z.string().url().optional(),
-    supportsPaging: z.boolean().optional(),
     outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
     httpPath: z
       .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
       .strict()
       .optional(),
-    identity: PsCommandIdentitySchema.optional(),
   })
   .strict();
 

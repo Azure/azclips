@@ -179,12 +179,35 @@ const TEMPLATE_STEPS: Readonly<Record<IRCommandTemplate, number>> = {
  * correspond to it — a runtime override would silently mismatch model and wire. It
  * is a fixed value on the request instead.
  */
+export type IRCommandParameterBinding = {
+  /** Property on the synthetic parameter's model that supplies the values. */
+  property: IRId;
+  /** Canonical path parameters populated from this property. */
+  targetParameters: IRId[];
+};
+
+export const IRCommandParameterBindingSchema: z.ZodType<IRCommandParameterBinding> = z
+  .object({
+    property: IRIdSchema,
+    targetParameters: z.array(IRIdSchema).min(1),
+  })
+  .strict();
+
+export type IRCommandParameterSourceSynthetic = {
+  kind: "synthetic";
+  /**
+   * How properties of a model-typed synthetic parameter populate canonical command
+   * parameters. Absent when the synthetic parameter has no fan-out behavior.
+   */
+  bindings?: IRCommandParameterBinding[] | undefined;
+};
+
 export type IRCommandParameterSource =
   | { kind: "path"; parameter: IRId }
   | { kind: "query"; parameter: IRId }
   | { kind: "header"; parameter: IRId }
   | { kind: "body"; path: IRId[] }
-  | { kind: "synthetic" };
+  | IRCommandParameterSourceSynthetic;
 
 export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource> =
   z.discriminatedUnion("kind", [
@@ -192,7 +215,12 @@ export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource>
     z.object({ kind: z.literal("query"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("header"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("body"), path: z.array(IRIdSchema).min(1) }).strict(),
-    z.object({ kind: z.literal("synthetic") }).strict(),
+    z
+      .object({
+        kind: z.literal("synthetic"),
+        bindings: z.array(IRCommandParameterBindingSchema).min(1).optional(),
+      })
+      .strict(),
   ]);
 
 /**

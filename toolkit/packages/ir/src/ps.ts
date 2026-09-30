@@ -6,9 +6,18 @@ import { z } from "zod";
 export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
 export type ConfirmImpact = (typeof ConfirmImpacts)[number];
 
-/** Lifecycle tag emitted through `ProcessorInfoAttribute`. */
-export const LifecycleTags = ["Preview", "Deprecated", "Experimental", "GA"] as const;
-export type LifecycleTag = (typeof LifecycleTags)[number];
+/** Preview announcement emitted for a PowerShell command. */
+export type PSPreview = {
+  message: string;
+  estimatedGaDate?: string | undefined;
+};
+
+export const PSPreviewSchema: z.ZodType<PSPreview> = z
+  .object({
+    message: z.string().min(1),
+    estimatedGaDate: z.string().min(1).optional(),
+  })
+  .strict();
 
 /** Mirrors AutoRest's `CompleterInfoAttribute`. */
 export type PSCompleterAttribute = {

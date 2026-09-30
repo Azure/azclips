@@ -60,9 +60,12 @@ public sealed class IrModelDeserializationTests
               "supportsShouldProcess": true,
               "confirmImpact": "High",
               "examples": ["Remove-AzWidget -Name example"],
-              "lifecycleTag": "GA",
+              "deprecated": true,
+              "preview": {
+                "message": "This command is in preview.",
+                "estimatedGaDate": "2027-01-01"
+              },
               "helpUri": "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
-              "supportsPaging": true,
               "outputTypes": [
                 { "kind": "model", "id": { "module": "Widgets", "namespace": [], "name": "Widget" } }
               ],
@@ -74,11 +77,12 @@ public sealed class IrModelDeserializationTests
             JsonSerializer.Serialize(command, IrJson.Options));
 
         Assert.Equal(PsCommandDialectConfirmImpact.High, commandRoundTrip.ConfirmImpact);
-        Assert.Equal(PsCommandDialectLifecycleTag.GA, commandRoundTrip.LifecycleTag);
+        Assert.True(commandRoundTrip.Deprecated);
+        Assert.Equal("This command is in preview.", commandRoundTrip.Preview!.Message);
+        Assert.Equal("2027-01-01", commandRoundTrip.Preview.EstimatedGaDate);
         Assert.Equal("ByName", commandRoundTrip.DefaultParameterSet);
         Assert.Equal("Remove-AzWidget -Name example", Assert.Single(commandRoundTrip.Examples!));
         Assert.Equal("https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget", commandRoundTrip.HelpUri);
-        Assert.True(commandRoundTrip.SupportsPaging);
         Assert.IsType<IRTypeRefModel>(Assert.Single(commandRoundTrip.OutputTypes!));
         Assert.Equal("/widgets/{name}", commandRoundTrip.HttpPath!.Path);
         Assert.Equal("2025-01-01", commandRoundTrip.HttpPath.ApiVersion);
@@ -143,7 +147,7 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
-    public void PowerShellIdentity_RoundTripsAsCommandDialectOverSyntheticModelParameter()
+    public void SyntheticParameterBindings_RoundTripWithTheirModelParameter()
     {
         TransformedIR document = Parse<TransformedIR>(
             """
@@ -166,7 +170,15 @@ public sealed class IrModelDeserializationTests
                   "parameters": [
                     {
                       "name": "InputObject",
-                      "source": { "kind": "synthetic" },
+                      "source": {
+                        "kind": "synthetic",
+                        "bindings": [{
+                          "property": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity.resourceGroupName" },
+                          "targetParameters": [
+                            { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
+                          ]
+                        }]
+                      },
                       "type": {
                         "kind": "model",
                         "id": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity" }
@@ -178,16 +190,7 @@ public sealed class IrModelDeserializationTests
                   "dialect": {
                     "ps": {
                       "verb": "Get",
-                      "noun": "AzWidget",
-                      "identity": {
-                        "parameter": "InputObject",
-                        "properties": [{
-                          "property": { "module": "Widgets", "namespace": [], "name": "WidgetIdentity.resourceGroupName" },
-                          "sourceParameters": [
-                            { "module": "Widgets", "namespace": [], "name": "get.resourceGroupName" }
-                          ]
-                        }]
-                      }
+                      "noun": "AzWidget"
                     }
                   }
                 }]
@@ -204,15 +207,13 @@ public sealed class IrModelDeserializationTests
 
         IRCommand command = Assert.Single(roundTripped.Commands);
         IRCommandParameter parameter = Assert.Single(command.Parameters);
-        Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
+        var source = Assert.IsType<IRCommandParameterSourceSynthetic>(parameter.Source);
         var parameterType = Assert.IsType<IRTypeRefModel>(parameter.Type);
         Assert.Equal(identityModel.Id!.Name, parameterType.Id.Name);
 
-        PsCommandIdentity identity = command.Dialect!.Ps!.Identity!;
-        Assert.Equal(parameter.Name, identity.Parameter);
-        PsCommandIdentityProperty binding = Assert.Single(identity.Properties);
+        IRCommandParameterBinding binding = Assert.Single(source.Bindings!);
         Assert.Equal(identityProperty.Id!.Name, binding.Property.Name);
-        Assert.Equal("get.resourceGroupName", Assert.Single(binding.SourceParameters).Name);
+        Assert.Equal("get.resourceGroupName", Assert.Single(binding.TargetParameters).Name);
     }
 
     [Fact]
