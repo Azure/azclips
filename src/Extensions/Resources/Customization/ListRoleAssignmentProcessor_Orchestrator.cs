@@ -74,7 +74,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
     }
 
     /// <summary>
-    /// Validates <c>--role</c>. Only a role definition ID (GUID) is supported; resolving a role name to
+    /// Validates the role filter. Only a role definition ID (GUID) is supported; resolving a role name to
     /// its definition ID needs an extra ARM roleDefinitions lookup that is not yet performed.
     /// </summary>
     private void ValidateRoleDefinitionId()
@@ -88,8 +88,8 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         if (!Guid.TryParse(RoleDefinitionId, out _))
         {
             throw AzclipsErrorException.UsageError(
-                $"--role '{RoleDefinitionId}' is not a role definition ID. Role name resolution is not yet supported; " +
-                "pass the role definition ID (GUID).");
+                $"The role '{RoleDefinitionId}' is not a role definition ID (GUID). Role name resolution is not yet supported; " +
+                "specify the role definition ID (GUID).");
         }
     }
 
@@ -106,7 +106,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
         if (hasScope && hasResourceGroup)
         {
-            throw AzclipsErrorException.UsageError("Specify either --scope or --resource-group, not both.");
+            throw AzclipsErrorException.UsageError("Specify either a scope or a resource group, not both.");
         }
 
         if (hasScope)
@@ -117,7 +117,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         if (string.IsNullOrWhiteSpace(SubscriptionId))
         {
             throw AzclipsErrorException.MissingRequiredParameters(
-                "A subscription is required to list role assignments. Provide --scope, or set an active subscription.");
+                "A subscription is required to list role assignments. Specify a scope, or set an active subscription.");
         }
 
         string subscriptionScope = $"/subscriptions/{SubscriptionId.Trim()}";
@@ -138,7 +138,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
         if (hasAssignee && hasObjectId)
         {
-            throw AzclipsErrorException.UsageError("Specify only one of --assignee or --assignee-object-id.");
+            throw AzclipsErrorException.UsageError("Specify only one assignee.");
         }
 
         if (hasObjectId)
@@ -147,7 +147,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
             if (!Guid.TryParse(objectId, out _))
             {
                 throw AzclipsErrorException.UsageError(
-                    $"--assignee-object-id '{objectId}' is not a valid object ID (GUID).");
+                    $"The assignee object ID '{objectId}' is not a valid object ID (GUID).");
             }
 
             return objectId;
@@ -159,8 +159,8 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
             if (!Guid.TryParse(value, out _))
             {
                 throw AzclipsErrorException.UsageError(
-                    $"--assignee '{value}' is not an object ID. Name, UPN, and service-principal resolution is not yet supported; " +
-                    "pass the principal's object ID, or use --assignee-object-id.");
+                    $"The assignee '{value}' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; " +
+                    "specify the principal's object ID (GUID).");
             }
 
             return value;
