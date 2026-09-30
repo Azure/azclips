@@ -1,0 +1,281 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using Core.Abstractions;
+using Core.Cli;
+using Microsoft.Azure.Azclips.Extensions.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+
+namespace Cli.Tests;
+
+/// <summary>
+/// Offline tests for <c>az role assignment create</c> and <c>New-AzRoleAssignment</c>. Create issues a
+/// PUT to <c>{scope}/providers/Microsoft.Authorization/roleAssignments/{name}</c> with a
+/// <c>{ properties: { principalId, roleDefinitionId, ... } }</c> body. The orchestrator resolves the
+/// scope, expands the role definition GUID to a full path, supplies the principal ID, and generates the
+/// assignment name when omitted.
+/// </summary>
+public class RoleAssignmentCreateTests
+{
+    private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+    private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
+    private const string RoleDefinitionId = "b24988ac-6180-42a0-ab88-20f7382dd24c";
+    private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    [Fact]
+    public void CliMetadata_ExposesRoleAssignmentCreate()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
+
+        Assert.Equal(typeof(NewRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
+        Assert.True(metadata.Parameters["scope"].IsRequired);
+        Assert.True(metadata.Parameters["role"].IsRequired);
+        Assert.False(metadata.Parameters["assignee-object-id"].IsRequired);
+        Assert.Equal("RoleDefinitionId", metadata.Parameters["role"].Name);
+        Assert.Equal("PrincipalType", metadata.Parameters["assignee-principal-type"].Name);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+    }
+
+    [Fact]
+    public async Task Create_PutsToScopedRoleAssignment_WithExpandedBody()
+    {
+        (Uri uri, HttpMethod method, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Scope = $"/subscriptions/{TestSubscriptionId}/resourceGroups/test-rg";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(HttpMethod.Put, method);
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/test-rg/providers/Microsoft.Authorization/roleAssignments/{AssignmentName}?api-version=2022-04-01",
+            uri.AbsoluteUri);
+
+        JsonElement props = body.GetProperty("properties");
+        Assert.Equal(AssigneeObjectId, props.GetProperty("principalId").GetString());
+        Assert.Equal(
+            $"/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleDefinitions/{RoleDefinitionId}",
+            props.GetProperty("roleDefinitionId").GetString());
+        // Optional fields not supplied must be omitted (WhenWritingNull).
+        Assert.False(props.TryGetProperty("principalType", out _));
+        Assert.False(props.TryGetProperty("description", out _));
+    }
+
+    [Fact]
+    public async Task Create_DefaultsScopeToSubscription()
+    {
+        (Uri uri, _, _) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleAssignments/{AssignmentName}?api-version=2022-04-01",
+            uri.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task Create_GeneratesAssignmentName_WhenOmitted()
+    {
+        (Uri uri, _, _) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+
+        string name = uri.AbsoluteUri.Split("/roleAssignments/")[1].Split('?')[0];
+        Assert.True(Guid.TryParse(name, out _), $"generated name '{name}' should be a GUID");
+    }
+
+    [Fact]
+    public async Task Create_IncludesPrincipalTypeAndDescription_WhenSupplied()
+    {
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.PrincipalType = "ServicePrincipal";
+            p.Description = "grant CI access";
+        });
+
+        JsonElement props = body.GetProperty("properties");
+        Assert.Equal("ServicePrincipal", props.GetProperty("principalType").GetString());
+        Assert.Equal("grant CI access", props.GetProperty("description").GetString());
+    }
+
+    [Fact]
+    public async Task Create_AssigneeAsName_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Assignee = "john@contoso.com";
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_RoleAsName_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = "Reader";
+        });
+    }
+
+    [Fact]
+    public async Task Create_MissingPrincipal_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_NameNotGuid_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = "not-a-guid";
+        });
+    }
+
+    [Fact]
+    public async Task Create_MissingRole_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_ScopeAndResourceGroup_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Scope = $"/subscriptions/{TestSubscriptionId}";
+            p.ResourceGroupName = "test-rg";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_NoScopeAndNoSubscription_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            // SubscriptionId left empty and no scope provided.
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_ManagementGroupScope_RootsRoleDefinitionAtScope()
+    {
+        (Uri uri, _, JsonElement body) = await Capture(p =>
+        {
+            p.Scope = "/providers/Microsoft.Management/managementGroups/mg";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(
+            $"https://management.azure.com/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Authorization/roleAssignments/{AssignmentName}?api-version=2022-04-01",
+            uri.AbsoluteUri);
+        Assert.Equal(
+            $"/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Authorization/roleDefinitions/{RoleDefinitionId}",
+            body.GetProperty("properties").GetProperty("roleDefinitionId").GetString());
+    }
+
+    [Fact]
+    public async Task Create_ResourceScope_RootsRoleDefinitionAtSubscription()
+    {
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.Scope = $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/acct";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(
+            $"/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleDefinitions/{RoleDefinitionId}",
+            body.GetProperty("properties").GetProperty("roleDefinitionId").GetString());
+    }
+
+    private static async Task<(Uri Uri, HttpMethod Method, JsonElement Body)> Capture(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
+    {
+        Uri? sentUri = null;
+        HttpMethod? sentMethod = null;
+        string sentBody = "{}";
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            sentMethod = request.Method;
+            sentBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return JsonResponse($$"""{ "name": "created", "properties": { "principalId": "{{AssigneeObjectId}}" } }""");
+        });
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        configure(processor);
+
+        await processor.ProcessAsync();
+        using var doc = JsonDocument.Parse(sentBody);
+        return (sentUri!, sentMethod!, doc.RootElement.Clone());
+    }
+
+    private static async Task AssertThrows(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
+    {
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("{}"));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        configure(processor);
+
+        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.DoesNotContain("--", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    private static NewRoleAssignmentProcessor_Orchestrator CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
+    {
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = new NewRoleAssignmentProcessor_Orchestrator();
+        processor.Init(new ProcessorContext(
+            pipeline,
+            new FakeEventPublisher(),
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile));
+        return processor;
+    }
+
+    private static HttpResponseMessage JsonResponse(string body) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+}
