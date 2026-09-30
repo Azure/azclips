@@ -61,7 +61,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 
 ## Docker Publish Retry Behavior
 - `packaging/linux/docker/publish_docker_images.sh` follows classic retry behavior: existing immutable version tags are retained, their digests are recorded, and downstream verification continues without candidate-image uploads.
-- CLI tags follow the classic `azurelinux3.0` spelling, while PowerShell tags use classic `azurelinux-3.0`. The CLI default `VERSION-azurelinux3.0` manifest uses the full amd64/arm64 images; production promotion updates both `azurelinux3.0` and `latest` to it.
+- CLI tags follow the classic `azurelinux3.0` spelling, while PowerShell tags use classic `azurelinux-3.0`. Full CLI images omit a `full` qualifier: `VERSION-azurelinux3.0-{amd64,arm64}` are combined in the default `VERSION-azurelinux3.0` manifest. Production promotion updates both `azurelinux3.0` and `latest` to it.
 - `packaging/linux/docker/pull_published_docker_images.sh` confirms each multi-architecture manifest maps to the recorded architecture-specific digest, pulls that digest on the authenticated AMD64 release agent, and saves it as a per-image pipeline artifact. Native verification agents load those archives through `verify_published_docker_image.sh`, avoiding Azure CLI and ACR credential requirements on ARM64.
 
 ## Editing Rules for Agents

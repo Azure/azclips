@@ -42,7 +42,7 @@ guide in the same PR so it stays accurate.
 - Docker build, publish, verification, and promotion stages depend directly on `Init` and consume `SetCoreVersion.ArtifactVersion`; they do not independently derive a Docker version.
 - ACR publish/promotion and the AMD64 published-image pull job follow classic release-agent convention and expect `az` on the AMD64 agent. The AMD64 job pulls every published digest and exports per-image pipeline artifacts; native verification jobs load those artifacts and run smoke tests, so ARM64 agents require Docker but not Azure CLI or ACR credentials.
 - Docker publication follows classic retry behavior in both test and production: existing immutable version tags are retained and verified downstream rather than rebuilt under candidate tags.
-- CLI tags follow the classic `azurelinux3.0` convention; `VERSION-azurelinux3.0` is the default full multi-architecture image, and production promotion points both `azurelinux3.0` and `latest` at it. PowerShell tags follow classic `azurelinux-3.0` spelling.
+- CLI tags follow the classic `azurelinux3.0` convention; full architecture tags omit a `full` qualifier, and `VERSION-azurelinux3.0` combines them as the default full multi-architecture image. Production promotion points both `azurelinux3.0` and `latest` at it. PowerShell tags follow classic `azurelinux-3.0` spelling.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.

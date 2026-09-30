@@ -74,9 +74,9 @@ pull_image Docker_Verification_CLI_AzureLinux3_Lean_Amd64 \
 pull_image Docker_Verification_CLI_AzureLinux3_Lean_Arm64 \
   "$CLI_REGISTRY_SERVER" "$CLI_REPOSITORY" azurelinux3.0-lean-arm64 azurelinux3.0-lean linux/arm64
 pull_image Docker_Verification_CLI_AzureLinux3_Full_Amd64 \
-  "$CLI_REGISTRY_SERVER" "$CLI_REPOSITORY" azurelinux3.0-full-amd64 azurelinux3.0-full linux/amd64
+  "$CLI_REGISTRY_SERVER" "$CLI_REPOSITORY" azurelinux3.0-amd64 azurelinux3.0 linux/amd64
 pull_image Docker_Verification_CLI_AzureLinux3_Full_Arm64 \
-  "$CLI_REGISTRY_SERVER" "$CLI_REPOSITORY" azurelinux3.0-full-arm64 azurelinux3.0-full linux/arm64
+  "$CLI_REGISTRY_SERVER" "$CLI_REPOSITORY" azurelinux3.0-arm64 azurelinux3.0 linux/arm64
 pull_image Docker_Verification_PowerShell_AzureLinux3_Amd64 \
   "$POWERSHELL_REGISTRY_SERVER" "$POWERSHELL_REPOSITORY" azurelinux-3.0-amd64 azurelinux-3.0 linux/amd64
 pull_image Docker_Verification_PowerShell_AzureLinux3_Arm64 \

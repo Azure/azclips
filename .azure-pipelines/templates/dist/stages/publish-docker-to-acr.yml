@@ -388,7 +388,7 @@ stages:
           ImageFlavor: cli
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3.0-full
+          TagSuffix: azurelinux3.0
           VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Full_Amd64
         cli_azurelinux3_full_arm64:
           Pool: ${{ parameters.arm64_pool }}
@@ -396,7 +396,7 @@ stages:
           ImageFlavor: cli
           RegistryServer: ${{ parameters.cli_registry_server }}
           ImageRepository: ${{ parameters.cli_repository }}
-          TagSuffix: azurelinux3.0-full
+          TagSuffix: azurelinux3.0
           VerificationArtifact: Docker_Verification_CLI_AzureLinux3_Full_Arm64
         powershell_azurelinux3_amd64:
           Pool: ${{ parameters.amd64_pool }}

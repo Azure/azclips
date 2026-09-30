@@ -287,8 +287,6 @@ if [[ "$ACTION" == "promote" ]]; then
   use_registry "$CLI_REGISTRY_NAME" "$CLI_REGISTRY_SERVER"
   promote_alias "$CLI_REPOSITORY" azurelinux3.0-lean azurelinux3.0-lean
   promote_alias "$CLI_REPOSITORY" latest-lean azurelinux3.0-lean
-  promote_alias "$CLI_REPOSITORY" azurelinux3.0-full azurelinux3.0-full
-  promote_alias "$CLI_REPOSITORY" latest-full azurelinux3.0-full
   promote_alias "$CLI_REPOSITORY" azurelinux3.0 azurelinux3.0
   promote_alias "$CLI_REPOSITORY" latest azurelinux3.0
   use_registry "$POWERSHELL_REGISTRY_NAME" "$POWERSHELL_REGISTRY_SERVER"
@@ -404,18 +402,15 @@ publish_manifest() {
 use_registry "$CLI_REGISTRY_NAME" "$CLI_REGISTRY_SERVER"
 publish_image Release_Docker_CLI_AzureLinux3_Lean_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-lean-amd64 azurelinux3.0-lean-amd64 amd64
 publish_image Release_Docker_CLI_AzureLinux3_Lean_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-lean-arm64 azurelinux3.0-lean-arm64 arm64
-publish_image Release_Docker_CLI_AzureLinux3_Full_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-full-amd64 azurelinux3.0-full-amd64 amd64
-publish_image Release_Docker_CLI_AzureLinux3_Full_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-full-arm64 azurelinux3.0-full-arm64 arm64
+publish_image Release_Docker_CLI_AzureLinux3_Full_Amd64 azclips "$CLI_REPOSITORY" azurelinux3-full-amd64 azurelinux3.0-amd64 amd64
+publish_image Release_Docker_CLI_AzureLinux3_Full_Arm64 azclips "$CLI_REPOSITORY" azurelinux3-full-arm64 azurelinux3.0-arm64 arm64
 
 publish_manifest "$CLI_REPOSITORY" azurelinux3.0-lean \
   "$VERSION-azurelinux3.0-lean-amd64" \
   "$VERSION-azurelinux3.0-lean-arm64"
-publish_manifest "$CLI_REPOSITORY" azurelinux3.0-full \
-  "$VERSION-azurelinux3.0-full-amd64" \
-  "$VERSION-azurelinux3.0-full-arm64"
 publish_manifest "$CLI_REPOSITORY" azurelinux3.0 \
-  "$VERSION-azurelinux3.0-full-amd64" \
-  "$VERSION-azurelinux3.0-full-arm64"
+  "$VERSION-azurelinux3.0-amd64" \
+  "$VERSION-azurelinux3.0-arm64"
 
 use_registry "$POWERSHELL_REGISTRY_NAME" "$POWERSHELL_REGISTRY_SERVER"
 publish_image Release_Docker_PowerShell_AzureLinux3_Amd64 azclips-powershell "$POWERSHELL_REPOSITORY" azurelinux3-amd64 azurelinux-3.0-amd64 amd64
