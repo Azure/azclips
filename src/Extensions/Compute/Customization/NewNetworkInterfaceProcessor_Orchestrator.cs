@@ -38,7 +38,9 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     {
         // Explicit names and ids are looked up before anything is created, as legacy CLI checks
         // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
-        (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await ClassifyPublicIpAddressAsync();
+        (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
+            PublicIpAddress, DefaultPublicIpAddressName, SubscriptionId, ResourceGroupName,
+            NewOrExistingResourceResolver.PublicIpAddress, FindPublicIpAddressIdAsync);
 
         NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
@@ -91,45 +93,6 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
         });
         return await nicProcessor.SendAsync();
-    }
-
-    /// <summary>
-    /// Determines the id of an existing public IP to attach, or the
-    /// name of one to create, or neither when no public IP is wanted.
-    /// </summary>
-    private async Task<(string? ExistingId, string? NameToCreate)> ClassifyPublicIpAddressAsync()
-    {
-        string? value = PublicIpAddress;
-
-        if (value is null)
-        {
-            if (string.IsNullOrWhiteSpace(DefaultPublicIpAddressName))
-            {
-                return (null, null);
-            }
-            return (null, DefaultPublicIpAddressName);
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return (null, null);
-        }
-
-        if (value.Contains('/'))
-        {
-            var parsed = VirtualMachineIdResolver.ParseResourceId(
-                value, "Microsoft.Network", "publicIPAddresses", "Public IP address", "publicIpAddressName");
-            string existingId = await FindPublicIpAddressIdAsync(parsed.SubscriptionId, parsed.ResourceGroupName, parsed.Name)
-                ?? throw new InvalidOperationException($"Public IP address '{value}' was not found.");
-            return (existingId, null);
-        }
-
-        string? existingByName = await FindPublicIpAddressIdAsync(SubscriptionId, ResourceGroupName, value);
-        if (existingByName is not null)
-        {
-            return (existingByName, null);
-        }
-        return (null, value);
     }
 
     private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
