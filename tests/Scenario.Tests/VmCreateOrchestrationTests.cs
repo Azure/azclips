@@ -16,6 +16,12 @@ public class VmCreateOrchestrationTests
     private const string VmName = "scenario-vm";
     private const string Password = "PlaceholderP@ss1";
 
+    // A public IP the fake is seeded with, in the VM's resource group.
+    private const string SharedPublicIpId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/publicIPAddresses/shared-ip";
+
+    // A well-formed id the fake has never heard of.
+    private const string MissingPublicIpId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip";
+
     private static readonly string[] s_groupArgs =
     [
         "group", "create",
@@ -198,6 +204,49 @@ public class VmCreateOrchestrationTests
             => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/")).Request.Body!;
     }
 
+    [Fact]
+    public void PublicIp_Omitted_CreatesTheDefaultWithoutALookup()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        var publicIpPutIndex = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/publicIPAddresses/scenario-vmPublicIP?"));
+        Assert.True(publicIpPutIndex >= 0);
+        Assert.DoesNotContain(record.Entries[..publicIpPutIndex], e => IsRequest(e, "GET", "/publicIPAddresses/"));
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/scenario-vmPublicIP?"));
+        Assert.Contains("/publicIPAddresses/scenario-vmPublicIP", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_EmptyString_AttachesNone()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--public-ip-address", ""]);
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/publicIPAddresses/"));
+        Assert.DoesNotContain("publicIPAddress", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_ExistingName_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, SharedPublicIpId), [.. s_cliArgs, "--public-ip-address", "shared-ip"]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/publicIPAddresses/shared-ip?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/"));
+        Assert.Contains(SharedPublicIpId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_MissingResourceId_FailsBeforeAnythingIsCreated()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--public-ip-address", MissingPublicIpId]);
+
+        Assert.Equal($"Public IP address '{MissingPublicIpId}' was not found.", error.Message);
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip?"));
+
+        // Every network and VM request carries /providers/; the resource group create does not.
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
@@ -205,4 +254,33 @@ public class VmCreateOrchestrationTests
         Assert.Equal("westus2", vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
     }
+
+    /// <summary>Runs group create then vm create against <paramref name="backend"/>, recording both.</summary>
+    private static SessionRecord RecordCli(FakeVmArmBackend backend, string[] vmCreateArgs)
+    {
+        var record = new SessionRecord();
+        using (var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(vmCreateArgs));
+        }
+        return record;
+    }
+
+    /// <summary>Like <see cref="RecordCli"/>, for a vm create that must fail; returns what it sent and the error.</summary>
+    private static (SessionRecord Record, InvalidOperationException Error) RecordCliFailure(FakeVmArmBackend backend, string[] vmCreateArgs)
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<InvalidOperationException>(() => host.RunCli(vmCreateArgs));
+        return (record, error);
+    }
+
+    private static bool IsRequest(SessionRecordEntry entry, string method, string uriFragment)
+        => entry.Request.Method == method && entry.Request.Uri.Contains(uriFragment);
+
+    /// <summary>The body of the first PUT whose URI contains <paramref name="uriFragment"/>.</summary>
+    private static string PutBody(SessionRecord record, string uriFragment)
+        => record.Entries.First(e => IsRequest(e, "PUT", uriFragment)).Request.Body!;
 }

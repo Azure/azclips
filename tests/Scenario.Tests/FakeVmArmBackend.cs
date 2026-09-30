@@ -7,17 +7,21 @@ namespace Scenario.Tests;
 /// <summary>
 /// Stands in for ARM behind the vm create orchestration. Responses carry the ids the
 /// orchestrators read from each step, and the vm create is a real LRO with two polls.
-/// Public IPs are remembered once PUT, so an unknown name answers 404.
+/// NSGs and public IPs exist once PUT, or when their ids are passed in as already existing;
+/// a GET of any other answers 404. Their ids come from the request path, so resources in
+/// other resource groups resolve too.
 /// </summary>
 internal sealed class FakeVmArmBackend : HttpMessageHandler
 {
     private readonly string _subscriptionId;
     private int _vmPolls;
-    private readonly HashSet<string> _publicIps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _existingIds;
 
-    public FakeVmArmBackend(string subscriptionId)
+    /// <param name="existingResourceIds">NSG and public IP ids that exist before vm create runs.</param>
+    public FakeVmArmBackend(string subscriptionId, params string[] existingResourceIds)
     {
         _subscriptionId = subscriptionId;
+        _existingIds = new HashSet<string>(existingResourceIds, StringComparer.OrdinalIgnoreCase);
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -46,30 +50,10 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
 
         if (path.Contains("/publicIPAddresses/", StringComparison.OrdinalIgnoreCase))
         {
-            // Requests fan out in parallel, so guard the set.
-            lock (_publicIps)
-            {
-                if (request.Method == HttpMethod.Put)
-                {
-                    _publicIps.Add(name);
-                }
-                else if (!_publicIps.Contains(name))
-                {
-                    return Task.FromResult(Json(new
-                    {
-                        error = new { code = "ResourceNotFound", message = $"The Resource 'Microsoft.Network/publicIPAddresses/{name}' under resource group 'scenario-vm-rg' was not found." },
-                    }, HttpStatusCode.NotFound));
-                }
-            }
-
-            return Task.FromResult(Json(new
-            {
-                id = Id("Microsoft.Network/publicIPAddresses", name),
-                name,
-                location = "westus2",
-                sku = new { name = "Standard" },
-                properties = new { provisioningState = "Succeeded", publicIPAllocationMethod = "Static", ipAddress = "203.0.113.10" },
-            }, HttpStatusCode.OK));
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/publicIPAddresses",
+                sku: new { name = "Standard" },
+                properties: new { provisioningState = "Succeeded", publicIPAllocationMethod = "Static", ipAddress = "203.0.113.10" }));
         }
 
         if (path.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase))
@@ -89,13 +73,10 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
 
         if (path.Contains("/networkSecurityGroups/", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(Json(new
-            {
-                id = Id("Microsoft.Network/networkSecurityGroups", name),
-                name,
-                location = "westus2",
-                properties = new { provisioningState = "Succeeded" },
-            }, HttpStatusCode.OK));
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/networkSecurityGroups",
+                sku: null,
+                properties: new { provisioningState = "Succeeded" }));
         }
 
         if (path.Contains("/networkInterfaces/", StringComparison.OrdinalIgnoreCase))
@@ -137,6 +118,30 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
         }
 
         throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {uri}");
+    }
+
+    /// <summary>An NSG or public IP: a PUT creates it, and a GET of one that doesn't exist answers 404.</summary>
+    private HttpResponseMessage TrackedResource(HttpRequestMessage request, string path, string name, string type, object? sku, object properties)
+    {
+        var id = path.TrimEnd('/');
+
+        // Requests fan out in parallel, so guard the set.
+        lock (_existingIds)
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                _existingIds.Add(id);
+            }
+            else if (!_existingIds.Contains(id))
+            {
+                return Json(new
+                {
+                    error = new { code = "ResourceNotFound", message = $"The Resource '{type}/{name}' was not found." },
+                }, HttpStatusCode.NotFound);
+            }
+        }
+
+        return Json(new { id, name, location = "westus2", sku, properties }, HttpStatusCode.OK);
     }
 
     private string Id(string provider, string name)
