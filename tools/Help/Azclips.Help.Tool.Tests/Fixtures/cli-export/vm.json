@@ -77,9 +77,9 @@
         "group_name": "Network Arguments"
       },
       {
-        "name": "--network-security-group-name",
-        "required": true,
-        "short_summary": "The network security group name to create.",
+        "name": "--nsg",
+        "required": false,
+        "short_summary": "Name of the network security group to create (default: \u0027{vm}NSG\u0027) or of an existing one to attach. Can also reference an existing NSG by resource ID, or specify \u0022\u0022 for none.",
         "long_summary": "",
         "group_name": "Network Arguments"
       },

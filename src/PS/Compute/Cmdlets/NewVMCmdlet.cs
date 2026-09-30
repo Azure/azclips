@@ -43,8 +43,8 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string VirtualNetworkName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
-    public string NetworkSecurityGroupName { get; set; } = "";
+    [Parameter(Mandatory = false)]
+    public string? SecurityGroupName { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[]? SubnetNames { get; set; }
@@ -84,13 +84,14 @@ public class NewVMCmdlet : PSCmdlet
             { "AdminPassword", AdminPassword },
             { "NetworkInterfaceName", NetworkInterfaceName },
             { "VirtualNetworkName", VirtualNetworkName },
-            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
+        // Omitted or $null keeps the default {vm}NSG; "" is forwarded because it means none.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityGroupName)) && SecurityGroupName is not null) { parameters.Add("SecurityGroupName", SecurityGroupName); }
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
 

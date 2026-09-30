@@ -14,11 +14,15 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
     public string VirtualNetworkName { get; set; } = string.Empty;
-    public string NetworkSecurityGroupName { get; set; } = string.Empty;
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
     public bool AcceleratedNetworking { get; set; }
+
+    public string? NetworkSecurityGroup { get; set; }
+
+    /// <summary>The NSG created when <see cref="NetworkSecurityGroup"/> is null. Empty means none.</summary>
+    public string DefaultNetworkSecurityGroupName { get; set; } = string.Empty;
 
     /// <summary>OS type of the VM's image, which picks the default rule of a new NSG.</summary>
     public string OsType { get; set; } = string.Empty;
@@ -30,8 +34,11 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        // Explicit names and ids are looked up before anything is created, as legacy CLI checks
-        // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
+        // Explicit names and ids are looked up before anything is created, NSG first as legacy CLI
+        // validates them, so a missing id fails without leaving a VNet, NSG or public IP behind.
+        (string? existingNetworkSecurityGroupId, string? networkSecurityGroupNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
+            NetworkSecurityGroup, DefaultNetworkSecurityGroupName, SubscriptionId, ResourceGroupName,
+            NewOrExistingResourceResolver.NetworkSecurityGroup, FindNetworkSecurityGroupIdAsync);
         (string? existingPublicIpAddressId, string? publicIpAddressNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
             PublicIpAddress, DefaultPublicIpAddressName, SubscriptionId, ResourceGroupName,
             NewOrExistingResourceResolver.PublicIpAddress, FindPublicIpAddressIdAsync);
@@ -47,11 +54,73 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.AddressPrefixes = AddressPrefixes;
         });
 
-        SecurityRule defaultRule = NetworkSecurityGroupDefaultRule.For(OsType);
-        NewNetworkSecurityGroupProcessor nsgProcessor = CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
+        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
+        Task<string?> networkSecurityGroupIdTask = networkSecurityGroupNameToCreate is null
+            ? Task.FromResult(existingNetworkSecurityGroupId)
+            : CreateNetworkSecurityGroupAsync(networkSecurityGroupNameToCreate);
+        Task<string?> publicIpAddressIdTask = publicIpAddressNameToCreate is null
+            ? Task.FromResult(existingPublicIpAddressId)
+            : CreatePublicIpAddressAsync(publicIpAddressNameToCreate);
+        using HttpResponseMessage vnetResponse = await vnetResponseTask;
+        string? networkSecurityGroupId = await networkSecurityGroupIdTask;
+        string? publicIpAddressId = await publicIpAddressIdTask;
+        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
+
+        NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
-            p.Name = NetworkSecurityGroupName;
+            p.Name = Name;
+            p.Location = Location;
+            p.ResourceGroupName = ResourceGroupName;
+            p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
+            p.NetworkSecurityGroupId = networkSecurityGroupId ?? string.Empty;
+            p.AcceleratedNetworking = AcceleratedNetworking;
+            p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
+        });
+        return await nicProcessor.SendAsync();
+    }
+
+    private Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync<GetNetworkSecurityGroupProcessor>(p =>
+        {
+            p.SubscriptionId = subscriptionId;
+            p.ResourceGroupName = resourceGroupName;
+            p.Name = name;
+        });
+
+    private Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync<GetPublicIPAddressProcessor>(p =>
+        {
+            p.SubscriptionId = subscriptionId;
+            p.ResourceGroupName = resourceGroupName;
+            p.Name = name;
+        });
+
+    /// <summary>
+    /// Reads the resource <typeparamref name="TGetProcessor"/> addresses and returns its id, or null
+    /// when ARM answers 404. Any ARM resource's body carries its id, so it reads as a reference.
+    /// </summary>
+    private async Task<string?> FindIdAsync<TGetProcessor>(Action<TGetProcessor> configure)
+        where TGetProcessor : ComputeProcessorBase, new()
+    {
+        using HttpResponseMessage response = await CreateExtendedProcessor(configure).SendAllowingNotFoundAsync();
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        ResourceReference resource = (await response.Content.ReadFromJsonAsync<ResourceReference>(JsonOptions))!;
+        return resource.Id;
+    }
+
+    private async Task<string?> CreateNetworkSecurityGroupAsync(string name)
+    {
+        SecurityRule defaultRule = NetworkSecurityGroupDefaultRule.For(OsType);
+        using HttpResponseMessage response = await CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
+        {
+            p.SubscriptionId = SubscriptionId;
+            p.Name = name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
             p.RuleNames = [defaultRule.Name];
@@ -63,49 +132,10 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.RuleDestinationPortRanges = [defaultRule.Properties.DestinationPortRange];
             p.RuleDestinationAddressPrefixes = [defaultRule.Properties.DestinationAddressPrefix];
             p.RuleAccesses = [defaultRule.Properties.Access];
-        });
+        }).SendAsync();
 
-        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
-        Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsync();
-        Task<string?> publicIpAddressIdTask = publicIpAddressNameToCreate is null
-            ? Task.FromResult(existingPublicIpAddressId)
-            : CreatePublicIpAddressAsync(publicIpAddressNameToCreate);
-        using HttpResponseMessage vnetResponse = await vnetResponseTask;
-        using HttpResponseMessage nsgResponse = await nsgResponseTask;
-        string? publicIpAddressId = await publicIpAddressIdTask;
-        VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
-        NetworkSecurityGroup nsg = (await nsgResponse.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
-
-        NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
-        {
-            p.SubscriptionId = SubscriptionId;
-            p.Name = Name;
-            p.Location = Location;
-            p.ResourceGroupName = ResourceGroupName;
-            p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
-            p.NetworkSecurityGroupId = nsg.Id!;
-            p.AcceleratedNetworking = AcceleratedNetworking;
-            p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
-        });
-        return await nicProcessor.SendAsync();
-    }
-
-    private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
-    {
-        using HttpResponseMessage response = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
-        {
-            p.SubscriptionId = subscriptionId;
-            p.ResourceGroupName = resourceGroupName;
-            p.Name = name;
-        }).SendAllowingNotFoundAsync();
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
-        return publicIp.Id;
+        NetworkSecurityGroup networkSecurityGroup = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
+        return networkSecurityGroup.Id;
     }
 
     private async Task<string?> CreatePublicIpAddressAsync(string name)

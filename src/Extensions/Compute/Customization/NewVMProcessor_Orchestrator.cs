@@ -36,7 +36,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string VirtualNetworkName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
-        public string NetworkSecurityGroupName { get; set; } = string.Empty;
+        public string? NetworkSecurityGroup { get; set; }
 
         [ParameterGroup("Network Arguments")]
         public List<string> SubnetNames { get; set; } = [];
@@ -62,7 +62,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VirtualNetworkName = VirtualNetworkName;
-                p.NetworkSecurityGroupName = NetworkSecurityGroupName;
+                p.NetworkSecurityGroup = NetworkSecurityGroup;
+                p.DefaultNetworkSecurityGroupName = $"{Name}NSG";
                 p.SubnetNames = SubnetNames;
                 p.SubnetAddressPrefixes = SubnetAddressPrefixes;
                 p.AddressPrefixes = AddressPrefixes;

@@ -22,6 +22,14 @@ public class VmCreateOrchestrationTests
     // A well-formed id the fake has never heard of.
     private const string MissingPublicIpId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip";
 
+    // NSGs the fake is seeded with: one in the VM's resource group, one in another.
+    private const string SharedNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg";
+    private const string OtherGroupNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg";
+
+    // A well-formed NSG id the fake has never heard of, and a public IP id passed where an NSG id belongs.
+    private const string MissingNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg";
+    private const string NotAnNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-an-nsg";
+
     private static readonly string[] s_groupArgs =
     [
         "group", "create",
@@ -37,7 +45,7 @@ public class VmCreateOrchestrationTests
         ["Location"] = "westus2",
     };
 
-    private static readonly string[] s_cliArgs =
+    private static readonly string[] s_cliArgsWithoutNsg =
     [
         "vm", "create",
         "--subscription-id", SubscriptionId,
@@ -49,11 +57,13 @@ public class VmCreateOrchestrationTests
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
         "--virtual-network-name", "scenario-vm-vnet",
-        "--network-security-group-name", "scenario-vm-nsg",
         "--subnet-names", "default",
         "--subnet-address-prefixes", "10.0.0.0/24",
         "--address-prefixes", "10.0.0.0/16",
     ];
+
+    // An explicit name the fake doesn't know: vm create looks it up, gets a 404, and creates it.
+    private static readonly string[] s_cliArgs = [.. s_cliArgsWithoutNsg, "--nsg", "scenario-vm-nsg"];
 
     private static Dictionary<string, object> PsParameters() => new()
     {
@@ -66,7 +76,7 @@ public class VmCreateOrchestrationTests
         ["AdminPassword"] = Password,
         ["NetworkInterfaceName"] = "scenario-vm-nic",
         ["VirtualNetworkName"] = "scenario-vm-vnet",
-        ["NetworkSecurityGroupName"] = "scenario-vm-nsg",
+        ["SecurityGroupName"] = "scenario-vm-nsg",
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
@@ -261,6 +271,119 @@ public class VmCreateOrchestrationTests
             PutBody(record, "/networkSecurityGroups/"));
     }
 
+    [Fact]
+    public void Nsg_Omitted_CreatesTheDefaultWithoutALookup()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgsWithoutNsg);
+
+        // Every create is a long-running operation whose poll GETs the same URI after the PUT,
+        // so a lookup would be a GET before the PUT.
+        int create = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+        Assert.True(create >= 0, "vm create never created the default NSG.");
+        Assert.DoesNotContain(record.Entries[..create], e => IsRequest(e, "GET", "/networkSecurityGroups/"));
+        Assert.Contains("/networkSecurityGroups/scenario-vmNSG", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_NewName_IsLookedUpThenCreated()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        int lookup = record.Entries.FindIndex(e => IsRequest(e, "GET", "/networkSecurityGroups/scenario-vm-nsg?"));
+        int create = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vm-nsg?"));
+        Assert.True(lookup >= 0, "vm create never looked the NSG up.");
+        Assert.Equal(404, record.Entries[lookup].Response.StatusCode);
+        Assert.True(create > lookup, "vm create did not create the NSG after its lookup.");
+        Assert.Contains("/networkSecurityGroups/scenario-vm-nsg", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_ExistingName_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, SharedNsgId), [.. s_cliArgsWithoutNsg, "--nsg", "shared-nsg"]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/networkSecurityGroups/shared-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(SharedNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_ResourceIdInAnotherGroup_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, OtherGroupNsgId), [.. s_cliArgsWithoutNsg, "--nsg", OtherGroupNsgId]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(OtherGroupNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_MissingResourceId_FailsBeforeAnythingIsCreated()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId]);
+
+        Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void Nsg_MalformedResourceId_FailsBeforeAnyRequest()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", NotAnNsgId]);
+
+        Assert.Equal(
+            $"Invalid network security group resource id '{NotAnNsgId}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Network/networkSecurityGroups/{{networkSecurityGroupName}}.",
+            error.Message);
+
+        // Only group create reached the fake.
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/providers/"));
+    }
+
+    [Fact]
+    public void Nsg_EmptyString_AttachesNone()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", ""]);
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain("networkSecurityGroup", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_IsResolvedBeforeThePublicIp()
+    {
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId, "--public-ip-address", MissingPublicIpId]);
+
+        // Legacy CLI validates the NSG first, so its error wins and the public IP is never looked up.
+        Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/publicIPAddresses/"));
+    }
+
+    [Fact]
+    public void PowerShell_SecurityGroupName_AttachesAnExistingNsg()
+    {
+        var parameters = PsParameters();
+        parameters["SecurityGroupName"] = "shared-nsg";
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId, SharedNsgId), parameters);
+
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(SharedNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PowerShell_SecurityGroupNameOmitted_CreatesTheDefault()
+    {
+        var parameters = PsParameters();
+        parameters.Remove("SecurityGroupName");
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
@@ -289,6 +412,18 @@ public class VmCreateOrchestrationTests
         host.RunCli(s_groupArgs);
         var error = Assert.Throws<InvalidOperationException>(() => host.RunCli(vmCreateArgs));
         return (record, error);
+    }
+
+    /// <summary>Runs New-AzResourceGroup then New-AzVM against <paramref name="backend"/>, recording both.</summary>
+    private static SessionRecord RecordPowerShell(FakeVmArmBackend backend, Dictionary<string, object> vmParameters)
+    {
+        var record = new SessionRecord();
+        using (var host = new ScenarioHost(ClientType.PowerShell, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+            AssertVm(host.RunPowerShell("New-AzVM", vmParameters, extension: "Compute"));
+        }
+        return record;
     }
 
     private static bool IsRequest(SessionRecordEntry entry, string method, string uriFragment)
