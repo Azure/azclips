@@ -99,6 +99,7 @@ public class Program
         }
 
         Activity? activity = null;
+        IDisposable? startupLoggingScope = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var errorFormat = OutputFormat.Table;
@@ -117,18 +118,19 @@ public class Program
                 globalArgs = GlobalArgParser.Parse(args);
             }
 
-            var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-            var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-            sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-            ColorPolicy.Initialize(sessionSettings.Color);
-            streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
-
-            using var startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
-
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
+                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(sessionSettings.Color);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+
+                // Startup/profile reads happen before the session logger is set in ExecutionSession.
+                startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
+
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
@@ -264,6 +266,8 @@ public class Program
         }
         finally
         {
+            startupLoggingScope?.Dispose();
+
             // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
             // below disposes the TracerProvider, after which nothing can be exported.
             activity?.Dispose();
