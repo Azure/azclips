@@ -44,7 +44,8 @@ optional too.
 - **Aliases for the removed parameter names.** Removed outright, as `--vm-size` was for `--size`.
 - **Pre-flight checks** that an existing NSG is in the VM's region or subscription. ARM reports it.
 - **Deleting the NSG with the VM.** Neither legacy does.
-- **New NSG smoke-script cases.** The NSG modes are covered by fake-ARM orchestration tests in CI.
+- **Dedicated smoke-script VMs for the NSG modes.** The default and existing-NSG checks ride on
+  the existing `VMCreate` VMs; the other modes are covered by fake-ARM orchestration tests in CI.
 - **Exposing `vm nic create-orchestrated`.** Its unused metadata, which no dispatch table
   registered, is removed rather than migrated.
 
@@ -233,10 +234,29 @@ namespace; the two new helpers follow suit.
 - **Benchmarks** `tests/Benchmark/CLI/VirtualMachineBenchmarks.cs` and
   `tests/Benchmark/PS/VirtualMachineBenchmarks.cs`: drop the NSG argument. The default path keeps
   today's request count, so results stay comparable.
-- **Smoke scripts** `tests/Scripts/CLI/VM{Create,Delete,List,Show,Stop}.sh` and
-  `tests/Scripts/PS/VM{Create,Delete,List,Show,Stop}.ps1`: rename to `--nsg` / `-SecurityGroupName`,
+- **Smoke scripts** `tests/Scripts/CLI/VM{Delete,List,Show,Stop}.sh` and
+  `tests/Scripts/PS/VM{Delete,List,Show,Stop}.ps1`: rename to `--nsg` / `-SecurityGroupName`,
   keeping their explicit names. `VMStop` and `VMDelete` also drop their `--rule-*` / `-Rule*`
-  arguments; the default `rdp` rule replaces the RDP rule they built. No new cases.
+  arguments; the default `rdp` rule replaces the RDP rule they built.
+- **NSG smoke cases** in `tests/Scripts/CLI/VMCreate.sh` and `tests/Scripts/PS/VMCreate.ps1`,
+  folded into the existing four VMs so quota stays at four Standard_D2s_v3 VMs (8 vCPUs):
+  - The create helper passes no NSG argument, so every VM gets its default `{vm}NSG` unless a
+    case overrides it.
+  - Right after the resource group is created, each script pre-creates
+    `azclips-vmcreate-existing-nsg-<suffix>` through `az rest` / `Invoke-AzRestMethod` and waits
+    for `provisioningState` `Succeeded`. It has the tag `azclips-smoke=reuse-nsg` and one rule,
+    `smoke-allow-https` (inbound TCP 443, priority 1100). If the pre-create fails, the failure is
+    recorded and cases 3 and 4 run their public IP checks without the NSG argument.
+  - Case 1 (default) also checks that `{vm}NSG` exists with exactly one rule, `rdp` (TCP 3389,
+    Allow, Inbound, priority 1000), and that the NIC `{vm}-nic` references it.
+  - Case 3 (existing public IP) attaches the pre-created NSG with `--nsg <name>` /
+    `-SecurityGroupName <name>`. Case 4 (no public IP) attaches it with its resource ID. Both check
+    that the NIC references it, and that the NSG still has its tag and exactly its one
+    `smoke-allow-https` rule, so it was reused untouched.
+  - NSG IDs are compared case-insensitively, because ARM can return resource group names in a
+    different case. The scripts share one wait-for-`Succeeded` helper between the public IP and
+    NSG pre-creates. Their headers list the NSG checks, and the cleanup notes mention the
+    pre-created NSG.
 - **Build and suites:** `dotnet build azclips.slnx`; `Scenario.Tests`, `Azclips.Help.Tool.Tests`
   and `Cli.Tests`; `devops/scripts/ci/scan_recordings.py` over the new recordings.
 
