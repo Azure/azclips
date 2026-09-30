@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790740461083,
+  "lastUpdate": 1790740517889,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -13328,6 +13328,54 @@ window.BENCHMARK_DATA = {
             "value": 2275946.798238427,
             "unit": "ns",
             "range": "± 61899.20883608071"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
+          "message": "[CLI] Respect startup log level during profile loading (#995)\n\nFixes https://github.com/Azure/CLIPS/issues/947\n\n## Summary\n- resolve the effective CLI session policy before the early startup\nprofile lookup\n- scope startup logging through the gated output stream so verbose\nmessages honor warn/debug settings\n- add a regression covering profile-file startup under warn\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~StreamRoutingIntegrationTests --nologo`\n\n**History Notes**\n[CLI] Respect startup log level during profile loading",
+          "timestamp": "2026-09-30T13:30:56+10:00",
+          "tree_id": "c96755d8c7f97d256ce54bc2edfd36b0787438d8",
+          "url": "https://github.com/Azure/azclips/commit/f55dbcb08cd1e944fa3719377fb95672fe68ca20"
+        },
+        "date": 1790740514671,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2090102.3347560975,
+            "unit": "ns",
+            "range": "± 48433.18807819385"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2142322.5210152282,
+            "unit": "ns",
+            "range": "± 53115.73777293789"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2043981.1398046399,
+            "unit": "ns",
+            "range": "± 46139.067511710506"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2010295.4954277587,
+            "unit": "ns",
+            "range": "± 45687.652493378584"
           }
         ]
       }
