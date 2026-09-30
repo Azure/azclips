@@ -149,19 +149,19 @@ function Wait-PublicIpSucceeded([string]$Label, [string]$Name)
 function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
 {
     $parameters = @{
-        SubscriptionId           = $subscriptionId
-        ResourceGroupName        = $resourceGroup
-        Name                     = $Name
-        Location                 = $location
-        VmSize                   = 'Standard_D2s_v3'
-        AdminUsername            = 'Artemis'
-        AdminPassword            = $env:AZCLIPS_VM_ADMIN_PASSWORD
-        NetworkInterfaceName     = "$Name-nic"
-        VirtualNetworkName       = "$Name-vnet"
-        AddressPrefixes          = '10.0.0.0/16'
-        SubnetNames              = "$Name-subnet"
-        SubnetAddressPrefixes    = '10.0.2.0/24'
-        NetworkSecurityGroupName = "$Name-nsg"
+        SubscriptionId        = $subscriptionId
+        ResourceGroupName     = $resourceGroup
+        Name                  = $Name
+        Location              = $location
+        VmSize                = 'Standard_D2s_v3'
+        AdminUsername         = 'Artemis'
+        AdminPassword         = $env:AZCLIPS_VM_ADMIN_PASSWORD
+        NetworkInterfaceName  = "$Name-nic"
+        VirtualNetworkName    = "$Name-vnet"
+        AddressPrefixes       = '10.0.0.0/16'
+        SubnetNames           = "$Name-subnet"
+        SubnetAddressPrefixes = '10.0.2.0/24'
+        SecurityGroupName     = "$Name-nsg"
     }
     New-AzVM @parameters @Extra
 }

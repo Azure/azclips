@@ -118,7 +118,7 @@ create_vm()
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "$name-nsg" \
+        --nsg "$name-nsg" \
         --output json \
         "$@"
 }
