@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -22,7 +23,7 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]
@@ -33,6 +34,9 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? TemplateSpecId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public Hashtable? TemplateObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? QueryString { get; set; }
@@ -80,7 +84,10 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
             parameters.Add("SubscriptionId", SubscriptionId!);
         }
         parameters.Add("ResourceGroupName", ResourceGroupName);
-        parameters.Add("Name", Name);
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
+        {
+            parameters.Add("Name", Name);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateUri)))
         {
             parameters.Add("TemplateUri", TemplateUri!);
@@ -92,6 +99,10 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateSpecId)))
         {
             parameters.Add("TemplateSpecId", TemplateSpecId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateObject)))
+        {
+            parameters.Add("TemplateObject", TemplateObject!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(QueryString)))
         {
