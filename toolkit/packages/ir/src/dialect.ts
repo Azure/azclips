@@ -99,7 +99,7 @@ export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
 /**
  * A command as a PowerShell cmdlet.
  *
- * `verb` and `noun` are the cmdlet's identity, so sibling commands (same
+ * `verb` and `subject` are the cmdlet's identity, so sibling commands (same
  * `id.subject` and `id.action`, different `id.variant`) normally share them and fold
  * into one cmdlet — each sibling contributing the parameter sets its own parameters
  * declare.
@@ -107,8 +107,8 @@ export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
 export type PsCommandDialect = IRClientDialect & {
   /** Approved PowerShell verb (`Get`, `New`, `Set`, `Remove`, …). */
   verb: string;
-  /** Cmdlet noun, prefix included (`AzElasticSan`). */
-  noun: string;
+  /** Cmdlet subject, prefix included (`AzElasticSan`). */
+  subject: string;
   /**
    * Set chosen when an invocation does not identify one. A family-level fact, so
    * sibling commands folded into one cmdlet must agree on it — nothing in this
@@ -140,7 +140,7 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
   .object({
     ...clientDialectFields,
     verb: z.string().min(1),
-    noun: z.string().min(1),
+    subject: z.string().min(1),
     defaultParameterSet: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean().optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),

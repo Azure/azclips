@@ -59,7 +59,7 @@ describe("PsCommandDialect", () => {
   it("accepts PowerShell processor metadata on a canonical command dialect", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Remove",
-      noun: "AzWidget",
+      subject: "AzWidget",
       aliases: ["Remove-AzLegacyWidget"],
       defaultParameterSet: "ByName",
       supportsShouldProcess: true,
@@ -89,7 +89,7 @@ describe("PsCommandDialect", () => {
   it("rejects an unknown ConfirmImpact value", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Remove",
-      noun: "AzWidget",
+      subject: "AzWidget",
       confirmImpact: "Critical",
     });
 
@@ -99,7 +99,7 @@ describe("PsCommandDialect", () => {
   it("rejects a malformed help URI", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Get",
-      noun: "AzWidget",
+      subject: "AzWidget",
       helpUri: "docs",
     });
 
@@ -147,7 +147,7 @@ describe("PsCommandDialect", () => {
       dialect: {
         ps: {
           verb: "Get",
-          noun: "AzWidget",
+          subject: "AzWidget",
           defaultParameterSet: "ByName",
         },
       },
@@ -310,7 +310,7 @@ describe("Synthetic parameter bindings", () => {
         dialect: {
           ps: {
             verb: "Get",
-            noun: "AzWidget",
+            subject: "AzWidget",
           },
         },
       }],

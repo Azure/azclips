@@ -2185,8 +2185,8 @@ public partial class PsCommandDialect
     [JsonPropertyName("verb")]
     public string Verb { get; set; } = default !;
 
-    [JsonPropertyName("noun")]
-    public string Noun { get; set; } = default !;
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = default !;
 
     [JsonPropertyName("defaultParameterSet")]
     public string? DefaultParameterSet { get; set; }

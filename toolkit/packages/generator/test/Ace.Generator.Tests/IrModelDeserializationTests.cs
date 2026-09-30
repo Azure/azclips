@@ -55,7 +55,7 @@ public sealed class IrModelDeserializationTests
             """
             {
               "verb": "Remove",
-              "noun": "AzWidget",
+              "subject": "AzWidget",
               "defaultParameterSet": "ByName",
               "supportsShouldProcess": true,
               "confirmImpact": "High",
@@ -76,6 +76,7 @@ public sealed class IrModelDeserializationTests
         PsCommandDialect commandRoundTrip = Parse<PsCommandDialect>(
             JsonSerializer.Serialize(command, IrJson.Options));
 
+        Assert.Equal("AzWidget", commandRoundTrip.Subject);
         Assert.Equal(PsCommandDialectConfirmImpact.High, commandRoundTrip.ConfirmImpact);
         Assert.True(commandRoundTrip.Deprecated);
         Assert.Equal("This command is in preview.", commandRoundTrip.Preview!.Message);
@@ -190,7 +191,7 @@ public sealed class IrModelDeserializationTests
                   "dialect": {
                     "ps": {
                       "verb": "Get",
-                      "noun": "AzWidget"
+                      "subject": "AzWidget"
                     }
                   }
                 }]
