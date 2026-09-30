@@ -29,12 +29,18 @@ public static class TelemetryRoutingResolver
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// Resolves the tenant and data boundary for <paramref name="profileNameOverride"/> (or the
-    /// active profile, when null/empty). Best-effort: any failure (missing profile, timeout,
-    /// token/network error) returns <c>(null, null)</c> rather than throwing, since missing
-    /// routing metadata should fall back to Global on upload rather than block the command.
+    /// Resolves the tenant, data boundary, subscription, and auth method for
+    /// <paramref name="profileNameOverride"/> (or the active profile, when null/empty).
+    /// Best-effort: any failure (missing profile, timeout, token/network error) returns all
+    /// <c>null</c> rather than throwing, since missing routing metadata should fall back to
+    /// Global on upload rather than block the command. <c>SubscriptionId</c>/<c>AuthType</c>
+    /// come straight off the already-resolved profile (no extra network call) so callers can
+    /// tag them on the root before replaying startup-phase spans, the same way
+    /// <c>TenantId</c>/<c>Boundary</c> already are — otherwise those two fields stay unset
+    /// until the authoritative <c>ProcessorContextCreated</c> tagging fires during command
+    /// processing, well after any replayed startup spans have already exported.
     /// </summary>
-    public static async Task<(string? TenantId, string? Boundary)> ResolveAsync(
+    public static async Task<(string? TenantId, string? Boundary, string? SubscriptionId, string? AuthType)> ResolveAsync(
         IProfileService profileService,
         IAuthService authService,
         string? profileNameOverride,
@@ -48,7 +54,10 @@ public static class TelemetryRoutingResolver
                 : await profileService.GetProfileAsync(profileNameOverride, cancellationToken);
             var tenantId = profile?.TenantId;
             if (string.IsNullOrWhiteSpace(tenantId))
-                return (null, null);
+                return (null, null, null, null);
+
+            var subscriptionId = profile!.SubscriptionId;
+            var authType = profile.AuthMethod.ToString();
 
             // Suppresses ALL instrumentation (both TelemetryService-created spans and OpenTelemetry's
             // HTTP auto-instrumentation) for the two network calls this makes (token acquisition, then
@@ -71,11 +80,11 @@ public static class TelemetryRoutingResolver
                 timeout ?? DefaultTimeout,
                 cancellationToken);
 
-            return (tenantId, boundary);
+            return (tenantId, boundary, subscriptionId, authType);
         }
         catch
         {
-            return (null, null);
+            return (null, null, null, null);
         }
     }
 }
