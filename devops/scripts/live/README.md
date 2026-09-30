@@ -23,6 +23,13 @@ managed identity that has Contributor on the test subscription; managed identity
 non-interactive login azclips supports. The repository variable `LIVE_TEST_SUBSCRIPTION_ID`
 holds the subscription id, since managed identity login requires it explicitly.
 
+On the GitHub side the workflow runs on the automatic token, with two settings required:
+workflow permissions allowed to write, and Allow GitHub Actions to create and approve pull
+requests enabled for the repository. A pull request opened with the automatic token does not
+trigger its own checks, so store a fine-grained PAT with contents and pull requests write as
+the `LIVE_REFRESH_TOKEN` secret; the workflow prefers it when present and the refresh PR then
+runs CI like any other.
+
 Provisioning that worked for the spike, task 833: Ubuntu 22.04, Standard_D2s_v3, system-assigned
 identity, Contributor role assignment at subscription scope. On the VM install git, python3,
 pwsh, and the .NET SDK version `global.json` pins, then register the runner with the

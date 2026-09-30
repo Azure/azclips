@@ -23,6 +23,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # A PR opened with the automatic token never triggers its own checks; a
+          # LIVE_REFRESH_TOKEN secret (fine-grained PAT, contents and pull requests
+          # write) makes the refresh PR run CI like any other.
+          token: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
 
       - name: Build and sign in
         run: |
@@ -35,7 +39,7 @@ jobs:
       - name: Open a pull request
         if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
         run: |
           if git diff --quiet -- tests; then
             echo "No recordings were rewritten."
