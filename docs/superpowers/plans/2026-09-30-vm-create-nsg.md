@@ -1140,8 +1140,11 @@ with:
     {
         var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgsWithoutNsg);
 
-        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "GET", "/networkSecurityGroups/"));
-        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+        // Every create is a long-running operation whose poll GETs the same URI after the PUT,
+        // so a lookup would be a GET before the PUT.
+        int create = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+        Assert.True(create >= 0, "vm create never created the default NSG.");
+        Assert.DoesNotContain(record.Entries[..create], e => IsRequest(e, "GET", "/networkSecurityGroups/"));
         Assert.Contains("/networkSecurityGroups/scenario-vmNSG", PutBody(record, "/networkInterfaces/"));
     }
 
