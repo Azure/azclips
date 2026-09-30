@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790740490217,
+  "lastUpdate": 1790740546777,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8274,6 +8274,48 @@ window.BENCHMARK_DATA = {
             "value": 3678969.483498684,
             "unit": "ns",
             "range": "± 113935.18118633336"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
+          "message": "[CLI] Respect startup log level during profile loading (#995)\n\nFixes https://github.com/Azure/CLIPS/issues/947\n\n## Summary\n- resolve the effective CLI session policy before the early startup\nprofile lookup\n- scope startup logging through the gated output stream so verbose\nmessages honor warn/debug settings\n- add a regression covering profile-file startup under warn\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~StreamRoutingIntegrationTests --nologo`\n\n**History Notes**\n[CLI] Respect startup log level during profile loading",
+          "timestamp": "2026-09-30T13:30:56+10:00",
+          "tree_id": "c96755d8c7f97d256ce54bc2edfd36b0787438d8",
+          "url": "https://github.com/Azure/azclips/commit/f55dbcb08cd1e944fa3719377fb95672fe68ca20"
+        },
+        "date": 1790740542857,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3365338.929378531,
+            "unit": "ns",
+            "range": "± 92259.13622226453"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3415957.7910869126,
+            "unit": "ns",
+            "range": "± 103230.98225826956"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3350943.544489383,
+            "unit": "ns",
+            "range": "± 104241.44523577887"
           }
         ]
       }
