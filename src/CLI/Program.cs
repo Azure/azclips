@@ -112,7 +112,6 @@ public class Program
 
         try
         {
-            // Replay after startup routing tags the root, while retaining the parse phase's actual timing.
             using (performance.Measure("AzureCLI.ParseGlobalArgs"))
             {
                 globalArgs = GlobalArgParser.Parse(args);
@@ -124,13 +123,10 @@ public class Program
             ColorPolicy.Initialize(sessionSettings.Color);
             streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
 
-            // Startup/profile reads happen before the session logger is set in ExecutionSession, so
-            // scope the logger through the session-aware output stream before any early profile lookup.
             using var startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
 
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
-
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
