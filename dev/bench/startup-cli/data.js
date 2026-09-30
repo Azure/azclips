@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790740610737,
+  "lastUpdate": 1790748068220,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -4620,6 +4620,48 @@ window.BENCHMARK_DATA = {
             "value": 246871130.25,
             "unit": "ns",
             "range": "± 4340784.8245045915"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "677c9a73aaa3b14a4fe934d0c9e29242f6305d31",
+          "message": "{DevOps} Trigger stable release 0.1.4 (#1023)\n\n**Description**\n\nPrepare stable release 0.1.4.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.4.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-30T05:33:32Z",
+          "tree_id": "d816222be301a0c4066012fa7c6e4f2dcf53638a",
+          "url": "https://github.com/Azure/azclips/commit/677c9a73aaa3b14a4fe934d0c9e29242f6305d31"
+        },
+        "date": 1790748064794,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 231345884.42,
+            "unit": "ns",
+            "range": "± 2697302.806469277"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 232850407.59,
+            "unit": "ns",
+            "range": "± 2234791.175350337"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 231194166.26,
+            "unit": "ns",
+            "range": "± 4042442.8608069704"
           }
         ]
       }
