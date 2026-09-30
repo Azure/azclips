@@ -82,7 +82,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'Connect-AzAccount', 'Disconnect-AzAccount', 'Get-AzProfile', 'Set-AzProfile', 'Remove-AzProfile', 'Get-AzAccessToken'
+CmdletsToExport = 'Connect-AzAccount', 'Disconnect-AzAccount', 'Get-AzProfile', 'Set-AzProfile', 'Remove-AzProfile', 'Get-AzAccessToken', 'Open-AzSurvey'
 
 # Variables to export from this module
 VariablesToExport = '*'

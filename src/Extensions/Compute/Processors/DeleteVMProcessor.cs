@@ -13,10 +13,17 @@ public class DeleteVMProcessor : ComputeProcessorBase<object, object>
     public string Name { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
+    public bool? ForceDeletion { get; set; }
+
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+    protected override string CreateRequestUri()
+    {
+        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+        return ForceDeletion is { } forceDeletion
+            ? $"{uri}&forceDeletion={(forceDeletion ? "true" : "false")}"
+            : uri;
+    }
 
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
