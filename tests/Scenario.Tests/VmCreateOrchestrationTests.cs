@@ -230,6 +230,9 @@ public class VmCreateOrchestrationTests
     {
         var record = RecordCli(new FakeVmArmBackend(SubscriptionId, SharedPublicIpId), [.. s_cliArgs, "--public-ip-address", "shared-ip"]);
 
+        var publicIpGetIndex = record.Entries.FindIndex(e => IsRequest(e, "GET", "/publicIPAddresses/shared-ip?"));
+        Assert.True(publicIpGetIndex >= 0);
+        Assert.DoesNotContain(record.Entries[..publicIpGetIndex], e => IsRequest(e, "PUT", "/providers/"));
         Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/publicIPAddresses/shared-ip?"));
         Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/"));
         Assert.Contains(SharedPublicIpId, PutBody(record, "/networkInterfaces/"));
