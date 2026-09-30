@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790733351924,
+  "lastUpdate": 1790734599990,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11512,6 +11512,48 @@ window.BENCHMARK_DATA = {
             "value": 2009976.338965798,
             "unit": "ns",
             "range": "± 47623.62435616249"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cbeebf739d6b3e88db184d004a6c2014f7c1b9ab",
+          "message": "[Resources] `Get-AzRoleAssignment`: Add PowerShell role-assignment listing with role filter (#999)\n\n**Related command**\n`Get-AzRoleAssignment` (and `az role assignment list --role`)\n\n**Description**\nAdds the `Get-AzRoleAssignment` PowerShell cmdlet and a new `--role` /\n`-RoleDefinitionId` filter for\nboth the CLI and PowerShell surfaces. Stacked on the merged CLI command\n(#986).\n\nWhat changed:\n- **`Get-AzRoleAssignment` cmdlet** — reuses the same\n`ListRoleAssignmentProcessor_Orchestrator` as\n`az role assignment list`; only the PowerShell metadata and a thin\ncmdlet differ. Light parameter\nsets (`SubscriptionScope` default, `ResourceGroup`, `Scope`) let\nPowerShell enforce the\n`-Scope`/`-ResourceGroupName` exclusivity natively. `-ObjectId` maps\nonto the processor's\n  `AssigneeObjectId`, matching classic Az.\n- **`--role` / `-RoleDefinitionId`** — filters by role definition ID\n(GUID). ARM's role-assignment\nlist cannot filter by role server-side (its `$filter` supports only\n`atScope()` and `principalId`),\nso the atomic processor gains a spec-pure `FilterPageItems` seam\n(default no-op, applied per page so\n`nextLink` pagination still runs over the full set) and the orchestrator\noverrides it to match the\ntrailing GUID of each assignment's `roleDefinitionId`\n(case-insensitive). It composes with the\nserver-side assignee `$filter`. A role name is rejected with a usage\nerror (name resolution needs an\n  extra ARM roleDefinitions lookup, deferred).\n- PowerShell help doc for the new cmdlet, and updated CLI/PS help for\n`--role`.\n\nParity subset (ARM-only): `-Scope`, `-ResourceGroupName`,\n`-SubscriptionId`, `-ObjectId`,\n`-RoleDefinitionId`. Deferred (need Microsoft Graph or an extra ARM\nlookup): name/UPN/service-principal\nresolution (`-SignInName`/`-ServicePrincipalName`),\n`-ExpandPrincipalGroups`, and role name resolution.\n\nKnown limitation (pre-existing framework issue, flagged for the team,\nnot addressed here): listing at\na management-group or tenant `-Scope` still requires a resolvable\nsubscription because the argument\nbinder's profile default-fill force-resolves any `SubscriptionId`\nproperty.\n\n**Testing Guide**\nAutomated:\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignment\"` (23 tests: CLI + PS metadata, scope\nresolution, assignee and role filtering, pagination, usage errors)\n- `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj` stays green\n(115)\n- Help validation (`tools/Help/Azclips.Help.Tool`) and PowerShell help\ndrift (`build/Test-PSHelpMarkdown.ps1 -Module Resources`): no issues\n\nManual (PowerShell):\n- `Import-Module` the built\n`Microsoft.Azure.Azclips.Cmdlets.Resources.dll`; `Get-AzRoleAssignment\n-Syntax` shows the three parameter sets with `-ObjectId` and\n`-RoleDefinitionId`\n- `Get-AzRoleAssignment -RoleDefinitionId <not-a-guid>` returns a usage\nerror\n\n**History Notes**\n[Resources] `Get-AzRoleAssignment`: Add cmdlet to list RBAC role\nassignments at a subscription, resource group, or scope\n[Resources] `az role assignment list`: Add `--role` to filter role\nassignments by role definition ID\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-30T01:34:40Z",
+          "tree_id": "ea5c268189215eca6cea1346c4b61b329c009b7c",
+          "url": "https://github.com/Azure/azclips/commit/cbeebf739d6b3e88db184d004a6c2014f7c1b9ab"
+        },
+        "date": 1790734595875,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2047194.7984891792,
+            "unit": "ns",
+            "range": "± 49069.46234533696"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2093305.5871242892,
+            "unit": "ns",
+            "range": "± 52147.88882999073"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2013647.822399346,
+            "unit": "ns",
+            "range": "± 50340.22715221339"
           }
         ]
       }
