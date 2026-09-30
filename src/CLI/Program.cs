@@ -112,7 +112,12 @@ public class Program
 
         try
         {
-            globalArgs = GlobalArgParser.Parse(args);
+            // Replay after startup routing tags the root, while retaining the parse phase's actual timing.
+            using (performance.Measure("AzureCLI.ParseGlobalArgs"))
+            {
+                globalArgs = GlobalArgParser.Parse(args);
+            }
+
             var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
             var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
             sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
@@ -152,12 +157,6 @@ public class Program
                 if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
 
                 performance.Replay(_telemetryService);
-            }
-
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
-            {
-                // Parse already happened before startup profile resolution so the config-backed session
-                // policy is active before any profile reads can log.
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
