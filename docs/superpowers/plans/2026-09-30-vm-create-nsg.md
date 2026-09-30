@@ -1042,8 +1042,9 @@ git commit -m "[Compute] vm create: give a new NSG legacy CLI's default rule and
 - Consumes:
   - `NewOrExistingResourceResolver.ResolveAsync(...)` and `NewOrExistingResourceResolver.NetworkSecurityGroup` / `.PublicIpAddress` (Task 2).
   - `NetworkSecurityGroupDefaultRule.For(string osType)` and `OsType` (Task 3).
-  - `GetNetworkSecurityGroupProcessor`, with `SubscriptionId`, `ResourceGroupName` and `Name`, whose response body is a `NetworkSecurityGroup` model with `string? Id`.
-  - `ComputeProcessorBase.SendAllowingNotFoundAsync()`.
+  - `GetNetworkSecurityGroupProcessor` and `GetPublicIPAddressProcessor`, each with `SubscriptionId`, `ResourceGroupName` and `Name`.
+  - The `ResourceReference` model (`src/Extensions/Compute/Models/NetworkInterface.cs`, `public string Id`).
+  - `ComputeProcessorBase.SendAllowingNotFoundAsync()` and `CreateExtendedProcessor<T>(Action<T>? configure)`, where `T : ComputeProcessorBase, new()`.
   - Task 1's test helpers.
 - Produces:
   - `public string? NewVMProcessor_Orchestrator.NetworkSecurityGroup`, marked `[ParameterGroup("Network Arguments")]`. It replaces `NetworkSecurityGroupName`.
@@ -1377,22 +1378,38 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         return await nicProcessor.SendAsync();
     }
 
-    private async Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
-    {
-        using HttpResponseMessage response = await CreateExtendedProcessor<GetNetworkSecurityGroupProcessor>(p =>
+    private Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync<GetNetworkSecurityGroupProcessor>(p =>
         {
             p.SubscriptionId = subscriptionId;
             p.ResourceGroupName = resourceGroupName;
             p.Name = name;
-        }).SendAllowingNotFoundAsync();
+        });
+
+    private Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
+        => FindIdAsync<GetPublicIPAddressProcessor>(p =>
+        {
+            p.SubscriptionId = subscriptionId;
+            p.ResourceGroupName = resourceGroupName;
+            p.Name = name;
+        });
+
+    /// <summary>
+    /// Reads the resource <typeparamref name="TGetProcessor"/> addresses and returns its id, or null
+    /// when ARM answers 404. Any ARM resource's body carries its id, so it reads as a reference.
+    /// </summary>
+    private async Task<string?> FindIdAsync<TGetProcessor>(Action<TGetProcessor> configure)
+        where TGetProcessor : ComputeProcessorBase, new()
+    {
+        using HttpResponseMessage response = await CreateExtendedProcessor(configure).SendAllowingNotFoundAsync();
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
         }
 
-        NetworkSecurityGroup networkSecurityGroup = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
-        return networkSecurityGroup.Id;
+        ResourceReference resource = (await response.Content.ReadFromJsonAsync<ResourceReference>(JsonOptions))!;
+        return resource.Id;
     }
 
     private async Task<string?> CreateNetworkSecurityGroupAsync(string name)
@@ -1419,24 +1436,6 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         return networkSecurityGroup.Id;
     }
 
-    private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
-    {
-        using HttpResponseMessage response = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
-        {
-            p.SubscriptionId = subscriptionId;
-            p.ResourceGroupName = resourceGroupName;
-            p.Name = name;
-        }).SendAllowingNotFoundAsync();
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
-        return publicIp.Id;
-    }
-
     private async Task<string?> CreatePublicIpAddressAsync(string name)
     {
         using HttpResponseMessage response = await CreateExtendedProcessor<NewPublicIPAddressProcessor>(p =>
@@ -1457,7 +1456,8 @@ What changed from Task 3's version:
 - `NetworkSecurityGroupName` became `NetworkSecurityGroup` plus `DefaultNetworkSecurityGroupName`, resolved before the public IP.
 - The NSG `PUT` moved into `CreateNetworkSecurityGroupAsync` and runs only for a new NSG.
 - The NIC gets the existing or new NSG ID, or none.
-- The public IP code is unchanged.
+- Both lookups now share `FindIdAsync<TGetProcessor>`. It reads the ID through the existing `ResourceReference` model (`{ Id }`), which any ARM resource body deserializes into. `FindNetworkSecurityGroupIdAsync` and `FindPublicIpAddressIdAsync` are thin wrappers that configure their Get processor, so the resolver still takes them as method groups.
+- `CreatePublicIpAddressAsync` is unchanged, and so is the public IP's behaviour: Task 1's public IP tests pin it.
 
 - [ ] **Step 6: Rename the property in the VM orchestrator and pass the default name**
 
