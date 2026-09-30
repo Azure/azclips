@@ -363,7 +363,7 @@ public class AzureVfs
     {
         if (parts.Length == 0) return null; // root always valid
 
-        // Validate tenant (must match current tenant from context.json)
+        // Validate tenant (must match the active profile's tenant)
         if (_tenantId == null) return "No tenant configured. Run 'login' first.";
         if (!parts[0].Equals(_tenantDisplay, StringComparison.OrdinalIgnoreCase))
             return $"Tenant not found: {parts[0]}";
