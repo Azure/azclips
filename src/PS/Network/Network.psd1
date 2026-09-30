@@ -77,7 +77,8 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Netw
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork'
+CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork',
+                    'New-AzPublicIpAddress', 'Get-AzPublicIpAddress', 'Remove-AzPublicIpAddress'
 
 # List of all modules packaged with this module
 # ModuleList = @()
