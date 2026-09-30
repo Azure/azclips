@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790740608294,
+  "lastUpdate": 1790740613294,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -7886,6 +7886,42 @@ window.BENCHMARK_DATA = {
             "value": 393199907.48,
             "unit": "ns",
             "range": "± 7570656.280874857"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f55dbcb08cd1e944fa3719377fb95672fe68ca20",
+          "message": "[CLI] Respect startup log level during profile loading (#995)\n\nFixes https://github.com/Azure/CLIPS/issues/947\n\n## Summary\n- resolve the effective CLI session policy before the early startup\nprofile lookup\n- scope startup logging through the gated output stream so verbose\nmessages honor warn/debug settings\n- add a regression covering profile-file startup under warn\n\n## Verification\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\nFullyQualifiedName~StreamRoutingIntegrationTests --nologo`\n\n**History Notes**\n[CLI] Respect startup log level during profile loading",
+          "timestamp": "2026-09-30T13:30:56+10:00",
+          "tree_id": "c96755d8c7f97d256ce54bc2edfd36b0787438d8",
+          "url": "https://github.com/Azure/azclips/commit/f55dbcb08cd1e944fa3719377fb95672fe68ca20"
+        },
+        "date": 1790740613091,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 411034695.06,
+            "unit": "ns",
+            "range": "± 7547444.488291504"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 403028892.26,
+            "unit": "ns",
+            "range": "± 6594985.88521564"
           }
         ]
       }
