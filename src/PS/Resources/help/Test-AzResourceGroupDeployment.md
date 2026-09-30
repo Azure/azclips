@@ -311,7 +311,7 @@ HelpMessage: ''
 
 ### -TemplateObject
 
-{{ Fill TemplateObject Description }}
+A hash table which represents the template.
 
 ```yaml
 Type: System.Collections.Hashtable

@@ -208,5 +208,7 @@ Only a deployment whose provisioning state is `Accepted` or `Running` can be can
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
+- [Get-AzResourceGroupDeployment]()
+- [New-AzResourceGroupDeployment]()
+- [Remove-AzResourceGroupDeployment]()
 
