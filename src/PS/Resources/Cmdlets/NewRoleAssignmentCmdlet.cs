@@ -12,9 +12,9 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 /// Creates an Azure RBAC role assignment (ARM RoleAssignments - Create). Assigns the role given by
 /// -RoleDefinitionId to the principal given by -ObjectId at a scope. The scope defaults to the active
 /// subscription and can be narrowed with -ResourceGroupName or overridden with -Scope (mutually
-/// exclusive). -ObjectId and -RoleDefinitionId take GUIDs; principal name/UPN/service-principal and
-/// role-name resolution are not yet supported (they require a Microsoft Graph or role-definition lookup
-/// this command does not perform).
+/// exclusive). -ObjectId takes a GUID; -RoleDefinitionId takes a role definition GUID or a fully-qualified
+/// role definition ID. Principal name/UPN/service-principal and role-name resolution are not yet supported
+/// (they require a Microsoft Graph or role-definition lookup this command does not perform).
 /// </summary>
 [Cmdlet(VerbsCommon.New, "AzRoleAssignment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "SubscriptionScope")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.RoleAssignment")]

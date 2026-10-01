@@ -49,8 +49,9 @@ New-AzRoleAssignment -Scope <string> -ObjectId <string> -RoleDefinitionId <strin
 Create an Azure role-based access control (RBAC) role assignment, granting the principal given by
 `-ObjectId` the role given by `-RoleDefinitionId` at a scope. The scope defaults to the active
 subscription and can be narrowed with `-ResourceGroupName` or overridden with `-Scope` (the two are
-mutually exclusive). `-ObjectId` and `-RoleDefinitionId` take GUIDs; principal name/UPN/service-principal
-and role-name resolution are not yet supported. The assignment name is generated when `-Name` is omitted.
+mutually exclusive). `-ObjectId` takes a GUID; `-RoleDefinitionId` takes a role definition GUID or a
+fully-qualified role definition ID. Principal name/UPN/service-principal and role-name resolution are
+not yet supported. The assignment name is generated when `-Name` is omitted.
 
 ## EXAMPLES
 
@@ -262,7 +263,7 @@ HelpMessage: ''
 
 ### -RoleDefinitionId
 
-The role definition ID (GUID) to assign. Role name resolution is not yet supported.
+The role definition ID (GUID) or a fully-qualified role definition ID to assign. Role name resolution is not yet supported.
 
 ```yaml
 Type: System.String

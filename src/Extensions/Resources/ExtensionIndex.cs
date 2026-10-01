@@ -130,7 +130,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["Scope"]             = new("Scope", "Scope", typeof(string), "Fully qualified scope to create the role assignment at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "Create the role assignment scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ObjectId"]          = new("AssigneeObjectId", "ObjectId", typeof(string), "The principal's object (principal) ID (GUID) to assign the role to.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "The role definition ID (GUID) to assign. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "The role to assign: a role definition ID (GUID) or a fully-qualified role definition ID. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ObjectType"]        = new("PrincipalType", "ObjectType", typeof(string), "The principal type of the assigned principal (User, Group, ServicePrincipal, or ForeignGroup).", IsRequired: false, Aliases: [], AllowedValues: ["User", "Group", "ServicePrincipal", "ForeignGroup"]),
                 ["Name"]              = new("Name", "Name", typeof(string), "The role assignment name (a GUID). Generated when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Description"]       = new("Description", "Description", typeof(string), "Description of the role assignment.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -349,10 +349,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]         = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["scope"]                   = new("Scope", "scope", typeof(string), "Fully qualified scope to create the role assignment at (the grant target), e.g. a subscription, resource group, or resource ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["scope"]                   = new("Scope", "scope", typeof(string), "Fully qualified scope to create the role assignment at (the grant target), e.g. a subscription, resource group, or resource ID. Mutually exclusive with --resource-group. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]          = new("ResourceGroupName", "resource-group", typeof(string), "Create the role assignment scoped to this resource group under the subscription. Mutually exclusive with --scope.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
                 ["assignee"]                = new("Assignee", "assignee", typeof(string), "The principal to assign the role to. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["assignee-object-id"]      = new("AssigneeObjectId", "assignee-object-id", typeof(string), "The principal's object (principal) ID (GUID) to assign the role to.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["role"]                    = new("RoleDefinitionId", "role", typeof(string), "The role definition ID (GUID) to assign. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["role"]                    = new("RoleDefinitionId", "role", typeof(string), "The role to assign: a role definition ID (GUID) or a fully-qualified role definition ID. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["assignee-principal-type"] = new("PrincipalType", "assignee-principal-type", typeof(string), "The principal type of the assignee (User, Group, ServicePrincipal, or ForeignGroup).", IsRequired: false, Aliases: [], AllowedValues: ["User", "Group", "ServicePrincipal", "ForeignGroup"]),
                 ["name"]                    = new("Name", "name", typeof(string), "The role assignment name (a GUID). Generated when omitted.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["description"]             = new("Description", "description", typeof(string), "Description of the role assignment.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -361,6 +362,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>
             {
+                ["g"] = "resource-group",
                 ["n"] = "name",
             }
         );

@@ -32,7 +32,7 @@ public class RoleAssignmentCreateTests
         CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
 
         Assert.Equal(typeof(NewRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.True(metadata.Parameters["scope"].IsRequired);
+        Assert.False(metadata.Parameters["scope"].IsRequired);
         Assert.True(metadata.Parameters["role"].IsRequired);
         Assert.False(metadata.Parameters["assignee-object-id"].IsRequired);
         Assert.Equal("RoleDefinitionId", metadata.Parameters["role"].Name);
@@ -328,12 +328,31 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
-    public void CliMetadata_DoesNotExposeResourceGroupOnCreate()
+    public async Task Create_ResourceGroupScope_BuildsResourceGroupScope()
+    {
+        (Uri uri, _, _) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.ResourceGroupName = "test-rg";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/test-rg/providers/Microsoft.Authorization/roleAssignments/{AssignmentName}?api-version=2022-04-01",
+            uri.AbsoluteUri);
+    }
+
+    [Fact]
+    public void CliMetadata_ExposesResourceGroupOnCreate()
     {
         CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
 
-        Assert.False(metadata.Parameters.ContainsKey("resource-group"));
-        Assert.False(metadata.ParameterAliases.ContainsKey("g"));
+        Assert.True(metadata.Parameters.ContainsKey("resource-group"));
+        Assert.Equal("ResourceGroupName", metadata.Parameters["resource-group"].Name);
+        Assert.False(metadata.Parameters["resource-group"].IsRequired);
+        Assert.Equal("resource-group", metadata.ParameterAliases["g"]);
     }
 
     [Fact]

@@ -18,8 +18,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <item><see cref="Assignee"/> / <see cref="AssigneeObjectId"/> supply the principal ID. Both accept an
 /// object (principal) ID (GUID) only; name/UPN/service-principal resolution needs a Microsoft Graph
 /// lookup this ARM-only path does not perform.</item>
-/// <item><see cref="RoleDefinitionId"/> (a role definition GUID) is expanded to the fully-qualified
-/// role definition ID rooted at the scope's subscription. Role name resolution is not yet supported.</item>
+/// <item><see cref="RoleDefinitionId"/> is expanded to the fully-qualified role definition ID rooted at
+/// the scope's subscription. A role definition GUID or an already fully-qualified role definition ID is
+/// accepted; role name resolution is not yet supported.</item>
 /// <item>A missing <see cref="Name"/> is generated (a fresh GUID).</item>
 /// </list>
 /// </summary>
@@ -198,8 +199,9 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         if (!Guid.TryParse(value, out _))
         {
             throw AzclipsErrorException.UsageError(
-                $"The role '{value}' is not a role definition ID (GUID). Role name resolution is not yet supported; " +
-                "specify the role definition ID (GUID).");
+                $"The role '{value}' is not a role definition ID. Role name resolution is not yet supported; " +
+                "specify a role definition GUID, or a fully-qualified role definition ID ending in " +
+                "'/providers/Microsoft.Authorization/roleDefinitions/{guid}'.");
         }
 
         return $"{RoleDefinitionRoot(scope)}/providers/Microsoft.Authorization/roleDefinitions/{value}";
