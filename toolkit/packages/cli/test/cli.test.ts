@@ -320,6 +320,60 @@ describe("ace compile: configured pipeline", () => {
     expect(code).toBe(1);
     expect(err).toContain("missing-required-stage");
   });
+
+  it.runIf(generatorHostBuilt)(
+    "generates an ExtensionIndex from the surface the pipeline derived",
+    async () => {
+      const outDir = join(dir, "ps-index");
+      writeFileSync(
+        join(dir, "index.json"),
+        JSON.stringify({
+          pipeline: { "ps.derive": true },
+          stageOptions: { "ps.derive": { modulePrefix: "Az" } },
+        }),
+      );
+
+      const { code } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "index.json"),
+        "--out-dir",
+        outDir,
+        "--root-namespace",
+        "Azure.Pets",
+      ]);
+      expect(code).toBe(0);
+
+      // The index only exists because the transform ran first, so its presence proves the chain.
+      const index = join(outDir, "ExtensionIndex.cs");
+      expect(existsSync(index)).toBe(true);
+      expect(readFileSync(index, "utf8")).toContain(
+        "public partial class ExtensionIndex : IExtensionIndex",
+      );
+
+      // The commands land in the surface partial, not the core.
+      const psIndex = join(outDir, "ExtensionIndex.Ps.cs");
+      expect(existsSync(psIndex)).toBe(true);
+      expect(readFileSync(psIndex, "utf8")).toContain('InvocationName: "Get-AzPet');
+    },
+  );
+
+  it.runIf(generatorHostBuilt)("emits no ExtensionIndex when no PS transform runs", async () => {
+    const outDir = join(dir, "no-index");
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      outDir,
+      "--root-namespace",
+      "Azure.Pets",
+    ]);
+    expect(code).toBe(0);
+    expect(existsSync(join(outDir, "ExtensionIndex.cs"))).toBe(false);
+  });
 });
 
 describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {

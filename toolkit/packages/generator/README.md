@@ -23,11 +23,13 @@ packages/generator/
       CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
       EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      ProcessorNaming.cs                Processor class name for an operation (shared with the extension index)
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
         ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<TRequest,TResponse>; seam overrides)
         ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<TRequest,TResponse> (real emission)
+        ExtensionIndexGenerator.cs        Canonical command PS dialects -> ExtensionIndex command table
         ProjectStubGenerator.cs           extension .csproj (System.Xml.Linq; per-artifact …Emit)
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
