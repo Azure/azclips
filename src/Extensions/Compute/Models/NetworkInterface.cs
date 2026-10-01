@@ -16,7 +16,6 @@ public class NetworkInterface
 
 public class NetworkInterfaceProperties
 {
-    // Omitted when null, so a NIC without an NSG sends no networkSecurityGroup rather than null.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NetworkSecurityGroup? NetworkSecurityGroup { get; set; }
     public List<IPConfiguration> IPConfigurations { get; set; } = [];
