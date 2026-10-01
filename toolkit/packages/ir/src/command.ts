@@ -179,16 +179,11 @@ const TEMPLATE_STEPS: Readonly<Record<IRCommandTemplate, number>> = {
  * correspond to it — a runtime override would silently mismatch model and wire. It
  * is a fixed value on the request instead.
  */
-export type IRCommandParameterSourceSynthetic = {
-  kind: "synthetic";
-};
-
 export type IRCommandParameterSource =
   | { kind: "path"; parameter: IRId }
   | { kind: "query"; parameter: IRId }
   | { kind: "header"; parameter: IRId }
-  | { kind: "body"; path: IRId[] }
-  | IRCommandParameterSourceSynthetic;
+  | { kind: "body"; path: IRId[] };
 
 export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource> =
   z.discriminatedUnion("kind", [
@@ -196,7 +191,6 @@ export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource>
     z.object({ kind: z.literal("query"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("header"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("body"), path: z.array(IRIdSchema).min(1) }).strict(),
-    z.object({ kind: z.literal("synthetic") }).strict(),
   ]);
 
 /**

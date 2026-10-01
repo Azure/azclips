@@ -6,7 +6,6 @@ import {
   PsModuleDialectSchema,
   PsParameterDialectSchema,
   IRCommandSchema,
-  IRCommandParameterSourceSchema,
   emptyIR,
   safeParseTransformedIR,
 } from "../src/index.js";
@@ -86,10 +85,10 @@ describe("PsCommandDialect", () => {
   });
 
   it("defers family default validation when parsing a standalone command", () => {
-    const operation = { module: "Widgets", namespace: [], name: "getByIdentity" };
+    const operation = { module: "Widgets", namespace: [], name: "getByName" };
     const result = IRCommandSchema.safeParse({
-      id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
-      name: "GetWidgetByIdentity",
+      id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByName" },
+      name: "GetWidgetByName",
       template: "atomic",
       server: { module: "Widgets", namespace: [], name: "server" },
       steps: [
@@ -101,19 +100,7 @@ describe("PsCommandDialect", () => {
           ],
         },
       ],
-      parameters: [
-        {
-          name: "InputObject",
-          source: { kind: "synthetic" },
-          type: {
-            kind: "model",
-            id: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
-          },
-          required: true,
-          nullable: false,
-          dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
-        },
-      ],
+      parameters: [],
       surface: { paginated: false },
       dialect: {
         ps: {
@@ -196,36 +183,11 @@ describe("PsParameterDialect", () => {
   });
 });
 
-describe("PowerShell synthetic parameters", () => {
-  it("marks a parameter as transform-synthesized without client-specific semantics", () => {
-    const result = IRCommandParameterSourceSchema.safeParse({ kind: "synthetic" });
-
-    expect(result.success).toBe(true);
-  });
-});
-
 describe("PowerShell parameter-set families", () => {
-  const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
-  const identityPropertyId = { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" };
   const serverId = { module: "Widgets", namespace: [], name: "server" };
   const operationId = { module: "Widgets", namespace: [], name: "get" };
   const pathParameterId = { module: "Widgets", namespace: [], name: "get.resourceGroupName" };
   const apiVersion = { value: "2025-01-01", location: "query", parameterName: "api-version" };
-  const identityModel = {
-    id: identityId,
-    name: "WidgetIdentity",
-    source: "Widgets",
-    properties: [{
-      id: identityPropertyId,
-      name: "ResourceGroupName",
-      wireName: "resourceGroupName",
-      typeKind: "primitive" as const,
-      type: { kind: "primitive" as const, name: "string" as const },
-      optional: false,
-      nullable: false,
-    }],
-  };
-
   function document() {
     return {
       ...emptyIR(),
@@ -237,7 +199,6 @@ describe("PowerShell parameter-set families", () => {
         server: serverId,
       }],
       servers: [{ id: serverId, endpoint: { kind: "literal", url: "https://example.com" } }],
-      models: [identityModel],
       operations: [{
         id: operationId,
         name: "get",
@@ -259,8 +220,8 @@ describe("PowerShell parameter-set families", () => {
         server: serverId,
       }],
       commands: [{
-        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
-        name: "GetWidgetByIdentity",
+        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByName" },
+        name: "GetWidgetByName",
         template: "atomic",
         server: serverId,
         steps: [{
@@ -273,13 +234,6 @@ describe("PowerShell parameter-set families", () => {
             name: "ResourceGroupName",
             source: { kind: "path", parameter: pathParameterId },
             type: { kind: "primitive", name: "string" },
-            required: true,
-            nullable: false,
-          },
-          {
-            name: "InputObject",
-            source: { kind: "synthetic" },
-            type: { kind: "model", id: identityId },
             required: true,
             nullable: false,
           },

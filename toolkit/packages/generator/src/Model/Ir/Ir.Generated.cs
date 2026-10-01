@@ -894,7 +894,6 @@ public partial class IRCommandParameterDialect
 [JsonDerivedType(typeof(IRCommandParameterSourceQuery), "query")]
 [JsonDerivedType(typeof(IRCommandParameterSourceHeader), "header")]
 [JsonDerivedType(typeof(IRCommandParameterSourceBody), "body")]
-[JsonDerivedType(typeof(IRCommandParameterSourceSynthetic), "synthetic")]
 public abstract partial class IRCommandParameterSource
 {
 }
@@ -921,10 +920,6 @@ public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
 {
     [JsonPropertyName("parameter")]
     public IRId Parameter { get; set; } = default !;
-}
-
-public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSource
-{
 }
 
 public partial class IRCommandRequest

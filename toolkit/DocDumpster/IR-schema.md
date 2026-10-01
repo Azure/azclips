@@ -225,7 +225,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
-| 0.13.0 | PowerShell dialect metadata and synthetic command parameters |
+| 0.13.0 | PowerShell command and parameter dialect metadata |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |
 | 0.9.0 | multipart metadata |

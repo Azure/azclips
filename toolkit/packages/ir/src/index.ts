@@ -221,7 +221,6 @@ export {
   type IRCommandId,
   type IRCommandParameter,
   type IRCommandParameterSource,
-  type IRCommandParameterSourceSynthetic,
   type IRCommandRequest,
   type IRCommandRequestBody,
   type IRCommandResponse,

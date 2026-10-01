@@ -254,7 +254,6 @@ IRCommandParameter = {
   name              // final C#-facing member, unique within the command
   source            // path | query | header  → { parameter: IRId }
                     // body                   → { path: IRId[] }  (crosses nesting hops)
-                    // synthetic              → marker for transform-created parameters
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
   nullable, defaultValue?, collectionFormat?, format?, access?
@@ -269,8 +268,6 @@ for client transforms, and the thing that did not exist anywhere before.
   generator emits a member without a lookup.
 - **`source` resolves back to the declaration**, which is what lets a client
   transform read facts it must not rewrite — enum values, docs, visibility.
-- **`synthetic` has no direct request binding of its own.** It marks a
-  transform-created parameter, such as a model-typed PowerShell InputObject.
 - **Protocol headers** (`Content-Type`, `Accept`) are carried but marked
   `access: "internal"`: the request needs them, no client should surface them.
 - **There is no `apiVersion` source kind** — see above.
