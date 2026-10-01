@@ -12,6 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     {
         // The OS of the image vm create deploys: NewVMProcessor's default, Windows Server 2022.
         // --image will supply the chosen image's OS type instead.
+        // TODO: support --image and --os-type to deploy Linux VMs.
         private const string ImageOsType = "Windows";
 
         public string SubscriptionId { get; set; } = string.Empty;

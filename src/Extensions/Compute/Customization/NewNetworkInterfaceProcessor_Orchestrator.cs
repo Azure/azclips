@@ -34,8 +34,6 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        // Explicit names and ids are looked up before anything is created, NSG first as legacy CLI
-        // validates them, so a missing id fails without leaving a VNet, NSG or public IP behind.
         (string? existingNetworkSecurityGroupId, string? networkSecurityGroupNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
             NetworkSecurityGroup, DefaultNetworkSecurityGroupName, SubscriptionId, ResourceGroupName,
             NewOrExistingResourceResolver.NetworkSecurityGroup, FindNetworkSecurityGroupIdAsync);

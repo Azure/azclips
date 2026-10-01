@@ -4,11 +4,7 @@
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 /// <summary>
-/// Legacy Azure CLI's handling of a vm create argument that names a network resource to attach
-/// or create (<c>--nsg</c>, <c>--public-ip-address</c>; <c>nsg_type</c> and
-/// <c>public_ip_address_type</c> in azure-cli's <c>_validators.py</c>). Omitted means new with the
-/// default name, <c>""</c> means none, a name is looked up in the VM's resource group and created
-/// when missing, and a resource id must already exist.
+/// Resolves a resource name or id to either an existing resource id, or a name for a new resource.
 /// </summary>
 internal static class NewOrExistingResourceResolver
 {
