@@ -9,6 +9,12 @@ namespace Scenario.Tests;
 /// The vm create scenario: the whole orchestration plus its resource group in one recording,
 /// replayed credential-free on both surfaces. Record mode runs the CLI surface once against
 /// real Azure with the signed-in profile's subscription.
+/// <para>
+/// Besides the VM, the scenario asserts the network resources vm create depends on: the PUT each
+/// surface sends for the virtual network, network security group, public IP and network interface,
+/// and how ARM reported each resource once created. Playback matches requests on method and URI
+/// only, so the sent bodies are checked from what this run sent, not from the recording.
+/// </para>
 /// </summary>
 [Collection("Scenario Tests")]
 public class VmCreateScenarioTests
@@ -27,24 +33,34 @@ public class VmCreateScenarioTests
         if (recording.Mode == RecorderMode.Record)
         {
             // Live ARM, one surface; the subscription comes from the signed-in profile.
-            using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+            var interceptor = recording.CreateInterceptor();
+            using var host = new ScenarioHost(ClientType.CLI, interceptor, useLiveAuth: true, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
             var subscription = host.LiveSubscriptionId();
             host.RunCli(GroupArgs(subscription));
-            AssertVm(host.RunCli(CliArgs(subscription)));
+            var vm = AssertVm(host.RunCli(CliArgs(subscription)));
+            AssertSentDependencies(interceptor.Sent);
+
+            // Checked against the live responses before anything is saved.
+            AssertCreatedDependencies(recording.Record.Entries, vm);
             recording.Save();
             return;
         }
 
-        using (var cli = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        var cliInterceptor = recording.CreateInterceptor();
+        using (var cli = new ScenarioHost(ClientType.CLI, cliInterceptor, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
         {
             cli.RunCli(GroupArgs(SubscriptionId));
-            AssertVm(cli.RunCli(CliArgs(SubscriptionId)));
+            var vm = AssertVm(cli.RunCli(CliArgs(SubscriptionId)));
+            AssertSentDependencies(cliInterceptor.Sent);
+            AssertCreatedDependencies(recording.Record.Entries, vm);
         }
 
-        using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        var psInterceptor = recording.CreateInterceptor();
+        using (var ps = new ScenarioHost(ClientType.PowerShell, psInterceptor, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
         {
             ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
             AssertVm(ps.RunPowerShell("New-AzVM", PsParameters(SubscriptionId), extension: "Compute"));
+            AssertSentDependencies(psInterceptor.Sent);
         }
     }
 
@@ -96,7 +112,7 @@ public class VmCreateScenarioTests
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
     };
 
-    private static void AssertVm(IReadOnlyList<object> outputs)
+    private static VirtualMachine AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(VmName, vm.Name);
@@ -111,5 +127,53 @@ public class VmCreateScenarioTests
         Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
         Assert.Equal("", vm.Fqdns);
         Assert.Null(vm.Properties.InstanceView);
+        return vm;
     }
+
+    /// <summary>What vm create asked ARM for, read from the requests this run sent.</summary>
+    private static void AssertSentDependencies(IReadOnlyList<CapturedHttpRequest> sent)
+    {
+        var vnet = RecordedArm.SentPut<VirtualNetwork>(sent, "virtualNetworks", "scenario-vm-vnet");
+        Assert.Equal("10.0.0.0/16", Assert.Single(vnet.Properties.AddressSpace.AddressPrefixes));
+        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Properties.Subnets).Properties.AddressPrefix);
+
+        // A new NSG gets legacy CLI's default rule for the Windows image vm create deploys.
+        var nsg = RecordedArm.SentPut<NetworkSecurityGroup>(sent, "networkSecurityGroups", $"{VmName}NSG");
+        var rule = Assert.Single(nsg.Properties.SecurityRules);
+        Assert.Equal("rdp", rule.Name);
+        Assert.Equal("3389", rule.Properties.DestinationPortRange);
+        Assert.Equal(1000, rule.Properties.Priority);
+
+        var publicIp = RecordedArm.SentPut<PublicIPAddress>(sent, "publicIPAddresses", $"{VmName}PublicIP");
+        Assert.Equal("Standard", publicIp.Sku!.Name);
+        Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
+
+        var nic = RecordedArm.SentPut<NetworkInterface>(sent, "networkInterfaces", "scenario-vm-nic");
+        var ipConfig = Assert.Single(nic.Properties.IPConfigurations).Properties;
+        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), ipConfig.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("virtualNetworks", "scenario-vm-vnet") + "/subnets/default", ipConfig.Subnet.Id, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>What ARM created: each resource's GET at the end of its long-running create.</summary>
+    private static void AssertCreatedDependencies(IReadOnlyList<SessionRecordEntry> entries, VirtualMachine vm)
+    {
+        var vnet = RecordedArm.FinalGet<VirtualNetwork>(entries, "virtualNetworks", "scenario-vm-vnet");
+        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Properties.Subnets).Properties.AddressPrefix);
+
+        var nsg = RecordedArm.FinalGet<NetworkSecurityGroup>(entries, "networkSecurityGroups", $"{VmName}NSG");
+        Assert.Equal("rdp", Assert.Single(nsg.Properties.SecurityRules).Name);
+
+        var publicIp = RecordedArm.FinalGet<PublicIPAddress>(entries, "publicIPAddresses", $"{VmName}PublicIP");
+        Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
+        Assert.Equal(vm.PublicIps, publicIp.Properties.IpAddress);
+
+        var nic = RecordedArm.FinalGet<NetworkInterface>(entries, "networkInterfaces", "scenario-vm-nic");
+        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), Assert.Single(nic.Properties.IPConfigurations).Properties.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Compared by suffix: when recording, the sent bodies carry the live subscription, not the placeholder.
+    private static string NetworkId(string type, string name)
+        => $"/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/{type}/{name}";
 }
