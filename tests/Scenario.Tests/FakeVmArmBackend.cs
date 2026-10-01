@@ -42,6 +42,52 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
             return Task.FromResult(Json(new { status = _vmPolls < 2 ? "InProgress" : "Succeeded" }, HttpStatusCode.OK));
         }
 
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.EndsWith("/versions", StringComparison.OrdinalIgnoreCase))
+        {
+            var imageVersion = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "2022.0.202409010"
+                : path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase)
+                ? "with-plan"
+                : "22.04.202409010";
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            return Task.FromResult(Json(new[]
+            {
+                new
+                {
+                    name = imageVersion,
+                    properties = new
+                    {
+                        osDiskImage = new { operatingSystem },
+                        plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                    }
+                }
+            }, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.Contains("/versions/", StringComparison.OrdinalIgnoreCase))
+        {
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            return Task.FromResult(Json(new
+            {
+                name,
+                properties = new
+                {
+                    osDiskImage = new { operatingSystem },
+                    plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                }
+            }, HttpStatusCode.OK));
+        }
+
         if (path.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Json(new

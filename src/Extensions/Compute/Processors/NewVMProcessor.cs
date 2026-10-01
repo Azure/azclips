@@ -22,7 +22,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
+        public ImageReference? ImageReference { get; set; }
+        public ImagePlan? Plan { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
+        public string OperatingSystemType { get; set; } = OperatingSystemTypes.Windows;
         public string SecurityType { get; set; } = "trustedlaunch";
         public bool SecureBootEnabled { get; set; } = true;
         public bool VTpmEnabled { get; set; } = true;
@@ -38,12 +41,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
+                Plan = Plan,
                 Properties = new VirtualMachineProperties
                 {
                     HardwareProfile = new HardwareProfile(VmSize),
                     StorageProfile = new StorageProfile
                     {
-                        ImageReference = new ImageReference
+                        ImageReference = ImageReference ?? new ImageReference
                         {
                             Publisher = ImagePublisher,
                             Offer = ImageOffer,
@@ -56,7 +60,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         ComputerName = Name,
                         AdminUsername = AdminUsername,
                         AdminPassword = AdminPassword,
-                        WindowsConfiguration = new WindowsConfiguration()
+                        WindowsConfiguration = IsWindows ? new WindowsConfiguration() : null
                     },
                     NetworkProfile = new NetworkProfile
                     {
@@ -83,6 +87,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return body;
         }
 
+        private bool IsWindows => OperatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+
         /*
         Yabo:
             swagger says:         
@@ -99,6 +105,3 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }
-
-
-

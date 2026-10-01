@@ -19,6 +19,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string VmSize { get; set; } = string.Empty;
 
+        public string Image { get; set; } = string.Empty;
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -75,6 +77,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
+            var operatingSystemType = OperatingSystemTypes.Windows;
+            ImagePlan? plan = null;
+            if (imageReference is not null)
+            {
+                (operatingSystemType, plan) = await ResolveImageMetadataAsync(imageReference);
+            }
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -107,11 +117,58 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VmSize = VmSize;
+                p.ImageReference = imageReference;
+                p.Plan = plan;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
+                p.OperatingSystemType = operatingSystemType;
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private async Task<(string OperatingSystemType, ImagePlan? Plan)> ResolveImageMetadataAsync(ImageReference imageReference)
+        {
+            var version = imageReference.Version!;
+            if (version.Equals("latest", StringComparison.OrdinalIgnoreCase))
+            {
+                var latestImage = await GetLatestImageVersionAsync(imageReference);
+                version = latestImage.Name
+                    ?? throw new InvalidOperationException($"No image versions found for '{imageReference.Publisher}:{imageReference.Offer}:{imageReference.Sku}:latest'.");
+                imageReference.Version = version;
+            }
+
+            GetVMImageProcessor getImageProcessor = CreateExtendedProcessor<GetVMImageProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.Location = Location;
+                p.ImagePublisher = imageReference.Publisher!;
+                p.Offer = imageReference.Offer!;
+                p.Sku = imageReference.Sku!;
+                p.Version = version;
+            });
+            using HttpResponseMessage imageResponse = await getImageProcessor.SendAsync();
+            var image = (await imageResponse.Content.ReadFromJsonAsync<VirtualMachineImage>(JsonOptions))!;
+
+            var operatingSystemType = image.Properties?.OsDiskImage?.OperatingSystem
+                ?? throw new InvalidOperationException("Image metadata did not include properties.osDiskImage.operatingSystem.");
+            return (operatingSystemType, image.Properties?.Plan);
+        }
+
+        private async Task<VirtualMachineImage> GetLatestImageVersionAsync(ImageReference imageReference)
+        {
+            ListVMImageVersionsProcessor listVersionsProcessor = CreateExtendedProcessor<ListVMImageVersionsProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.Location = Location;
+                p.ImagePublisher = imageReference.Publisher!;
+                p.Offer = imageReference.Offer!;
+                p.Sku = imageReference.Sku!;
+            });
+            using HttpResponseMessage versionsResponse = await listVersionsProcessor.SendAsync();
+            var versions = (await versionsResponse.Content.ReadFromJsonAsync<List<VirtualMachineImage>>(JsonOptions))!;
+            return versions.OrderByDescending(image => image.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault()
+                ?? throw new InvalidOperationException($"No image versions found for '{imageReference.Publisher}:{imageReference.Offer}:{imageReference.Sku}:latest'.");
         }
     }
 }
