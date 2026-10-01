@@ -63,6 +63,39 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task StartupProfileLoad_DoesNotLeakVerboseAtWarn_WhenProfileFileExists()
+    {
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-startup-log-tests-").FullName;
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "profiles.json"), """
+{
+  "default": {
+    "name": "default",
+    "tenantId": "11111111-1111-1111-1111-111111111111",
+    "subscriptionId": "22222222-2222-2222-2222-222222222222",
+    "cloudName": "AzureCloud",
+    "authMethod": "Browser"
+  }
+}
+""");
+        File.WriteAllText(Path.Combine(homeDirectory, "active-profile"), "default");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, "config", "get", "--key", "core.logging.level");
+
+            Assert.Equal(0, exit);
+            Assert.Contains("core.logging.level = warn", stdout);
+            Assert.DoesNotContain("VERBOSE: [ProfileService] Loading profiles from", stderr);
+            Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
+        }
+        finally
+        {
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
     {
         var (exit, stdout, stderr) = await RunCliAsync(

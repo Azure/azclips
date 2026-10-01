@@ -1,3 +1,67 @@
+## v0.1.4 - 2026-09-30 05:15 UTC
+
+#### Accounts
+- Add survey commands to provide feedback via online form (#1013)
+- `az account get-access-token` / `Get-AzAccessToken`: Add token retrieval (#851)
+
+#### Agent
+- Upgrade Copilot SDK for ARM64 musl compatibility (#891)
+
+#### Auth
+- `az login` / `Connect-AzAccount`: Add federated credential sign-in for service principals (#968)
+
+#### CLI
+- Respect startup log level during profile loading (#995)
+- Constrain table output to terminal width (#943)
+- `az <command>`: Render examples after global arguments and prefix commands with `$ ` (#942)
+- Use readable JSON escaping for console JSON (#939)
+- Handle human-readable errors when default output is JSON (#922)
+- `az <group>`/`az <command>`: Bold `--help` section headers on interactive terminals (#890)
+- `az <group>`: Show help when invoked without a subcommand (#867)
+- `az <group>`: Support additional help aliases for entry points (#867)
+- [BREAKING CHANGE] `az <command>`: Remove the bare `?` help alias in favour of `-?` and `--?` (#867)
+- `az <command>`: Add guidance when argument validation fails (#867)
+
+#### Compute
+- `az vm list` / `Get-AzVM`: Add `--show-details` `-Id` `-Status` `-UserData` (#1008)
+- `az vm create`: Update `--size` (#1007)
+- `az vm delete` / `Remove-AzVM`: Add `--force-deletion` and `-ForceDeletion` params (#863)
+- `az vm stop`, `az vm deallocate`, `Stop-AzVM`: Support stop and deallocation VM commands (#842)
+
+#### Identity
+- Rename Identity Extension to ManagedServiceIdentity for backwards compatibility of PS Az Module (#976)
+
+#### Login
+- Add client level validations for subscription-id (#888)
+
+#### MsGraph
+- `Get-AzMsGraphApplication`: List commands now return individual objects and all pages instead of a raw response envelope (#931)
+
+#### Network
+- `az network public-ip`: Add `create`, `show`, `list` and `delete` (#1011)
+- `New-AzPublicIpAddress`: Add public IP address cmdlets for create, get and remove (#1011)
+- Add virtual network support for CLI and PowerShell (#834)
+
+#### Packaging
+- Add generic Linux musl tarballs for x64 and Arm64 (#827)
+
+#### Resources
+- `Get-AzRoleAssignment`: Add cmdlet to list RBAC role assignments at a subscription, resource group, or scope (#999)
+- `az role assignment list`: Add `--role` to filter role assignments by role definition ID (#999)
+- `az role assignment list`: Add command to list RBAC role assignments at a subscription, resource group, or scope (#986)
+- `Set-AzResourceGroup`: Add support for PS to enable resource group updates (#937)
+- `az group`: Support update command (#929)
+- `az group`: Support delete commands (#896)
+- `az group`: Support exists command (#894)
+
+#### Telemetry
+- Log messages are no longer attached to trace event tags, so message text cannot bypass the property allowlist (#730)
+- Add Aria endpoint (#785)
+
+#### Az.Network 0.1.0
+* Added `New-AzPublicIpAddress`, `Get-AzPublicIpAddress` and `Remove-AzPublicIpAddress`
+    - `Get-AzPublicIpAddress` serves both the single-address `Get` set and the `List` set; omitting `-ResourceGroupName` lists every public IP address in the subscription.
+
 ## v0.1.3 - 2026-09-14 23:15 UTC
 
 #### Autocompletion

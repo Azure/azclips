@@ -31,7 +31,15 @@ public class ListRoleAssignmentProcessor : ResourcesProcessorBase<object, RoleAs
         + (string.IsNullOrWhiteSpace(Filter) ? string.Empty : $"&$filter={Uri.EscapeDataString(Filter)}");
 
     private string? nextLink(RoleAssignmentListResult body) => body.NextLink;
-    private RoleAssignment[]? pageItems(RoleAssignmentListResult body) => body.Value;
+    private IEnumerable<RoleAssignment>? pageItems(RoleAssignmentListResult body) =>
+        body.Value is null ? null : FilterPageItems(body.Value);
+
+    /// <summary>
+    /// Client-side page filter seam. Spec-pure default returns every item unchanged; the orchestrator
+    /// overrides this to apply conveniences ARM cannot filter server-side (e.g. by role definition).
+    /// Applied per page so pagination still follows <c>nextLink</c> over the unfiltered result set.
+    /// </summary>
+    protected virtual IEnumerable<RoleAssignment> FilterPageItems(IEnumerable<RoleAssignment> items) => items;
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(RoleAssignmentListResult? body)
     {
