@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup>
+    <ApiSurfaceToolRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</ApiSurfaceToolRoot>
+    <ApiSurfaceRepoRoot>$([System.IO.Path]::GetFullPath('$(ApiSurfaceToolRoot)..\..'))</ApiSurfaceRepoRoot>
+    <ApiSurfaceGenApiDll>$(ApiSurfaceToolRoot)GenApi/bin/Release/net10.0/Microsoft.DotNet.GenAPI.Tool.dll</ApiSurfaceGenApiDll>
+    <ApiSurfaceOutputDirectory>$([System.IO.Path]::Combine('$(ApiSurfaceRepoRoot)', 'artifacts', 'api-surface', 'Core'))</ApiSurfaceOutputDirectory>
+    <ApiSurfaceOutputPath>$([System.IO.Path]::Combine('$(ApiSurfaceOutputDirectory)', '$(AssemblyName).$(TargetFramework).cs'))</ApiSurfaceOutputPath>
+  </PropertyGroup>
+
+  <Target Name="GenerateCoreApiSurface" DependsOnTargets="Build;ResolveReferences">
+    <ItemGroup>
+      <_ApiSurfaceReferenceDirectory Include="@(ReferencePath->'%(RootDir)%(Directory)')" />
+    </ItemGroup>
+
+    <RemoveDuplicates Inputs="@(_ApiSurfaceReferenceDirectory)">
+      <Output TaskParameter="Filtered" ItemName="_ApiSurfaceDistinctReferenceDirectory" />
+    </RemoveDuplicates>
+
+    <PropertyGroup>
+      <_ApiSurfaceReferenceDirectories>@(_ApiSurfaceDistinctReferenceDirectory, ',')</_ApiSurfaceReferenceDirectories>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(ApiSurfaceOutputDirectory)" />
+    <Exec
+      Command="dotnet &quot;$(ApiSurfaceGenApiDll)&quot; --assembly &quot;$(TargetPath)&quot; --assembly-reference &quot;$(_ApiSurfaceReferenceDirectories)&quot; --output-path &quot;$(ApiSurfaceOutputPath)&quot;" />
+  </Target>
+</Project>

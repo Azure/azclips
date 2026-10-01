@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/dotnet/sdk",
+  "tag": "v10.0.401",
+  "commit": "32593ca81f8aae7b0d41c1a7198529c3365106b8",
+  "copiedPaths": [
+    "src/Compatibility/GenAPI/Microsoft.DotNet.GenAPI/**/*.cs",
+    "src/Compatibility/GenAPI/Microsoft.DotNet.GenAPI.Tool/Program.cs",
+    "src/Compatibility/Microsoft.DotNet.ApiSymbolExtensions/**/*.cs"
+  ],
+  "localAdaptations": [
+    "Exclude ApiSymbolExtensions/Logging/MSBuildLog.cs because it depends on MSBuild task assemblies.",
+    "Generate Resources.cs from each upstream Resources.resx file.",
+    "Build the sources with the tool-local GenApi.csproj.",
+    "Suppress upstream CA2241 in the tool-local project without patching vendored source."
+  ]
+}
