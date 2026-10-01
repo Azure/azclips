@@ -59,7 +59,7 @@ const operation = (over: Record<string, unknown> = {}): Record<string, unknown> 
 
 function document(operations: Record<string, unknown>[], models: unknown[] = []): IR {
   return parseIR({
-    schemaVersion: "0.13.0",
+    schemaVersion: "0.14.0",
     sources: [
       {
         id: MODULE,

@@ -6,7 +6,16 @@ import { z } from "zod";
 export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
 export type ConfirmImpact = (typeof ConfirmImpacts)[number];
 
-/** Preview announcement emitted for a PowerShell command. */
+/** Deprecation announcement emitted for a PowerShell command or parameter. */
+export type PSDeprecated = {
+  message: string;
+};
+
+export const PSDeprecatedSchema: z.ZodType<PSDeprecated> = z
+  .object({ message: z.string().min(1) })
+  .strict();
+
+/** Preview announcement emitted for a PowerShell command or parameter. */
 export type PSPreview = {
   message: string;
   estimatedGaDate?: string | undefined;
@@ -16,40 +25,5 @@ export const PSPreviewSchema: z.ZodType<PSPreview> = z
   .object({
     message: z.string().min(1),
     estimatedGaDate: z.string().min(1).optional(),
-  })
-  .strict();
-
-/** Mirrors AutoRest's `CompleterInfoAttribute`. */
-export type PSCompleterAttribute = {
-  script?: string | undefined;
-  name?: string | undefined;
-  description?: string | undefined;
-};
-
-export const PSCompleterAttributeSchema: z.ZodType<PSCompleterAttribute> = z
-  .object({
-    script: z.string().min(1).optional(),
-    name: z.string().min(1).optional(),
-    description: z.string().min(1).optional(),
-  })
-  .strict()
-  .refine((hint) => hint.script !== undefined || hint.name !== undefined || hint.description !== undefined, {
-    message: "PSCompleterAttribute requires at least one of script/name/description.",
-  });
-
-/** Mirrors AutoRest's `DefaultInfoAttribute`. */
-export type PSDefaultValueAttribute = {
-  script: string;
-  name?: string | undefined;
-  description?: string | undefined;
-  setCondition?: string | undefined;
-};
-
-export const PSDefaultValueAttributeSchema: z.ZodType<PSDefaultValueAttribute> = z
-  .object({
-    script: z.string().min(1),
-    name: z.string().min(1).optional(),
-    description: z.string().min(1).optional(),
-    setCondition: z.string().min(1).optional(),
   })
   .strict();

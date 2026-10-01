@@ -880,15 +880,6 @@ public partial class IRCommandParameter
     public IRCommandParameterDialect? Dialect { get; set; }
 }
 
-public partial class IRCommandParameterBinding
-{
-    [JsonPropertyName("property")]
-    public IRId Property { get; set; } = default !;
-
-    [JsonPropertyName("targetParameters")]
-    public IReadOnlyList<IRId> TargetParameters { get; set; } = [];
-}
-
 public partial class IRCommandParameterDialect
 {
     [JsonPropertyName("ps")]
@@ -934,8 +925,6 @@ public partial class IRCommandParameterSourceQuery : IRCommandParameterSource
 
 public partial class IRCommandParameterSourceSynthetic : IRCommandParameterSource
 {
-    [JsonPropertyName("bindings")]
-    public IReadOnlyList<IRCommandParameterBinding>? Bindings { get; set; }
 }
 
 public partial class IRCommandRequest
@@ -2123,31 +2112,10 @@ public partial class OperationHints
     public DocsHint? Docs { get; set; }
 }
 
-public partial class PSCompleterAttribute
+public partial class PSDeprecated
 {
-    [JsonPropertyName("script")]
-    public string? Script { get; set; }
-
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-}
-
-public partial class PSDefaultValueAttribute
-{
-    [JsonPropertyName("script")]
-    public string Script { get; set; } = default !;
-
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("setCondition")]
-    public string? SetCondition { get; set; }
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = default !;
 }
 
 public partial class PSPreview
@@ -2201,7 +2169,7 @@ public partial class PsCommandDialect
     public IReadOnlyList<string>? Examples { get; set; }
 
     [JsonPropertyName("deprecated")]
-    public bool? Deprecated { get; set; }
+    public PSDeprecated? Deprecated { get; set; }
 
     [JsonPropertyName("preview")]
     public PSPreview? Preview { get; set; }
@@ -2246,10 +2214,19 @@ public partial class PsParameterDialect
     public bool? Removed { get; set; }
 
     [JsonPropertyName("completer")]
-    public PSCompleterAttribute? Completer { get; set; }
+    public IReadOnlyList<IRLiteralValue>? Completer { get; set; }
 
     [JsonPropertyName("defaultValue")]
-    public PSDefaultValueAttribute? DefaultValue { get; set; }
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("validateSet")]
+    public IReadOnlyList<string>? ValidateSet { get; set; }
+
+    [JsonPropertyName("deprecated")]
+    public PSDeprecated? Deprecated { get; set; }
+
+    [JsonPropertyName("preview")]
+    public PSPreview? Preview { get; set; }
 }
 
 public partial class PsParameterSetMembership

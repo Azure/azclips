@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-09-21)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-09-21)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -254,7 +254,7 @@ IRCommandParameter = {
   name              // final C#-facing member, unique within the command
   source            // path | query | header  → { parameter: IRId }
                     // body                   → { path: IRId[] }  (crosses nesting hops)
-                    // synthetic              → { bindings?: { property, targetParameters[] }[] }
+                    // synthetic              → marker for transform-created parameters
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
   nullable, defaultValue?, collectionFormat?, format?, access?
@@ -271,8 +271,6 @@ for client transforms, and the thing that did not exist anywhere before.
   transform read facts it must not rewrite — enum values, docs, visibility.
 - **`synthetic` has no direct request binding of its own.** It marks a
   transform-created parameter, such as a model-typed PowerShell InputObject.
-  Optional property bindings say how the aggregate value populates canonical path
-  parameters before the command runs; client dialects only control presentation.
 - **Protocol headers** (`Content-Type`, `Accept`) are carried but marked
   `access: "internal"`: the request needs them, no client should surface them.
 - **There is no `apiVersion` source kind** — see above.
@@ -333,11 +331,11 @@ better C# POCOs than an open map.
 `dialect` is **absent** until a client transform runs. `create-command` writes none:
 it knows nothing about clients.
 
-`PsCommandDialect` carries naming, help, lifecycle, additional output, HTTP-path, and
-parameter-family metadata. A synthetic model-typed command parameter can carry
-`source.bindings` that map properties of its canonical `IRModel` to canonical path
-parameter IDs. `PsParameterDialect` carries `parameterSets[]`, parameter completion,
-script defaults, and removal metadata. `CliCommandDialect` carries `path[]`;
+`PsCommandDialect` carries naming, help, structured deprecation/preview lifecycle,
+additional output, HTTP-path, and parameter-family metadata. `PsParameterDialect`
+carries `parameterSets[]`, literal completion values, one literal default value,
+closed-enum `validateSet[]`, structured deprecation/preview lifecycle, and removal
+metadata. `CliCommandDialect` carries `path[]`;
 `CliParameterDialect` carries `flag`, `shorthand`, `group`.
 
 ## Target
@@ -377,9 +375,7 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - every `steps[].operation` resolves into `IR.operations`;
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
-- PowerShell sibling commands agree on a declared family default parameter set;
-- synthetic bindings name an existing parameter model, properties owned by that
-  model, and canonical path parameters on the same command.
+- PowerShell sibling commands agree on a declared family default parameter set.
 
 ## Consuming it
 

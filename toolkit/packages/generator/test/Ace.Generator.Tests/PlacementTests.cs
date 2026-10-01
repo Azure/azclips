@@ -20,7 +20,7 @@ public sealed class PlacementTests
     {
         var document = new TransformedIR
         {
-            SchemaVersion = "0.13.0",
+            SchemaVersion = "0.14.0",
             Models =
             [
                 new IRModel

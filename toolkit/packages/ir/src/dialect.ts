@@ -39,14 +39,13 @@
 import { z } from "zod";
 import {
   ConfirmImpacts,
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
   PSPreviewSchema,
   type ConfirmImpact,
-  type PSCompleterAttribute,
-  type PSDefaultValueAttribute,
+  type PSDeprecated,
   type PSPreview,
 } from "./ps.js";
+import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
@@ -127,7 +126,7 @@ export type PsCommandDialect = IRClientDialect & {
   supportsShouldProcess?: boolean | undefined;
   confirmImpact?: ConfirmImpact | undefined;
   examples?: string[] | undefined;
-  deprecated?: boolean | undefined;
+  deprecated?: PSDeprecated | undefined;
   preview?: PSPreview | undefined;
   helpUri?: string | undefined;
   /** PowerShell output types when the cmdlet writes more than the canonical primary output. */
@@ -145,7 +144,7 @@ export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
     supportsShouldProcess: z.boolean().optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
     examples: z.array(z.string().min(1)).optional(),
-    deprecated: z.boolean().optional(),
+    deprecated: PSDeprecatedSchema.optional(),
     preview: PSPreviewSchema.optional(),
     helpUri: z.string().url().optional(),
     outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
@@ -200,8 +199,14 @@ export type PsParameterDialect = IRClientDialect & {
   parameterSets?: PsParameterSetMembership[] | undefined;
   /** Omit this parameter from the PowerShell surface without deleting its canonical binding. */
   removed?: boolean | undefined;
-  completer?: PSCompleterAttribute | undefined;
-  defaultValue?: PSDefaultValueAttribute | undefined;
+  /** Fixed completion values offered for this parameter. */
+  completer?: IRLiteralValue[] | undefined;
+  /** PowerShell-specific default value. */
+  defaultValue?: IRLiteralValue | undefined;
+  /** Closed set of valid string values, projected from a closed enum. */
+  validateSet?: string[] | undefined;
+  deprecated?: PSDeprecated | undefined;
+  preview?: PSPreview | undefined;
 };
 
 export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
@@ -209,11 +214,29 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
     removed: z.boolean().optional(),
-    completer: PSCompleterAttributeSchema.optional(),
-    defaultValue: PSDefaultValueAttributeSchema.optional(),
+    completer: z.array(IRLiteralValueSchema).min(1).optional(),
+    defaultValue: IRLiteralValueSchema.optional(),
+    validateSet: z.array(z.string().min(1)).min(1).optional(),
+    deprecated: PSDeprecatedSchema.optional(),
+    preview: PSPreviewSchema.optional(),
   })
   .strict()
   .superRefine((dialect, ctx) => {
+    const validateSet = dialect.validateSet;
+    if (validateSet !== undefined) {
+      const values = new Set<string>();
+      validateSet.forEach((value, index) => {
+        if (values.has(value)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `ValidateSet value '${value}' is declared more than once.`,
+            path: ["validateSet", index],
+          });
+        }
+        values.add(value);
+      });
+    }
+
     const memberships = dialect.parameterSets;
     if (memberships === undefined) return;
 

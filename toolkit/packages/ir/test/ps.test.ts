@@ -1,7 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 import {
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
   PSPreviewSchema,
   PsCommandDialectSchema,
   PsModuleDialectSchema,
@@ -31,30 +30,6 @@ describe("PsModuleDialect", () => {
   });
 });
 
-describe("IRCommandParameterSourceSynthetic", () => {
-  it("maps model properties to canonical path parameters", () => {
-    const result = IRCommandParameterSourceSchema.safeParse({
-      kind: "synthetic",
-      bindings: [
-        {
-          property: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity.resourceGroupName" },
-          targetParameters: [
-            { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
-          ],
-        },
-      ],
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects an explicitly empty binding list", () => {
-    const result = IRCommandParameterSourceSchema.safeParse({ kind: "synthetic", bindings: [] });
-
-    expect(result.success).toBe(false);
-  });
-});
-
 describe("PsCommandDialect", () => {
   it("accepts PowerShell processor metadata on a canonical command dialect", () => {
     const result = PsCommandDialectSchema.safeParse({
@@ -65,7 +40,7 @@ describe("PsCommandDialect", () => {
       supportsShouldProcess: true,
       confirmImpact: "High",
       examples: ["Remove-AzWidget -Name example"],
-      deprecated: true,
+      deprecated: { message: "Use Remove-AzWidgetV2 instead." },
       preview: {
         message: "This command is in preview.",
         estimatedGaDate: "2027-01-01",
@@ -84,6 +59,10 @@ describe("PsCommandDialect", () => {
     const result = PSPreviewSchema.safeParse({ estimatedGaDate: "2027-01-01" });
 
     expect(result.success).toBe(false);
+  });
+
+  it("requires a message for deprecation metadata", () => {
+    expect(PSDeprecatedSchema.safeParse({}).success).toBe(false);
   });
 
   it("rejects an unknown ConfirmImpact value", () => {
@@ -125,15 +104,7 @@ describe("PsCommandDialect", () => {
       parameters: [
         {
           name: "InputObject",
-          source: {
-            kind: "synthetic",
-            bindings: [{
-              property: { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" },
-              targetParameters: [
-                { module: "Widgets", namespace: [], name: "get.resourceGroupName" },
-              ],
-            }],
-          },
+          source: { kind: "synthetic" },
           type: {
             kind: "model",
             id: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
@@ -158,7 +129,7 @@ describe("PsCommandDialect", () => {
 });
 
 describe("PsParameterDialect", () => {
-  it("accepts per-set bindings, completion, and a script-derived default", () => {
+  it("accepts per-set bindings, values, validation, and lifecycle metadata", () => {
     const result = PsParameterDialectSchema.safeParse({
       name: "ResourceGroupName",
       aliases: ["ResourceGroup"],
@@ -166,17 +137,31 @@ describe("PsParameterDialect", () => {
         { set: "ByName", mandatory: true, position: 0, valueFromPipeline: true },
         { set: "ById", mandatory: false, valueFromPipelineByPropertyName: true },
       ],
-      completer: { name: "ResourceGroupCompleter" },
-      defaultValue: {
-        script: "(Get-AzContext).Subscription.Id",
-        setCondition: "$PSBoundParameters.ContainsKey('SubscriptionId')",
-      },
+      completer: [
+        { kind: "string", value: "eastus" },
+        { kind: "string", value: "westus" },
+      ],
+      defaultValue: { kind: "string", value: "eastus" },
+      validateSet: ["eastus", "westus"],
+      deprecated: { message: "Use Location instead." },
+      preview: { message: "This parameter is in preview." },
     });
 
     expect(result.success).toBe(true);
     assert(result.success);
     expect(result.data.parameterSets?.[0]?.valueFromPipeline).toBe(true);
     expect(result.data.parameterSets?.[1]?.valueFromPipelineByPropertyName).toBe(true);
+    expect(result.data.completer).toHaveLength(2);
+    expect(result.data.defaultValue).toEqual({ kind: "string", value: "eastus" });
+  });
+
+  it("rejects empty completion and validation sets", () => {
+    expect(PsParameterDialectSchema.safeParse({ completer: [] }).success).toBe(false);
+    expect(PsParameterDialectSchema.safeParse({ validateSet: [] }).success).toBe(false);
+  });
+
+  it("rejects duplicate ValidateSet values", () => {
+    expect(PsParameterDialectSchema.safeParse({ validateSet: ["eastus", "eastus"] }).success).toBe(false);
   });
 
   it("rejects duplicate parameter-set memberships", () => {
@@ -219,7 +204,7 @@ describe("PowerShell synthetic parameters", () => {
   });
 });
 
-describe("Synthetic parameter bindings", () => {
+describe("PowerShell parameter-set families", () => {
   const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
   const identityPropertyId = { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" };
   const serverId = { module: "Widgets", namespace: [], name: "server" };
@@ -241,11 +226,7 @@ describe("Synthetic parameter bindings", () => {
     }],
   };
 
-  function document({
-    parameterType = identityId,
-    targetParameters = [pathParameterId],
-    property = identityPropertyId,
-  } = {}) {
+  function document() {
     return {
       ...emptyIR(),
       sources: [{
@@ -297,11 +278,8 @@ describe("Synthetic parameter bindings", () => {
           },
           {
             name: "InputObject",
-            source: {
-              kind: "synthetic",
-              bindings: [{ property, targetParameters }],
-            },
-            type: { kind: "model", id: parameterType },
+            source: { kind: "synthetic" },
+            type: { kind: "model", id: identityId },
             required: true,
             nullable: false,
           },
@@ -366,64 +344,4 @@ describe("Synthetic parameter bindings", () => {
     }
   });
 
-  it("accepts a synthetic model parameter with command-specific bindings", () => {
-    expect(safeParseTransformedIR(document()).success).toBe(true);
-  });
-
-  it("rejects a bound synthetic parameter whose model does not exist", () => {
-    const result = safeParseTransformedIR(document({
-      parameterType: { ...identityId, name: "OtherIdentity" },
-    }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "parameters", 1, "type", "id"] }),
-      ]));
-    }
-  });
-
-  it("rejects a binding target that is not a command path parameter", () => {
-    const result = safeParseTransformedIR(document({ targetParameters: [operationId] }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          path: ["commands", 0, "parameters", 1, "source", "bindings", 0, "targetParameters", 0],
-        }),
-      ]));
-    }
-  });
-
-  it("rejects a binding property outside the parameter model", () => {
-    const result = safeParseTransformedIR(document({ property: pathParameterId }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          path: ["commands", 0, "parameters", 1, "source", "bindings", 0, "property"],
-        }),
-      ]));
-    }
-  });
-});
-
-describe("PowerShell attribute metadata", () => {
-  it.each([
-    ["script", { script: "Get-Thing" }],
-    ["name", { name: "LocationCompleter" }],
-    ["description", { description: "Completes locations." }],
-  ])("accepts a completer carrying only %s", (_field, value) => {
-    expect(PSCompleterAttributeSchema.safeParse(value).success).toBe(true);
-  });
-
-  it("rejects an empty completer", () => {
-    expect(PSCompleterAttributeSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("requires a script for a default value", () => {
-    expect(PSDefaultValueAttributeSchema.safeParse({ name: "Subscription" }).success).toBe(false);
-  });
 });

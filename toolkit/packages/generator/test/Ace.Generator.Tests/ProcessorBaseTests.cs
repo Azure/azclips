@@ -30,7 +30,7 @@ public sealed class ProcessorBaseTests
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             new TransformedIR
             {
-                SchemaVersion = "0.13.0",
+                SchemaVersion = "0.14.0",
                 Sources = [new IRSource { Id = "M", Server = server }],
                 Servers = [new IRServerDefinition { Id = server, Endpoint = endpoint }],
                 Models = [],

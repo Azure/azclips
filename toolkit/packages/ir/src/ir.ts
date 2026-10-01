@@ -188,8 +188,6 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
-    const models = new Map(ir.models.map((model) => [idKey(model.id), model]));
-    const properties = new Map(ir.models.flatMap((model) => model.properties.map((property) => [idKey(property.id), { model, property }] as const)));
     const psFamilies = new Map<
       string,
       { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
@@ -235,57 +233,6 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
       identities.add(key);
-
-      const commandPathParameters = new Set(
-        command.parameters.flatMap((parameter) =>
-          parameter.source.kind === "path" ? [idKey(parameter.source.parameter)] : [],
-        ),
-      );
-      command.parameters.forEach((parameter, parameterIndex) => {
-        if (parameter.source.kind !== "synthetic" || parameter.source.bindings === undefined) return;
-
-        const parameterPath = ["commands", index, "parameters", parameterIndex];
-        let parameterModel: IRModel | undefined;
-        if (parameter.type.kind !== "model") {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Command '${command.name}' synthetic parameter '${parameter.name}' with bindings must be model-typed.`,
-            path: [...parameterPath, "type"],
-          });
-        } else {
-          parameterModel = models.get(idKey(parameter.type.id));
-          if (parameterModel === undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Command '${command.name}' synthetic parameter '${parameter.name}' references model ${serializeId(parameter.type.id)}, which is not in IR.models.`,
-              path: [...parameterPath, "type", "id"],
-            });
-          }
-        }
-
-        parameter.source.bindings.forEach((binding, bindingIndex) => {
-          const bindingPath = [...parameterPath, "source", "bindings", bindingIndex];
-          if (parameterModel !== undefined) {
-            const resolved = properties.get(idKey(binding.property));
-            if (resolved === undefined || idKey(resolved.model.id) !== idKey(parameterModel.id)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Command '${command.name}' synthetic binding property ${serializeId(binding.property)} is not on parameter model ${serializeId(parameterModel.id)}.`,
-                path: [...bindingPath, "property"],
-              });
-            }
-          }
-          binding.targetParameters.forEach((targetParameter, targetParameterIndex) => {
-            if (!commandPathParameters.has(idKey(targetParameter))) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Command '${command.name}' synthetic binding targets ${serializeId(targetParameter)}, which is not one of the command's canonical path parameters.`,
-                path: [...bindingPath, "targetParameters", targetParameterIndex],
-              });
-            }
-          });
-        });
-      });
 
       if (command.dialect?.ps !== undefined) {
         const familyKey = commandActionKey(command.id);

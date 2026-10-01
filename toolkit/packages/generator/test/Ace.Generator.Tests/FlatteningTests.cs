@@ -91,7 +91,7 @@ public sealed class FlatteningTests
 
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.13.0",
+            SchemaVersion = "0.14.0",
             Sources = [new IRSource { Id = Module, Server = ServerId() }],
             Servers = [new IRServerDefinition { Id = ServerId(), Endpoint = new IRServerLiteral { Url = "https://example.com" } }],
             Models = [thing, thingProperties, Model("Sku", Prim("Sku", "Name", optional: false))],

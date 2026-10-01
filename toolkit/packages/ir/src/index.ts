@@ -202,7 +202,6 @@ export {
   IRCommandSchema,
   IRCommandIdSchema,
   IRCommandParameterSchema,
-  IRCommandParameterBindingSchema,
   IRCommandParameterSourceSchema,
   IRCommandRequestSchema,
   IRCommandRequestBodySchema,
@@ -221,7 +220,6 @@ export {
   type IRCommand,
   type IRCommandId,
   type IRCommandParameter,
-  type IRCommandParameterBinding,
   type IRCommandParameterSource,
   type IRCommandParameterSourceSynthetic,
   type IRCommandRequest,
@@ -268,11 +266,9 @@ export {
 
 export {
   ConfirmImpacts,
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
   PSPreviewSchema,
   type ConfirmImpact,
-  type PSCompleterAttribute,
-  type PSDefaultValueAttribute,
+  type PSDeprecated,
   type PSPreview,
 } from "./ps.js";
