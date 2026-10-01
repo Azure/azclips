@@ -19,10 +19,11 @@ import {
   compile,
   createRegistry,
   CSHARP_STAGE,
-  TWEAK_IR_STAGE,
-  FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
+  FLATTEN_MODEL_STAGE,
   PS_DERIVE_STAGE,
+  PS_DIRECTIVES_STAGE,
+  TWEAK_IR_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
@@ -30,6 +31,7 @@ import {
 import {
   createCommandStep,
   createPSDeriveStep,
+  createPSDirectivesStep,
   flattenModelStep,
   tweakIrStep,
 } from "@azure-client-engine/transformers";
@@ -45,9 +47,10 @@ import { createHostRuntime } from "./runtime.js";
  * Implementations this host supplies for the compiler's declared stages.
  *
  * This is fulfilment, not orchestration: the compiler's catalog owns where
- * `flatten-model`/`ps.derive` sit and whether each runs by default, and the
- * host only provides the code behind each id. `tsp-emit` and `csharp` need no
- * entry — they are external stages driven through the host runtime.
+ * `flatten-model`/`ps.derive`/`ps.directives` sit and whether each runs by
+ * default, and the host only provides the code behind each id. `tsp-emit` and
+ * `csharp` need no entry — they are external stages driven through the host
+ * runtime.
  */
 const STAGE_IMPLEMENTATIONS = createRegistry({
   transforms: {
@@ -55,6 +58,7 @@ const STAGE_IMPLEMENTATIONS = createRegistry({
     [FLATTEN_MODEL_STAGE]: flattenModelStep,
     [CREATE_COMMAND_STAGE]: createCommandStep,
     [PS_DERIVE_STAGE]: createPSDeriveStep,
+    [PS_DIRECTIVES_STAGE]: createPSDirectivesStep,
   },
 });
 
@@ -72,14 +76,15 @@ export function usage(): string {
     "                         loaded as CompileInput.config (CompileConfig) (optional).",
     "                         Its 'pipeline' flips compiler-declared stages on or off,",
     "                         e.g. { \"pipeline\": { \"flatten-model\": false } } or",
-    "                         { \"pipeline\": { \"ps.derive\": true } }, and",
-    "                         'stageOptions' configures them by stage id.",
+    "                         { \"pipeline\": { \"ps.derive\": true, \"ps.directives\": true } },",
+    "                         and 'stageOptions' configures them by stage id. 'ps.directives'",
+    "                         requires 'ps.derive' to also be enabled.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
     "                         The spec is staged under <out-dir>/source before compiling.",
     "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
-    "  --root-namespace <ns>  Root C# namespace and project name for the generated extension.",
+    "  --root-namespace <ns>  Root C# namespace for the generator (generator option).",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -152,22 +157,18 @@ export async function runCompile(args: string[]): Promise<number> {
   }
   // Orchestration stays compiler-owned, so these flags do not assemble a
   // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // configures the stage that resolves placement.
+  // configures it through that stage's options.
   const generatorStage = generatorArg ?? CSHARP_STAGE;
   if (generatorArg !== undefined) {
     config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
   }
   if (rootNamespaceArg !== undefined) {
-    // Placement is resolved at transform time, into `IRTarget` — so the flag feeds
-    // the command projection, not the generator. Routing it to the generator would
-    // be silently ignored: the generator reads the document's target and falls back
-    // to its own option only when a document carries none.
     config = {
       ...config,
       stageOptions: {
         ...config.stageOptions,
-        [CREATE_COMMAND_STAGE]: {
-          ...config.stageOptions?.[CREATE_COMMAND_STAGE],
+        [generatorStage]: {
+          ...config.stageOptions?.[generatorStage],
           rootNamespace: rootNamespaceArg,
         },
       },

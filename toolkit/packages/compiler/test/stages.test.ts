@@ -15,6 +15,8 @@ import {
   TWEAK_IR_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  PS_DERIVE_STAGE,
+  PS_DIRECTIVES_STAGE,
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
   isStageEnabled,
@@ -103,6 +105,29 @@ describe("stage planner: the shipped catalog", () => {
       CSHARP_STAGE,
       "extra",
     ]);
+  });
+
+  it("orders ps.directives after ps.derive and requires derivation", () => {
+    const enabled = {
+      [PS_DERIVE_STAGE]: true,
+      [PS_DIRECTIVES_STAGE]: true,
+    };
+    expect(order(plan(enabled).sequence)).toEqual([
+      TSP_EMIT_STAGE,
+      TWEAK_IR_STAGE,
+      FLATTEN_MODEL_STAGE,
+      CREATE_COMMAND_STAGE,
+      PS_DERIVE_STAGE,
+      PS_DIRECTIVES_STAGE,
+      CSHARP_STAGE,
+    ]);
+
+    const { sequence, diagnostics } = plan({
+      [PS_DERIVE_STAGE]: false,
+      [PS_DIRECTIVES_STAGE]: true,
+    });
+    expect(sequence).toBeUndefined();
+    expect(codes(diagnostics)).toEqual(["missing-required-stage"]);
   });
 });
 

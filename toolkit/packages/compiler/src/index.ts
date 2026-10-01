@@ -28,6 +28,7 @@ export {
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
   PS_DERIVE_STAGE,
+  PS_DIRECTIVES_STAGE,
   CSHARP_STAGE,
   planStages,
   isStageEnabled,
