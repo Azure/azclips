@@ -90,6 +90,68 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_SyntheticBindings_FanOutToCanonicalPathProperties()
+    {
+        TransformedIR ir = Ir(operations: ["get"]);
+        var pathId = new IRId { Module = "Test", Name = "widgetName" };
+        var modelId = new IRId { Module = "Test", Name = "WidgetIdentity" };
+        var propertyId = new IRId { Module = "Test", Name = "WidgetIdentity.widgetName" };
+        ir.Models =
+        [
+            new IRModel
+            {
+                Id = modelId,
+                Name = "WidgetIdentity",
+                Source = "synthetic",
+                Usage = [IRModelUsage.Input],
+                Properties =
+                [
+                    new IRPropertyPrimitive
+                    {
+                        Id = propertyId,
+                        Name = "WidgetName",
+                        WireName = "widgetName",
+                        Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                    },
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "Get",
+                ServerId(),
+                OperationId("get"),
+                path: [Commands.Literal("/widgets/"), Commands.Param("WidgetName")],
+                parameters:
+                [
+                    Commands.Parameter("WidgetName", Commands.FromPath(pathId)),
+                    Commands.Parameter(
+                        "InputObject",
+                        new IRCommandParameterSourceSynthetic
+                        {
+                            Bindings =
+                            [
+                                new IRCommandParameterBinding
+                                {
+                                    Property = propertyId,
+                                    TargetParameters = [pathId],
+                                },
+                            ],
+                        },
+                        new IRTypeRefModel { Id = modelId }),
+                ])
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+        string processor = writer.Files.Source(result, "GetProcessor");
+
+        Assert.True(result.Success);
+        Assert.Contains("WidgetName = value.WidgetName;", processor);
+        Assert.Contains("CreateRequestUri() => $\"{Endpoint}/widgets/{WidgetName}\";", processor);
+    }
+
+    [Fact]
     public async Task Generate_FormatsNonStringHeaderValues()
     {
         // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so an enum- or

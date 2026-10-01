@@ -333,9 +333,9 @@ better C# POCOs than an open map.
 `dialect` is **absent** until a client transform runs. `create-command` writes none:
 it knows nothing about clients.
 
-`PsCommandDialect` carries naming, help, lifecycle, paging/output, HTTP-path, and
-parameter-family metadata. Its optional `identity` names a synthetic model-typed
-command parameter and maps properties of that canonical `IRModel` to canonical path
+`PsCommandDialect` carries naming, help, lifecycle, additional output, HTTP-path, and
+parameter-family metadata. A synthetic model-typed command parameter can carry
+`source.bindings` that map properties of its canonical `IRModel` to canonical path
 parameter IDs. `PsParameterDialect` carries `parameterSets[]`, parameter completion,
 script defaults, and removal metadata. `CliCommandDialect` carries `path[]`;
 `CliParameterDialect` carries `flag`, `shorthand`, `group`.
@@ -347,7 +347,7 @@ IRTarget = {
   rootNamespace: string[]
   projectName:   string
   directories:   { models: string, processors: string }
-  dialect?:      { ps?: PsModuleDialect, cli?: CliModuleDialect }
+  dialect?:      { ps?: PsModuleDialect }
 }
 ```
 
@@ -378,8 +378,8 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
 - PowerShell sibling commands agree on a declared family default parameter set;
-- a PowerShell identity names an existing synthetic model parameter, model-owned
-  properties, and canonical path parameters.
+- synthetic bindings name an existing parameter model, properties owned by that
+  model, and canonical path parameters on the same command.
 
 ## Consuming it
 

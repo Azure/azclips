@@ -158,7 +158,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         {
             if (parameter.Source is not IRCommandParameterSourceBody && !inherited.Contains(parameter.Name))
             {
-                members.Add(ParameterProperty(parameter, context.Index));
+                members.AddRange(ParameterMembers(parameter, command, context.Index));
             }
         }
 
@@ -239,9 +239,61 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// transform marked <c>internal</c> (a protocol header the transport owns) leaves the public
     /// surface, which is what keeps it out of argument binding and help.
     /// </remarks>
-    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter, IrIndex index)
+    private static IEnumerable<MemberDeclarationSyntax> ParameterMembers(
+        IRCommandParameter parameter,
+        IRCommand command,
+        IrIndex index)
     {
         string type = ParameterType(parameter, index);
+
+        if (parameter.Source is IRCommandParameterSourceSynthetic { Bindings.Count: > 0 } synthetic)
+        {
+            string backingField = "_" + parameter.Name.Identifier().TrimStart('@');
+            yield return FieldDeclaration(
+                    VariableDeclaration(ParseTypeName(type))
+                        .AddVariables(
+                            VariableDeclarator(Identifier(backingField))
+                                .WithInitializer(EqualsValueClause(ParseExpression("default!")))))
+                .AddModifiers(Token(SyntaxKind.PrivateKeyword));
+
+            StatementSyntax[] assignments = [.. synthetic.Bindings.SelectMany(binding =>
+            {
+                IRProperty property = index.Property(binding.Property)!;
+                string source = $"value.{property.Name.Identifier()}";
+                return binding.TargetParameters.Select(target =>
+                {
+                    IRCommandParameter targetParameter = command.Parameters.Single(candidate =>
+                        candidate.Source is IRCommandParameterSourcePath path && IrIds.Equal(path.Parameter, target));
+                    return (StatementSyntax)ExpressionStatement(
+                        AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            IdentifierName(targetParameter.Name),
+                            ParseExpression(source)));
+                });
+            })];
+
+            yield return PropertyDeclaration(ParseTypeName(type), Identifier(parameter.Name))
+                .AddModifiers(Token(parameter.Access == IRCommandParameterAccess.Internal
+                    ? SyntaxKind.InternalKeyword
+                    : SyntaxKind.PublicKeyword))
+                .WithAccessorList(AccessorList(List(
+                [
+                    AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithExpressionBody(ArrowExpressionClause(IdentifierName(backingField)))
+                        .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                    AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                        .WithBody(Block(
+                            ExpressionStatement(AssignmentExpression(
+                                SyntaxKind.SimpleAssignmentExpression,
+                                IdentifierName(backingField),
+                                IdentifierName("value"))),
+                            IfStatement(
+                                ParseExpression("value is not null"),
+                                Block(assignments)))),
+                ])))
+                .WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
+            yield break;
+        }
 
         PropertyDeclarationSyntax decl = PropertyDeclaration(ParseTypeName(type), Identifier(parameter.Name))
             .AddModifiers(Token(parameter.Access == IRCommandParameterAccess.Internal
@@ -257,7 +309,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
-        return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
+        yield return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
     }
 
     /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>
