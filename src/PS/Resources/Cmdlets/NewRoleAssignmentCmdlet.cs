@@ -131,23 +131,31 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
 
     protected override void StopProcessing() => _cts.Cancel();
 
-    // Names the scope the assignment will be created at for the ShouldProcess prompt.
     private string ResolveShouldProcessTarget()
     {
-        bool hasSubscription = MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId));
-
         if (Scope is not null)
         {
             return Scope;
         }
 
-        if (ResourceGroupName is not null)
+        string subscription = DescribeSubscription();
+        return ResourceGroupName is not null
+            ? $"resource group '{ResourceGroupName}' in {subscription}"
+            : subscription;
+    }
+
+    private string DescribeSubscription()
+    {
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
-            return hasSubscription
-                ? $"resource group '{ResourceGroupName}' in subscription '{SubscriptionId}'"
-                : $"resource group '{ResourceGroupName}'";
+            return $"subscription '{SubscriptionId}'";
         }
 
-        return hasSubscription ? $"subscription '{SubscriptionId}'" : "the active subscription";
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            return $"the subscription of profile '{Profile}'";
+        }
+
+        return "the active subscription";
     }
 }

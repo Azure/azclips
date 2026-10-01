@@ -289,6 +289,19 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_UnsupportedConditionVersion_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Condition = "@Resource[foo:Name] stringEquals 'bar'";
+            p.ConditionVersion = "1.0";
+        });
+    }
+
+    [Fact]
     public async Task Create_FullyQualifiedRoleDefinitionId_PassesThrough()
     {
         string fullId = $"/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleDefinitions/{RoleDefinitionId}";

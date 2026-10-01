@@ -12,8 +12,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <see cref="NewRoleAssignmentProcessor.Scope"/>, <see cref="NewRoleAssignmentProcessor.RoleAssignmentName"/>,
 /// and <see cref="NewRoleAssignmentProcessor.Body"/>:
 /// <list type="bullet">
-/// <item>Scope is the grant target. It defaults to the active subscription and can be narrowed with
-/// <see cref="ResourceGroupName"/> or overridden with an explicit scope (mutually exclusive).</item>
+/// <item>Scope is the grant target. An explicit scope is used as-is; otherwise it is built from the
+/// subscription, optionally narrowed by <see cref="ResourceGroupName"/>. An explicit scope and a
+/// resource group are mutually exclusive.</item>
 /// <item><see cref="Assignee"/> / <see cref="AssigneeObjectId"/> supply the principal ID. Both accept an
 /// object (principal) ID (GUID) only; name/UPN/service-principal resolution needs a Microsoft Graph
 /// lookup this ARM-only path does not perform.</item>
@@ -53,14 +54,16 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         Scope = scope;
         RoleAssignmentName = ResolveName();
 
+        string principalId = ResolvePrincipalId();
+        string roleDefinitionId = ResolveRoleDefinitionId(scope);
         (string? condition, string? conditionVersion) = ResolveCondition();
 
         Body = new RoleAssignmentCreateParameters
         {
             Properties = new RoleAssignmentCreateProperties
             {
-                PrincipalId = ResolvePrincipalId(),
-                RoleDefinitionId = ResolveRoleDefinitionId(scope),
+                PrincipalId = principalId,
+                RoleDefinitionId = roleDefinitionId,
                 PrincipalType = PrincipalType,
                 Description = Description,
                 Condition = condition,
@@ -89,7 +92,8 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
 
     /// <summary>
     /// Pairs the condition with a version: defaults the version to <c>2.0</c> when a condition is
-    /// supplied without one, and rejects a version supplied without a condition.
+    /// supplied without one, rejects a version supplied without a condition, and rejects any version
+    /// other than the supported <c>2.0</c>.
     /// </summary>
     private (string? Condition, string? ConditionVersion) ResolveCondition()
     {
@@ -107,7 +111,19 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             return (null, null);
         }
 
-        return (Condition!.Trim(), hasVersion ? ConditionVersion!.Trim() : DefaultConditionVersion);
+        if (!hasVersion)
+        {
+            return (Condition!.Trim(), DefaultConditionVersion);
+        }
+
+        string version = ConditionVersion!.Trim();
+        if (!string.Equals(version, DefaultConditionVersion, StringComparison.Ordinal))
+        {
+            throw AzclipsErrorException.UsageError(
+                $"The condition version '{version}' is not supported. The only supported condition version is '{DefaultConditionVersion}'.");
+        }
+
+        return (Condition!.Trim(), version);
     }
 
     /// <summary>
