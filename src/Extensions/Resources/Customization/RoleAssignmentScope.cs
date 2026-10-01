@@ -36,7 +36,9 @@ internal static class RoleAssignmentScope
         if (string.IsNullOrWhiteSpace(subscriptionId))
         {
             throw AzclipsErrorException.MissingRequiredParameters(
-                "A scope is required. Specify a scope or a resource group, or set an active subscription.");
+                hasResourceGroup
+                    ? "A subscription is required to resolve a resource group scope. Specify a subscription, or set an active subscription."
+                    : "A scope is required. Specify a scope or a resource group, or set an active subscription.");
         }
 
         string subscriptionScope = $"/subscriptions/{subscriptionId!.Trim()}";

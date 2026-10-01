@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// lookup this ARM-only path does not perform.</item>
 /// <item><see cref="RoleDefinitionId"/> (a role definition GUID) is expanded to the fully-qualified
 /// role definition ID rooted at the scope's subscription. Role name resolution is not yet supported.</item>
-/// <item>A missing <see cref="Name"/> is generated (a fresh GUID), matching the classic tools.</item>
+/// <item>A missing <see cref="Name"/> is generated (a fresh GUID).</item>
 /// </list>
 /// </summary>
 public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcessor
@@ -44,11 +44,16 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
 
     public string? ConditionVersion { get; set; }
 
+    // The only condition syntax version currently supported.
+    private const string DefaultConditionVersion = "2.0";
+
     protected override async Task BeforeProcessAsync()
     {
         string scope = RoleAssignmentScope.Resolve(SubscriptionId, Scope, ResourceGroupName);
         Scope = scope;
         RoleAssignmentName = ResolveName();
+
+        (string? condition, string? conditionVersion) = ResolveCondition();
 
         Body = new RoleAssignmentCreateParameters
         {
@@ -58,8 +63,8 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 RoleDefinitionId = ResolveRoleDefinitionId(scope),
                 PrincipalType = PrincipalType,
                 Description = Description,
-                Condition = Condition,
-                ConditionVersion = ConditionVersion,
+                Condition = condition,
+                ConditionVersion = conditionVersion,
             },
         };
 
@@ -80,6 +85,29 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// Pairs the condition with a version: defaults the version to <c>2.0</c> when a condition is
+    /// supplied without one, and rejects a version supplied without a condition.
+    /// </summary>
+    private (string? Condition, string? ConditionVersion) ResolveCondition()
+    {
+        bool hasCondition = !string.IsNullOrWhiteSpace(Condition);
+        bool hasVersion = !string.IsNullOrWhiteSpace(ConditionVersion);
+
+        if (!hasCondition)
+        {
+            if (hasVersion)
+            {
+                throw AzclipsErrorException.UsageError(
+                    "A condition version was specified without a condition. Specify a condition, or omit the condition version.");
+            }
+
+            return (null, null);
+        }
+
+        return (Condition!.Trim(), hasVersion ? ConditionVersion!.Trim() : DefaultConditionVersion);
     }
 
     /// <summary>
@@ -127,8 +155,9 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
 
     /// <summary>
     /// Expands the required <see cref="RoleDefinitionId"/> into a fully-qualified role definition ID.
-    /// A value that is already a path is used as-is; a GUID is rooted at the grant scope's subscription
-    /// (or the scope itself for management-group / tenant scopes). Role name resolution is not yet supported.
+    /// A value that is already a fully-qualified role definition ID (ending in a GUID) is used as-is; a
+    /// bare GUID is rooted at the grant scope's subscription (or the scope itself for management-group /
+    /// tenant scopes). Role name resolution is not yet supported.
     /// </summary>
     private string ResolveRoleDefinitionId(string scope)
     {
@@ -140,7 +169,14 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         string value = RoleDefinitionId.Trim();
         if (value.StartsWith('/'))
         {
-            return value;
+            if (IsRoleDefinitionId(value))
+            {
+                return value;
+            }
+
+            throw AzclipsErrorException.UsageError(
+                $"The role '{value}' is not a valid role definition ID. Specify a role definition GUID, or a fully-qualified " +
+                "role definition ID ending in '/providers/Microsoft.Authorization/roleDefinitions/{guid}'.");
         }
 
         if (!Guid.TryParse(value, out _))
@@ -151,6 +187,20 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         }
 
         return $"{RoleDefinitionRoot(scope)}/providers/Microsoft.Authorization/roleDefinitions/{value}";
+    }
+
+    // True when the value is a fully-qualified role definition ID whose final segment is a GUID.
+    private static bool IsRoleDefinitionId(string value)
+    {
+        const string segment = "/providers/Microsoft.Authorization/roleDefinitions/";
+        int index = value.IndexOf(segment, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        string tail = value[(index + segment.Length)..].TrimEnd('/');
+        return Guid.TryParse(tail, out _);
     }
 
     // Roots the role definition at the scope's subscription when present, else at the scope itself.

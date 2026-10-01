@@ -227,6 +227,119 @@ public class RoleAssignmentCreateTests
             body.GetProperty("properties").GetProperty("roleDefinitionId").GetString());
     }
 
+    [Fact]
+    public async Task Create_ConditionWithoutVersion_DefaultsVersionToTwoPointZero()
+    {
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Condition = "@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:Name] stringEquals 'foo'";
+        });
+
+        JsonElement props = body.GetProperty("properties");
+        Assert.Equal(
+            "@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:Name] stringEquals 'foo'",
+            props.GetProperty("condition").GetString());
+        Assert.Equal("2.0", props.GetProperty("conditionVersion").GetString());
+    }
+
+    [Fact]
+    public async Task Create_ConditionWithExplicitVersion_PassesThrough()
+    {
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Condition = "@Resource[foo:Name] stringEquals 'bar'";
+            p.ConditionVersion = "2.0";
+        });
+
+        JsonElement props = body.GetProperty("properties");
+        Assert.Equal("2.0", props.GetProperty("conditionVersion").GetString());
+    }
+
+    [Fact]
+    public async Task Create_NoCondition_OmitsConditionFields()
+    {
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+
+        JsonElement props = body.GetProperty("properties");
+        Assert.False(props.TryGetProperty("condition", out _));
+        Assert.False(props.TryGetProperty("conditionVersion", out _));
+    }
+
+    [Fact]
+    public async Task Create_ConditionVersionWithoutCondition_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.ConditionVersion = "2.0";
+        });
+    }
+
+    [Fact]
+    public async Task Create_FullyQualifiedRoleDefinitionId_PassesThrough()
+    {
+        string fullId = $"/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleDefinitions/{RoleDefinitionId}";
+        (_, _, JsonElement body) = await Capture(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = fullId;
+            p.Name = AssignmentName;
+        });
+
+        Assert.Equal(fullId, body.GetProperty("properties").GetProperty("roleDefinitionId").GetString());
+    }
+
+    [Fact]
+    public async Task Create_InvalidRoleDefinitionPath_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = "/not-a-role";
+        });
+    }
+
+    [Fact]
+    public void CliMetadata_DoesNotExposeResourceGroupOnCreate()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
+
+        Assert.False(metadata.Parameters.ContainsKey("resource-group"));
+        Assert.False(metadata.ParameterAliases.ContainsKey("g"));
+    }
+
+    [Fact]
+    public async Task Create_ResourceGroupWithoutSubscription_ReportsMissingSubscription()
+    {
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("{}"));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.ResourceGroupName = "test-rg";
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+        // SubscriptionId intentionally left empty.
+
+        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Contains("subscription", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("--", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
     private static async Task<(Uri Uri, HttpMethod Method, JsonElement Body)> Capture(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;

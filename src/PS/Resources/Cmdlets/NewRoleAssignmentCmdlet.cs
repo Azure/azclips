@@ -66,7 +66,7 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        string target = Scope ?? (ResourceGroupName is null ? "the active subscription" : $"resource group '{ResourceGroupName}'");
+        string target = ResolveShouldProcessTarget();
         if (!ShouldProcess($"role assignment for principal '{ObjectId}' at {target}", "Create"))
         {
             return;
@@ -130,4 +130,24 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
     }
 
     protected override void StopProcessing() => _cts.Cancel();
+
+    // Names the scope the assignment will be created at for the ShouldProcess prompt.
+    private string ResolveShouldProcessTarget()
+    {
+        bool hasSubscription = MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId));
+
+        if (Scope is not null)
+        {
+            return Scope;
+        }
+
+        if (ResourceGroupName is not null)
+        {
+            return hasSubscription
+                ? $"resource group '{ResourceGroupName}' in subscription '{SubscriptionId}'"
+                : $"resource group '{ResourceGroupName}'";
+        }
+
+        return hasSubscription ? $"subscription '{SubscriptionId}'" : "the active subscription";
+    }
 }

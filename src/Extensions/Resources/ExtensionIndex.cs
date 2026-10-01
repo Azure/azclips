@@ -349,8 +349,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]         = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["scope"]                   = new("Scope", "scope", typeof(string), "Fully qualified scope to create the role assignment at (the grant target). Mutually exclusive with --resource-group.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]          = new("ResourceGroupName", "resource-group", typeof(string), "Create the role assignment scoped to this resource group under the subscription.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["scope"]                   = new("Scope", "scope", typeof(string), "Fully qualified scope to create the role assignment at (the grant target), e.g. a subscription, resource group, or resource ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["assignee"]                = new("Assignee", "assignee", typeof(string), "The principal to assign the role to. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["assignee-object-id"]      = new("AssigneeObjectId", "assignee-object-id", typeof(string), "The principal's object (principal) ID (GUID) to assign the role to.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["role"]                    = new("RoleDefinitionId", "role", typeof(string), "The role definition ID (GUID) to assign. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -362,7 +361,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>
             {
-                ["g"] = "resource-group",
                 ["n"] = "name",
             }
         );
