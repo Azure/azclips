@@ -10,8 +10,8 @@ if ! command -v docker >/dev/null 2>&1 || ! docker buildx version >/dev/null 2>&
 fi
 
 if (( ${#packages[@]} > 0 )); then
-  sudo apt-get update
-  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+  sudo apt-get -o DPkg::Lock::Timeout=300 update
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends "${packages[@]}"
 fi
 
 if ! docker version >/dev/null 2>&1; then
