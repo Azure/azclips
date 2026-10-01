@@ -20,7 +20,7 @@ internal static class ImageReferenceResolver
             return urn;
         }
 
-        throw new NotImplementedException("Only marketplace image URNs are supported by azclips vm create --image currently.");
+        throw new NotImplementedException("Only marketplace image URNs in 'publisher:offer:sku:version' format are supported currently.");
     }
 
     private static ImageReference Urn(string publisher, string offer, string sku, string version) => new()

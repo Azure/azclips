@@ -114,6 +114,14 @@ public class VmCreateOrchestrationTests
         Assert.Contains("\"plan\":{\"name\":\"plan-name\",\"product\":\"plan-product\",\"publisher\":\"plan-publisher\"}", vmBody);
     }
 
+    [Fact]
+    public void Image_LatestVersion_UsesNumericOrdering()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("VersionTest:offer:sku:latest"));
+
+        Assert.Contains("\"version\":\"10.0.0\"", vmBody);
+    }
+
     [Theory]
     [InlineData("Ubuntu2204")]
     [InlineData("custom-image")]

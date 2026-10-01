@@ -26,9 +26,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public ImagePlan? Plan { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
         public string OperatingSystemType { get; set; } = OperatingSystemTypes.Windows;
-        public string SecurityType { get; set; } = "trustedlaunch";
-        public bool SecureBootEnabled { get; set; } = true;
-        public bool VTpmEnabled { get; set; } = true;
+        public string? SecurityType { get; set; } = "trustedlaunch";
+        public bool? SecureBootEnabled { get; set; } = true;
+        public bool? VTpmEnabled { get; set; } = true;
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
         protected override HttpMethod Method => HttpMethod.Put;
@@ -69,15 +69,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                             new NetworkInterfaceReference { Id = NetworkInterfaceId }
                         ]
                     },
-                    SecurityProfile = new SecurityProfile
-                    {
-                        SecurityType = SecurityType,
-                        UefiSettings = new UefiSettings
-                        {
-                            SecureBootEnabled = SecureBootEnabled,
-                            VTpmEnabled = VTpmEnabled
-                        }
-                    },
+                    SecurityProfile = CreateSecurityProfile(),
                     DiagnosticsProfile = new DiagnosticsProfile
                     {
                         BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }
@@ -88,6 +80,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         private bool IsWindows => OperatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+
+        private SecurityProfile? CreateSecurityProfile()
+        {
+            if (string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null)
+            {
+                return null;
+            }
+
+            return new SecurityProfile
+            {
+                SecurityType = SecurityType,
+                UefiSettings = SecureBootEnabled is null && VTpmEnabled is null
+                    ? null
+                    : new UefiSettings
+                    {
+                        SecureBootEnabled = SecureBootEnabled,
+                        VTpmEnabled = VTpmEnabled
+                    }
+            };
+        }
 
         /*
         Yabo:

@@ -49,24 +49,50 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 ? "2022.0.202409010"
                 : path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase)
                 ? "with-plan"
+                : path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? "9.0.0"
                 : "22.04.202409010";
             var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
                 ? "Windows"
                 : "Linux";
             var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
 
-            return Task.FromResult(Json(new[]
-            {
-                new
+            object[] versions = path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? new object[]
                 {
-                    name = imageVersion,
-                    properties = new
+                    new
                     {
-                        osDiskImage = new { operatingSystem },
-                        plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                        name = "9.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
+                    },
+                    new
+                    {
+                        name = "10.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
                     }
                 }
-            }, HttpStatusCode.OK));
+                : new object[]
+                {
+                    new
+                    {
+                        name = imageVersion,
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                        }
+                    }
+                };
+
+            return Task.FromResult(Json(versions, HttpStatusCode.OK));
         }
 
         if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)

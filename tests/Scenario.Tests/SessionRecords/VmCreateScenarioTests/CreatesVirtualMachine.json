@@ -31,13 +31,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "be586f09-68c4-4568-9313-b7557289726e"
+            "fa61fee8-fa70-44c0-b27e-0be4ba4ce949"
           ],
           "x-ms-correlation-request-id": [
-            "be586f09-68c4-4568-9313-b7557289726e"
+            "fa61fee8-fa70-44c0-b27e-0be4ba4ce949"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024516Z:be586f09-68c4-4568-9313-b7557289726e"
+            "WESTUS2:20261001T041501Z:fa61fee8-fa70-44c0-b27e-0be4ba4ce949"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -49,10 +49,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 989375C07BAB415C9F37C20B4A220F20 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:14Z"
+            "Ref A: 8F82CE0C90E947B1A0D491C61118D86C Ref B: SYD281080711054 Ref C: 2026-10-01T04:14:59Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:16 GMT"
+            "Thu, 01 Oct 2026 04:15:01 GMT"
           ]
         },
         "contentHeaders": {
@@ -69,7 +69,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/publishers/MicrosoftWindowsServer/artifactTypes/vmImage/offers/WindowsServer/skus/2022-datacenter-azure-edition/versions?api-version=2025-04-01\u0026$expand=properties",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/publishers/MicrosoftWindowsServer/artifactTypes/vmImage/offers/WindowsServer/skus/2022-datacenter-azure-edition/versions?api-version=2025-04-01",
         "headers": {}
       },
       "response": {
@@ -91,7 +91,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "e673cdf7-e862-4e03-bec0-b21529269620"
+            "6653e23c-034f-4938-9cf0-e39d4223e933"
           ],
           "x-ms-throttling-version": [
             "v2"
@@ -100,10 +100,10 @@
             "249"
           ],
           "x-ms-correlation-request-id": [
-            "f3b91911-217c-4637-a5bc-38a448fedd48"
+            "e4dd3169-1226-4980-aa0d-269f478779f4"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261001T024518Z:f3b91911-217c-4637-a5bc-38a448fedd48"
+            "AUSTRALIAEAST:20261001T041502Z:e4dd3169-1226-4980-aa0d-269f478779f4"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -112,10 +112,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 90C17A4A077A45A2A9B65014AC3D1797 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:17Z"
+            "Ref A: 000FD83934CE4331838B52C3074E679C Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:01Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:18 GMT"
+            "Thu, 01 Oct 2026 04:15:02 GMT"
           ]
         },
         "contentHeaders": {
@@ -126,7 +126,7 @@
             "-1"
           ]
         },
-        "body": "[\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-02-10T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.4773.260206\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.4773.260206\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-03-10T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.4893.260303\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.4893.260303\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-04-15T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5020.260413\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5020.260413\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-05-12T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5139.260507\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5139.260507\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-06-09T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5256.260607\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5256.260607\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-06-19T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5256.260617\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5256.260617\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-07-14T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5386.260711\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5386.260711\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-08-11T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5499.260809\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5499.260809\u0022\r\n  },\r\n  {\r\n    \u0022properties\u0022: {\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022architecture\u0022: \u0022x64\u0022,\r\n      \u0022replicaType\u0022: \u0022Managed\u0022,\r\n      \u0022replicaCount\u0022: 10,\r\n      \u0022goLiveDate\u0022: \u00222026-09-08T00:00:00\u002B00:00\u0022\r\n    },\r\n    \u0022extendedLocation\u0022: null,\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5622.260906\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5622.260906\u0022\r\n  }\r\n]"
+        "body": "[\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.4773.260206\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.4773.260206\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.4893.260303\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.4893.260303\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5020.260413\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5020.260413\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5139.260507\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5139.260507\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5256.260607\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5256.260607\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5256.260617\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5256.260617\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5386.260711\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5386.260711\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5499.260809\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5499.260809\u0022\r\n  },\r\n  {\r\n    \u0022location\u0022: \u0022westus2\u0022,\r\n    \u0022name\u0022: \u002220348.5622.260906\u0022,\r\n    \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5622.260906\u0022\r\n  }\r\n]"
       }
     },
     {
@@ -154,7 +154,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "795a90ef-00c3-46b3-b41b-8a48920f26b3"
+            "e2de1678-a778-4aa4-a9b1-f79c32ad844b"
           ],
           "x-ms-throttling-version": [
             "v2"
@@ -163,10 +163,10 @@
             "249"
           ],
           "x-ms-correlation-request-id": [
-            "40bc064d-af09-431d-bf3b-9da719dcc4ad"
+            "d4c9c54c-8525-4109-9d29-804cdbe7df3d"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261001T024519Z:40bc064d-af09-431d-bf3b-9da719dcc4ad"
+            "AUSTRALIAEAST:20261001T041504Z:d4c9c54c-8525-4109-9d29-804cdbe7df3d"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -175,10 +175,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C414481B025E41C9B70EBB3686FED32D Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:18Z"
+            "Ref A: 7341FF3AC9454154A5D920BED0C25D2F Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:02Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:19 GMT"
+            "Thu, 01 Oct 2026 04:15:04 GMT"
           ]
         },
         "contentHeaders": {
@@ -190,80 +190,6 @@
           ]
         },
         "body": "{\r\n  \u0022properties\u0022: {\r\n    \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n    \u0022architecture\u0022: \u0022x64\u0022,\r\n    \u0022replicaType\u0022: \u0022Managed\u0022,\r\n    \u0022replicaCount\u0022: 10,\r\n    \u0022disallowed\u0022: {\r\n      \u0022vmDiskType\u0022: \u0022Unmanaged\u0022\r\n    },\r\n    \u0022automaticOSUpgradeProperties\u0022: {\r\n      \u0022automaticOSUpgradeSupported\u0022: false\r\n    },\r\n    \u0022imageDeprecationStatus\u0022: {\r\n      \u0022imageState\u0022: \u0022Active\u0022\r\n    },\r\n    \u0022imageDiscontinuationStatus\u0022: {\r\n      \u0022imageDiscontinuationState\u0022: \u0022None\u0022,\r\n      \u0022imageDiscontinuationDate\u0022: \u00229999-12-31T23:59:59.9999999\u002B00:00\u0022\r\n    },\r\n    \u0022features\u0022: [\r\n      {\r\n        \u0022name\u0022: \u0022SecurityType\u0022,\r\n        \u0022value\u0022: \u0022TrustedLaunchAndConfidentialVmSupported\u0022\r\n      },\r\n      {\r\n        \u0022name\u0022: \u0022IsAcceleratedNetworkSupported\u0022,\r\n        \u0022value\u0022: \u0022True\u0022\r\n      },\r\n      {\r\n        \u0022name\u0022: \u0022DiskControllerTypes\u0022,\r\n        \u0022value\u0022: \u0022SCSI, NVMe\u0022\r\n      },\r\n      {\r\n        \u0022name\u0022: \u0022IsHibernateSupported\u0022,\r\n        \u0022value\u0022: \u0022True\u0022\r\n      }\r\n    ],\r\n    \u0022osDiskImage\u0022: {\r\n      \u0022operatingSystem\u0022: \u0022Windows\u0022,\r\n      \u0022sizeInGb\u0022: 127\r\n    },\r\n    \u0022dataDiskImages\u0022: [],\r\n    \u0022goLiveDate\u0022: \u00222026-09-08T00:00:00\u002B00:00\u0022\r\n  },\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022name\u0022: \u002220348.5622.260906\u0022,\r\n  \u0022id\u0022: \u0022/Subscriptions/00000000-0000-0000-0000-000000000000/Providers/Microsoft.Compute/Locations/westus2/Publishers/MicrosoftWindowsServer/ArtifactTypes/VMImage/Offers/WindowsServer/Skus/2022-datacenter-azure-edition/Versions/20348.5622.260906\u0022\r\n}"
-      }
-    },
-    {
-      "request": {
-        "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg?api-version=2025-05-01",
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}}"
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "4d0edcea-cb76-4e28-b6d9-bc98b79e2f14"
-          ],
-          "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/4d0edcea-cb76-4e28-b6d9-bc98b79e2f14?api-version=2025-05-01\u0026t=639264195203886377\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
-          ],
-          "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.1, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "16fd01bb-973b-456d-9329-de1a8260f7a7"
-          ],
-          "Azure-AsyncNotification": [
-            "Enabled"
-          ],
-          "x-ms-arm-service-request-id": [
-            "627d1dad-fecd-4c6f-b3d9-7e7d29f332ab"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "x-ms-throttling-version": [
-            "v2"
-          ],
-          "x-ms-ratelimit-remaining-subscription-writes": [
-            "199"
-          ],
-          "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024520Z:16fd01bb-973b-456d-9329-de1a8260f7a7"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 93B188DF8EB04A5AB28FF7547017EAE1 Ref B: SYD281080709062 Ref C: 2026-10-01T02:45:19Z"
-          ],
-          "Date": [
-            "Thu, 01 Oct 2026 02:45:20 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scenario-vm-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227921664e-a232-4a1f-b2e2-0a22896eb689\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SCENARIO-VM-RG/providers/Microsoft.Network/networkInterfaces/SCENARIO-VM-NIC\u0022}]}}"
       }
     },
     {
@@ -287,22 +213,22 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "8a758ac4-0aa6-4d97-b9d8-b73390ade2b5"
+            "f6db767d-8c6f-42db-a1dc-65622402068c"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/8a758ac4-0aa6-4d97-b9d8-b73390ade2b5?api-version=2025-05-01\u0026t=639264195205343905\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/f6db767d-8c6f-42db-a1dc-65622402068c?api-version=2025-05-01\u0026t=639264249051392460\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.2, etc"
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.1, etc"
           ],
           "x-ms-correlation-request-id": [
-            "079ff3dc-354b-4cd4-be0d-198d24d9ce70"
+            "bf21b7fd-1497-4a0c-acfd-01f9a1a7925d"
           ],
           "Azure-AsyncNotification": [
             "Enabled"
           ],
           "x-ms-arm-service-request-id": [
-            "6c0987ca-aa39-4d78-97ed-a5b569669363"
+            "2d301ca2-242f-4bab-a8b2-76ca28432dad"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -314,7 +240,7 @@
             "199"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024520Z:079ff3dc-354b-4cd4-be0d-198d24d9ce70"
+            "WESTUS2:20261001T041505Z:bf21b7fd-1497-4a0c-acfd-01f9a1a7925d"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -323,10 +249,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 83B55E91F0C7451FB065E2607894E6A0 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:19Z"
+            "Ref A: 89D28D44E3324F0294BCFEB8324BE4A6 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:04Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:20 GMT"
+            "Thu, 01 Oct 2026 04:15:05 GMT"
           ]
         },
         "contentHeaders": {
@@ -342,8 +268,82 @@
     },
     {
       "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg?api-version=2025-05-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "a0662e41-4728-4ecf-9f3b-6bd4c0225ca8"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/a0662e41-4728-4ecf-9f3b-6bd4c0225ca8?api-version=2025-05-01\u0026t=639264249051933959\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "12520595-4680-4310-b10a-56372ce94ec4"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "1930beeb-ad97-4f6d-b728-007dd812f394"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20261001T041505Z:12520595-4680-4310-b10a-56372ce94ec4"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 22E22672079F402289CE43AD690B258B Ref B: SYD281080709034 Ref C: 2026-10-01T04:15:04Z"
+          ],
+          "Date": [
+            "Thu, 01 Oct 2026 04:15:04 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-vm-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227921664e-a232-4a1f-b2e2-0a22896eb689\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65000,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:65001,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002269f4918a-7399-4123-8191-cb84e4adc637\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022priority\u0022:65500,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SCENARIO-VM-RG/providers/Microsoft.Network/networkInterfaces/SCENARIO-VM-NIC\u0022}]}}"
+      }
+    },
+    {
+      "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/4d0edcea-cb76-4e28-b6d9-bc98b79e2f14?api-version=2025-05-01\u0026t=639264195203886377\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/a0662e41-4728-4ecf-9f3b-6bd4c0225ca8?api-version=2025-05-01\u0026t=639264249051933959\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -356,16 +356,16 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "135461aa-0b3c-46db-96e3-bfcef444d9e4"
+            "6afd9ce1-7f7d-45d6-85a5-ca30d24ba567"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "b157c9a0-52c6-446c-b61f-dffa4ddca59c"
+            "d793a377-071d-452d-9e94-391afdcb78e2"
           ],
           "x-ms-arm-service-request-id": [
-            "2006f4b3-678b-455b-a0b2-95cec3497148"
+            "31b9890a-f88e-4727-b4d5-5f9ebcafd8c6"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -377,7 +377,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261001T024536Z:b157c9a0-52c6-446c-b61f-dffa4ddca59c"
+            "AUSTRALIAEAST:20261001T041521Z:d793a377-071d-452d-9e94-391afdcb78e2"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -386,10 +386,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 1E311C6B250F4789AC9F8F5426856A49 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:35Z"
+            "Ref A: B1A4350366D7480DBFA8B7AAD54F5503 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:20Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:36 GMT"
+            "Thu, 01 Oct 2026 04:15:21 GMT"
           ]
         },
         "contentHeaders": {
@@ -406,7 +406,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/8a758ac4-0aa6-4d97-b9d8-b73390ade2b5?api-version=2025-05-01\u0026t=639264195205343905\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus2/operations/f6db767d-8c6f-42db-a1dc-65622402068c?api-version=2025-05-01\u0026t=639264249051392460\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -419,16 +419,16 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "f3bc33ac-d3a9-4011-9b28-adc2922da9e7"
+            "50a9ad56-07d4-40d2-af82-bb3fe3fc2047"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "1df539fc-dc8e-400f-951b-a7d37cf74991"
+            "3103bac9-aed4-47cd-a7b1-f3aa68cfc7c7"
           ],
           "x-ms-arm-service-request-id": [
-            "096ebb34-d20e-48d5-a215-9d1a893c496a"
+            "4c3d6af1-4476-4eb3-81f4-d1f0222abdc7"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -440,7 +440,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIACENTRAL:20261001T024536Z:1df539fc-dc8e-400f-951b-a7d37cf74991"
+            "AUSTRALIASOUTHEAST:20261001T041521Z:3103bac9-aed4-47cd-a7b1-f3aa68cfc7c7"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -449,10 +449,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C4B598F8CBFF4678AB63E91DE84EAD7E Ref B: SYD281080709062 Ref C: 2026-10-01T02:45:35Z"
+            "Ref A: A99E0059D7B24E358795033D225FE25A Ref B: SYD281080709034 Ref C: 2026-10-01T04:15:20Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:36 GMT"
+            "Thu, 01 Oct 2026 04:15:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -482,16 +482,16 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "fc45ad50-37a0-424f-adb2-b9dfe5a5efee"
+            "9b55f503-31c6-45d2-b20c-3a5ec34b1fb9"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=2.0, etc"
           ],
           "x-ms-correlation-request-id": [
-            "5955acc5-5c76-4a58-bbb9-19a62be31fb5"
+            "811bdfa4-f5a7-4d15-98e1-a16f1efd1139"
           ],
           "x-ms-arm-service-request-id": [
-            "9f9ce3aa-1731-4ff8-9cd9-14340f0fa294"
+            "8a775e87-6e24-462e-bdb2-13cad5ee16be"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -503,7 +503,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024537Z:5955acc5-5c76-4a58-bbb9-19a62be31fb5"
+            "WESTUS2:20261001T041522Z:811bdfa4-f5a7-4d15-98e1-a16f1efd1139"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -512,10 +512,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 4399B24C44F848D498376462634E1F41 Ref B: SYD281080709062 Ref C: 2026-10-01T02:45:36Z"
+            "Ref A: 4BB71828A25A400CB811ABDB498BB8EF Ref B: SYD281080709034 Ref C: 2026-10-01T04:15:21Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:37 GMT"
+            "Thu, 01 Oct 2026 04:15:21 GMT"
           ]
         },
         "contentHeaders": {
@@ -548,16 +548,16 @@
             "W/\u002269f4918a-7399-4123-8191-cb84e4adc637\u0022"
           ],
           "x-ms-request-id": [
-            "f013c30b-07b2-45f3-b1da-509ac146d9a1"
+            "4d5407c6-a1c5-49d0-b1ad-f5089c9e5b27"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "ad5a17e5-2a7a-46d1-9415-59309e1dfe70"
+            "163f0416-e707-4f51-817d-e718203c0eac"
           ],
           "x-ms-arm-service-request-id": [
-            "7dfdaac2-8e6b-4a58-bdc9-d8b94dc6c2c6"
+            "9b36d048-bfc8-4ba4-b4a0-b6aaef9bedbb"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -569,7 +569,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024537Z:ad5a17e5-2a7a-46d1-9415-59309e1dfe70"
+            "WESTUS2:20261001T041523Z:163f0416-e707-4f51-817d-e718203c0eac"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -578,10 +578,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: BC896E9F54EC4E2995DD5C04A2C0B523 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:36Z"
+            "Ref A: 172635EA9EDA4C348618DC9D3882D482 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:21Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:37 GMT"
+            "Thu, 01 Oct 2026 04:15:23 GMT"
           ]
         },
         "contentHeaders": {
@@ -616,16 +616,16 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "0234ccdc-257b-418d-a09a-3ff8ecb928a6"
+            "f4c54c5a-c4a8-44fa-9aa6-db2234562cb4"
           ],
           "x-ms-throttle-levels": [
             "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.3, etc"
           ],
           "x-ms-correlation-request-id": [
-            "da8baa96-b1c9-4978-a33e-94f247611cf9"
+            "f748b435-d050-4c4d-8b8d-f697aa5bd30e"
           ],
           "x-ms-arm-service-request-id": [
-            "a2884ea2-f30b-4e59-9b95-f1119afff14c"
+            "b374b9d0-d80e-4927-8440-a8ca00ce2fb5"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -637,7 +637,7 @@
             "199"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024538Z:da8baa96-b1c9-4978-a33e-94f247611cf9"
+            "WESTUS2:20261001T041524Z:f748b435-d050-4c4d-8b8d-f697aa5bd30e"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -646,10 +646,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 0068B905ED5F4E808CF467EB51346A36 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:37Z"
+            "Ref A: 45E01F494AF641829D65D68D27601C7E Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:23Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:38 GMT"
+            "Thu, 01 Oct 2026 04:15:24 GMT"
           ]
         },
         "contentHeaders": {
@@ -660,7 +660,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
       }
     },
     {
@@ -679,19 +679,19 @@
             "no-cache"
           ],
           "ETag": [
-            "W/\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\u0022"
+            "W/\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\u0022"
           ],
           "x-ms-request-id": [
-            "15c439fa-eb91-42fe-bba9-e7e45359e4fc"
+            "e8a40eca-8864-489a-b9d0-82ede2b896b0"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "0d0c5969-665d-4a33-8b14-9be29b0c9849"
+            "ed7a99b9-68b3-4d3d-8885-c9e58799afd0"
           ],
           "x-ms-arm-service-request-id": [
-            "5e3d7411-6a56-4777-acc4-3a1d1af4cbb0"
+            "eb25c41e-7bd0-49c2-a4bb-c94b9cb90fc4"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -703,7 +703,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024554Z:0d0c5969-665d-4a33-8b14-9be29b0c9849"
+            "WESTUS2:20261001T041539Z:ed7a99b9-68b3-4d3d-8885-c9e58799afd0"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -712,10 +712,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 0586A38EE1904D23A9C420721C567F57 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:54Z"
+            "Ref A: EE6C7A1283E245BB8996A61A86F2C6C8 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:39Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:54 GMT"
+            "Thu, 01 Oct 2026 04:15:39 GMT"
           ]
         },
         "contentHeaders": {
@@ -726,7 +726,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
       }
     },
     {
@@ -745,19 +745,19 @@
             "no-cache"
           ],
           "ETag": [
-            "W/\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\u0022"
+            "W/\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\u0022"
           ],
           "x-ms-request-id": [
-            "6680f0c5-d82a-49a7-9010-5ad0abbec425"
+            "2869b02e-a45a-4e9c-b23c-18bd63614825"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "7e9983f1-a31a-44c4-9c72-6fbeb1e08c0f"
+            "782da3b3-eaf6-4891-87f5-1043d5b5d43a"
           ],
           "x-ms-arm-service-request-id": [
-            "554cbda9-4d72-47c3-b867-4e2be6379cbc"
+            "b4486ad5-3aed-476c-8a03-94911a610309"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -769,7 +769,7 @@
             "249"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024555Z:7e9983f1-a31a-44c4-9c72-6fbeb1e08c0f"
+            "WESTUS2:20261001T041540Z:782da3b3-eaf6-4891-87f5-1043d5b5d43a"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -778,10 +778,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: B8BA34D0D0824D989A7A6F3543ED0D1F Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:54Z"
+            "Ref A: CAE5E3DB91D74920A18F98E83C055201 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:39Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:55 GMT"
+            "Thu, 01 Oct 2026 04:15:40 GMT"
           ]
         },
         "contentHeaders": {
@@ -792,7 +792,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022bdcfae1d-37f6-4715-8fc5-bf67463d9878\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022scenario-vm-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022657552d8-eb79-4237-b2aa-bb5a930c38ba\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u00229cb54c42-712b-4dec-bb3f-d19a2dbfa632\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022or5w3zdagvgehdm3ugnbeljnhb.xx.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-0D-3A-07-57-97\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:true,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
       }
     },
     {
@@ -816,10 +816,10 @@
             "no-cache"
           ],
           "ETag": [
-            "\u00223\u0022"
+            "\u00224\u0022"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/bc546b5e-c29d-4c07-a3ad-2a410c4feeaf?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639264195563835470\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/8f5c050d-d152-496d-8bb2-dacb280def8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639264249410796620\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "azure-asyncnotification": [
             "Enabled"
@@ -834,7 +834,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "bc546b5e-c29d-4c07-a3ad-2a410c4feeaf"
+            "8f5c050d-d152-496d-8bb2-dacb280def8c"
           ],
           "x-ms-throttling-version": [
             "v2"
@@ -843,10 +843,10 @@
             "199"
           ],
           "x-ms-correlation-request-id": [
-            "6ebe03f9-7d4b-4b73-9fd7-4d6176b60345"
+            "98a31355-697a-4e92-b893-45b5f8890262"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024556Z:6ebe03f9-7d4b-4b73-9fd7-4d6176b60345"
+            "WESTUS2:20261001T041541Z:98a31355-697a-4e92-b893-45b5f8890262"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -855,10 +855,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 9E0D65E3AA3642FE9BC1E1264C3E3AC3 Ref B: SYD281080708025 Ref C: 2026-10-01T02:45:55Z"
+            "Ref A: 5E1A63BE59C74A88A277CCC7C1BEB16D Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:40Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:45:56 GMT"
+            "Thu, 01 Oct 2026 04:15:41 GMT"
           ]
         },
         "contentHeaders": {
@@ -869,13 +869,13 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022name\u0022: \u0022scenario-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Updating\u0022,\r\n    \u0022vmId\u0022: \u0022cee87de8-e222-4ee1-a3ec-8777f0b9b806\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u002220348.5622.260906\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5622.260906\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/disks/scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scenario-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-10-01T01:14:37.7217968\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00223\\\u0022\u0022\r\n}"
+        "body": "{\r\n  \u0022name\u0022: \u0022scenario-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Updating\u0022,\r\n    \u0022vmId\u0022: \u0022cee87de8-e222-4ee1-a3ec-8777f0b9b806\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u002220348.5622.260906\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5622.260906\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/disks/scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scenario-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-10-01T01:14:37.7217968\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00224\\\u0022\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/bc546b5e-c29d-4c07-a3ad-2a410c4feeaf?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639264195563835470\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/westus2/operations/8f5c050d-d152-496d-8bb2-dacb280def8c?p=7de9ff76-1278-4973-a07f-67ecef96d4bf\u0026api-version=2025-11-01\u0026t=639264249410796620\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -897,7 +897,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "d01f33f1-4dcb-4855-8053-fce8c9c67c44"
+            "4034a2d6-d5c3-448d-bee8-5e48b50d21f9"
           ],
           "x-ms-throttling-version": [
             "v2"
@@ -906,10 +906,10 @@
             "249"
           ],
           "x-ms-correlation-request-id": [
-            "b6820260-bab1-40f2-91bd-cca287651bca"
+            "db231415-8773-4897-af3f-cd07ad47834f"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261001T024612Z:b6820260-bab1-40f2-91bd-cca287651bca"
+            "AUSTRALIAEAST:20261001T041556Z:db231415-8773-4897-af3f-cd07ad47834f"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -918,10 +918,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: E16C8EB0CA31433EB4ABD236D179ED90 Ref B: SYD281080708025 Ref C: 2026-10-01T02:46:11Z"
+            "Ref A: CFE6D11A14F748A5967EE3C74AD3D7FC Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:56Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:46:11 GMT"
+            "Thu, 01 Oct 2026 04:15:56 GMT"
           ]
         },
         "contentHeaders": {
@@ -932,7 +932,7 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022startTime\u0022: \u00222026-10-01T02:45:56.059851\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-10-01T02:45:57.1236663\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u0022bc546b5e-c29d-4c07-a3ad-2a410c4feeaf\u0022\r\n}"
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-10-01T04:15:40.8725494\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-10-01T04:15:41.7891124\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u00228f5c050d-d152-496d-8bb2-dacb280def8c\u0022\r\n}"
       }
     },
     {
@@ -951,7 +951,7 @@
             "no-cache"
           ],
           "ETag": [
-            "\u00223\u0022"
+            "\u00224\u0022"
           ],
           "x-ms-ratelimit-remaining-resource": [
             "Microsoft.Compute/LowCostGetSubscriptionMaximum;23996,Microsoft.Compute/LowCostGetResource;32"
@@ -963,7 +963,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "78907148-a5d5-4d30-9282-b592a3633028"
+            "1f59cc79-8f7b-461f-a0a9-d63347e6651c"
           ],
           "x-ms-throttling-version": [
             "v2"
@@ -972,10 +972,10 @@
             "249"
           ],
           "x-ms-correlation-request-id": [
-            "3a247b1b-0724-45b8-9208-60672176a997"
+            "2c649004-e0a2-448a-9130-dbc57f3d8925"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS2:20261001T024612Z:3a247b1b-0724-45b8-9208-60672176a997"
+            "WESTUS2:20261001T041556Z:2c649004-e0a2-448a-9130-dbc57f3d8925"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -984,10 +984,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 406C31C9779B4EE4B3842B30FE2D118D Ref B: SYD281080708025 Ref C: 2026-10-01T02:46:12Z"
+            "Ref A: D90B0DB5CC43435FAAA1C66F06C9A159 Ref B: SYD281080711054 Ref C: 2026-10-01T04:15:56Z"
           ],
           "Date": [
-            "Thu, 01 Oct 2026 02:46:12 GMT"
+            "Thu, 01 Oct 2026 04:15:56 GMT"
           ]
         },
         "contentHeaders": {
@@ -998,7 +998,7 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022name\u0022: \u0022scenario-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u0022cee87de8-e222-4ee1-a3ec-8777f0b9b806\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u002220348.5622.260906\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5622.260906\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/disks/scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scenario-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-10-01T01:14:37.7217968\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00223\\\u0022\u0022\r\n}"
+        "body": "{\r\n  \u0022name\u0022: \u0022scenario-vm\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022westus2\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2s_v3\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u0022cee87de8-e222-4ee1-a3ec-8777f0b9b806\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u002220348.5622.260906\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5622.260906\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/disks/scenario-vm_OsDisk_1_7f11dcb7d5ce46699797d6a9c944b4f1\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022SCSI\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scenario-vm\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-10-01T01:14:37.7217968\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00224\\\u0022\u0022\r\n}"
       }
     }
   ]

@@ -62,8 +62,7 @@ unless set; the chosen VM size must support accelerated networking.
 Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- ImageName
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -84,7 +83,8 @@ Address prefixes for the virtual network.
 Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- ImageName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -169,7 +169,8 @@ The marketplace image URN to use.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- ImageName
 ParameterSets:
 - Name: (All)
   Position: Named

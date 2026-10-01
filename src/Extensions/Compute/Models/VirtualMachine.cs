@@ -103,6 +103,7 @@ public class VirtualMachineProperties
     public StorageProfile StorageProfile { get; set; } = null!;
     public OSProfile OSProfile { get; set; } = null!;
     public NetworkProfile NetworkProfile { get; set; } = null!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SecurityProfile? SecurityProfile { get; set; }
     public DiagnosticsProfile? DiagnosticsProfile { get; set; }
 
@@ -207,6 +208,15 @@ public class VirtualMachineImageProperties
 {
     public OsDiskImage? OsDiskImage { get; set; }
     public ImagePlan? Plan { get; set; }
+    public string? HyperVGeneration { get; set; }
+    public List<ImageFeature> Features { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ImageFeature
+{
+    public string? Name { get; set; }
+    public string? Value { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -249,15 +259,23 @@ public class NetworkInterfaceReference
 
 public class SecurityProfile
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UefiSettings? UefiSettings { get; set; }
-    public string SecurityType { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SecurityType { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class UefiSettings
 {
-    public bool SecureBootEnabled { get; set; }
-    public bool VTpmEnabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SecureBootEnabled { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? VTpmEnabled { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

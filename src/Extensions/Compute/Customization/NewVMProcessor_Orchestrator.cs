@@ -80,9 +80,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
             var operatingSystemType = OperatingSystemTypes.Windows;
             ImagePlan? plan = null;
+            var useTrustedLaunchDefaults = imageReference is null;
             if (imageReference is not null)
             {
-                (operatingSystemType, plan) = await ResolveImageMetadataAsync(imageReference);
+                (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
@@ -122,12 +123,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
                 p.OperatingSystemType = operatingSystemType;
+                if (!useTrustedLaunchDefaults)
+                {
+                    p.SecurityType = null;
+                    p.SecureBootEnabled = null;
+                    p.VTpmEnabled = null;
+                }
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
         }
 
-        private async Task<(string OperatingSystemType, ImagePlan? Plan)> ResolveImageMetadataAsync(ImageReference imageReference)
+        private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)
         {
             var version = imageReference.Version!;
             if (version.Equals("latest", StringComparison.OrdinalIgnoreCase))
@@ -152,7 +159,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             var operatingSystemType = image.Properties?.OsDiskImage?.OperatingSystem
                 ?? throw new InvalidOperationException("Image metadata did not include properties.osDiskImage.operatingSystem.");
-            return (operatingSystemType, image.Properties?.Plan);
+            return (operatingSystemType, image.Properties?.Plan, SupportsTrustedLaunch(image.Properties));
+        }
+
+        private static bool SupportsTrustedLaunch(VirtualMachineImageProperties? properties)
+        {
+            if (properties is null
+                || !string.Equals(properties.HyperVGeneration, "V2", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return properties.Features.Any(feature =>
+                string.Equals(feature.Name, "SecurityType", StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(feature.Value, "TrustedLaunchSupported", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(feature.Value, "TrustedLaunchAndConfidentialVmSupported", StringComparison.OrdinalIgnoreCase)));
         }
 
         private async Task<VirtualMachineImage> GetLatestImageVersionAsync(ImageReference imageReference)
@@ -167,8 +188,32 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             });
             using HttpResponseMessage versionsResponse = await listVersionsProcessor.SendAsync();
             var versions = (await versionsResponse.Content.ReadFromJsonAsync<List<VirtualMachineImage>>(JsonOptions))!;
-            return versions.OrderByDescending(image => image.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault()
+            return versions.OrderByDescending(image => image.Name, Comparer<string?>.Create(CompareImageVersions)).FirstOrDefault()
                 ?? throw new InvalidOperationException($"No image versions found for '{imageReference.Publisher}:{imageReference.Offer}:{imageReference.Sku}:latest'.");
+        }
+
+        private static int CompareImageVersions(string? left, string? right)
+        {
+            if (string.IsNullOrWhiteSpace(left))
+            {
+                return string.IsNullOrWhiteSpace(right) ? 0 : -1;
+            }
+
+            if (string.IsNullOrWhiteSpace(right))
+            {
+                return 1;
+            }
+
+            var leftParsed = Version.TryParse(left, out var leftVersion);
+            var rightParsed = Version.TryParse(right, out var rightVersion);
+
+            return (leftParsed, rightParsed) switch
+            {
+                (true, true) => leftVersion!.CompareTo(rightVersion),
+                (true, false) => 1,
+                (false, true) => -1,
+                _ => StringComparer.OrdinalIgnoreCase.Compare(left, right)
+            };
         }
     }
 }

@@ -20,7 +20,7 @@ public class ListVMImageVersionsProcessor : ComputeProcessorBase<object, List<Vi
     protected override HttpMethod Method => HttpMethod.Get;
 
     protected override string CreateRequestUri() =>
-        $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/locations/{Location}/publishers/{Uri.EscapeDataString(ImagePublisher)}/artifactTypes/vmImage/offers/{Uri.EscapeDataString(Offer)}/skus/{Uri.EscapeDataString(Sku)}/versions?api-version={ApiVersion}&$expand=properties";
+        $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Compute/locations/{Location}/publishers/{Uri.EscapeDataString(ImagePublisher)}/artifactTypes/vmImage/offers/{Uri.EscapeDataString(Offer)}/skus/{Uri.EscapeDataString(Sku)}/versions?api-version={ApiVersion}";
 
     internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
