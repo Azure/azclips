@@ -27,9 +27,11 @@ internal static class RecordedArm
         var get = entries
             .SkipWhile(e => !(e.Request.Method == "PUT" && Targets(e.Request.Uri, type, name)))
             .Skip(1)
-            .First(e => e.Request.Method == "GET" && Targets(e.Request.Uri, type, name));
+            .First(e => e.Request.Method == "GET"
+                && Targets(e.Request.Uri, type, name)
+                && e.Response.StatusCode == 200
+                && JsonNode.Parse(e.Response.Body!)?["properties"]?["provisioningState"]?.GetValue<string>() == "Succeeded");
         Assert.Equal(200, get.Response.StatusCode);
-        Assert.Equal("Succeeded", JsonNode.Parse(get.Response.Body!)!["properties"]!["provisioningState"]!.GetValue<string>());
         return JsonSerializer.Deserialize<T>(get.Response.Body!, s_json)!;
     }
 
