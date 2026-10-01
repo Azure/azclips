@@ -54,7 +54,7 @@ function enumeration(name: string, namespace: string[], source = MODULE) {
 
 function document(models: unknown[], enums: unknown[] = []): IR {
   return parseIR({
-    schemaVersion: "0.14.0",
+    schemaVersion: "0.13.0",
     sources: [
       {
         id: MODULE,

@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-09-21)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-09-21)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),

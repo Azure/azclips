@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-09-21)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-09-21)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -225,7 +225,6 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
-| 0.14.0 | simplified PowerShell value/lifecycle metadata; synthetic bindings removed |
 | 0.13.0 | PowerShell dialect metadata and synthetic command parameters |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |

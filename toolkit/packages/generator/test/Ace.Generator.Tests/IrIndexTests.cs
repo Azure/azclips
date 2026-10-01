@@ -60,7 +60,7 @@ public sealed class IrIndexTests
         IRId size = Id("Widget.size");
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.14.0",
+            SchemaVersion = "0.13.0",
             Models =
             [
                 new IRModel
@@ -102,7 +102,7 @@ public sealed class IrIndexTests
         IRId server = Id("server");
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.14.0",
+            SchemaVersion = "0.13.0",
             Servers =
             [
                 new IRServerDefinition { Id = server, Endpoint = new IRServerLiteral { Url = "https://a.example.com" } },
@@ -126,7 +126,7 @@ public sealed class IrIndexTests
     {
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.14.0",
+            SchemaVersion = "0.13.0",
             Models = [new IRModel { Name = "Anonymous", Source = "<root>", Properties = [] }],
             Operations = [new IROperation { Name = "get", Source = "<root>" }],
             Commands = [],
