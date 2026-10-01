@@ -7,11 +7,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 internal static class ImageReferenceResolver
 {
-    internal static ImageReference? ResolveMarketplaceUrn(string image)
+    internal static ImageReference? ResolveMarketplaceUrn(string? image)
     {
-        if (string.IsNullOrWhiteSpace(image))
+        if (image is null)
         {
             return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(image))
+        {
+            throw new ArgumentException("Image must not be empty or whitespace.", nameof(image));
         }
 
         var value = image.Trim();

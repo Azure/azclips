@@ -83,8 +83,7 @@ Address prefixes for the virtual network.
 Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- ImageName
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named

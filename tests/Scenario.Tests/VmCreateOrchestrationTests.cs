@@ -122,6 +122,16 @@ public class VmCreateOrchestrationTests
         Assert.Contains("\"version\":\"10.0.0\"", vmBody);
     }
 
+    [Fact]
+    public void Image_TrustedLaunchFeature_PreservesTrustedLaunchDefaults()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("TrustedLaunchTest:offer:sku:1.0.0"));
+
+        Assert.Contains("\"securityType\":\"trustedlaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
     [Theory]
     [InlineData("Ubuntu2204")]
     [InlineData("custom-image")]
@@ -138,6 +148,44 @@ public class VmCreateOrchestrationTests
 
         host.RunCli(s_groupArgs);
         Assert.Throws<NotImplementedException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        Assert.Throws<ArgumentException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources_PowerShell(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["Image"] = image;
+        Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
 
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));

@@ -108,6 +108,10 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 name,
                 properties = new
                 {
+                    hyperVGeneration = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase) ? "V2" : null,
+                    features = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { new { name = "SecurityType", value = "TrustedLaunch" } }
+                        : Array.Empty<object>(),
                     osDiskImage = new { operatingSystem },
                     plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
                 }

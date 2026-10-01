@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string VmSize { get; set; } = string.Empty;
 
-        public string Image { get; set; } = string.Empty;
+        public string? Image { get; set; }
 
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
@@ -172,7 +172,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             return properties.Features.Any(feature =>
                 string.Equals(feature.Name, "SecurityType", StringComparison.OrdinalIgnoreCase)
-                && (string.Equals(feature.Value, "TrustedLaunchSupported", StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(feature.Value, "TrustedLaunch", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(feature.Value, "TrustedLaunchSupported", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(feature.Value, "TrustedLaunchAndConfidentialVmSupported", StringComparison.OrdinalIgnoreCase)));
         }
 
