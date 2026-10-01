@@ -24,6 +24,12 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
         _existingIds = new HashSet<string>(existingResourceIds, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Answers the VM read that follows a successful create (its <c>$expand=instanceView</c> GET)
+    /// with a 500, after the VM itself was created.
+    /// </summary>
+    public bool FailVmDetailRead { get; init; }
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var uri = request.RequestUri!.AbsoluteUri;
@@ -99,6 +105,14 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                     "Azure-AsyncOperation",
                     $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-11-01");
                 return Task.FromResult(accepted);
+            }
+
+            if (FailVmDetailRead && Uri.UnescapeDataString(request.RequestUri!.Query).Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json(new
+                {
+                    error = new { code = "InternalServerError", message = "An internal server error occurred." },
+                }, HttpStatusCode.InternalServerError));
             }
 
             return Task.FromResult(Json(new

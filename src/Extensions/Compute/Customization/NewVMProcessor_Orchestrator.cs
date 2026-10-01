@@ -3,7 +3,6 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
@@ -91,7 +90,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// For the time being shows az vm show -d output, with enriched network details
+        /// Writes the created VM with the az vm show -d detail fields.
+        /// As in legacy CLI, a failed detail read fails the command, although the VM itself was already created.
         /// TODO: Jayson - client side rendering of views for different clients.
         /// </summary>
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
@@ -101,31 +101,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 return false;
             }
 
-            VirtualMachine output = body;
-            try
+            using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
             {
-                using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
-                {
-                    p.SubscriptionId = SubscriptionId;
-                    p.ResourceGroupName = ResourceGroupName;
-                    p.Name = Name;
-                    p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
-                }).SendAsync();
+                p.SubscriptionId = SubscriptionId;
+                p.ResourceGroupName = ResourceGroupName;
+                p.Name = Name;
+                p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+            }).SendAsync();
 
-                VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
-                await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
-                VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
-                output = detailed;
-            }
-            catch (Exception exception)
-            {
-                await Publisher.Publish(Events.Warning, new EventData
-                {
-                    Message = $"Created virtual machine '{Name}' but could not retrieve its details: {exception.Message}"
-                });
-            }
-
-            await WriteOutput(output);
+            VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
+            await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
+            VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
+            await WriteOutput(detailed);
             return true;
         }
     }

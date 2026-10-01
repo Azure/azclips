@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Tests.Recording;
@@ -382,6 +383,20 @@ public class VmCreateOrchestrationTests
         var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
 
         Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+    }
+
+    [Fact]
+    public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), new FakeVmArmBackend(SubscriptionId) { FailVmDetailRead = true }, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+        host.RunCli(s_groupArgs);
+
+        // As in legacy CLI, a failed read after the create fails the command rather than
+        // writing the VM without its details, even though the VM now exists.
+        var error = Assert.Throws<HttpRequestException>(() => host.RunCli(s_cliArgs));
+        Assert.Equal(HttpStatusCode.InternalServerError, error.StatusCode);
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/scenario-vm?"));
     }
 
     private static void AssertVm(IReadOnlyList<object> outputs)
