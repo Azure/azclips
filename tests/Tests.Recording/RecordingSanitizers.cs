@@ -10,14 +10,12 @@ namespace Tests.Recording;
 /// </summary>
 public sealed class RecordingSanitizers
 {
-    /// <summary>Stand-in written in place of a real subscription or tenant id.</summary>
     public const string PlaceholderGuid = "00000000-0000-0000-0000-000000000000";
 
     private const string GuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     public static RecordingSanitizers Default { get; } = new(
         [
-            // subscription and tenant ids in URIs, bodies, and AAD authority URLs
             new RegexSanitizer("subscription-id", $"(?<=/subscriptions/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("tenant-path-id", $"(?<=/tenants/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("authority-tenant-id", $"(?<=login\\.microsoftonline\\.com/){GuidPattern}", PlaceholderGuid),
@@ -26,14 +24,15 @@ public sealed class RecordingSanitizers
             // ARM async-operation URLs carry an opaque signed blob (c=certificate, s=signature,
             // h=hash). It is not a credential, but it trips the JWT rule in the pre-merge secret
             // scan and adds tens of kilobytes of churn to every recorded poll.
-            new RegexSanitizer("arm-operation-signature", "(?<=[?&](?:c|s|h)=)[A-Za-z0-9_\\-%.]{40,}", "[redacted]"),
+            new RegexSanitizer("arm-operation-signature", "(?<=[?&](?:c|s|h)=)[A-Za-z0-9_\\-%.=]{40,}", "[redacted]"),
             new RegexSanitizer("client-id", $"(?<=\"clientId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("bearer-token", "Bearer\\s+[^\\s\"']+", "Bearer [redacted]"),
-            // ARM long-running operations return opaque polling tokens and signed query parameters.
+            // ARM long-running operations return opaque polling tokens.
             new RegexSanitizer("operation-token", @"(?<=/operation(?:results|statuses)/)[A-Za-z0-9_\-%.=]+", "sanitized-operation-token"),
-            new RegexSanitizer("operation-url-signature", @"(?<=[?&](?:c|s|h)=)[A-Za-z0-9_\-%.=]{40,}", "[redacted]"),
             // vm create carries the admin password in the request body
             new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),
+            // run-scoped names: scenario-test-rg-t3f8a21c9 is recorded as scenario-test-rg
+            new RegexSanitizer("run-scoped-name", "(?<=scenario-[a-z-]+)-t[0-9a-f]{8}(?![0-9a-f])", ""),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
             new RegexSanitizer("openai-endpoint", "https://[a-z0-9][a-z0-9-]*\\.openai\\.azure\\.com", "https://[resource].openai.azure.com"),
@@ -49,21 +48,15 @@ public sealed class RecordingSanitizers
 
     public IReadOnlyList<IRecordingSanitizer> Sanitizers { get; }
 
-    /// <summary>Headers dropped from recordings entirely, rather than rewritten.</summary>
     public IReadOnlySet<string> RemovedHeaders { get; }
 
-    /// <summary>Returns a copy with extra sanitisers and removed headers added.</summary>
     public RecordingSanitizers With(IEnumerable<IRecordingSanitizer>? sanitizers = null, IEnumerable<string>? removedHeaders = null)
         => new([.. Sanitizers, .. (sanitizers ?? [])], [.. RemovedHeaders, .. (removedHeaders ?? [])]);
 
-    /// <summary>Runs every value sanitiser over a single string.</summary>
     public string Apply(string? value)
     {
         var sanitized = value ?? string.Empty;
-        foreach (var sanitizer in Sanitizers)
-        {
-            sanitized = sanitizer.Sanitize(sanitized);
-        }
+        Sanitizers.ToList().ForEach(sanitizer => sanitized = sanitizer.Sanitize(sanitized));
         return sanitized;
     }
 
@@ -93,14 +86,11 @@ public sealed class RecordingSanitizers
     private Dictionary<string, string[]> SanitizeHeaders(IReadOnlyDictionary<string, string[]> headers, bool dropRemoved)
     {
         var sanitized = new Dictionary<string, string[]>();
-        foreach (var (name, values) in headers)
+        headers.ToList().ForEach(headers =>
         {
-            if (dropRemoved && RemovedHeaders.Contains(name))
-            {
-                continue;
-            }
-            sanitized[name] = [.. values.Select(Apply)];
-        }
+            var (name, values) = headers;
+            if (!(dropRemoved && RemovedHeaders.Contains(name))) sanitized[name] = [.. values.Select(Apply)];
+        });
         return sanitized;
     }
 }

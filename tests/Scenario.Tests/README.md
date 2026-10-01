@@ -48,8 +48,14 @@ AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedN
 
 The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
 ids, tokens, or passwords should appear, the sanitisers scrub them) and commit it. Record from a
-single surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up
-any real resources the scenario created.
+single surface: the recording is shared by both the CLI and PowerShell runs on playback.
+
+Record runs name their resource groups with a run-scoped suffix, `scenario-test-rg-t3f8a21c9`,
+so simultaneous runs cannot collide, and delete the group when the run ends, pass or fail. The
+sanitisers strip the suffix before the file is written, so recordings and playback only ever see
+the base name. The id comes from `AZCLIPS_TEST_RUN_ID` when set, otherwise it is generated per
+process; everything a test creates matches `scenario-*-t<8 hex>`, which is the shape the live
+tier's cleanup sweep is allowed to delete.
 
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
 orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
@@ -58,8 +64,8 @@ IP, nic, and the vm with its polling, then the detail reads behind its output (t
 `$expand=instanceView`, the nic, the public IP), twenty-odd entries in one file. Before recording
 it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network` providers
 registered and quota for one small vm and one Standard public IP. The subscription comes from the
-signed-in profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which
-removes the vm, its public IP, its nsg and all its other network resources with it.
+signed-in profile. The run deletes its resource group afterwards, which removes the vm, its
+public IP, its nsg and all its other network resources with it.
 
 ## Secret scanning
 
