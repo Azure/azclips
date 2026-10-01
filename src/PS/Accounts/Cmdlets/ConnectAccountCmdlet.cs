@@ -41,6 +41,7 @@ public class ConnectAccountCmdlet : PSCmdlet
     public SwitchParameter Identity { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("AccountId", "ApplicationId")]
     public string? ClientId { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -48,6 +49,13 @@ public class ConnectAccountCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? ResourceId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter ServicePrincipal { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("ClientAssertion")]
+    public string? FederatedToken { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -95,6 +103,14 @@ public class ConnectAccountCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceId)))
         {
             parameters.Add("ResourceId", ResourceId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ServicePrincipal)))
+        {
+            parameters.Add("ServicePrincipal", ServicePrincipal.IsPresent);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(FederatedToken)))
+        {
+            parameters.Add("FederatedToken", FederatedToken!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

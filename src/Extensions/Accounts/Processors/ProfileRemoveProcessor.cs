@@ -5,8 +5,9 @@ using Core.DependencyInjection;
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>
-    /// Deletes a profile definition. If the deleted profile was active, the active pointer is cleared
-    /// (no fallback to "default").
+    /// Deletes a profile definition. Cached credentials stay: they are shared between profiles, so
+    /// evicting them here would sign out identities the caller never named. If the profile was active,
+    /// the active pointer is cleared with no fallback to "default".
     /// </summary>
     public class ProfileRemoveProcessor : ProfileProcessorBase
     {

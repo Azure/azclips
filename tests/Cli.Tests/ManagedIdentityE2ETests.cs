@@ -255,12 +255,14 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
 
         // same auth service commands use for silent refresh
+        var msalOptions = new MsalClientOptions();
         var authService = new MsalAuthService(
             Logger,
             Telemetry,
             profileService,
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry),
-            new MsalClientOptions());
+            new FederatedTokenAuthenticator(Logger, Telemetry, msalOptions),
+            msalOptions);
 
         // production handler that adds the bearer token
         var authHandler = new AuthHandler

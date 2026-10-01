@@ -142,6 +142,9 @@ public abstract class BenchmarkBase
                 HttpClientFactory = new ThrowingMsalHttpClientFactory(),
             });
         });
+
+        // The fixture seeds an unprotected cache file; the real credential store is off limits.
+        MsalTokenCacheFactory.ForcePlaintextForTests = true;
     }
 
     /// <summary>
@@ -181,7 +184,7 @@ public abstract class BenchmarkBase
         }
         catch (Exception ex)
         {
-            var cacheFile = Path.Combine(MsalCacheDirectory, "MSAL.cache.plaintext");
+            var cacheFile = Path.Combine(MsalCacheDirectory, MsalCacheFixture.CacheFileName);
             var exists = File.Exists(cacheFile);
             var size = exists ? new FileInfo(cacheFile).Length : 0;
             throw new InvalidOperationException(
