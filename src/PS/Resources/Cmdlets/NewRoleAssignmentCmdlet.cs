@@ -41,6 +41,7 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
     public string RoleDefinitionId { get; set; } = "";
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("User", "Group", "ServicePrincipal", "ForeignGroup")]
     public string? ObjectType { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -76,44 +77,17 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
         using var activity = telemetryService.StartRootActivity();
 
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-        {
-            parameters.Add("SubscriptionId", SubscriptionId);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceGroupName)))
-        {
-            parameters.Add("ResourceGroupName", ResourceGroupName!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Scope)))
-        {
-            parameters.Add("Scope", Scope!);
-        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))     { parameters.Add("SubscriptionId", SubscriptionId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceGroupName)))  { parameters.Add("ResourceGroupName", ResourceGroupName!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Scope)))              { parameters.Add("Scope", Scope!); }
         parameters.Add("ObjectId", ObjectId);
         parameters.Add("RoleDefinitionId", RoleDefinitionId);
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ObjectType)))
-        {
-            parameters.Add("ObjectType", ObjectType!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
-        {
-            parameters.Add("Name", Name!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Description)))
-        {
-            parameters.Add("Description", Description!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Condition)))
-        {
-            parameters.Add("Condition", Condition!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ConditionVersion)))
-        {
-            parameters.Add("ConditionVersion", ConditionVersion!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
-        {
-            parameters.Add("Profile", Profile!);
-        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ObjectType)))         { parameters.Add("ObjectType", ObjectType!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))               { parameters.Add("Name", Name!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Description)))        { parameters.Add("Description", Description!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Condition)))          { parameters.Add("Condition", Condition!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ConditionVersion)))   { parameters.Add("ConditionVersion", ConditionVersion!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))            { parameters.Add("Profile", Profile!); }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

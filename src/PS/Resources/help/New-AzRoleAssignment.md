@@ -215,7 +215,11 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- User
+- Group
+- ServicePrincipal
+- ForeignGroup
 HelpMessage: ''
 ```
 

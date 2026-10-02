@@ -5,7 +5,9 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.ArgumentParsing;
 using Core.Cli;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -121,6 +123,18 @@ public class RoleAssignmentCreateTests
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Assignee = "john@contoso.com";
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_AssigneeAndAssigneeObjectId_Throws()
+    {
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Assignee = AssigneeObjectId;
+            p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
         });
     }
@@ -344,6 +358,32 @@ public class RoleAssignmentCreateTests
             uri.AbsoluteUri);
     }
 
+    [Theory]
+    [InlineData("resource-group")]
+    [InlineData("g")]
+    public void CliBinding_BindsResourceGroupAliases(string argumentName)
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
+        var processor = (NewRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
+
+        // --role is a required parameter on create (unlike list), so it must be supplied for the
+        // binder's required-parameter check to pass; this test otherwise isolates the -g/--resource-group
+        // alias -> ResourceGroupName binding.
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object>
+            {
+                [argumentName] = Value("test-rg"),
+                ["role"] = Value(RoleDefinitionId),
+                ["assignee-object-id"] = Value(AssigneeObjectId),
+            },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile { SubscriptionId = TestSubscriptionId });
+
+        Assert.Equal("test-rg", processor.ResourceGroupName);
+    }
+
     [Fact]
     public void CliMetadata_ExposesResourceGroupOnCreate()
     {
@@ -423,4 +463,14 @@ public class RoleAssignmentCreateTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
+
+    private static ArgumentParsingService CreateBinder()
+    {
+        var logging = new ConsoleLoggingService();
+        return new ArgumentParsingService(
+            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
+            new ProfileService(new ScopedLoggingService()));
+    }
+
+    private static List<List<string>> Value(string value) => [new() { value }];
 }

@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// CLI customization over the spec-shaped <see cref="NewRoleAssignmentProcessor"/>. Resolves the
 /// az-style conveniences that are not part of the ARM create body into the atomic's
 /// <see cref="NewRoleAssignmentProcessor.Scope"/>, <see cref="NewRoleAssignmentProcessor.RoleAssignmentName"/>,
-/// and <see cref="NewRoleAssignmentProcessor.Body"/>:
+/// and <see cref="NewRoleAssignmentProcessor.Properties"/>:
 /// <list type="bullet">
 /// <item>Scope is the grant target. An explicit scope is used as-is; otherwise it is built from the
 /// subscription, optionally narrowed by <see cref="ResourceGroupName"/>. An explicit scope and a
@@ -59,17 +59,14 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         string roleDefinitionId = ResolveRoleDefinitionId(scope);
         (string? condition, string? conditionVersion) = ResolveCondition();
 
-        Body = new RoleAssignmentCreateParameters
+        Properties = new RoleAssignmentCreateProperties
         {
-            Properties = new RoleAssignmentCreateProperties
-            {
-                PrincipalId = principalId,
-                RoleDefinitionId = roleDefinitionId,
-                PrincipalType = PrincipalType,
-                Description = Description,
-                Condition = condition,
-                ConditionVersion = conditionVersion,
-            },
+            PrincipalId = principalId,
+            RoleDefinitionId = roleDefinitionId,
+            PrincipalType = PrincipalType,
+            Description = Description,
+            Condition = condition,
+            ConditionVersion = conditionVersion,
         };
 
         await base.BeforeProcessAsync();
@@ -147,27 +144,24 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 "A principal is required. Specify the principal's object ID (GUID) to assign the role to.");
         }
 
-        if (hasObjectId)
-        {
-            string objectId = AssigneeObjectId!.Trim();
-            if (!Guid.TryParse(objectId, out _))
-            {
-                throw AzclipsErrorException.UsageError(
-                    $"The assignee object ID '{objectId}' is not a valid object ID (GUID).");
-            }
-
-            return objectId;
-        }
-
-        string assignee = Assignee!.Trim();
-        if (!Guid.TryParse(assignee, out _))
-        {
-            throw AzclipsErrorException.UsageError(
-                $"The assignee '{assignee}' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; " +
+        return hasObjectId
+            ? RequireGuid(AssigneeObjectId!, value => $"The assignee object ID '{value}' is not a valid object ID (GUID).")
+            : RequireGuid(Assignee!, value =>
+                $"The assignee '{value}' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; " +
                 "specify the principal's object ID (GUID).");
+    }
+
+    // Trims and validates a principal value is an object ID (GUID); throws the caller-supplied usage-error
+    // message (with the trimmed value already substituted in) otherwise.
+    private static string RequireGuid(string rawValue, Func<string, string> errorMessage)
+    {
+        string value = rawValue.Trim();
+        if (!Guid.TryParse(value, out _))
+        {
+            throw AzclipsErrorException.UsageError(errorMessage(value));
         }
 
-        return assignee;
+        return value;
     }
 
     /// <summary>
