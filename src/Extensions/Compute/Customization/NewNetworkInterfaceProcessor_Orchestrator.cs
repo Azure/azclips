@@ -112,7 +112,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             return (null, DefaultPublicIpAddressName);
         }
 
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrEmpty(value))
         {
             return (null, null);
         }
