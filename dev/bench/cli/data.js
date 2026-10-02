@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790748002168,
+  "lastUpdate": 1790910964005,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11972,6 +11972,48 @@ window.BENCHMARK_DATA = {
             "value": 4393825.439128664,
             "unit": "ns",
             "range": "± 126186.67026976461"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5e9317f81e1f2fab0b0a6554c7147dc908efe0c5",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Add marketplace URN image support (#1027)\n\n## Summary\nThis is part of `VM Create Feature`:\nhttps://github.com/Azure/CLIPS/issues/831\nAdds initial `--image` / `-Image` support for VM create, scoped\nspecifically to marketplace image URNs in the form:\n\n`publisher:offer:sku:version`\n\nThis PR intentionally does **not** implement the full Azure CLI/Azure\nPowerShell image surface yet.\n\n## Included\n\n- Adds `az vm create --image <publisher:offer:sku:version>`.\n- Adds `New-AzVM -Image <publisher:offer:sku:version>` with `-ImageName`\nalias.\n- Resolves `latest` marketplace image versions through the Compute VM\nImages API.\n- Retrieves image metadata to determine OS type.\n- Uses image metadata to avoid sending Windows configuration for\nnon-Windows images.\n- Propagates marketplace plan metadata into the VM create payload when\npresent.\n- Updates CLI/PowerShell help and VM create scenario coverage.\n\n## Explicitly out of scope\n\nThe following `--image` forms are intentionally deferred and currently\nfail with `NotImplementedException`:\n\n- Image aliases such as `Ubuntu2204`\n- Managed image names\n- Managed image resource IDs\n- Azure Compute Gallery image IDs\n- Shared gallery image IDs\n- Community gallery image IDs\n- VHD URI / unmanaged image flows\n\nThese require additional client-side resolution and/or ARM lookups and\nwill be handled in follow-up PRs.\n\n## Validation\n\n- `VmCreateOrchestrationTests`\n- `VmCreateScenarioTests` re-recorded against live Azure\n- `VmCreateScriptScenarioTests`\n- CLI metadata/help fixture tests\n- PowerShell docs/help validation\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-02T12:55:11+10:00",
+          "tree_id": "41959ceece0acc19874fef10841ed96ba340902e",
+          "url": "https://github.com/Azure/azclips/commit/5e9317f81e1f2fab0b0a6554c7147dc908efe0c5"
+        },
+        "date": 1790910959814,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4653073.595865424,
+            "unit": "ns",
+            "range": "± 112657.02151328756"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7662729.452837893,
+            "unit": "ns",
+            "range": "± 149808.5634074646"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4609134.431512434,
+            "unit": "ns",
+            "range": "± 124132.95072270859"
           }
         ]
       }
