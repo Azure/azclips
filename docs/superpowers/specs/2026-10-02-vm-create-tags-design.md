@@ -35,6 +35,8 @@ config-object parameter set. The simple parameter set, which AzClips' `New-AzVM`
 - **Tagging the OS disk.** ARM's VM `osDisk` has no tags, and neither legacy tool tags the disk.
 - **Tagging an existing NSG or public IP** attached by name or resource ID. vm create never `PUT`s
   those.
+- **Reusing an existing VNet like legacy CLI.** vm create keeps `PUT`ting the VNet; see
+  [Follow-ups](#follow-ups).
 - **A `-Tags` alias.** Legacy `New-AzVM` has none.
 - **Pipeline binding for `-Tag`.** No other `New-AzVM` parameter takes pipeline input.
 - **Framework-level dictionary binding** in the core CLI parser.
@@ -98,7 +100,7 @@ hashtable yields an empty dictionary, which cannot happen, so it is not carried 
 |---|---|---|
 | VM | always | yes |
 | NIC (`--network-interface-name`) | always | yes |
-| VNet (`--virtual-network-name`) | always, as create-or-update | yes; the tags of an existing VNet are replaced |
+| VNet (`--virtual-network-name`) | always, as create-or-update | yes; an existing VNet's tags are replaced, as its address space and subnets already are |
 | NSG | the default `{vm}NSG` (create-or-update), or a named NSG that does not exist | yes |
 | NSG | an existing name or a resource ID | no — never `PUT`, so untouched |
 | Public IP | the default `{vm}PublicIP` (create-or-update), or a named public IP that does not exist | yes |
@@ -131,7 +133,7 @@ Legacy sources: `azure-cli` at `6cd38278b6` (2026-09-23), `azure-powershell` at 
 |---|---|---|---|---|
 | 1 | Where the parameter exists | `vm create --tags` (`_params.py:164-166`) | `-Tag` only in `DefaultParameterSet` (`NewAzureVMCommand.cs:142-146`); the simple set has none (`NewAzureVMCommand.cs:683-716`) | both surfaces |
 | 2 | Resources tagged | every resource the deployment creates: VM, NIC, VNet, NSG, public IP, storage account (`custom.py:983-1131`; `_template_builder.py:79,103,179,205,244,778`) | the VM (`NewAzureVMCommand.cs:1036`) | legacy CLI's rule, for what vm create `PUT`s |
-| 3 | Existing VNet | not `PUT`; a subnet is added instead, so its tags survive (`custom.py:1011-1038`) | not applicable | always `PUT` (existing behaviour), so its tags are replaced |
+| 3 | Existing VNet | never `PUT`: an auto-discovered VNet or an existing `--subnet`'s VNet is used as-is, and an existing `--vnet-name` only gains the missing subnet, so its tags survive (`_validators.py:819-874`, `custom.py:1011-1038`) | not applicable | always `PUT` (existing behaviour) from `--address-prefixes` and `--subnet-names`. That already replaces its address space, subnets and tags today; `--tags` replaces its tags with the given ones — **documented gap**, see [Follow-ups](#follow-ups) |
 | 4 | Existing NSG or public IP attached | untouched | not applicable | untouched |
 | 5 | OS disk | untagged | untagged | untagged |
 | 6 | Input | `key[=value]` tokens (`validators.py:40-55`) | hashtable (`HashTableExtensions.cs:23-26` → `CreateTagDictionary`) | each surface keeps its legacy input |
@@ -258,11 +260,21 @@ smoke scripts live.
 ## Risks
 
 - **Replacing an existing VNet's tags.** vm create always `PUT`s the VNet, unlike legacy CLI,
-  which adds a subnet to an existing VNet. With `--tags`, an existing VNet's tags are replaced. The
-  always-`PUT` behaviour predates this change.
+  which never `PUT`s an existing VNet. ARM's `PUT` replaces the whole resource, so today it
+  already overwrites an existing VNet's address space and subnets, and almost certainly its tags.
+  With `--tags`, those tags become the given ones instead. Accepted for this change; see
+  [Follow-ups](#follow-ups).
 - **Overwriting `{vm}NSG` and `{vm}PublicIP`.** Re-creating a VM of the same name replaces the
   tags on its default NSG and public IP. This matches legacy CLI's deployment.
 - **No client-side validation.** Bad tags surface as ARM errors from the first network `PUT`s,
   before the NIC or VM is attempted.
 - **Output change for show and list.** Tagged VMs gain a `tags` field in `vm show`, `vm list` and
   `Get-AzVM`. Untagged VMs are unchanged.
+
+## Follow-ups
+
+- **Reuse an existing VNet the way legacy CLI does.** Resolve `--virtual-network-name` as new or
+  existing, as the NSG and public IP already are: leave an existing VNet untouched and add only a
+  missing subnet. Once that lands, `--tags` stops reaching existing VNets, which matches legacy
+  with no change to the tags code. It needs its own design, because AzClips' multi-subnet model
+  (`--subnet-names`, one NIC IP configuration per subnet) differs from legacy's single `--subnet`.
