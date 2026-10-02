@@ -3,6 +3,8 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
@@ -134,12 +136,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
     private async Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
     {
-        using HttpResponseMessage response = await CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
-        {
-            p.SubscriptionId = subscriptionId;
-            p.ResourceGroupName = resourceGroupName;
-            p.Name = name;
-        }).SendAllowingNotFoundAsync();
+        using HttpResponseMessage response = await GetPublicIpAddressAllowingNotFoundAsync(subscriptionId, resourceGroupName, name);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -148,6 +145,35 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
         PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;
         return publicIp.Id;
+    }
+
+    /// <summary>
+    /// GETs the public IP, handing a 404 back to the caller instead of failing. The request is built
+    /// here rather than sent through <see cref="GetPublicIPAddressProcessor"/>: its send runs
+    /// <c>EnsureSuccessAsync</c>, which publishes the error before it throws, so catching a 404
+    /// afterwards would still print one.
+    /// </summary>
+    private async Task<HttpResponseMessage> GetPublicIpAddressAllowingNotFoundAsync(string subscriptionId, string resourceGroupName, string name)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get,
+            $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/publicIPAddresses/{name}?api-version=2025-05-01");
+        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return response;
+        }
+
+        try
+        {
+            await response.EnsureSuccessAsync(Publisher);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+        return response;
     }
 
     private async Task<string?> CreatePublicIpAddressAsync(string name)
