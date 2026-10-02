@@ -23,6 +23,7 @@ Create a virtual machine together with its network interface, virtual network, a
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubscriptionId <string>]
+ [-Image <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
@@ -48,7 +49,7 @@ Assign `$adminPassword` from a secure source in your own pipeline before invokin
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
 ```
 
 ## PARAMETERS
@@ -148,6 +149,28 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Image
+
+The marketplace image URN to use.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- ImageName
 ParameterSets:
 - Name: (All)
   Position: Named
