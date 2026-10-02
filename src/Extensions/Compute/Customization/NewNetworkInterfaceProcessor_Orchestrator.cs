@@ -148,10 +148,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     }
 
     /// <summary>
-    /// GETs the public IP, handing a 404 back to the caller instead of failing. The request is built
-    /// here rather than sent through <see cref="GetPublicIPAddressProcessor"/>: its send runs
-    /// <c>EnsureSuccessAsync</c>, which publishes the error before it throws, so catching a 404
-    /// afterwards would still print one.
+    /// A NotFound (404) safe GET for a public IP address, returning the response for the caller to read or dispose.
     /// </summary>
     private async Task<HttpResponseMessage> GetPublicIpAddressAllowingNotFoundAsync(string subscriptionId, string resourceGroupName, string name)
     {
