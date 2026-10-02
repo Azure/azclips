@@ -22,10 +22,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
-        public ImageReference? ImageReference { get; set; }
-        public ImagePlan? Plan { get; set; }
+        public string? PlanName { get; set; }
+        public string? PlanProduct { get; set; }
+        public string? PlanPublisher { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
-        public string OperatingSystemType { get; set; } = OperatingSystemTypes.Windows;
+        public WindowsConfiguration? WindowsConfiguration { get; set; }
         public string? SecurityType { get; set; } = "trustedlaunch";
         public bool? SecureBootEnabled { get; set; } = true;
         public bool? VTpmEnabled { get; set; } = true;
@@ -41,13 +42,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
-                Plan = Plan,
+                Plan = PlanName is null && PlanProduct is null && PlanPublisher is null
+                    ? null
+                    : new ImagePlan
+                    {
+                        Name = PlanName,
+                        Product = PlanProduct,
+                        Publisher = PlanPublisher
+                    },
                 Properties = new VirtualMachineProperties
                 {
                     HardwareProfile = new HardwareProfile(VmSize),
                     StorageProfile = new StorageProfile
                     {
-                        ImageReference = ImageReference ?? new ImageReference
+                        ImageReference = new ImageReference
                         {
                             Publisher = ImagePublisher,
                             Offer = ImageOffer,
@@ -60,7 +68,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         ComputerName = Name,
                         AdminUsername = AdminUsername,
                         AdminPassword = AdminPassword,
-                        WindowsConfiguration = IsWindows ? new WindowsConfiguration() : null
+                        WindowsConfiguration = WindowsConfiguration
                     },
                     NetworkProfile = new NetworkProfile
                     {
@@ -69,7 +77,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                             new NetworkInterfaceReference { Id = NetworkInterfaceId }
                         ]
                     },
-                    SecurityProfile = CreateSecurityProfile(),
+                    SecurityProfile = string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null
+                        ? null
+                        : new SecurityProfile
+                        {
+                            SecurityType = SecurityType,
+                            UefiSettings = SecureBootEnabled is null && VTpmEnabled is null
+                                ? null
+                                : new UefiSettings
+                                {
+                                    SecureBootEnabled = SecureBootEnabled,
+                                    VTpmEnabled = VTpmEnabled
+                                }
+                        },
                     DiagnosticsProfile = new DiagnosticsProfile
                     {
                         BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }
@@ -77,28 +97,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 }
             };
             return body;
-        }
-
-        private bool IsWindows => OperatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
-
-        private SecurityProfile? CreateSecurityProfile()
-        {
-            if (string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null)
-            {
-                return null;
-            }
-
-            return new SecurityProfile
-            {
-                SecurityType = SecurityType,
-                UefiSettings = SecureBootEnabled is null && VTpmEnabled is null
-                    ? null
-                    : new UefiSettings
-                    {
-                        SecureBootEnabled = SecureBootEnabled,
-                        VTpmEnabled = VTpmEnabled
-                    }
-            };
         }
 
         /*

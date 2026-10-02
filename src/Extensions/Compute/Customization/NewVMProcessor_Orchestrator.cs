@@ -118,11 +118,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VmSize = VmSize;
-                p.ImageReference = imageReference;
-                p.Plan = plan;
+                if (imageReference is not null)
+                {
+                    p.ImagePublisher = imageReference.Publisher!;
+                    p.ImageOffer = imageReference.Offer!;
+                    p.ImageSku = imageReference.Sku!;
+                    p.ImageVersion = imageReference.Version!;
+                }
+                p.PlanName = plan?.Name;
+                p.PlanProduct = plan?.Product;
+                p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
-                p.OperatingSystemType = operatingSystemType;
+                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
+                    new WindowsConfiguration() : null;
                 if (!useTrustedLaunchDefaults)
                 {
                     p.SecurityType = null;
