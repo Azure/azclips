@@ -51,7 +51,9 @@ Create an Azure role-based access control (RBAC) role assignment, granting the p
 subscription and can be narrowed with `-ResourceGroupName` or overridden with `-Scope` (the two are
 mutually exclusive). `-ObjectId` takes a GUID; `-RoleDefinitionId` takes a role definition GUID or a
 fully-qualified role definition ID. Principal name/UPN/service-principal and role-name resolution are
-not yet supported. The assignment name is generated when `-Name` is omitted.
+not yet supported. The assignment name is generated when `-Name` is omitted. Re-running create for a
+principal, role, and scope that already has an assignment fails with ARM's 409 (`RoleAssignmentExists`),
+even with a new `-Name`.
 
 ## EXAMPLES
 
