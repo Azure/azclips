@@ -224,6 +224,34 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_EmptyStringScope_Throws()
+    {
+        // An explicitly bound empty string (--scope "") is distinct from an unbound (null) scope and
+        // must be rejected too, not just whitespace: the CLI parser preserves an empty quoted string
+        // verbatim, so this must not be silently treated as "not supplied" either.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Scope = string.Empty;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_EmptyStringResourceGroup_Throws()
+    {
+        // Same concern as above, for an explicitly bound empty string --resource-group/-ResourceGroupName.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.ResourceGroupName = string.Empty;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
     public async Task Create_NoScopeAndNoSubscription_Throws()
     {
         await AssertThrows(p =>
