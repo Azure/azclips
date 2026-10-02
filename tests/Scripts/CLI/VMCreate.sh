@@ -14,6 +14,9 @@
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
 #
+# Every vm create passes a marketplace image URN with version "latest", so each
+# case also exercises the image version lookup.
+#
 # Case 3 pre-creates its public IP through az rest, then verifies vm create
 # attaches that resource without replacing its tags.
 #
@@ -34,6 +37,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # Resolve the built CLI (az.exe on Windows, az elsewhere).
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+if [[ ! -x "$AZ" ]]; then
+    echo "Built CLI not found at $REPO_ROOT/artifacts/Debug/Core.Cli/az[.exe]. Run dotnet build first." >&2
+    exit 1
+fi
 
 # Git Bash rewrites /subscriptions/... arguments for Windows .exe targets unless disabled.
 export MSYS_NO_PATHCONV=1
@@ -111,6 +118,7 @@ create_vm()
         --name "$name" \
         --location "$LOCATION" \
         --size Standard_D2s_v3 \
+        --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
         --network-interface-name "$name-nic" \

@@ -19,6 +19,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string VmSize { get; set; } = string.Empty;
 
+        public string? Image { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -78,6 +80,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
+            var operatingSystemType = OperatingSystemTypes.Windows;
+            ImagePlan? plan = null;
+            var useTrustedLaunchDefaults = imageReference is null;
+            if (imageReference is not null)
+            {
+                (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
+            }
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -112,11 +123,112 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VmSize = VmSize;
+                if (imageReference is not null)
+                {
+                    p.ImagePublisher = imageReference.Publisher!;
+                    p.ImageOffer = imageReference.Offer!;
+                    p.ImageSku = imageReference.Sku!;
+                    p.ImageVersion = imageReference.Version!;
+                }
+                p.PlanName = plan?.Name;
+                p.PlanProduct = plan?.Product;
+                p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
+                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
+                    new WindowsConfiguration() : null;
+                if (!useTrustedLaunchDefaults)
+                {
+                    p.SecurityType = null;
+                    p.SecureBootEnabled = null;
+                    p.VTpmEnabled = null;
+                }
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)
+        {
+            var version = imageReference.Version!;
+            if (version.Equals("latest", StringComparison.OrdinalIgnoreCase))
+            {
+                var latestImage = await GetLatestImageVersionAsync(imageReference);
+                version = latestImage.Name
+                    ?? throw new InvalidOperationException($"No image versions found for '{imageReference.Publisher}:{imageReference.Offer}:{imageReference.Sku}:latest'.");
+                imageReference.Version = version;
+            }
+
+            GetVMImageProcessor getImageProcessor = CreateExtendedProcessor<GetVMImageProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.Location = Location;
+                p.ImagePublisher = imageReference.Publisher!;
+                p.Offer = imageReference.Offer!;
+                p.Sku = imageReference.Sku!;
+                p.Version = version;
+            });
+            using HttpResponseMessage imageResponse = await getImageProcessor.SendAsync();
+            var image = (await imageResponse.Content.ReadFromJsonAsync<VirtualMachineImage>(JsonOptions))!;
+
+            var operatingSystemType = image.Properties?.OsDiskImage?.OperatingSystem
+                ?? throw new InvalidOperationException("Image metadata did not include properties.osDiskImage.operatingSystem.");
+            return (operatingSystemType, image.Properties?.Plan, SupportsTrustedLaunch(image.Properties));
+        }
+
+        private static bool SupportsTrustedLaunch(VirtualMachineImageProperties? properties)
+        {
+            if (properties is null
+                || !string.Equals(properties.HyperVGeneration, "V2", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return properties.Features.Any(feature =>
+                string.Equals(feature.Name, "SecurityType", StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(feature.Value, "TrustedLaunch", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(feature.Value, "TrustedLaunchSupported", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(feature.Value, "TrustedLaunchAndConfidentialVmSupported", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private async Task<VirtualMachineImage> GetLatestImageVersionAsync(ImageReference imageReference)
+        {
+            ListVMImageVersionsProcessor listVersionsProcessor = CreateExtendedProcessor<ListVMImageVersionsProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.Location = Location;
+                p.ImagePublisher = imageReference.Publisher!;
+                p.Offer = imageReference.Offer!;
+                p.Sku = imageReference.Sku!;
+            });
+            using HttpResponseMessage versionsResponse = await listVersionsProcessor.SendAsync();
+            var versions = (await versionsResponse.Content.ReadFromJsonAsync<List<VirtualMachineImage>>(JsonOptions))!;
+            return versions.OrderByDescending(image => image.Name, Comparer<string?>.Create(CompareImageVersions)).FirstOrDefault()
+                ?? throw new InvalidOperationException($"No image versions found for '{imageReference.Publisher}:{imageReference.Offer}:{imageReference.Sku}:latest'.");
+        }
+
+        private static int CompareImageVersions(string? left, string? right)
+        {
+            if (string.IsNullOrWhiteSpace(left))
+            {
+                return string.IsNullOrWhiteSpace(right) ? 0 : -1;
+            }
+
+            if (string.IsNullOrWhiteSpace(right))
+            {
+                return 1;
+            }
+
+            var leftParsed = Version.TryParse(left, out var leftVersion);
+            var rightParsed = Version.TryParse(right, out var rightVersion);
+
+            return (leftParsed, rightParsed) switch
+            {
+                (true, true) => leftVersion!.CompareTo(rightVersion),
+                (true, false) => 1,
+                (false, true) => -1,
+                _ => StringComparer.OrdinalIgnoreCase.Compare(left, right)
+            };
         }
 
         /// <summary>

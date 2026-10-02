@@ -18,6 +18,7 @@ public class VmCreateScenarioTests
     private const string VmName = "scenario-vm";
     private const string Location = "westus2";
     private const string Password = "PlaceholderP@ss1";
+    private const string Image = "MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest";
 
     [Fact]
     public void CreatesVirtualMachine()
@@ -71,6 +72,7 @@ public class VmCreateScenarioTests
         "--location", Location,
         "--resource-group", "scenario-vm-rg",
         "--size", "Standard_D2s_v3",
+        "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
@@ -88,6 +90,7 @@ public class VmCreateScenarioTests
         ["Location"] = Location,
         ["ResourceGroupName"] = "scenario-vm-rg",
         ["VmSize"] = "Standard_D2s_v3",
+        ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
         ["NetworkInterfaceName"] = "scenario-vm-nic",

@@ -188,6 +188,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["Location"]                       = new("Location", "Location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]              = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["VmSize"]                         = new("VmSize", "VmSize", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Image"]                          = new("Image", "Image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: ["ImageName"], AllowedValues: []),
                 ["AdminUsername"]                  = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["NetworkInterfaceName"]           = new("NetworkInterfaceName", "NetworkInterfaceName", typeof(string), "The network interface name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -208,7 +209,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["PublicIpAddressName"]            = new("PublicIpAddress", "PublicIpAddressName", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["ImageName"] = "Image",
+            }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
@@ -487,6 +491,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["size"]                             = new("VmSize", "size", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["image"]                            = new("Image", "image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["admin-username"]                   = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["network-interface-name"]           = new("NetworkInterfaceName", "network-interface-name", typeof(string), "The network interface name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
