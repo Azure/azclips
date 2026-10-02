@@ -196,6 +196,34 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_WhitespaceOnlyResourceGroup_Throws()
+    {
+        // An explicitly bound but blank -ResourceGroupName/--resource-group must not be silently
+        // treated as omitted: that would widen the resolved scope to the whole subscription instead
+        // of failing, granting broader access than requested.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.ResourceGroupName = "   ";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
+    public async Task Create_WhitespaceOnlyScope_Throws()
+    {
+        // Same concern as above, for an explicitly bound but blank -Scope/--scope.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Scope = "   ";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
     public async Task Create_NoScopeAndNoSubscription_Throws()
     {
         await AssertThrows(p =>

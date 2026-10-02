@@ -17,11 +17,18 @@ internal static class RoleAssignmentScope
     /// Resolves the effective scope with precedence: explicit <paramref name="scope"/> first, then
     /// subscription + <paramref name="resourceGroupName"/>, then the subscription alone.
     /// <paramref name="scope"/> and <paramref name="resourceGroupName"/> are mutually exclusive.
+    /// A bound-but-blank value is rejected rather than silently treated as omitted (which would
+    /// otherwise widen the resolved scope to the subscription):
+    /// <paramref name="resourceGroupName"/> is a truly nullable parameter (both orchestrators default it
+    /// to null), so "bound" is non-null. <paramref name="scope"/> is <b>not</b> nullable on the
+    /// atomic processors — it defaults to <see cref="string.Empty"/> — so an empty string there means
+    /// "not bound" (the CLR default), while a non-empty, whitespace-only value can only come from an
+    /// explicit (blank) caller-supplied value.
     /// </summary>
     internal static string Resolve(string? subscriptionId, string? scope, string? resourceGroupName)
     {
-        bool hasScope = !string.IsNullOrWhiteSpace(scope);
-        bool hasResourceGroup = !string.IsNullOrWhiteSpace(resourceGroupName);
+        bool hasScope = !string.IsNullOrEmpty(scope);
+        bool hasResourceGroup = resourceGroupName is not null;
 
         if (hasScope && hasResourceGroup)
         {
@@ -30,7 +37,17 @@ internal static class RoleAssignmentScope
 
         if (hasScope)
         {
+            if (string.IsNullOrWhiteSpace(scope))
+            {
+                throw AzclipsErrorException.UsageError("Scope must not be empty.");
+            }
+
             return Normalize(scope!);
+        }
+
+        if (hasResourceGroup && string.IsNullOrWhiteSpace(resourceGroupName))
+        {
+            throw AzclipsErrorException.UsageError("Resource group must not be empty.");
         }
 
         if (string.IsNullOrWhiteSpace(subscriptionId))

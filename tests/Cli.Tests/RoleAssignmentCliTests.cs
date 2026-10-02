@@ -209,6 +209,21 @@ public class RoleAssignmentCliTests
     }
 
     [Fact]
+    public async Task List_WhitespaceOnlyResourceGroup_Throws()
+    {
+        // Shared RoleAssignmentScope.Resolve: a bound-but-blank resource group must not be silently
+        // treated as omitted, which would otherwise widen the list to the whole subscription.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroupName = "   ";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
     public async Task List_NoSubscriptionAndNoScope_Throws()
     {
         var output = new FakeOutputHandler();
