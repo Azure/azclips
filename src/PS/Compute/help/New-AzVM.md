@@ -21,8 +21,9 @@ Create a virtual machine together with its network interface, virtual network, a
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- [-Image <string>] -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
+ -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubscriptionId <string>]
+ [-Image <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
