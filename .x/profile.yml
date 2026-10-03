@@ -1,0 +1,44 @@
+base_branch: main
+kind: dotnet-cli
+live_test: false
+live_test_workflow: null
+module_root: src
+needs_info_label: agent-assist-needs-info
+pr_doc_url: null
+reference_paths:
+- README.md
+- SUPPORT.md
+- SECURITY.md
+- eng-docs/area-owners.md
+- docs/azure-cli/docs-conceptual/getting-started.md
+- docs/azure-cli/docs-conceptual/install-overview.md
+- docs/azure-cli/docs-conceptual/install-cli-manual.md
+- docs/azure-cli/docs-conceptual/troubleshooting.md
+- wiki/01-getting-started/overview.md
+- wiki/02-deep-dive/authentication.md
+- wiki/02-deep-dive/configuration-profiles.md
+- wiki/02-deep-dive/extension-system.md
+- wiki/02-deep-dive/ai-agent.md
+- wiki/02-deep-dive/build-cicd.md
+reference_repository: Azure/azclips
+target_kind: area
+title_style: null
+triage_agent: azclips_triager
+triage_handoffs:
+  sufficient:bug: Fixer
+triage_labels: null
+triage_owner_labels:
+  codegen-extensibility: act-codegen-extensibility-squad
+  experience-enablement: act-experience-enablement-squad
+  identity: act-identity-squad
+  observability: act-observability-squad
+  platform-engineering: act-platform-engineering-squad
+  quality-productivity: act-quality-productivity-squad
+triage_result_labels:
+  bug: bug
+  documentation: documentation
+  duplicate: duplicate
+  question: question
+  wontfix: wontfix
+triaged_label: agent-assist-triaged
+workflow: analysis-fix-review
