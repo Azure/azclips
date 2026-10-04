@@ -136,11 +136,49 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
-    public async Task Generate_Paging_WithAnEmptyItemsPath_SelectsTheBodyItself()
+    public async Task Generate_Paging_ReachesANestedItemsPropertyThroughItsContainers()
     {
-        // The projection resolves paging bindings to a property-id path. An empty path means
-        // "the body *is* the page", so the selector must be the body, not a member of it.
+        // `via` lists the containers outermost first: the selector walks them, then the property.
+        IRId envelopeId = new() { Module = "Test", Name = "Envelope" };
+        IRId pageId = new() { Module = "Test", Name = "Page" };
+        IRId resultId = new() { Module = "Test", Name = "Envelope.result" };
+        IRId valueId = new() { Module = "Test", Name = "Page.value" };
         TransformedIR ir = Ir(operations: ["list"]);
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "Envelope",
+                Source = "Test",
+                Id = envelopeId,
+                Properties =
+                [
+                    new IRPropertyObject
+                    {
+                        Id = resultId,
+                        Name = "Result",
+                        WireName = "result",
+                        Type = new IRTypeRefModel { Id = pageId },
+                    },
+                ],
+            },
+            new IRModel
+            {
+                Name = "Page",
+                Source = "Test",
+                Id = pageId,
+                Properties =
+                [
+                    new IRPropertyCollection
+                    {
+                        Id = valueId,
+                        Name = "Value",
+                        WireName = "value",
+                        Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+                    },
+                ],
+            },
+        ];
         ir.Commands =
         [
             Commands.Atomic(
@@ -150,25 +188,23 @@ public sealed class CSharpClientGeneratorTests
                 pagination: new IRCommandPagination
                 {
                     ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-                    ItemsPath = [],
+                    Items = new IRPropertyRef { Property = valueId, Via = [resultId] },
                 },
-                surface: Commands.Surface(
-                    response: new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
-                    paginated: true)),
+                surface: Commands.Surface(response: new IRTypeRefModel { Id = envelopeId }, paginated: true)),
         ];
 
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
 
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
-        Assert.Contains("=> body;", source);
+        Assert.Contains("=> body.Result.Value;", source);
         Assert.Contains("WriteOutputWithPaginationAsync", source);
     }
 
     [Fact]
-    public async Task Generate_Paging_WithAnUnresolvablePath_DiagnosesRatherThanInventingAMember()
+    public async Task Generate_Paging_WithAnUnresolvableReference_DiagnosesRatherThanInventingAMember()
     {
-        // A path segment that names no property in the document must not be PascalCased into a
+        // A property id that names no property in the document must not be PascalCased into a
         // plausible-looking member: that compiles into a wrong selector. Report and emit nothing.
         TransformedIR ir = Ir(operations: ["list"]);
         ir.Commands =
@@ -180,7 +216,7 @@ public sealed class CSharpClientGeneratorTests
                 pagination: new IRCommandPagination
                 {
                     ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-                    ItemsPath = [new IRId { Module = "Test", Name = "ghost" }],
+                    Items = new IRPropertyRef { Property = new IRId { Module = "Test", Name = "ghost" } },
                 },
                 surface: Commands.Surface(paginated: true)),
         ];
