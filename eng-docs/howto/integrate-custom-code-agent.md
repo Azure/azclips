@@ -7,9 +7,9 @@ description: Step-by-step guide for using custom-code prompts with OpenSpec appl
 
 Use this workflow when you want to bring custom behavior from Azure CLI or Azure PowerShell into Azclips for one command.
 
-Custom-code prompts own the command-specific steps: compare upstream behavior, write the OpenSpec contract, and generate live-test scripts. OpenSpec prompts own implementation and archive.
+Custom-code prompts own the command-specific steps: compare upstream behavior, write the OpenSpec contract, and generate scenario tests. OpenSpec prompts own implementation and archive.
 
-The prompts read Azure CLI, Azure CLI Extensions, and Azure PowerShell upstream evidence from the remote GitHub `main` branch. They should not use local clones, local checkouts, forks, feature branches, or PR branches as upstream evidence.
+The prompts read upstream evidence from these remote GitHub branches: `Azure/azure-cli` on `dev`, `Azure/azure-cli-extensions` on `main`, and `Azure/azure-powershell` on `main`. They should not use local clones, local checkouts, forks, feature branches, or PR branches as upstream evidence.
 
 ## Command Reference
 
@@ -18,14 +18,14 @@ The prompts read Azure CLI, Azure CLI Extensions, and Azure PowerShell upstream 
 | `/integrate-compare` | Start here with a Swagger/TSP service module, resource, and action. | Feature decision table. |
 | `/integrate-spec` | Run after you choose feature IDs from the decision table. | OpenSpec proposal, design, tasks, and spec. |
 | `/opsx:apply <change-id>` | Run after you review and approve the OpenSpec change. | Product-code implementation. |
-| `/integrate-live-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | Azclips live-test scripts. |
-| `/opsx:archive <change-id>` | Run after code and live-test scripts are reviewed. | Archived OpenSpec change and synced specs when needed. |
+| `/integrate-scenario-test <change-id>` | Run after approved behavior exists in OpenSpec, usually after product-code changes. | Azclips record/playback scenario tests. |
+| `/opsx:archive <change-id>` | Run after code and scenario tests are reviewed. | Archived OpenSpec change and synced specs when needed. |
 
 You make three review decisions during the workflow:
 
 - Confirm the CLI and PowerShell command mapping.
 - Choose which custom features to implement or drop.
-- Review generated OpenSpec, code, and live-test scripts before closing the change.
+- Review generated OpenSpec, code, and scenario tests before closing the change.
 
 ## Workflow
 
@@ -39,10 +39,10 @@ flowchart TD
     E -->|approve| F["/opsx:apply"]
     E -->|revise| D
     F --> G{Review code}
-    G -->|approved| H["/integrate-live-test"]
+    G -->|approved| H["/integrate-scenario-test"]
     G -->|needs spec change| D
-    H --> I{Review or run live-test scripts}
-    I -->|approved and passed| J["/opsx:archive"]
+    H --> I{Review and record the scenario}
+    I -->|recorded and replaying| J["/opsx:archive"]
     I -->|changed or failed| D
 ```
 
@@ -52,9 +52,8 @@ Identify the Swagger/TSP service module, resource, and action. You will include 
 
 Optional details are helpful but not required:
 
-- Known Azure CLI command or repo-relative source path on `main`.
-- Known Azure PowerShell cmdlet or repo-relative source path on `main`.
-- Repo-relative upstream source paths on `main`, if you already know them.
+- Known Azure CLI command or its repo-relative upstream source path.
+- Known Azure PowerShell cmdlet or its repo-relative upstream source path.
 - Features you already know should be excluded.
 
 ## Step 1: Compare Upstream Behavior
@@ -100,7 +99,7 @@ Implement F10 for PowerShell only.
 Drop F6, F8, F12, F13.
 ```
 
-Only selected features move into the OpenSpec contract. This step creates or updates OpenSpec artifacts only. It should not generate product code, live-test scripts, or unit tests.
+Only selected features move into the OpenSpec contract. This step creates or updates OpenSpec artifacts only. It should not generate product code or tests.
 
 Review the proposal, tasks, and spec. The spec should describe the Azclips behavior you want, not upstream history or implementation details.
 
@@ -120,40 +119,47 @@ Review the code at a command level. Check that it implements only the features y
 
 If a selected feature needs changes outside the selected command scope, stop and decide how to handle that case separately.
 
-## Step 5: Generate Live-Test Scripts
+## Step 5: Generate Scenario Tests
 
-After approved behavior exists in OpenSpec, generate live-test scripts.
+After approved behavior exists in OpenSpec, generate scenario tests.
 
 ```text
-/integrate-live-test compute-virtual-machine-create
+/integrate-scenario-test compute-virtual-machine-create
 ```
 
-In this workflow, "tests" means live test scripts under these paths:
+In this workflow, "tests" means record/playback scenario tests at this path:
 
-- `tests/Scripts/CLI/<ModuleName>/<CommandName>/<testFileName>.sh`
-- `tests/Scripts/PS/<ModuleName>/<CommandName>/<testFileName>.ps1`
+- `tests/Scenario.Tests/<CommandName>ScenarioTests.cs`
 
-Review that each script has assertions for the selected behavior. The scripts should not only run commands.
+One scenario covers both client surfaces, because the CLI command and the PowerShell cmdlet resolve to the same processor and emit identical ARM traffic. The authoring guide is [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
 
-## Step 6: Review Or Run Live-Test Scripts
+When the module has never been used in a scenario, the step also adds an `ExtensionUnderTest` entry to `tests/Scenario.Tests/ScenarioHost.cs` and a project reference to `tests/Scenario.Tests/Scenario.Tests.csproj`. Without those the scenario cannot compile.
 
-Run live-test scripts yourself when you are ready to use live Azure resources. Then report the result.
+Review that the scenario has assertions for the selected behavior. It should not only run commands.
+
+## Step 6: Record The Scenario
+
+A new scenario has no recording yet, so playback fails until you record it. Recording is a manual step: it runs against real Azure, needs credentials, and creates billable resources. The agent never runs it for you.
+
+Follow the `Record vs. playback` and `Secret scanning` sections of [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md) for the exact commands, using the `--filter` value the agent reported. Afterwards, review the recording it wrote, replay it without credentials, and delete the resources the record run created.
+
+Report the result.
 
 ```text
-I reviewed tests/Scripts/CLI/Compute/vm-create/VmCreateDefaultConnectivity.sh and did not change it. The reviewed live test passed.
+I reviewed tests/Scenario.Tests/VmCreateScenarioTests.cs, recorded it, and playback passes on both surfaces.
 ```
 
-If you changed a script or the reviewed live test failed, update the OpenSpec contract first. Then apply the change and regenerate scripts.
+If you changed the scenario or it failed, update the OpenSpec contract first. Then apply the change and regenerate the scenario.
 
 ```text
-I reviewed tests/Scripts/CLI/Compute/vm-create/VmCreateDefaultConnectivity.sh and made changes.
-Use the current reviewed live test as feedback.
-Update the active OpenSpec spec first, then I will re-run /opsx:apply and /integrate-live-test.
+I reviewed tests/Scenario.Tests/VmCreateScenarioTests.cs and made changes.
+Use the current reviewed scenario as feedback.
+Update the active OpenSpec spec first, then I will re-run /opsx:apply and /integrate-scenario-test.
 ```
 
 ## Step 7: Close The Change
 
-When the OpenSpec change, code, and reviewed live-test scripts are ready, archive the change with the normal OpenSpec command.
+When the OpenSpec change, code, and recorded scenario tests are ready, archive the change with the normal OpenSpec command.
 
 ```text
 /opsx:archive compute-virtual-machine-create

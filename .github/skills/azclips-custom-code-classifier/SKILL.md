@@ -12,15 +12,9 @@ The classifier does not copy code. It first removes blacklisted behavior, then c
 
 ## Inputs
 - Azclips module or command, such as `Compute`, `vm create`, or `New-AzVM`.
-- Upstream Azure CLI custom-code behavior, repo-relative remote `main` source path, or command name.
-- Upstream Azure PowerShell custom-code behavior, repo-relative remote `main` source path, or cmdlet name.
+- Upstream Azure CLI custom-code behavior, repo-relative upstream source path, or command name.
+- Upstream Azure PowerShell custom-code behavior, repo-relative upstream source path, or cmdlet name.
 - Current editor file or nearby Azclips implementation, if available.
-
-## Upstream Source Rule
-
-Read upstream Azure CLI, Azure CLI Extensions, and Azure PowerShell evidence from the remote GitHub `main` branch only. Do not inspect local clones, local checkouts, forks, feature branches, or PR branches as upstream evidence. Local files are valid only for the current Azclips repo.
-
-If remote `main` cannot be reached or does not contain the needed upstream evidence, report `insufficient-evidence` instead of falling back to local upstream files.
 
 ## Blacklist Check
 Before classification, read [the blacklist](./references/blacklist.md). If a behavior item is only a blacklisted concern, remove it from the candidate work and do not route it to implementation.
@@ -30,27 +24,20 @@ The classification order is mandatory:
 2. Remove behavior items that match the blacklist.
 3. Classify only the remaining non-blacklisted behavior.
 
-Record each skipped item as:
-
-```yaml
-blacklist_skips:
-- item: "<behavior>"
-  reason: "<matching blacklist entry>"
-  evidence: "<remote main upstream signal or current Azclips local signal>"
-```
+Record every skipped item under `blacklist_skips` in the output format below.
 
 ## Evidence To Gather
-Gather only the evidence needed to classify the behavior.
+Gather only the evidence needed to classify the behavior. Local files are evidence of current Azclips state only; resolve upstream evidence from the `Upstream Repository Map` in `.github/agents/integrate-custom-code.agent.md`, which sets the branches and the unreachable-upstream rule.
 
 1. Locate the Azclips extension index for the module, usually `src/Extensions/<Module>/ExtensionIndex.cs`.
 2. Read the current customization for the target command under `src/Extensions/<Module>/Customization` when one exists, and confirm active routing from `ExtensionIndex.cs`.
 3. Read atomic processors under `src/Extensions/<Module>/Processors` only as evidence. Do not modify them.
-4. Read the PowerShell wrapper under `src/PS/<Module>/Cmdlets` only when needed to determine whether behavior is PowerShell-only. Do not implement PowerShell-only behavior without user direction.
-5. Read CLI parser, help, or command metadata code only when needed to determine whether behavior is CLI-only. Do not implement CLI-only behavior without user direction.
+4. Read the PowerShell wrapper under `src/PS/<Module>/Cmdlets` only when needed to determine whether behavior is PowerShell-only.
+5. Read CLI parser, help, or command metadata code only when needed to determine whether behavior is CLI-only.
 6. Compare upstream CLI and PowerShell behavior by intent: Azure operations, request shape, orchestration steps, user-facing parameters, confirmation behavior, and output shape.
 
 ## Classification Buckets
-Split the upstream custom behavior into work items. Each work item must go into exactly one bucket.
+Split the upstream custom behavior into work items. Each work item must go into exactly one bucket. Only `shared-customization` is implemented here; both surface routes stop, so put those behaviors in `blocked_on_user_direction` and ask the user how to handle them.
 
 ### Route 1: `shared-customization`
 
@@ -64,11 +51,9 @@ Strong signals:
 
 Likely implementation locations:
 - Handwritten shared behavior: `src/Extensions/<Module>/Customization`.
-- Multi-step behavior: override `SendAsync()` in a customization class and compose atomic processors with `CreateExtendedProcessor<T>`.
-- Request-shape behavior: use `Method`, `CreateRequestUri()`, `CreateRequestBody()`, and `CreateRequestHeaders(HttpRequestMessage request)`.
-- Pre-processing or output behavior: prefer `BeforeProcessAsync()` and `BeforeWriteOutputAsyncAndReturn(TResponse? body)` before overriding `ProcessAsync()`.
-- Base-wide behavior: implement the base partial hook `OverrideBeforeProcessBase()` in a companion partial customization file.
 - Routing: `src/Extensions/<Module>/ExtensionIndex.cs` so CLI and PowerShell point to the shared customization class when it replaces an atomic command.
+
+Which override expresses the behavior is settled by `eng-docs/howto/Extension-Development-For-Private-Preview.md`, which carries the full escalation order and the bypass warnings that come with each entry.
 
 Forbidden locations:
 - Do not edit atomic processors under `src/Extensions/<Module>/Processors`.
@@ -84,10 +69,6 @@ Strong signals:
 - The upstream behavior exists in Azure CLI but has no PowerShell equivalent and does not change the underlying Azure operation.
 - The behavior is needed for `az ...` compatibility but would be unnatural as a PowerShell cmdlet parameter or parameter set.
 
-Classification action:
-- Do not implement CLI-only behavior in this workflow.
-- Add the behavior to `blocked_on_user_direction` and ask the user how to handle the CLI-specific change.
-
 ### Route 3: `powershell-only-surface`
 
 Choose this when the behavior is specific to Azure PowerShell UX and should not change CLI.
@@ -97,27 +78,18 @@ Strong signals:
 - The upstream behavior exists in Azure PowerShell but has no CLI equivalent and does not change the underlying Azure operation.
 - The behavior is needed for cmdlet compatibility but would be unnatural as a CLI option or command group.
 
-Classification action:
-- Do not implement PowerShell-only behavior in this workflow.
-- Add the behavior to `blocked_on_user_direction` and ask the user how to handle the PowerShell-specific change.
-
 ## Tie Breakers
-- If both upstream surfaces share behavior, prefer `shared-customization` even if one surface implements it with validation or helper code locally.
-- If behavior changes Azure resource side effects, request body construction, LRO handling, or response semantics, it is usually shared.
-- If behavior changes only command-line spelling, help, completion, or shell-specific prompting, it is surface-specific.
-- If a behavior is only defensive input checking, run the blacklist check before assigning a route.
-- If a command has both shared and surface-specific parts, split it into multiple work items instead of forcing one route.
-- If a non-blacklisted behavior requires a generated model or atomic processor edit, stop and ask for user direction.
+These decide only the cases the strong signals leave ambiguous.
+
+- Shared wins when both surfaces carry the behavior, even if one of them wraps it in local validation or helper code.
+- Split a command that has both shared and surface-specific parts into separate work items instead of forcing one route.
 
 ## Output Format
 
 Return a compact classification result before implementation:
 
 ```yaml
-target:
-  service_module: "<Swagger/TSP service module or unknown>"
-  resource: "<resource or unknown>"
-  action: "<action or unknown>"
+target: "<service module>/<resource>/<action>, or unknown"
 target_mapping:
   azclips_commands: []
   azure_cli_commands: []
@@ -130,22 +102,35 @@ routes:
     target_layer: "src/Extensions/<Module>/Customization or ExtensionIndex.cs"
   cli-only-surface:
   - behavior: "<CLI-only behavior>"
-    action: "stop-for-user-direction"
   powershell-only-surface:
   - behavior: "<PowerShell-only behavior>"
-    action: "stop-for-user-direction"
 blacklist_skips:
 - item: "<skipped behavior>"
   reason: "<blacklist entry>"
+  evidence: "<upstream or Azclips signal>"
 blocked_on_user_direction: []
 ```
 
-If `blocked_on_user_direction` is non-empty, stop and ask one focused question before implementation.
+Every `cli-only-surface` and `powershell-only-surface` behavior also belongs in `blocked_on_user_direction`. If that list is non-empty, stop and ask one focused question before implementation.
+
+## Feature Comparison Table
+
+When the caller is comparing a command rather than classifying one behavior, present the result as a table the user can select from. Give every row a stable feature ID (`F1`, `F2`, `F3`) so later stages can refer to it, and use exactly these columns:
+
+| command ID | Feature | Azure CLI source + code block | Azure PowerShell source + code block | Current Azclips evidence block | Action |
+|---|---|---|---|---|---|
+
+Column requirements:
+
+- `command ID`: the stable feature ID.
+- `Feature`: concise behavior name and intent.
+- `Azure CLI source + code block`: a remote GitHub link to the Azure CLI or Azure CLI Extensions source, with line anchors when available, plus a short quoted or summarized code block showing the behavior. Never link a local clone path.
+- `Azure PowerShell source + code block`: the same, for the Azure PowerShell source.
+- `Current Azclips evidence block`: local Azclips evidence, such as `ExtensionIndex.cs`, `Customization`, `Processors`, or a PowerShell wrapper. Local workspace links are allowed here. State whether a generated processor, an atomic command, or existing customization already covers the behavior.
+- `Action`: exactly one of `implement: shared-customization`, `needs-user-direction: cli-only-surface`, `needs-user-direction: powershell-only-surface`, or `drop: <blacklist or reason>`.
+
+Blacklisted behavior still gets a row, with `drop:` and the matching entry as its reason. Dropping it silently hides a decision the user may want to revisit.
 
 ## Common Mistakes To Avoid
-- Do not port Azure CLI or Azure PowerShell source text directly.
 - Do not treat every upstream custom function as an Azclips customization. Single-call custom behavior may only need a small split request or lifecycle hook override.
-- Do not put PowerShell parameter-set behavior into the shared extension layer.
-- Do not put CLI option spelling or help behavior into a PowerShell cmdlet.
-- Do not port blacklisted validation just because both upstream projects contain it.
-- Do not edit generated models under `src/Extensions/<Module>/Models` or atomic processors under `src/Extensions/<Module>/Processors`.
+- Do not port blacklisted validation just because more than one upstream project contains it.
