@@ -8,7 +8,9 @@
 
 
 def _is_clips_production_file(path):
-    return path.startswith("src/") and path.endswith((".cs", ".csproj", ".json"))
+    return path.startswith("src/") and path.endswith((
+        ".cs", ".csproj", ".json", ".ps1", ".psm1", ".psd1",
+    ))
 
 
 def _clips_review_component(parts):
