@@ -296,6 +296,7 @@ if profile["kind"] == "dotnet-cli":
 **Automation path:** Copilot is assigned to implement this fix. Upstream CI and
 Reviewer evaluate the resulting PR. Tester and live-test dispatch are disabled
 for `Azure/azclips`."""
+    # This compound helper records trusted analysis then starts the governed task.
     post_triage_result(
         owner,
         repo,
