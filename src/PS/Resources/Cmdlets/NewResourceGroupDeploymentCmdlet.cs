@@ -69,6 +69,12 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        string target = $"deployment '{Name}' in resource group '{ResourceGroupName}'";
+        if (!ShouldProcess(target, "Create or update"))
+        {
+            return;
+        }
+
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();

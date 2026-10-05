@@ -8,18 +8,24 @@
 
   <ItemGroup>
     <!--
-      Common/CmdletOutputStreamsFactory.cs compiles into both Cmdlets.Config and Cmdlets.Accounts,
-      so its internal types reach this project twice (CS0433). The alias hides Config's copy;
-      a test needing a Config type must add `extern alias CmdletsConfig;`.
+      Common/CmdletOutputStreamsFactory.cs compiles into Config, Accounts, and Resources.
+      The aliases hide the duplicate internal types (CS0433); tests needing Config or Resources
+      cmdlets must use the corresponding extern alias.
     -->
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj">
+      <Aliases>CmdletsResources</Aliases>
+    </ProjectReference>
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
+    <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,6 +17,8 @@
 -->
 ## Upcoming Release
 
+* Fix #1037: `New-AzResourceGroupDeployment`: Do not create or update deployments when `-WhatIf` is enabled or confirmation is declined
+
 ## Version 0.1.0
 
 * First preview
