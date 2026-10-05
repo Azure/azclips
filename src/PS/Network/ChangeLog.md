@@ -6,9 +6,6 @@
     Changes for the upcoming release should go under the section titled "Upcoming Release", and should adhere to the following format:
 
     ## Upcoming Release
-    * Add subnet lifecycle management.
-        - Adds `az network vnet subnet create`, `show`, `list`, and `delete`.
-        - Adds `New-AzVirtualNetworkSubnetConfig`.
     * Overview of change #1
         - Additional information about change #1
     * Overview of change #2
@@ -19,6 +16,11 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `New-AzVirtualNetworkSubnetConfig`.
+
+## Version 0.1.0
+* Added `New-AzPublicIpAddress`, `Get-AzPublicIpAddress` and `Remove-AzPublicIpAddress`
+    - `Get-AzPublicIpAddress` serves both the single-address `Get` set and the `List` set; omitting `-ResourceGroupName` lists every public IP address in the subscription.
 
 ## Version 0.1.0
 

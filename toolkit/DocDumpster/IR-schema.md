@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.12.0"`. _(2026-09-21)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-10-04)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -63,8 +63,8 @@ IRId = {
 
 **Ids use the original TypeSpec namespace, not TCGC/SDK client organization**, and
 they are *invariant under renaming transforms* — a rename changes a display `name`
-and leaves the `id` alone. That invariance is what lets `FlattenedMember.path` stay
-correct after later passes rename members.
+and leaves the `id` alone. That invariance is what lets a `FlattenedMember`'s
+`property`/`via` references stay correct after later passes rename members.
 
 Three helpers, and picking the wrong one is the classic mistake:
 
@@ -171,7 +171,10 @@ RequestBodyHints     { flatten?, parameters? }
 The emitter writes almost none of these — they are where **transforms** record
 resolved decisions. `flatten-model` writes `ModelHints.flattened`,
 `RequestBodyHints.parameters`, and `flatten.into = "self"` on hoisted containers;
-the generator consumes them without re-deriving names or collisions.
+the generator consumes them without re-deriving names or collisions. Each entry
+names its target as an `IRPropertyRef`: the leaf `property` id plus the `via`
+container ids walked to reach it, outermost first — empty for a top-level body
+property, never empty for a flattened member.
 
 Two traps:
 
@@ -229,6 +232,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |
 | 0.9.0 | multipart metadata |

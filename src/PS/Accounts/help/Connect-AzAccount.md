@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Accounts
-ms.date: 09/01/2026
+ms.date: 09/14/2026
 PlatyPS schema version: 2024-05-01
 title: Connect-AzAccount
 ---
@@ -22,7 +22,8 @@ Authenticate to Azure.
 ```
 Connect-AzAccount [-SubscriptionId <string>] [-TenantId <string>] [-UseDeviceCode]
  [-OutProfile <string>] [-Profile <string>] [-Identity] [-ClientId <string>] [-ObjectId <string>]
- [-ResourceId <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-ResourceId <string>] [-ServicePrincipal] [-FederatedToken <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -59,7 +60,9 @@ Client ID of the user-assigned managed identity to authenticate as. Use with `-I
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- AccountId
+- ApplicationId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -82,6 +85,28 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -FederatedToken
+
+Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- ClientAssertion
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -187,6 +212,27 @@ Full ARM resource ID of the user-assigned managed identity (`/subscriptions/.../
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ServicePrincipal
+
+Sign in as a service principal using a federated (OIDC) token. Combine with `-ClientId` to supply the application ID and `-FederatedToken` to supply the assertion.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []

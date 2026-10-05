@@ -96,7 +96,9 @@ public class IdentityExtensionTests
         Assert.Equal("rg1", processor.ResourceGroup);
         Assert.Equal("id1", processor.ResourceName);
         Assert.Equal("eastus", processor.Location);
+        Assert.NotNull(processor.TagsInput);
         Assert.Equal(["env=test"], processor.TagsInput);
+        Assert.NotNull(processor.ResourceRestriction);
         Assert.Equal(["""{"providers":["Microsoft.Compute"]}"""], processor.ResourceRestriction);
     }
 

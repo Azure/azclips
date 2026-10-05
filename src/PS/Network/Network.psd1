@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.1' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -77,7 +77,9 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Netw
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork', 'New-AzVirtualNetworkSubnetConfig'
+CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork',
+                    'New-AzVirtualNetworkSubnetConfig',
+                    'New-AzPublicIpAddress', 'Get-AzPublicIpAddress', 'Remove-AzPublicIpAddress'
 
 # List of all modules packaged with this module
 # ModuleList = @()
@@ -103,7 +105,10 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Added 'New-AzPublicIpAddress', 'Get-AzPublicIpAddress' and 'Remove-AzPublicIpAddress'
+    - 'Get-AzPublicIpAddress' serves both the single-address 'Get' set and the 'List' set; omitting '-ResourceGroupName' lists every public IP address in the subscription.
+'@
 
         # Prerelease string of this module
         # Prerelease = ''
