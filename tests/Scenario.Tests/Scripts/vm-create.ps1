@@ -7,6 +7,7 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $vm = & $az vm create --subscription-id $sub --resource-group $rg.name --name scenario-vm --location $rg.location `
     --size Standard_D2s_v3 --admin-username azadmin --admin-password 'PlaceholderP@ss1' `
+    --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest `
     --network-interface-name scenario-vm-nic --virtual-network-name scenario-vm-vnet --network-security-group-name scenario-vm-nsg `
     --subnet-names default --subnet-address-prefixes 10.0.0.0/24 --address-prefixes 10.0.0.0/16 --output json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { exit 1 }

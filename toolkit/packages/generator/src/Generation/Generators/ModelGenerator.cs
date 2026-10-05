@@ -200,14 +200,14 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 continue;
             }
 
-            IRProperty[]? hops = FlattenSupport.ResolvePath(member.Path, context.Index);
+            IRProperty[]? hops = FlattenSupport.ResolveHops(member.Property, member.Via, context.Index);
             if (hops is null)
             {
                 context.Report(
                     Model.DiagnosticSeverity.Warning,
                     "ace-generator/unresolved-flattened-path",
-                    $"Model '{model.Name}' declares flattened member '{member.Name}' whose path does not " +
-                    "resolve to walkable model properties. The accessor is skipped; the nested properties " +
+                    $"Model '{model.Name}' declares flattened member '{member.Name}' whose property or containers " +
+                    "do not resolve to walkable model properties. The accessor is skipped; the nested properties " +
                     "are still emitted.");
                 continue;
             }

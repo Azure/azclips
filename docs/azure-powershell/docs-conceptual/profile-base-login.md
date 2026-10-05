@@ -115,6 +115,17 @@ Connect-AzAccount -Profile personal
 The `-Profile` and `-OutProfile` parameters are mutually exclusive: use `-OutProfile` to create or
 overwrite a profile, and `-Profile` to re-authenticate an existing one.
 
+A service principal profile signs in with a federated token, and a token is short-lived, so
+re-authenticating one requires a newly issued token just as the original sign-in did:
+
+```powershell
+Connect-AzAccount -Profile ci -FederatedToken (Get-Content -Raw $env:AZURE_FEDERATED_TOKEN_FILE)
+```
+
+The application, tenant and subscription come from the profile, so only the token is passed. The other
+authentication parameters stay rejected next to `-Profile`, because re-authentication must not change
+which identity a profile signs in as.
+
 ## Remove a profile
 
 To delete a profile you no longer need, use `Remove-AzProfile`:
