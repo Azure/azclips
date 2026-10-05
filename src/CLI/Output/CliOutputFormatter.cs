@@ -53,17 +53,8 @@ internal static class CliOutputFormatter
         OutputFormat format = OutputFormat.Json,
         bool colorPolicyAllowsColor = false,
         string? query = null,
-        int? terminalWidth = null,
-        bool useDefaultRepresentation = false)
+        int? terminalWidth = null)
     {
-        if (value is FormattableOutput formattableOutput)
-        {
-            if (useDefaultRepresentation && query is null)
-                return formattableOutput.DefaultValue;
-
-            value = formattableOutput.Value;
-        }
-
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 
@@ -83,17 +74,8 @@ internal static class CliOutputFormatter
         OutputFormat simpleFormat,
         bool colorPolicyAllowsColor,
         string? query,
-        int? terminalWidth = null,
-        bool useDefaultRepresentation = false)
+        int? terminalWidth = null)
     {
-        if (value is FormattableOutput formattableOutput)
-        {
-            if (useDefaultRepresentation && query is null)
-                return formattableOutput.DefaultValue;
-
-            value = formattableOutput.Value;
-        }
-
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 

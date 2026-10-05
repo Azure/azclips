@@ -126,12 +126,7 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(sessionSettings.Color);
-                streams = BuildStreams(
-                    sessionSettings.LogLevel,
-                    sessionSettings.Format,
-                    sessionSettings.SimpleFormat,
-                    globalArgs.Query,
-                    useDefaultRepresentation: globalArgs.Output is null);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
 
                 // Startup/profile reads happen before the session logger is set in ExecutionSession.
                 startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
@@ -291,8 +286,7 @@ public class Program
         CliLogLevel level,
         OutputFormat format,
         OutputFormat simpleFormat,
-        string? query = null,
-        bool useDefaultRepresentation = false)
+        string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -301,14 +295,7 @@ public class Program
                 var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
                     ? TerminalWidthProvider.Get()
                     : null;
-                Console.WriteLine(CliOutputFormatter.FormatValue(
-                    value,
-                    format,
-                    simpleFormat,
-                    colorPolicyAllowsColor,
-                    query,
-                    terminalWidth,
-                    useDefaultRepresentation));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

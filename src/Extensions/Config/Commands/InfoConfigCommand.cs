@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -23,7 +22,7 @@ public sealed class InfoConfigCommand : ConfigCommandBase
                 .Select(key => key.Key)
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            await WriteFormattableOutput(keys).ConfigureAwait(false);
+            await WriteOutput(FormatOutput(keys), CancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -42,12 +41,9 @@ public sealed class InfoConfigCommand : ConfigCommandBase
                 key.IsUri
             })
             .ToList();
-        await WriteFormattableOutput(metadata).ConfigureAwait(false);
+        await WriteOutput(FormatOutput(metadata), CancellationToken).ConfigureAwait(false);
     }
 
-    private Task WriteFormattableOutput(object value)
-    {
-        var json = SerializeAsJsonValue(value);
-        return WriteOutput(new FormattableOutput(value, json.Value), CancellationToken);
-    }
+    private static object FormatOutput(object value) =>
+        GetClientType() == ClientType.CLI ? value : SerializeAsJsonValue(value);
 }

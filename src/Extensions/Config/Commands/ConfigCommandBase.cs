@@ -37,6 +37,8 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationService GetConfigurationService() => AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
+    protected static ClientType GetClientType() => AzclipsServiceProvider.GetRequiredService<ClientType>();
+
     protected static ISourceAwareConfigurationService GetSourceAwareConfigurationService() =>
         AzclipsServiceProvider.GetRequiredService<ISourceAwareConfigurationService>();
 

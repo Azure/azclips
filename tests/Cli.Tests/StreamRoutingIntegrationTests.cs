@@ -40,7 +40,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         // Under the warn default, a plain get produces no diagnostic chatter on stderr —
         // including the ExtensionLoadTracker summary, which must stay gated behind --debug.
         Assert.DoesNotContain("DEBUG:", stderr);
@@ -84,7 +84,7 @@ public class StreamRoutingIntegrationTests
             var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, "config", "get", "--key", "core.logging.level");
 
             Assert.Equal(0, exit);
-            Assert.Contains("core.logging.level = warn", stdout);
+            AssertConfigGetResult(stdout, "core.logging.level", "warn");
             Assert.DoesNotContain("VERBOSE: [ProfileService] Loading profiles from", stderr);
             Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
         }
@@ -132,7 +132,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         Assert.Contains("DEBUG:", stderr);
         // stdout should still be pure result — no diagnostic leakage.
         Assert.DoesNotContain("DEBUG:", stdout);
@@ -266,6 +266,15 @@ public class StreamRoutingIntegrationTests
             // where an open handle turns this into a flaky IOException, not a real failure).
             try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    private static void AssertConfigGetResult(string stdout, string expectedKey, string expectedValue)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(stdout);
+        var entry = Assert.Single(document.RootElement.EnumerateArray());
+
+        Assert.Equal(expectedKey, entry.GetProperty("key").GetString());
+        Assert.Equal(expectedValue, entry.GetProperty("value").GetString());
     }
 
     /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>

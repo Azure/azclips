@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -27,9 +26,9 @@ public sealed class GetConfigCommand : ConfigCommandBase
         {
             object output = Json
                 ? SerializeAsJsonValue(entry)
-                : new FormattableOutput(
-                    new[] { entry },
-                    $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]");
+                : GetClientType() == ClientType.CLI
+                    ? new[] { entry }
+                    : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
 
             await WriteOutput(output, CancellationToken).ConfigureAwait(false);
             return;
@@ -50,12 +49,12 @@ public sealed class GetConfigCommand : ConfigCommandBase
         var nested = ReconstructNestedObject(normalizedKey, matchingEntries);
         object sectionOutput = Json
             ? SerializeAsJsonValue(nested)
-            : new FormattableOutput(
-                matchingEntries.Select(item => new ConfigValueView(
+            : GetClientType() == ClientType.CLI
+                ? matchingEntries.Select(item => new ConfigValueView(
                     item.Key[(normalizedKey.Length + 1)..],
                     item.Value.Value,
-                    item.Value.Source)).ToList(),
-                FormatNestedAsTable(nested));
+                    item.Value.Source)).ToList()
+                : FormatNestedAsTable(nested);
 
         await WriteOutput(sectionOutput, CancellationToken).ConfigureAwait(false);
     }

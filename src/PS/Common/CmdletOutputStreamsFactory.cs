@@ -39,11 +39,7 @@ internal static class CmdletOutputStreamsFactory
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                if (value is FormattableOutput formattableOutput)
-                {
-                    value = formattableOutput.DefaultValue;
-                }
-                else if (value is SerializedJson serializedJson)
+                if (value is SerializedJson serializedJson)
                 {
                     value = serializedJson.Value;
                 }

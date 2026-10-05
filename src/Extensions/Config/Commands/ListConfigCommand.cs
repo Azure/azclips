@@ -4,7 +4,6 @@
 using System.Diagnostics;
 using System.Text;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -31,14 +30,18 @@ public sealed class ListConfigCommand : ConfigCommandBase
             return;
         }
 
+        if (GetClientType() == ClientType.CLI)
+        {
+            await WriteOutput(entries, CancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var builder = new StringBuilder();
         foreach (var entry in entries)
         {
             builder.AppendLine($"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]");
         }
 
-        await WriteOutput(
-            new FormattableOutput(entries, builder.ToString().TrimEnd()),
-            CancellationToken).ConfigureAwait(false);
+        await WriteOutput(builder.ToString().TrimEnd(), CancellationToken).ConfigureAwait(false);
     }
 }
