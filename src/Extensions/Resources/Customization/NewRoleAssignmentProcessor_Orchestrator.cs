@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
@@ -10,7 +9,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// CLI customization over the spec-shaped <see cref="NewRoleAssignmentProcessor"/>. Resolves the
 /// az-style conveniences that are not part of the ARM create body into the atomic's
 /// <see cref="NewRoleAssignmentProcessor.Scope"/>, <see cref="NewRoleAssignmentProcessor.RoleAssignmentName"/>,
-/// and <see cref="NewRoleAssignmentProcessor.Properties"/>:
+/// <see cref="NewRoleAssignmentProcessor.PrincipalId"/>, and
+/// <see cref="NewRoleAssignmentProcessor.RoleDefinitionId"/>:
 /// <list type="bullet">
 /// <item>Scope is the grant target. An explicit scope is used as-is; otherwise it is built from the
 /// subscription, optionally narrowed by <see cref="ResourceGroupName"/>. An explicit scope and a
@@ -18,10 +18,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <item><see cref="Assignee"/> / <see cref="AssigneeObjectId"/> supply the principal ID. Both accept an
 /// object (principal) ID (GUID) only; name/UPN/service-principal resolution needs a Microsoft Graph
 /// lookup this ARM-only path does not perform.</item>
-/// <item><see cref="RoleDefinitionId"/> is expanded to the fully-qualified role definition ID rooted at
-/// the scope's subscription. A role definition GUID or an already fully-qualified role definition ID is
-/// accepted; role name resolution is not yet supported.</item>
+/// <item>The inherited <see cref="NewRoleAssignmentProcessor.RoleDefinitionId"/> is bound directly from
+/// the CLI as a role definition GUID or an already fully-qualified role definition ID, then expanded
+/// in place to the fully-qualified form rooted at the scope's subscription. Role name resolution is
+/// not yet supported.</item>
 /// <item>A missing <see cref="Name"/> is generated (a fresh GUID).</item>
+/// <item>The inherited <see cref="NewRoleAssignmentProcessor.Condition"/> /
+/// <see cref="NewRoleAssignmentProcessor.ConditionVersion"/> are bound directly from the CLI, then
+/// normalized in place (version defaulted/validated against the condition).</item>
+/// <item><see cref="NewRoleAssignmentProcessor.PrincipalType"/> and
+/// <see cref="NewRoleAssignmentProcessor.Description"/> are pure pass-through CLI inputs with no
+/// resolution step, so they bind directly to the inherited properties with nothing left to do here.</item>
 /// </list>
 /// </summary>
 public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcessor
@@ -34,17 +41,7 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
 
     public string? AssigneeObjectId { get; set; }
 
-    public string? RoleDefinitionId { get; set; }
-
-    public string? PrincipalType { get; set; }
-
     public string? Name { get; set; }
-
-    public string? Description { get; set; }
-
-    public string? Condition { get; set; }
-
-    public string? ConditionVersion { get; set; }
 
     // The only condition syntax version currently supported.
     private const string DefaultConditionVersion = "2.0";
@@ -55,19 +52,11 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         Scope = scope;
         RoleAssignmentName = ResolveName();
 
-        string principalId = ResolvePrincipalId();
-        string roleDefinitionId = ResolveRoleDefinitionId(scope);
-        (string? condition, string? conditionVersion) = ResolveCondition();
-
-        Properties = new RoleAssignmentCreateProperties
-        {
-            PrincipalId = principalId,
-            RoleDefinitionId = roleDefinitionId,
-            PrincipalType = PrincipalType,
-            Description = Description,
-            Condition = condition,
-            ConditionVersion = conditionVersion,
-        };
+        // Each resolver reads the raw CLI-bound value still held in the property below, before the
+        // property is overwritten in place with the resolved/validated value ARM expects.
+        PrincipalId = ResolvePrincipalId();
+        RoleDefinitionId = ResolveRoleDefinitionId(scope);
+        (Condition, ConditionVersion) = ResolveCondition();
 
         await base.BeforeProcessAsync();
     }
