@@ -8,6 +8,8 @@ using Core.Abstractions;
 
 public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingService loggingService) : IArgumentParsingProvider
 {
+    public string GetParameterDisplayName(ParameterMetadata parameter) => $"--{parameter.InvocationName}";
+
     public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
         Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
@@ -299,7 +301,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         {
             if (kvp.Value.IsRequired && !args.ContainsKey(kvp.Key))
             {
-                errors.Add($"Required parameter '--{kvp.Value.InvocationName}' is missing.");
+                errors.Add($"Required parameter '{GetParameterDisplayName(kvp.Value)}' is missing.");
             }
         }
 

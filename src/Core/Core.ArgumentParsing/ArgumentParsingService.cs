@@ -10,7 +10,8 @@ namespace Core.ArgumentParsing
         public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile)
         {
             IDictionary<string, object> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
-            IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
+            var parametersByName = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+            IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parametersByName);
             if (validationErrors != null && validationErrors.Count > 0)
             {
                 var message = $"Invalid arguments: {string.Join(", ", validationErrors)}";
@@ -28,11 +29,12 @@ namespace Core.ArgumentParsing
                 // Apply default property when not in args and in processor
                 if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && processor.GetType().GetProperty(key) is {})
                 {
-                    // TODO(Yabo): To throw proper exceptions, provider need to return flavored argument names
-                    // along with parsed args
                     if (profileService.GetProfileValueByKey(profile, key) is not {} value)
                     {
-                        throw new ArgumentException($"Missing required argument '{key}' and no value found in profile.");
+                        var parameterName = parametersByName.TryGetValue(key, out var parameter)
+                            ? provider.GetParameterDisplayName(parameter)
+                            : key;
+                        throw new ArgumentException($"Missing required argument '{parameterName}' and no value found in profile.");
                     }
                     parsedArgs[key] = value;
                 }

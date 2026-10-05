@@ -25,7 +25,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/config/` | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`. |
 | `packaging/linux/` | Linux tarball build + test, including offline installation of each runtime-compatible pipeline archive. |
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
-| `packaging/windows/` | Windows zip build + test. |
+| `packaging/windows/` | Windows zip build + test. Command-resolution checks accept the `--subscription-id` missing-profile diagnostic (and legacy `SubscriptionId`) while rejecting unresolved commands and unexpected nonzero exits; regression coverage is in `tests/Release.Tests/WindowsZipValidation.Tests.ps1`. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |

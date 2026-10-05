@@ -5,6 +5,11 @@ namespace Core.Abstractions;
 
 public interface IArgumentParsingProvider
 {
+    /// <summary>
+    /// Gets the client-facing parameter name for diagnostics.
+    /// </summary>
+    string GetParameterDisplayName(ParameterMetadata parameter) => parameter.InvocationName;
+
     IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
     /// <summary>
     /// Validates that all required arguments are present and all provided arguments are valid.
