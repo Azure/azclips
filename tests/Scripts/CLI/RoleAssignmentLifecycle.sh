@@ -48,9 +48,25 @@ IDENTITY_NAME="${AZCLIPS_IDENTITY_NAME:-azclips-ra-id-$STAMP}"
 # smoke test that only needs to prove the grant works, not actually use it.
 READER_ROLE_DEFINITION_ID='acdd72a7-3385-48ef-bd42-f606fba81ae7'
 
+# Generates a GUID without relying on a specific toolchain: uuidgen isn't guaranteed present (e.g.
+# some minimal Git Bash installs), so fall back to /dev/urandom, which is universally available on
+# Linux, macOS, and Git Bash for Windows.
+generate_guid() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen
+  else
+    local hex
+    hex=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+    printf '%s-%s-%s-%s-%s\n' "${hex:0:8}" "${hex:8:4}" "${hex:12:4}" "${hex:16:4}" "${hex:20:12}"
+  fi
+}
+
 IDENTITY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IDENTITY_NAME"
 SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
-ROLE_ASSIGNMENT_NAME=""
+# Reused across every create attempt below (see the retry loop) so a retry after a transient
+# client-side failure safely re-affirms the same PUT instead of risking a RoleAssignmentExists
+# conflict against an assignment that may have already succeeded server-side under a different name.
+ROLE_ASSIGNMENT_NAME="$(generate_guid)"
 
 cleanup() {
   local exit_code=$?
@@ -111,13 +127,14 @@ MAX_ATTEMPTS=6
 for ((ATTEMPT = 1; ATTEMPT <= MAX_ATTEMPTS; ATTEMPT++)); do
   # A freshly-created principal can take a few seconds to propagate to ARM's authorization
   # backend; retry rather than fail outright on the first attempt.
-  if ROLE_ASSIGNMENT_NAME="$("$AZ" role assignment create \
+  if "$AZ" role assignment create \
         --scope "$SCOPE" \
         --assignee-object-id "$PRINCIPAL_ID" \
         --assignee-principal-type ServicePrincipal \
         --role "$READER_ROLE_DEFINITION_ID" \
+        --name "$ROLE_ASSIGNMENT_NAME" \
         --description "azclips role assignment lifecycle smoke test" \
-        --query name -o tsv)"; then
+        > /dev/null; then
     break
   fi
   if [[ "$ATTEMPT" -eq "$MAX_ATTEMPTS" ]]; then

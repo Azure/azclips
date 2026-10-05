@@ -78,13 +78,19 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     }
 
     /// <summary>
-    /// Pairs the condition with a version: defaults the version to <c>2.0</c> when a condition is
-    /// supplied without one, rejects a version supplied without a condition, and rejects any version
-    /// other than the supported <c>2.0</c>.
+    /// Pairs the condition with a version: rejects an explicitly bound but blank condition (treating
+    /// it as "omitted" would silently turn an intended conditional grant into an unconditional one),
+    /// defaults the version to <c>2.0</c> when a condition is supplied without one, rejects a version
+    /// supplied without a condition, and rejects any version other than the supported <c>2.0</c>.
     /// </summary>
     private (string? Condition, string? ConditionVersion) ResolveCondition()
     {
-        bool hasCondition = !string.IsNullOrWhiteSpace(Condition);
+        bool hasCondition = Condition is not null;
+        if (hasCondition && string.IsNullOrWhiteSpace(Condition))
+        {
+            throw AzclipsErrorException.UsageError("Condition must not be empty.");
+        }
+
         bool hasVersion = !string.IsNullOrWhiteSpace(ConditionVersion);
 
         if (!hasCondition)

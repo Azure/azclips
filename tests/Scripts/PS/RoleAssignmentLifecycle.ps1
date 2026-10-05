@@ -83,6 +83,14 @@ try {
     }
 
     Section 'New-AzRoleAssignment Reader for the identity (retrying for principal propagation)'
+    # Reuse a single stable name (GUID) across every attempt. Create is a PUT, idempotent for the
+    # same scope+name: if a prior attempt actually succeeded server-side but the client reported a
+    # transient failure, retrying with the SAME name safely re-affirms the existing assignment.
+    # Retrying with a fresh (omitted) name instead would hit ARM's RoleAssignmentExists conflict
+    # (same principal+role+scope, a different assignment ID), exhausting retries while silently
+    # leaving the first assignment behind with no recorded name to clean it up.
+    $roleAssignmentName = [Guid]::NewGuid().ToString()
+    $roleAssignmentId = "$scope/providers/Microsoft.Authorization/roleAssignments/$roleAssignmentName"
     $roleAssignment = $null
     $maxAttempts = 6
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -92,6 +100,7 @@ try {
                 -ObjectId $principalId `
                 -ObjectType ServicePrincipal `
                 -RoleDefinitionId $readerRoleDefinitionId `
+                -Name $roleAssignmentName `
                 -Description 'azclips role assignment lifecycle smoke test' `
                 -Confirm:$false
             break
@@ -106,7 +115,6 @@ try {
         }
     }
     $roleAssignment | Out-Host
-    $roleAssignmentId = "$scope/providers/Microsoft.Authorization/roleAssignments/$($roleAssignment.Name)"
 
     Section 'Get-AzRoleAssignment by scope'
     Get-AzRoleAssignment -Scope $scope | Out-Host

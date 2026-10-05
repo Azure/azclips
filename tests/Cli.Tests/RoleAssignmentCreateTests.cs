@@ -359,6 +359,34 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_WhitespaceOnlyCondition_Throws()
+    {
+        // An explicitly bound but blank --condition/-Condition must not be silently treated as
+        // omitted: that would turn an intended conditional (restricted) grant into an unconditional
+        // one instead of failing.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Condition = "   ";
+        });
+    }
+
+    [Fact]
+    public async Task Create_EmptyStringCondition_Throws()
+    {
+        // Same concern as above, for an explicitly bound empty string --condition "".
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+            p.Condition = string.Empty;
+        });
+    }
+
+    [Fact]
     public async Task Create_UnsupportedConditionVersion_Throws()
     {
         await AssertThrows(p =>
