@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Manage Azure networking resources. Currently exposes virtual network (VNet) lifecycle management under `az network vnet` and public IP address lifecycle management under `az network public-ip`.
+Description: Manage Azure networking resources. Currently exposes virtual network (VNet) lifecycle management under `az network vnet`, public IP address lifecycle management under `az network public-ip` and network interface lifecycle management under `az network nic`.
 
 ### Discover network commands
 

@@ -42,7 +42,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
         "network",
         ["vnet create", "vnet show", "vnet list", "vnet delete",
-         "public-ip create", "public-ip show", "public-ip list", "public-ip delete"]);
+         "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
+         "nic create", "nic show", "nic list", "nic delete"]);
 }
 
 /// <summary>
