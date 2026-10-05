@@ -1,19 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Compute.Models;
-
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-// Currently resolves Linux OS profile settings owned by the vm create customization.
-// When --image support lands, this resolver can also choose between Linux and Windows
-// configuration based on the selected image/OS.
 internal static class OSProfileResolver
 {
-    internal static LinuxConfiguration? Resolve(
+    internal static ResolvedLinuxProfile? Resolve(
         IReadOnlyList<string> sshKeyValues,
         string adminUsername,
-        string adminPassword)
+        string? adminPassword)
     {
         if (sshKeyValues.Count == 0)
         {
@@ -21,17 +16,11 @@ internal static class OSProfileResolver
         }
 
         var authorizedKeysPath = $"/home/{adminUsername}/.ssh/authorized_keys";
-        return new LinuxConfiguration
+        return new ResolvedLinuxProfile
         {
-            DisablePasswordAuthentication = string.IsNullOrEmpty(adminPassword),
-            Ssh = new SshConfiguration
-            {
-                PublicKeys = sshKeyValues.Select(value => new SshPublicKey
-                {
-                    Path = authorizedKeysPath,
-                    KeyData = ResolveSshKeyValue(value)
-                }).ToList()
-            }
+            DisablePasswordAuthentication = string.IsNullOrWhiteSpace(adminPassword),
+            SshPublicKeyPaths = sshKeyValues.Select(_ => authorizedKeysPath).ToList(),
+            SshPublicKeyData = sshKeyValues.Select(ResolveSshKeyValue).ToList()
         };
     }
 
@@ -49,4 +38,11 @@ internal static class OSProfileResolver
 
         return keyData;
     }
+}
+
+internal sealed class ResolvedLinuxProfile
+{
+    public bool DisablePasswordAuthentication { get; init; }
+    public List<string> SshPublicKeyPaths { get; init; } = [];
+    public List<string> SshPublicKeyData { get; init; } = [];
 }

@@ -31,6 +31,7 @@ NIC_NAME="$PREFIX-nic"
 VNET_NAME="$PREFIX-vnet"
 SUBNET_NAME="$PREFIX-subnet"
 NSG_NAME="$PREFIX-nsg"
+KEY_FILE="${TMPDIR:-/tmp}/azclips-$PREFIX-key"
 
 cleanup() {
     local exit_code=$?
@@ -45,6 +46,8 @@ cleanup() {
         --subscription-id "$SUBSCRIPTION_ID" \
         --name "$RESOURCE_GROUP" >/dev/null 2>&1 || true
 
+    rm -f "$KEY_FILE" "$KEY_FILE.pub"
+
     exit "$exit_code"
 }
 trap cleanup EXIT
@@ -54,6 +57,13 @@ trap cleanup EXIT
 # off to the agent-mode TUI, which would block on input. No `set -e`: the final show
 # is EXPECTED to fail once the VM is gone, and it must still run to verify the delete.
 "$AZ" config set --key agent.enabled --value false
+
+if ! command -v ssh-keygen >/dev/null 2>&1; then
+    echo "ssh-keygen is required to generate a temporary public key for --ssh-key-values." >&2
+    exit 1
+fi
+
+ssh-keygen -q -t ed25519 -N "" -C "azclips-$PREFIX" -f "$KEY_FILE" || exit 1
 
 echo "--- Create resource group '$RESOURCE_GROUP' in '$LOCATION' ---"
 "$AZ" group create \
@@ -68,22 +78,22 @@ echo "--- Create VM '$VM_NAME' ---"
     --name "$VM_NAME" \
     --location "$LOCATION" \
     --size Standard_D2s_v3 \
-    --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
-    --admin-username Artemis \
-    --admin-password 'ArtemisCriticalX4!' \
+    --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
+    --admin-username azadmin \
+    --ssh-key-values "$KEY_FILE.pub" \
     --network-interface-name "$NIC_NAME" \
     --virtual-network-name "$VNET_NAME" \
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "$SUBNET_NAME" \
     --subnet-address-prefixes 10.0.2.0/24 \
     --network-security-group-name "$NSG_NAME" \
-    --rule-names rdp \
+    --rule-names ssh \
     --rule-protocols tcp \
     --rule-directions Inbound \
     --rule-priorities 1001 \
     --rule-source-address-prefixes "*" \
     --rule-source-port-ranges "*" \
-    --rule-destination-port-ranges 3389 \
+    --rule-destination-port-ranges 22 \
     --rule-destination-address-prefixes "*" \
     --rule-accesses Allow \
     --debug || exit 1

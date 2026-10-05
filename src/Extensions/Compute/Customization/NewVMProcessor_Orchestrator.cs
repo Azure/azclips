@@ -3,7 +3,6 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
@@ -143,12 +142,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
-                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase)
-                    ? new WindowsConfiguration()
-                    : null;
-                p.LinuxConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase)
-                    ? OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword)
-                    : null;
+                p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+                if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase)
+                    && OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword) is { } linuxProfile)
+                {
+                    p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
+                    p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
+                    p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
+                }
                 if (!useTrustedLaunchDefaults)
                 {
                     p.SecurityType = null;
