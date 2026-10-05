@@ -17,13 +17,25 @@
       <Using Namespace="System.Collections.Generic" />
       <Code Type="Fragment" Language="cs"><![CDATA[
         // Build-time sidecar (CLIPS-933): regex-scans this extension's own source for
-        // declared [ExtensionVerb] attributes and s_cliTable leaf keys, so runtime
-        // discovery can route commands (CLIPS-934) without loading the extension's DLL.
+        // declared [ExtensionVerb] attributes and CLI leaf keys, so runtime discovery can
+        // route commands (CLIPS-934) without loading the extension's DLL.
         // Source-scan, not reflection: mirrors src/CLI/Targets/ExtensionHints.targets so
         // generation never has to load/execute extension code.
+        //
+        // Two conventions exist in-tree for building the CLI command table, and both must
+        // be handled:
+        //   (a) dict-literal:   s_cliTable = new() { ["extension add"] = s_addExtension_CLI, ... }
+        //   (b) builder-call:   cliTable = BuildCommandTable(cliLogin, cliLogout, ...)
+        //       where each `cliXxx` is `CommandMetadata cliXxx = new(..., InvocationName: "...", ...)`
+        // (b) has no literal leaf-key strings at all — the leaf comes from the referenced
+        // CommandMetadata's InvocationName, resolved by field name below.
         var verbAttrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
-        var cliTableBlock = new Regex(@"s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}", RegexOptions.Multiline | RegexOptions.Singleline);
+        var fieldDeclPattern = new Regex(@"(?:private|internal|public)\s+static\s+readonly\s+CommandMetadata\s+(?<field>\w+)\s*=\s*new\b", RegexOptions.Multiline);
+        var invocationNamePattern = new Regex(@"InvocationName\s*:\s*""(?<name>[^""]*)""", RegexOptions.Multiline);
+        var dictLiteralTable = new Regex(@"\b(?:s_cliTable|cliTable)\s*=\s*new(?:\s*Dictionary<[^>]*>)?\s*\(\)\s*\{(?<body>[^{}]*)\}", RegexOptions.Multiline);
+        var builderCallTable = new Regex(@"\b(?:s_cliTable|cliTable)\s*=\s*(?!new\b)\w+\s*\((?<args>[^;]*)\)\s*;", RegexOptions.Multiline);
         var leafKeyPattern = new Regex(@"\[\s*""([^""]+)""\s*\]", RegexOptions.Multiline);
+        var identifierPattern = new Regex(@"\w+", RegexOptions.Multiline);
 
         var verbs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var leaves = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -46,15 +58,57 @@
               verbs.Add(m.Groups[1].Value);
             }
 
-            foreach (Match block in cliTableBlock.Matches(text))
+            // (a) dict-literal: leaf key is the literal bracket key, used as-is.
+            foreach (Match block in dictLiteralTable.Matches(text))
             {
               foreach (Match leaf in leafKeyPattern.Matches(block.Groups["body"].Value))
               {
                 leaves.Add(leaf.Groups[1].Value);
               }
             }
+
+            // (b) builder-call: resolve each referenced field to its own InvocationName.
+            // Fields don't nest, so the Nth declaration's InvocationName is whichever match
+            // falls between its start and the next declaration's start (or EOF).
+            var builderMatches = builderCallTable.Matches(text);
+            if (builderMatches.Count > 0)
+            {
+              var fieldMatches = new List<Match>();
+              foreach (Match fm in fieldDeclPattern.Matches(text)) { fieldMatches.Add(fm); }
+              fieldMatches.Sort((x, y) => x.Index.CompareTo(y.Index));
+
+              var invMatches = new List<Match>();
+              foreach (Match im in invocationNamePattern.Matches(text)) { invMatches.Add(im); }
+
+              var invocationNameByField = new Dictionary<string, string>(StringComparer.Ordinal);
+              for (int i = 0; i < fieldMatches.Count; i++)
+              {
+                var start = fieldMatches[i].Index;
+                var end = (i + 1 < fieldMatches.Count) ? fieldMatches[i + 1].Index : text.Length;
+                foreach (var im in invMatches)
+                {
+                  if (im.Index >= start && im.Index < end)
+                  {
+                    invocationNameByField[fieldMatches[i].Groups["field"].Value] = im.Groups["name"].Value;
+                    break;
+                  }
+                }
+              }
+
+              foreach (Match table in builderMatches)
+              {
+                foreach (Match arg in identifierPattern.Matches(table.Groups["args"].Value))
+                {
+                  if (invocationNameByField.TryGetValue(arg.Value, out var invocationName))
+                  {
+                    leaves.Add(invocationName);
+                  }
+                }
+              }
+            }
           }
         }
+
 
         var sb = new StringBuilder();
         sb.AppendLine("{");
