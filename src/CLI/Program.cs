@@ -282,11 +282,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(
-        CliLogLevel level,
-        OutputFormat format,
-        OutputFormat simpleFormat,
-        string? query = null)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
