@@ -22,7 +22,7 @@ az config list --all
 ### List configuration as JSON
 
 ```bash
-az config list --json
+az config list --output json
 ```
 
 ### List configuration as a table

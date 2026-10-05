@@ -6,9 +6,11 @@ using System.Management.Automation;
 namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Get, "AzConfigInfo")]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigKeyInfo", "System.String")]
 public class GetAzConfigInfoCmdlet : ConfigCmdletBase
 {
+    protected override bool EnumerateOutput => true;
+
     [Parameter(Mandatory = false)]
     public SwitchParameter KeysOnly { get; set; }
 

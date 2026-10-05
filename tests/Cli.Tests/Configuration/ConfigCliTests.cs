@@ -112,19 +112,19 @@ public class ConfigCliTests
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnJsonForListAndSchemaInfo()
+    public void CliInvocation_ShouldReturnStructuredListAndSchemaInfo()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
-        var listJsonOutput = fixture.ExecuteCli(["config", "list", "--all", "--json"]);
+        var listJsonOutput = fixture.ExecuteCli(["config", "list", "--all", "--output", "json"]);
         var listEntries = JsonNode.Parse(listJsonOutput.Single())!.AsArray();
-        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Value"]?.GetValue<string>(), "debug", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Source"]?.GetValue<string>(), "global config", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.engine.extensionIndexCacheSize", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(listEntries, entry => string.Equals(entry?["key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["value"]?.GetValue<string>(), "debug", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["source"]?.GetValue<string>(), "global config", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(listEntries, entry => string.Equals(entry?["key"]?.GetValue<string>(), "core.engine.extensionIndexCacheSize", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
 
         var infoOutput = fixture.ExecuteCli(["config", "info"]);
         Assert.DoesNotContain("\\u0027", infoOutput.Single(), StringComparison.OrdinalIgnoreCase);
@@ -209,31 +209,29 @@ public class ConfigCliTests
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSubsection()
+    public void CliInvocation_ShouldReturnRelativeEntries_WhenGettingSubsection()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
-        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging", "--json"]);
-        var json = JsonNode.Parse(output.Single())!.AsObject();
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging", "--output", "json"]);
 
-        Assert.Equal("debug", json["level"]?.GetValue<string>());
+        AssertConfigEntry(output, "level", "debug", "global config");
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSection()
+    public void CliInvocation_ShouldReturnRelativeEntries_WhenGettingSection()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
         fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
 
-        var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
-        var json = JsonNode.Parse(output.Single())!.AsObject();
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--output", "json"]);
 
-        Assert.Equal("debug", json["logging"]?["level"]?.GetValue<string>());
-        Assert.Equal(9, json["http"]?["maxRetries"]?.GetValue<int>());
+        AssertConfigEntry(output, "logging.level", "debug", "global config");
+        AssertConfigEntry(output, "http.maxRetries", 9, "global config");
     }
 
     [Fact]
@@ -299,11 +297,14 @@ public class ConfigCliTests
 
         try
         {
-            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
-            var json = JsonNode.Parse(output.Single())!.AsObject();
+            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--output", "json"]);
+            var entries = JsonNode.Parse(output.Single())!.AsArray();
+            var loggingEntry = Assert.Single(
+                entries,
+                entry => entry?["key"]?.GetValue<string>() == "logging.level");
 
-            Assert.Equal("structured", json["logging"]?["level"]?["kind"]?.GetValue<string>());
-            Assert.True(json["logging"]?["level"]?["enabled"]?.GetValue<bool>());
+            Assert.Equal("structured", loggingEntry?["value"]?["kind"]?.GetValue<string>());
+            Assert.True(loggingEntry?["value"]?["enabled"]?.GetValue<bool>());
         }
         finally
         {
@@ -355,6 +356,17 @@ public class ConfigCliTests
         // Retrieve it
         var getOutput = fixture.ExecuteCli(["config", "get", "--key", "made.up.key"]);
         AssertConfigEntry(getOutput, "made.up.key", "value", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldRejectRemovedJsonParameter()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            fixture.ExecuteCli(["config", "get", "core.logging.level", "--json"]));
+
+        Assert.Contains("Unable to find parameter: json", exception.Message);
     }
 
     private static void AssertConfigEntry(
@@ -576,11 +588,11 @@ public class ConfigCliTests
         var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
-        Assert.Contains("Json", getMetadata.Parameters.Keys);
+        Assert.DoesNotContain("Json", getMetadata.Parameters.Keys);
 
         var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
         Assert.Contains("All", listMetadata.Parameters.Keys);
-        Assert.Contains("Json", listMetadata.Parameters.Keys);
+        Assert.DoesNotContain("Json", listMetadata.Parameters.Keys);
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider

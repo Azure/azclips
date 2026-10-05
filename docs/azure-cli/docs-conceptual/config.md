@@ -66,27 +66,15 @@ Use explicit parameter names for CLI config commands:
 # Retrieve a single key
 az config get --key core.logging.level
 
-# Output: core.logging.level = warn [default]
-
-# Retrieve a section (text output)
+# Retrieve a section as flat entries with relative keys
 az config get --key core
 
-# Example output:
-#   logging.level = warn
-#   engine.extensionIndexCacheSize = 512
-#   http.maxRetries = 3
-#   http.maxRetriesFor429 = 5
+# Select a standard output format
+az config get --key core --output table
+az config get --key core --output json
 
-# Retrieve a subsection as JSON
-az config get --key core.logging --json
-
-# Example output:
-# {
-#   "level": "warn"
-# }
-
-# Retrieve a section as nested JSON
-az config get --key core --json
+# Query the structured result
+az config get --key core.logging.level --query "[0].value"
 ```
 
 ### Set a configuration value
@@ -110,8 +98,9 @@ az config list
 # List with defaults (shows all keys with their current values)
 az config list --all
 
-# Output as JSON
-az config list --all --json
+# Select a standard output format
+az config list --all --output json
+az config list --all --output table
 ```
 
 ### Delete a configuration value
