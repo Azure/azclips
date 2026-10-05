@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791176598487,
+  "lastUpdate": 1791242862693,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8066,6 +8066,48 @@ window.BENCHMARK_DATA = {
             "value": 2724443.7494400325,
             "unit": "ns",
             "range": "± 55666.51761726515"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f3a01f5c0331d0cc8fd2b9c193f3ce23d93d7e0",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Add `--public-ip-address` `-PublicIpAddressName` parameters (#1017)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm create`\n`New-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- `--public-up-address` CLI support\n- `-PublicIpAddressName` PS support\nWhen parameter is not specified behavior defaults to creating public ip\naddress named `<vm-name>PublicIP` (following classic CLI)\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`./test/Scripts/CLI/VMCreate.sh`\n`./test/Scripts/PS/VMCreate.ps1`\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --no-build\n--filter FullyQualifiedName~VmLifecycleScenarioTests`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <copilot@github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-06T10:05:12+11:00",
+          "tree_id": "383ee3d5b6b373b12e769e9ce0ec59c99ddeec96",
+          "url": "https://github.com/Azure/azclips/commit/7f3a01f5c0331d0cc8fd2b9c193f3ce23d93d7e0"
+        },
+        "date": 1791242858551,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2874980.1936311177,
+            "unit": "ns",
+            "range": "± 87258.05461574908"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7624721.700875183,
+            "unit": "ns",
+            "range": "± 127265.12865735483"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2891932.6670137444,
+            "unit": "ns",
+            "range": "± 103570.88467930122"
           }
         ]
       }
