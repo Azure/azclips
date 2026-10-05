@@ -98,7 +98,7 @@ internal static class ImportTelemetry
                 // Best-effort: resolves the CURRENTLY ACTIVE profile (module import precedes
                 // any command, so there is no --profile override to bind against yet). Runs
                 // BEFORE Emit so the tag is on the root before Replay creates the phase spans.
-                var (tenantId, boundary) = await TelemetryRoutingResolver.ResolveAsync(
+                var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     profileNameOverride: null,
@@ -113,6 +113,8 @@ internal static class ImportTelemetry
                     {
                         if (tenantId is not null) root?.SetTag(TelemetryTags.TenantId, tenantId);
                         if (boundary is not null) root?.SetTag(TelemetryTags.DataBoundary, boundary);
+                        if (subscriptionId is not null) root?.SetTag(TelemetryTags.SubscriptionId, subscriptionId);
+                        if (authType is not null) root?.SetTag(TelemetryTags.AuthType, authType);
                     });
             }
             catch
