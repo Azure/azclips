@@ -64,6 +64,15 @@ internal static class RoleAssignmentScope
     internal static string Normalize(string scope)
     {
         string effectiveScope = scope.Trim();
+        if (effectiveScope.StartsWith("//", StringComparison.Ordinal))
+        {
+            // A leading "//" (or more) is never a well-formed ARM scope. Left unchecked, TrimEnd('/')
+            // below would strip an all-slashes value down to the same empty string used for the
+            // tenant-root scope, silently turning malformed input into a tenant-root role assignment
+            // request instead of rejecting it.
+            throw AzclipsErrorException.UsageError($"The scope '{effectiveScope}' must not start with multiple slashes.");
+        }
+
         if (!effectiveScope.StartsWith('/'))
         {
             effectiveScope = "/" + effectiveScope;

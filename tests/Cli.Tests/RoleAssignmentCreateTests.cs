@@ -239,6 +239,21 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_RepeatedSlashScope_Throws()
+    {
+        // A leading "//" is not a well-formed scope. Left unchecked, Normalize's TrimEnd('/') would
+        // collapse an all-slashes value to the same empty string used for the tenant-root scope,
+        // silently turning malformed input into a tenant-root role assignment request.
+        await AssertThrows(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.Scope = "//";
+            p.AssigneeObjectId = AssigneeObjectId;
+            p.RoleDefinitionId = RoleDefinitionId;
+        });
+    }
+
+    [Fact]
     public async Task Create_EmptyStringResourceGroup_Throws()
     {
         // Same concern as above, for an explicitly bound empty string --resource-group/-ResourceGroupName.
