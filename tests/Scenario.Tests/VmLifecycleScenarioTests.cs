@@ -274,8 +274,9 @@ public class VmLifecycleScenarioTests
 
     /// <summary>
     /// <c>vm list -d</c>: the power state comes from the instance view, and the network fields from
-    /// the NIC lookup. <c>vm create</c> allocates no public IP, so <c>PublicIps</c> and <c>Fqdns</c>
-    /// are empty strings, not null; null would mean the lookup never ran.
+    /// the NIC and public IP lookups. <c>vm create</c> attaches its default Standard public IP, so
+    /// <c>PublicIps</c> is populated; it sets no DNS label, so <c>Fqdns</c> is an empty string, not
+    /// null — null would mean the lookup never ran.
     /// </summary>
     private static void AssertListedWithDetails(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
@@ -283,7 +284,7 @@ public class VmLifecycleScenarioTests
         Assert.Equal("VM running", vm.PowerState);
         Assert.StartsWith("10.0.0.", vm.PrivateIps);
         Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
-        Assert.Equal("", vm.PublicIps);
+        Assert.False(string.IsNullOrEmpty(vm.PublicIps));
         Assert.Equal("", vm.Fqdns);
         Assert.Null(vm.Properties.InstanceView);
 
