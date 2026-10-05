@@ -16,6 +16,8 @@ public class VmCreateOrchestrationTests
     private const string VmName = "scenario-vm";
     private const string Password = "PlaceholderP@ss1";
     private const string PublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8g";
+    private const string Image = "MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest";
+    private const string LinuxImage = "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest";
 
     private static readonly string[] s_groupArgs =
     [
@@ -40,6 +42,7 @@ public class VmCreateOrchestrationTests
         "--location", "westus2",
         "--resource-group", "scenario-vm-rg",
         "--size", "Standard_D2s_v3",
+        "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
@@ -57,6 +60,7 @@ public class VmCreateOrchestrationTests
         ["Location"] = "westus2",
         ["ResourceGroupName"] = "scenario-vm-rg",
         ["VmSize"] = "Standard_D2s_v3",
+        ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
         ["NetworkInterfaceName"] = "scenario-vm-nic",
@@ -100,7 +104,7 @@ public class VmCreateOrchestrationTests
         using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
         {
             host.RunCli(s_groupArgs);
-            AssertVm(host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", PublicKey]));
         }
 
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
@@ -108,6 +112,7 @@ public class VmCreateOrchestrationTests
         Assert.Contains("\"disablePasswordAuthentication\":false", vmBody);
         Assert.Contains("\"path\":\"/home/azadmin/.ssh/authorized_keys\"", vmBody);
         Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
     }
 
     [Fact]
@@ -118,7 +123,7 @@ public class VmCreateOrchestrationTests
         using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
         {
             host.RunCli(s_groupArgs);
-            AssertVm(host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).Append("--ssh-key-values").Append(PublicKey).ToArray()));
+            AssertVm(host.RunCli(ArgsWithImage(LinuxImage).Where(arg => arg != "--admin-password" && arg != Password).Append("--ssh-key-values").Append(PublicKey).ToArray()));
         }
 
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
@@ -144,6 +149,122 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void SshKeyValues_RequireLinuxImage_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
+
+        Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Image_Urn_BindsMarketplaceImageReference()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"));
+
+        Assert.Contains("\"publisher\":\"Canonical\"", vmBody);
+        Assert.Contains("\"offer\":\"0001-com-ubuntu-server-jammy\"", vmBody);
+        Assert.Contains("\"sku\":\"22_04-lts-gen2\"", vmBody);
+        Assert.Contains("\"version\":\"22.04.202409010\"", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
+    }
+
+    [Fact]
+    public void Image_Urn_BindsMarketplacePlanWhenImageHasPlan()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("Contoso:offer:sku:with-plan"));
+
+        Assert.Contains("\"plan\":{\"name\":\"plan-name\",\"product\":\"plan-product\",\"publisher\":\"plan-publisher\"}", vmBody);
+    }
+
+    [Fact]
+    public void Image_LatestVersion_UsesNumericOrdering()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("VersionTest:offer:sku:latest"));
+
+        Assert.Contains("\"version\":\"10.0.0\"", vmBody);
+    }
+
+    [Fact]
+    public void Image_TrustedLaunchFeature_PreservesTrustedLaunchDefaults()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("TrustedLaunchTest:offer:sku:1.0.0"));
+
+        Assert.Contains("\"securityType\":\"trustedlaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Theory]
+    [InlineData("Ubuntu2204")]
+    [InlineData("custom-image")]
+    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/images-rg/providers/Microsoft.Compute/images/custom-image")]
+    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/images-rg/providers/Microsoft.Compute/galleries/gallery/images/image/versions/1.0.0")]
+    [InlineData("/SharedGalleries/galleryName/Images/imageName/Versions/1.0.0")]
+    [InlineData("/CommunityGalleries/galleryName/Images/imageName/Versions/1.0.0")]
+    [InlineData("https://storage.blob.core.windows.net/vhds/source.vhd")]
+    public void Image_NonUrnForms_FailBeforeCreatingNetworkResources(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        Assert.Throws<NotImplementedException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        Assert.Throws<ArgumentException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources_PowerShell(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["Image"] = image;
+        Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
     public void SshKeyValues_ReadPublicKeyFiles_AndTrimContent()
     {
         var keyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pub");
@@ -156,7 +277,7 @@ public class VmCreateOrchestrationTests
             using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
             {
                 host.RunCli(s_groupArgs);
-                AssertVm(host.RunCli([.. s_cliArgs, "--ssh-key-values", keyPath]));
+                AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", keyPath]));
             }
 
             var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
@@ -177,7 +298,7 @@ public class VmCreateOrchestrationTests
         using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
         {
             host.RunCli(s_groupArgs);
-            AssertVm(host.RunCli([.. s_cliArgs, "--ssh-key-values", "missing-key.pub"]));
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "missing-key.pub"]));
         }
 
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
@@ -297,5 +418,26 @@ public class VmCreateOrchestrationTests
         Assert.Equal(VmName, vm.Name);
         Assert.Equal("westus2", vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+    }
+
+    private static string RecordVmBody(string[] args)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(args));
+        }
+
+        return record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+    }
+
+    private static string[] ArgsWithImage(string image)
+    {
+        var args = s_cliArgs.ToArray();
+        var imageIndex = Array.IndexOf(args, "--image");
+        args[imageIndex + 1] = image;
+        return args;
     }
 }

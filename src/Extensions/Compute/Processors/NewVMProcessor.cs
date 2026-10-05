@@ -22,11 +22,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
+        public string? PlanName { get; set; }
+        public string? PlanProduct { get; set; }
+        public string? PlanPublisher { get; set; }
         public string NetworkInterfaceId { get; set; } = string.Empty;
         public LinuxConfiguration? LinuxConfiguration { get; set; }
-        public string SecurityType { get; set; } = "trustedlaunch";
-        public bool SecureBootEnabled { get; set; } = true;
-        public bool VTpmEnabled { get; set; } = true;
+        public WindowsConfiguration? WindowsConfiguration { get; set; }
+        public string? SecurityType { get; set; } = "trustedlaunch";
+        public bool? SecureBootEnabled { get; set; } = true;
+        public bool? VTpmEnabled { get; set; } = true;
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
         protected override HttpMethod Method => HttpMethod.Put;
@@ -39,6 +43,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
+                Plan = PlanName is null && PlanProduct is null && PlanPublisher is null
+                    ? null
+                    : new ImagePlan
+                    {
+                        Name = PlanName,
+                        Product = PlanProduct,
+                        Publisher = PlanPublisher
+                    },
                 Properties = new VirtualMachineProperties
                 {
                     HardwareProfile = new HardwareProfile(VmSize),
@@ -57,9 +69,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         ComputerName = Name,
                         AdminUsername = AdminUsername,
                         AdminPassword = AdminPassword,
-                        //TODO: improve this once --image is supported, for now we will just use the LinuxConfiguration if provided,
-                        //otherwise default to WindowsConfiguration
-                        WindowsConfiguration = LinuxConfiguration is null ? new WindowsConfiguration() : null,
+                        WindowsConfiguration = WindowsConfiguration,
                         LinuxConfiguration = LinuxConfiguration
                     },
                     NetworkProfile = new NetworkProfile
@@ -69,15 +79,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                             new NetworkInterfaceReference { Id = NetworkInterfaceId }
                         ]
                     },
-                    SecurityProfile = new SecurityProfile
-                    {
-                        SecurityType = SecurityType,
-                        UefiSettings = new UefiSettings
+                    SecurityProfile = string.IsNullOrEmpty(SecurityType) && SecureBootEnabled is null && VTpmEnabled is null
+                        ? null
+                        : new SecurityProfile
                         {
-                            SecureBootEnabled = SecureBootEnabled,
-                            VTpmEnabled = VTpmEnabled
-                        }
-                    },
+                            SecurityType = SecurityType,
+                            UefiSettings = SecureBootEnabled is null && VTpmEnabled is null
+                                ? null
+                                : new UefiSettings
+                                {
+                                    SecureBootEnabled = SecureBootEnabled,
+                                    VTpmEnabled = VTpmEnabled
+                                }
+                        },
                     DiagnosticsProfile = new DiagnosticsProfile
                     {
                         BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }

@@ -68,6 +68,7 @@ echo "--- Create VM '$VM_NAME' ---"
     --name "$VM_NAME" \
     --location "$LOCATION" \
     --size Standard_D2s_v3 \
+    --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
     --admin-username Artemis \
     --admin-password 'ArtemisCriticalX4!' \
     --network-interface-name "$NIC_NAME" \
@@ -100,12 +101,28 @@ echo "--- Delete VM '$VM_NAME' ---"
     --name "$VM_NAME" || exit 1
 
 echo "--- Confirm VM '$VM_NAME' is gone ---"
-"$AZ" vm show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$VM_NAME" >/dev/null 2>&1 && {
+for attempt in {1..5}; do
+    if show_output=$("$AZ" vm show \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$VM_NAME" 2>&1); then
+        if (( attempt < 5 )); then
+            echo "VM still appears to exist; retrying ($attempt/5)..."
+            sleep 2
+            continue
+        fi
+
         echo "FAIL: VM '$VM_NAME' still exists after delete." >&2
         exit 1
-    }
+    else
+        show_status=$?
+        if [[ "$show_output" == *"404 Not Found"* && "$show_output" == *"ResourceNotFound"* ]]; then
+            echo "PASS: VM '$VM_NAME' was deleted."
+            exit 0
+        fi
 
-echo "PASS: VM '$VM_NAME' was deleted."
+        echo "FAIL: Unable to confirm deletion of VM '$VM_NAME' (exit $show_status):" >&2
+        echo "$show_output" >&2
+        exit 1
+    fi
+done

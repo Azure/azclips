@@ -19,4 +19,15 @@ public class VmCreateTests
         Assert.Equal(typeof(List<string>), parameter.ParameterType);
         Assert.False(parameter.IsRequired);
     }
+
+    [Fact]
+    public void VmCreate_ExposesImageParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("image", out var parameter));
+        Assert.Equal("Image", parameter.Name);
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+    }
 }
