@@ -22,6 +22,10 @@
       {
         "short_summary": "Create with a different image URN",
         "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "short_summary": "Create a VM with Standard security type",
+        "command": "az vm create --name myvm --resource-group myrg --location eastus --size Standard_D2s_v5 --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest --security-type Standard --admin-username azureuser --admin-password \u0027P@ssw0rd123!\u0027 --network-interface-name myvm-nic --virtual-network-name myvm-vnet --network-security-group-name myvm-nsg --subscription-id 00000000-0000-0000-0000-000000000000"
       }
     ],
     "parameters": [
@@ -160,6 +164,14 @@
         "short_summary": "Source port ranges of the security rules.",
         "long_summary": "",
         "group_name": "Network Arguments"
+      },
+      {
+        "name": "--security-type",
+        "required": false,
+        "short_summary": "Security type for the virtual machine.",
+        "long_summary": "",
+        "group_name": "Security Arguments",
+        "choices": "TrustedLaunch, ConfidentialVM, Standard"
       },
       {
         "name": "--size",

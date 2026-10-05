@@ -21,6 +21,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string? Image { get; set; }
 
+        [ParameterGroup("Security Arguments")]
+        public string? SecurityType { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -86,6 +89,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
+            var securityProfileSettings = ResolveSecurityProfileSettings(SecurityType, useTrustedLaunchDefaults);
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -132,15 +137,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminPassword = AdminPassword;
                 p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
                     new WindowsConfiguration() : null;
-                if (!useTrustedLaunchDefaults)
-                {
-                    p.SecurityType = null;
-                    p.SecureBootEnabled = null;
-                    p.VTpmEnabled = null;
-                }
+                p.SecurityType = securityProfileSettings.SecurityType;
+                p.SecureBootEnabled = securityProfileSettings.SecureBootEnabled;
+                p.VTpmEnabled = securityProfileSettings.VTpmEnabled;
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private static (string? SecurityType, bool? SecureBootEnabled, bool? VTpmEnabled) ResolveSecurityProfileSettings(
+            string? requestedSecurityType,
+            bool useTrustedLaunchDefaults)
+        {
+            if (string.IsNullOrWhiteSpace(requestedSecurityType))
+            {
+                return useTrustedLaunchDefaults
+                    ? ("TrustedLaunch", true, true)
+                    : (null, null, null);
+            }
+
+            if (requestedSecurityType.Equals("Standard", StringComparison.OrdinalIgnoreCase))
+            {
+                return ("Standard", null, null);
+            }
+
+            if (IsTrustedLaunchOrConfidentialVm(requestedSecurityType))
+            {
+                return (requestedSecurityType, true, true);
+            }
+
+            throw new ArgumentException("Security type must be one of: TrustedLaunch, ConfidentialVM, Standard.", nameof(requestedSecurityType));
+        }
+
+        private static bool IsTrustedLaunchOrConfidentialVm(string securityType)
+        {
+            return securityType.Equals("TrustedLaunch", StringComparison.OrdinalIgnoreCase)
+                || securityType.Equals("ConfidentialVM", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)

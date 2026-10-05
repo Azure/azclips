@@ -127,9 +127,47 @@ public class VmCreateOrchestrationTests
     {
         var vmBody = RecordVmBody(ArgsWithImage("TrustedLaunchTest:offer:sku:1.0.0"));
 
-        Assert.Contains("\"securityType\":\"trustedlaunch\"", vmBody);
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
         Assert.Contains("\"secureBootEnabled\":true", vmBody);
         Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_Standard_OverridesTrustedLaunchDefaults()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "Standard"]);
+
+        Assert.Contains("\"securityType\":\"Standard\"", vmBody);
+        Assert.DoesNotContain("uefiSettings", vmBody);
+        Assert.DoesNotContain("secureBootEnabled", vmBody);
+        Assert.DoesNotContain("vTpmEnabled", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_TrustedLaunch_DefaultsUefiSettings()
+    {
+        var vmBody = RecordVmBody([.. ArgsWithImage("Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"), "--security-type", "TrustedLaunch"]);
+
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_PowerShell_BindsStandard()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SecurityType"] = "Standard";
+        AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"securityType\":\"Standard\"", vmBody);
+        Assert.DoesNotContain("uefiSettings", vmBody);
     }
 
     [Theory]

@@ -35,6 +35,10 @@ public class NewVMCmdlet : PSCmdlet
     [Alias("ImageName")]
     public string? Image { get; set; }
 
+    [Parameter(Mandatory = false)]
+    [ValidateSet("TrustedLaunch", "ConfidentialVM", "Standard", IgnoreCase = true)]
+    public string? SecurityType { get; set; }
+
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
@@ -116,6 +120,7 @@ public class NewVMCmdlet : PSCmdlet
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }

@@ -23,7 +23,7 @@ Create a virtual machine together with its network interface, virtual network, a
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubscriptionId <string>]
- [-Image <string>]
+ [-Image <string>] [-SecurityType <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
@@ -495,6 +495,30 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SecurityType
+
+Security type for the virtual machine.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- TrustedLaunch
+- ConfidentialVM
+- Standard
 HelpMessage: ''
 ```
 
