@@ -81,7 +81,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
             {
-                throw new ArgumentException("Specify either --admin-password or --ssh-key-values.");
+                throw new ArgumentException("Specify an administrator password. Use -AdminPassword with New-AzVM, or use --admin-password/--ssh-key-values with az vm create.");
             }
 
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
