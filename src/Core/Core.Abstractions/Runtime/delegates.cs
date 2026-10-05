@@ -15,6 +15,11 @@ namespace Core.Abstractions.Runtime
         public override string ToString() => Value;
     }
 
+    public readonly record struct FormattableOutput(object Value, string DefaultValue)
+    {
+        public override string ToString() => DefaultValue;
+    }
+
     public delegate Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback);
     public delegate Task<HttpResponseMessage> SendAsyncStep(HttpRequestMessage request, IEventPublisher callback, ISendAsync next);
     public delegate Task<HttpResponseMessage> SendAsyncStepExpand(

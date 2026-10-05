@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Display all current configuration values. By default, only explicitly-set values are shown. Use --all to include default values. Output can be formatted as JSON for scripting.
+Description: Display all current configuration values. By default, only explicitly-set values are shown. Use --all to include default values. Standard output formats such as JSON, table, TSV, and YAML are supported.
 
 ### List current configuration values
 
@@ -23,4 +23,10 @@ az config list --all
 
 ```bash
 az config list --json
+```
+
+### List configuration as a table
+
+```bash
+az config list --output table
 ```

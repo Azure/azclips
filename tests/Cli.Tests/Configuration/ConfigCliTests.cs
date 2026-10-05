@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Configuration.Abstractions;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
@@ -130,6 +131,41 @@ public class ConfigCliTests
         Assert.Contains("'auto'", infoOutput.Single(), StringComparison.Ordinal);
         var infoEntries = JsonNode.Parse(infoOutput.Single())!.AsArray();
         Assert.Contains(infoEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldFormatConfigCommandsAsTables()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        var getOutput = fixture.ExecuteCli(["config", "get", "core.logging.level", "--output", "table"]).Single();
+        Assert.Contains("key", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("value", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core.logging.level", getOutput);
+        Assert.Contains("debug", getOutput);
+
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all", "--output", "table"]).Single();
+        Assert.Contains("core.logging.level", listOutput);
+        Assert.Contains("core.engine.extensionIndexCacheSize", listOutput);
+
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--output", "table"]).Single();
+        Assert.Contains("description", infoOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core.logging.level", infoOutput);
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldConstrainConfigTableToTerminalWidth()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: 60).Single();
+
+        Assert.All(
+            output.Split('\n'),
+            line => Assert.True(line.Length <= 60, $"Expected line at most 60 characters, but got {line.Length}: {line}"));
     }
 
     [Fact]
@@ -368,18 +404,28 @@ public class ConfigCliTests
             AzclipsServiceProvider.Initialize(ClientType.CLI);
         }
 
-        public IReadOnlyList<string> ExecuteCli(string[] args)
+        public IReadOnlyList<string> ExecuteCli(string[] args, int? terminalWidth = null)
         {
             _outputs.Clear();
 
+            var globalArgs = GlobalArgParser.Parse(args);
             var dispatcher = BuildDispatcher();
-            var invocation = dispatcher.Parse(args);
+            var invocation = dispatcher.Parse(globalArgs.Positional.ToArray());
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+            var format = globalArgs.Output ?? OutputFormat.Json;
+            var simpleFormat = globalArgs.Output ?? OutputFormat.Tsv;
 
             var streams = new OutputStreams(
                 WriteOutput: (value, _) =>
                 {
-                    _outputs.Add(Convert.ToString(value) ?? string.Empty);
+                    _outputs.Add(CliOutputFormatter.FormatValue(
+                        value,
+                        format,
+                        simpleFormat,
+                        colorPolicyAllowsColor: false,
+                        globalArgs.Query,
+                        terminalWidth,
+                        useDefaultRepresentation: globalArgs.Output is null));
                     return Task.CompletedTask;
                 },
                 WriteVerbose: (_, _) => Task.CompletedTask,
@@ -555,4 +601,3 @@ public class ConfigCliTests
         }
     }
 }
-

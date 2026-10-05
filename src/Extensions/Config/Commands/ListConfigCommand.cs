@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
@@ -36,6 +37,8 @@ public sealed class ListConfigCommand : ConfigCommandBase
             builder.AppendLine($"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]");
         }
 
-        await WriteOutput(builder.ToString().TrimEnd(), CancellationToken).ConfigureAwait(false);
+        await WriteOutput(
+            new FormattableOutput(entries, builder.ToString().TrimEnd()),
+            CancellationToken).ConfigureAwait(false);
     }
 }

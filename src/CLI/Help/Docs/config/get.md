@@ -18,3 +18,9 @@ az config get --key output.format
 ```bash
 az config get --key output.format --json
 ```
+
+### Get output as a table
+
+```bash
+az config get --key output.format --output table
+```
