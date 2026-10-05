@@ -34,6 +34,6 @@ public partial class ImportCertificateProcessor : KeyVaultDataPlaneProcessorBase
     public int? CertificateAttributesExpires { get => Body?.CertificateAttributesExpires; set => (Body ??= new CertificateImportParameters()).CertificateAttributesExpires = value; }
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/import?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates/{CertificateName}/import?api-version=2025-07-01";
     protected override CertificateImportParameters? CreateRequestBody() => Body;
 }

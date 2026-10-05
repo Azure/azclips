@@ -12,6 +12,26 @@ namespace Extensions.KeyVault.Tests;
 public class SecretCommandTests
 {
     [Theory]
+    [InlineData(null)]
+    [InlineData("application/x-pem-file")]
+    [InlineData("application/x-pem-file&api-version=wrong&extra=true#fragment")]
+    public async Task ShowRebuildsOnlyTheOptionalContentTypeQuery(string? contentType)
+    {
+        var command = new ShowSecretCommand { SecretName = "test", OutContentType = contentType };
+        Initialize(command, "{}", request =>
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri!.Query);
+            Assert.Equal("2025-07-01", query["api-version"]);
+            Assert.Equal(contentType, query["outContentType"]);
+            Assert.Equal(contentType is null ? 1 : 2, query.Count);
+            Assert.Empty(request.RequestUri.Fragment);
+            Assert.Equal("/secrets/test/", request.RequestUri.AbsolutePath);
+            return Task.CompletedTask;
+        });
+        await command.ProcessAsync();
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task InheritedAttributesArePreserved(bool update)

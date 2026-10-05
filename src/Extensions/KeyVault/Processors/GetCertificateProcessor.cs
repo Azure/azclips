@@ -18,5 +18,5 @@ public partial class GetCertificateProcessor : KeyVaultDataPlaneProcessorBase<ob
     public string? CertificateVersion { get; set; }
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates/{CertificateName}/{CertificateVersion}?api-version=2025-07-01";
 }

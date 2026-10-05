@@ -20,18 +20,17 @@
     { "from": "public string Base64EncodedCertificate { get; set; }", "to": "public string Base64EncodedCertificate { get; set; } = null!;", "reason": "Omitted input must remain distinct from an explicit input." }
   ],
   "processors": [
-    { "name": "CreateCertificateProcessor", "operation": "createCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/create?api-version=2025-07-01\";" },
-    { "name": "ImportCertificateProcessor", "operation": "importCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/import?api-version=2025-07-01\";" },
-    { "name": "GetCertificateProcessor", "operation": "getCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01\";" },
-    { "name": "GetCertificatesProcessor", "operation": "getCertificates", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates?api-version=2025-07-01\" +\n        (Maxresults.HasValue ? $\"&maxresults={Maxresults.Value}\" : string.Empty) +\n        (IncludePending.HasValue ? $\"&includePending={IncludePending.Value.ToString().ToLowerInvariant()}\" : string.Empty);" },
-    { "name": "GetCertificateVersionsProcessor", "operation": "getCertificateVersions", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/versions?api-version=2025-07-01\" +\n        (Maxresults.HasValue ? $\"&maxresults={Maxresults.Value}\" : string.Empty);" },
-    { "name": "UpdateCertificateProcessor", "operation": "updateCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01\";" },
-    { "name": "DeleteCertificateProcessor", "operation": "deleteCertificate", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}?api-version=2025-07-01\";" },
-    { "name": "GetCertificateOperationProcessor", "operation": "getCertificateOperation", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/pending?api-version=2025-07-01\";" },
-    { "name": "UpdateCertificatePolicyProcessor", "operation": "updateCertificatePolicy", "requestUri": "    protected override string CreateRequestUri() => $\"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/policy?api-version=2025-07-01\";" }
+    { "name": "CreateCertificateProcessor", "operation": "createCertificate" },
+    { "name": "ImportCertificateProcessor", "operation": "importCertificate" },
+    { "name": "GetCertificateProcessor", "operation": "getCertificate" },
+    { "name": "GetCertificatesProcessor", "operation": "getCertificates" },
+    { "name": "GetCertificateVersionsProcessor", "operation": "getCertificateVersions" },
+    { "name": "UpdateCertificateProcessor", "operation": "updateCertificate" },
+    { "name": "DeleteCertificateProcessor", "operation": "deleteCertificate" },
+    { "name": "GetCertificateOperationProcessor", "operation": "getCertificateOperation" },
+    { "name": "UpdateCertificatePolicyProcessor", "operation": "updateCertificatePolicy" }
   ],
   "excludedModelRationale": "Only the selected processor dependency closure is imported. Raw unselected models and operations remain in scratch for review.",
-  "requestUriRationale": "Bind the typed server parameter, escape path values and omit absent optional queries.",
-  "serializationRationale": "Customization configures the x5t base64url converter from the TypeSpec encoding annotation without editing generated models.",
-  "verifyCommand": "node tools/CodeGeneration/Verify-KeyVaultSecrets.mjs <raw-output> certificates-generation.json"
+  "requestUriRationale": "Atomic URI methods are unchanged from the existing generator output. Key Vault customization binds Endpoint to the typed VaultBaseUrl once and overrides only certificate list/list-versions to rebuild optional query values. Validated name/version paths otherwise use generated behavior.",
+  "serializationRationale": "Customization configures the x5t base64url converter from the TypeSpec encoding annotation without editing generated models."
 }

@@ -1,5 +1,8 @@
 using System.Net;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+using Core.Runtime;
+using Core.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -9,6 +12,26 @@ namespace Extensions.KeyVault.Tests;
 public class SensitiveHttpDiagnosticsTests
 {
     [Theory]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    public async Task SharedSensitiveErrorsContainStatusWithoutServiceAuthAdvice(HttpStatusCode statusCode)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
+        request.MarkSensitive();
+        using var response = new HttpResponseMessage(statusCode)
+        {
+            RequestMessage = request, Content = new StringContent("private-fixture")
+        };
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
+        Assert.Equal(statusCode, error.StatusCode);
+        Assert.Contains($"HTTP {(int)statusCode}", error.Message);
+        Assert.DoesNotContain("Key Vault", error.Message);
+        Assert.DoesNotContain("private-fixture", error.ToString());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task TransportUsesTheConfiguredClient(bool sensitive)
@@ -16,15 +39,16 @@ public class SensitiveHttpDiagnosticsTests
         var ordinaryHandler = new CapturingHandler();
         var sensitiveHandler = new CapturingHandler();
         using var ordinary = new HttpClient(ordinaryHandler);
-        using var protectedClient = new Core.Runtime.SensitiveHttpClient(sensitiveHandler);
+        using var protectedClient = new HttpClient(sensitiveHandler);
         ordinary.DefaultRequestHeaders.Add("host-setting", "ordinary");
         protectedClient.DefaultRequestHeaders.Add("host-setting", "sensitive");
         protectedClient.Timeout = TimeSpan.FromSeconds(7);
-        var factory = new Core.Runtime.HttpClientFactory(ordinary, protectedClient);
+        using var diagnostics = new HttpDiagnosticsHandler(protectedClient);
+        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(ordinary));
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         if (sensitive) request.MarkSensitive();
 
-        using var response = await factory.SendAsync(request, Mock.Of<IEventPublisher>());
+        using var response = await sender.SendAsync(request, Mock.Of<IEventPublisher>());
 
         Assert.Equal(sensitive ? 0 : 1, ordinaryHandler.Calls);
         Assert.Equal(sensitive ? 1 : 0, sensitiveHandler.Calls);
@@ -37,10 +61,11 @@ public class SensitiveHttpDiagnosticsTests
     {
         var handler = new CapturingHandler();
         using var client = new HttpClient(handler);
-        var factory = new Core.Runtime.HttpClientFactory(client);
+        using var diagnostics = new HttpDiagnosticsHandler();
+        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(client));
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         request.MarkSensitive();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => factory.SendAsync(request, Mock.Of<IEventPublisher>()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sender.SendAsync(request, Mock.Of<IEventPublisher>()));
         Assert.Equal(0, handler.Calls);
     }
 
@@ -50,13 +75,13 @@ public class SensitiveHttpDiagnosticsTests
         using var cancellation = new CancellationTokenSource();
         var handler = new CapturingHandler { WaitForCancellation = true };
         using var client = new HttpClient();
-        using var sensitive = new Core.Runtime.SensitiveHttpClient(handler);
-        var factory = new Core.Runtime.HttpClientFactory(client, sensitive);
+        using var diagnostics = new HttpDiagnosticsHandler(new HttpClient(handler));
+        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(client));
         var publisher = new Mock<IEventPublisher>();
         publisher.SetupGet(value => value.Token).Returns(cancellation.Token);
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         request.MarkSensitive();
-        Task<HttpResponseMessage> sending = factory.SendAsync(request, publisher.Object);
+        Task<HttpResponseMessage> sending = sender.SendAsync(request, publisher.Object);
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending);
         Assert.Equal(1, handler.Calls);
@@ -108,8 +133,10 @@ public class SensitiveHttpDiagnosticsTests
         Assert.Single(record.Entries);
     }
 
-    [Fact]
-    public async Task SensitiveTransportDoesNotFollowRedirects()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HandlerPreservesOrdinaryRedirectsAndBlocksSensitiveRedirects(bool sensitive)
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         using var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
@@ -121,12 +148,12 @@ public class SensitiveHttpDiagnosticsTests
         {
             Content = new StringContent("private-fixture")
         };
-        request.MarkSensitive();
+        if (sensitive) request.MarkSensitive();
         using var ordinaryClient = new HttpClient();
         var services = new ServiceCollection();
         Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
         using var provider = services.BuildServiceProvider();
-        var transport = new Core.Runtime.HttpClientFactory(ordinaryClient, provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>());
+        var transport = new SendAsyncFactory(provider.GetRequiredService<IHttpDiagnosticsHandler>().SendAsync).Create(new HttpClientFactory(ordinaryClient));
         Task<HttpResponseMessage> sending = transport.SendAsync(request, publisher.Object);
         using var connection = await listener.AcceptTcpClientAsync(cancellation.Token);
         using var stream = connection.GetStream();
@@ -135,9 +162,49 @@ public class SensitiveHttpDiagnosticsTests
         byte[] reply = System.Text.Encoding.ASCII.GetBytes(
             $"HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:{port}/redirected\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(reply, cancellation.Token);
+        if (!sensitive)
+        {
+            using var redirectedConnection = await listener.AcceptTcpClientAsync(cancellation.Token);
+            using var redirectedStream = redirectedConnection.GetStream();
+            using var redirectedReader = new StreamReader(redirectedStream, leaveOpen: true);
+            Assert.Contains("/redirected", await redirectedReader.ReadLineAsync(cancellation.Token));
+            while (!string.IsNullOrEmpty(await redirectedReader.ReadLineAsync(cancellation.Token))) { }
+            await redirectedStream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
+                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), cancellation.Token);
+        }
         using var response = await sending;
-        Assert.Equal(HttpStatusCode.TemporaryRedirect, response.StatusCode);
+        Assert.Equal(sensitive ? HttpStatusCode.TemporaryRedirect : HttpStatusCode.OK, response.StatusCode);
         Assert.False(listener.Pending());
+    }
+
+    [Fact]
+    public async Task ProtectedTransportRemainsInsideRuntimeRetries()
+    {
+        int calls = 0;
+        var terminal = new Mock<ISendAsync>();
+        terminal.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        using var protectedClient = new HttpClient(new RetryingHandler(() => ++calls));
+        using var diagnostics = new HttpDiagnosticsHandler(protectedClient);
+        var pipeline = new HttpPipeline(new SendAsyncTerminalFactory(new SendAsyncFactory(diagnostics.SendAsync).Create(terminal.Object)), 1, 0);
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        using var request = new HttpRequestMessage(HttpMethod.Put, "https://fixture.invalid/") { Content = new StringContent("private-fixture") };
+        request.MarkSensitive();
+        using var response = await pipeline.SendAsync(request, publisher.Object);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, calls);
+        terminal.VerifyNoOtherCalls();
+    }
+
+    private sealed class RetryingHandler(Func<int> nextCall) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            Assert.True(request.HasSensitiveDiagnostics());
+            Assert.Equal("private-fixture", await request.Content!.ReadAsStringAsync(token));
+            return new HttpResponseMessage(nextCall() == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { RequestMessage = request };
+        }
     }
 
     [Fact]
@@ -164,6 +231,9 @@ public class SensitiveHttpDiagnosticsTests
         Assert.True(clone.HasSensitiveDiagnostics());
         Assert.DoesNotContain(sentinel, await clone.GetLog());
         Assert.DoesNotContain(sentinel, await response.GetLog());
+        using var diagnostics = new HttpDiagnosticsHandler();
+        Assert.DoesNotContain(sentinel, await diagnostics.FormatAsync(clone));
+        Assert.DoesNotContain(sentinel, await diagnostics.FormatAsync(response));
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
         Assert.DoesNotContain(sentinel, error.ToString());
         Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
@@ -179,6 +249,7 @@ public class SensitiveHttpDiagnosticsTests
         {
             Content = new StringContent("ordinary-fixture")
         };
-        Assert.Contains("ordinary-fixture", await request.GetLog());
+        using var diagnostics = new HttpDiagnosticsHandler();
+        Assert.Contains("ordinary-fixture", await diagnostics.FormatAsync(request));
     }
 }

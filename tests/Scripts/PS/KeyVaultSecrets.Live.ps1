@@ -203,7 +203,7 @@ try {
         Assert-Check 'CLI update preserves explicit false' ($disabled.attributes.enabled -eq $false)
         $verified = Invoke-Legacy 'Azure CLI verifies disabled metadata' @('list-versions', '--name', $state.cli)
         Assert-Check 'Service records disabled latest version' (@($verified | Where-Object { $_.id.EndsWith($state.cliVersion2) -and $_.attributes.enabled -eq $false }).Count -eq 1)
-        $denied = Invoke-Clips 'cli-disabled-read' @('show', '--name', $state.cli, '--as-plain-text') -ExpectedError 'Access denied\.'
+        $denied = Invoke-Clips 'cli-disabled-read' @('show', '--name', $state.cli, '--as-plain-text') -ExpectedError '\bHTTP 403\b'
         Invoke-Legacy 'Service denies disabled secret read' @('show', '--name', $state.cli, '--query', 'id') -ExpectedError '\(Forbidden\)'
         Assert-Check 'Denied read does not leak fixture data' ($denied.Error -notmatch 'clips-live-')
         $null = Invoke-Clips 'cli-enable' @('set-attributes', '--name', $state.cli, '--enabled', 'true', '--expires', '2027-01-01T00:00:00Z')

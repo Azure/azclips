@@ -16,5 +16,5 @@ public partial class GetCertificateOperationProcessor : KeyVaultDataPlaneProcess
     public string CertificateName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/pending?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates/{CertificateName}/pending?api-version=2025-07-01";
 }

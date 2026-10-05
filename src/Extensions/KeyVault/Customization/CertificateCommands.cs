@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Models;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Processors;
@@ -33,17 +34,14 @@ public class ListCertificatesCommand : GetCertificatesProcessor
     public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
     public bool IncludePendingInput { get => IncludePending ?? false; set => IncludePending = value; }
 
+    protected override string CreateRequestUri() => WithOptionalQueryParameters(base.CreateRequestUri(),
+        ("maxresults", Maxresults?.ToString(CultureInfo.InvariantCulture)),
+        ("includePending", IncludePending?.ToString().ToLowerInvariant()));
+
     protected override Task BeforeProcessAsync()
     {
         SecretCommandInputs.ValidatePageSize(PageSize);
         return base.BeforeProcessAsync();
-    }
-
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(CertificateListResult? body)
-    {
-        await body.WriteOutputWithPaginationAsync(page => page.Value, page => page.NextLink,
-            CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
-        return true;
     }
 }
 
@@ -51,18 +49,14 @@ public class ListCertificateVersionsCommand : GetCertificateVersionsProcessor
 {
     public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
 
+    protected override string CreateRequestUri() =>
+        WithOptionalQueryParameters(base.CreateRequestUri(), ("maxresults", Maxresults?.ToString(CultureInfo.InvariantCulture)));
+
     protected override Task BeforeProcessAsync()
     {
         CertificateCommandInputs.Validate(CertificateName);
         SecretCommandInputs.ValidatePageSize(PageSize);
         return base.BeforeProcessAsync();
-    }
-
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(CertificateListResult? body)
-    {
-        await body.WriteOutputWithPaginationAsync(page => page.Value, page => page.NextLink,
-            CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
-        return true;
     }
 }
 

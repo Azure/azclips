@@ -16,5 +16,5 @@ public partial class DeleteCertificateProcessor : KeyVaultDataPlaneProcessorBase
     public string CertificateName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates/{CertificateName}?api-version=2025-07-01";
 }

@@ -9,7 +9,22 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
 {
     public string? VaultName { get; set; }
     public string? VaultUrl { get; set; }
+    protected string Endpoint => VaultBaseUrl!.AbsoluteUri.TrimEnd('/');
     private bool dataPlanePrepared;
+
+    protected static string WithOptionalQueryParameters(string generatedUri, params (string Name, string? Value)[] optionalParameters)
+    {
+        var uri = new UriBuilder(generatedUri);
+        var generatedQuery = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        query["api-version"] = generatedQuery.GetValues("api-version")?.FirstOrDefault()
+            ?? throw new InvalidOperationException("The generated Key Vault request is missing its API version.");
+        foreach (var parameter in optionalParameters)
+            if (parameter.Value is not null) query[parameter.Name] = parameter.Value;
+        uri.Query = query.ToString();
+        uri.Fragment = string.Empty;
+        return uri.Uri.AbsoluteUri;
+    }
 
     protected void PrepareDataPlane()
     {

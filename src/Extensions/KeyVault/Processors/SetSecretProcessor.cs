@@ -30,6 +30,6 @@ public partial class SetSecretProcessor : KeyVaultDataPlaneProcessorBase<SecretS
     public int? SecretAttributesExpires { get => Body?.SecretAttributesExpires; set => (Body ??= new SecretSetParameters()).SecretAttributesExpires = value; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/secrets/{Uri.EscapeDataString(SecretName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/secrets/{SecretName}?api-version=2025-07-01";
     protected override SecretSetParameters? CreateRequestBody() => Body;
 }

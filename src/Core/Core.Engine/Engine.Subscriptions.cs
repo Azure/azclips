@@ -79,13 +79,13 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 HttpRequestMessage request = (HttpRequestMessage)evt.RequestMessage;
-                loggingService.Debug(await request.GetLog());
+                loggingService.Debug(await httpDiagnosticsHandler.FormatAsync(request));
             });
             subscriber.Subscribe(Events.TracingHttpResponseMessage, async (data) =>
             {
                 var evt = (EventData)data;
                 HttpResponseMessage response = (HttpResponseMessage)evt.ResponseMessage;
-                loggingService.Debug(await response.GetLog());
+                loggingService.Debug(await httpDiagnosticsHandler.FormatAsync(response));
             });
 
             subscriber.Subscribe(Events.DelayPolling, (data) =>

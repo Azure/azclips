@@ -18,9 +18,7 @@ public partial class GetCertificatesProcessor : KeyVaultDataPlaneProcessorBase<o
     public bool? IncludePending { get; set; }
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates?api-version=2025-07-01" +
-        (Maxresults.HasValue ? $"&maxresults={Maxresults.Value}" : string.Empty) +
-        (IncludePending.HasValue ? $"&includePending={IncludePending.Value.ToString().ToLowerInvariant()}" : string.Empty);
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates?api-version=2025-07-01&maxresults={Maxresults}&includePending={IncludePending}";
     private IEnumerable<CertificateItem>? pageItems(CertificateListResult body) => body.Value;
     private string? nextLink(CertificateListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(CertificateListResult? body)

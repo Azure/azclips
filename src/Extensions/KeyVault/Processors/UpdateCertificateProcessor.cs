@@ -30,6 +30,6 @@ public partial class UpdateCertificateProcessor : KeyVaultDataPlaneProcessorBase
     public int? CertificateAttributesExpires { get => Body?.CertificateAttributesExpires; set => (Body ??= new CertificateUpdateParameters()).CertificateAttributesExpires = value; }
     protected override HttpMethod Method => HttpMethod.Patch;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/certificates/{Uri.EscapeDataString(CertificateName)}/{Uri.EscapeDataString(CertificateVersion ?? string.Empty)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/certificates/{CertificateName}/{CertificateVersion}?api-version=2025-07-01";
     protected override CertificateUpdateParameters? CreateRequestBody() => Body;
 }

@@ -118,6 +118,8 @@ public class CreateCertificateCommand : CreateCertificateProcessor
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
+        // TODO: Replace custom polling when spec/directive metadata and codegen/runtime
+        // support the certificate pending endpoint, terminal states, and required command behavior.
         var originalPublisher = Publisher;
         var originalToken = Token;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(originalToken);

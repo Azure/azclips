@@ -20,6 +20,5 @@ public partial class GetSecretProcessor : KeyVaultDataPlaneProcessorBase<object,
     public string? OutContentType { get; set; }
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/secrets/{Uri.EscapeDataString(SecretName)}/{Uri.EscapeDataString(SecretVersion ?? string.Empty)}?api-version=2025-07-01" +
-        (OutContentType is null ? string.Empty : $"&outContentType={Uri.EscapeDataString(OutContentType)}");
+    protected override string CreateRequestUri() => $"{Endpoint}/secrets/{SecretName}/{SecretVersion}?api-version=2025-07-01&outContentType={OutContentType}";
 }
