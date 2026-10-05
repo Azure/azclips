@@ -141,7 +141,7 @@ public class VmCreateOrchestrationTests
         host.RunCli(s_groupArgs);
         var error = Assert.Throws<ArgumentException>(() => host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).ToArray()));
 
-        Assert.Contains("Specify an administrator password.", error.Message);
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
@@ -160,7 +160,7 @@ public class VmCreateOrchestrationTests
         parameters["AdminPassword"] = "";
         var error = Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
 
-        Assert.Contains("Use -AdminPassword with New-AzVM", error.Message);
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
