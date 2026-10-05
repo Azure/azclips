@@ -31,14 +31,20 @@ public static class TelemetryRoutingResolver
     /// <summary>
     /// Resolves the tenant, data boundary, subscription, and auth method for
     /// <paramref name="profileNameOverride"/> (or the active profile, when null/empty).
-    /// Best-effort: any failure (missing profile, timeout, token/network error) returns all
-    /// <c>null</c> rather than throwing, since missing routing metadata should fall back to
-    /// Global on upload rather than block the command. <c>SubscriptionId</c>/<c>AuthType</c>
-    /// come straight off the already-resolved profile (no extra network call) so callers can
-    /// tag them on the root before replaying startup-phase spans, the same way
-    /// <c>TenantId</c>/<c>Boundary</c> already are — otherwise those two fields stay unset
-    /// until the authoritative <c>ProcessorContextCreated</c> tagging fires during command
-    /// processing, well after any replayed startup spans have already exported.
+    /// Best-effort: a profile-resolution failure (missing profile, timeout, token/network
+    /// error) returns all <c>null</c> rather than throwing. A boundary-lookup failure is
+    /// narrower: it returns a <c>null</c> Boundary but PRESERVES the already-resolved
+    /// TenantId/SubscriptionId/AuthType, since those came straight off the profile and don't
+    /// depend on the lookup that failed. A missing/unconfirmed boundary routes fail-closed to
+    /// the EU endpoint on upload (see DataBoundaryRouting.IsConfirmedGlobal) rather than
+    /// blocking the command. <c>SubscriptionId</c>/<c>AuthType</c> come straight off the
+    /// already-resolved profile (no extra network call) so callers can tag them on the root
+    /// before replaying startup-phase spans, the same way <c>TenantId</c>/<c>Boundary</c>
+    /// already are — otherwise those two fields stay unset until the authoritative
+    /// <c>ProcessorContextCreated</c> tagging fires during command processing, well after any
+    /// replayed startup spans have already exported. Preserved even for a managed-identity
+    /// profile, whose TenantId is intentionally empty (no boundary lookup can run without a
+    /// tenant) while SubscriptionId/AuthMethod are still populated.
     /// </summary>
     public static async Task<(string? TenantId, string? Boundary, string? SubscriptionId, string? AuthType)> ResolveAsync(
         IProfileService profileService,
@@ -52,12 +58,12 @@ public static class TelemetryRoutingResolver
             var profile = string.IsNullOrWhiteSpace(profileNameOverride)
                 ? await profileService.GetActiveProfileAsync(cancellationToken)
                 : await profileService.GetProfileAsync(profileNameOverride, cancellationToken);
+            var subscriptionId = profile?.SubscriptionId;
+            var authType = profile?.AuthMethod.ToString();
+
             var tenantId = profile?.TenantId;
             if (string.IsNullOrWhiteSpace(tenantId))
-                return (null, null, null, null);
-
-            var subscriptionId = profile!.SubscriptionId;
-            var authType = profile.AuthMethod.ToString();
+                return (null, null, subscriptionId, authType);
 
             // Suppresses ALL instrumentation (both TelemetryService-created spans and OpenTelemetry's
             // HTTP auto-instrumentation) for the two network calls this makes (token acquisition, then
