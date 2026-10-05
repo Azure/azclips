@@ -1,0 +1,110 @@
+<Project>
+  <UsingTask
+    TaskName="GenerateExtensionSidecarTask"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ProjectDir ParameterType="System.String" Required="true" />
+      <PackageId ParameterType="System.String" Required="true" />
+      <PackageVersion ParameterType="System.String" Required="false" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // Build-time sidecar (CLIPS-933): regex-scans this extension's own source for
+        // declared [ExtensionVerb] attributes and s_cliTable leaf keys, so runtime
+        // discovery can route commands (CLIPS-934) without loading the extension's DLL.
+        // Source-scan, not reflection: mirrors src/CLI/Targets/ExtensionHints.targets so
+        // generation never has to load/execute extension code.
+        var verbAttrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
+        var cliTableBlock = new Regex(@"s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}", RegexOptions.Multiline | RegexOptions.Singleline);
+        var leafKeyPattern = new Regex(@"\[\s*""([^""]+)""\s*\]", RegexOptions.Multiline);
+
+        var verbs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var leaves = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (Directory.Exists(ProjectDir))
+        {
+          foreach (var csFile in Directory.EnumerateFiles(ProjectDir, "*.cs", SearchOption.AllDirectories))
+          {
+            // Skip build output dirs so a stale copy can't be double-counted.
+            if (csFile.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) ||
+                csFile.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar))
+            {
+              continue;
+            }
+
+            var text = File.ReadAllText(csFile);
+
+            foreach (Match m in verbAttrPattern.Matches(text))
+            {
+              verbs.Add(m.Groups[1].Value);
+            }
+
+            foreach (Match block in cliTableBlock.Matches(text))
+            {
+              foreach (Match leaf in leafKeyPattern.Matches(block.Groups["body"].Value))
+              {
+                leaves.Add(leaf.Groups[1].Value);
+              }
+            }
+          }
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine("  \"schemaVersion\": 1,");
+        sb.Append("  \"generatedAt\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine("\",");
+        sb.Append("  \"packageId\": \"").Append(PackageId).AppendLine("\",");
+        var version = string.IsNullOrEmpty(PackageVersion) ? "0.0.0" : PackageVersion;
+        sb.Append("  \"version\": \"").Append(version).AppendLine("\",");
+
+        sb.AppendLine("  \"verbs\": [");
+        int vi = 0;
+        foreach (var verb in verbs)
+        {
+          var comma = (++vi == verbs.Count) ? "" : ",";
+          sb.Append("    \"").Append(verb).Append("\"").AppendLine(comma);
+        }
+        sb.AppendLine("  ],");
+
+        sb.AppendLine("  \"leaves\": [");
+        int li = 0;
+        foreach (var leaf in leaves)
+        {
+          var comma = (++li == leaves.Count) ? "" : ",";
+          sb.Append("    \"").Append(leaf).Append("\"").AppendLine(comma);
+        }
+        sb.AppendLine("  ]");
+        sb.AppendLine("}");
+
+        // Path.GetDirectoryName returns null for a bare filename; Directory.CreateDirectory(null) throws.
+        var outputDir = Path.GetDirectoryName(OutputFile);
+        if (!string.IsNullOrEmpty(outputDir))
+        {
+          Directory.CreateDirectory(outputDir);
+        }
+        File.WriteAllText(OutputFile, sb.ToString());
+        Log.LogMessage(MessageImportance.Normal, $"[ExtensionSidecar] Wrote {leaves.Count} leaf/leaves, {verbs.Count} verb(s) for '{PackageId}' to {OutputFile}");
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!-- v1 scope (CLIPS-933): just the s_cliTable leaf keys + declared verbs, no parameter/help
+       metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
+       the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json. -->
+  <Target Name="GenerateExtensionSidecar"
+          AfterTargets="Build"
+          Outputs="$(OutputPath)$(PackageId).commands.json">
+    <GenerateExtensionSidecarTask
+      ProjectDir="$(MSBuildProjectDirectory)"
+      PackageId="$(PackageId)"
+      PackageVersion="$(Version)"
+      OutputFile="$(OutputPath)$(PackageId).commands.json" />
+  </Target>
+</Project>

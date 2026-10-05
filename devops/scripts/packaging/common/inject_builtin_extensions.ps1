@@ -107,5 +107,13 @@ foreach ($builtinDir in $selectedBuiltinDirs) {
         Copy-Item -Path $deps.FullName -Destination $dest -Force
     }
 
+    # CLIPS-933: sidecar metadata (s_cliTable leaves/verbs) written by ExtensionSidecar.targets
+    # next to the extension's own DLL; must travel into the packaged bundled-extension folder
+    # the same way *.deps.json does.
+    $sidecarFiles = Get-ChildItem -Path $builtinDir.FullName -Filter '*.commands.json' -File -ErrorAction SilentlyContinue
+    foreach ($sidecar in $sidecarFiles) {
+        Copy-Item -Path $sidecar.FullName -Destination $dest -Force
+    }
+
     Write-Host "  BUNDLE $extAssemblyName -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
 }

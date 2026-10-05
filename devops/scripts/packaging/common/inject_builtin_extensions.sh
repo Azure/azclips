@@ -140,5 +140,11 @@ for builtin_dir in "${SELECTED_BUILTIN_DIRS[@]}"; do
   done
 
   cp "$builtin_dir"/*.deps.json "$dest/" 2>/dev/null || true
+
+  # CLIPS-933: sidecar metadata (s_cliTable leaves/verbs) written by ExtensionSidecar.targets
+  # next to the extension's own DLL; must travel into the packaged bundled-extension folder
+  # the same way *.deps.json does.
+  cp "$builtin_dir"/*.commands.json "$dest/" 2>/dev/null || true
+
   echo "  BUNDLE $ext_assembly_name -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
 done
