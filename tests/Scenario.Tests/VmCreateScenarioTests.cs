@@ -107,5 +107,14 @@ public class VmCreateScenarioTests
         Assert.Equal(VmName, vm.Name);
         Assert.Equal(Location, vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+
+        // vm create writes the az vm show -d view: the default public IP is attached, and no DNS
+        // label is set, so Fqdns is an empty string rather than null.
+        Assert.Equal("VM running", vm.PowerState);
+        Assert.False(string.IsNullOrEmpty(vm.PublicIps));
+        Assert.StartsWith("10.0.0.", vm.PrivateIps);
+        Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
+        Assert.Equal("", vm.Fqdns);
+        Assert.Null(vm.Properties.InstanceView);
     }
 }

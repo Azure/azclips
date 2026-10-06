@@ -55,6 +55,9 @@ import {
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnionSchema,
+  // A property reached through its containers — shared by pagination, and named
+  // so generated C# gets one reference type rather than an inline object per use.
+  IRPropertyRefSchema,
   IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariantSchema,
   IREnumSchema,
@@ -168,6 +171,7 @@ const definitions = {
   IRTypeRefDictionary: IRTypeRefDictionarySchema,
   IRTypeRefUnion: IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnion: IRTypeRefDiscriminatedUnionSchema,
+  IRPropertyRef: IRPropertyRefSchema,
   IRDiscriminatedUnion: IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariant: IRDiscriminatedUnionVariantSchema,
   IREnum: IREnumSchema,
