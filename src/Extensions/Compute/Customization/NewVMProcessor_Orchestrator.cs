@@ -98,6 +98,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 throw new ArgumentException("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
             }
 
+            ResolvedLinuxProfile? linuxProfile = null;
+            if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
+            }
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -143,8 +149,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
-                if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase)
-                    && OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword) is { } linuxProfile)
+                if (linuxProfile is not null)
                 {
                     p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
                     p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
