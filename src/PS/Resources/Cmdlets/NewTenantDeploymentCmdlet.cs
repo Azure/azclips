@@ -85,8 +85,20 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         bool armWhatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? whatIf)
             && whatIf is SwitchParameter whatIfSwitch
             && whatIfSwitch.IsPresent;
+
+        // Azure PowerShell's shared DeploymentCreateCmdlet runs an ARM what-if preview and only
+        // prompts for execution afterward when `-Confirm` is used (BuildWhatIfParameters /
+        // ShouldSkipConfirmationIfNoChange), instead of the bare ShouldProcess yes/no prompt.
+        // NewTenantDeploymentProcessor_Orchestrator already implements that preview-then-confirm
+        // flow via ConfirmWithWhatIf, so route `-Confirm` there rather than through ShouldProcess.
+        bool confirmWithWhatIf = !armWhatIf
+            && (MyInvocation.BoundParameters.TryGetValue("Confirm", out object? confirmValue)
+                ? LanguagePrimitives.IsTrue(confirmValue)
+                : SessionState.PSVariable.GetValue("ConfirmPreference") is ConfirmImpact preference
+                    && preference <= ConfirmImpact.Medium);
+
         string target = $"tenant deployment '{Name ?? "(generated name)"}'";
-        if (!armWhatIf && !ShouldProcess(target, "Create"))
+        if (!armWhatIf && !confirmWithWhatIf && !ShouldProcess(target, "Create"))
         {
             return;
         }
@@ -126,6 +138,10 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         if (armWhatIf)
         {
             parameters["WhatIf"] = true;
+        }
+        else if (confirmWithWhatIf)
+        {
+            parameters["ConfirmWithWhatIf"] = true;
         }
 
         Run("New-AzTenantDeployment", parameters);

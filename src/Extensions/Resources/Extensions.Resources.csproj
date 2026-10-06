@@ -28,9 +28,9 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
-            <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
-        </ProjectReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JmesPath.Net" Version="1.1.0" />
     </ItemGroup>
 </Project>

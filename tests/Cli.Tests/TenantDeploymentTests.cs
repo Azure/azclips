@@ -168,6 +168,83 @@ public class TenantDeploymentTests
         Assert.Equal("Provider", body.GetProperty("properties").GetProperty("validationLevel").GetString());
     }
 
+    [Fact]
+    public async Task Create_DerivesDeploymentNameFromTemplateUriWhenNameOmitted()
+    {
+        List<(HttpMethod Method, Uri Uri)> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!));
+            return requests.Count == 1
+                ? Json("""{ "name": "azuredeploy" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        {
+            Location = "eastus",
+            TemplateUri = "https://example.com/templates/azuredeploy.json",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal("azuredeploy", processor.Name);
+        Assert.Contains("/deployments/azuredeploy?", requests[1].Uri.ToString());
+    }
+
+    [Fact]
+    public async Task Create_DerivesDeploymentNameFromTemplateSpecWhenNameOmitted()
+    {
+        List<(HttpMethod Method, Uri Uri)> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!));
+            return requests.Count == 1
+                ? Json("""{ "name": "my-spec" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        {
+            Location = "eastus",
+            TemplateSpecId = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/templateSpecs/my-spec/versions/v1",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal("my-spec", processor.Name);
+        Assert.Contains("/deployments/my-spec?", requests[1].Uri.ToString());
+    }
+
+    [Fact]
+    public async Task Create_FallsBackToLiteralDeploymentNameWhenNoTemplateSourceGivesOne()
+    {
+        List<(HttpMethod Method, Uri Uri)> requests = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!));
+            return requests.Count == 1
+                ? Json("""{ "name": "deployment1" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        {
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["$schema"] = "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+                ["contentVersion"] = "1.0.0.0",
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal("deployment1", processor.Name);
+        Assert.Contains("/deployments/deployment1?", requests[1].Uri.ToString());
+    }
+
     [Theory]
     [InlineData("RequestContent", "RequestContent")]
     [InlineData("ResponseContent", "ResponseContent")]
@@ -271,35 +348,38 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task Stop_RejectsTerminalDeploymentBeforeCancel()
+    public async Task Stop_DelegatesDirectlyToCancelWithoutPrecheck()
     {
-        var pipeline = new FakeHttpPipeline((_, _) => Json(
-            """{ "name": "done", "properties": { "provisioningState": "Succeeded" } }"""));
+        List<HttpMethod> methods = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            methods.Add(request.Method);
+            return Json("{}");
+        });
+        var output = new FakeOutputHandler();
         var processor = new StopTenantDeploymentProcessor_Orchestrator { Name = "done" };
-        Init(processor, pipeline, new FakeOutputHandler());
+        Init(processor, pipeline, output);
 
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => processor.ProcessAsync());
+        await processor.ProcessAsync();
 
-        Assert.Contains("not running", error.Message);
+        // Matches `az deployment tenant cancel` / `Stop-AzTenantDeployment`, which forward
+        // straight to ARM's cancel operation instead of first reading the deployment to reject
+        // an already-terminal provisioningState locally.
         Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(HttpMethod.Post, Assert.Single(methods));
     }
 
     [Fact]
     public async Task Stop_SuppressesCancelResponsePayload()
     {
-        int requestCount = 0;
-        var pipeline = new FakeHttpPipeline((_, _) =>
-            ++requestCount == 1
-                ? Json("""{ "name": "running", "properties": { "provisioningState": "Running" } }""")
-                : Json("{}"));
+        var pipeline = new FakeHttpPipeline((_, _) => Json("{}"));
         var output = new FakeOutputHandler();
         var processor = new StopTenantDeploymentProcessor_Orchestrator { Name = "running" };
         Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, pipeline.SendCount);
+        Assert.Equal(1, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
 
