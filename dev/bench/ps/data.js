@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791242862693,
+  "lastUpdate": 1791262367965,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8108,6 +8108,48 @@ window.BENCHMARK_DATA = {
             "value": 2891932.6670137444,
             "unit": "ns",
             "range": "± 103570.88467930122"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66c1962624503cde76b6c6607b8d2f72aa98c79e",
+          "message": "[Compute] `az vm create`: Add `--ssh-key-values` (#1016)\n\nThis changes contributes to https://github.com/Azure/CLIPS/issues/831 -\n`az vm create` feature.\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-06T12:30:09+08:00",
+          "tree_id": "da632241f628f86f99a925fee8d97dc249ec9f14",
+          "url": "https://github.com/Azure/azclips/commit/66c1962624503cde76b6c6607b8d2f72aa98c79e"
+        },
+        "date": 1791262364026,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 3155325.0997586483,
+            "unit": "ns",
+            "range": "± 235040.93021396545"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 8027072.461744138,
+            "unit": "ns",
+            "range": "± 249497.95670152732"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 3073925.1389223966,
+            "unit": "ns",
+            "range": "± 182938.60462268774"
           }
         ]
       }
