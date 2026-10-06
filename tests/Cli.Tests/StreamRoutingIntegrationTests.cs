@@ -52,7 +52,7 @@ public class StreamRoutingIntegrationTests
     public async Task ConfigGet_AppliesQuery_ToCommandOutput()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "config", "get", "--key", "core.logging.level", "--query", "[0].value");
+            "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
         // A --query narrowing a result to a scalar now uses clients.cli.output.simpleFormat
@@ -98,7 +98,7 @@ public class StreamRoutingIntegrationTests
     public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "[0].value");
+            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
         Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
@@ -233,7 +233,7 @@ public class StreamRoutingIntegrationTests
 
             var (exit, stdout, stderr) = await RunCliInHomeAsync(
                 homeDirectory,
-                "config", "get", "--key", "core.logging.level", "--query", "[0].value");
+                "config", "get", "--key", "core.logging.level", "--query", "value");
 
             Assert.Equal(0, exit);
             Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
@@ -271,7 +271,7 @@ public class StreamRoutingIntegrationTests
     private static void AssertConfigGetResult(string stdout, string expectedKey, string expectedValue)
     {
         using var document = System.Text.Json.JsonDocument.Parse(stdout);
-        var entry = Assert.Single(document.RootElement.EnumerateArray());
+        var entry = document.RootElement;
 
         Assert.Equal(expectedKey, entry.GetProperty("key").GetString());
         Assert.Equal(expectedValue, entry.GetProperty("value").GetString());

@@ -22,7 +22,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
         // Check for exact match first (leaf value)
         if (entries.TryGetValue(normalizedKey, out var entry))
         {
-            await WriteOutput(new[] { entry }, CancellationToken).ConfigureAwait(false);
+            await WriteOutput(entry, CancellationToken).ConfigureAwait(false);
             return;
         }
 

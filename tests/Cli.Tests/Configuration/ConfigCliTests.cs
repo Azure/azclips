@@ -243,6 +243,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
 
+        Assert.IsType<JsonObject>(JsonNode.Parse(output.Single()));
         AssertConfigEntry(output, "core.logging.level", "debug", "global config");
     }
 
@@ -375,9 +376,15 @@ public class ConfigCliTests
         object expectedValue,
         string expectedSource)
     {
-        var entries = JsonNode.Parse(output.Single())!.AsArray();
-        var entry = Assert.Single(entries, item => item?["key"]?.GetValue<string>() == key);
+        var result = JsonNode.Parse(output.Single());
+        var entry = result switch
+        {
+            JsonObject configEntry when configEntry["key"]?.GetValue<string>() == key => configEntry,
+            JsonArray entries => Assert.Single(entries, item => item?["key"]?.GetValue<string>() == key),
+            _ => null
+        };
 
+        Assert.NotNull(entry);
         Assert.True(
             JsonNode.DeepEquals(JsonValue.Create(expectedValue), entry?["value"]),
             $"Expected value '{expectedValue}', but got '{entry?["value"]}'.");

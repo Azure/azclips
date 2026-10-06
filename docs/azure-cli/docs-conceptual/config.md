@@ -74,7 +74,7 @@ az config get --key core --output table
 az config get --key core --output json
 
 # Query the structured result
-az config get --key core.logging.level --query "[0].value"
+az config get --key core.logging.level --query "value"
 ```
 
 ### Set a configuration value

@@ -28,5 +28,5 @@ az config get --key output.format --output table
 ### Query the configuration value
 
 ```bash
-az config get --key output.format --query "[0].value"
+az config get --key output.format --query "value"
 ```
