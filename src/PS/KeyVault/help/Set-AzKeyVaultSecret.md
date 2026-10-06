@@ -41,7 +41,7 @@ Set a secret in an existing Azure public-cloud vault. An existing name creates a
 Read a value without placing a plaintext literal in shell history, then set the secret.
 
 ```powershell
-$value = Read-Host -AsSecureString
+$value = $Host.UI.ReadLineAsSecureString()
 Set-AzKeyVaultSecret -VaultName myvault -Name app-password -SecretValue $value
 $value.Dispose()
 ```

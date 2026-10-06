@@ -6,3 +6,9 @@ online version:
 ---
 
 Description: Manage secrets in an existing Azure public-cloud vault. Sign in and select a profile with the required data-plane permissions. Vault creation, other clouds, keys and certificates are not included in this slice.
+
+### List secrets in a vault
+
+```bash
+az keyvault secret list --vault-name myvault
+```
