@@ -15,7 +15,9 @@ public class VmCreateOrchestrationTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string VmName = "scenario-vm";
     private const string Password = "PlaceholderP@ss1";
+    private const string PublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8g";
     private const string Image = "MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest";
+    private const string LinuxImage = "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest";
 
     private static readonly string[] s_groupArgs =
     [
@@ -92,6 +94,111 @@ public class VmCreateOrchestrationTests
 
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
         Assert.Contains("\"vmSize\":\"Standard_D2s_v3\"", vmBody);
+    }
+
+    [Fact]
+    public void SshKeyValues_BindLinuxConfigurationPublicKeys()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", PublicKey]));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"linuxConfiguration\"", vmBody);
+        Assert.Contains("\"disablePasswordAuthentication\":false", vmBody);
+        Assert.Contains("\"path\":\"/home/azadmin/.ssh/authorized_keys\"", vmBody);
+        Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
+    }
+
+    [Fact]
+    public void SshKeyValues_CanOmitAdminPassword()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(ArgsWithImage(LinuxImage).Where(arg => arg != "--admin-password" && arg != Password).Append("--ssh-key-values").Append(PublicKey).ToArray()));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"disablePasswordAuthentication\":true", vmBody);
+        Assert.DoesNotContain("adminPassword", vmBody);
+    }
+
+    [Fact]
+    public void Create_RequiresPasswordOrSshKey_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).ToArray()));
+
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Create_RequiresAdminPasswordForPowerShell_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["AdminPassword"] = "";
+        var error = Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_RequireLinuxImage_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
+
+        Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_WhitespaceKey_FailsBeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "  "]));
+
+        Assert.Contains("SSH public key value cannot be empty.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
     }
 
     [Fact]
@@ -314,6 +421,47 @@ public class VmCreateOrchestrationTests
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_ReadPublicKeyFiles_AndTrimContent()
+    {
+        var keyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pub");
+        File.WriteAllText(keyPath, $"{PublicKey}{Environment.NewLine}");
+
+        try
+        {
+            var record = new SessionRecord();
+            var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+            using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+            {
+                host.RunCli(s_groupArgs);
+                AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", keyPath]));
+            }
+
+            var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+            Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+            Assert.DoesNotContain("\\n", vmBody);
+        }
+        finally
+        {
+            File.Delete(keyPath);
+        }
+    }
+
+    [Fact]
+    public void SshKeyValues_PassThroughMissingPublicKeyFilesAsInlineValues()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "missing-key.pub"]));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"keyData\":\"missing-key.pub\"", vmBody);
     }
 
     [Fact]

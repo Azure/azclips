@@ -36,6 +36,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Authentication Arguments")]
         public string AdminPassword { get; set; } = string.Empty;
 
+        [ParameterGroup("Authentication Arguments")]
+        public List<string> SshKeyValues { get; set; } = [];
+
         [ParameterGroup("Network Arguments")]
         public string NetworkInterfaceName { get; set; } = string.Empty;
 
@@ -84,8 +87,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Network Arguments")]
         public bool AcceleratedNetworking { get; set; }
 
+        [ParameterGroup("Network Arguments")]
+        public string? PublicIpAddress { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
+            {
+                throw new ArgumentException("Specify an administrator password or SSH public key values.");
+            }
+
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
             var operatingSystemType = OperatingSystemTypes.Windows;
             ImagePlan? plan = null;
@@ -98,6 +109,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             var securityProfileSettings = ResolveSecurityProfileSettings(SecurityType, useTrustedLaunchDefaults);
             ValidateConfidentialVmDiskEncryption(securityProfileSettings.SecurityType, OsDiskSecurityEncryptionType, OsDiskSecureVMDiskEncryptionSet);
             var osDiskSecureVMDiskEncryptionSetId = ResolveDiskEncryptionSetId(OsDiskSecureVMDiskEncryptionSet);
+
+            if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+            }
+
+            ResolvedLinuxProfile? linuxProfile = null;
+            if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
+            }
 
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
@@ -120,6 +142,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
                 p.RuleAccesses = RuleAccesses;
                 p.AcceleratedNetworking = AcceleratedNetworking;
+                p.PublicIpAddress = PublicIpAddress;
+                p.DefaultPublicIpAddressName = $"{Name}PublicIP";
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
@@ -142,14 +166,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
-                p.AdminPassword = AdminPassword;
-                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
-                    new WindowsConfiguration() : null;
+                p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
+                p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
                 p.SecurityType = securityProfileSettings.SecurityType;
                 p.SecureBootEnabled = securityProfileSettings.SecureBootEnabled;
                 p.VTpmEnabled = securityProfileSettings.VTpmEnabled;
                 p.OsDiskSecurityEncryptionType = OsDiskSecurityEncryptionType;
                 p.OsDiskSecureVMDiskEncryptionSetId = osDiskSecureVMDiskEncryptionSetId;
+                if (linuxProfile is not null)
+                {
+                    p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
+                    p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
+                    p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
+                }
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
@@ -329,6 +358,45 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (false, true) => -1,
                 _ => StringComparer.OrdinalIgnoreCase.Compare(left, right)
             };
+        }
+
+        /// <summary>
+        /// For the time being shows az vm show -d output, with enriched network details
+        /// TODO: Jayson - client side rendering of views for different clients.
+        /// </summary>
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
+        {
+            if (body is null)
+            {
+                return false;
+            }
+
+            VirtualMachine output = body;
+            try
+            {
+                using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.Name = Name;
+                    p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+                }).SendAsync();
+
+                VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
+                await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
+                VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
+                output = detailed;
+            }
+            catch (Exception exception)
+            {
+                await Publisher.Publish(Events.Warning, new EventData
+                {
+                    Message = $"Created virtual machine '{Name}' but could not retrieve its details: {exception.Message}"
+                });
+            }
+
+            await WriteOutput(output);
+            return true;
         }
     }
 }

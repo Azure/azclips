@@ -13,7 +13,7 @@ title: New-AzVM
 
 ## SYNOPSIS
 
-Create a virtual machine together with its network interface, virtual network, and network security group in a single call.
+Create a virtual machine together with its network interface, public IP address, virtual network, and network security group in a single call.
 
 ## SYNTAX
 
@@ -30,7 +30,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
  [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
  [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-AcceleratedNetworking]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -38,7 +38,9 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 ## DESCRIPTION
 
 Provisions the full networking + VM stack as a single operation.
-Creates a virtual network, network security group, network interface, and virtual machine using the supplied names and parameters.
+Creates a virtual network, network security group, public IP address, network interface, and virtual machine using the supplied names and parameters.
+By default the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
+Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -51,6 +53,26 @@ Assign `$adminPassword` from a secure source in your own pipeline before invokin
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+```
+
+### Create a VM with a named public IP address
+
+Provision the same stack, but name the public IP address `myvm-ip`.
+If a public IP address named `myvm-ip` already exists in `myrg`, it is attached as-is instead of being created.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg -PublicIpAddressName myvm-ip
+```
+
+### Create a VM without a public IP address
+
+Pass an empty string to `-PublicIpAddressName` to provision the stack without a public IP address.
+The virtual machine is then reachable only from inside its virtual network.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg -PublicIpAddressName ''
 ```
 
 ## PARAMETERS
@@ -316,6 +338,33 @@ HelpMessage: ''
 ### -Profile
 
 Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -PublicIpAddressName
+
+Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach.
+Can also reference an existing public IP by resource ID, or specify "" for none.
+
+When omitted, a public IP address named after the virtual machine with a `PublicIP` suffix is created, or updated if it already exists.
+A name is looked up in the resource group: an existing public IP address is attached as-is, otherwise one is created.
+A resource ID must reference an existing public IP address, which is attached as-is.
+New public IP addresses use the Standard SKU with static allocation, in the virtual machine's location.
 
 ```yaml
 Type: System.String
@@ -711,7 +760,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
-The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration.
+The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration, plus the `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, and `MacAddresses` detail fields.
+`Fqdns` is empty unless an attached existing public IP address has a DNS name label; public IP addresses this command creates have none.
+`PublicIps` is empty when `-PublicIpAddressName` is an empty string.
 
 ## NOTES
 

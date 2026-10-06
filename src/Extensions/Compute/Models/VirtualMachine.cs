@@ -23,8 +23,8 @@ public class VirtualMachine
 
     /// <summary>
     /// Power state, flattened out of the instance view.
-    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: populated by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
+    /// CLI: populated by <c>az vm create</c>, <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>New-AzVM</c>, and by <c>Get-AzVM -Status</c> (parameter sets <c>List</c>, <c>ListByName</c>, <c>ListLocation</c>).
     /// Set to "Info Not Available" when a per-VM lookup failed during a list fan-out.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -32,32 +32,32 @@ public class VirtualMachine
 
     /// <summary>
     /// Comma-joined public IP addresses across every NIC.
-    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// CLI: populated by <c>az vm create</c>, <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>New-AzVM</c> only — <c>Get-AzVM</c> has no spelling of --show-details.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PublicIps { get; set; }
 
     /// <summary>
     /// Comma-joined fully-qualified domain names across every public IP.
-    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// CLI: populated by <c>az vm create</c>, <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>New-AzVM</c> only — <c>Get-AzVM</c> has no spelling of --show-details.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Fqdns { get; set; }
 
     /// <summary>
     /// Comma-joined private IP addresses across every NIC IP configuration.
-    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// CLI: populated by <c>az vm create</c>, <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>New-AzVM</c> only — <c>Get-AzVM</c> has no spelling of --show-details.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PrivateIps { get; set; }
 
     /// <summary>
     /// Comma-joined MAC addresses across every NIC.
-    /// CLI: populated by <c>az vm show -d</c> and <c>az vm list -d</c>.
-    /// PowerShell: never populated — there is no PowerShell spelling of --show-details.
+    /// CLI: populated by <c>az vm create</c>, <c>az vm show -d</c> and <c>az vm list -d</c>.
+    /// PowerShell: populated by <c>New-AzVM</c> only — <c>Get-AzVM</c> has no spelling of --show-details.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? MacAddresses { get; set; }
@@ -151,15 +151,40 @@ public class OSProfile
 {
     public string ComputerName { get; set; } = null!;
     public string AdminUsername { get; set; } = null!;
-    public string AdminPassword { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AdminPassword { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public WindowsConfiguration? WindowsConfiguration { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinuxConfiguration? LinuxConfiguration { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class WindowsConfiguration
 {
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class LinuxConfiguration
+{
+    public bool DisablePasswordAuthentication { get; set; }
+    public SshConfiguration? Ssh { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshConfiguration
+{
+    public IList<SshPublicKey> PublicKeys { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshPublicKey
+{
+    public string Path { get; set; } = null!;
+    public string KeyData { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -319,7 +344,6 @@ public class BootDiagnostics
     public bool Enabled { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
-
 public class VirtualMachineInstanceView
 {
     public List<InstanceViewStatus> Statuses { get; set; } = [];

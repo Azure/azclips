@@ -210,6 +210,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["RuleDestinationAddressPrefixes"] = new("RuleDestinationAddressPrefixes", "RuleDestinationAddressPrefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["PublicIpAddressName"]            = new("PublicIpAddress", "PublicIpAddressName", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -498,7 +499,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["os-disk-security-encryption-type"] = new("OsDiskSecurityEncryptionType", "os-disk-security-encryption-type", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
                 ["os-disk-secure-vm-disk-encryption-set"] = new("OsDiskSecureVMDiskEncryptionSet", "os-disk-secure-vm-disk-encryption-set", typeof(string), "Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["admin-username"]                   = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ssh-key-values"]                   = new("SshKeyValues", "ssh-key-values", typeof(List<string>), "Space-separated SSH public key values or public key file paths.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["network-interface-name"]           = new("NetworkInterfaceName", "network-interface-name", typeof(string), "The network interface name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["virtual-network-name"]             = new("VirtualNetworkName", "virtual-network-name", typeof(string), "The virtual network name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["network-security-group-name"]      = new("NetworkSecurityGroupName", "network-security-group-name", typeof(string), "The network security group name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -515,6 +517,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
