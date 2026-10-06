@@ -926,7 +926,7 @@ HelpMessage: ''
 (e) OUTPUTS — directly after the line `` `PublicIps` is empty when `-PublicIpAddressName` is an empty string. ``, add:
 
 ```markdown
-`Tags` holds the virtual machine's tags, and is `$null` unless `-Tag` was given.
+`Tags` holds the virtual machine's tags as ARM returns them, and is `$null` when it has none.
 ```
 
 - [ ] **Step 8: Validate the PowerShell help against the built cmdlet**
