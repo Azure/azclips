@@ -10,6 +10,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<object, object>
 {
+    private static readonly TimeSpan MinimumPollingWindow = TimeSpan.FromMilliseconds(50);
+
     public string ManagementGroupId { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
@@ -84,8 +86,11 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
             }
 
             TimeSpan remaining = deadline - DateTime.UtcNow;
-            if (remaining <= TimeSpan.Zero)
+            if (remaining <= MinimumPollingWindow)
             {
+                // Too little time left for another round trip to be worthwhile; avoid
+                // busy-spinning on near-zero delays when a slow poll has already consumed most
+                // of the timeout budget.
                 break;
             }
             await Task.Delay(
