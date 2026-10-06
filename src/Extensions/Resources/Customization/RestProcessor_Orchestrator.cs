@@ -39,7 +39,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected Profile Profile = null!;
+        protected Profile ResolvedProfile = null!;
+
+        /// <summary>
+        /// Exists only to accept the value during binding — the Engine has already resolved it into
+        /// <see cref="ResolvedProfile"/>. Per-processor workaround until global parameters exist.
+        /// </summary>
+        public string? Profile { get; set; }
 
         /// <summary>
         /// ARM / Azure management endpoints the rest command is allowed to target. The pipeline's
@@ -112,7 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            Profile = context.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
+            ResolvedProfile = context.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
             return this;
         }
 
@@ -295,7 +301,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             string subscriptionId = !string.IsNullOrWhiteSpace(SubscriptionId)
                 ? SubscriptionId.Trim()
-                : Profile?.SubscriptionId ?? "";
+                : ResolvedProfile?.SubscriptionId ?? "";
 
             if (string.IsNullOrWhiteSpace(subscriptionId))
             {
@@ -417,12 +423,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // gets sent is the one that is host-checked.
             if (url.Contains(SubscriptionToken, StringComparison.Ordinal))
             {
-                if (Profile is null || string.IsNullOrWhiteSpace(Profile.SubscriptionId))
+                if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
                 {
                     throw new InvalidOperationException($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
                 }
 
-                url = url.Replace(SubscriptionToken, Profile.SubscriptionId, StringComparison.Ordinal);
+                url = url.Replace(SubscriptionToken, ResolvedProfile.SubscriptionId, StringComparison.Ordinal);
             }
 
             // A leading-slash path (e.g. "/subscriptions/.../resourcegroups") is, by REST/HTTP

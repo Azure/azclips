@@ -31,6 +31,10 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string VmSize { get; set; } = "";
 
+    [Parameter(Mandatory = false)]
+    [Alias("ImageName")]
+    public string? Image { get; set; }
+
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
@@ -86,6 +90,9 @@ public class NewVMCmdlet : PSCmdlet
     public SwitchParameter AcceleratedNetworking { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? PublicIpAddressName { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -111,6 +118,7 @@ public class NewVMCmdlet : PSCmdlet
             { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
@@ -124,6 +132,8 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
+        // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

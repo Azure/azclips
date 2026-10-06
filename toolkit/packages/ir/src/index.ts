@@ -54,6 +54,11 @@ export {
 } from "./type-ref.js";
 
 export {
+  IRPropertyRefSchema,
+  type IRPropertyRef,
+} from "./property-ref.js";
+
+export {
   IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariantSchema,
   type IRDiscriminatedUnion,
@@ -237,8 +242,6 @@ export {
 
 export {
   PsModuleDialectSchema,
-  PsCommandIdentitySchema,
-  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -246,8 +249,6 @@ export {
   CliParameterDialectSchema,
   type IRClientDialect,
   type PsModuleDialect,
-  type PsCommandIdentity,
-  type PsCommandIdentityProperty,
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,
@@ -269,11 +270,9 @@ export {
 
 export {
   ConfirmImpacts,
-  LifecycleTags,
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   type ConfirmImpact,
-  type LifecycleTag,
-  type PSCompleterAttribute,
-  type PSDefaultValueAttribute,
+  type PSDeprecated,
+  type PSPreview,
 } from "./ps.js";

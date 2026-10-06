@@ -32,6 +32,7 @@
 
 import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
+import { IRPropertyRefSchema, type IRPropertyRef } from "./property-ref.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import { AccessKinds, FormatKinds, type FormatKind, type IRAccess } from "./primitives.js";
@@ -170,9 +171,9 @@ const TEMPLATE_STEPS: Readonly<Record<IRCommandTemplate, number>> = {
  * from. Resolving a parameter back to its declaration is what lets a client
  * transform read facts it must not rewrite — enum values, docs, visibility.
  *
- * `body` carries a property-id path into the request-body model rather than a
- * single id, because a projected member may cross nesting hops. Identical in shape
- * and meaning to `FlattenedParameter.path`.
+ * `body` references the request-body property it was projected from, and the
+ * containers walked to reach it — identical in shape and meaning to
+ * `FlattenedParameter`'s `property` and `via`.
  *
  * There is no `apiVersion` source: the API version is not a parameter. The IR was
  * emitted *at* a version (the compile flag projects `@versioned`), so the models
@@ -183,16 +184,16 @@ export type IRCommandParameterSource =
   | { kind: "path"; parameter: IRId }
   | { kind: "query"; parameter: IRId }
   | { kind: "header"; parameter: IRId }
-  | { kind: "body"; path: IRId[] }
-  | { kind: "synthetic" };
+  | ({ kind: "body" } & IRPropertyRef);
 
 export const IRCommandParameterSourceSchema: z.ZodType<IRCommandParameterSource> =
   z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("path"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("query"), parameter: IRIdSchema }).strict(),
     z.object({ kind: z.literal("header"), parameter: IRIdSchema }).strict(),
-    z.object({ kind: z.literal("body"), path: z.array(IRIdSchema).min(1) }).strict(),
-    z.object({ kind: z.literal("synthetic") }).strict(),
+    z
+      .object({ kind: z.literal("body"), property: IRIdSchema, via: z.array(IRIdSchema) })
+      .strict(),
   ]);
 
 /**
@@ -390,28 +391,28 @@ export const IRCommandResponseSchema: z.ZodType<IRCommandResponse> = z
 // ─── Pagination ─────────────────────────────────────────────────────────
 
 /**
- * Resolved pagination for one step: member-id paths into the response model, not
- * wire segments.
+ * Resolved pagination for one step: property references into the response model,
+ * not wire segments.
  *
  * `IRPageableSemantics` records the declared roles by wire path, which leaves the
  * generator PascalCasing each segment and hoping it matches an emitted member —
  * explicitly a heuristic, and a fragile one now that flattening renames members.
- * These paths are resolved once, here, the same way `FlattenedMember.path` is.
+ * These references are resolved once, here, the same way `FlattenedMember`'s are.
  */
 export type IRCommandPagination = {
   itemType: IRTypeRef;
-  /** Property ids from the response model down to the page items. */
-  itemsPath: IRId[];
-  /** Property ids to the continuation link, when the spec declares one. */
-  nextLinkPath?: IRId[] | undefined;
+  /** The response-model property carrying the page items. */
+  items: IRPropertyRef;
+  /** The response-model property carrying the continuation link, when the spec declares one. */
+  nextLink?: IRPropertyRef | undefined;
   nextLinkVerb?: "GET" | "POST" | undefined;
 };
 
 export const IRCommandPaginationSchema: z.ZodType<IRCommandPagination> = z
   .object({
     itemType: IRTypeRefSchema,
-    itemsPath: z.array(IRIdSchema).min(1),
-    nextLinkPath: z.array(IRIdSchema).min(1).optional(),
+    items: IRPropertyRefSchema,
+    nextLink: IRPropertyRefSchema.optional(),
     nextLinkVerb: z.enum(["GET", "POST"]).optional(),
   })
   .strict();

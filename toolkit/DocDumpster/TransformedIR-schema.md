@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-09-21)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-10-04)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -51,7 +51,7 @@ generator would otherwise infer is decided once, here:
   inside the C# generator, and the only thing client transforms can annotate;
 - the **request path**, as ordered segments instead of a template the generator
   string-replaces `{wireName}` in;
-- **pagination paths**, resolved to property ids instead of wire segments the
+- **pagination references**, resolved to property ids instead of wire segments the
   generator PascalCases and hopes match;
 - the **surface types** the processor's generics are built from;
 - **names**, resolved with collisions settled.
@@ -253,8 +253,7 @@ already the text the generator interpolates).
 IRCommandParameter = {
   name              // final C#-facing member, unique within the command
   source            // path | query | header  → { parameter: IRId }
-                    // body                   → { path: IRId[] }  (crosses nesting hops)
-                    // synthetic              → no direct operation parameter
+                    // body                   → IRPropertyRef { property, via }  (via: nesting hops crossed)
   type              // carried, not resolved through `source`
   required          // whether THIS command requires it — narrower than the declaration
   nullable, defaultValue?, collectionFormat?, format?, access?
@@ -269,9 +268,6 @@ for client transforms, and the thing that did not exist anywhere before.
   generator emits a member without a lookup.
 - **`source` resolves back to the declaration**, which is what lets a client
   transform read facts it must not rewrite — enum values, docs, visibility.
-- **`synthetic` has no request binding of its own.** It marks a transform-created
-  parameter, such as a model-typed PowerShell InputObject. Client-specific mappings
-  belong in that client's dialect metadata.
 - **Protocol headers** (`Content-Type`, `Accept`) are carried but marked
   `access: "internal"`: the request needs them, no client should surface them.
 - **There is no `apiVersion` source kind** — see above.
@@ -298,11 +294,13 @@ which is why the processor base needs no `TError` generics.
 ### Pagination
 
 ```ts
-IRCommandPagination = { itemType, itemsPath: IRId[], nextLinkPath?, nextLinkVerb? }
+IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb? }
+IRPropertyRef       = { property: IRId, via: IRId[] }   // via: containers, outermost first
 ```
 
-Member-**id** paths into the response model, resolved once here by walking wire
-segments against the model's `wireName`s. `IRPageableSemantics` records wire paths,
+Member-**id** references into the response model, resolved once here by walking wire
+segments against the model's `wireName`s: the leaf `property`, plus the `via`
+containers walked to reach it — empty when the leaf sits on the response model itself. `IRPageableSemantics` records wire paths,
 which leaves the generator PascalCasing each segment and hoping it matches an emitted
 member — a heuristic made fragile by flattening's renames.
 
@@ -332,11 +330,11 @@ better C# POCOs than an open map.
 `dialect` is **absent** until a client transform runs. `create-command` writes none:
 it knows nothing about clients.
 
-`PsCommandDialect` carries naming, help, lifecycle, paging/output, HTTP-path, and
-parameter-family metadata. Its optional `identity` names a synthetic model-typed
-command parameter and maps properties of that canonical `IRModel` to canonical path
-parameter IDs. `PsParameterDialect` carries `parameterSets[]`, parameter completion,
-script defaults, and removal metadata. `CliCommandDialect` carries `path[]`;
+`PsCommandDialect` carries naming, help, structured deprecation/preview lifecycle,
+additional output, HTTP-path, and parameter-family metadata. `PsParameterDialect`
+carries `parameterSets[]`, literal completion values, one literal default value,
+closed-enum `validateSet[]`, structured deprecation/preview lifecycle, and removal
+metadata. `CliCommandDialect` carries `path[]`;
 `CliParameterDialect` carries `flag`, `shorthand`, `group`.
 
 ## Target
@@ -346,7 +344,7 @@ IRTarget = {
   rootNamespace: string[]
   projectName:   string
   directories:   { models: string, processors: string }
-  dialect?:      { ps?: PsModuleDialect, cli?: CliModuleDialect }
+  dialect?:      { ps?: PsModuleDialect }
 }
 ```
 
@@ -376,9 +374,7 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - every `steps[].operation` resolves into `IR.operations`;
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
-- PowerShell sibling commands agree on a declared family default parameter set;
-- a PowerShell identity names an existing synthetic model parameter, model-owned
-  properties, and canonical path parameters.
+- PowerShell sibling commands agree on a declared family default parameter set.
 
 ## Consuming it
 

@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // 1. Remove the active profile's account from the shared MSAL token cache. When the
                 //    profile has no recorded user principal name, no account can be identified.
                 var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-                await authService.LogoutAsync(activeProfile.UserPrincipalName);
+                await authService.LogoutAsync(activeProfile.Name);
 
                 // 2. Unset the active-profile pointer.
                 await profileService.SetActiveProfileNameAsync(null);

@@ -37,17 +37,15 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, type IRId } from "./id.js";
 import {
   ConfirmImpacts,
-  LifecycleTags,
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   type ConfirmImpact,
-  type LifecycleTag,
-  type PSCompleterAttribute,
-  type PSDefaultValueAttribute,
+  type PSDeprecated,
+  type PSPreview,
 } from "./ps.js";
+import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
@@ -78,34 +76,6 @@ const clientDialectFields = {
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
 
-export type PsCommandIdentityProperty = {
-  /** Property on the synthesized model used by the InputObject parameter. */
-  property: IRId;
-  /** Canonical path parameters this property supplies. Empty for a synthesized resource id. */
-  sourceParameters: IRId[];
-};
-
-export const PsCommandIdentityPropertySchema: z.ZodType<PsCommandIdentityProperty> = z
-  .object({
-    property: IRIdSchema,
-    sourceParameters: z.array(IRIdSchema),
-  })
-  .strict();
-
-export type PsCommandIdentity = {
-  /** Name of the synthetic command parameter whose model is the InputObject type. */
-  parameter: string;
-  /** Command-specific mapping from identity-model properties to canonical path parameters. */
-  properties: PsCommandIdentityProperty[];
-};
-
-export const PsCommandIdentitySchema: z.ZodType<PsCommandIdentity> = z
-  .object({
-    parameter: z.string().min(1),
-    properties: z.array(PsCommandIdentityPropertySchema).min(1),
-  })
-  .strict();
-
 /** PowerShell metadata shared by every command emitted into one module. */
 export type PsModuleDialect = {
   name: string;
@@ -128,7 +98,7 @@ export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
 /**
  * A command as a PowerShell cmdlet.
  *
- * `verb` and `noun` are the cmdlet's identity, so sibling commands (same
+ * `verb` and `subject` are the cmdlet's identity, so sibling commands (same
  * `id.subject` and `id.action`, different `id.variant`) normally share them and fold
  * into one cmdlet — each sibling contributing the parameter sets its own parameters
  * declare.
@@ -136,8 +106,8 @@ export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
 export type PsCommandDialect = IRClientDialect & {
   /** Approved PowerShell verb (`Get`, `New`, `Set`, `Remove`, …). */
   verb: string;
-  /** Cmdlet noun, prefix included (`AzElasticSan`). */
-  noun: string;
+  /** Cmdlet subject, prefix included (`AzElasticSan`). */
+  subject: string;
   /**
    * Set chosen when an invocation does not identify one. A family-level fact, so
    * sibling commands folded into one cmdlet must agree on it — nothing in this
@@ -156,36 +126,32 @@ export type PsCommandDialect = IRClientDialect & {
   supportsShouldProcess?: boolean | undefined;
   confirmImpact?: ConfirmImpact | undefined;
   examples?: string[] | undefined;
-  lifecycleTag?: LifecycleTag | undefined;
+  deprecated?: PSDeprecated | undefined;
+  preview?: PSPreview | undefined;
   helpUri?: string | undefined;
-  /** Opt in to client-side paging when the canonical operation is not pageable. */
-  supportsPaging?: boolean | undefined;
   /** PowerShell output types when the cmdlet writes more than the canonical primary output. */
   outputTypes?: IRTypeRef[] | undefined;
   /** Runtime API-version metadata when the cmdlet must surface a dynamic version. */
   httpPath?: { path: string; apiVersion: string } | undefined;
-  /** InputObject metadata over a synthetic model-typed command parameter. */
-  identity?: PsCommandIdentity | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
   .object({
     ...clientDialectFields,
     verb: z.string().min(1),
-    noun: z.string().min(1),
+    subject: z.string().min(1),
     defaultParameterSet: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean().optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
     examples: z.array(z.string().min(1)).optional(),
-    lifecycleTag: z.enum(LifecycleTags).optional(),
+    deprecated: PSDeprecatedSchema.optional(),
+    preview: PSPreviewSchema.optional(),
     helpUri: z.string().url().optional(),
-    supportsPaging: z.boolean().optional(),
     outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
     httpPath: z
       .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
       .strict()
       .optional(),
-    identity: PsCommandIdentitySchema.optional(),
   })
   .strict();
 
@@ -233,8 +199,14 @@ export type PsParameterDialect = IRClientDialect & {
   parameterSets?: PsParameterSetMembership[] | undefined;
   /** Omit this parameter from the PowerShell surface without deleting its canonical binding. */
   removed?: boolean | undefined;
-  completer?: PSCompleterAttribute | undefined;
-  defaultValue?: PSDefaultValueAttribute | undefined;
+  /** Fixed completion values offered for this parameter. */
+  completer?: IRLiteralValue[] | undefined;
+  /** PowerShell-specific default value. */
+  defaultValue?: IRLiteralValue | undefined;
+  /** Closed set of valid string values, projected from a closed enum. */
+  validateSet?: string[] | undefined;
+  deprecated?: PSDeprecated | undefined;
+  preview?: PSPreview | undefined;
 };
 
 export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
@@ -242,11 +214,29 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
     removed: z.boolean().optional(),
-    completer: PSCompleterAttributeSchema.optional(),
-    defaultValue: PSDefaultValueAttributeSchema.optional(),
+    completer: z.array(IRLiteralValueSchema).min(1).optional(),
+    defaultValue: IRLiteralValueSchema.optional(),
+    validateSet: z.array(z.string().min(1)).min(1).optional(),
+    deprecated: PSDeprecatedSchema.optional(),
+    preview: PSPreviewSchema.optional(),
   })
   .strict()
   .superRefine((dialect, ctx) => {
+    const validateSet = dialect.validateSet;
+    if (validateSet !== undefined) {
+      const values = new Set<string>();
+      validateSet.forEach((value, index) => {
+        if (values.has(value)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `ValidateSet value '${value}' is declared more than once.`,
+            path: ["validateSet", index],
+          });
+        }
+        values.add(value);
+      });
+    }
+
     const memberships = dialect.parameterSets;
     if (memberships === undefined) return;
 

@@ -185,16 +185,9 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     // Commands reference operations and servers by id. A dangling reference is a
     // generator crash otherwise, so it is caught at the boundary instead.
     const operations = new Set(ir.operations.map((operation) => idKey(operation.id)));
-    const pathParameters = new Set(
-      ir.operations.flatMap((operation) =>
-        operation.pathParameters.map((parameter) => idKey(parameter.id)),
-      ),
-    );
     const servers = new Set(ir.servers.map((server) => idKey(server.id)));
     const names = new Set<string>();
     const identities = new Set<string>();
-    const models = new Map(ir.models.map((model) => [idKey(model.id), model]));
-    const properties = new Map(ir.models.flatMap((model) => model.properties.map((property) => [idKey(property.id), { model, property }] as const)));
     const psFamilies = new Map<
       string,
       { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
@@ -240,51 +233,6 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
       identities.add(key);
-
-      const identity = command.dialect?.ps?.identity;
-      if (identity !== undefined) {
-        const parameterIndex = command.parameters.findIndex((parameter) => parameter.name === identity.parameter);
-        const parameter = command.parameters[parameterIndex];
-        let identityModel: IRModel | undefined;
-        if (parameter === undefined || parameter.source.kind !== "synthetic" || parameter.type.kind !== "model") {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Command '${command.name}' PowerShell identity must reference a synthetic model-typed command parameter.`,
-            path: ["commands", index, "dialect", "ps", "identity", "parameter"],
-          });
-        } else {
-          identityModel = models.get(idKey(parameter.type.id));
-          if (identityModel === undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Command '${command.name}' identity parameter '${parameter.name}' references model ${serializeId(parameter.type.id)}, which is not in IR.models.`,
-              path: ["commands", index, "parameters", parameterIndex, "type", "id"],
-            });
-          }
-        }
-
-        identity.properties.forEach((binding, propertyIndex) => {
-          if (identityModel !== undefined) {
-            const resolved = properties.get(idKey(binding.property));
-            if (resolved === undefined || idKey(resolved.model.id) !== idKey(identityModel.id)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Command '${command.name}' identity property ${serializeId(binding.property)} is not on its identity model.`,
-                path: ["commands", index, "dialect", "ps", "identity", "properties", propertyIndex, "property"],
-              });
-            }
-          }
-          binding.sourceParameters.forEach((sourceParameter, sourceParameterIndex) => {
-            if (!pathParameters.has(idKey(sourceParameter))) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Command '${command.name}' identity property supplies ${serializeId(sourceParameter)}, which is not a canonical path parameter.`,
-                path: ["commands", index, "dialect", "ps", "identity", "properties", propertyIndex, "sourceParameters", sourceParameterIndex],
-              });
-            }
-          });
-        });
-      }
 
       if (command.dialect?.ps !== undefined) {
         const familyKey = commandActionKey(command.id);

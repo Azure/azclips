@@ -61,8 +61,9 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
         var properties = new SubnetProperties();
         string? name = null;
 
-        foreach (var (key, value) in ParseKeyValues(tokens, "--subnets", normalizeKey: true))
+        foreach (var (rawKey, value) in KeyValueTokens.Parse(tokens, "--subnets"))
         {
+            var key = NormalizeKey(rawKey);
             switch (key)
             {
                 case "name": name = value; break;
@@ -129,23 +130,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
         {
             return null;
         }
-        return ParseKeyValues(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
-    }
-
-    private static IEnumerable<KeyValuePair<string, string>> ParseKeyValues(IEnumerable<string> tokens, string argument, bool normalizeKey = false)
-    {
-        foreach (var token in tokens)
-        {
-            var separator = token.IndexOf('=');
-            if (separator <= 0)
-            {
-                throw new ArgumentException($"'{token}' is not a valid {argument} value; expected KEY=VALUE.");
-            }
-            var key = token[..separator].Trim();
-            yield return new KeyValuePair<string, string>(
-                normalizeKey ? NormalizeKey(key) : key,
-                token[(separator + 1)..].Trim());
-        }
+        return KeyValueTokens.Parse(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
     /// <summary>

@@ -36,8 +36,8 @@ import {
   // shared definitions.
   TransformedIRSchema,
   // PowerShell metadata definitions consumed by command dialect generation.
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.
   // Registering the structurally-recursive types (IRId, IRTypeRef, IRServer)
@@ -58,6 +58,9 @@ import {
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnionSchema,
+  // A property reached through its containers — shared by pagination, and named
+  // so generated C# gets one reference type rather than an inline object per use.
+  IRPropertyRefSchema,
   IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariantSchema,
   IREnumSchema,
@@ -126,8 +129,6 @@ import {
   IRCommandDialectSchema,
   IRCommandParameterDialectSchema,
   // Per-client dialects.
-  PsCommandIdentitySchema,
-  PsCommandIdentityPropertySchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
@@ -173,6 +174,7 @@ const definitions = {
   IRTypeRefDictionary: IRTypeRefDictionarySchema,
   IRTypeRefUnion: IRTypeRefUnionSchema,
   IRTypeRefDiscriminatedUnion: IRTypeRefDiscriminatedUnionSchema,
+  IRPropertyRef: IRPropertyRefSchema,
   IRDiscriminatedUnion: IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariant: IRDiscriminatedUnionVariantSchema,
   IREnum: IREnumSchema,
@@ -241,8 +243,6 @@ const definitions = {
   // Dialects. Each client's type is structurally distinct, which matters:
   // zodToJsonSchema collapses identical shapes into one definition.
   PsCommandDialect: PsCommandDialectSchema,
-  PsCommandIdentity: PsCommandIdentitySchema,
-  PsCommandIdentityProperty: PsCommandIdentityPropertySchema,
   PsParameterDialect: PsParameterDialectSchema,
   PsParameterSetMembership: PsParameterSetMembershipSchema,
   CliCommandDialect: CliCommandDialectSchema,
@@ -251,8 +251,8 @@ const definitions = {
   IRTarget: IRTargetSchema,
   IRTargetDirectories: IRTargetDirectoriesSchema,
   // PowerShell metadata shared by dialects.
-  PSCompleterAttribute: PSCompleterAttributeSchema,
-  PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
+  PSDeprecated: PSDeprecatedSchema,
+  PSPreview: PSPreviewSchema,
 };
 
 const jsonSchema = zodToJsonSchema(TransformedIRSchema, {

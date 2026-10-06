@@ -1,13 +1,11 @@
 import { assert, describe, expect, it } from "vitest";
 import {
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   PsCommandDialectSchema,
   PsModuleDialectSchema,
   PsParameterDialectSchema,
-  PsCommandIdentitySchema,
   IRCommandSchema,
-  IRCommandParameterSourceSchema,
   emptyIR,
   safeParseTransformedIR,
 } from "../src/index.js";
@@ -31,43 +29,22 @@ describe("PsModuleDialect", () => {
   });
 });
 
-describe("PsCommandIdentity", () => {
-  it("maps synthesized model properties to canonical path parameters", () => {
-    const result = PsCommandIdentitySchema.safeParse({
-      parameter: "InputObject",
-      properties: [
-        {
-          property: { module: "ElasticSan", namespace: [], name: "ElasticSanIdentity.resourceGroupName" },
-          sourceParameters: [
-            { module: "ElasticSan", namespace: [], name: "resourceGroupName" },
-          ],
-        },
-      ],
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects identity metadata with no property bindings", () => {
-    const result = PsCommandIdentitySchema.safeParse({ parameter: "InputObject", properties: [] });
-
-    expect(result.success).toBe(false);
-  });
-});
-
 describe("PsCommandDialect", () => {
   it("accepts PowerShell processor metadata on a canonical command dialect", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Remove",
-      noun: "AzWidget",
+      subject: "AzWidget",
       aliases: ["Remove-AzLegacyWidget"],
       defaultParameterSet: "ByName",
       supportsShouldProcess: true,
       confirmImpact: "High",
       examples: ["Remove-AzWidget -Name example"],
-      lifecycleTag: "GA",
+      deprecated: { message: "Use Remove-AzWidgetV2 instead." },
+      preview: {
+        message: "This command is in preview.",
+        estimatedGaDate: "2027-01-01",
+      },
       helpUri: "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
-      supportsPaging: true,
       outputTypes: [
         { kind: "model", id: { module: "Widgets", namespace: [], name: "Widget" } },
       ],
@@ -77,10 +54,20 @@ describe("PsCommandDialect", () => {
     expect(result.success).toBe(true);
   });
 
+  it("requires a message for preview metadata", () => {
+    const result = PSPreviewSchema.safeParse({ estimatedGaDate: "2027-01-01" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires a message for deprecation metadata", () => {
+    expect(PSDeprecatedSchema.safeParse({}).success).toBe(false);
+  });
+
   it("rejects an unknown ConfirmImpact value", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Remove",
-      noun: "AzWidget",
+      subject: "AzWidget",
       confirmImpact: "Critical",
     });
 
@@ -90,7 +77,7 @@ describe("PsCommandDialect", () => {
   it("rejects a malformed help URI", () => {
     const result = PsCommandDialectSchema.safeParse({
       verb: "Get",
-      noun: "AzWidget",
+      subject: "AzWidget",
       helpUri: "docs",
     });
 
@@ -98,10 +85,10 @@ describe("PsCommandDialect", () => {
   });
 
   it("defers family default validation when parsing a standalone command", () => {
-    const operation = { module: "Widgets", namespace: [], name: "getByIdentity" };
+    const operation = { module: "Widgets", namespace: [], name: "getByName" };
     const result = IRCommandSchema.safeParse({
-      id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
-      name: "GetWidgetByIdentity",
+      id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByName" },
+      name: "GetWidgetByName",
       template: "atomic",
       server: { module: "Widgets", namespace: [], name: "server" },
       steps: [
@@ -113,32 +100,13 @@ describe("PsCommandDialect", () => {
           ],
         },
       ],
-      parameters: [
-        {
-          name: "InputObject",
-          source: { kind: "synthetic" },
-          type: {
-            kind: "model",
-            id: { module: "Widgets", namespace: [], name: "WidgetIdentity" },
-          },
-          required: true,
-          nullable: false,
-          dialect: { ps: { parameterSets: [{ set: "ByIdentity", mandatory: true }] } },
-        },
-      ],
+      parameters: [],
       surface: { paginated: false },
       dialect: {
         ps: {
           verb: "Get",
-          noun: "AzWidget",
+          subject: "AzWidget",
           defaultParameterSet: "ByName",
-          identity: {
-            parameter: "InputObject",
-            properties: [{
-              property: { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" },
-              sourceParameters: [],
-            }],
-          },
         },
       },
     });
@@ -148,7 +116,7 @@ describe("PsCommandDialect", () => {
 });
 
 describe("PsParameterDialect", () => {
-  it("accepts per-set bindings, completion, and a script-derived default", () => {
+  it("accepts per-set bindings, values, validation, and lifecycle metadata", () => {
     const result = PsParameterDialectSchema.safeParse({
       name: "ResourceGroupName",
       aliases: ["ResourceGroup"],
@@ -156,17 +124,31 @@ describe("PsParameterDialect", () => {
         { set: "ByName", mandatory: true, position: 0, valueFromPipeline: true },
         { set: "ById", mandatory: false, valueFromPipelineByPropertyName: true },
       ],
-      completer: { name: "ResourceGroupCompleter" },
-      defaultValue: {
-        script: "(Get-AzContext).Subscription.Id",
-        setCondition: "$PSBoundParameters.ContainsKey('SubscriptionId')",
-      },
+      completer: [
+        { kind: "string", value: "eastus" },
+        { kind: "string", value: "westus" },
+      ],
+      defaultValue: { kind: "string", value: "eastus" },
+      validateSet: ["eastus", "westus"],
+      deprecated: { message: "Use Location instead." },
+      preview: { message: "This parameter is in preview." },
     });
 
     expect(result.success).toBe(true);
     assert(result.success);
     expect(result.data.parameterSets?.[0]?.valueFromPipeline).toBe(true);
     expect(result.data.parameterSets?.[1]?.valueFromPipelineByPropertyName).toBe(true);
+    expect(result.data.completer).toHaveLength(2);
+    expect(result.data.defaultValue).toEqual({ kind: "string", value: "eastus" });
+  });
+
+  it("rejects empty completion and validation sets", () => {
+    expect(PsParameterDialectSchema.safeParse({ completer: [] }).success).toBe(false);
+    expect(PsParameterDialectSchema.safeParse({ validateSet: [] }).success).toBe(false);
+  });
+
+  it("rejects duplicate ValidateSet values", () => {
+    expect(PsParameterDialectSchema.safeParse({ validateSet: ["eastus", "eastus"] }).success).toBe(false);
   });
 
   it("rejects duplicate parameter-set memberships", () => {
@@ -201,42 +183,12 @@ describe("PsParameterDialect", () => {
   });
 });
 
-describe("PowerShell synthetic parameters", () => {
-  it("marks a parameter as transform-synthesized without client-specific semantics", () => {
-    const result = IRCommandParameterSourceSchema.safeParse({ kind: "synthetic" });
-
-    expect(result.success).toBe(true);
-  });
-});
-
-describe("PowerShell command identity references", () => {
-  const identityId = { module: "Widgets", namespace: [], name: "WidgetIdentity" };
-  const identityPropertyId = { module: "Widgets", namespace: [], name: "WidgetIdentity.resourceGroupName" };
+describe("PowerShell parameter-set families", () => {
   const serverId = { module: "Widgets", namespace: [], name: "server" };
   const operationId = { module: "Widgets", namespace: [], name: "get" };
   const pathParameterId = { module: "Widgets", namespace: [], name: "get.resourceGroupName" };
   const apiVersion = { value: "2025-01-01", location: "query", parameterName: "api-version" };
-  const identityModel = {
-    id: identityId,
-    name: "WidgetIdentity",
-    source: "Widgets",
-    properties: [{
-      id: identityPropertyId,
-      name: "ResourceGroupName",
-      wireName: "resourceGroupName",
-      typeKind: "primitive" as const,
-      type: { kind: "primitive" as const, name: "string" as const },
-      optional: false,
-      nullable: false,
-    }],
-  };
-
-  function document({
-    parameterType = identityId,
-    sourceParameters = [pathParameterId],
-    identityParameter = "InputObject",
-    property = identityPropertyId,
-  } = {}) {
+  function document() {
     return {
       ...emptyIR(),
       sources: [{
@@ -247,7 +199,6 @@ describe("PowerShell command identity references", () => {
         server: serverId,
       }],
       servers: [{ id: serverId, endpoint: { kind: "literal", url: "https://example.com" } }],
-      models: [identityModel],
       operations: [{
         id: operationId,
         name: "get",
@@ -269,8 +220,8 @@ describe("PowerShell command identity references", () => {
         server: serverId,
       }],
       commands: [{
-        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByIdentity" },
-        name: "GetWidgetByIdentity",
+        id: { module: "Widgets", subject: "Widget", action: "Get", variant: "ByName" },
+        name: "GetWidgetByName",
         template: "atomic",
         server: serverId,
         steps: [{
@@ -278,22 +229,20 @@ describe("PowerShell command identity references", () => {
           request: { method: "GET", path: [], query: [], headers: [] },
           responses: [{ statusCodes: [{ kind: "exact", code: 200 }], isError: false }],
         }],
-        parameters: [{
-          name: "InputObject",
-          source: { kind: "synthetic" },
-          type: { kind: "model", id: parameterType },
-          required: true,
-          nullable: false,
-        }],
+        parameters: [
+          {
+            name: "ResourceGroupName",
+            source: { kind: "path", parameter: pathParameterId },
+            type: { kind: "primitive", name: "string" },
+            required: true,
+            nullable: false,
+          },
+        ],
         surface: { paginated: false },
         dialect: {
           ps: {
             verb: "Get",
-            noun: "AzWidget",
-            identity: {
-              parameter: identityParameter,
-              properties: [{ property, sourceParameters }],
-            },
+            subject: "AzWidget",
           },
         },
       }],
@@ -349,76 +298,4 @@ describe("PowerShell command identity references", () => {
     }
   });
 
-  it("rejects an identity that names no synthetic model parameter", () => {
-    const result = safeParseTransformedIR(document({ identityParameter: "Missing" }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const identityIssues = result.error.issues.filter((issue) => issue.path.includes("identity"));
-      expect(identityIssues).toEqual([
-        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "identity", "parameter"] }),
-      ]);
-    }
-  });
-
-  it("accepts a synthetic model parameter with command-specific identity bindings", () => {
-    expect(safeParseTransformedIR(document()).success).toBe(true);
-  });
-
-  it("rejects an identity parameter whose model does not exist", () => {
-    const result = safeParseTransformedIR(document({
-      parameterType: { ...identityId, name: "OtherIdentity" },
-    }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "parameters", 0, "type", "id"] }),
-      ]));
-    }
-  });
-
-  it("rejects an identity property bound to a non-path declaration", () => {
-    const result = safeParseTransformedIR(document({ sourceParameters: [operationId] }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          path: ["commands", 0, "dialect", "ps", "identity", "properties", 0, "sourceParameters", 0],
-        }),
-      ]));
-    }
-  });
-
-  it("rejects an identity property outside the parameter model", () => {
-    const result = safeParseTransformedIR(document({ property: pathParameterId }));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          path: ["commands", 0, "dialect", "ps", "identity", "properties", 0, "property"],
-        }),
-      ]));
-    }
-  });
-});
-
-describe("PowerShell attribute metadata", () => {
-  it.each([
-    ["script", { script: "Get-Thing" }],
-    ["name", { name: "LocationCompleter" }],
-    ["description", { description: "Completes locations." }],
-  ])("accepts a completer carrying only %s", (_field, value) => {
-    expect(PSCompleterAttributeSchema.safeParse(value).success).toBe(true);
-  });
-
-  it("rejects an empty completer", () => {
-    expect(PSCompleterAttributeSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("requires a script for a default value", () => {
-    expect(PSDefaultValueAttributeSchema.safeParse({ name: "Subscription" }).success).toBe(false);
-  });
 });

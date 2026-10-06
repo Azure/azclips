@@ -78,7 +78,7 @@ describe("ps.derive step", () => {
       context,
     );
     expect(out.commands).toHaveLength(1);
-    expect(out.commands[0]!.dialect?.ps?.noun).toBe("AzTestThings");
+    expect(out.commands[0]!.dialect?.ps?.subject).toBe("AzTestThings");
   });
 
   it("rejects an unknown option", () => {

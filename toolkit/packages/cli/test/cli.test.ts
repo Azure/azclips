@@ -10,13 +10,13 @@
  * emitted text without polluting the test reporter.
  */
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { IR_SCHEMA_VERSION, idEquals, idKey, parseIR, parseTransformedIR, type IR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, idEquals, parseIR, parseTransformedIR, type IR } from "@azure-client-engine/ir";
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
@@ -226,39 +226,7 @@ describe("ace compile: configured pipeline", () => {
       expect(withPs.target.dialect?.ps).toMatchObject({ name: "PetStore", prefix: "Az" });
       const dialects = withPs.commands.map((command) => command.dialect?.ps);
       expect(dialects.length).toBeGreaterThan(0);
-      expect(dialects.every((ps) => ps!.noun.startsWith("Az"))).toBe(true);
-
-      const pathParameters = new Map(
-        withPs.operations.flatMap((operation) =>
-          operation.pathParameters.map((parameter) => [idKey(parameter.id), parameter] as const),
-        ),
-      );
-      const identityCommands = withPs.commands.filter(
-        (command) => command.dialect?.ps?.identity !== undefined,
-      );
-      expect(identityCommands.length).toBeGreaterThan(0);
-
-      for (const command of identityCommands) {
-        const identity = command.dialect!.ps!.identity!;
-        const inputObject = command.parameters.find((parameter) => parameter.name === identity.parameter);
-        expect(inputObject?.source).toEqual({ kind: "synthetic" });
-        expect(inputObject?.type.kind).toBe("model");
-        if (inputObject?.type.kind !== "model") continue;
-
-        const model = withPs.models.find((candidate) => idEquals(candidate.id, inputObject.type.id));
-        expect(model?.usage).toContain("input");
-        expect(identity.properties.length).toBeGreaterThan(0);
-        for (const binding of identity.properties) {
-          const property = model?.properties.find((candidate) => idEquals(candidate.id, binding.property));
-          expect(property).toBeDefined();
-          expect(binding.sourceParameters.length).toBeGreaterThan(0);
-          for (const sourceParameter of binding.sourceParameters) {
-            const declaration = pathParameters.get(idKey(sourceParameter));
-            expect(declaration).toBeDefined();
-            expect(property?.wireName).toBe(declaration?.wireName);
-          }
-        }
-      }
+      expect(dialects.every((ps) => ps!.subject.startsWith("Az"))).toBe(true);
     },
   );
 });
@@ -475,6 +443,56 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     ]);
     expect(code).toBe(0);
     expect(existsSync(join(outDir, "ir"))).toBe(false);
+  });
+});
+
+describe("ace compile: --entrypoint", () => {
+  it("compiles an entrypoint whose imports reach outside its own directory", async () => {
+    // The entry imports a sibling directory, which survives staging only because
+    // --tsp-location copies their common root.
+    const root = join(dir, "ep-tree");
+    mkdirSync(join(root, "service"), { recursive: true });
+    mkdirSync(join(root, "shared"), { recursive: true });
+    copyFileSync(PETS_TSP, join(root, "shared", "pets.tsp"));
+    writeFileSync(join(root, "service", "main.tsp"), 'import "../shared/pets.tsp";\n', "utf8");
+    // Emit and transforms only, so this runs without the .NET generator host.
+    const configPath = join(dir, "no-generator.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { csharp: false } }), "utf8");
+
+    const outDir = join(dir, "ep-out");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      root,
+      "--entrypoint",
+      join("service", "main.tsp"),
+      "--config",
+      configPath,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code, err).toBe(0);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      expect(parseSnapshot(file).models.some((m) => m.name === "Pet")).toBe(true);
+    }
+  });
+
+  it("rejects an --entrypoint outside --tsp-location", async () => {
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--entrypoint",
+      join(dir, "good.json"),
+      "--out-dir",
+      join(dir, "ep-outside"),
+    ]);
+    expect(code).toBe(1);
+    expect(err).toContain("--entrypoint");
   });
 });
 

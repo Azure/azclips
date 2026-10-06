@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { IR_SCHEMA_VERSION, idKey, parseIR, parseTransformedIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, parseIR, parseTransformedIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
 import type { TransformContext } from "@azure-client-engine/compiler";
 import { createCommandStep } from "../../src/create-command-step.js";
 import { deriveDialect } from "../../src/ps/derive.js";
@@ -80,7 +80,7 @@ describe("deriveDialect", () => {
     const command = out.commands[0]!;
 
     expect(command.dialect?.ps?.verb).toBe("Get");
-    expect(command.dialect?.ps?.noun).toBe("AzWidgets");
+    expect(command.dialect?.ps?.subject).toBe("AzWidgets");
     // One implicit set -- naming it would be noise nothing declares.
     expect(command.dialect?.ps?.defaultParameterSet).toBeUndefined();
   });
@@ -98,7 +98,7 @@ describe("deriveDialect", () => {
     expect(out.commands).toHaveLength(2);
     const ps = out.commands.map((c) => c.dialect?.ps);
     expect(ps.every((p) => p?.verb === "Get")).toBe(true);
-    expect(new Set(ps.map((p) => p?.noun)).size).toBe(1);
+    expect(new Set(ps.map((p) => p?.subject)).size).toBe(1);
   });
 
   it("names one family default on every sibling", () => {
@@ -150,14 +150,12 @@ describe("deriveDialect", () => {
     expect(parameter.dialect?.ps?.parameterSets).toEqual([{ set: "ByResourceGroup", mandatory: true }]);
   });
 
-  it("places a path parameter only in the normal set when ViaIdentity is available", () => {
+  it("leaves parameter-set membership implicit for a single-command family", () => {
     const out = deriveDialect(
       transform([operation({ pathParameters: [pathParam("id")] })]),
     );
 
-    expect(out.commands[0]!.parameters[0]!.dialect?.ps?.parameterSets).toEqual([
-      { set: "Get", mandatory: true },
-    ]);
+    expect(out.commands[0]!.parameters[0]!.dialect?.ps?.parameterSets).toBeUndefined();
   });
 
   it("shortens a path parameter that restates the subject, keeping the full name as an alias", () => {
@@ -170,7 +168,7 @@ describe("deriveDialect", () => {
     expect(parameter.dialect?.ps?.aliases).toEqual(["WidgetsName"]);
   });
 
-  it("derives module metadata and one canonical identity model referenced by each InputObject", () => {
+  it("derives module metadata without adding models or parameters", () => {
     const get = operation({
       pathParameters: [pathParam("resourceGroupName"), pathParam("widgetsName")],
     });
@@ -194,43 +192,20 @@ describe("deriveDialect", () => {
       prefix: "Az",
       subjectPrefix: "Contoso",
     });
-    const identity = out.models.find((model) => model.name === "ContosoIdentity")!;
-    expect(identity).toMatchObject({
-      name: "ContosoIdentity",
-      usage: ["input"],
-      properties: [
-        { name: "ResourceGroupName", wireName: "resourceGroupName" },
-        { name: "WidgetsName", wireName: "widgetsName" },
-      ],
-    });
-
-    for (const command of out.commands) {
-      const inputObject = command.parameters.find(
-        (parameter) => parameter.source.kind === "synthetic",
-      )!;
-      expect(inputObject.type).toEqual({ kind: "model", id: identity.id });
-      expect(inputObject.source).toEqual({ kind: "synthetic" });
-      expect(command.dialect?.ps?.identity?.parameter).toBe(inputObject.name);
-      expect(command.dialect?.ps?.identity?.properties).toHaveLength(2);
-      expect(command.dialect?.ps?.identity?.properties.every((binding) =>
-        identity.properties.some((property) => idKey(property.id) === idKey(binding.property)) &&
-        binding.sourceParameters.length === 1,
-      )).toBe(true);
-    }
+    expect(out.models).toEqual([]);
+    expect(out.commands.every((command) => command.parameters.length === 2)).toBe(true);
     expect(() => parseTransformedIR(out)).not.toThrow();
   });
 
-  it("derives identity parameters idempotently", () => {
+  it("derives dialect metadata idempotently", () => {
     const out = deriveDialect(
       transform([operation({ pathParameters: [pathParam("widgetsName")] })]),
     );
 
+    const once = structuredClone(out);
     deriveDialect(out);
 
-    expect(out.models.filter((model) => model.name === "WidgetsIdentity")).toHaveLength(1);
-    expect(out.commands[0]!.parameters.filter(
-      (parameter) => parameter.source.kind === "synthetic",
-    )).toHaveLength(1);
+    expect(out).toEqual(once);
     expect(() => parseTransformedIR(out)).not.toThrow();
   });
 
