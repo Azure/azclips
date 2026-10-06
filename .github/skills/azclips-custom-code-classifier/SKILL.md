@@ -134,3 +134,22 @@ Blacklisted behavior still gets a row, with `drop:` and the matching entry as it
 ## Common Mistakes To Avoid
 - Do not treat every upstream custom function as an Azclips customization. Single-call custom behavior may only need a small split request or lifecycle hook override.
 - Do not port blacklisted validation just because more than one upstream project contains it.
+
+## Next Step
+
+End the output by telling the user to review the table, then run `/integrate-spec` to turn the features they keep into an OpenSpec change. Give them the invocation pre-filled from this run's target and the `Action` column, so they only edit the rows they disagree with:
+
+```text
+/integrate-spec
+
+Target API:
+- Service module: <service module>
+- Resource: <resource>
+- Action: <action>
+
+Implement F1, F2, F3 using the recommended action.
+Implement F10 for PowerShell only.
+Drop F6, F8, F12, F13.
+```
+
+Those last three lines are the selection vocabulary, not literal IDs: one line per group of features taking the same decision. `eng-docs/howto/integrate-custom-code-agent.md` owns the rest of the chain.
