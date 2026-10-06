@@ -35,10 +35,10 @@ Unknown keys are rejected unless -Force is specified.
 
 ### Set output format
 
-Update the `output.format` setting to `json` so that subsequent commands emit JSON output by default.
+Update the `clients.powershell.output.format` setting to `json` so that subsequent commands emit JSON output by default.
 
 ```powershell
-Set-AzConfig -Key output.format -Value json
+Set-AzConfig -Key clients.powershell.output.format -Value json
 ```
 
 ### Set custom key with force

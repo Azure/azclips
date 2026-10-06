@@ -28,17 +28,17 @@ Get-AzConfig -Key <string> [<CommonParameters>]
 ## DESCRIPTION
 
 Get the current value of a configuration setting by key.
-Configuration keys use dot notation (e.g., output.format, core.debug).
+Configuration keys use dot notation (e.g., clients.powershell.output.format, core.logging.level).
 If the key is not found, an error is displayed.
 
 ## EXAMPLES
 
 ### Get a configuration value
 
-Return the current value of the `output.format` configuration setting.
+Return the current value of the `clients.powershell.output.format` configuration setting.
 
 ```powershell
-Get-AzConfig -Key output.format
+Get-AzConfig -Key clients.powershell.output.format
 ```
 
 ### Get a configuration section

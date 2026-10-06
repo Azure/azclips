@@ -35,10 +35,10 @@ Unknown keys are rejected unless -Force is specified.
 
 ### Delete a configuration value
 
-Remove the `output.format` setting. The configuration will revert to its default value (if one exists).
+Remove the `clients.powershell.output.format` setting. The configuration will revert to its default value.
 
 ```powershell
-Remove-AzConfig -Key output.format
+Remove-AzConfig -Key clients.powershell.output.format
 ```
 
 ### Force delete

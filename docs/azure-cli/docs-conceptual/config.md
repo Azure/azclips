@@ -179,7 +179,7 @@ az config list --all
 
 ```bash
 # Delete all user-set config
-az config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
+az config list --query "[].key" --output tsv | while IFS= read -r key; do
   az config delete --key "$key" --force
 done
 ```

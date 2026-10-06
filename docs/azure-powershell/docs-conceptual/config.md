@@ -133,8 +133,7 @@ Get-AzConfigList -IncludeDefaults
 ### Workflow: Reset to defaults
 
 ```powershell
-Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
-  $key = ($_ -split ' = ')[0]
-  Remove-AzConfig -Key $key -Force
+Get-AzConfigList | ForEach-Object {
+  Remove-AzConfig -Key $_.Key -Force
 }
 ```
