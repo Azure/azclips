@@ -665,8 +665,11 @@ public partial class FlattenedMember
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 
     [JsonPropertyName("optional")]
     public bool Optional { get; set; }
@@ -680,8 +683,11 @@ public partial class FlattenedParameter
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 
     [JsonPropertyName("required")]
     public bool Required { get; set; }
@@ -831,11 +837,11 @@ public partial class IRCommandPagination
     [JsonPropertyName("itemType")]
     public IRTypeRef ItemType { get; set; } = default !;
 
-    [JsonPropertyName("itemsPath")]
-    public IReadOnlyList<IRId> ItemsPath { get; set; } = [];
+    [JsonPropertyName("items")]
+    public IRPropertyRef Items { get; set; } = default !;
 
-    [JsonPropertyName("nextLinkPath")]
-    public IReadOnlyList<IRId>? NextLinkPath { get; set; }
+    [JsonPropertyName("nextLink")]
+    public IRPropertyRef? NextLink { get; set; }
 
     [JsonPropertyName("nextLinkVerb")]
     public IRCommandPaginationNextLinkVerb? NextLinkVerb { get; set; }
@@ -900,8 +906,11 @@ public abstract partial class IRCommandParameterSource
 
 public partial class IRCommandParameterSourceBody : IRCommandParameterSource
 {
-    [JsonPropertyName("path")]
-    public IReadOnlyList<IRId> Path { get; set; } = [];
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 }
 
 public partial class IRCommandParameterSourceHeader : IRCommandParameterSource
@@ -1788,6 +1797,15 @@ public partial class IRPropertyPrimitive : IRProperty
 
     [JsonPropertyName("rendering")]
     public ValuePropertyHints? Rendering { get; set; }
+}
+
+public partial class IRPropertyRef
+{
+    [JsonPropertyName("property")]
+    public IRId Property { get; set; } = default !;
+
+    [JsonPropertyName("via")]
+    public IReadOnlyList<IRId> Via { get; set; } = [];
 }
 
 public partial class IRPropertyUnion : IRProperty

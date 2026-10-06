@@ -7,11 +7,13 @@ namespace Scenario.Tests;
 /// <summary>
 /// Stands in for ARM behind the vm create orchestration. Responses carry the ids the
 /// orchestrators read from each step, and the vm create is a real LRO with two polls.
+/// Public IPs are remembered once PUT, so an unknown name answers 404.
 /// </summary>
 internal sealed class FakeVmArmBackend : HttpMessageHandler
 {
     private readonly string _subscriptionId;
     private int _vmPolls;
+    private readonly HashSet<string> _publicIps = new(StringComparer.OrdinalIgnoreCase);
 
     public FakeVmArmBackend(string subscriptionId)
     {
@@ -40,6 +42,110 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
         {
             _vmPolls++;
             return Task.FromResult(Json(new { status = _vmPolls < 2 ? "InProgress" : "Succeeded" }, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.EndsWith("/versions", StringComparison.OrdinalIgnoreCase))
+        {
+            var imageVersion = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "2022.0.202409010"
+                : path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase)
+                ? "with-plan"
+                : path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? "9.0.0"
+                : "22.04.202409010";
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            object[] versions = path.Contains("/publishers/VersionTest/", StringComparison.OrdinalIgnoreCase)
+                ? new object[]
+                {
+                    new
+                    {
+                        name = "9.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
+                    },
+                    new
+                    {
+                        name = "10.0.0",
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = (object?)null
+                        }
+                    }
+                }
+                : new object[]
+                {
+                    new
+                    {
+                        name = imageVersion,
+                        properties = new
+                        {
+                            osDiskImage = new { operatingSystem },
+                            plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                        }
+                    }
+                };
+
+            return Task.FromResult(Json(versions, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/artifactTypes/vmImage/", StringComparison.OrdinalIgnoreCase)
+            && path.Contains("/versions/", StringComparison.OrdinalIgnoreCase))
+        {
+            var operatingSystem = path.Contains("/publishers/MicrosoftWindowsServer/", StringComparison.OrdinalIgnoreCase)
+                ? "Windows"
+                : "Linux";
+            var hasPlan = path.Contains("/publishers/Contoso/", StringComparison.OrdinalIgnoreCase);
+
+            return Task.FromResult(Json(new
+            {
+                name,
+                properties = new
+                {
+                    hyperVGeneration = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase) ? "V2" : null,
+                    features = path.Contains("/publishers/TrustedLaunchTest/", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { new { name = "SecurityType", value = "TrustedLaunch" } }
+                        : Array.Empty<object>(),
+                    osDiskImage = new { operatingSystem },
+                    plan = hasPlan ? new { name = "plan-name", product = "plan-product", publisher = "plan-publisher" } : null
+                }
+            }, HttpStatusCode.OK));
+        }
+
+        if (path.Contains("/publicIPAddresses/", StringComparison.OrdinalIgnoreCase))
+        {
+            // Requests fan out in parallel, so guard the set.
+            lock (_publicIps)
+            {
+                if (request.Method == HttpMethod.Put)
+                {
+                    _publicIps.Add(name);
+                }
+                else if (!_publicIps.Contains(name))
+                {
+                    return Task.FromResult(Json(new
+                    {
+                        error = new { code = "ResourceNotFound", message = $"The Resource 'Microsoft.Network/publicIPAddresses/{name}' under resource group 'scenario-vm-rg' was not found." },
+                    }, HttpStatusCode.NotFound));
+                }
+            }
+
+            return Task.FromResult(Json(new
+            {
+                id = Id("Microsoft.Network/publicIPAddresses", name),
+                name,
+                location = "westus2",
+                sku = new { name = "Standard" },
+                properties = new { provisioningState = "Succeeded", publicIPAllocationMethod = "Static", ipAddress = "203.0.113.10" },
+            }, HttpStatusCode.OK));
         }
 
         if (path.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase))

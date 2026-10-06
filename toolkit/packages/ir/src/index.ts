@@ -54,6 +54,11 @@ export {
 } from "./type-ref.js";
 
 export {
+  IRPropertyRefSchema,
+  type IRPropertyRef,
+} from "./property-ref.js";
+
+export {
   IRDiscriminatedUnionSchema,
   IRDiscriminatedUnionVariantSchema,
   type IRDiscriminatedUnion,

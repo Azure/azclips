@@ -361,7 +361,7 @@ public sealed class ProfileCliTests
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Equal("alice@contoso.com", fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
         // The profile definition itself is retained; only the active pointer is cleared.
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("prod"));
@@ -376,7 +376,7 @@ public sealed class ProfileCliTests
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Null(fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
     }
 

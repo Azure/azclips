@@ -353,15 +353,16 @@ generator remains unsupported.
 
 ## Flattening
 
-IR 0.12.0 records property flattening as *resolved* rendering metadata, so a
+The IR records property flattening as *resolved* rendering metadata, so a
 transform decides naming and collisions once and the generator does not
 re-derive them.
 
 `ModelHints.flattened` lists the members hoisted onto a model from nested object
-properties. Each entry carries the final C#-facing `name`, the `path` of
-property ids from the containing model down to the leaf (at least two entries,
-since a flattened member always crosses a nesting hop), `optional` (true when
-any hop is optional), and the `visibility` phases every hop shares. An absent
+properties. Each entry carries the final C#-facing `name`, the leaf `property`
+id, the `via` ids of the container properties walked from the containing model
+to reach it (outermost first, and at least one, since a flattened member always
+crosses a nesting hop), `optional` (true when any hop is optional), and the
+`visibility` phases every hop shares. An absent
 `visibility` means unconstrained, matching `IRProperty.visibility`. The list
 belongs to the model because collision resolution considers the model's whole
 member set, and because every payload use site must agree on the result.
@@ -371,17 +372,41 @@ surface when `flatten.into` is `self`. Entries are deliberately not references
 into the body model's `flattened` table: the projection filters by HTTP binding
 and lifecycle phase, and resolves names against *that* operation's path, query,
 and header parameters, so two operations sharing a body model can legitimately
-disagree. A single-entry `path` is a top-level body property promoted as-is.
+disagree. An empty `via` is a top-level body property promoted as-is.
 
 `IRModel.properties` is untouched by either field. The IR keeps wire truth — the
 wire path is each hop's `wireName` — and ids are invariant under renaming
-transforms, so the paths stay correct however members are later renamed.
+transforms, so the references stay correct however members are later renamed.
 
 `flattenModelStep` populates both fields, and the C# generator consumes them —
 see [Flattening](../packages/generator/README.md#flattening) for the emitted
-shape. Unlike the 0.8.0/0.9.0/0.11.0 changes, both fields are optional additions,
-so existing captures remain valid and do not need regeneration. Regenerate the IR
-JSON Schema and the C# POCOs to pick up the new types.
+shape. Both fields are optional, so captures predating 0.12.0 remain valid.
+IR 0.13.0 split 0.12.0's id `path` into `property` + `via` — the shared
+`IRPropertyRef` shape that a command's body-parameter source and pagination
+`items`/`nextLink` also use — so 0.12.0 captures carrying flattening or commands
+must be regenerated. Regenerate the IR JSON Schema and the C# POCOs to pick up
+the new types.
+
+### When a nested model is flattened
+
+Each object property typed as a named model is decided bottom-up, so a nested
+model has already flattened its own members by the time its container considers
+it:
+
+- A `properties` or `error` container — the ARM resource and error envelopes —
+  always flattens, whatever its size.
+- Any other container flattens only while the nested model renders fewer members
+  than the **inlining threshold, 100 by default**.
+
+The count is cumulative: the nested model's own properties that were not
+themselves flattened, plus every member flattened into it. A model declaring 98
+scalars and one 2-member nested model therefore counts 100 and stays nested,
+although it declares only 99 properties.
+
+The threshold is a generation-time setting only — `inliningThreshold` in the
+`flatten-model` stage options, beside `noInline`, which keeps named models nested
+whatever their size. Spec decorators such as `@flattenProperty` do not raise or
+bypass it.
 
 ### Visibility of what was flattened through
 

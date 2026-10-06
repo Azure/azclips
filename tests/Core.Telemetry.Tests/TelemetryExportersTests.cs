@@ -61,14 +61,30 @@ public class TelemetryExportersTests
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 
+    [Fact]
+    public void ResolveAriaExporter_ReturnsRowEndpoint_ForConfirmedGlobalBoundary()
+    {
+        var exporter = TelemetryExporters.ResolveAriaExporter("Global");
+
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, exporter.Endpoint);
+    }
+
+    // Fail-closed: a missing/unresolved/unrecognized boundary must NEVER be treated as a
+    // confirmed non-EU tenant (which "rounding to Global" would do) -- only ARM's genuine
+    // "Global" answer may route to ROW. See DataBoundaryRouting.IsConfirmedGlobal.
+    // (null is deliberately not covered here: ResolveAriaExporter(null) reads the active
+    // profile's cache via DataBoundaryResolver, which depends on ambient AZCLIPS_HOME state
+    // rather than being a pure function of the input string.)
     [Theory]
-    [InlineData("Global")]
+    [InlineData("")]
     [InlineData("unknown")]
-    public void ResolveAriaExporter_ReturnsGlobalEndpoint_ForNonEuBoundary(string? dataBoundary)
+    [InlineData("APAC")] // unrecognized/future value
+    public void ResolveAriaExporter_ReturnsEuEndpoint_ForUnconfirmedBoundary(string? dataBoundary)
     {
         var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
 
-        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
-        Assert.Null(exporter.Endpoint);
+        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 }

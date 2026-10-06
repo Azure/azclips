@@ -46,19 +46,20 @@ public sealed class FlatteningTests
     private static IRModel Model(string name, params IRProperty[] properties) =>
         new() { Id = Id(name), Name = name, Source = Module, Properties = properties };
 
-    private static FlattenedMember Member(string name, bool optional, params IRId[] path) =>
-        new() { Name = name, Path = path, Optional = optional };
+    private static FlattenedMember Member(string name, bool optional, IRId property, params IRId[] via) =>
+        new() { Name = name, Property = property, Via = via, Optional = optional };
 
     /// <summary>A member no hop exposes for create or update — server-owned.</summary>
-    private static FlattenedMember ReadOnly(string name, bool optional, params IRId[] path) =>
-        new() { Name = name, Path = path, Optional = optional, Visibility = [FlattenedMemberVisibility.Read] };
+    private static FlattenedMember ReadOnly(string name, bool optional, IRId property, params IRId[] via) =>
+        new() { Name = name, Property = property, Via = via, Optional = optional, Visibility = [FlattenedMemberVisibility.Read] };
 
     /// <summary>A member whose hops intersect on a write phase, so it stays settable.</summary>
-    private static FlattenedMember Writable(string name, bool optional, params IRId[] path) =>
+    private static FlattenedMember Writable(string name, bool optional, IRId property, params IRId[] via) =>
         new()
         {
             Name = name,
-            Path = path,
+            Property = property,
+            Via = via,
             Optional = optional,
             Visibility = [FlattenedMemberVisibility.Read, FlattenedMemberVisibility.Update],
         };
@@ -74,9 +75,9 @@ public sealed class FlatteningTests
             Flattened =
             [
                 // Required the whole way down: a plain `.` chain and a non-nullable accessor.
-                Member("Size", false, Id("Thing.properties"), Id("ThingProperties.size")),
+                Member("Size", false, Id("ThingProperties.size"), via: [Id("Thing.properties")]),
                 // Crosses an optional hop, so it widens to nullable.
-                Member("SkuName", true, Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                Member("SkuName", true, Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
             ],
         };
 
@@ -86,7 +87,7 @@ public sealed class FlatteningTests
             Obj("ThingProperties", "Sku", "Sku"));
         thingProperties.Rendering = new ModelHints
         {
-            Flattened = [Member("SkuName", true, Id("ThingProperties.sku"), Id("Sku.name"))],
+            Flattened = [Member("SkuName", true, Id("Sku.name"), via: [Id("ThingProperties.sku")])],
         };
 
         var ir = new TransformedIR
@@ -125,11 +126,11 @@ public sealed class FlatteningTests
             [
                 Commands.Parameter(
                     "Size",
-                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.size")),
+                    Commands.FromBody(Id("ThingProperties.size"), via: [Id("Thing.properties")]),
                     new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int64 }),
                 Commands.Parameter(
                     "SkuName",
-                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    Commands.FromBody(Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
                     required: false),
             ]);
 
@@ -150,8 +151,8 @@ public sealed class FlatteningTests
                 Flatten = new FlattenHint { Into = FlattenHintInto.Self },
                 Parameters = parameters ??
                 [
-                    new FlattenedParameter { Name = "Size", Path = [Id("Thing.properties"), Id("ThingProperties.size")], Required = true },
-                    new FlattenedParameter { Name = "SkuName", Path = [Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")], Required = false },
+                    new FlattenedParameter { Name = "Size", Property = Id("ThingProperties.size"), Via = [Id("Thing.properties")], Required = true },
+                    new FlattenedParameter { Name = "SkuName", Property = Id("Sku.name"), Via = [Id("Thing.properties"), Id("ThingProperties.sku")], Required = false },
                 ],
             },
         },
@@ -240,7 +241,7 @@ public sealed class FlatteningTests
     }
 
     [Fact]
-    public async Task A_Renamed_Body_Parameter_Still_Resolves_To_Its_Model_Member_By_Path()
+    public async Task A_Renamed_Body_Parameter_Still_Resolves_To_Its_Model_Member_By_Id()
     {
         TransformedIR ir = Document();
         // The transform renames a body parameter when it collides with an operation
@@ -251,7 +252,8 @@ public sealed class FlatteningTests
                 new FlattenedParameter
                 {
                     Name = "ThingSkuName",
-                    Path = [Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")],
+                    Property = Id("Sku.name"),
+                    Via = [Id("Thing.properties"), Id("ThingProperties.sku")],
                     Required = false,
                 },
             ]),
@@ -261,7 +263,7 @@ public sealed class FlatteningTests
             Command([
                 Commands.Parameter(
                     "ThingSkuName",
-                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                    Commands.FromBody(Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
                     required: false),
             ]),
         ];
@@ -275,15 +277,44 @@ public sealed class FlatteningTests
     }
 
     [Fact]
-    public async Task An_Unresolvable_Path_Warns_And_Skips_Only_That_Member()
+    public async Task A_Body_Parameter_With_No_Containers_Delegates_To_The_Property_Itself()
+    {
+        TransformedIR ir = Document();
+        // An empty `via` names the body model's own property, so no flattened accessor is involved.
+        ir.Operations =
+        [
+            Operation([
+                new FlattenedParameter { Name = "Properties", Property = Id("Thing.properties"), Via = [], Required = true },
+            ]),
+        ];
+        ir.Commands =
+        [
+            Command([
+                Commands.Parameter(
+                    "Properties",
+                    Commands.FromBody(Id("Thing.properties")),
+                    new IRTypeRefModel { Id = Id("ThingProperties") }),
+            ]),
+        ];
+
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
+
+        Assert.Empty(result.Diagnostics);
+        string processor = files.Files.Source(result, "CreateProcessor");
+        Assert.Contains("public ThingProperties? Properties { get => Body?.Properties;", processor);
+        AssertParses(processor);
+    }
+
+    [Fact]
+    public async Task An_Unresolvable_Member_Warns_And_Skips_Only_That_Member()
     {
         TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
             Flattened =
             [
-                Member("Size", false, Id("Thing.properties"), Id("ThingProperties.size")),
-                Member("Ghost", true, Id("Thing.properties"), Id("ThingProperties.missing")),
+                Member("Size", false, Id("ThingProperties.size"), via: [Id("Thing.properties")]),
+                Member("Ghost", true, Id("ThingProperties.missing"), via: [Id("Thing.properties")]),
             ],
         };
 
@@ -359,8 +390,8 @@ public sealed class FlatteningTests
         {
             Flattened =
             [
-                ReadOnly("Size", false, Id("Thing.properties"), Id("ThingProperties.size")),
-                Member("SkuName", true, Id("Thing.properties"), Id("ThingProperties.sku"), Id("Sku.name")),
+                ReadOnly("Size", false, Id("ThingProperties.size"), via: [Id("Thing.properties")]),
+                Member("SkuName", true, Id("Sku.name"), via: [Id("Thing.properties"), Id("ThingProperties.sku")]),
             ],
         };
 
@@ -384,7 +415,7 @@ public sealed class FlatteningTests
         TransformedIR ir = Document();
         ir.Models[0].Rendering = new ModelHints
         {
-            Flattened = [Writable("Size", false, Id("Thing.properties"), Id("ThingProperties.size"))],
+            Flattened = [Writable("Size", false, Id("ThingProperties.size"), via: [Id("Thing.properties")])],
         };
 
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
@@ -407,7 +438,8 @@ public sealed class FlatteningTests
                 new FlattenedParameter
                 {
                     Name = "Ghost",
-                    Path = [Id("Thing.properties"), Id("ThingProperties.missing")],
+                    Property = Id("ThingProperties.missing"),
+                    Via = [Id("Thing.properties")],
                     Required = false,
                 },
             ]),
@@ -417,7 +449,7 @@ public sealed class FlatteningTests
             Command([
                 Commands.Parameter(
                     "Ghost",
-                    Commands.FromBody(Id("Thing.properties"), Id("ThingProperties.missing")),
+                    Commands.FromBody(Id("ThingProperties.missing"), via: [Id("Thing.properties")]),
                     required: false),
             ]),
         ];
