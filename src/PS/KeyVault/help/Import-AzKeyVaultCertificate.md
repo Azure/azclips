@@ -41,7 +41,8 @@ Imports a PFX/PKCS#12 or PEM file limited to 1 MiB. PEM requires a PKCS#8 privat
 Read a password securely and import an encrypted PFX.
 
 ```powershell
-$password = Read-Host 'PFX password' -AsSecureString
+$Host.UI.Write('PFX password: ')
+$password = $Host.UI.ReadLineAsSecureString()
 Import-AzKeyVaultCertificate -VaultName myvault -Name app-tls -FilePath ./app.pfx -Password $password
 ```
 
