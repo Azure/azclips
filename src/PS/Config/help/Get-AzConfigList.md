@@ -50,14 +50,6 @@ Include default values for keys that have not been explicitly set.
 Get-AzConfigList -IncludeDefaults
 ```
 
-### Export configuration
-
-Export structured configuration entries for downstream scripting.
-
-```powershell
-Get-AzConfigList -IncludeDefaults | Export-Csv -NoTypeInformation config.csv
-```
-
 ## PARAMETERS
 
 ### -IncludeDefaults

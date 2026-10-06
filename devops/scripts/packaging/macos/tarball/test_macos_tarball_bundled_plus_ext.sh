@@ -307,10 +307,10 @@ fi
 echo ""
 echo "[6/15] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
-get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
+get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level --query "[0].value" 2>/dev/null || true)
 echo "  $set_output"
 echo "  $get_output"
-if echo "$get_output" | grep -q "core.logging.level = debug"; then
+if [[ "$get_output" == "debug" ]]; then
   echo "  PASS: Bundled Config commands work"
 else
   echo "  FAIL: Bundled Config commands did not return expected value"

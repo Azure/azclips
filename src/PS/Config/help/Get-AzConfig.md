@@ -41,12 +41,12 @@ Return the current value of the `output.format` configuration setting.
 Get-AzConfig -Key output.format
 ```
 
-### Format output as JSON
+### Get a configuration section
 
-Serialize the structured configuration entry for downstream scripting.
+Return structured entries whose keys are relative to the requested section.
 
 ```powershell
-Get-AzConfig -Key output.format | ConvertTo-Json
+Get-AzConfig -Key core
 ```
 
 ## PARAMETERS
