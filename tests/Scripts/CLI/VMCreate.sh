@@ -37,7 +37,7 @@
 # with the generated private key at "$KEY_FILE" to test SSH manually during a run.
 #
 # To preserve resources for portal/SSH inspection, temporarily comment out the
-# cleanup trap/block below or set AZCLIPS_RESOURCE_GROUP to a group you manage.
+# cleanup trap/block below.
 #
 # Optional ConfidentialVM run:
 #   export AZCLIPS_ENABLE_CVM=1
