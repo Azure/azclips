@@ -97,6 +97,7 @@ public class VmCreateOrchestrationTests
         // Downstream requests must embed ids from upstream responses.
         var nicBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/")).Request.Body!;
         Assert.Contains("/subnets/default", nicBody);
+        Assert.Contains("10.0.0.0/24", nicBody);
         Assert.Contains("/networkSecurityGroups/scenario-vm-nsg", nicBody);
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
         Assert.Contains("/networkInterfaces/scenario-vm-nic", vmBody);
