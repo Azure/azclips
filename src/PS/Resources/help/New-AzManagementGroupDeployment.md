@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzManagementGroupDeployment
 ---
@@ -25,13 +25,14 @@ New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> [
  [-TemplateObject <hashtable>] [-QueryString <string>] [-TemplateParameterFile <string>]
  [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -50,22 +51,6 @@ New-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Location e
 ```
 
 ## PARAMETERS
-
-### -ProceedIfNoChange
-
-Skips the confirmation prompt when ARM what-if reports only `NoChange` or `Ignore` changes.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-Parameter Sets: (All)
-Aliases: None
-
-Required: False
-Position: Named
-Default value: False
-Accept pipeline input: False
-Accept wildcard characters: False
-```
 
 ### -Confirm
 
@@ -181,6 +166,27 @@ Inline `KEY=VALUE` template parameter overlays.
 ```yaml
 Type: System.String[]
 DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ProceedIfNoChange
+
+Skips the confirmation prompt when ARM what-if reports only `NoChange` or `Ignore` changes.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -515,5 +521,6 @@ Deployment mode is always Incremental. Interactive missing-parameter prompting a
 are not supported.
 
 ## RELATED LINKS
+
 
 - [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-management-group)
