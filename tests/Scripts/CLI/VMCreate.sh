@@ -107,7 +107,7 @@ fail()
 warn_public_ssh_cleanup()
 {
     echo "WARNING: Public SSH may still be exposed for VM '$NONE_VM' in resource group '$RESOURCE_GROUP'." >&2
-    echo "WARNING: Delete the resource group or VM as soon as possible: az group delete --subscription-id '$SUBSCRIPTION_ID' --name '$RESOURCE_GROUP' --yes" >&2
+    echo "WARNING: Remove VM '$NONE_VM' and its public IP/network resources in resource group '$RESOURCE_GROUP' as soon as possible." >&2
 }
 
 # Prints the value of a string field from a JSON document; empty when the field is absent.
