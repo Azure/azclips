@@ -24,6 +24,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Security Arguments")]
         public string? SecurityType { get; set; }
 
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecurityEncryptionType { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecureVMDiskEncryptionSet { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -90,6 +96,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             }
 
             var securityProfileSettings = ResolveSecurityProfileSettings(SecurityType, useTrustedLaunchDefaults);
+            ValidateConfidentialVmDiskEncryption(securityProfileSettings.SecurityType, OsDiskSecurityEncryptionType, OsDiskSecureVMDiskEncryptionSet);
+            var osDiskSecureVMDiskEncryptionSetId = ResolveDiskEncryptionSetId(OsDiskSecureVMDiskEncryptionSet);
 
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
@@ -140,9 +148,74 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.SecurityType = securityProfileSettings.SecurityType;
                 p.SecureBootEnabled = securityProfileSettings.SecureBootEnabled;
                 p.VTpmEnabled = securityProfileSettings.VTpmEnabled;
+                p.OsDiskSecurityEncryptionType = OsDiskSecurityEncryptionType;
+                p.OsDiskSecureVMDiskEncryptionSetId = osDiskSecureVMDiskEncryptionSetId;
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private string? ResolveDiskEncryptionSetId(string? diskEncryptionSet)
+        {
+            if (string.IsNullOrWhiteSpace(diskEncryptionSet))
+            {
+                return null;
+            }
+
+            var value = diskEncryptionSet.Trim();
+            if (value.StartsWith("/subscriptions/", StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+
+            return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/diskEncryptionSets/{value}";
+        }
+
+        private static void ValidateConfidentialVmDiskEncryption(
+            string? resolvedSecurityType,
+            string? osDiskSecurityEncryptionType,
+            string? osDiskSecureVMDiskEncryptionSet)
+        {
+            var hasSecurityEncryptionType = !string.IsNullOrWhiteSpace(osDiskSecurityEncryptionType);
+            var hasDiskEncryptionSet = !string.IsNullOrWhiteSpace(osDiskSecureVMDiskEncryptionSet);
+
+            if (!string.Equals(resolvedSecurityType, "ConfidentialVM", StringComparison.OrdinalIgnoreCase))
+            {
+                if (hasSecurityEncryptionType)
+                {
+                    throw new ArgumentException("OS disk security encryption type can only be specified when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
+                }
+
+                if (hasDiskEncryptionSet)
+                {
+                    throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when security type is ConfidentialVM and OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
+                }
+
+                return;
+            }
+
+            if (!hasSecurityEncryptionType)
+            {
+                throw new ArgumentException("OS disk security encryption type is required when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
+            }
+
+            if (!IsOsDiskSecurityEncryptionType(osDiskSecurityEncryptionType!))
+            {
+                throw new ArgumentException("OS disk security encryption type must be one of: VMGuestStateOnly, DiskWithVMGuestState, NonPersistedTPM.", nameof(osDiskSecurityEncryptionType));
+            }
+
+            if (hasDiskEncryptionSet
+                && !string.Equals(osDiskSecurityEncryptionType, "DiskWithVMGuestState", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
+            }
+        }
+
+        private static bool IsOsDiskSecurityEncryptionType(string value)
+        {
+            return value.Equals("VMGuestStateOnly", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("DiskWithVMGuestState", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("NonPersistedTPM", StringComparison.OrdinalIgnoreCase);
         }
 
         private static (string? SecurityType, bool? SecureBootEnabled, bool? VTpmEnabled) ResolveSecurityProfileSettings(

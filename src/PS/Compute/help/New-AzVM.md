@@ -24,6 +24,7 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubscriptionId <string>]
  [-Image <string>] [-SecurityType <string>]
+ [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
@@ -264,6 +265,51 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
+HelpMessage: ''
+```
+
+### -OSDiskSecureVMDiskEncryptionSet
+
+Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -OSDiskSecurityEncryptionType
+
+Security encryption type for the OS managed disk. Required for ConfidentialVM.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- VMGuestStateOnly
+- DiskWithVMGuestState
+- NonPersistedTPM
 HelpMessage: ''
 ```
 

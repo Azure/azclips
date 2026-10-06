@@ -154,6 +154,73 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void SecurityType_ConfidentialVM_RequiresOsDiskSecurityEncryptionType()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--security-type", "ConfidentialVM"]));
+
+        Assert.Contains("OS disk security encryption type is required", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SecurityType_ConfidentialVM_BindsOsDiskSecurityEncryptionType()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly"]);
+
+        Assert.Contains("\"securityType\":\"ConfidentialVM\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+        Assert.Contains("\"osDisk\":{\"createOption\":\"FromImage\"", vmBody);
+        Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_ConfidentialVM_BindsDiskEncryptionSet()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "DiskWithVMGuestState", "--os-disk-secure-vm-disk-encryption-set", "mydes"]);
+
+        Assert.Contains("\"securityEncryptionType\":\"DiskWithVMGuestState\"", vmBody);
+        Assert.Contains("\"diskEncryptionSet\":{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/diskEncryptionSets/mydes\"}", vmBody);
+    }
+
+    [Fact]
+    public void OsDiskSecurityEncryptionType_RequiresConfidentialVM()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--os-disk-security-encryption-type", "VMGuestStateOnly"]));
+
+        Assert.Contains("can only be specified when security type is ConfidentialVM", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void OsDiskSecureVMDiskEncryptionSet_RequiresDiskWithVMGuestState()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly", "--os-disk-secure-vm-disk-encryption-set", "mydes"]));
+
+        Assert.Contains("can only be specified when OS disk security encryption type is DiskWithVMGuestState", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
     public void SecurityType_PowerShell_BindsStandard()
     {
         var record = new SessionRecord();
@@ -168,6 +235,24 @@ public class VmCreateOrchestrationTests
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
         Assert.Contains("\"securityType\":\"Standard\"", vmBody);
         Assert.DoesNotContain("uefiSettings", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_PowerShell_BindsConfidentialVMOsDiskSecurityEncryptionType()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SecurityType"] = "ConfidentialVM";
+        parameters["OSDiskSecurityEncryptionType"] = "VMGuestStateOnly";
+        AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"securityType\":\"ConfidentialVM\"", vmBody);
+        Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
     }
 
     [Theory]
