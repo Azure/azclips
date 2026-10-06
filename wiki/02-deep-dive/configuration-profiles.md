@@ -46,8 +46,8 @@ mirror PowerShell cmdlet:
 | `az config info`   | `InfoConfigCommand`   | `Get-AzConfigInfo` | Describe the schema (keys, types, validation) |
 
 All five processors derive from `ConfigCommandBase` (`src/Extensions/Config/Commands/ConfigCommandBase.cs:15`),
-which implements `IProcessor` and centralizes key normalization, value parsing, output
-formatting, and schema access. The PowerShell mirror lives in `src/PS/Config` (`Cmdlets.Config.csproj`)
+which implements `IProcessor` and centralizes key normalization, value parsing, resolved-entry
+construction, and schema access. The PowerShell mirror lives in `src/PS/Config` (`Cmdlets.Config.csproj`)
 and shares the exact same processors, so behavior cannot drift between the two shells.
 
 ### Key normalization — one canonical form for two shells
@@ -90,19 +90,24 @@ flowchart TB
     D --> M["Merge by key<br>(OrdinalIgnoreCase dictionary)"]
     F --> M
     E --> M
-    M --> OUT["ConfigValueView(Key, Value, Source)<br>shown as: key = value [source]"]
+    M --> OUT["ConfigEntry(Key, Value, Source)<br>structured processor output"]
+    OUT --> CLI["CLI standard formatter<br>JSON / table / TSV / YAML"]
+    OUT --> PS["PowerShell pipeline<br>one object per entry"]
 
     style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style F fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style E fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style M fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style OUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Sources fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
 Because the dictionary is keyed case-insensitively and rewritten in order, an environment
 override wins over the file, which wins over the built-in default. Each surviving entry keeps
-its `Source` label so `az config list` can print `telemetry.enabled = true [global config]`.
+its `Source` label in a `ConfigEntry`. The CLI passes these entries through its standard query
+and output pipeline, while PowerShell emits them as native objects for pipeline composition.
 
 ### How developers add or change a configuration setting
 
@@ -446,7 +451,7 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 
 ## References
 
-- `src/Extensions/Config/Commands/ConfigCommandBase.cs` — key normalization, three-layer resolution, formatting
+- `src/Extensions/Config/Commands/ConfigCommandBase.cs` — key normalization, value parsing, and three-layer resolution
 - `src/Extensions/Config/Commands/SetConfigCommand.cs`, `GetConfigCommand.cs`, `ListConfigCommand.cs`, `DeleteConfigCommand.cs`, `InfoConfigCommand.cs`
 - `src/Core/Core.Configuration/Implementation/ConfigurationService.cs` — validation, file lock, nested set/delete
 - `src/Core/Core.Abstractions/IConfigurationService.cs`, `HomePaths.cs`
