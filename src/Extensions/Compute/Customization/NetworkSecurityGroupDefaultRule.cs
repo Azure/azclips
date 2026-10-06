@@ -14,7 +14,7 @@ internal static class NetworkSecurityGroupDefaultRule
 {
     internal static SecurityRule For(string osType)
     {
-        bool windows = string.Equals(osType, "Windows", StringComparison.OrdinalIgnoreCase);
+        bool windows = string.Equals(osType, OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
         return new SecurityRule
         {
             Name = windows ? "rdp" : "default-allow-ssh",

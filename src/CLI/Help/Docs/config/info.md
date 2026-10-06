@@ -18,3 +18,9 @@ az config info
 ```bash
 az config info --keys-only
 ```
+
+### Display configuration schema as a table
+
+```bash
+az config info --output table
+```

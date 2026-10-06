@@ -39,7 +39,8 @@ internal static class NewOrExistingResourceResolver
             return (null, defaultName);
         }
 
-        if (string.IsNullOrWhiteSpace(value))
+        // Only "" means none, as in legacy CLI; whitespace is passed on as a name for ARM to reject.
+        if (string.IsNullOrEmpty(value))
         {
             return (null, null);
         }

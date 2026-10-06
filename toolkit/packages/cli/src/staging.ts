@@ -7,7 +7,8 @@
  * increment (P2.4):
  *
  *   1. Acquire — copy the spec tree into `<out>/source/` (never mutate the user's
- *      tree), excluding `node_modules` / `.git`.
+ *      tree), excluding `node_modules` / `.git`, and map the entrypoint to compile
+ *      onto its counterpart inside the copy.
  *   2. Provision (bundled) — junction ace's own hoisted `node_modules` beside the
  *      staged spec, so the spec's library imports *and* our emitter all resolve
  *      from ace's install without the spec needing its own `npm install`.
@@ -20,7 +21,7 @@
 import { cp, mkdir, rm, symlink } from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** Names never copied into the staging dir — provisioning supplies deps. */
 const EXCLUDED_FROM_COPY = new Set(["node_modules", ".git"]);
@@ -36,15 +37,23 @@ export interface StagedProject {
  * Stage a *local* spec into `<outDir>/source` and provision it with ace's
  * bundled TypeSpec toolchain.
  *
- * `tspLocation` may be a project directory or a single entry `.tsp` file; either
- * way the whole containing tree is copied (to preserve sibling files and
- * relative imports) and the returned `entrypoint` points inside the staged copy.
+ * `tspLocation` is what gets copied: a project directory, or an entry `.tsp`
+ * file whose containing directory is copied (preserving sibling files and
+ * relative imports). `entrypoint` is what gets compiled: a `.tsp` file or a
+ * directory under that copied directory, either absolute or relative to it, and
+ * `tspLocation` itself when omitted. The returned `entrypoint` is its
+ * counterpart inside the staged copy.
+ *
+ * Every input is validated before `<outDir>/source` is wiped, so a bad argument
+ * fails without touching the filesystem.
  */
 export async function stageLocalProject(
   tspLocation: string,
   outDir: string,
+  entrypoint?: string,
 ): Promise<StagedProject> {
   const stagedRoot = resolve(outDir, "source");
+  const plan = planStaging(tspLocation, entrypoint, stagedRoot);
 
   // Fresh staging each run so a prior compile never leaks into this one. Retry
   // on transient locks (a prior run's worker that hasn't fully released the
@@ -52,18 +61,68 @@ export async function stageLocalProject(
   await rm(stagedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   await mkdir(stagedRoot, { recursive: true });
 
-  const isDir = statSync(tspLocation).isDirectory();
-  const sourceDir = isDir ? tspLocation : dirname(tspLocation);
-
-  await cp(sourceDir, stagedRoot, {
+  await cp(plan.copyRoot, stagedRoot, {
     recursive: true,
     filter: (src) => !EXCLUDED_FROM_COPY.has(basename(src)),
   });
 
   await provisionBundled(stagedRoot);
 
-  const entrypoint = isDir ? stagedRoot : join(stagedRoot, basename(tspLocation));
-  return { entrypoint, root: stagedRoot };
+  return { entrypoint: join(stagedRoot, plan.entry), root: stagedRoot };
+}
+
+interface StagingPlan {
+  /** The directory copied into the staging root. */
+  copyRoot: string;
+  /** The entrypoint relative to `copyRoot`; `""` when it is `copyRoot` itself. */
+  entry: string;
+}
+
+/** Resolve and validate what to copy and what to compile, without side effects. */
+function planStaging(
+  tspLocation: string,
+  entrypoint: string | undefined,
+  stagedRoot: string,
+): StagingPlan {
+  const location = resolve(tspLocation);
+  const copyRoot = statSync(location).isDirectory() ? location : dirname(location);
+
+  // A relative entrypoint resolves against the copied directory, not the cwd.
+  const target = entrypoint === undefined ? location : resolve(copyRoot, entrypoint);
+  if (!isWithin(copyRoot, target)) {
+    throw new Error(
+      `--entrypoint '${target}' is not under the --tsp-location directory '${copyRoot}'.`,
+    );
+  }
+  if (!existsSync(target)) {
+    throw new Error(
+      `--entrypoint '${target}' does not exist (a relative path resolves against '${copyRoot}').`,
+    );
+  }
+  const entry = relative(copyRoot, target);
+  if (entry.split(sep).some((segment) => EXCLUDED_FROM_COPY.has(segment))) {
+    throw new Error(
+      `--entrypoint '${target}' is inside a directory staging does not copy ` +
+        `(${[...EXCLUDED_FROM_COPY].join(", ")}).`,
+    );
+  }
+
+  // Copying a tree into itself fails part-way, and wiping a staging root that
+  // holds the spec would delete the spec, so neither may contain the other.
+  if (isWithin(copyRoot, stagedRoot) || isWithin(stagedRoot, copyRoot)) {
+    throw new Error(
+      `--out-dir stages into '${stagedRoot}', which overlaps the --tsp-location ` +
+        `directory '${copyRoot}' (neither may contain the other). Choose a different --out-dir.`,
+    );
+  }
+
+  return { copyRoot, entry };
+}
+
+/** True when `target` is `root` itself or lies beneath it. */
+function isWithin(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 /**

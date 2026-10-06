@@ -6,11 +6,13 @@
 # detail fields vm create returns:
 #   1. vm create                                  -> creates <vm>PublicIP; publicIps is set;
 #                                                    creates <vm>NSG with only the rdp rule
-#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set
+#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set;
+#                --nsg <existing resource id>        attaches the pre-created NSG untouched
 #   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
 #                --nsg <existing name>               attaches the pre-created NSG untouched
-#   4. vm create --public-ip-address ""           -> no public IP; publicIps is empty;
-#                --nsg <existing resource id>        attaches the pre-created NSG untouched
+#   4. vm create --ssh-key-values <file>          -> Linux VM with no public IP; publicIps is
+#                --public-ip-address ""              empty; creates <vm>NSG with only the
+#                                                    default-allow-ssh rule
 #   5. vm create --public-ip-address <missing id> -> fails with "was not found" before
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
@@ -18,18 +20,23 @@
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
 #
+# Every vm create passes a marketplace image URN with version "latest", so each
+# case also exercises the image version lookup.
+#
 # Case 3 pre-creates its public IP through az rest, then verifies vm create
 # attaches that resource without replacing its tags.
+#
+# Case 4 deploys an Ubuntu image with a temporary key pair from ssh-keygen, deleted on exit.
 #
 # Before case 1 the script pre-creates an NSG through az rest, with its own tag and
 # one rule, smoke-allow-https. The NSG checks read the VM's NIC and the NSG back
 # through az rest: the NIC must reference the expected NSG, and the NSG must hold
-# exactly one rule: rdp for case 1's default <vm>NSG, and smoke-allow-https, with
-# the tag intact, for the NSG that cases 3 and 4 attach. Every other VM gets its own
-# default <vm>NSG.
+# exactly one rule: rdp for case 1's default <vm>NSG, default-allow-ssh for case 4's,
+# and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
 #
-# Prereqs: build the solution first with dotnet build, then sign in. The subscription
-# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+# Prereqs: build the solution first with dotnet build, then sign in. ssh-keygen must
+# be on PATH. The subscription needs quota for four Standard_D2s_v3 VMs and three
+# Standard public IPs.
 #
 # Cleanup: on exit the resource group this script created is deleted, which removes
 # the VMs, public IPs, NICs, VNets and NSGs with it, including the pre-created
@@ -45,6 +52,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # Resolve the built CLI (az.exe on Windows, az elsewhere).
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+if [[ ! -x "$AZ" ]]; then
+    echo "Built CLI not found at $REPO_ROOT/artifacts/Debug/Core.Cli/az[.exe]. Run dotnet build first." >&2
+    exit 1
+fi
 
 # Git Bash rewrites /subscriptions/... arguments for Windows .exe targets unless disabled.
 export MSYS_NO_PATHCONV=1
@@ -71,11 +82,14 @@ MISSING_PUBLIC_IP_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_G
 EXISTING_NSG="azclips-vmcreate-existing-nsg-$SUFFIX"
 EXISTING_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/$EXISTING_NSG"
 DEFAULT_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/${DEFAULT_VM}NSG"
+LINUX_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/${NONE_VM}NSG"
 
 # A rule as name/protocol/source address/source port/destination address/destination port/access/direction/priority, so whole rules compare as one string.
 NSG_RULE_QUERY="json.properties.securityRules[0] | join('/', [name, properties.protocol, properties.sourceAddressPrefix, properties.sourcePortRange, properties.destinationAddressPrefix, properties.destinationPortRange, properties.access, properties.direction, to_string(properties.priority)])"
-DEFAULT_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
+RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
+SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
 EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
+KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
 
 FAILURES=0
 
@@ -110,6 +124,8 @@ network_url()
 
 cleanup()
 {
+    rm -f "$KEY_FILE" "$KEY_FILE.pub"
+
     if [[ "$OWNS_RESOURCE_GROUP" == "1" ]]
     then
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
@@ -137,8 +153,32 @@ create_vm()
         --name "$name" \
         --location "$LOCATION" \
         --size Standard_D2s_v3 \
+        --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
+        --network-interface-name "$name-nic" \
+        --virtual-network-name "$name-vnet" \
+        --address-prefixes 10.0.0.0/16 \
+        --subnet-names "$name-subnet" \
+        --subnet-address-prefixes 10.0.2.0/24 \
+        --output json \
+        "$@"
+}
+
+# Linux vm create variant that exercises --ssh-key-values with a public key file.
+create_ssh_vm()
+{
+    local name="$1"
+    shift
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" \
+        --location "$LOCATION" \
+        --size Standard_D2s_v3 \
+        --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
+        --admin-username azadmin \
+        --ssh-key-values "$KEY_FILE.pub" \
         --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
@@ -287,20 +327,27 @@ check_nsg()
     --name "$RESOURCE_GROUP" \
     --location "$LOCATION"
 
-echo "== pre-create NSG $EXISTING_NSG (attached by cases 3 and 4) =="
+if ! command -v ssh-keygen >/dev/null 2>&1; then
+    echo "ssh-keygen is required to generate a temporary public key for --ssh-key-values." >&2
+    exit 1
+fi
+
+ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
+
+echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
 existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
 existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
-# Without a ready NSG, cases 3 and 4 still run their public IP checks, just without --nsg.
+# Without a ready NSG, cases 2 and 3 still run their public IP checks, just without --nsg.
 EXISTING_NSG_READY=0
+named_nsg_args=()
 reuse_nsg_args=()
-none_nsg_args=()
 if "$AZ" rest --method PUT --uri "$existing_nsg_url" --body "$existing_nsg_body" --output json >/dev/null
 then
     if wait_succeeded "existing nsg" "NSG '$EXISTING_NSG'" "$existing_nsg_url"
     then
         EXISTING_NSG_READY=1
+        named_nsg_args=(--nsg "$EXISTING_NSG_ID")
         reuse_nsg_args=(--nsg "$EXISTING_NSG")
-        none_nsg_args=(--nsg "$EXISTING_NSG_ID")
     fi
 else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
@@ -310,15 +357,20 @@ echo "== 1. vm create (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DE
 if output=$(create_vm "$DEFAULT_VM")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
-    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$DEFAULT_NSG_RULE"
+    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
 else
     fail "default: vm create failed"
 fi
 
-echo "== 2. vm create --public-ip-address $NAMED_PUBLIC_IP (new name) =="
-if output=$(create_vm "$NAMED_VM" --public-ip-address "$NAMED_PUBLIC_IP")
+echo "== 2. vm create --public-ip-address $NAMED_PUBLIC_IP --nsg <existing NSG id> (new public IP name, existing NSG) =="
+# ${args[@]+"${args[@]}"} expands an empty array safely under set -u on older bash.
+if output=$(create_vm "$NAMED_VM" --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
 then
     check_public_ip "named" "$output" yes "$NAMED_PUBLIC_IP"
+    if [[ "$EXISTING_NSG_READY" == "1" ]]
+    then
+        check_nsg "named" "$NAMED_VM" "$EXISTING_NSG_ID" "$EXISTING_NSG_RULE" reuse-nsg
+    fi
 else
     fail "named: vm create failed"
 fi
@@ -330,7 +382,6 @@ if "$AZ" rest --method PUT --uri "$reuse_public_ip_url" --body "$reuse_public_ip
 then
     if wait_succeeded "reuse" "public IP '$REUSE_PUBLIC_IP'" "$reuse_public_ip_url"
     then
-        # ${args[@]+"${args[@]}"} expands an empty array safely under set -u on older bash.
         if output=$(create_vm "$REUSE_VM" --public-ip-address "$REUSE_PUBLIC_IP" ${reuse_nsg_args[@]+"${reuse_nsg_args[@]}"})
         then
             check_public_ip "reuse" "$output" yes "$REUSE_PUBLIC_IP" reuse
@@ -348,14 +399,11 @@ else
     fail "reuse: failed to pre-create public IP '$REUSE_PUBLIC_IP'"
 fi
 
-echo "== 4. vm create --public-ip-address \"\" --nsg <existing NSG id> (no public IP, existing NSG) =="
-if output=$(create_vm "$NONE_VM" --public-ip-address "" ${none_nsg_args[@]+"${none_nsg_args[@]}"})
+echo "== 4. vm create --ssh-key-values <file> --public-ip-address \"\" (Linux, no public IP, default NSG ${NONE_VM}NSG) =="
+if output=$(create_ssh_vm "$NONE_VM" --public-ip-address "")
 then
     check_public_ip "none" "$output" no
-    if [[ "$EXISTING_NSG_READY" == "1" ]]
-    then
-        check_nsg "none" "$NONE_VM" "$EXISTING_NSG_ID" "$EXISTING_NSG_RULE" reuse-nsg
-    fi
+    check_nsg "none" "$NONE_VM" "$LINUX_NSG_ID" "$SSH_NSG_RULE"
 else
     fail "none: vm create failed"
 fi
