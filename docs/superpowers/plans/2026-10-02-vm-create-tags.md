@@ -318,23 +318,59 @@ git commit -m "[Compute] Add ResourceTags: parse vm create's tags like legacy CL
 
 - [ ] **Step 1: Make the fake ARM echo a VM's tags**
 
-In `tests/Scenario.Tests/FakeVmArmBackend.cs`, add a field after `private readonly HashSet<string> _existingIds;`:
+In `tests/Scenario.Tests/FakeVmArmBackend.cs`, make four edits. Leave the rest of the `/virtualMachines/` branch, including its `FailVmDetailRead` block, unchanged.
+
+(a) Add a field after `private readonly HashSet<string> _existingIds;`:
 
 ```csharp
     // The tags of the last VM PUT, which later VM GETs return the way ARM would.
     private JsonElement? _vmTags;
 ```
 
-Replace the whole `/virtualMachines/` branch of `SendAsync`, from `if (path.Contains("/virtualMachines/", StringComparison.OrdinalIgnoreCase))` through its closing brace, with:
+(b) In the `/virtualMachines/` branch of `SendAsync`, replace the PUT handling:
 
 ```csharp
-        if (path.Contains("/virtualMachines/", StringComparison.OrdinalIgnoreCase))
-        {
+            if (request.Method == HttpMethod.Put)
+            {
+                var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
+                accepted.Headers.TryAddWithoutValidation(
+                    "Azure-AsyncOperation",
+                    $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-11-01");
+                return Task.FromResult(accepted);
+            }
+```
+
+with:
+
+```csharp
             if (request.Method == HttpMethod.Put)
             {
                 return AcceptVmCreateAsync(request, cancellationToken);
             }
+```
 
+(c) Replace the branch's last statement, which answers every other VM `GET`:
+
+```csharp
+            return Task.FromResult(Json(new
+            {
+                id = Id("Microsoft.Compute/virtualMachines", name),
+                name,
+                location = "westus2",
+                properties = new
+                {
+                    provisioningState = "Succeeded",
+                    hardwareProfile = new { vmSize = "Standard_D2s_v3" },
+                    storageProfile = new { imageReference = new { publisher = "MicrosoftWindowsServer", offer = "WindowsServer", sku = "2022-datacenter-azure-edition", version = "latest" } },
+                    osProfile = new { computerName = name, adminUsername = "azadmin", windowsConfiguration = new { } },
+                    networkProfile = new { networkInterfaces = new[] { new { id = Id("Microsoft.Network/networkInterfaces", "scenario-vm-nic") } } },
+                },
+            }, HttpStatusCode.OK));
+```
+
+with:
+
+```csharp
             var vm = new Dictionary<string, object?>
             {
                 ["id"] = Id("Microsoft.Compute/virtualMachines", name),
@@ -357,10 +393,9 @@ Replace the whole `/virtualMachines/` branch of `SendAsync`, from `if (path.Cont
             }
 
             return Task.FromResult(Json(vm, HttpStatusCode.OK));
-        }
 ```
 
-Add this method directly before `private HttpResponseMessage TrackedResource(`:
+(d) Add this method directly before `private HttpResponseMessage TrackedResource(`:
 
 ```csharp
     /// <summary>Accepts a VM create as a long-running operation and remembers its tags.</summary>
@@ -379,13 +414,13 @@ Add this method directly before `private HttpResponseMessage TrackedResource(`:
     }
 ```
 
-The VM `GET` body serializes exactly as before: a `Dictionary<string, object?>` keeps insertion order, and `tags` is added only after a tagged create. The file already has `using System.Text.Json;`. The recorder reads every request body first, which buffers it, so the fake can read it again.
+The VM `GET` body serializes exactly as before: a `Dictionary<string, object?>` keeps insertion order, and `tags` is added only after a tagged create. `FailVmDetailRead` still answers the post-create `$expand=instanceView` read with a 500 before this point. The file already has `using System.Text.Json;`. The recorder reads every request body first, which buffers it, so the fake can read it again.
 
 - [ ] **Step 2: Write the CLI tag tests**
 
 In `tests/Scenario.Tests/VmCreateOrchestrationTests.cs`:
 
-(a) Add `using System.Text.Json;` directly after `using System.Diagnostics;`.
+(a) Add `using System.Text.Json;` directly after `using System.Net;`.
 
 (b) Add these fields directly after the `s_cliArgs` field:
 
@@ -490,7 +525,7 @@ In `tests/Scenario.Tests/VmCreateOrchestrationTests.cs`:
     }
 ```
 
-(d) Add these helpers at the end of the class, after `PutBody`:
+(d) Add these helpers directly after `PutBody`, before `RecordVmBody`:
 
 ```csharp
     /// <summary>
@@ -635,13 +670,14 @@ In `src/Extensions/Compute/Customization/NewVMProcessor_Orchestrator.cs`:
 
 It has no `[ParameterGroup]`: legacy CLI lists `--tags` under the general arguments.
 
-(b) Make this the first statement of `SendAsync()`, before the `NewNetworkInterfaceProcessor_Orchestrator nicProcessor = ...` statement:
+(b) Make this the first statement of `SendAsync()`, before the `if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)` check. That keeps it ahead of every request, including the marketplace image lookups that `ResolveImageMetadataAsync` sends:
 
 ```csharp
             Dictionary<string, string>? tags = ResourceTags.Normalize(Tags);
+
 ```
 
-(c) Add `p.Tags = tags;` after `p.OsType = ImageOsType;` in the NIC orchestrator lambda, and after `p.NetworkInterfaceId = nic.Id;` in the `NewVMProcessor` lambda.
+(c) Add `p.Tags = tags;` after `p.OsType = operatingSystemType;` in the NIC orchestrator lambda, and after `p.NetworkInterfaceId = nic.Id;` in the `NewVMProcessor` lambda.
 
 - [ ] **Step 9: Register `--tags` on `vm create`**
 
@@ -694,7 +730,7 @@ Run: `dotnet artifacts/Debug/Core.Cli/az.dll vm create --help`
 Expected:
 - `--tags` is listed among the general arguments, not the Network Arguments, with the help text from Global Constraints.
 - The description includes the new sentence.
-- All six examples render, ending with "Create a VM with tags".
+- All eight examples render, ending with "Create a VM with tags".
 
 - [ ] **Step 14: Regenerate the CLI export fixture**
 
@@ -817,18 +853,21 @@ Expected: `Build succeeded`, with no new warnings in `Cmdlets.Compute`.
 
 Make five edits.
 
-(a) SYNTAX — replace the syntax block's contents with:
+(a) SYNTAX — replace the last two lines of the syntax block:
 
 ```text
-New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- -VirtualNetworkName <string> [-SubscriptionId <string>] [-SecurityGroupName <string>]
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
+ [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+with:
+
+```text
  [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Tag <hashtable>] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
-PlatyPS lists mandatory parameters first, then optional ones in declaration order, wrapping near 100 characters. `-Tag` is declared between `-PublicIpAddressName` and `-Profile`.
+PlatyPS lists mandatory parameters first, then optional ones in declaration order. `-Tag` is declared between `-PublicIpAddressName` and `-Profile`. Leave the earlier lines, including `[-Image <string>]`, as they are.
 
 (b) DESCRIPTION — directly after the line `Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.`, insert:
 
@@ -932,9 +971,6 @@ In `tests/Scripts/CLI/VMCreate.sh`, replace:
 ```bash
 #   1. vm create                                  -> creates <vm>PublicIP; publicIps is set;
 #                                                    creates <vm>NSG with only the rdp rule
-#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set
-#   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
-#                --nsg <existing name>               attaches the pre-created NSG untouched
 ```
 
 with:
@@ -943,7 +979,18 @@ with:
 #   1. vm create --tags <tags>                    -> creates <vm>PublicIP; publicIps is set;
 #                                                    creates <vm>NSG with only the rdp rule;
 #                                                    tags the VM, NIC, VNet, NSG and public IP
-#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set
+```
+
+Then replace:
+
+```bash
+#   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
+#                --nsg <existing name>               attaches the pre-created NSG untouched
+```
+
+with:
+
+```bash
 #   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
 #                --nsg <existing name>               attaches the pre-created NSG untouched;
 #                --tags <tags>                       tags the VM, NIC and VNet, but neither
@@ -953,15 +1000,13 @@ with:
 Then replace:
 
 ```bash
-# the tag intact, for the NSG that cases 3 and 4 attach. Every other VM gets its own
-# default <vm>NSG.
+# and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
 ```
 
 with:
 
 ```bash
-# the tag intact, for the NSG that cases 3 and 4 attach. Every other VM gets its own
-# default <vm>NSG.
+# and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
 #
 # Cases 1 and 3 pass --tags azclips-tags=vm-create azclips-empty: a pair, and a key
 # without a value, which vm create stores with an empty value. The tag checks read the
@@ -970,7 +1015,7 @@ with:
 
 - [ ] **Step 2: Add the tag arguments**
 
-Directly after the line `EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"`, add:
+Directly after the line `KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"`, add:
 
 ```bash
 
@@ -1031,7 +1076,7 @@ echo "== 1. vm create (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DE
 if output=$(create_vm "$DEFAULT_VM")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
-    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$DEFAULT_NSG_RULE"
+    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
 else
 ```
 
@@ -1042,7 +1087,7 @@ echo "== 1. vm create --tags (default public IP ${DEFAULT_VM}PublicIP, default N
 if output=$(create_vm "$DEFAULT_VM" "${TAG_ARGS[@]}")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
-    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$DEFAULT_NSG_RULE"
+    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
     check_output_tags "default" "$output"
     check_resource_tags "default" networkInterfaces "$DEFAULT_VM-nic" tagged
     check_resource_tags "default" virtualNetworks "$DEFAULT_VM-vnet" tagged
@@ -1330,7 +1375,7 @@ Expected: no output. If the help pipeline rewrote a tracked file, inspect the di
 - [ ] **Step 5: Hand the live smoke runs to the user**
 
 They need credentials and quota for four Standard_D2s_v3 VMs and three Standard public IPs, so the user runs them:
-- CLI: set `AZCLIPS_SUBSCRIPTION_ID` and `AZCLIPS_VM_ADMIN_PASSWORD`, sign in with the built CLI, then run `./tests/Scripts/CLI/VMCreate.sh`.
+- CLI: put `ssh-keygen` on `PATH` (case 4 generates a temporary key pair), set `AZCLIPS_SUBSCRIPTION_ID` and `AZCLIPS_VM_ADMIN_PASSWORD`, sign in with the built CLI, then run `./tests/Scripts/CLI/VMCreate.sh`.
 - PowerShell: import `src/PS/Accounts/Accounts.psd1`, `src/PS/Resources/Resources.psd1` and `src/PS/Compute/Compute.psd1`, run `Connect-AzAccount`, set the same variables, then run `./tests/Scripts/PS/VMCreate.ps1`.
 
 Expected: both finish with "smoke test finished" and no `FAIL:` lines. The new `OK:` lines report the VM, NIC, VNet, NSG and public IP as tagged in case 1, and the pre-created public IP and NSG as untouched in case 3.
