@@ -69,6 +69,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Validate SDK-bundled Copilot runtimes with their server contract (`--server --stdio`); they do not expose the user-facing CLI's `--version` command.
 - Keep active Windows process redirection files outside published artifact directories, wait for asynchronous stream handling to finish, and dispose process handles before copying diagnostics into artifacts.
 - Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
+- Validate structured CLI results with `--query` and compare stdout rather than parsing presentation-oriented output; keep diagnostics on stderr separate from asserted values.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).
