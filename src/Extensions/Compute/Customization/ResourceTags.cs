@@ -23,7 +23,7 @@ internal static class ResourceTags
         IDictionary table => FromTable(table),
         IEnumerable<string> tokens => FromTokens(tokens),
         object other => throw new ArgumentException(
-            $"Tags must be KEY[=VALUE] strings or a dictionary, not {other.GetType().FullName}.", nameof(value)),
+            $"Tags must be KEY[=VALUE] strings or a dictionary, not {other.GetType().FullName}."),
     };
 
     // New-AzVM -Tag: keys and values through ToString(), and a $null value as "".
