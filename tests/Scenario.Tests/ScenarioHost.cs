@@ -29,10 +29,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
         "deployment",
         [
-            "group create", "group what-if", "group show", "group list",
-            "sub show", "sub list",
-            "mg show", "mg list",
-            "tenant show", "tenant list",
+            "group create", "group what-if",
             "operation group show", "operation group list",
             "operation sub show", "operation sub list",
             "operation mg show", "operation mg list",

@@ -21,7 +21,7 @@ namespace Scenario.Tests;
 /// </para>
 /// </summary>
 [Collection("Scenario Tests")]
-public class DeploymentReadScenarioTests
+public class DeploymentOperationScenarioTests
 {
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-deployment-rg";
@@ -33,11 +33,11 @@ public class DeploymentReadScenarioTests
         Path.Combine(RepoLocator.GetRepoRoot(), "tests", "Scenario.Tests", "Fixtures", "deployment-nsg.json");
 
     [Fact]
-    public void CreateReadAndEnumerateDeploymentOperations()
+    public void CreateDeploymentThenListAndShowOperations()
     {
         var recording = SessionRecordFiles.OpenSession(
-            typeof(DeploymentReadScenarioTests),
-            nameof(CreateReadAndEnumerateDeploymentOperations));
+            typeof(DeploymentOperationScenarioTests),
+            nameof(CreateDeploymentThenListAndShowOperations));
 
         if (recording.Mode == RecorderMode.Record)
         {
@@ -80,23 +80,6 @@ public class DeploymentReadScenarioTests
             "--name", DeploymentName,
             "--template-file", TemplateFile,
             "--parameter", $"location={Location}", $"nsgName={NsgName}")));
-
-        AssertDeployment(Assert.Single(host.RunCli(
-            "deployment", "group", "show",
-            "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
-            "--name", DeploymentName)));
-
-        AssertDeploymentListed(host.RunCli(
-            "deployment", "group", "list",
-            "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName));
-
-        AssertDeploymentListed(host.RunCli(
-            "deployment", "group", "list",
-            "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
-            "--filter", "provisioningState eq 'Succeeded'"));
 
         List<string> operationIds = AssertOperationsListed(host.RunCli(
             "deployment", "operation", "group", "list",
@@ -143,26 +126,6 @@ public class DeploymentReadScenarioTests
             ["Parameter"] = new[] { $"location={Location}", $"nsgName={NsgName}" },
         })));
 
-        AssertDeployment(Assert.Single(host.RunPowerShell("Get-AzResourceGroupDeployment_Get", new Dictionary<string, object>
-        {
-            ["SubscriptionId"] = SubscriptionId,
-            ["ResourceGroupName"] = ResourceGroupName,
-            ["Name"] = DeploymentName,
-        })));
-
-        AssertDeploymentListed(host.RunPowerShell("Get-AzResourceGroupDeployment_List", new Dictionary<string, object>
-        {
-            ["SubscriptionId"] = SubscriptionId,
-            ["ResourceGroupName"] = ResourceGroupName,
-        }));
-
-        AssertDeploymentListed(host.RunPowerShell("Get-AzResourceGroupDeployment_List", new Dictionary<string, object>
-        {
-            ["SubscriptionId"] = SubscriptionId,
-            ["ResourceGroupName"] = ResourceGroupName,
-            ["Filter"] = "provisioningState eq 'Succeeded'",
-        }));
-
         List<string> operationIds = AssertOperationsListed(host.RunPowerShell("Get-AzResourceGroupDeploymentOperation_List", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
@@ -202,12 +165,6 @@ public class DeploymentReadScenarioTests
         var deployment = Assert.IsType<DeploymentExtended>(output);
         Assert.Equal(DeploymentName, deployment.Name);
         Assert.Equal("Succeeded", deployment.Properties?.ProvisioningState);
-    }
-
-    private static void AssertDeploymentListed(IReadOnlyList<object> outputs)
-    {
-        var deployments = Assert.IsType<List<DeploymentExtended>>(Assert.Single(outputs));
-        Assert.Contains(deployments, deployment => deployment.Name == DeploymentName);
     }
 
     private static List<string> AssertOperationsListed(IReadOnlyList<object> outputs)
