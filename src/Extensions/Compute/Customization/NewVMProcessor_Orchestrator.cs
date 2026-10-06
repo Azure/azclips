@@ -27,6 +27,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Authentication Arguments")]
         public string AdminPassword { get; set; } = string.Empty;
 
+        [ParameterGroup("Authentication Arguments")]
+        public List<string> SshKeyValues { get; set; } = [];
+
         [ParameterGroup("Network Arguments")]
         public string NetworkInterfaceName { get; set; } = string.Empty;
 
@@ -80,6 +83,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
+            {
+                throw new ArgumentException("Specify an administrator password or SSH public key values.");
+            }
+
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
             var operatingSystemType = OperatingSystemTypes.Windows;
             ImagePlan? plan = null;
@@ -87,6 +95,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             if (imageReference is not null)
             {
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
+            }
+
+            if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+            }
+
+            ResolvedLinuxProfile? linuxProfile = null;
+            if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
             }
 
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
@@ -134,9 +153,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
-                p.AdminPassword = AdminPassword;
-                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
-                    new WindowsConfiguration() : null;
+                p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
+                p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+                if (linuxProfile is not null)
+                {
+                    p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
+                    p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
+                    p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
+                }
                 if (!useTrustedLaunchDefaults)
                 {
                     p.SecurityType = null;

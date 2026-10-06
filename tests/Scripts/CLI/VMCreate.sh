@@ -64,6 +64,7 @@ MISSING_VM="vmc-mis-$SUFFIX"
 NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
 MISSING_PUBLIC_IP_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$SUFFIX"
+KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
 
 FAILURES=0
 
@@ -92,6 +93,8 @@ public_ip_url()
 
 cleanup()
 {
+    rm -f "$KEY_FILE" "$KEY_FILE.pub"
+
     if [[ "$OWNS_RESOURCE_GROUP" == "1" ]]
     then
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
@@ -121,6 +124,30 @@ create_vm()
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
+        --network-interface-name "$name-nic" \
+        --virtual-network-name "$name-vnet" \
+        --address-prefixes 10.0.0.0/16 \
+        --subnet-names "$name-subnet" \
+        --subnet-address-prefixes 10.0.2.0/24 \
+        --network-security-group-name "$name-nsg" \
+        --output json \
+        "$@"
+}
+
+# Linux vm create variant that exercises --ssh-key-values with a public key file.
+create_ssh_vm()
+{
+    local name="$1"
+    shift
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" \
+        --location "$LOCATION" \
+        --size Standard_D2s_v3 \
+        --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
+        --admin-username azadmin \
+        --ssh-key-values "$KEY_FILE.pub" \
         --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
@@ -225,6 +252,13 @@ check_public_ip()
     --name "$RESOURCE_GROUP" \
     --location "$LOCATION"
 
+if ! command -v ssh-keygen >/dev/null 2>&1; then
+    echo "ssh-keygen is required to generate a temporary public key for --ssh-key-values." >&2
+    exit 1
+fi
+
+ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
+
 echo "== 1. vm create (default public IP ${DEFAULT_VM}PublicIP) =="
 if output=$(create_vm "$DEFAULT_VM")
 then
@@ -261,8 +295,8 @@ else
     fail "reuse: failed to pre-create public IP '$REUSE_PUBLIC_IP'"
 fi
 
-echo "== 4. vm create --public-ip-address \"\" (no public IP) =="
-if output=$(create_vm "$NONE_VM" --public-ip-address "")
+echo "== 4. vm create --ssh-key-values <file> --public-ip-address \"\" (Linux, no public IP) =="
+if output=$(create_ssh_vm "$NONE_VM" --public-ip-address "")
 then
     check_public_ip "none" "$output" no
 else
