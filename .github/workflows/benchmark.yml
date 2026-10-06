@@ -298,7 +298,7 @@ jobs:
 
       - name: Publish dashboard / gate regression
         if: steps.p.outputs.found == 'true'
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: ${{ steps.p.outputs.name }}
           tool: 'benchmarkdotnet'
@@ -341,7 +341,7 @@ jobs:
 
       - name: Publish CLI startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips CLI Startup (warm)'
           tool: 'benchmarkdotnet'
@@ -357,7 +357,7 @@ jobs:
 
       - name: Publish PS startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips PS Startup (warm)'
           tool: 'benchmarkdotnet'
@@ -374,7 +374,7 @@ jobs:
 
       - name: Publish CLI startup dashboard (cold, informational)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips CLI Startup (cold)'
           tool: 'benchmarkdotnet'
@@ -390,7 +390,7 @@ jobs:
 
       - name: Publish PS startup dashboard (cold, informational)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips PS Startup (cold)'
           tool: 'benchmarkdotnet'
