@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791242823987,
+  "lastUpdate": 1791262338393,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -12140,6 +12140,48 @@ window.BENCHMARK_DATA = {
             "value": 5009334.92535497,
             "unit": "ns",
             "range": "± 151175.77106207339"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66c1962624503cde76b6c6607b8d2f72aa98c79e",
+          "message": "[Compute] `az vm create`: Add `--ssh-key-values` (#1016)\n\nThis changes contributes to https://github.com/Azure/CLIPS/issues/831 -\n`az vm create` feature.\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-06T12:30:09+08:00",
+          "tree_id": "da632241f628f86f99a925fee8d97dc249ec9f14",
+          "url": "https://github.com/Azure/azclips/commit/66c1962624503cde76b6c6607b8d2f72aa98c79e"
+        },
+        "date": 1791262335061,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4619239.189473684,
+            "unit": "ns",
+            "range": "± 101803.62208811074"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 8553012.928250663,
+            "unit": "ns",
+            "range": "± 127447.9081315266"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4641733.729625884,
+            "unit": "ns",
+            "range": "± 104700.93192362464"
           }
         ]
       }
