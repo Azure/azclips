@@ -24,7 +24,8 @@ public class LoginProcessorServicePrincipalTests
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
             services.AddSingleton(new Mock<ILoggingService>().Object));
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
     }
 
     private static void Validate(LoginProcessor processor)
@@ -59,6 +60,18 @@ public class LoginProcessorServicePrincipalTests
         SubscriptionId = "33333333-3333-3333-3333-333333333333",
         FederatedToken = "header.payload.signature",
     };
+
+    [Fact]
+    public void Initialize_RegistersClientMetadataAsTheSingleClientContract()
+    {
+        InitDi(ClientType.CLI);
+
+        var metadata = AzclipsServiceProvider.GetRequiredService<ClientMetadata>();
+
+        Assert.Equal(ClientType.CLI, metadata.ClientType);
+        Assert.Throws<InvalidOperationException>(
+            () => AzclipsServiceProvider.GetRequiredService<ClientType>());
+    }
 
     [Theory]
     [InlineData(ClientType.CLI)]
@@ -276,7 +289,8 @@ public class LoginProcessorServicePrincipalTests
             services.AddSingleton(profiles.Object);
             services.AddSingleton(auth.Object);
         });
-        AzclipsServiceProvider.Initialize(surface);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(surface, "00000000-0000-0000-0000-000000000000"));
 
         var processor = new LoginProcessor { Profile = "ci" };
         typeof(LoginProcessorBase)

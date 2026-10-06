@@ -156,7 +156,8 @@ public abstract class BenchmarkBase
     protected void VerifyAuthFixture()
     {
         RegisterBenchmarkStubs();
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         try
         {
             var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
