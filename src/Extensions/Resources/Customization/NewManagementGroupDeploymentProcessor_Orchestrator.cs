@@ -13,6 +13,10 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
 {
     public bool WhatIf { get; set; }
 
+    public bool ConfirmWithWhatIf { get; set; }
+
+    public bool ProceedIfNoChange { get; set; }
+
     public string? WhatIfResultFormat { get; set; }
 
     public string[]? WhatIfExcludeChangeType { get; set; }
@@ -23,10 +27,28 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         try
         {
             PrepareAndValidate();
-            if (WhatIf)
+            if (WhatIf && ConfirmWithWhatIf)
             {
-                await WriteOutput(await RunWhatIfAsync());
-                return;
+                throw new ArgumentException("WhatIf and ConfirmWithWhatIf cannot be used together.");
+            }
+            if (WhatIf || ConfirmWithWhatIf)
+            {
+                WhatIfOperationResult whatIfResult = await RunWhatIfAsync();
+                await WriteOutput(whatIfResult);
+                if (WhatIf)
+                {
+                    return;
+                }
+                if (!ProceedIfNoChange || HasChanges(whatIfResult))
+                {
+                    Console.Write("Are you sure you want to execute the deployment? (y/n): ");
+                    string? answer = Console.ReadLine()?.Trim();
+                    if (!string.Equals(answer, "y", StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(answer, "yes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+                }
             }
 
             await ValidateAsync();
@@ -76,7 +98,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
             {
                 p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
-                p.Body = BuildWhatIf(WhatIfResultFormat);
+                p.Body = BuildWhatIf(WhatIfResultFormat, forceIncrementalMode: true);
             });
 
         using HttpResponseMessage response = await processor.SendAsync();
@@ -108,4 +130,9 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
             });
         return processor.SendAsync();
     }
+
+    public static bool HasChanges(WhatIfOperationResult result) =>
+        result.Properties?.Changes?.Any(change =>
+            !string.Equals(change.ChangeType, "NoChange", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(change.ChangeType, "Ignore", StringComparison.OrdinalIgnoreCase)) == true;
 }

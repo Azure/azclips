@@ -6,6 +6,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -130,11 +131,29 @@ public class ManagementGroupDeploymentTests
         {
             CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
             Assert.DoesNotContain("no-wait", metadata.Parameters.Keys);
-            Assert.DoesNotContain("mode", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-prompt", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-pretty-print", metadata.Parameters.Keys);
             Assert.DoesNotContain("no-color", metadata.Parameters.Keys);
         }
+
+        // `--mode` is configurable only on `create` (matches upstream `az deployment mg create
+        // --mode`). `validate`/`what-if` take no `mode` argument upstream and always behave as
+        // Incremental, so Azclips must not expose or honor `--mode` on those two commands.
+        CommandMetadata createMetadataForMode = index.GetCommandMetadata("deployment mg create", ClientType.CLI);
+        Assert.Contains("mode", createMetadataForMode.Parameters.Keys);
+        Assert.Equal(["Incremental", "Complete"], createMetadataForMode.Parameters["mode"].AllowedValues);
+
+        foreach (string command in new[] { "deployment mg validate", "deployment mg what-if" })
+        {
+            CommandMetadata metadata = index.GetCommandMetadata(command, ClientType.CLI);
+            Assert.DoesNotContain("mode", metadata.Parameters.Keys);
+        }
+
+        CommandMetadata createCli = index.GetCommandMetadata("deployment mg create", ClientType.CLI);
+        Assert.Contains("what-if", createCli.Parameters.Keys);
+        Assert.Contains("confirm-with-what-if", createCli.Parameters.Keys);
+        Assert.Contains("proceed-if-no-change", createCli.Parameters.Keys);
+        Assert.Contains("what-if-exclude-change-types", createCli.Parameters.Keys);
 
         Assert.Equal(
             [
@@ -216,6 +235,366 @@ public class ManagementGroupDeploymentTests
         Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
     }
 
+    [Fact]
+    public async Task Create_ForwardsConfiguredMode()
+    {
+        // `--mode Complete` must reach the deployment body instead of always being hardcoded to
+        // Incremental (matches upstream `az deployment mg create --mode`).
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return bodies.Count == 1
+                ? Json("{}")
+                : Json("""{ "name": "mg-test", "properties": { "provisioningState": "Succeeded" } }""");
+        });
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            Mode = "Complete",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement body = JsonDocument.Parse(bodies[1]!).RootElement;
+        Assert.Equal("Complete", body.GetProperty("properties").GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task Validate_AlwaysUsesIncrementalModeEvenWhenConfigured()
+    {
+        // Upstream `validate_arm_template_at_management_group` takes no `mode` argument and
+        // always hardcodes `mode='Incremental'`; a configured Mode must not leak through.
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return Json("""{ "status": "Succeeded" }""");
+        });
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            Mode = "Complete",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement body = JsonDocument.Parse(bodies[0]!).RootElement;
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task WhatIf_AlwaysUsesIncrementalModeEvenWhenConfigured()
+    {
+        // Upstream `what_if_deploy_arm_template_at_management_group` takes no `mode` argument and
+        // always hardcodes `DeploymentMode.incremental`; a configured Mode must not leak through.
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return Json("""{ "status": "Succeeded", "properties": { "changes": [] } }""");
+        });
+        var processor = new ManagementGroupDeploymentWhatIfProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            Mode = "Complete",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement body = JsonDocument.Parse(bodies[0]!).RootElement;
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task CreateWhatIfPreview_UsesIncrementalModeEvenWhenCreateModeIsComplete()
+    {
+        // The `--what-if`/`--confirm-with-what-if` preview inside `create` must still hardcode
+        // Incremental for the preview call, even though the eventual create honors `--mode`.
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return Json("""{ "status": "Succeeded", "properties": { "changes": [] } }""");
+        });
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            Mode = "Complete",
+            WhatIf = true,
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement body = JsonDocument.Parse(bodies[0]!).RootElement;
+        Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task ConfirmWithWhatIf_ProceedIfNoChangeAndNoChanges_SkipsPromptAndCreates()
+    {
+        // Matches upstream's `not proceed_if_no_change or has_change` gate: when
+        // `-ProceedIfNoChange` is set and what-if reports only `NoChange`/`Ignore`, the
+        // confirmation prompt must be skipped entirely and the deployment proceeds straight to
+        // validate+create without touching the console.
+        List<HttpMethod> methods = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            methods.Add(request.Method);
+            return methods.Count switch
+            {
+                1 => Json(
+                    """{ "status": "Succeeded", "properties": { "changes": [ { "changeType": "NoChange" } ] } }"""),
+                2 => Json("""{ "name": "mg-test" }"""),
+                _ => Json(
+                    """{ "name": "mg-test", "properties": { "provisioningState": "Succeeded" } }"""),
+            };
+        });
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            ConfirmWithWhatIf = true,
+            ProceedIfNoChange = true,
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        // what-if, then preflight validate, then the actual create (plus provisioning-state
+        // polling) — no console prompt in between.
+        Assert.Equal(5, methods.Count);
+    }
+
+    [Fact]
+    public void PrepareAndValidate_DerivesDefaultDeploymentNameFromTemplateFile()
+    {
+        // Matches `az deployment <scope> create`'s `_validate_deployment_name`: default to the
+        // local template file's base name when no name is supplied.
+        string tempFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+        File.WriteAllText(tempFile, """{ "resources": [] }""");
+        try
+        {
+            var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+            {
+                ManagementGroupId = "contoso",
+                Location = "eastus",
+                TemplateFile = tempFile,
+            };
+            MethodInfo method = processor.GetType().GetMethod(
+                "PrepareAndValidate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            method.Invoke(processor, null);
+
+            Assert.Equal(Path.GetFileNameWithoutExtension(tempFile), processor.Name);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void PrepareAndValidate_FallsBackToLiteralDeploymentNameWhenUnresolvable()
+    {
+        // A template spec ID that doesn't carry a resolvable resource-name segment, and no
+        // template file/URI: falls back to the literal "deployment1", matching
+        // `az deployment <scope> create`'s default.
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Location = "eastus",
+            TemplateSpecId = "not-a-template-spec-resource-id",
+        };
+        MethodInfo method = processor.GetType().GetMethod(
+            "PrepareAndValidate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(processor, null);
+
+        Assert.Equal("deployment1", processor.Name);
+    }
+
+    [Fact]
+    public void PrepareAndValidate_DerivesDefaultDeploymentNameFromTemplateSpecId()
+    {
+        // Matches `az deployment <scope> create`'s `_validate_deployment_name_with_template_specs`:
+        // default to the template spec's own resource name when only `--template-spec` is given.
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Location = "eastus",
+            TemplateSpecId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg1"
+                + "/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0",
+        };
+        MethodInfo method = processor.GetType().GetMethod(
+            "PrepareAndValidate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(processor, null);
+
+        Assert.Equal("myTemplateSpec", processor.Name);
+    }
+
+    [Fact]
+    public void PrepareAndValidate_GeneratesUniqueDeploymentNameFromTemplateObject()
+    {
+        // Matches Azure PowerShell's `NewResourceManagerSdkClient.GenerateDeploymentName`: when
+        // only an inline template object is given (PowerShell's `-TemplateObject`), generate a
+        // fresh unique name per invocation instead of reusing a fixed literal.
+        var first = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        var second = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object> { ["resources"] = Array.Empty<object>() },
+        };
+        MethodInfo method = first.GetType().GetMethod(
+            "PrepareAndValidate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(first, null);
+        method.Invoke(second, null);
+
+        Assert.NotEqual("deployment1", first.Name);
+        Assert.NotEqual(first.Name, second.Name);
+        Assert.True(Guid.TryParse(first.Name, out _));
+    }
+
+    [Fact]
+    public void PrepareAndValidate_DerivesDefaultDeploymentNameFromTemplateUri()
+    {
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Location = "eastus",
+            TemplateUri = "https://example.com/templates/azuredeploy.json",
+        };
+        MethodInfo method = processor.GetType().GetMethod(
+            "PrepareAndValidate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(processor, null);
+
+        Assert.Equal("azuredeploy", processor.Name);
+    }
+
+    [Theory]
+    [InlineData("managementGroupDeploymentTemplate.json", "managementGroup", true)]
+    [InlineData("deploymentTemplate.json", "resourceGroup", false)]
+    [InlineData("tenantDeploymentTemplate.json", "tenant", false)]
+    public void ValidateBicepTargetScope_RejectsSchemaMismatchedWithManagementGroupScope(
+        string schemaFile, string impliedScope, bool matchesManagementGroupScope)
+    {
+        // Compiled Bicep carries its target scope in "$schema"; a mismatch against the command's
+        // scope should fail fast instead of being deferred to a less specific ARM error.
+        using JsonDocument compiled = JsonDocument.Parse(
+            $$"""{ "$schema": "https://schema.management.azure.com/schemas/2019-08-01/{{schemaFile}}#", "resources": [] }""");
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator();
+        MethodInfo method = typeof(ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentExtended>)
+            .BaseType!
+            .GetMethod("ValidateBicepTargetScope", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        if (matchesManagementGroupScope)
+        {
+            method.Invoke(processor, [compiled.RootElement]);
+            return;
+        }
+
+        TargetInvocationException invocationException = Assert.Throws<TargetInvocationException>(
+            () => method.Invoke(processor, [compiled.RootElement]));
+        ArgumentException error = Assert.IsType<ArgumentException>(invocationException.InnerException);
+        Assert.Contains(impliedScope, error.Message);
+        Assert.Contains("managementGroup", error.Message);
+    }
+
+    [Fact]
+    public void BuildParameters_MergesFileAndInlineSourcesWithTemplateTypedValues()
+    {
+        // Gap #1: parameters must merge multiple sources (a parameters object plus inline
+        // overlays) and coerce inline KEY=VALUE tokens using the template's declared parameter
+        // types, matching upstream's parameter-resolution behavior.
+        var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Location = "eastus",
+            ParametersObject = new Dictionary<string, object>
+            {
+                ["parameters"] = new Dictionary<string, object>
+                {
+                    ["fromFile"] = new Dictionary<string, object> { ["value"] = "file-value" },
+                },
+            },
+            Parameter = ["count=3", "flag=true", "name=01234"],
+            TemplateObject = JsonDocument.Parse(
+                """
+                {
+                  "parameters": {
+                    "fromFile": { "type": "string" },
+                    "count": { "type": "int" },
+                    "flag": { "type": "bool" },
+                    "name": { "type": "string" }
+                  },
+                  "resources": []
+                }
+                """).RootElement,
+        };
+        MethodInfo method = processor.GetType().GetMethod(
+            "BuildDeployment", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var deployment = Assert.IsType<ScopedDeployment>(method.Invoke(processor, [Type.Missing]));
+
+        JsonObject parameters = Assert.IsType<JsonObject>(deployment.Properties.Parameters);
+        Assert.Equal("file-value", parameters["fromFile"]!["value"]!.GetValue<string>());
+        Assert.Equal(3L, parameters["count"]!["value"]!.GetValue<long>());
+        Assert.True(parameters["flag"]!["value"]!.GetValue<bool>());
+        // "name" is typed as "string" by the template, so the JSON-parseable "01234" is still
+        // coerced to the string "01234" rather than left as (invalid) JSON.
+        Assert.Equal("01234", parameters["name"]!["value"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Wait_CustomCondition_SupportsGeneralJmesPathBeyondProvisioningState()
+    {
+        // Gap #6: `--custom` must accept any JMESPath expression, not just the hardcoded
+        // "properties.provisioningState==<value>" prefix form.
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            """{ "name": "mg-test", "properties": { "provisioningState": "Succeeded", "outputs": { "result": { "value": "ready" } } } }"""));
+        var processor = new WaitManagementGroupDeploymentProcessor
+        {
+            ManagementGroupId = "contoso",
+            Name = "mg-test",
+            Custom = "properties.outputs.result.value=='ready'",
+            Interval = 1,
+            Timeout = 5,
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
     [Theory]
     [InlineData("RequestContent", "RequestContent")]
     [InlineData("ResponseContent", "ResponseContent")]
@@ -232,7 +611,7 @@ public class ManagementGroupDeploymentTests
             "BuildDeployment",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        var deployment = Assert.IsType<ScopedDeployment>(method.Invoke(processor, null));
+        var deployment = Assert.IsType<ScopedDeployment>(method.Invoke(processor, [Type.Missing]));
 
         Assert.Equal(expected, deployment.Properties.DebugSetting?.DetailLevel);
     }
@@ -265,37 +644,17 @@ public class ManagementGroupDeploymentTests
         Assert.Equal(["one", "two"], values.Select(value => value.Name));
     }
 
-    [Theory]
-    [InlineData("Succeeded")]
-    [InlineData("Failed")]
-    [InlineData("Canceled")]
-    [InlineData("Created")]
-    [InlineData("Updating")]
-    public async Task Stop_RejectsNonCancelableDeploymentBeforeCancel(string state)
+    [Fact]
+    public async Task Stop_SendsCancelDirectlyWithoutLocalStateCheck()
     {
-        var pipeline = new FakeHttpPipeline((_, _) => Json(
-            $$"""{ "name": "done", "properties": { "provisioningState": "{{state}}" } }"""));
-        var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
+        // Matches upstream `az deployment mg cancel` / `Stop-AzManagementGroupDeployment`: the
+        // cancel request is sent unconditionally, with no preceding GET + provisioningState
+        // allowlist check. ARM alone decides whether the deployment is in a cancelable state.
+        var pipeline = new FakeHttpPipeline((request, _) =>
         {
-            ManagementGroupId = "contoso",
-            Name = "done",
-        };
-        Init(processor, pipeline, new FakeOutputHandler());
-
-        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => processor.ProcessAsync());
-
-        Assert.Contains("not running", error.Message);
-        Assert.Equal(1, pipeline.SendCount);
-    }
-
-    [Theory]
-    [InlineData("Accepted")]
-    [InlineData("Running")]
-    public async Task Stop_CancelsCancelableDeployment(string state)
-    {
-        var pipeline = new FakeHttpPipeline((_, _) => Json(
-            $$"""{ "name": "active", "properties": { "provisioningState": "{{state}}" } }"""));
+            Assert.Contains("/cancel?api-version", request.RequestUri!.ToString());
+            return Json("{}");
+        });
         var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
@@ -305,7 +664,7 @@ public class ManagementGroupDeploymentTests
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, pipeline.SendCount);
+        Assert.Equal(1, pipeline.SendCount);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
@@ -43,6 +44,7 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)] public string? DeploymentDebugLogLevel { get; set; }
     [Parameter(Mandatory = false)] public string? WhatIfResultFormat { get; set; }
     [Parameter(Mandatory = false)] public string[]? WhatIfExcludeChangeType { get; set; }
+    [Parameter(Mandatory = false)] public SwitchParameter ProceedIfNoChange { get; set; }
     [Parameter(Mandatory = false)] public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -57,15 +59,8 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
     protected override void ProcessRecord()
     {
         bool armWhatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? whatIf)
-            && whatIf is SwitchParameter whatIfSwitch
-            && whatIfSwitch.IsPresent;
-        string target =
-            $"management group '{ManagementGroupId}' deployment '{Name ?? "(generated name)"}'";
-        if (!armWhatIf && !ShouldProcess(target, "Create"))
-        {
-            return;
-        }
-
+            ? LanguagePrimitives.IsTrue(whatIf)
+            : LanguagePrimitives.IsTrue(SessionState.PSVariable.GetValue("WhatIfPreference"));
         Dictionary<string, object> parameters = new()
         {
             [nameof(ManagementGroupId)] = ManagementGroupId,
@@ -102,6 +97,44 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
         if (armWhatIf)
         {
             parameters["WhatIf"] = true;
+            ManagementGroupDeploymentCmdletHelpers.Run(
+                this,
+                engine,
+                streams,
+                _cts.Token,
+                "New-AzManagementGroupDeployment",
+                parameters);
+            return;
+        }
+
+        bool confirm = MyInvocation.BoundParameters.TryGetValue("Confirm", out object? confirmValue)
+            ? LanguagePrimitives.IsTrue(confirmValue)
+            : SessionState.PSVariable.GetValue("ConfirmPreference") is ConfirmImpact preference
+                && preference <= ConfirmImpact.Medium;
+        bool skipConfirmation = false;
+        if (confirm)
+        {
+            parameters["WhatIf"] = true;
+            object? preview = ManagementGroupDeploymentCmdletHelpers.RunForOutput(
+                this,
+                engine,
+                streams,
+                _cts.Token,
+                "New-AzManagementGroupDeployment",
+                parameters);
+            WriteInformation(preview, ["PSHOST"]);
+            parameters.Remove("WhatIf");
+            skipConfirmation = ProceedIfNoChange.IsPresent
+                && preview is WhatIfOperationResult result
+                && !Microsoft.Azure.Azclips.Extensions.Resources.Processors
+                    .NewManagementGroupDeploymentProcessor_Orchestrator.HasChanges(result);
+        }
+
+        string target =
+            $"management group '{ManagementGroupId}' deployment '{Name ?? "(generated name)"}'";
+        if (!skipConfirmation && !ShouldProcess(target, "Create"))
+        {
+            return;
         }
 
         ManagementGroupDeploymentCmdletHelpers.Run(

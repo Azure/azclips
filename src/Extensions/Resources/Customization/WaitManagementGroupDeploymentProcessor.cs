@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Text.Json;
+using DevLab.JmesPath;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -60,7 +61,12 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
                 string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
                 DeploymentExtended? deployment =
                     JsonSerializer.Deserialize<DeploymentExtended>(rawBody, JsonOptions);
-                if (Matches(deployment))
+                string? state = deployment?.Properties?.ProvisioningState;
+                if (string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("The deployment operation failed.");
+                }
+                if (Matches(deployment, rawBody))
                 {
                     if (deployment is not null)
                     {
@@ -91,17 +97,17 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
             $"Timed out waiting for management group deployment '{Name}'.");
     }
 
-    private bool Matches(DeploymentExtended? deployment)
+    private bool Matches(DeploymentExtended? deployment, string rawBody)
     {
         if (deployment is null)
         {
             return false;
         }
-        if (Created || Exists)
+        if (Exists)
         {
             return true;
         }
-        if (Updated)
+        if (Created || Updated)
         {
             return string.Equals(
                 deployment.Properties?.ProvisioningState,
@@ -110,17 +116,24 @@ public class WaitManagementGroupDeploymentProcessor : ResourcesProcessorBase<obj
         }
         if (!string.IsNullOrWhiteSpace(Custom))
         {
-            const string prefix = "properties.provisioningState==";
-            if (!Custom.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            string result;
+            try
             {
-                throw new ArgumentException(
-                    $"Only custom conditions in the form '{prefix}<value>' are supported.");
+                result = new JmesPath().Transform(rawBody, Custom);
             }
-            string expected = Custom[prefix.Length..].Trim(' ', '\'', '"');
-            return string.Equals(
-                deployment.Properties?.ProvisioningState,
-                expected,
-                StringComparison.OrdinalIgnoreCase);
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Custom must be a valid JMESPath expression: {ex.Message}", ex);
+            }
+            using JsonDocument document = JsonDocument.Parse(result);
+            return document.RootElement.ValueKind switch
+            {
+                JsonValueKind.Null or JsonValueKind.False => false,
+                JsonValueKind.String => document.RootElement.GetString()?.Length > 0,
+                JsonValueKind.Number => document.RootElement.TryGetDouble(out double number) && number != 0,
+                JsonValueKind.Array or JsonValueKind.Object => document.RootElement.GetRawText() is not "[]" and not "{}",
+                _ => true,
+            };
         }
         return false;
     }

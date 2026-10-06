@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -32,75 +33,107 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         }
     }
 
+    protected override string DeploymentScope => "managementGroup";
+
     protected void PrepareAndValidate()
     {
-        NormalizeParameterTokens();
         if (string.IsNullOrWhiteSpace(Name))
         {
-            Name = !string.IsNullOrWhiteSpace(TemplateFile)
-                ? Path.GetFileNameWithoutExtension(TemplateFile)
-                : DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            Name = DeriveDefaultDeploymentName();
         }
 
-        Mode = "Incremental";
-        ValidateCommonInputs();
+        ValidateManagementGroupInputs();
     }
 
-    private void NormalizeParameterTokens()
+    // Matches `az deployment <scope> create`'s _validate_deployment_name: default to the
+    // template file's base name, else the last URI segment of a remote template, else the
+    // template spec's own resource name (_validate_deployment_name_with_template_specs), else a
+    // freshly generated name when only an inline template object is given (matching
+    // NewResourceManagerSdkClient.GenerateDeploymentName's GUID fallback), else the literal
+    // "deployment1" when no name can be derived from the template source at all.
+    private string DeriveDefaultDeploymentName()
     {
-        if (Parameter is not { Length: > 0 })
+        if (!string.IsNullOrWhiteSpace(TemplateFile))
         {
-            return;
+            return Path.GetFileNameWithoutExtension(TemplateFile);
         }
 
-        List<string> overlays = [];
-        foreach (string token in Parameter)
+        if (!string.IsNullOrWhiteSpace(TemplateUri)
+            && Uri.TryCreate(TemplateUri, UriKind.Absolute, out Uri? templateUri))
         {
-            if (token.StartsWith('@') && token.Length > 1)
+            string segment = templateUri.Segments.Length > 0 ? templateUri.Segments[^1].TrimEnd('/') : string.Empty;
+            if (!string.IsNullOrWhiteSpace(segment))
             {
-                EnsureNoParameterSource();
-                ParametersFile = token[1..];
-                continue;
+                return Path.GetFileNameWithoutExtension(segment);
             }
-
-            if (token.TrimStart().StartsWith('{'))
-            {
-                EnsureNoParameterSource();
-                ParametersObject = JsonSerializer.Deserialize<JsonElement>(token);
-                continue;
-            }
-
-            if (Uri.TryCreate(token, UriKind.Absolute, out Uri? uri)
-                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-            {
-                EnsureNoParameterSource();
-                ParametersUri = token;
-                continue;
-            }
-
-            overlays.Add(token);
         }
 
-        Parameter = overlays.Count == 0 ? null : [.. overlays];
+        if (!string.IsNullOrWhiteSpace(TemplateSpecId))
+        {
+            string? specName = ExtractTemplateSpecName(TemplateSpecId);
+            if (!string.IsNullOrWhiteSpace(specName))
+            {
+                return specName;
+            }
+        }
+
+        if (TemplateObject is not null)
+        {
+            return Guid.NewGuid().ToString();
+        }
+
+        return "deployment1";
     }
 
-    private void EnsureNoParameterSource()
+    private static string? ExtractTemplateSpecName(string templateSpecId)
     {
-        if (ParametersFile is not null || ParametersObject is not null || ParametersUri is not null)
+        string[] segments = templateSpecId.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        int index = Array.FindIndex(
+            segments, segment => string.Equals(segment, "templateSpecs", StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index + 1 < segments.Length ? segments[index + 1] : null;
+    }
+
+    private void ValidateManagementGroupInputs()
+    {
+        string[]? parameterTokens = Parameter;
+        Parameter = null;
+        try
         {
-            throw new ArgumentException("Only one parameter file, object, or URI source can be provided.");
+            ValidateCommonInputs();
+        }
+        finally
+        {
+            Parameter = parameterTokens;
+        }
+
+        foreach (string token in parameterTokens ?? [])
+        {
+            if (!token.StartsWith('@')
+                && !token.TrimStart().StartsWith('{')
+                && !File.Exists(token)
+                && (!Uri.TryCreate(token, UriKind.Absolute, out Uri? uri)
+                    || uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                && token.IndexOf('=') <= 0)
+            {
+                throw new ArgumentException(
+                    $"Unable to parse parameter '{token}'. Expected a JSON object, file, URI, or KEY=VALUE.");
+            }
         }
     }
 
-    protected ScopedDeployment BuildDeployment()
+    // `forceIncrementalMode` matches upstream: `az deployment mg validate` hardcodes
+    // mode='Incremental' and never accepts a `mode` argument at all (unlike `create`, which
+    // forwards the caller's `--mode` into the same body used for its own preflight validate).
+    protected ScopedDeployment BuildDeployment(bool forceIncrementalMode = false)
     {
+        object? template = BuildTemplate(out TemplateLink? templateLink);
         string? debugLevel = NormalizeDebugSetting(DeploymentDebugLogLevel);
         DeploymentProperties properties = new()
         {
-            Mode = DeploymentMode.Incremental,
-            Template = BuildTemplate(out TemplateLink? templateLink),
+            Mode = forceIncrementalMode ? DeploymentMode.Incremental : ParseMode(Mode),
+            Template = template,
             TemplateLink = templateLink,
-            Parameters = BuildParameters(out ParametersLink? parametersLink),
+            Parameters = BuildParameters(GetTemplateForParameterTyping(template), out ParametersLink? parametersLink),
             ParametersLink = parametersLink,
             ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
             DebugSetting = debugLevel is null
@@ -116,16 +149,22 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         };
     }
 
-    protected ScopedDeploymentWhatIf BuildWhatIf(string? resultFormat) =>
-        new()
+    // `forceIncrementalMode` matches upstream: every what-if preview (the standalone `what-if`
+    // command and the `--confirm-with-what-if`/`--what-if` preview inside `create`) hardcodes
+    // DeploymentMode.incremental and never forwards the caller's `--mode`
+    // (`_what_if_deploy_arm_template_at_management_group_core` takes no `mode` argument).
+    protected ScopedDeploymentWhatIf BuildWhatIf(string? resultFormat, bool forceIncrementalMode = true)
+    {
+        object? template = BuildTemplate(out TemplateLink? templateLink);
+        return new()
         {
             Location = Location,
             Properties = new DeploymentWhatIfProperties
             {
-                Mode = DeploymentMode.Incremental,
-                Template = BuildTemplate(out TemplateLink? templateLink),
+                Mode = forceIncrementalMode ? DeploymentMode.Incremental : ParseMode(Mode),
+                Template = template,
                 TemplateLink = templateLink,
-                Parameters = BuildParameters(out ParametersLink? parametersLink),
+                Parameters = BuildParameters(GetTemplateForParameterTyping(template), out ParametersLink? parametersLink),
                 ParametersLink = parametersLink,
                 ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
                 WhatIfSettings = new DeploymentWhatIfSettings
@@ -134,6 +173,236 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
                 },
             },
         };
+    }
+
+    private object? BuildParameters(object? template, out ParametersLink? parametersLink)
+    {
+        if (Parameter is not { Length: > 0 })
+        {
+            return BuildParameters(out parametersLink);
+        }
+
+        parametersLink = null;
+        JsonObject parameters = new();
+        MergeParameterSource(parameters, ParametersObject);
+        if (!string.IsNullOrWhiteSpace(ParametersFile))
+        {
+            MergeParameterSource(parameters, ReadParameterSource(ParametersFile));
+        }
+        if (!string.IsNullOrWhiteSpace(ParametersUri))
+        {
+            string uri = string.IsNullOrWhiteSpace(QueryString)
+                ? ParametersUri
+                : AppendQueryString(ParametersUri, QueryString);
+            MergeParameterSource(parameters, ReadParameterSource(uri));
+        }
+
+        foreach (string token in Parameter ?? [])
+        {
+            object? source = TryReadParameterSource(token);
+            if (source is not null)
+            {
+                MergeParameterSource(parameters, source);
+                continue;
+            }
+
+            (string key, JsonNode? value) = ParseTemplateParameter(token, template);
+            string targetKey = FindExistingKeyIgnoreCase(parameters, key) ?? key;
+            parameters[targetKey] = new JsonObject { ["value"] = value };
+        }
+
+        return parameters.Count == 0 ? null : parameters;
+    }
+
+    private static object? TryReadParameterSource(string token)
+    {
+        string candidate = token.StartsWith('@') && token.Length > 1 ? token[1..] : token;
+        if (token.StartsWith('@')
+            || File.Exists(candidate)
+            || Uri.TryCreate(candidate, UriKind.Absolute, out Uri? uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            return ReadParameterSource(candidate);
+        }
+
+        if (token.TrimStart().StartsWith('{'))
+        {
+            return JsonNode.Parse(token)
+                ?? throw new ArgumentException("The parameter JSON source is empty.");
+        }
+
+        return null;
+    }
+
+    private static object ReadParameterSource(string source)
+    {
+        if (Uri.TryCreate(source, UriKind.Absolute, out Uri? uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            using HttpClient client = new();
+            return JsonNode.Parse(client.GetStringAsync(uri).GetAwaiter().GetResult())
+                ?? throw new ArgumentException($"The parameter URI '{source}' returned an empty response.");
+        }
+
+        if (!File.Exists(source))
+        {
+            throw new FileNotFoundException($"Parameter file not found: {source}", source);
+        }
+
+        if (source.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase))
+        {
+            string envelopeJson = BicepCompiler.BuildParams(source);
+            using JsonDocument envelope = JsonDocument.Parse(envelopeJson);
+            if (!envelope.RootElement.TryGetProperty("parametersJson", out JsonElement parametersJson)
+                || parametersJson.ValueKind != JsonValueKind.String)
+            {
+                throw new InvalidOperationException(
+                    "Unexpected 'bicep build-params --stdout' output: missing 'parametersJson' string.");
+            }
+            return JsonNode.Parse(parametersJson.GetString()!)
+                ?? throw new InvalidOperationException($"Bicep parameter file '{source}' produced no parameters.");
+        }
+
+        return JsonNode.Parse(File.ReadAllText(source))
+            ?? throw new ArgumentException($"The parameter file '{source}' is empty.");
+    }
+
+    private object? GetTemplateForParameterTyping(object? template)
+    {
+        if (template is not null)
+        {
+            return template;
+        }
+
+        if (!string.IsNullOrWhiteSpace(TemplateUri))
+        {
+            string uri = string.IsNullOrWhiteSpace(QueryString)
+                ? TemplateUri
+                : AppendQueryString(TemplateUri, QueryString);
+            using HttpClient client = new();
+            return JsonNode.Parse(client.GetStringAsync(uri).GetAwaiter().GetResult())
+                ?? throw new ArgumentException($"The template URI '{TemplateUri}' returned an empty response.");
+        }
+
+        if (string.IsNullOrWhiteSpace(TemplateSpecId))
+        {
+            return null;
+        }
+
+        string separator = TemplateSpecId.Contains('?') ? "&" : "?";
+        string uriString = TemplateSpecId.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? TemplateSpecId
+            : $"https://management.azure.com{TemplateSpecId}";
+        using HttpRequestMessage request = new(
+            HttpMethod.Get,
+            $"{uriString}{separator}api-version=2022-02-01");
+        using HttpResponseMessage response =
+            HttpPipeline.SendAsync(request, Publisher).GetAwaiter().GetResult();
+        response.EnsureSuccessStatusCode();
+        JsonNode root = JsonNode.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult())
+            ?? throw new InvalidOperationException($"Template spec '{TemplateSpecId}' returned an empty response.");
+        return root["properties"]?["mainTemplate"]
+            ?? throw new InvalidOperationException($"Template spec '{TemplateSpecId}' has no main template.");
+    }
+
+    private static void MergeParameterSource(JsonObject target, object? source)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        JsonObject sourceObject = source as JsonObject
+            ?? JsonSerializer.SerializeToNode(source) as JsonObject
+            ?? throw new ArgumentException("A parameter source must contain a JSON object.");
+        if (sourceObject["parameters"] is JsonObject wrapped)
+        {
+            sourceObject = wrapped;
+        }
+
+        foreach ((string key, JsonNode? value) in sourceObject)
+        {
+            string targetKey = FindExistingKeyIgnoreCase(target, key) ?? key;
+            target[targetKey] = value?.DeepClone();
+        }
+    }
+
+    private static (string Key, JsonNode? Value) ParseTemplateParameter(string token, object? template)
+    {
+        int separator = token.IndexOf('=');
+        if (separator <= 0)
+        {
+            throw new ArgumentException($"Unable to parse parameter '{token}'. Expected a JSON object, file, URI, or KEY=VALUE.");
+        }
+
+        string key = token[..separator].Trim();
+        string rawValue = token[(separator + 1)..];
+        JsonObject? templateObject = template as JsonObject
+            ?? JsonSerializer.SerializeToNode(template) as JsonObject;
+        JsonObject? parameterDefinition = templateObject?["parameters"]?[key] as JsonObject;
+        if (templateObject?["parameters"] is JsonObject definitions && parameterDefinition is null)
+        {
+            string? matchedKey = definitions.Select(item => item.Key)
+                .FirstOrDefault(name => string.Equals(name, key, StringComparison.OrdinalIgnoreCase));
+            parameterDefinition = matchedKey is null ? null : definitions[matchedKey] as JsonObject;
+            key = matchedKey ?? key;
+        }
+
+        if (templateObject?["parameters"] is not null && parameterDefinition is null)
+        {
+            throw new ArgumentException($"Unrecognized template parameter '{key}'.");
+        }
+
+        string? type = ResolveParameterType(parameterDefinition, templateObject);
+        JsonNode? value = type?.ToLowerInvariant() switch
+        {
+            "string" or "securestring" => JsonValue.Create(rawValue),
+            "bool" => JsonValue.Create(bool.Parse(rawValue)),
+            "int" => JsonValue.Create(long.Parse(rawValue, System.Globalization.CultureInfo.InvariantCulture)),
+            "object" or "secureobject" or "array" => JsonNode.Parse(rawValue),
+            _ => ParseJsonOrString(rawValue),
+        };
+        return (key, value);
+    }
+
+    private static string? ResolveParameterType(JsonObject? definition, JsonObject? template)
+    {
+        HashSet<string> visited = [];
+        while (definition is not null)
+        {
+            if (definition["type"]?.GetValue<string>() is { } type)
+            {
+                return type;
+            }
+            if (definition["$ref"]?.GetValue<string>() is not { } reference
+                || template is null
+                || !visited.Add(reference)
+                || !reference.StartsWith("#/", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            JsonNode? current = template;
+            foreach (string segment in reference[2..].Split('/'))
+            {
+                current = current?[segment.Replace("~1", "/").Replace("~0", "~")];
+            }
+            definition = current as JsonObject;
+        }
+        return null;
+    }
+
+    private static JsonNode? ParseJsonOrString(string value)
+    {
+        try
+        {
+            return JsonNode.Parse(value);
+        }
+        catch (JsonException)
+        {
+            return JsonValue.Create(value);
+        }
+    }
 
     protected static string NormalizeResultFormat(string? resultFormat) =>
         string.IsNullOrWhiteSpace(resultFormat)

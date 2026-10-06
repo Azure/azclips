@@ -25,7 +25,7 @@ New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> [
  [-TemplateObject <hashtable>] [-QueryString <string>] [-TemplateParameterFile <string>]
  [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>]
- [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-Profile <string>] [-WhatIf]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -50,6 +50,22 @@ New-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Location e
 ```
 
 ## PARAMETERS
+
+### -ProceedIfNoChange
+
+Skips the confirmation prompt when ARM what-if reports only `NoChange` or `Ignore` changes.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+Parameter Sets: (All)
+Aliases: None
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
 
 ### -Confirm
 

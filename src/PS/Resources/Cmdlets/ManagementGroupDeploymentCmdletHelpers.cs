@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 
@@ -61,5 +62,26 @@ internal static class ManagementGroupDeploymentCmdletHelpers
         telemetry.TagInvocation(invocation);
         using ISession session = engine.OpenExecutionSession(invocation, streams, token);
         session.Run();
+    }
+
+    public static object? RunForOutput(
+        PSCmdlet cmdlet,
+        IEngine engine,
+        OutputStreams streams,
+        CancellationToken token,
+        string command,
+        Dictionary<string, object> parameters)
+    {
+        object? output = null;
+        OutputStreams capturingStreams = streams with
+        {
+            WriteOutput = (value, _) =>
+            {
+                output = value is SerializedJson json ? json.Value : value;
+                return Task.CompletedTask;
+            },
+        };
+        Run(cmdlet, engine, capturingStreams, token, command, parameters);
+        return output;
     }
 }

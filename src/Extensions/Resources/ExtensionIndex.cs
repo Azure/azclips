@@ -507,9 +507,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static Dictionary<string, ParameterMetadata> CreateManagementDeploymentBodyCliParameters()
+        // `includeMode` matches upstream `az deployment mg`: only `create` exposes `--mode`.
+        // `validate` and `what-if` take no `mode` argument and always behave as Incremental
+        // (see `validate_arm_template_at_management_group`/`what_if_deploy_arm_template_at_management_group`).
+        private static Dictionary<string, ParameterMetadata> CreateManagementDeploymentBodyCliParameters(bool includeMode = true)
         {
-            return new Dictionary<string, ParameterMetadata>
+            Dictionary<string, ParameterMetadata> parameters = new()
             {
                 ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"] = new("Name", "name", typeof(string), "The deployment name. Derived when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -523,6 +526,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["parameters"] = new("Parameter", "parameters", typeof(string[]), "A parameter source or repeated KEY=VALUE overlays.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
             };
+            if (includeMode)
+            {
+                parameters["mode"] = new("Mode", "mode", typeof(string), "The deployment mode.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]);
+            }
+            return parameters;
         }
         private static readonly CommandMetadata s_newManagementGroupDeployment_CLI = new(
             Name: "NewManagementGroupDeploymentProcessor_Orchestrator",
@@ -531,7 +539,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewManagementGroupDeploymentProcessor_Orchestrator),
-            Parameters: CreateManagementDeploymentBodyCliParameters(),
+            Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters())
+            {
+                ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Preview changes without creating the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["confirm-with-what-if"] = new("ConfirmWithWhatIf", "confirm-with-what-if", typeof(bool), "Preview changes and ask before creating the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["proceed-if-no-change"] = new("ProceedIfNoChange", "proceed-if-no-change", typeof(bool), "Skip confirmation when what-if reports no changes.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["what-if-exclude-change-types"] = new("WhatIfExcludeChangeType", "what-if-exclude-change-types", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = new(
@@ -541,7 +556,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
-            Parameters: CreateManagementDeploymentBodyCliParameters(),
+            Parameters: CreateManagementDeploymentBodyCliParameters(includeMode: false),
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = new(
@@ -551,7 +566,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ManagementGroupDeploymentWhatIfProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.ManagementGroupDeploymentWhatIfProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters())
+            Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters(includeMode: false))
             {
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -639,11 +654,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["name"] = new("Name", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["created"] = new("Created", "created", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["created"] = new("Created", "created", typeof(bool), "Wait until provisioning succeeds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["deleted"] = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["exists"] = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["updated"] = new("Updated", "updated", typeof(bool), "Wait until provisioning succeeds.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["custom"] = new("Custom", "custom", typeof(string), "Wait for a provisioning-state expression.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["custom"] = new("Custom", "custom", typeof(string), "Wait until a JMESPath expression evaluates to true.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "Maximum wait time in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
             },

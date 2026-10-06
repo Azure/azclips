@@ -20,7 +20,7 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
             {
                 p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
-                p.Body = BuildDeployment();
+                p.Body = BuildDeployment(forceIncrementalMode: true);
             });
         return await processor.SendAsync();
     }

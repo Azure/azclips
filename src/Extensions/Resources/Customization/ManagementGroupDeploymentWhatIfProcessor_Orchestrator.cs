@@ -23,7 +23,7 @@ public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
             {
                 p.GroupId = ManagementGroupId;
                 p.DeploymentName = Name;
-                p.Body = BuildWhatIf(ResultFormat);
+                p.Body = BuildWhatIf(ResultFormat, forceIncrementalMode: true);
             });
         return await processor.SendAsync();
     }

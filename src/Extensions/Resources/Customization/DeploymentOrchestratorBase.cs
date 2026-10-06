@@ -115,6 +115,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
+        // The ARM deployment scope this orchestrator targets (resourceGroup/subscription/
+        // managementGroup/tenant). Used only to validate a local .bicep file's target scope
+        // (its "$schema") against the command being run, matching `az deployment <scope>`'s
+        // `validate_bicep_target_scope`. Derived scope orchestrators override this.
+        protected virtual string DeploymentScope => "resourceGroup";
+
         protected static DeploymentMode ParseMode(string? mode) =>
             string.IsNullOrWhiteSpace(mode)
                 ? DeploymentMode.Incremental
@@ -155,10 +161,62 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 EnsureFileExists(templatePath);
                 string armJson = BicepCompiler.BuildTemplate(templatePath);
-                return JsonSerializer.Deserialize<JsonElement>(armJson);
+                JsonElement compiled = JsonSerializer.Deserialize<JsonElement>(armJson);
+                ValidateBicepTargetScope(compiled);
+                return compiled;
             }
 
             return ReadJsonFile(templatePath);
+        }
+
+        // Compiled Bicep carries its target scope in "$schema" (e.g. ".../managementGroupDeploymentTemplate.json#").
+        // Reject it up front when it doesn't match this command's deployment scope, instead of
+        // letting ARM fail later with a less specific error. Matches `az deployment <scope>
+        // create`'s validate_bicep_target_scope. Only compiled Bicep is checked: hand-authored ARM
+        // JSON templates don't reliably set "$schema" to a value reflecting intended scope.
+        private void ValidateBicepTargetScope(JsonElement template)
+        {
+            if (template.ValueKind != JsonValueKind.Object
+                || !template.TryGetProperty("$schema", out JsonElement schemaElement)
+                || schemaElement.ValueKind != JsonValueKind.String)
+            {
+                return;
+            }
+
+            string? templateScope = ResolveSchemaTargetScope(schemaElement.GetString());
+            if (templateScope is not null
+                && !string.Equals(templateScope, DeploymentScope, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    $"The Bicep template's target scope '{templateScope}' does not match the deployment command's scope '{DeploymentScope}'.");
+            }
+        }
+
+        private static string? ResolveSchemaTargetScope(string? schema)
+        {
+            if (string.IsNullOrWhiteSpace(schema))
+            {
+                return null;
+            }
+
+            if (schema.Contains("managementGroupDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return "managementGroup";
+            }
+            if (schema.Contains("tenantDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return "tenant";
+            }
+            if (schema.Contains("subscriptionDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return "subscription";
+            }
+            if (schema.Contains("deploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return "resourceGroup";
+            }
+
+            return null;
         }
 
         protected object? BuildParameters(out ParametersLink? parametersLink)
