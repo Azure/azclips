@@ -3,6 +3,8 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
@@ -34,6 +36,8 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
+        // Explicit names and ids are looked up before anything is created, as legacy CLI checks
+        // existence before it deploys, so a missing id fails without leaving a VNet or NSG behind.
         (string? existingNetworkSecurityGroupId, string? networkSecurityGroupNameToCreate) = await NewOrExistingResourceResolver.ResolveAsync(
             NetworkSecurityGroup, DefaultNetworkSecurityGroupName, SubscriptionId, ResourceGroupName,
             NewOrExistingResourceResolver.NetworkSecurityGroup, FindNetworkSecurityGroupIdAsync);
@@ -79,29 +83,21 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     }
 
     private Task<string?> FindNetworkSecurityGroupIdAsync(string subscriptionId, string resourceGroupName, string name)
-        => FindIdAsync<GetNetworkSecurityGroupProcessor>(p =>
-        {
-            p.SubscriptionId = subscriptionId;
-            p.ResourceGroupName = resourceGroupName;
-            p.Name = name;
-        });
+        => FindIdAsync(NetworkResourceUri(subscriptionId, resourceGroupName, "networkSecurityGroups", name));
 
     private Task<string?> FindPublicIpAddressIdAsync(string subscriptionId, string resourceGroupName, string name)
-        => FindIdAsync<GetPublicIPAddressProcessor>(p =>
-        {
-            p.SubscriptionId = subscriptionId;
-            p.ResourceGroupName = resourceGroupName;
-            p.Name = name;
-        });
+        => FindIdAsync(NetworkResourceUri(subscriptionId, resourceGroupName, "publicIPAddresses", name));
+
+    private static string NetworkResourceUri(string subscriptionId, string resourceGroupName, string resourceType, string name)
+        => $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/{resourceType}/{name}?api-version=2025-05-01";
 
     /// <summary>
-    /// Reads the resource <typeparamref name="TGetProcessor"/> addresses and returns its id, or null
-    /// when ARM answers 404. Any ARM resource's body carries its id, so it reads as a reference.
+    /// Reads the network resource at <paramref name="uri"/> and returns its id, or null when ARM
+    /// answers 404. Any ARM resource's body carries its id, so it reads as a reference.
     /// </summary>
-    private async Task<string?> FindIdAsync<TGetProcessor>(Action<TGetProcessor> configure)
-        where TGetProcessor : ComputeProcessorBase, new()
+    private async Task<string?> FindIdAsync(string uri)
     {
-        using HttpResponseMessage response = await CreateExtendedProcessor(configure).SendAllowingNotFoundAsync();
+        using HttpResponseMessage response = await GetAllowingNotFoundAsync(uri);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -110,6 +106,31 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
         ResourceReference resource = (await response.Content.ReadFromJsonAsync<ResourceReference>(JsonOptions))!;
         return resource.Id;
+    }
+
+    /// <summary>
+    /// A NotFound (404) safe GET, returning the response for the caller to read or dispose.
+    /// </summary>
+    private async Task<HttpResponseMessage> GetAllowingNotFoundAsync(string uri)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, uri);
+        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return response;
+        }
+
+        try
+        {
+            await response.EnsureSuccessAsync(Publisher);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+        return response;
     }
 
     private async Task<string?> CreateNetworkSecurityGroupAsync(string name)

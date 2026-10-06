@@ -52,7 +52,8 @@ single surface: the recording is shared by both the CLI and PowerShell runs on p
 any real resources the scenario created.
 
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
-orchestration: vnet, the default nsg (`scenario-vmNSG`, with its `rdp` rule), the default public
+orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
+(`scenario-vmNSG`, with its `rdp` rule), the default public
 IP, nic, and the vm with its polling, then the detail reads behind its output (the vm with
 `$expand=instanceView`, the nic, the public IP), twenty-odd entries in one file. Before recording
 it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network` providers

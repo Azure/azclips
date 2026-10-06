@@ -9,8 +9,7 @@ namespace Extensions.Compute.Tests;
 /// <summary>
 /// Unit tests for <c>NetworkSecurityGroupDefaultRule</c>: the inbound rule legacy Azure CLI gives a
 /// network security group that vm create creates (azure-cli <c>custom.py</c> and
-/// <c>_template_builder.py</c> <c>build_nsg_resource</c>). vm create only deploys Windows today, so
-/// the Linux rule is pinned here rather than through a command.
+/// <c>_template_builder.py</c> <c>build_nsg_resource</c>).
 /// </summary>
 public class NetworkSecurityGroupDefaultRuleTests
 {

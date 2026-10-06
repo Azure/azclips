@@ -11,6 +11,10 @@ public class VirtualMachine
     public string Id { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string Location { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImagePlan? Plan { get; set; }
+
     public VirtualMachineProperties Properties { get; set; } = null!;
 
     // Synthetic fields computed by the detail switches rather than returned by ARM. They sit
@@ -99,6 +103,7 @@ public class VirtualMachineProperties
     public StorageProfile StorageProfile { get; set; } = null!;
     public OSProfile OSProfile { get; set; } = null!;
     public NetworkProfile NetworkProfile { get; set; } = null!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SecurityProfile? SecurityProfile { get; set; }
     public DiagnosticsProfile? DiagnosticsProfile { get; set; }
 
@@ -146,13 +151,40 @@ public class OSProfile
 {
     public string ComputerName { get; set; } = null!;
     public string AdminUsername { get; set; } = null!;
-    public string AdminPassword { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AdminPassword { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public WindowsConfiguration? WindowsConfiguration { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinuxConfiguration? LinuxConfiguration { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class WindowsConfiguration
 {
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class LinuxConfiguration
+{
+    public bool DisablePasswordAuthentication { get; set; }
+    public SshConfiguration? Ssh { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshConfiguration
+{
+    public IList<SshPublicKey> PublicKeys { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SshPublicKey
+{
+    public string Path { get; set; } = null!;
+    public string KeyData { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -166,11 +198,64 @@ public class StorageProfile
 
 public class ImageReference
 {
-    public string Publisher { get; set; } = null!;
-    public string Offer { get; set; } = null!;
-    public string Sku { get; set; } = null!;
-    public string Version { get; set; } = null!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Publisher { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Offer { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sku { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Version { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SharedGalleryImageId { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CommunityGalleryImageId { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VirtualMachineImage
+{
+    public string Name { get; set; } = null!;
+    public VirtualMachineImageProperties? Properties { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VirtualMachineImageProperties
+{
+    public OsDiskImage? OsDiskImage { get; set; }
+    public ImagePlan? Plan { get; set; }
+    public string? HyperVGeneration { get; set; }
+    public List<ImageFeature> Features { get; set; } = [];
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ImageFeature
+{
+    public string? Name { get; set; }
+    public string? Value { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class OsDiskImage
+{
+    public string OperatingSystem { get; set; } = null!;
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ImagePlan
+{
+    public string? Name { get; set; }
+    public string? Product { get; set; }
+    public string? Publisher { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -199,15 +284,23 @@ public class NetworkInterfaceReference
 
 public class SecurityProfile
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UefiSettings? UefiSettings { get; set; }
-    public string SecurityType { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SecurityType { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class UefiSettings
 {
-    public bool SecureBootEnabled { get; set; }
-    public bool VTpmEnabled { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SecureBootEnabled { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? VTpmEnabled { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -222,7 +315,6 @@ public class BootDiagnostics
     public bool Enabled { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
-
 public class VirtualMachineInstanceView
 {
     public List<InstanceViewStatus> Statuses { get; set; } = [];
@@ -265,6 +357,3 @@ public class InstanceViewStatus
     public string? DisplayStatus { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
-
-
-

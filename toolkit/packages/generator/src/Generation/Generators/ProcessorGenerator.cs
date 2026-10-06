@@ -295,11 +295,11 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// <c>public T? SkuName { get =&gt; Body?.SkuName; set =&gt; (Body ??= new X()).SkuName = value; }</c>.
     /// </summary>
     /// <remarks>
-    /// Each delegates to the <em>model's</em> member rather than re-walking the property path, so
+    /// Each delegates to the <em>model's</em> member rather than re-walking the containers, so
     /// the model stays the single place that knows how to read and materialize the nested graph.
-    /// The target is resolved by id path, never by name: the projection resolves a parameter's name
-    /// against the command's own surface, so it can legitimately differ from the model member it
-    /// feeds.
+    /// The target is resolved by property id, never by name: the projection resolves a parameter's
+    /// name against the command's own surface, so it can legitimately differ from the model member
+    /// it feeds.
     /// </remarks>
     private static IEnumerable<MemberDeclarationSyntax> BodyParameterProperties(
         GenerationContext context,
@@ -327,14 +327,14 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
         foreach (IRCommandParameter parameter in parameters)
         {
-            IReadOnlyList<IRId> path = ((IRCommandParameterSourceBody)parameter.Source).Path;
-            string? target = ResolveBodyMember(bodyModel, path);
+            var source = (IRCommandParameterSourceBody)parameter.Source;
+            string? target = ResolveBodyMember(bodyModel, source.Property, source.Via);
             if (target is null)
             {
                 context.Report(
                     Model.DiagnosticSeverity.Warning,
                     "ace-generator/unresolved-flattened-parameter",
-                    $"Command '{command.Name}' projects body parameter '{parameter.Name}', but its path " +
+                    $"Command '{command.Name}' projects body parameter '{parameter.Name}', but its property " +
                     $"has no matching member on model '{bodyModel.Name}'. The flat member is skipped.");
                 continue;
             }
@@ -388,27 +388,28 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     };
 
     /// <summary>
-    /// The body model member a projected parameter feeds: a single-hop path is the property
-    /// itself, a longer path is the flattened accessor the model generator emitted for it.
+    /// The body model member a projected parameter feeds: with no containers to walk it is the
+    /// property itself, otherwise the flattened accessor the model generator emitted for it.
     /// </summary>
-    private static string? ResolveBodyMember(IRModel bodyModel, IReadOnlyList<IRId> path)
+    private static string? ResolveBodyMember(IRModel bodyModel, IRId? property, IReadOnlyList<IRId>? via)
     {
-        if (path is not { Count: > 0 })
+        if (property is null)
         {
             return null;
         }
 
-        if (path.Count == 1)
+        if (via is not { Count: > 0 })
         {
             return bodyModel.Properties
-                .FirstOrDefault(property => IrIds.Equal(property.Id, path[0]))?.Name.Identifier();
+                .FirstOrDefault(candidate => IrIds.Equal(candidate.Id, property))?.Name.Identifier();
         }
 
         return (bodyModel.Rendering?.Flattened ?? [])
-            .FirstOrDefault(member => PathEquals(member.Path, path))?.Name.Identifier();
+            .FirstOrDefault(member => IrIds.Equal(member.Property, property) && IdsEqual(member.Via, via))
+            ?.Name.Identifier();
     }
 
-    private static bool PathEquals(IReadOnlyList<IRId>? left, IReadOnlyList<IRId>? right) =>
+    private static bool IdsEqual(IReadOnlyList<IRId>? left, IReadOnlyList<IRId>? right) =>
         left is not null && right is not null && left.Count == right.Count &&
         left.Zip(right).All(pair => IrIds.Equal(pair.First, pair.Second));
 
@@ -579,8 +580,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         IRCommandPagination pagination,
         string listResultType)
     {
-        string? itemsExpression = MemberChain(context, pagination.ItemsPath);
-        string? nextLinkExpression = pagination.NextLinkPath is { Count: > 0 } nextLink
+        string? itemsExpression = MemberChain(context, pagination.Items);
+        string? nextLinkExpression = pagination.NextLink is { } nextLink
             ? MemberChain(context, nextLink)
             : "null";
 
@@ -589,8 +590,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             context.Report(
                 Model.DiagnosticSeverity.Warning,
                 "ace-generator/paging-path-unresolved",
-                $"Command '{command.Name}' declares a pagination path whose properties are not in the " +
-                "document. Its pagination wiring requires customization.");
+                $"Command '{command.Name}' declares pagination whose items or next-link reference does not " +
+                "resolve to properties in the document. Its pagination wiring requires customization.");
             yield break;
         }
 
@@ -615,7 +616,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     }
 
     /// <summary>
-    /// A member-access chain from <c>body</c> down a property-id path: <c>body.Value</c>.
+    /// A member-access chain from <c>body</c> through a property reference: <c>body.Value</c>,
+    /// or <c>body.Result.Value</c> when the property sits in a container.
     /// </summary>
     /// <remarks>
     /// Resolved through the document, not guessed. The IR's paging metadata records *wire* paths,
@@ -623,10 +625,15 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// member — a heuristic made fragile by flattening's renames. The command carries property
     /// ids instead, so the chain is exact; an unresolvable id yields null rather than a wrong name.
     /// </remarks>
-    private static string? MemberChain(GenerationContext context, IReadOnlyList<IRId> path)
+    private static string? MemberChain(GenerationContext context, IRPropertyRef? reference)
     {
+        if (reference?.Property is null)
+        {
+            return null;
+        }
+
         var chain = new StringBuilder("body");
-        foreach (IRId id in path)
+        foreach (IRId id in (reference.Via ?? []).Append(reference.Property))
         {
             if (context.Index.Property(id) is not { } property)
             {
