@@ -106,9 +106,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
-            var securityProfileSettings = ResolveSecurityProfileSettings(SecurityType, useTrustedLaunchDefaults);
-            ValidateConfidentialVmDiskEncryption(securityProfileSettings.SecurityType, OsDiskSecurityEncryptionType, OsDiskSecureVMDiskEncryptionSet);
-            var osDiskSecureVMDiskEncryptionSetId = ResolveDiskEncryptionSetId(OsDiskSecureVMDiskEncryptionSet);
+            var securityProfile = VmSecurityProfileResolver.Resolve(
+                SecurityType,
+                useTrustedLaunchDefaults,
+                OsDiskSecurityEncryptionType,
+                OsDiskSecureVMDiskEncryptionSet,
+                SubscriptionId,
+                ResourceGroupName);
 
             if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
             {
@@ -168,11 +172,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
-                p.SecurityType = securityProfileSettings.SecurityType;
-                p.SecureBootEnabled = securityProfileSettings.SecureBootEnabled;
-                p.VTpmEnabled = securityProfileSettings.VTpmEnabled;
-                p.OsDiskSecurityEncryptionType = OsDiskSecurityEncryptionType;
-                p.OsDiskSecureVMDiskEncryptionSetId = osDiskSecureVMDiskEncryptionSetId;
+                p.SecurityType = securityProfile.SecurityType;
+                p.SecureBootEnabled = securityProfile.SecureBootEnabled;
+                p.VTpmEnabled = securityProfile.VTpmEnabled;
+                p.OsDiskSecurityEncryptionType = securityProfile.OsDiskSecurityEncryptionType;
+                p.OsDiskSecureVMDiskEncryptionSetId = securityProfile.OsDiskSecureVMDiskEncryptionSetId;
                 if (linuxProfile is not null)
                 {
                     p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
@@ -182,99 +186,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.NetworkInterfaceId = nic.Id;
              });
             return await vmProcessor.SendAsync();
-        }
-
-        private string? ResolveDiskEncryptionSetId(string? diskEncryptionSet)
-        {
-            if (string.IsNullOrWhiteSpace(diskEncryptionSet))
-            {
-                return null;
-            }
-
-            var value = diskEncryptionSet.Trim();
-            if (value.StartsWith("/subscriptions/", StringComparison.OrdinalIgnoreCase))
-            {
-                return value;
-            }
-
-            return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/diskEncryptionSets/{value}";
-        }
-
-        private static void ValidateConfidentialVmDiskEncryption(
-            string? resolvedSecurityType,
-            string? osDiskSecurityEncryptionType,
-            string? osDiskSecureVMDiskEncryptionSet)
-        {
-            var hasSecurityEncryptionType = !string.IsNullOrWhiteSpace(osDiskSecurityEncryptionType);
-            var hasDiskEncryptionSet = !string.IsNullOrWhiteSpace(osDiskSecureVMDiskEncryptionSet);
-
-            if (!string.Equals(resolvedSecurityType, "ConfidentialVM", StringComparison.OrdinalIgnoreCase))
-            {
-                if (hasSecurityEncryptionType)
-                {
-                    throw new ArgumentException("OS disk security encryption type can only be specified when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
-                }
-
-                if (hasDiskEncryptionSet)
-                {
-                    throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when security type is ConfidentialVM and OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
-                }
-
-                return;
-            }
-
-            if (!hasSecurityEncryptionType)
-            {
-                throw new ArgumentException("OS disk security encryption type is required when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
-            }
-
-            if (!IsOsDiskSecurityEncryptionType(osDiskSecurityEncryptionType!))
-            {
-                throw new ArgumentException("OS disk security encryption type must be one of: VMGuestStateOnly, DiskWithVMGuestState, NonPersistedTPM.", nameof(osDiskSecurityEncryptionType));
-            }
-
-            if (hasDiskEncryptionSet
-                && !string.Equals(osDiskSecurityEncryptionType, "DiskWithVMGuestState", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
-            }
-        }
-
-        private static bool IsOsDiskSecurityEncryptionType(string value)
-        {
-            return value.Equals("VMGuestStateOnly", StringComparison.OrdinalIgnoreCase)
-                || value.Equals("DiskWithVMGuestState", StringComparison.OrdinalIgnoreCase)
-                || value.Equals("NonPersistedTPM", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static (string? SecurityType, bool? SecureBootEnabled, bool? VTpmEnabled) ResolveSecurityProfileSettings(
-            string? requestedSecurityType,
-            bool useTrustedLaunchDefaults)
-        {
-            if (string.IsNullOrWhiteSpace(requestedSecurityType))
-            {
-                return useTrustedLaunchDefaults
-                    ? ("TrustedLaunch", true, true)
-                    : (null, null, null);
-            }
-
-            if (requestedSecurityType.Equals("Standard", StringComparison.OrdinalIgnoreCase))
-            {
-                return ("Standard", null, null);
-            }
-
-            if (IsTrustedLaunchOrConfidentialVm(requestedSecurityType))
-            {
-                return (requestedSecurityType, true, true);
-            }
-
-            throw new ArgumentException("Security type must be one of: TrustedLaunch, ConfidentialVM, Standard.", nameof(requestedSecurityType));
-        }
-
-        private static bool IsTrustedLaunchOrConfidentialVm(string securityType)
-        {
-            return securityType.Equals("TrustedLaunch", StringComparison.OrdinalIgnoreCase)
-                || securityType.Equals("ConfidentialVM", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)
