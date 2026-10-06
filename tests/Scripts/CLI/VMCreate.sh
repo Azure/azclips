@@ -387,17 +387,17 @@ else
     fail "missing id: vm create failed, but not with the expected message"
 fi
 
-# echo "== 6. vm show, vm delete, vm show (the last show is expected to fail) =="
-# "$AZ" vm show --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" \
-#     || fail "vm show failed for $DEFAULT_VM"
-# "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" \
-#     || fail "vm delete failed for $DEFAULT_VM"
-# if "$AZ" vm show --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" >/dev/null 2>&1
-# then
-#     fail "vm show still finds $DEFAULT_VM after vm delete"
-# else
-#     echo "OK: $DEFAULT_VM no longer exists"
-# fi
+echo "== 6. vm show, vm delete, vm show (the last show is expected to fail) =="
+"$AZ" vm show --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" \
+    || fail "vm show failed for $DEFAULT_VM"
+"$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" \
+    || fail "vm delete failed for $DEFAULT_VM"
+if "$AZ" vm show --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$DEFAULT_VM" >/dev/null 2>&1
+then
+    fail "vm show still finds $DEFAULT_VM after vm delete"
+else
+    echo "OK: $DEFAULT_VM no longer exists"
+fi
 
 if [[ "$CVM_ENABLED" == "1" ]]
 then
