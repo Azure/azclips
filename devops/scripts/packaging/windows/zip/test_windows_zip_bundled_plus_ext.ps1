@@ -399,7 +399,7 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: config set exited with code $LASTEXITCODE."
     }
-    $cfgGetOut = & $azExe config get --key core.logging.level --query 'value' 2>$null
+    $cfgGetOut = & $azExe config get --key core.logging.level --query 'value'
     $cfgGetExitCode = $LASTEXITCODE
     $cfgGetText = $cfgGetOut | Out-String
     $cfgGetText.Trim() | Out-Host
