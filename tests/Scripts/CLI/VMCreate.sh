@@ -4,12 +4,15 @@
 #
 # Creates four VMs in one resource group, one per public IP mode, and checks the
 # detail fields vm create returns:
-#   1. vm create                                  -> creates <vm>PublicIP; publicIps is set;
-#                                                    creates <vm>NSG with only the rdp rule
+#   1. vm create --tags <tags>                    -> creates <vm>PublicIP; publicIps is set;
+#                                                    creates <vm>NSG with only the rdp rule;
+#                                                    tags the VM, NIC, VNet, NSG and public IP
 #   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set;
 #                --nsg <existing resource id>        attaches the pre-created NSG untouched
 #   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
-#                --nsg <existing name>               attaches the pre-created NSG untouched
+#                --nsg <existing name>               attaches the pre-created NSG untouched;
+#                --tags <tags>                       tags the VM, NIC and VNet, but neither
+#                                                    the pre-created public IP nor the NSG
 #   4. vm create --ssh-key-values <file>          -> Linux VM with no public IP; publicIps is
 #                --public-ip-address ""              empty; creates <vm>NSG with only the
 #                                                    default-allow-ssh rule
@@ -33,6 +36,10 @@
 # through az rest: the NIC must reference the expected NSG, and the NSG must hold
 # exactly one rule: rdp for case 1's default <vm>NSG, default-allow-ssh for case 4's,
 # and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
+#
+# Cases 1 and 3 pass --tags azclips-tags=vm-create azclips-empty: a pair, and a key
+# without a value, which vm create stores with an empty value. The tag checks read the
+# VM's tags from vm create's output, and each network resource's tags through az rest.
 #
 # Prereqs: build the solution first with dotnet build, then sign in. ssh-keygen must
 # be on PATH. The subscription needs quota for four Standard_D2s_v3 VMs and three
@@ -90,6 +97,9 @@ RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
 SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
 EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
 KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
+
+# vm create's tags for cases 1 and 3: a pair, and a key without a value, which becomes "".
+TAG_ARGS=(--tags azclips-tags=vm-create azclips-empty)
 
 FAILURES=0
 
@@ -322,6 +332,43 @@ check_nsg()
     echo "OK: $label: NIC '$vm-nic' uses NSG '$nsg_name', whose only rule is '$expected_rule'"
 }
 
+# True when the JSON text carries both of TAG_ARGS' tags.
+has_smoke_tags()
+{
+    [[ "$(json_field azclips-tags "$1")" == "vm-create" ]] && grep -qE '"azclips-empty": *""' <<< "$1"
+}
+
+# vm create's output is read back from the VM, so it must carry TAG_ARGS' tags.
+check_output_tags()
+{
+    local label="$1" output="$2"
+    if has_smoke_tags "$output"
+    then
+        echo "OK: $label: the VM carries azclips-tags and azclips-empty"
+    else
+        fail "$label: vm create's output lacks azclips-tags=vm-create or an empty azclips-empty"
+    fi
+}
+
+# The network resource must carry TAG_ARGS' tags ("tagged") or neither of them ("untouched").
+check_resource_tags()
+{
+    local label="$1" type="$2" name="$3" expect="$4"
+    local tags
+    if ! tags=$("$AZ" rest --method GET --uri "$(network_url "$type" "$name")" --query json.tags --output json 2>&1)
+    then
+        fail "$label: could not read the tags of $type '$name': $tags"
+    elif [[ "$expect" == "tagged" ]] && ! has_smoke_tags "$tags"
+    then
+        fail "$label: $type '$name' lacks azclips-tags=vm-create or an empty azclips-empty: $tags"
+    elif [[ "$expect" == "untouched" ]] && grep -qE '"azclips-(tags|empty)"' <<< "$tags"
+    then
+        fail "$label: vm create tagged $type '$name': $tags"
+    else
+        echo "OK: $label: $type '$name' is $expect"
+    fi
+}
+
 "$AZ" group create \
     --subscription-id "$SUBSCRIPTION_ID" \
     --name "$RESOURCE_GROUP" \
@@ -353,11 +400,16 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-echo "== 1. vm create (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DEFAULT_VM}NSG) =="
-if output=$(create_vm "$DEFAULT_VM")
+echo "== 1. vm create --tags (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DEFAULT_VM}NSG) =="
+if output=$(create_vm "$DEFAULT_VM" "${TAG_ARGS[@]}")
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
     check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
+    check_output_tags "default" "$output"
+    check_resource_tags "default" networkInterfaces "$DEFAULT_VM-nic" tagged
+    check_resource_tags "default" virtualNetworks "$DEFAULT_VM-vnet" tagged
+    check_resource_tags "default" networkSecurityGroups "${DEFAULT_VM}NSG" tagged
+    check_resource_tags "default" publicIPAddresses "${DEFAULT_VM}PublicIP" tagged
 else
     fail "default: vm create failed"
 fi
@@ -375,20 +427,25 @@ else
     fail "named: vm create failed"
 fi
 
-echo "== 3. vm create --public-ip-address $REUSE_PUBLIC_IP --nsg $EXISTING_NSG (existing names) =="
+echo "== 3. vm create --public-ip-address $REUSE_PUBLIC_IP --nsg $EXISTING_NSG --tags (existing names) =="
 reuse_public_ip_url=$(network_url publicIPAddresses "$REUSE_PUBLIC_IP")
 reuse_public_ip_body=$(printf '{"location":"%s","sku":{"name":"Standard"},"tags":{"azclips-smoke":"reuse"},"properties":{"publicIPAllocationMethod":"Static"}}' "$LOCATION")
 if "$AZ" rest --method PUT --uri "$reuse_public_ip_url" --body "$reuse_public_ip_body" --output json >/dev/null
 then
     if wait_succeeded "reuse" "public IP '$REUSE_PUBLIC_IP'" "$reuse_public_ip_url"
     then
-        if output=$(create_vm "$REUSE_VM" --public-ip-address "$REUSE_PUBLIC_IP" ${reuse_nsg_args[@]+"${reuse_nsg_args[@]}"})
+        if output=$(create_vm "$REUSE_VM" --public-ip-address "$REUSE_PUBLIC_IP" ${reuse_nsg_args[@]+"${reuse_nsg_args[@]}"} "${TAG_ARGS[@]}")
         then
             check_public_ip "reuse" "$output" yes "$REUSE_PUBLIC_IP" reuse
             if [[ "$EXISTING_NSG_READY" == "1" ]]
             then
                 check_nsg "reuse" "$REUSE_VM" "$EXISTING_NSG_ID" "$EXISTING_NSG_RULE" reuse-nsg
+                check_resource_tags "reuse" networkSecurityGroups "$EXISTING_NSG" untouched
             fi
+            check_output_tags "reuse" "$output"
+            check_resource_tags "reuse" networkInterfaces "$REUSE_VM-nic" tagged
+            check_resource_tags "reuse" virtualNetworks "$REUSE_VM-vnet" tagged
+            check_resource_tags "reuse" publicIPAddresses "$REUSE_PUBLIC_IP" untouched
         else
             fail "reuse: vm create failed"
         fi

@@ -6,11 +6,14 @@
 #
 # Creates four VMs in one resource group, one per public IP mode, and checks the
 # detail fields New-AzVM returns:
-#   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set;
-#                                                     creates <vm>NSG with only the rdp rule
+#   1. New-AzVM -Tag <tags>                        -> creates <vm>PublicIP; PublicIps is set;
+#                                                     creates <vm>NSG with only the rdp rule;
+#                                                     tags the VM, NIC, VNet, NSG and public IP
 #   2. New-AzVM -PublicIpAddressName <new name>    -> creates that public IP; PublicIps is set
 #   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set;
-#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
+#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched;
+#               -Tag <tags>                           tags the VM, NIC and VNet, but neither
+#                                                     the pre-created public IP nor the NSG
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
@@ -29,6 +32,11 @@
 # the NSG must hold exactly one rule: rdp for case 1's default <vm>NSG, and
 # smoke-allow-https, with the tag intact, for the NSG that cases 3 and 4 attach.
 # Every other VM gets its own default <vm>NSG.
+#
+# Cases 1 and 3 pass -Tag @{ 'azclips-tags' = 'vm-create'; 'azclips-empty' = $null }:
+# a pair, and a key whose $null value New-AzVM stores as an empty value. The tag checks
+# read the VM's tags from New-AzVM's output, and each network resource's tags through
+# Invoke-AzRestMethod.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
 #     Import-Module ./src/PS/Accounts/Accounts.psd1
@@ -79,6 +87,9 @@ $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGro
 # Rules as name/protocol/source address/source port/destination address/destination port/access/direction/priority; see Format-NsgRule.
 $defaultNsgRule    = 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'
 $existingNsgRule   = 'smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100'
+
+# New-AzVM's tags for cases 1 and 3: a pair, and a key whose $null value becomes ''.
+$smokeTags = @{ 'azclips-tags' = 'vm-create'; 'azclips-empty' = $null }
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
 # Az modules (Az.Resources, Az.Compute) export the same cmdlet names and PowerShell
@@ -287,6 +298,52 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
     Write-Host "OK: ${Label}: NIC '$VmName-nic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
 }
 
+# $Tags, a dictionary or a ConvertFrom-Json object, must carry $smokeTags ('tagged') or neither
+# of its keys ('untouched').
+function Test-SmokeTags([string]$Label, [string]$What, $Tags, [string]$Expect)
+{
+    $actual = @{}
+    if ($Tags -is [System.Collections.IDictionary])
+    {
+        foreach ($key in $Tags.Keys) { $actual[$key] = $Tags[$key] }
+    }
+    elseif ($null -ne $Tags)
+    {
+        foreach ($property in $Tags.PSObject.Properties) { $actual[$property.Name] = $property.Value }
+    }
+
+    $tagged  = $actual['azclips-tags'] -eq 'vm-create' -and $actual.ContainsKey('azclips-empty') -and $actual['azclips-empty'] -eq ''
+    $touched = $actual.ContainsKey('azclips-tags') -or $actual.ContainsKey('azclips-empty')
+    $shown   = $actual | ConvertTo-Json -Compress
+
+    if ($Expect -eq 'tagged' -and -not $tagged)
+    {
+        Add-Failure "${Label}: $What lacks azclips-tags=vm-create or an empty azclips-empty: $shown"
+    }
+    elseif ($Expect -eq 'untouched' -and $touched)
+    {
+        Add-Failure "${Label}: New-AzVM tagged ${What}: $shown"
+    }
+    else
+    {
+        Write-Host "OK: ${Label}: $What is $Expect"
+    }
+}
+
+function Test-ResourceTags([string]$Label, [string]$Type, [string]$Name, [string]$Expect)
+{
+    try
+    {
+        $resource = Get-NetworkResource -Type $Type -Name $Name
+    }
+    catch
+    {
+        Add-Failure "${Label}: could not read $Type '$Name': $($_.Exception.Message)"
+        return
+    }
+    Test-SmokeTags -Label $Label -What "$Type '$Name'" -Tags $resource.tags -Expect $Expect
+}
+
 # Guard the cleanup block: each resource is only deleted once it exists.
 $groupCreated = $false
 $createdVms   = [System.Collections.Generic.List[string]]::new()
@@ -334,18 +391,23 @@ try
         Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
     }
 
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
+    Write-Host "== 1. New-AzVM -Tag (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ Tag = $smokeTags }
     Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
     Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
+    Test-SmokeTags -Label 'default' -What "VM '$defaultVm'" -Tags $defaultResult.Tags -Expect 'tagged'
+    Test-ResourceTags -Label 'default' -Type 'networkInterfaces' -Name "$defaultVm-nic" -Expect 'tagged'
+    Test-ResourceTags -Label 'default' -Type 'virtualNetworks' -Name "$defaultVm-vnet" -Expect 'tagged'
+    Test-ResourceTags -Label 'default' -Type 'networkSecurityGroups' -Name "${defaultVm}NSG" -Expect 'tagged'
+    Test-ResourceTags -Label 'default' -Type 'publicIPAddresses' -Name "${defaultVm}PublicIP" -Expect 'tagged'
 
     Write-Host "== 2. New-AzVM -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)
     $namedResult = New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }
     Test-PublicIp -Label 'named' -Vm $namedResult -ExpectPublicIp $true -ExpectedPublicIpName $namedPublicIp
 
-    Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp -SecurityGroupName $existingNsg (existing names) =="
+    Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp -SecurityGroupName $existingNsg -Tag (existing names) =="
     $body = @{
         location = $location
         sku = @{ name = 'Standard' }
@@ -368,14 +430,19 @@ try
         if (Wait-ResourceSucceeded -Label 'reuse' -Type 'publicIPAddresses' -Name $reusePublicIp -What "public IP '$reusePublicIp'")
         {
             $createdVms.Add($reuseVm)
-            $reuseExtra = @{ PublicIpAddressName = $reusePublicIp }
+            $reuseExtra = @{ PublicIpAddressName = $reusePublicIp; Tag = $smokeTags }
             if ($existingNsgReady) { $reuseExtra.SecurityGroupName = $existingNsg }
             $reuseResult = New-SmokeVM -Name $reuseVm -Extra $reuseExtra
             Test-PublicIp -Label 'reuse' -Vm $reuseResult -ExpectPublicIp $true -ExpectedPublicIpName $reusePublicIp -ExpectedSmokeTag 'reuse'
             if ($existingNsgReady)
             {
                 Test-Nsg -Label 'reuse' -VmName $reuseVm -ExpectedId $existingNsgId -ExpectedRule $existingNsgRule -ExpectedSmokeTag 'reuse-nsg'
+                Test-ResourceTags -Label 'reuse' -Type 'networkSecurityGroups' -Name $existingNsg -Expect 'untouched'
             }
+            Test-SmokeTags -Label 'reuse' -What "VM '$reuseVm'" -Tags $reuseResult.Tags -Expect 'tagged'
+            Test-ResourceTags -Label 'reuse' -Type 'networkInterfaces' -Name "$reuseVm-nic" -Expect 'tagged'
+            Test-ResourceTags -Label 'reuse' -Type 'virtualNetworks' -Name "$reuseVm-vnet" -Expect 'tagged'
+            Test-ResourceTags -Label 'reuse' -Type 'publicIPAddresses' -Name $reusePublicIp -Expect 'untouched'
         }
         else
         {
