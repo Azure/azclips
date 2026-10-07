@@ -75,7 +75,6 @@ function run(ir: IR): { out: IR; diagnostics: Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
   const out = tweakIrStep().run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d as Diagnostic),
-    config: {},
   });
   parseIR(out);
   return { out, diagnostics };

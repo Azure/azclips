@@ -1,17 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  compile,
-  createRegistry,
-  noopGenerator,
-  CSHARP_STAGE,
-  CREATE_COMMAND_STAGE,
-  FLATTEN_MODEL_STAGE,
-  TWEAK_IR_STAGE,
-  TSP_EMIT_STAGE,
-  type CompilerDiagnostic,
-} from "@azure-client-engine/compiler";
-import {
   IR_SCHEMA_VERSION,
   parseIR,
   type IR,
@@ -24,7 +13,9 @@ import {
   type HttpMethod,
 } from "@azure-client-engine/ir";
 
-import { createCommandStep, flattenModelStep, tweakIrStep } from "../src/index.js";
+import { flattenModelStep, type TransformContext } from "../src/index.js";
+
+type Diagnostic = Parameters<TransformContext["reportDiagnostic"]>[0];
 
 // ─── Fixture builders ───────────────────────────────────────────────────
 
@@ -125,9 +116,8 @@ function irOf(models: IRModel[], operations: IROperation[] = []): IR {
 }
 
 function run(ir: IR, options: Record<string, unknown> = {}) {
-  const diagnostics: CompilerDiagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
   const out = flattenModelStep(options).run(parseIR(ir), {
-    config: {},
     reportDiagnostic: (d) => diagnostics.push(d),
   });
   return { ir: out as IR, diagnostics };
@@ -225,7 +215,7 @@ describe("flatten-model: models", () => {
   it("is additive: it adds rendering hints in place and changes nothing else", () => {
     const input = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
     const before = structuredClone(input);
-    const out = flattenModelStep().run(input, { config: {}, reportDiagnostic: vi.fn() });
+    const out = flattenModelStep().run(input, { reportDiagnostic: vi.fn() });
 
     // Written in place — the catalog declares this stage `additive`, so the
     // orchestrator hands it an IR it owns rather than paying for a copy.
@@ -400,66 +390,5 @@ describe("flatten-model: request-body projection", () => {
     optedOut.operations[0]!.requestBody!.rendering = { flatten: { into: "never" } };
     const { ir } = run(optedOut);
     expect(ir.operations[0]!.requestBody!.rendering?.parameters).toBeUndefined();
-  });
-});
-
-describe("flatten-model: pipeline integration", () => {
-  it("runs through compile() as the compiler's flatten-model stage", async () => {
-    const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
-
-    const result = await compile(
-      { entrypoint: "main.tsp" },
-      {
-        emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
-        registry: createRegistry({
-          // Fulfilment, not orchestration: the compiler's catalog already places
-          // flatten-model between emit and the generator.
-          transforms: {
-            [TWEAK_IR_STAGE]: tweakIrStep,
-            [FLATTEN_MODEL_STAGE]: flattenModelStep,
-            [CREATE_COMMAND_STAGE]: createCommandStep,
-          },
-          generators: { [CSHARP_STAGE]: () => noopGenerator },
-        }),
-        captureIR: true,
-      },
-    );
-
-    expect(result.diagnostics).toEqual([]);
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE]);
-    // The emit snapshot is untouched; the stage's output carries the flattening.
-    expect(result.snapshots?.[0]?.ir.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
-    expect(
-      result.snapshots?.[2]?.ir.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length,
-    ).toBeGreaterThan(0);
-  });
-
-  it("is skipped when the config turns the stage off", async () => {
-    const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
-
-    const result = await compile(
-      { entrypoint: "main.tsp", config: { pipeline: { [FLATTEN_MODEL_STAGE]: false } } },
-      {
-        emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
-        registry: createRegistry({
-          transforms: {
-            [TWEAK_IR_STAGE]: tweakIrStep,
-            [FLATTEN_MODEL_STAGE]: flattenModelStep,
-            [CREATE_COMMAND_STAGE]: createCommandStep,
-          },
-          generators: { [CSHARP_STAGE]: () => noopGenerator },
-        }),
-        captureIR: true,
-      },
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([
-      TSP_EMIT_STAGE,
-      TWEAK_IR_STAGE,
-      CREATE_COMMAND_STAGE,
-    ]);
-    expect(result.ir?.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
   });
 });
