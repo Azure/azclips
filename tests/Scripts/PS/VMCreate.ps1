@@ -299,10 +299,10 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
 }
 
 # $Tags, a dictionary or a ConvertFrom-Json object, must carry $smokeTags ('tagged') or neither
-# of its keys ('untouched').
+# of its keys ('untouched'). Keys compare ordinally, as tag keys and the bash checks do.
 function Test-SmokeTags([string]$Label, [string]$What, $Tags, [string]$Expect)
 {
-    $actual = @{}
+    $actual = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
     if ($Tags -is [System.Collections.IDictionary])
     {
         foreach ($key in $Tags.Keys) { $actual[$key] = $Tags[$key] }
