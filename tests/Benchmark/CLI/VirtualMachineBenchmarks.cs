@@ -37,8 +37,7 @@ public class VirtualMachineBenchmarks : CLIBenchmarkBase
             "--admin-username", "benchadmin",
             "--admin-password", "Benchmark!Pass123",
             "--network-interface-name", $"bench-nic-{n}",
-            "--virtual-network-name", $"bench-vnet-{n}",
-            "--network-security-group-name", $"bench-nsg-{n}");
+            "--virtual-network-name", $"bench-vnet-{n}");
     }
 
     [Benchmark(Description = "CLI: Get VM")]
