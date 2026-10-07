@@ -88,13 +88,3 @@ export type Generator<TIn extends IR = IR> = {
       /** Narrow the pipeline's document to `TIn`, or explain why it cannot. */
       readonly accepts: (ir: IR) => GeneratorAcceptance<TIn>;
     });
-
-/**
- * Escape-hatch no-op generator: emits nothing. No longer the pipeline default —
- * inject it via `CompileOptions.generator` for the rare case of a deliberate
- * no-output run (e.g. a compiler unit test exercising only emit/transform).
- */
-export const noopGenerator: Generator = {
-  name: "noop",
-  generate: () => {},
-};
