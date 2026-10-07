@@ -20,6 +20,13 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
     <Import Project="$(MSBuildThisFileDirectory)..\Targets\ExtensionSidecar.targets" />
 
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Extensions.Compute.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Extensions.Compute.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>

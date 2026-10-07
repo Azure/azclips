@@ -139,13 +139,18 @@ The requirement is conditional on purpose: a backend happy with a bare `IR` omit
 richer input than it actually established. That pairs with the catalog's
 `requires`, which says the same thing at config time.
 
-### Fulfilment, failure, and output
+### Stage implementations, failure, and output
 
-`CompileOptions.registry` is **fulfilment, not orchestration**: a host supplies
-implementations for ids the catalog already declared. The two external stages
-(`tsp-emit`, `csharp`) need no entry — they run through the host `Runtime`.
-Per-stage settings live in `config.stageOptions`, keyed by stage id, because
-options are not orchestration.
+**The compiler owns the implementation behind every stage id.** It maps each
+transform id to its step in `@azure-client-engine/transformers`
+(`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
+external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
+all a host provides. Per-stage settings live in `config.stageOptions`, keyed by
+stage id, because options are not orchestration.
+
+Packages layer as `cli` → `compiler` → `transformers`, and every package depends
+on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
+`transformers`, so that package needs nothing from the compiler.
 
 Stages run to the first failure — in a sequence, every later stage would just
 consume the broken IR.
@@ -161,10 +166,13 @@ the same path is an error rather than last-writer-wins.
 ## Transformers
 
 `packages/transformers` holds the implementations behind the compiler's
-transform stage ids. A step implements `TransformStep` and knows nothing about
-where it runs — the catalog already placed it. A run carries one IR, so
-returning it mutated in place is the expected shape; returning a replacement
-works too.
+transform stage ids, together with the contract they implement. A step
+implements `TransformStep` and knows nothing about where it runs — the catalog
+already placed it. It reports diagnostics through `TransformContext`'s
+`reportDiagnostic` delegate, whose parameter shape is declared here; the
+compiler passes its own reporter in, and the compiler stops building if the two
+shapes drift apart. A run carries one IR, so returning it mutated in place is the
+expected shape; returning a replacement works too.
 
 `tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
@@ -184,21 +192,11 @@ request body onto its operation's parameter surface
 it writes only rendering hints and leaves `IRModel.properties` exactly as
 emitted.
 
-A host registers it by id; that is fulfilment, not selection:
-
-```typescript
-import { createRegistry, FLATTEN_MODEL_STAGE } from "@azure-client-engine/compiler";
-import { flattenModelStep } from "@azure-client-engine/transformers";
-
-const registry = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-});
-```
-
-The `ace` CLI registers exactly this. Whether the stage *runs* is the catalog's
-default (`on`) plus any `config.pipeline` toggle; per-service settings such as
-`inliningThreshold` and `noInline` arrive through `config.stageOptions`.
-The package participates in the root workspace build and test commands.
+The compiler maps each of these steps to its stage id; hosts register nothing.
+Whether a stage *runs* is the catalog's default (`on`) plus any `config.pipeline`
+toggle; per-service settings such as `inliningThreshold` and `noInline` arrive
+through `config.stageOptions`. The package participates in the root workspace
+build and test commands.
 
 ## Source identity
 

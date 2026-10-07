@@ -33,7 +33,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
     protected override async Task BeforeProcessAsync()
     {
-        Scope = ResolveScope();
+        Scope = RoleAssignmentScope.Resolve(SubscriptionId, Scope, ResourceGroupName);
 
         if (ResolveAssigneeObjectId() is { } objectId)
         {
@@ -94,39 +94,6 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
     }
 
     /// <summary>
-    /// Resolves the effective scope with precedence: explicit <see cref="ListRoleAssignmentProcessor.Scope"/>
-    /// first, then subscription + <see cref="ResourceGroupName"/>, then the subscription alone.
-    /// <see cref="ListRoleAssignmentProcessor.Scope"/> and <see cref="ResourceGroupName"/> are mutually
-    /// exclusive.
-    /// </summary>
-    private string ResolveScope()
-    {
-        bool hasScope = !string.IsNullOrWhiteSpace(Scope);
-        bool hasResourceGroup = !string.IsNullOrWhiteSpace(ResourceGroupName);
-
-        if (hasScope && hasResourceGroup)
-        {
-            throw AzclipsErrorException.UsageError("Specify either a scope or a resource group, not both.");
-        }
-
-        if (hasScope)
-        {
-            return NormalizeScope(Scope);
-        }
-
-        if (string.IsNullOrWhiteSpace(SubscriptionId))
-        {
-            throw AzclipsErrorException.MissingRequiredParameters(
-                "A subscription is required to list role assignments. Specify a scope, or set an active subscription.");
-        }
-
-        string subscriptionScope = $"/subscriptions/{SubscriptionId.Trim()}";
-        return hasResourceGroup
-            ? $"{subscriptionScope}/resourceGroups/{ResourceGroupName!.Trim()}"
-            : subscriptionScope;
-    }
-
-    /// <summary>
     /// Resolves the principal object ID to filter by, or null when no assignee was supplied.
     /// Both <see cref="Assignee"/> and <see cref="AssigneeObjectId"/> must be an object ID (GUID) — a
     /// name, UPN, or service-principal name requires a Microsoft Graph lookup that is not yet supported.
@@ -167,16 +134,5 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         }
 
         return null;
-    }
-
-    private static string NormalizeScope(string scope)
-    {
-        string effectiveScope = scope.Trim();
-        if (!effectiveScope.StartsWith('/'))
-        {
-            effectiveScope = "/" + effectiveScope;
-        }
-
-        return effectiveScope.TrimEnd('/');
     }
 }

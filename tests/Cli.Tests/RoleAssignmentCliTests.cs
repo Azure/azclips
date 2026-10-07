@@ -209,6 +209,52 @@ public class RoleAssignmentCliTests
     }
 
     [Fact]
+    public async Task List_WhitespaceOnlyResourceGroup_Throws()
+    {
+        // Shared RoleAssignmentScope.Resolve: a bound-but-blank resource group must not be silently
+        // treated as omitted, which would otherwise widen the list to the whole subscription.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroupName = "   ";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task List_EmptyStringScope_Throws()
+    {
+        // An explicitly bound empty string (--scope "") is distinct from an unbound (null) scope and
+        // must be rejected too: the CLI parser preserves an empty quoted string verbatim.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Scope = string.Empty;
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task List_RepeatedSlashScope_Throws()
+    {
+        // Shared RoleAssignmentScope.Normalize: a leading "//" is not a well-formed scope. Left
+        // unchecked, TrimEnd('/') would collapse an all-slashes value to the same empty string used
+        // for the tenant-root scope, silently turning malformed input into a tenant-root list request.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Scope = "//";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
     public async Task List_NoSubscriptionAndNoScope_Throws()
     {
         var output = new FakeOutputHandler();
