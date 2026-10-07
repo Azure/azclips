@@ -4,9 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Runtime;
 using Core.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
@@ -97,9 +95,6 @@ internal static class ImportTelemetry
                     return;
                 }
 
-                var configuredLogLevel = configuration.GetConfiguration<CoreOptions>().Logging.Level;
-                using var loggingScope = BeginLoggingScope(configuredLogLevel, new ConsoleLoggingService());
-
                 // Best-effort: resolves the CURRENTLY ACTIVE profile (module import precedes
                 // any command, so there is no --profile override to bind against yet). Runs
                 // BEFORE Emit so the tag is on the root before Replay creates the phase spans.
@@ -129,53 +124,4 @@ internal static class ImportTelemetry
         });
     }
 
-    internal static IDisposable BeginLoggingScope(string? configuredLevel, ILoggingService sink)
-    {
-        var level = CmdletOutputStreamsFactory.Parse(configuredLevel);
-        var streams = new OutputStreams(
-            WriteOutput: (_, _) => Task.CompletedTask,
-            WriteVerbose: (value, _) =>
-            {
-                if (CmdletOutputStreamsFactory.ShouldEmit(level, LogSeverity.Verbose))
-                {
-                    sink.Verbose(value?.ToString() ?? string.Empty);
-                }
-
-                return Task.CompletedTask;
-            },
-            WriteDebug: (value, _) =>
-            {
-                if (CmdletOutputStreamsFactory.ShouldEmit(level, LogSeverity.Debug))
-                {
-                    sink.Debug(value?.ToString() ?? string.Empty);
-                }
-
-                return Task.CompletedTask;
-            },
-            WriteWarning: (value, _) =>
-            {
-                if (CmdletOutputStreamsFactory.ShouldEmit(level, LogSeverity.Warn))
-                {
-                    sink.Warn(value?.ToString() ?? string.Empty);
-                }
-
-                return Task.CompletedTask;
-            },
-            WriteError: (value, _) =>
-            {
-                sink.Error(value?.ToString() ?? string.Empty);
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, _) =>
-            {
-                if (CmdletOutputStreamsFactory.ShouldEmit(level, LogSeverity.Info))
-                {
-                    sink.Info(value?.ToString() ?? string.Empty);
-                }
-
-                return Task.CompletedTask;
-            });
-
-        return ScopedLoggingService.UseScope(new OutputStreamAdapter(streams));
-    }
 }

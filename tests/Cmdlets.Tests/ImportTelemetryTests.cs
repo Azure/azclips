@@ -131,36 +131,6 @@ public class ImportTelemetryTests
         Assert.Contains(ImportTelemetry.NextImportKind(), new[] { ImportTelemetry.Cold, ImportTelemetry.Warm });
     }
 
-    [Fact]
-    public void BeginLoggingScope_SuppressesProfileVerboseAtWarn()
-    {
-        var sink = new RecordingLoggingService();
-        var logger = new ScopedLoggingService();
-
-        using (ImportTelemetry.BeginLoggingScope("warn", sink))
-        {
-            logger.Verbose("[ProfileService] Loading profiles");
-            logger.Warn("warning");
-        }
-
-        Assert.Empty(sink.VerboseMessages);
-        Assert.Equal(["warning"], sink.Warnings);
-    }
-
-    [Fact]
-    public void BeginLoggingScope_EmitsProfileVerboseAtDebug()
-    {
-        var sink = new RecordingLoggingService();
-        var logger = new ScopedLoggingService();
-
-        using (ImportTelemetry.BeginLoggingScope("debug", sink))
-        {
-            logger.Verbose("[ProfileService] Loading profiles");
-        }
-
-        Assert.Equal(["[ProfileService] Loading profiles"], sink.VerboseMessages);
-    }
-
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
     /// spans are actually created and their stop events can be inspected.</summary>
     private sealed class RecordingTelemetryService : ITelemetryService
@@ -198,19 +168,6 @@ public class ImportTelemetryTests
             _listener.Dispose();
             _source.Dispose();
         }
-    }
-
-    private sealed class RecordingLoggingService : ILoggingService
-    {
-        public List<string> VerboseMessages { get; } = [];
-        public List<string> Warnings { get; } = [];
-
-        public void Log(string message) { }
-        public void Info(string message) { }
-        public void Verbose(string message) => VerboseMessages.Add(message);
-        public void Debug(string message) { }
-        public void Warn(string message) => Warnings.Add(message);
-        public void Error(string message) { }
     }
 
     /// <summary>Stands in for a telemetry service with telemetry.enabled=false.</summary>

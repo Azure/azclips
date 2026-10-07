@@ -19,22 +19,63 @@ public class ScopedLoggingService : ILoggingService
     // different async flows are fully isolated: setting the value in one
     // flow does not affect another.
     private static readonly AsyncLocal<ILoggingService?> _current = new();
+    private readonly IConfigurationService? _configurationService;
     private readonly ILoggingService _fallback;
 
-    public ScopedLoggingService()
+    public ScopedLoggingService(IConfigurationService? configurationService = null)
+        : this(configurationService, new ConsoleLoggingService())
     {
-        // Default behavior when no session is active (startup, background work)
-        _fallback = new ConsoleLoggingService();
     }
 
-    private ILoggingService Active => _current.Value ?? _fallback;
+    internal ScopedLoggingService(IConfigurationService? configurationService, ILoggingService fallback)
+    {
+        _configurationService = configurationService;
+        _fallback = fallback;
+    }
 
-    public void Log(string message) => Active.Log(message);
-    public void Info(string message) => Active.Info(message);
-    public void Verbose(string message) => Active.Verbose(message);
-    public void Debug(string message) => Active.Debug(message);
-    public void Warn(string message) => Active.Warn(message);
-    public void Error(string message) => Active.Error(message);
+    public void Log(string message) => Write(message, LogSeverity.Info, static (logger, value) => logger.Log(value));
+    public void Info(string message) => Write(message, LogSeverity.Info, static (logger, value) => logger.Info(value));
+    public void Verbose(string message) => Write(message, LogSeverity.Verbose, static (logger, value) => logger.Verbose(value));
+    public void Debug(string message) => Write(message, LogSeverity.Debug, static (logger, value) => logger.Debug(value));
+    public void Warn(string message) => Write(message, LogSeverity.Warn, static (logger, value) => logger.Warn(value));
+    public void Error(string message) => Write(message, LogSeverity.Error, static (logger, value) => logger.Error(value));
+
+    private void Write(string message, LogSeverity severity, Action<ILoggingService, string> write)
+    {
+        if (_current.Value is { } current)
+        {
+            write(current, message);
+            return;
+        }
+
+        var configuredLevel = _configurationService?
+            .GetConfiguration<CoreOptions>()
+            .Logging.Level;
+        if (ShouldEmit(configuredLevel, severity))
+        {
+            write(_fallback, message);
+        }
+    }
+
+    private static bool ShouldEmit(string? configuredLevel, LogSeverity severity)
+    {
+        var level = configuredLevel?.Trim().ToLowerInvariant() switch
+        {
+            "error" => LogLevel.Error,
+            "info" => LogLevel.Info,
+            "debug" => LogLevel.Debug,
+            _ => LogLevel.Warn,
+        };
+
+        return severity switch
+        {
+            LogSeverity.Error => true,
+            LogSeverity.Warn => level >= LogLevel.Warn,
+            LogSeverity.Info => level >= LogLevel.Info,
+            LogSeverity.Debug or LogSeverity.Verbose => level >= LogLevel.Debug,
+            _ => false,
+        };
+    }
 
     /// <summary>
     /// Sets the per-session logger for the current async flow.
@@ -50,6 +91,23 @@ public class ScopedLoggingService : ILoggingService
     private sealed class Scope(ILoggingService? previous) : IDisposable
     {
         public void Dispose() => _current.Value = previous;
+    }
+
+    private enum LogLevel
+    {
+        Error,
+        Warn,
+        Info,
+        Debug,
+    }
+
+    private enum LogSeverity
+    {
+        Error,
+        Warn,
+        Info,
+        Debug,
+        Verbose,
     }
 }
 
