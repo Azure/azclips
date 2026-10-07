@@ -42,7 +42,7 @@
  * pairing that belongs in its own pass, so every command here has exactly one step.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
 import {
   commandKey,
   indexIR,

@@ -8,14 +8,13 @@
 
 import { describe, expect, it } from "vitest";
 import { IR_SCHEMA_VERSION, parseIR, parseTransformedIR, type IR, type TransformedIR } from "@azure-client-engine/ir";
-import type { TransformContext } from "@azure-client-engine/compiler";
-import { createCommandStep } from "../../src/create-command-step.js";
+import { createCommandStep, type TransformContext } from "../../src/index.js";
 import { deriveDialect } from "../../src/ps/derive.js";
 
 const MODULE = "M";
 const SERVER = { module: MODULE, namespace: ["N"], name: "server" };
 const API_VERSION = { value: "2026-01-01", location: "query" as const, parameterName: "api-version" };
-const context: TransformContext = { reportDiagnostic: () => {}, config: {} };
+const context: TransformContext = { reportDiagnostic: () => {} };
 
 const id = (name: string, iface?: string): Record<string, unknown> => ({
   module: MODULE,

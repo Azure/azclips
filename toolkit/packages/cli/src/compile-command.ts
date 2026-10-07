@@ -17,22 +17,13 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
-  createRegistry,
   CSHARP_STAGE,
-  TWEAK_IR_STAGE,
-  FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
   PS_DERIVE_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import {
-  createCommandStep,
-  createPSDeriveStep,
-  flattenModelStep,
-  tweakIrStep,
-} from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,
@@ -40,23 +31,6 @@ import {
   type StagedProject,
 } from "./staging.js";
 import { createHostRuntime } from "./runtime.js";
-
-/**
- * Implementations this host supplies for the compiler's declared stages.
- *
- * This is fulfilment, not orchestration: the compiler's catalog owns where
- * `flatten-model`/`ps.derive` sit and whether each runs by default, and the
- * host only provides the code behind each id. `tsp-emit` and `csharp` need no
- * entry — they are external stages driven through the host runtime.
- */
-const STAGE_IMPLEMENTATIONS = createRegistry({
-  transforms: {
-    [TWEAK_IR_STAGE]: tweakIrStep,
-    [FLATTEN_MODEL_STAGE]: flattenModelStep,
-    [CREATE_COMMAND_STAGE]: createCommandStep,
-    [PS_DERIVE_STAGE]: createPSDeriveStep,
-  },
-});
 
 /** Usage/help text for `ace compile`. */
 export function usage(): string {
@@ -208,7 +182,6 @@ export async function runCompile(args: string[]): Promise<number> {
     },
     {
       runtime: createHostRuntime(),
-      registry: STAGE_IMPLEMENTATIONS,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },

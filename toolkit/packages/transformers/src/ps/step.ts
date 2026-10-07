@@ -9,7 +9,7 @@
  */
 
 import type { TransformedIR } from "@azure-client-engine/ir";
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "../transform.js";
 import { deriveDialect, type DeriveDialectOptions } from "./derive.js";
 
 /** Registry id for the PowerShell derivation step. */

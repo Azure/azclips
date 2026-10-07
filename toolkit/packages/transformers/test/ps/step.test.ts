@@ -5,11 +5,14 @@ import {
   type IROperation,
   type TransformedIR,
 } from "@azure-client-engine/ir";
-import type { TransformContext } from "@azure-client-engine/compiler";
-import { createCommandStep } from "../../src/create-command-step.js";
-import { createPSDeriveStep, PS_DERIVE_STEP_ID } from "../../src/index.js";
+import {
+  createCommandStep,
+  createPSDeriveStep,
+  PS_DERIVE_STEP_ID,
+  type TransformContext,
+} from "../../src/index.js";
 
-const context: TransformContext = { reportDiagnostic: () => {}, config: {} };
+const context: TransformContext = { reportDiagnostic: () => {} };
 
 const serverId = { module: "Microsoft.Test", namespace: [], name: "defaultServer" };
 
