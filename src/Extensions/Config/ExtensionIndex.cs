@@ -18,8 +18,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["Key"] = new("Key", "Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["Json"] = new("Json", "Json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["Key"] = new("Key", "Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -64,8 +63,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["All"] = new("All", "All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["Json"] = new("Json", "Json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["All"] = new("All", "All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -94,8 +92,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["json"] = new("Json", "json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string> { [""] = "key" }
     );
@@ -140,8 +137,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["all"] = new("All", "all", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["json"] = new("Json", "json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["all"] = new("All", "all", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );

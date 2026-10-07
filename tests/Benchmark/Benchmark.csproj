@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -24,9 +27,9 @@
     <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj" />
     <ProjectReference Include="..\..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
     <ProjectReference Include="..\..\src\Core\Core.Authentication\Core.Authentication.csproj" />
+    <ProjectReference Include="..\..\src\Extensions\ManagedServiceIdentity\Extensions.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="..\..\src\Extensions\Resources\Extensions.Resources.csproj" />
     <ProjectReference Include="..\..\src\Extensions\Compute\Extensions.Compute.csproj" />
-    <ProjectReference Include="..\..\src\Extensions\Identity\Extensions.Identity.csproj" />
     <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj" />
     <ProjectReference Include="..\Common\Tests.Common.csproj" />
   </ItemGroup>

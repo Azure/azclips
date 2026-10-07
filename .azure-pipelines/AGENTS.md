@@ -35,7 +35,7 @@ guide in the same PR so it stays accurate.
 - `ComponentGovernance` and `BuildPSModules` depend on `Init`.
 - `BuildCommon` depends on `Init`.
 - `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
-- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Linux validation checks every archive's layout and runs executable x64 checks directly for glibc or in Alpine for musl; Arm64 runtime checks require a matching Arm64 agent.
+- `BuildLinux` produces Lean and Full archives for glibc (`linux-x64`, `linux-arm64`) and musl (`linux-musl-x64`, `linux-musl-arm64`). Each archive receives one full installer, layout, and runtime validation in a compatible environment: glibc on Ubuntu and musl in Alpine. Arm64 runtime checks require a matching Arm64 agent.
 - Each platform validation stage depends on `Init` + its corresponding platform build.
 - `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
@@ -68,7 +68,7 @@ guide in the same PR so it stays accurate.
 ## Signing & Release Flow
 - **Beta:** `azclips-beta-build` (public) → add `sign-beta` tag → `azclips-beta-sign` (release) consumes the tagged run via a pipeline resource → ESRP sign → verify.
 - **Stable:** `azclips-trigger-stable-release` (release, manual) bumps the CLI and top-level Az versions, detects extension code changes since the latest stable tag, independently patch-bumps each changed existing extension, preserves new extensions' declared initial versions, requires their PowerShell child changelogs, aligns their child manifests and Az dependencies, and opens a release PR via `gh`. After that PR merges to `main`, a CI run of the same pipeline (`CreateStableTag`, condition `IndividualCI`/`BatchedCI` on `refs/heads/main`) creates the tag `vX.Y.Z.yyyyMMddTHHmmssZ` via `git tag`/`git push` → the tag triggers `azclips-stable-release` → build → `sign-with-esrp` → component governance → verify → `publish-to-github-release`.
-- macOS notarization uses `macos_bundle_id: com.microsoft.azclips.cli`.
+- macOS notarization uses `macos_bundle_id: com.microsoft.azclips.cli`. Outermost `.app`, `.framework`, `.xpc`, `.appex`, `.plugin`, and `.bundle` directories with Apple bundle metadata are sent to ESRP as complete signing units rather than signing their nested Mach-O files separately; unrecognized Mach-O-bearing code containers fail closed. Signing ZIPs are created and extracted on macOS with symlink preservation and remain opaque on Windows. Reconstructed payloads must pass strict `codesign`, Microsoft Team ID, hardened-runtime, timestamp, and required .NET entitlement checks before notarization ZIPs are created.
 
 ## Editing Rules for Agents
 - Change shared behavior in `templates/dist/**`, not by copy-pasting into entry pipelines.

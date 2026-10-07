@@ -14,8 +14,8 @@ public class ApplicationList
 {
     public Application[]? Value { get; set; }
 
-    // Modeled for wire parity with Graph. Not consumed today — the current processor returns
-    // the first page only. Wire the continuation loop here when pagination is added.
+    // Continuation token for the next page. The list processor follows this via the shared
+    // Pagination helper to return every page.
     [JsonPropertyName("@odata.nextLink")]
     public string? NextLink { get; set; }
 

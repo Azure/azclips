@@ -20,7 +20,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Resources",
         typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
         "group",
-        ["", "create", "show", "list"]);
+        ["", "create", "delete", "exists", "show", "list", "update"]);
 
     public static readonly ExtensionUnderTest Compute = new(
         "Compute",
@@ -29,10 +29,10 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "vm",
         ["", "create", "create-basic", "show", "list", "start", "stop", "deallocate", "delete"]);
 
-    public static readonly ExtensionUnderTest Identity = new(
-        "Identity",
-        "Microsoft.Azure.Azclips.Extensions.Identity",
-        typeof(Microsoft.Azure.Azclips.Extensions.Identity.ExtensionIndex).Assembly,
+    public static readonly ExtensionUnderTest ManagedServiceIdentity = new(
+        "ManagedServiceIdentity",
+        "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity",
+        typeof(Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex).Assembly,
         "identity",
         ["create", "list", "show", "update", "delete"]);
 
@@ -41,7 +41,8 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Network",
         typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
         "network",
-        ["vnet create", "vnet show", "vnet list", "vnet delete"]);
+        ["vnet create", "vnet show", "vnet list", "vnet delete",
+         "public-ip create", "public-ip show", "public-ip list", "public-ip delete"]);
 }
 
 /// <summary>

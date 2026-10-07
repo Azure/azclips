@@ -9,58 +9,39 @@ namespace Ace.Generator.Generators;
 /// </summary>
 /// <remarks>
 /// The transform already resolved naming and collisions, so nothing here re-derives a
-/// name: this only resolves a member's <see cref="IRId"/> path back to the properties it
-/// walks, and renders the access chain. The IR keeps wire truth on the properties
-/// themselves, so a flattened member is always <c>[JsonIgnore]</c> sugar over the real
-/// nested graph — never a replacement for it.
+/// name: this only resolves a member's property, and the containers it is reached through,
+/// back to the properties they name, and renders the access chain. The IR keeps wire truth
+/// on the properties themselves, so a flattened member is always <c>[JsonIgnore]</c> sugar
+/// over the real nested graph — never a replacement for it.
 /// </remarks>
 internal static class FlattenSupport
 {
-    /// <summary>Index every model property in the document by its serialized id.</summary>
-    public static Dictionary<string, IRProperty> IndexProperties(IRDocument ir)
-    {
-        var index = new Dictionary<string, IRProperty>(StringComparer.Ordinal);
-        foreach (IRModel model in ir.Models)
-        {
-            foreach (IRProperty property in model.Properties)
-            {
-                index[IrIds.Serialize(property.Id)] = property;
-            }
-        }
-
-        return index;
-    }
-
     /// <summary>
-    /// Resolve a flattening path to the properties it walks, or <c>null</c> when a hop is
-    /// unknown or cannot be walked (only a named model can sit between the root and the leaf).
+    /// Resolve a property reference to the properties it walks — each container in
+    /// <paramref name="via"/>, outermost first, then <paramref name="property"/> itself — or
+    /// <c>null</c> when one is unknown or a container cannot be walked (only a named model can
+    /// be materialized on the way to the property).
     /// </summary>
-    public static IRProperty[]? ResolvePath(
-        IReadOnlyList<IRId>? path,
-        IReadOnlyDictionary<string, IRProperty> index)
+    public static IRProperty[]? ResolveHops(IRId? property, IReadOnlyList<IRId>? via, IrIndex index)
     {
-        if (path is null || path.Count == 0)
+        if (property is null || index.Property(property) is not { } leaf)
         {
             return null;
         }
 
-        var hops = new IRProperty[path.Count];
-        for (int i = 0; i < path.Count; i++)
+        via ??= [];
+        var hops = new IRProperty[via.Count + 1];
+        for (int i = 0; i < via.Count; i++)
         {
-            if (!index.TryGetValue(IrIds.Serialize(path[i]), out IRProperty? hop))
+            if (index.Property(via[i]) is not IRPropertyObject { Type: IRTypeRefModel } container)
             {
                 return null;
             }
 
-            // Every hop before the leaf must be a materializable model instance.
-            if (i < path.Count - 1 && hop is not IRPropertyObject { Type: IRTypeRefModel })
-            {
-                return null;
-            }
-
-            hops[i] = hop;
+            hops[i] = container;
         }
 
+        hops[^1] = leaf;
         return hops;
     }
 
@@ -91,15 +72,15 @@ internal static class FlattenSupport
         !phases.Contains(FlattenedMemberVisibility.Update);
 
     /// <summary>The leaf's own C# type, carrying its own declared nullability.</summary>
-    public static string DeclaredType(IRProperty leaf) =>
-        IrTypeMapper.ToCSharp(leaf) + (IsNullable(leaf) ? "?" : "");
+    public static string DeclaredType(IRProperty leaf, IrIndex index) =>
+        IrTypeMapper.ToCSharp(leaf, index) + (IsNullable(leaf) ? "?" : "");
 
     /// <summary>
     /// The accessor's C# type: the leaf's type, widened to nullable when any hop along the
     /// path may be absent (so a <c>?.</c> chain can legitimately produce null).
     /// </summary>
-    public static string AccessorType(IRProperty leaf, bool optional) =>
-        IrTypeMapper.ToCSharp(leaf) + (optional || IsNullable(leaf) ? "?" : "");
+    public static string AccessorType(IRProperty leaf, bool optional, IrIndex index) =>
+        IrTypeMapper.ToCSharp(leaf, index) + (optional || IsNullable(leaf) ? "?" : "");
 
     /// <summary>True when the accessor is nullable but the leaf it assigns to is not.</summary>
     public static bool WidensLeaf(IRProperty leaf, bool optional) => optional && !IsNullable(leaf);
@@ -142,7 +123,7 @@ internal static class FlattenSupport
     /// are always null-coalesced — a hop the spec marks required can still arrive null from
     /// deserialization, and assigning through it would otherwise throw.
     /// </summary>
-    public static IEnumerable<string> SetterStatements(IReadOnlyList<IRProperty> hops, string assignedValue)
+    public static IEnumerable<string> SetterStatements(IReadOnlyList<IRProperty> hops, string assignedValue, IrIndex index)
     {
         var chain = new StringBuilder();
         for (int i = 0; i < hops.Count - 1; i++)
@@ -153,7 +134,7 @@ internal static class FlattenSupport
             }
 
             chain.Append(hops[i].Name.Identifier());
-            yield return $"{chain} ??= new {IrTypeMapper.ToCSharp(hops[i])}();";
+            yield return $"{chain} ??= new {IrTypeMapper.ToCSharp(hops[i], index)}();";
         }
 
         if (hops.Count > 1)

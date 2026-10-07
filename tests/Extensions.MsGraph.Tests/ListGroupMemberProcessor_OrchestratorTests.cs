@@ -10,7 +10,8 @@ namespace Extensions.MsGraph.Tests;
 /// <summary>
 /// Tests the customization layer <see cref="ListGroupMemberProcessor_Orchestrator"/> adds on top of
 /// the atomic <c>ListGroupMemberProcessor</c>: display-name-prefix and exact-display-name
-/// resolution to a single group object id, and required-field validation.
+/// resolution to a single group object id, and required-field validation. Driven through
+/// <c>ProcessAsync</c> (the real entry point) so the resolution and member requests are observed.
 /// </summary>
 public class ListGroupMemberProcessor_OrchestratorTests
 {
@@ -30,13 +31,13 @@ public class ListGroupMemberProcessor_OrchestratorTests
         });
 
     [Fact]
-    public async Task SendAsync_WithGuidGroup_ShouldSkipResolutionAndTargetMembers()
+    public async Task ProcessAsync_WithGuidGroup_ShouldSkipResolutionAndTargetMembers()
     {
         var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}"));
-        var orch = new ListGroupMemberProcessor_Orchestrator { Group = GroupId }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        var orch = new ListGroupMemberProcessor_Orchestrator { Group = GroupId };
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var sent = Assert.Single(pipeline.Sent);
         Assert.Equal(HttpMethod.Get, sent.Method);
@@ -44,14 +45,14 @@ public class ListGroupMemberProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_WithGroupPrefix_ShouldUseStartswithFilter()
+    public async Task ProcessAsync_WithGroupPrefix_ShouldUseStartswithFilter()
     {
         var pipeline = PipelineForResolution(
             $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}");
-        var orch = new ListGroupMemberProcessor_Orchestrator { Group = "Sales" }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        var orch = new ListGroupMemberProcessor_Orchestrator { Group = "Sales" };
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         Assert.Equal(2, pipeline.Sent.Count);
         Assert.Contains(Uri.EscapeDataString("startswith(displayName,'Sales')"), pipeline.Sent[0].RequestUri!.OriginalString);
@@ -61,14 +62,14 @@ public class ListGroupMemberProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_WithGroupDisplayName_ShouldUseEqualsFilter()
+    public async Task ProcessAsync_WithGroupDisplayName_ShouldUseEqualsFilter()
     {
         var pipeline = PipelineForResolution(
             $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}");
-        var orch = new ListGroupMemberProcessor_Orchestrator { GroupDisplayName = "Sales" }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        var orch = new ListGroupMemberProcessor_Orchestrator { GroupDisplayName = "Sales" };
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         Assert.Equal(2, pipeline.Sent.Count);
         // Uses eq (not startswith) for the resolution step.
@@ -78,32 +79,32 @@ public class ListGroupMemberProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_WithGroupDisplayNameContainingSingleQuote_ShouldEscape()
+    public async Task ProcessAsync_WithGroupDisplayNameContainingSingleQuote_ShouldEscape()
     {
         var pipeline = PipelineForResolution(
             $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"O'Brien\"}}]}}");
-        var orch = new ListGroupMemberProcessor_Orchestrator { GroupDisplayName = "O'Brien" }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        var orch = new ListGroupMemberProcessor_Orchestrator { GroupDisplayName = "O'Brien" };
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var listUri = pipeline.Sent[0].RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'O''Brien'"), listUri);
     }
 
     [Fact]
-    public async Task SendAsync_MissingBothIdentifiers_ShouldThrowBeforeHttp()
+    public async Task ProcessAsync_MissingBothIdentifiers_ShouldThrowBeforeHttp()
     {
         var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
-        var orch = new ListGroupMemberProcessor_Orchestrator()
-            .WithFakeContext(pipeline, NoOpPublisher());
+        var orch = new ListGroupMemberProcessor_Orchestrator();
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.ProcessAsync());
         Assert.Empty(pipeline.Sent);
     }
 
     [Fact]
-    public async Task SendAsync_GroupDisplayNameWins_WhenBothProvided()
+    public async Task ProcessAsync_GroupDisplayNameWins_WhenBothProvided()
     {
         var pipeline = PipelineForResolution(
             $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}");
@@ -111,14 +112,36 @@ public class ListGroupMemberProcessor_OrchestratorTests
         {
             Group = "Marketing",
             GroupDisplayName = "Sales",
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        };
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         // The exact-name path should be used, so the list filter uses eq (not startswith).
         var listUri = pipeline.Sent[0].RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'Sales'"), listUri);
         Assert.DoesNotContain("startswith", listUri);
         Assert.DoesNotContain("Marketing", listUri);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WhenResolutionFails_StillPublishesProcessorProcessAsyncEnd()
+    {
+        // Resolution runs inside the base ProcessAsync start/end lifecycle, so a failure must still
+        // emit the paired end event rather than escaping the processor span.
+        var publishedEvents = new List<string>();
+        var publisher = new Mock<IEventPublisher>();
+        publisher.Setup(p => p.Publish(It.IsAny<string>()))
+            .Callback<string>(publishedEvents.Add)
+            .Returns(Task.CompletedTask);
+
+        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
+        var orch = new ListGroupMemberProcessor_Orchestrator();
+        orch.WithCapturingContext(pipeline, publisher.Object);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.ProcessAsync());
+
+        Assert.Contains(Events.ProcessorProcessAsyncEnd, publishedEvents);
+        Assert.Empty(pipeline.Sent);
     }
 }

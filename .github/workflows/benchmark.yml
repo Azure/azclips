@@ -48,7 +48,7 @@ jobs:
       run_startup: ${{ steps.set-matrix.outputs.run_startup }}
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -124,23 +124,24 @@ jobs:
     name: Run CLI benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-cli-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: benchmark-build-outputs
           path: .
@@ -167,23 +168,24 @@ jobs:
     name: Run PS benchmarks (${{ matrix.extension }})
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.has_ext_work == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-ps-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}-${{ strategy.job-index }}" ]
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: benchmark-build-outputs
           path: .
@@ -210,20 +212,21 @@ jobs:
     name: Run STARTUP benchmarks
     needs: [detect-changes, build]
     if: needs.detect-changes.outputs.run_startup == 'true'
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: [ self-hosted, 1ES.Pool=pool-ubuntu-gh, "JobId=azclips-startup-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
+
+      - name: Display dotnet version
+        run: dotnet --version
 
       - name: Download build outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: benchmark-build-outputs
           path: .
@@ -262,14 +265,14 @@ jobs:
       matrix: ${{ fromJSON(needs.detect-changes.outputs.publish_matrix) }}
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
 
       - name: Download all benchmark results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: benchmark-*-results*
           path: downloaded
@@ -295,7 +298,7 @@ jobs:
 
       - name: Publish dashboard / gate regression
         if: steps.p.outputs.found == 'true'
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: ${{ steps.p.outputs.name }}
           tool: 'benchmarkdotnet'
@@ -323,14 +326,14 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
 
       - name: Download all benchmark results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: benchmark-*-results*
           path: downloaded
@@ -338,7 +341,7 @@ jobs:
 
       - name: Publish CLI startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips CLI Startup (warm)'
           tool: 'benchmarkdotnet'
@@ -354,7 +357,7 @@ jobs:
 
       - name: Publish PS startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips PS Startup (warm)'
           tool: 'benchmarkdotnet'
@@ -371,7 +374,7 @@ jobs:
 
       - name: Publish CLI startup dashboard (cold, informational)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips CLI Startup (cold)'
           tool: 'benchmarkdotnet'
@@ -387,7 +390,7 @@ jobs:
 
       - name: Publish PS startup dashboard (cold, informational)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: 'Azclips PS Startup (cold)'
           tool: 'benchmarkdotnet'
@@ -411,14 +414,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@v4
 
       - name: Download all benchmark results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: benchmark-*-results*
           path: downloaded
@@ -492,14 +495,14 @@ jobs:
       contents: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - name: Download trace sidecars
         id: download
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: benchmark-trace-sidecars
           path: sidecars

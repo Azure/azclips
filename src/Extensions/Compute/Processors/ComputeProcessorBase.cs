@@ -110,7 +110,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
-        protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : ComputeProcessorBase, new()
+        protected internal T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : ComputeProcessorBase, new()
         {
             T child = new T
             {
