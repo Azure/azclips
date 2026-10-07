@@ -45,6 +45,7 @@ public class NewRoleAssignmentCmdlet : PSCmdlet
     public string? ObjectType { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateRoleAssignmentName(AllowEmpty = true)]
     public string? Name { get; set; }
 
     [Parameter(Mandatory = false)]

@@ -34,6 +34,7 @@ public class RemoveRoleAssignmentCmdlet : PSCmdlet
     public string? Scope { get; set; }
 
     [Parameter(Mandatory = true)]
+    [ValidateRoleAssignmentName]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]
