@@ -1,51 +1,153 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+# Management group scope deployment what-if - PowerShell (New-AzManagementGroupDeployment -WhatIf)
+# Equivalent of: New-AzManagementGroupDeployment -WhatIf
+#
+# What-if is READ-ONLY: it predicts the changes a template would make and never creates or
+# modifies resources.
+#
+# Shared test context:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to preview against
+#   AZCLIPS_SUBSCRIPTION_ID     - nested subscription targeted by the create-preview cases
+# AzClips does not expose a standalone Get-AzManagementGroupDeploymentWhatIfResult cmdlet; what-if
+# at management-group scope is only reachable via New-AzManagementGroupDeployment -WhatIf.
+#
+# Optional:
+#   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
+#                        session already has azclips's own modules imported and signed in
+#
+# Usage:
+#   pwsh -NoProfile -File .\tests\Scripts\PS\ManagementGroupDeploymentWhatIf.ps1
+
 $ErrorActionPreference = 'Stop'
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
+
 $managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
-$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
 if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.'
+    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
 }
+
+$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
 if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
-    throw 'Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.'
+    throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
 }
-$location = 'eastus'
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-$resourceGroupName = 'azclips-mg-test-rg'
-$accountsManifest = Join-Path $PSScriptRoot '..' '..' '..' 'src' 'PS' 'Accounts' 'Accounts.psd1'
-$resourcesManifest = Join-Path $PSScriptRoot '..' '..' '..' 'src' 'PS' 'Resources' 'Resources.psd1'
-Import-Module $accountsManifest -Force
-Import-Module $resourcesManifest -Force
 
-$managementGroup = Invoke-AzRestMethod -Method GET -Uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$managementGroupId`?api-version=2021-04-01"
-$managementGroupDetails = $managementGroup.Content | ConvertFrom-Json
-if ([string]::IsNullOrWhiteSpace($managementGroupDetails.properties.details.parent.id)) {
-    throw "$managementGroupId must identify a child management group, not the tenant root management group."
+$tenantId = $env:AZCLIPS_TENANT_ID
+if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
+    Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
 }
-$resourceGroupAction = 'reused'
-try {
-    Get-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -ErrorAction Stop | Out-Null
-} catch {
-    if ($_.Exception.Message -notmatch '404|ResourceGroupNotFound|could not be found') {
-        throw
+
+$failures = [System.Collections.Generic.List[string]]::new()
+function Add-Failure([string]$Message) {
+    Write-Host "FAIL: $Message"
+    $failures.Add($Message)
+}
+function Assert-Equal([string]$Label, $Expected, $Actual) {
+    if ($Actual -eq $Expected) {
+        Write-Host "OK: ${Label} => '$Actual'"
+    } else {
+        Add-Failure "${Label} expected '$Expected' but got '$Actual'"
     }
-    New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -Location $location | Out-Null
-    $resourceGroupAction = 'created'
 }
-$bicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
-Write-Host "Target child management group: $managementGroupId"
-Write-Host "Test resource group: $resourceGroupName ($resourceGroupAction)"
 
-# New with a true -WhatIf switch runs ARM what-if and does not create the deployment.
-New-AzManagementGroupDeployment `
-    -ManagementGroupId $managementGroupId `
-    -Location $location `
-    -Name azclips-mg-ps-whatif `
-    -TemplateFile (Join-Path $bicepDir 'management-group-empty.bicep') `
-    -TemplateParameterFile (Join-Path $bicepDir 'management-group-empty.bicepparam') `
-    -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=whatif-inline' `
-    -WhatIfResultFormat ResourceIdOnly `
-    -WhatIf
+$basicTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template-$([guid]::NewGuid()).json"
+@'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+'@ | Set-Content -Path $basicTemplateFile -Encoding utf8
 
-Write-Host 'Management-group deployment what-if checks completed.'
+# Nested resource-group-create template so the what-if preview reports real "Create" changes.
+$nestedTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-nested-template-$([guid]::NewGuid()).json"
+@'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "targetSubscriptionId": { "type": "string" },
+    "rgName": { "type": "string" },
+    "rgLocation": { "type": "string" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "nestedRGDeployment",
+      "location": "[parameters('rgLocation')]",
+      "subscriptionId": "[parameters('targetSubscriptionId')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-08-01/subscriptionDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Resources/resourceGroups",
+              "apiVersion": "2021-04-01",
+              "name": "[parameters('rgName')]",
+              "location": "[parameters('rgLocation')]"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+'@ | Set-Content -Path $nestedTemplateFile -Encoding utf8
+
+$DebugPreference = 'Continue'
+
+function New-NestedParameterObject {
+    @{
+        targetSubscriptionId = $subscriptionId
+        rgName               = "azclips-mg-nested-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+        rgLocation           = 'WestUS'
+    }
+}
+
+Write-Host '== 1. happy path (empty template): preview with no predicted changes =='
+$result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-whatif -TemplateFile $basicTemplateFile -WhatIf
+Assert-Equal 'empty-template status' 'Succeeded' $result.Status
+Assert-Equal 'empty-template change count' 0 $result.Properties.Changes.Count
+
+Write-Host '== 2. -WhatIfResultFormat ResourceIdOnly: predicted changes carry resource ids only =='
+$result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -Name azclips-mg-whatif-idonly -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfResultFormat ResourceIdOnly -WhatIf
+Assert-Equal 'resource-id-only status' 'Succeeded' $result.Status
+if ($result.Properties.Changes.Count -gt 0) {
+    Write-Host "OK: resource-id-only reported $($result.Properties.Changes.Count) change(s)"
+} else {
+    Add-Failure 'resource-id-only expected at least one predicted change'
+}
+
+Write-Host '== 3. -WhatIfExcludeChangeType Create: excludes the predicted "Create" change, leaving none =='
+$result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -Name azclips-mg-whatif-exclude -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfExcludeChangeType Create -WhatIf
+Assert-Equal 'exclude-create status' 'Succeeded' $result.Status
+Assert-Equal 'exclude-create change count' 0 $result.Properties.Changes.Count
+
+Write-Host '== 4. -ValidationLevel ProviderNoRbac: previews without an RBAC permission check =='
+$result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -Name azclips-mg-whatif-norbac -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -ValidationLevel ProviderNoRbac -WhatIf
+Assert-Equal 'no-rbac status' 'Succeeded' $result.Status
+
+Write-Host '== 5. negative: invalid -WhatIfResultFormat value (Foo) must be rejected =='
+try {
+    New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-whatif-rf-negative -TemplateFile $basicTemplateFile -WhatIfResultFormat Foo -WhatIf -ErrorAction Stop
+    Add-Failure 'invalid -WhatIfResultFormat Foo did not throw'
+} catch {
+    if ($_.Exception.Message -match 'ResultFormat must be one of') {
+        Write-Host "OK: invalid -WhatIfResultFormat Foo failed with the expected message"
+    } else {
+        Add-Failure "invalid -WhatIfResultFormat Foo failed, but not with the expected message: $($_.Exception.Message)"
+    }
+}
+
+if ($failures.Count -gt 0) {
+    throw "New-AzManagementGroupDeployment -WhatIf smoke test finished with $($failures.Count) failure(s)."
+}
+Write-Host '== New-AzManagementGroupDeployment -WhatIf smoke test finished =='

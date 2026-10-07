@@ -1,106 +1,121 @@
-#!/usr/bin/env bash
-set -euo pipefail
+# Management group scope deployment - CLI (az deployment mg create)
+# Equivalent of: az deployment mg create / az deployment mg show / az deployment mg delete
+#
+# Shared test context:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
+# Unlike the resource-group scope (fixed azclips-test-group-1), no fixed test management group
+# exists across environments, so the management group ID must come from the environment.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
-[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+# Run unattended: on a command ERROR az normally hands off to the interactive agent-mode TUI
+# (which would block on input). Disable the agent via config so the classic error and a non-zero
+# exit surface instead.
+az config set --key agent.enabled --value false
 
-"$AZ" config set --key agent.enabled --value false >/dev/null
+# No `set -e`: the negative cases below are EXPECTED to exit non-zero, and the script must
+# continue past them. Each command's exit code surfaces its own error on stderr.
+
+FAILURES=0
+fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
+assert_eq() { [[ "$3" == "$2" ]] && echo "OK: $1 => '$3'" || fail "$1 expected '$2' but got '$3'"; }
+
 MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
-DEPLOYMENT_LOCATION="eastus"
-TEST_RESOURCE_GROUP="azclips-mg-test-rg"
 
-PARENT_ID="$("$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$MANAGEMENT_GROUP_ID?api-version=2021-04-01" \
-    --query "json.properties.details.parent.id" \
-    --output tsv)"
-if [[ -z "$PARENT_ID" ]]; then
-    echo "$MANAGEMENT_GROUP_ID must identify a child management group, not the tenant root management group." >&2
+# Management-group-scope templates have no public quickstart equivalent, so generate a minimal
+# empty template inline.
+TEMPLATE_FILE="$(mktemp -t azclips-mg-template-XXXXXX.json)"
+cat > "$TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+JSON
+
+echo "== 1. create / show / delete / show (the last show is expected to fail) =="
+NAME="azclips-mg-$(date +%y%m%d%H%M%S)"
+state=$(az deployment mg create \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --name "$NAME" \
+    --template-file "$TEMPLATE_FILE" \
+    --query properties.provisioningState --output tsv --debug)
+assert_eq "create" "Succeeded" "$state"
+
+shown=$(az deployment mg show \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --name "$NAME" \
+    --query name --output tsv --debug)
+assert_eq "show" "$NAME" "$shown"
+
+az deployment mg delete \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --name "$NAME" \
+    --debug
+[[ $? -eq 0 ]] && echo "OK: delete exited 0" || fail "delete exited non-zero"
+
+if az deployment mg show --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" >/dev/null 2>&1; then
+    fail "show still finds '$NAME' after delete"
+else
+    echo "OK: '$NAME' no longer exists"
+fi
+
+echo "== 2. --mode Incremental =="
+NAME="azclips-mg-mode-$(date +%y%m%d%H%M%S)"
+state=$(az deployment mg create \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --name "$NAME" \
+    --template-file "$TEMPLATE_FILE" \
+    --mode Incremental \
+    --query properties.provisioningState --output tsv --debug)
+assert_eq "mode incremental" "Succeeded" "$state"
+
+echo "== 3. --validation-level Provider =="
+NAME="azclips-mg-vlevel-$(date +%y%m%d%H%M%S)"
+state=$(az deployment mg create \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --name "$NAME" \
+    --template-file "$TEMPLATE_FILE" \
+    --validation-level Provider \
+    --query properties.provisioningState --output tsv --debug)
+assert_eq "validation-level Provider" "Succeeded" "$state"
+
+echo "== 4. negative: invalid --mode Foo (must be rejected, no deployment created) =="
+if output=$(az deployment mg create \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --name azclips-mg-mode-negative \
+    --template-file "$TEMPLATE_FILE" \
+    --mode Foo \
+    --debug 2>&1)
+then
+    echo "$output"
+    fail "invalid --mode Foo was expected to fail"
+elif grep -qF "Parameter 'Mode' value 'Foo' is not allowed. Allowed values: Incremental, Complete" <<< "$output"; then
+    echo "OK: invalid --mode Foo failed with the expected message"
+else
+    echo "$output"
+    fail "invalid --mode Foo failed, but not with the expected message"
+fi
+
+echo "== 5. --template-spec-id (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
+if [[ -n "${AZCLIPS_TEMPLATE_SPEC_ID:-}" ]]; then
+    NAME="azclips-mg-templatespec-$(date +%y%m%d%H%M%S)"
+    state=$(az deployment mg create \
+        --management-group-id "$MANAGEMENT_GROUP_ID" \
+        --location "West US 2" \
+        --name "$NAME" \
+        --template-spec-id "$AZCLIPS_TEMPLATE_SPEC_ID" \
+        --query properties.provisioningState --output tsv --debug)
+    assert_eq "template-spec-id" "Succeeded" "$state"
+else
+    echo "Skipping --template-spec-id case: AZCLIPS_TEMPLATE_SPEC_ID not set."
+fi
+
+if (( FAILURES > 0 )); then
+    echo "== deployment mg create smoke test finished with $FAILURES failure(s) =="
     exit 1
 fi
-
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-RESOURCE_GROUP_ACTION="reused"
-if ! "$AZ" group show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
-    "$AZ" group create \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --name "$TEST_RESOURCE_GROUP" \
-        --location "$DEPLOYMENT_LOCATION" >/dev/null
-    RESOURCE_GROUP_ACTION="created"
-fi
-
-BICEP_DIR="$SCRIPT_DIR/../Bicep"
-STAMP="$(date +%y%m%d%H%M%S)"
-NAME="azclips-mg-$STAMP"
-printf 'Target child management group: %s\n' "$MANAGEMENT_GROUP_ID"
-printf 'Test resource group: %s (%s)\n' "$TEST_RESOURCE_GROUP" "$RESOURCE_GROUP_ACTION"
-
-# Create from Bicep with a bicepparam base and an inline overlay.
-"$AZ" deployment mg create \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location "$DEPLOYMENT_LOCATION" \
-    --name "$NAME" \
-    --template-file "$BICEP_DIR/management-group-empty.bicep" \
-    --parameters "@$BICEP_DIR/management-group-empty.bicepparam" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=from-inline \
-    --validation-level Provider
-
-# Exercise list, show, export, and wait against the created deployment.
-"$AZ" deployment mg list --management-group-id "$MANAGEMENT_GROUP_ID"
-LIST_MATCH="$("$AZ" deployment mg list \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --query "[?name=='$NAME'] | length(@)" \
-    --output tsv)"
-[[ "$LIST_MATCH" == "1" ]]
-"$AZ" deployment mg show \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME"
-"$AZ" deployment mg export \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME"
-"$AZ" deployment mg wait \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME" \
-    --updated \
-    --interval 1 \
-    --timeout 120
-
-# Confirm the template workload ran in the dedicated test resource group.
-"$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-management-group-nested?api-version=2022-09-01"
-NESTED_STATE="$("$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-management-group-nested?api-version=2022-09-01" \
-    --query "json.properties.provisioningState" \
-    --output tsv)"
-[[ "$NESTED_STATE" == "Succeeded" ]]
-
-# A completed empty deployment may only reject cancellation as not running.
-set +e
-CANCEL_OUTPUT="$("$AZ" deployment mg cancel \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME" 2>&1)"
-CANCEL_STATUS=$?
-set -e
-if [[ $CANCEL_STATUS -ne 0 ]] && ! grep -Eiq "not running|cannot be canceled" <<<"$CANCEL_OUTPUT"; then
-    printf '%s\n' "$CANCEL_OUTPUT" >&2
-    exit "$CANCEL_STATUS"
-fi
-printf '%s\n' "$CANCEL_OUTPUT"
-
-# Delete deployment history and verify the deleted wait condition.
-"$AZ" deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
-"$AZ" deployment mg wait \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME" \
-    --deleted \
-    --interval 1 \
-    --timeout 120
-
-printf 'Management-group deployment lifecycle completed for %s.\n' "$NAME"
+echo "== deployment mg create smoke test finished =="

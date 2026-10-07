@@ -234,7 +234,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return null;
             }
 
-            object? fileParameters = ParametersObject;
+            object? fileParameters = NormalizeParametersObject(ParametersObject);
             if (fileParameters is null && !string.IsNullOrWhiteSpace(ParametersFile))
             {
                 // A .bicepparam source is compiled to an ARM parameters file first.
@@ -289,6 +289,33 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return parameters;
+        }
+
+        // ParametersObject (PowerShell's -TemplateParameterObject) is a flat object such as
+        // { "rgLocation": "WestUS" }, unlike parameters FILES, which already use ARM's
+        // { "name": { "value": ... } } envelope. ARM rejects a flat value here, so wrap any
+        // top-level value that isn't already shaped like { "value": ... } or { "reference": ... },
+        // mirroring azure-powershell's ParameterUtility.AddTemplateObjectParametersToHashtable.
+        protected static JsonObject? NormalizeParametersObject(object? parametersObject)
+        {
+            if (parametersObject is null)
+            {
+                return null;
+            }
+
+            JsonObject source = parametersObject as JsonObject
+                ?? JsonSerializer.SerializeToNode(parametersObject) as JsonObject
+                ?? throw new ArgumentException("ParametersObject must be a JSON object of parameter name/value pairs.");
+
+            JsonObject wrapped = new();
+            foreach ((string key, JsonNode? value) in source)
+            {
+                wrapped[key] = value is JsonObject valueObject && (valueObject.ContainsKey("value") || valueObject.ContainsKey("reference"))
+                    ? value.DeepClone()
+                    : new JsonObject { ["value"] = value?.DeepClone() };
+            }
+
+            return wrapped;
         }
 
         // Returns the canonical-cased validation level when valid, or null when the input is

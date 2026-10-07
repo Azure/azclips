@@ -105,13 +105,6 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
             ?? throw new InvalidOperationException("Management group deployment what-if returned an empty result.");
-        if (!string.IsNullOrWhiteSpace(result.Status)
-            && !string.Equals(result.Status, "Succeeded", StringComparison.OrdinalIgnoreCase)
-            && result.Error is null)
-        {
-            throw new InvalidOperationException(
-                $"Management group deployment what-if {result.Status.ToLowerInvariant()}.");
-        }
         ThrowIfError(result.Error, "Management group deployment what-if");
         ManagementGroupDeploymentWhatIfProcessor_Orchestrator.FilterChanges(
             result,

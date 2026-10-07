@@ -1,71 +1,153 @@
-#!/usr/bin/env bash
-set -euo pipefail
+# Management group scope deployment what-if - CLI (az deployment mg what-if)
+# Equivalent of: az deployment mg what-if
+#
+# What-if is READ-ONLY: it predicts the changes a template would make and never creates or
+# modifies resources.
+#
+# Shared test context:
+#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to preview against
+#   AZCLIPS_SUBSCRIPTION_ID     - nested subscription targeted by the create-preview cases
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
-[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+az config set --key agent.enabled --value false
 
-"$AZ" config set --key agent.enabled --value false >/dev/null
+# No `set -e`: the negative case below is EXPECTED to exit non-zero.
+
+FAILURES=0
+fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
+assert_eq() { [[ "$3" == "$2" ]] && echo "OK: $1 => '$3'" || fail "$1 expected '$2' but got '$3'"; }
+
 MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
-DEPLOYMENT_LOCATION="eastus"
-TEST_RESOURCE_GROUP="azclips-mg-test-rg"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the target nested subscription.}"
 
-PARENT_ID="$("$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$MANAGEMENT_GROUP_ID?api-version=2021-04-01" \
-    --query "json.properties.details.parent.id" \
-    --output tsv)"
-if [[ -z "$PARENT_ID" ]]; then
-    echo "$MANAGEMENT_GROUP_ID must identify a child management group, not the tenant root management group." >&2
+TEMPLATE_FILE="$(mktemp -t azclips-mg-template-XXXXXX.json)"
+cat > "$TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+JSON
+
+echo "== 1. empty template (expect no predicted changes) =="
+status=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --template-file "$TEMPLATE_FILE" \
+    --query status --output tsv --debug)
+assert_eq "empty template status" "Succeeded" "$status"
+changeCount=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --template-file "$TEMPLATE_FILE" \
+    --query "length(properties.changes)" --output tsv --debug)
+assert_eq "empty template change count" "0" "$changeCount"
+
+# Nested resource-group-create template so the what-if preview reports real "Create" changes.
+NESTED_TEMPLATE_FILE="$(mktemp -t azclips-mg-nested-template-XXXXXX.json)"
+cat > "$NESTED_TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "targetSubscriptionId": { "type": "string" },
+    "rgName": { "type": "string" },
+    "rgLocation": { "type": "string" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "nestedRGDeployment",
+      "location": "[parameters('rgLocation')]",
+      "subscriptionId": "[parameters('targetSubscriptionId')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-08-01/subscriptionDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Resources/resourceGroups",
+              "apiVersion": "2021-04-01",
+              "name": "[parameters('rgName')]",
+              "location": "[parameters('rgLocation')]"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+JSON
+
+echo "== 2. --result-format ResourceIdOnly (expect at least one predicted Create change) =="
+RGNAME2="azclips-mg-nested-$(date +%y%m%d%H%M%S)"
+status=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --template-file "$NESTED_TEMPLATE_FILE" \
+    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
+    --result-format ResourceIdOnly \
+    --query status --output tsv --debug)
+assert_eq "result-format status" "Succeeded" "$status"
+changeCount=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --template-file "$NESTED_TEMPLATE_FILE" \
+    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
+    --result-format ResourceIdOnly \
+    --query "length(properties.changes)" --output tsv --debug)
+if (( changeCount > 0 )); then echo "OK: result-format change count '$changeCount' > 0"; else fail "result-format expected at least one change, got '$changeCount'"; fi
+
+echo "== 3. --exclude-change-types Create (expect the Create change filtered out) =="
+RGNAME3="azclips-mg-nested-$(date +%y%m%d%H%M%S)"
+status=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --template-file "$NESTED_TEMPLATE_FILE" \
+    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME3" rgLocation=WestUS \
+    --exclude-change-types Create \
+    --query status --output tsv --debug)
+assert_eq "exclude-change-types status" "Succeeded" "$status"
+changeCount=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --template-file "$NESTED_TEMPLATE_FILE" \
+    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME3" rgLocation=WestUS \
+    --exclude-change-types Create \
+    --query "length(properties.changes)" --output tsv --debug)
+assert_eq "exclude-change-types change count" "0" "$changeCount"
+
+echo "== 4. --validation-level ProviderNoRbac (preview without an RBAC permission check) =="
+status=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location WestUS \
+    --template-file "$NESTED_TEMPLATE_FILE" \
+    --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="azclips-mg-nested-$(date +%y%m%d%H%M%S)" rgLocation=WestUS \
+    --validation-level ProviderNoRbac \
+    --query status --output tsv --debug)
+assert_eq "validation-level ProviderNoRbac status" "Succeeded" "$status"
+
+echo "== 5. negative: invalid --result-format Foo (must be rejected) =="
+if output=$(az deployment mg what-if \
+    --management-group-id "$MANAGEMENT_GROUP_ID" \
+    --location eastus \
+    --template-file "$TEMPLATE_FILE" \
+    --result-format Foo \
+    --debug 2>&1)
+then
+    echo "$output"
+    fail "invalid --result-format Foo was expected to fail"
+elif grep -qF "Parameter 'ResultFormat' value 'Foo' is not allowed. Allowed values: FullResourcePayloads, ResourceIdOnly" <<< "$output"; then
+    echo "OK: invalid --result-format Foo failed with the expected message"
+else
+    echo "$output"
+    fail "invalid --result-format Foo failed, but not with the expected message"
+fi
+
+if (( FAILURES > 0 )); then
+    echo "== deployment mg what-if smoke test finished with $FAILURES failure(s) =="
     exit 1
 fi
-
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-RESOURCE_GROUP_ACTION="reused"
-if ! "$AZ" group show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
-    "$AZ" group create \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --name "$TEST_RESOURCE_GROUP" \
-        --location "$DEPLOYMENT_LOCATION" >/dev/null
-    RESOURCE_GROUP_ACTION="created"
-fi
-
-BICEP_DIR="$SCRIPT_DIR/../Bicep"
-printf 'Target child management group: %s\n' "$MANAGEMENT_GROUP_ID"
-printf 'Test resource group: %s (%s)\n' "$TEST_RESOURCE_GROUP" "$RESOURCE_GROUP_ACTION"
-
-# JSON and full-resource output through the normal AzClips formatter.
-"$AZ" deployment mg what-if \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location "$DEPLOYMENT_LOCATION" \
-    --name azclips-mg-whatif-json \
-    --template-file "$BICEP_DIR/management-group-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=whatif-json \
-    --result-format FullResourcePayloads
-
-# Bicep/bicepparam plus inline overlay and ResourceIdOnly.
-"$AZ" deployment mg what-if \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location "$DEPLOYMENT_LOCATION" \
-    --name azclips-mg-whatif-bicep \
-    --template-file "$BICEP_DIR/management-group-empty.bicep" \
-    --parameters "@$BICEP_DIR/management-group-empty.bicepparam" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=whatif-inline \
-    --result-format ResourceIdOnly
-
-# Invalid result format must fail locally.
-if "$AZ" deployment mg what-if \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --location "$DEPLOYMENT_LOCATION" \
-    --name azclips-mg-whatif-invalid-format \
-    --template-file "$BICEP_DIR/management-group-empty.json" \
-    --result-format Invalid; then
-    echo "Invalid result format unexpectedly succeeded." >&2
-    exit 1
-fi
-
-printf 'Management-group deployment what-if checks completed.\n'
+echo "== deployment mg what-if smoke test finished =="

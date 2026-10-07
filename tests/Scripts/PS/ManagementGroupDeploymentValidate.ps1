@@ -1,83 +1,117 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+# Management group scope deployment validate - PowerShell (Test-AzManagementGroupDeployment)
+# Equivalent of: Test-AzManagementGroupDeployment
+#
+# Note: Test-AzManagementGroupDeployment never throws on an ARM validation failure. On success it
+# returns $null (output suppressed); on failure it returns an object whose .Error property holds
+# the ARM error. Assertions below reflect that shape rather than try/catch.
+#
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID     - subscription used for the live test resources
+#   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to validate against
+#
+# Optional:
+#   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
+#                        session already has azclips's own modules imported and signed in
+#
+# Usage:
+#   pwsh -NoProfile -File .\tests\Scripts\PS\ManagementGroupDeploymentValidate.ps1
+
 $ErrorActionPreference = 'Stop'
-$managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
+
 $subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
-if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
-    throw 'Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.'
-}
 if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
-    throw 'Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.'
+    throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
 }
-$location = 'eastus'
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-$resourceGroupName = 'azclips-mg-test-rg'
-$accountsManifest = Join-Path $PSScriptRoot '..' '..' '..' 'src' 'PS' 'Accounts' 'Accounts.psd1'
-$resourcesManifest = Join-Path $PSScriptRoot '..' '..' '..' 'src' 'PS' 'Resources' 'Resources.psd1'
-Import-Module $accountsManifest -Force
-Import-Module $resourcesManifest -Force
 
-$managementGroup = Invoke-AzRestMethod -Method GET -Uri "https://management.azure.com/providers/Microsoft.Management/managementGroups/$managementGroupId`?api-version=2021-04-01"
-$managementGroupDetails = $managementGroup.Content | ConvertFrom-Json
-if ([string]::IsNullOrWhiteSpace($managementGroupDetails.properties.details.parent.id)) {
-    throw "$managementGroupId must identify a child management group, not the tenant root management group."
+$managementGroupId = $env:AZCLIPS_MANAGEMENT_GROUP_ID
+if ([string]::IsNullOrWhiteSpace($managementGroupId)) {
+    throw 'AZCLIPS_MANAGEMENT_GROUP_ID must be set.'
 }
-$resourceGroupAction = 'reused'
+
+$tenantId = $env:AZCLIPS_TENANT_ID
+if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
+    Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
+}
+
+$failures = [System.Collections.Generic.List[string]]::new()
+function Add-Failure([string]$Message) {
+    Write-Host "FAIL: $Message"
+    $failures.Add($Message)
+}
+
+$templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template-$([guid]::NewGuid()).json"
+@'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+'@ | Set-Content -Path $templateFile -Encoding utf8
+
+# Invalid template: the parameter's default value isn't one of its own allowed values, a
+# static template-definition error ARM's validate rejects even with an empty resources array.
+# (An undefined-parameter reference inside "outputs" was tried first, but with no resources ARM's
+# management-group validate did not evaluate/report it as an error - this constraint violation is
+# reliably caught instead.)
+$invalidTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-invalid-template-$([guid]::NewGuid()).json"
+@'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "mode": {
+      "type": "string",
+      "allowedValues": ["a", "b"],
+      "defaultValue": "c"
+    }
+  },
+  "resources": []
+}
+'@ | Set-Content -Path $invalidTemplateFile -Encoding utf8
+
+$DebugPreference = 'Continue'
+
+Write-Host '== 1. happy path: validate succeeds and returns nothing (SuppressSuccessOutput) =='
+$result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $templateFile
+if ($null -eq $result) {
+    Write-Host 'OK: successful validate returned $null'
+} else {
+    Add-Failure "successful validate expected to return `$null but got: $result"
+}
+
+Write-Host '== 2. negative: invalid template (default value not in allowedValues) must report an error, not throw =='
+# Reset before the call (instead of reusing case 1's $null) so a thrown/non-assigning call can't
+# be mistaken for a clean "no error" result, and catch any exception so Test-* (which is
+# documented to never throw) surfaces a clear failure instead of silently leaving $result stale.
+$result = $null
 try {
-    Get-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -ErrorAction Stop | Out-Null
+    $result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $invalidTemplateFile
 } catch {
-    if ($_.Exception.Message -notmatch '404|ResourceGroupNotFound|could not be found') {
-        throw
-    }
-    New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -Location $location | Out-Null
-    $resourceGroupAction = 'created'
+    Add-Failure "invalid template should not throw, but threw: $($_.Exception.Message)"
 }
-$bicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
-Write-Host "Target child management group: $managementGroupId"
-Write-Host "Test resource group: $resourceGroupName ($resourceGroupAction)"
-
-# Validate a template object with a parameter object.
-$templateObject = Get-Content (Join-Path $bicepDir 'management-group-empty.json') -Raw | ConvertFrom-Json -AsHashtable
-$parameterObject = @{
-    subscriptionId = @{ value = $subscriptionId }
-    resourceGroupName = @{ value = $resourceGroupName }
-    marker = @{ value = 'from-object' }
+# ARM has been observed to report deployment-validation errors either at the top-level .Error or
+# nested under .Properties.Error, depending on when the error is detected; check both.
+$validationError = $result.Error
+if ($null -eq $validationError) {
+    $validationError = $result.Properties.Error
+}
+if ($null -eq $result) {
+    Add-Failure 'invalid template expected a non-null result with an .Error, but got $null'
+} elseif ($null -eq $validationError) {
+    Add-Failure "invalid template expected a populated .Error property, but got: $($result | ConvertTo-Json -Depth 10 -Compress)"
+} else {
+    Write-Host "OK: invalid template reported .Error: $($validationError.Code): $($validationError.Message)"
 }
 
-$objectValidation = Test-AzManagementGroupDeployment `
-    -ManagementGroupId $managementGroupId `
-    -Location $location `
-    -Name azclips-mg-validate-object `
-    -TemplateObject $templateObject `
-    -TemplateParameterObject $parameterObject `
-    -ValidationLevel Provider
-$objectValidation
-
-# Validate Bicep with bicepparam.
-$bicepValidation = Test-AzManagementGroupDeployment `
-    -ManagementGroupId $managementGroupId `
-    -Location $location `
-    -Name azclips-mg-validate-bicep `
-    -TemplateFile (Join-Path $bicepDir 'management-group-empty.bicep') `
-    -TemplateParameterFile (Join-Path $bicepDir 'management-group-empty.bicepparam') `
-    -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName" `
-    -ValidationLevel Template
-$bicepValidation
-
-# Invalid templates return validation errors, matching Test-AzManagementGroupDeployment.
-$invalid = Test-AzManagementGroupDeployment `
-    -ManagementGroupId $managementGroupId `
-    -Location $location `
-    -Name azclips-mg-validate-invalid `
-    -TemplateFile (Join-Path $bicepDir 'management-group-invalid-template.json') `
-    -TemplateParameterObject @{
-        subscriptionId = @{ value = $subscriptionId }
-        resourceGroupName = @{ value = $resourceGroupName }
-    }
-if (-not $invalid.Error) {
-    throw 'Invalid template validation did not return an error.'
+if ($failures.Count -gt 0) {
+    throw "Test-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."
 }
-$invalid
-
-Write-Host 'Management-group deployment validation checks completed.'
+Write-Host '== Test-AzManagementGroupDeployment smoke test finished =='

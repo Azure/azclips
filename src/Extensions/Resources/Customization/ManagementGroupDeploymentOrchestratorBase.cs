@@ -4,6 +4,8 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Core.Abstractions;
+using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -45,12 +47,8 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         ValidateManagementGroupInputs();
     }
 
-    // Matches `az deployment <scope> create`'s _validate_deployment_name: default to the
-    // template file's base name, else the last URI segment of a remote template, else the
-    // template spec's own resource name (_validate_deployment_name_with_template_specs), else a
-    // freshly generated name when only an inline template object is given (matching
-    // NewResourceManagerSdkClient.GenerateDeploymentName's GUID fallback), else the literal
-    // "deployment1" when no name can be derived from the template source at all.
+    // Azure CLI default: file -> template-URI -> template-spec name -> "deployment1".
+    // Azure PowerShell default: file -> template-URI -> random GUID (no template-spec/"deployment1" fallback).
     private string DeriveDefaultDeploymentName()
     {
         if (!string.IsNullOrWhiteSpace(TemplateFile))
@@ -68,6 +66,11 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             }
         }
 
+        if (AzclipsServiceProvider.GetRequiredService<ClientType>() != ClientType.CLI)
+        {
+            return Guid.NewGuid().ToString();
+        }
+
         if (!string.IsNullOrWhiteSpace(TemplateSpecId))
         {
             string? specName = ExtractTemplateSpecName(TemplateSpecId);
@@ -77,20 +80,14 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             }
         }
 
-        if (TemplateObject is not null)
-        {
-            return Guid.NewGuid().ToString();
-        }
-
         return "deployment1";
     }
 
     private static string? ExtractTemplateSpecName(string templateSpecId)
     {
-        string[] segments = templateSpecId.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        int index = Array.FindIndex(
-            segments, segment => string.Equals(segment, "templateSpecs", StringComparison.OrdinalIgnoreCase));
-        return index >= 0 && index + 1 < segments.Length ? segments[index + 1] : null;
+        string trimmed = templateSpecId.TrimEnd('/');
+        string[] segments = trimmed.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length == 0 ? null : segments[^1];
     }
 
     private void ValidateManagementGroupInputs()
@@ -135,7 +132,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             TemplateLink = templateLink,
             Parameters = BuildParameters(GetTemplateForParameterTyping(template), out ParametersLink? parametersLink),
             ParametersLink = parametersLink,
-            ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
+            ValidationLevel = NormalizeValidationLevel(ValidationLevel),
             DebugSetting = debugLevel is null
                 ? null
                 : new DebugSetting { DetailLevel = debugLevel },
@@ -166,7 +163,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
                 TemplateLink = templateLink,
                 Parameters = BuildParameters(GetTemplateForParameterTyping(template), out ParametersLink? parametersLink),
                 ParametersLink = parametersLink,
-                ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
+                ValidationLevel = NormalizeValidationLevel(ValidationLevel),
                 WhatIfSettings = new DeploymentWhatIfSettings
                 {
                     ResultFormat = NormalizeResultFormat(resultFormat),
@@ -184,7 +181,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
 
         parametersLink = null;
         JsonObject parameters = new();
-        MergeParameterSource(parameters, ParametersObject);
+        MergeParameterSource(parameters, NormalizeParametersObject(ParametersObject));
         if (!string.IsNullOrWhiteSpace(ParametersFile))
         {
             MergeParameterSource(parameters, ReadParameterSource(ParametersFile));
@@ -357,10 +354,10 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         JsonNode? value = type?.ToLowerInvariant() switch
         {
             "string" or "securestring" => JsonValue.Create(rawValue),
-            "bool" => JsonValue.Create(bool.Parse(rawValue)),
+            "bool" => JsonValue.Create(string.Equals(rawValue, "true", StringComparison.OrdinalIgnoreCase)),
             "int" => JsonValue.Create(long.Parse(rawValue, System.Globalization.CultureInfo.InvariantCulture)),
             "object" or "secureobject" or "array" => JsonNode.Parse(rawValue),
-            _ => ParseJsonOrString(rawValue),
+            _ => JsonValue.Create(rawValue),
         };
         return (key, value);
     }
@@ -390,18 +387,6 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             definition = current as JsonObject;
         }
         return null;
-    }
-
-    private static JsonNode? ParseJsonOrString(string value)
-    {
-        try
-        {
-            return JsonNode.Parse(value);
-        }
-        catch (JsonException)
-        {
-            return JsonValue.Create(value);
-        }
     }
 
     protected static string NormalizeResultFormat(string? resultFormat) =>

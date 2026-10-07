@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -22,7 +23,13 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
                 p.DeploymentName = Name;
                 p.Body = BuildDeployment(forceIncrementalMode: true);
             });
-        return await processor.SendAsync();
+
+        if (ThrowOnError)
+        {
+            return await processor.SendAsync();
+        }
+
+        return await processor.SendWithoutStatusValidationAsync();
     }
 
     protected override Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentValidateResult? body)
@@ -32,5 +39,16 @@ public class ValidateManagementGroupDeploymentProcessor_Orchestrator
             ThrowIfError(body?.Error, "Management group deployment validation");
         }
         return Task.FromResult(SuppressSuccessOutput && body?.Error is null);
+    }
+}
+
+public partial class ValidateAtManagementGroupScopeDeploymentsProcessor
+{
+    internal async Task<HttpResponseMessage> SendWithoutStatusValidationAsync()
+    {
+        using HttpRequestMessage request = await CreateRequestMessage();
+        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+        return response;
     }
 }
