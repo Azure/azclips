@@ -50,6 +50,9 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
     [Parameter(Mandatory = false, HelpMessage = "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).")]
     public SwitchParameter ExpandPrincipalGroups { get; set; }
 
+    [Parameter(ParameterSetName = "SubscriptionScope", Mandatory = false, HelpMessage = "List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.")]
+    public SwitchParameter IncludeNestedScopes { get; set; }
+
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
@@ -92,6 +95,10 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
         if (ExpandPrincipalGroups.IsPresent)
         {
             parameters.Add("ExpandPrincipalGroups", true);
+        }
+        if (IncludeNestedScopes.IsPresent)
+        {
+            parameters.Add("IncludeNestedScopes", true);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

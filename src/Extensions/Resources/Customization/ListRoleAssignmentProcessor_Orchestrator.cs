@@ -23,9 +23,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// scope.</item>
 /// <item><see cref="IncludeInherited"/> (<c>--include-inherited</c> / <c>-AtScope</c>): <c>atScope()</c>
 /// with no trim — this scope plus inherited (ancestor) assignments.</item>
-/// <item><see cref="All"/> (<c>--all</c>, CLI only): no <c>atScope()</c> filter at the subscription —
-/// the subscription and every nested scope beneath it. Mutually exclusive with an explicit scope or
-/// resource group.</item>
+/// <item><see cref="All"/> (<c>--all</c> / <c>-IncludeNestedScopes</c>): no <c>atScope()</c> filter at
+/// the subscription — the subscription and every nested scope beneath it. Mutually exclusive with an
+/// explicit scope or resource group.</item>
 /// <item><see cref="IncludeGroups"/> (<c>--include-groups</c> / <c>-ExpandPrincipalGroups</c>): when an
 /// assignee is supplied, filters with <c>assignedTo('{id}')</c>, which ARM expands transitively through
 /// group membership (no directory/Graph lookup).</item>

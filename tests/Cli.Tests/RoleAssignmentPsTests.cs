@@ -34,6 +34,10 @@ public class RoleAssignmentPsTests
         Assert.Equal(typeof(bool), metadata.Parameters["AtScope"].ParameterType);
         Assert.Equal("IncludeGroups", metadata.Parameters["ExpandPrincipalGroups"].Name);
         Assert.Equal(typeof(bool), metadata.Parameters["ExpandPrincipalGroups"].ParameterType);
+        // The CLI's --all nested-scope flag is exposed on PowerShell as -IncludeNestedScopes (the CLI
+        // spelling --all would be unidiomatic for a PowerShell switch); both bind the same All property.
+        Assert.Equal("All", metadata.Parameters["IncludeNestedScopes"].Name);
+        Assert.Equal(typeof(bool), metadata.Parameters["IncludeNestedScopes"].ParameterType);
 
         Assert.False(metadata.Parameters["SubscriptionId"].IsRequired);
         Assert.False(metadata.Parameters["Scope"].IsRequired);
@@ -45,9 +49,7 @@ public class RoleAssignmentPsTests
         Assert.DoesNotContain("assignee", metadata.Parameters.Keys);
         Assert.DoesNotContain("assignee-object-id", metadata.Parameters.Keys);
         Assert.DoesNotContain("resource-group", metadata.Parameters.Keys);
-        // --all is a CLI-only flag; classic Get-AzRoleAssignment has no equivalent.
         Assert.DoesNotContain("all", metadata.Parameters.Keys);
-        Assert.DoesNotContain("All", metadata.Parameters.Keys);
     }
 
     [Fact]

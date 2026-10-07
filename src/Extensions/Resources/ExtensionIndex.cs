@@ -116,6 +116,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AtScope"]           = new("IncludeInherited", "AtScope", typeof(bool), "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ExpandPrincipalGroups"] = new("IncludeGroups", "ExpandPrincipalGroups", typeof(bool), "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IncludeNestedScopes"] = new("All", "IncludeNestedScopes", typeof(bool), "List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

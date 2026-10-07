@@ -21,7 +21,7 @@ List Azure RBAC role assignments.
 
 ```
 Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
+ [-AtScope] [-ExpandPrincipalGroups] [-IncludeNestedScopes] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### ResourceGroup
@@ -49,7 +49,9 @@ object (principal) ID. Filtering by sign-in name, service-principal name, or rol
 
 By default only assignments made at the exact scope are listed. Use `-AtScope` to also include assignments
 inherited from ancestor scopes. Use `-ExpandPrincipalGroups` together with `-ObjectId` to also include
-assignments the principal receives transitively through the groups it belongs to.
+assignments the principal receives transitively through the groups it belongs to. Use `-IncludeNestedScopes`
+to list assignments across the whole subscription including every nested scope (resource groups and
+resources); it cannot be combined with `-Scope` or `-ResourceGroupName`.
 
 ## EXAMPLES
 
@@ -109,6 +111,14 @@ Get-AzRoleAssignment -Scope /subscriptions/00000000-0000-0000-0000-000000000000/
 Get-AzRoleAssignment -ObjectId 11111111-2222-3333-4444-555555555555 -ExpandPrincipalGroups
 ```
 
+### List across the whole subscription including nested scopes
+
+`-IncludeNestedScopes` lists assignments on the subscription and every resource group and resource beneath it. It cannot be combined with `-Scope` or `-ResourceGroupName`.
+
+```powershell
+Get-AzRoleAssignment -IncludeNestedScopes
+```
+
 ## PARAMETERS
 
 ### -AtScope
@@ -122,6 +132,27 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -IncludeNestedScopes
+
+List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SubscriptionScope
   Position: Named
   IsRequired: false
   ValueFromPipeline: false

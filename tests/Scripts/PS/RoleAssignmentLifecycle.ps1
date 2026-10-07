@@ -131,6 +131,9 @@ try {
     Section 'Get-AzRoleAssignment expanding the principal''s group memberships'
     Get-AzRoleAssignment -Scope $scope -ObjectId $principalId -ExpandPrincipalGroups | Out-Host
 
+    Section 'Get-AzRoleAssignment across the whole subscription (every nested scope)'
+    Get-AzRoleAssignment -IncludeNestedScopes | Out-Host
+
     Write-Host ''
     Write-Host 'All role assignment lifecycle smoke checks completed.' -ForegroundColor Green
 }
