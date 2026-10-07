@@ -25,8 +25,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -VirtualNetworkName <string> [-SubscriptionId <string>] [-Image <string>]
  [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Tag <hashtable>] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -40,6 +40,7 @@ A network security group this command creates has one inbound rule for the image
 Use `-SecurityGroupName` to choose the network security group by name or resource ID, or pass an empty string to create none.
 By default the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
+Use `-Tag` to tag the virtual machine and each network resource this command creates or updates, including an existing virtual network named by `-VirtualNetworkName`, whose tags are replaced; an existing network security group or public IP address that this command attaches keeps its own tags.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -82,6 +83,15 @@ The virtual machine is then reachable only from inside its virtual network.
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName ''
+```
+
+### Create a VM with tags
+
+Provision the same stack and tag the virtual machine, its network interface, virtual network, network security group, and public IP address with `env` and `owner`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tag @{ env = 'prod'; owner = 'team-a' }
 ```
 
 ## PARAMETERS
@@ -437,6 +447,33 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Tag
+
+Key-value pairs in the form of a hash table, applied to the VM and to each network resource the command creates or updates.
+For example: @{key0="value0";key1=$null;key2="value2"}.
+
+Keys and values are stored as text, and a `$null` value as an empty string.
+The tags go on the virtual machine, its network interface and virtual network, and on the network security group and public IP address when this command creates or updates them.
+An existing virtual network named by `-VirtualNetworkName` is updated, so its tags are replaced.
+An existing network security group or public IP address that this command attaches keeps its own tags.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -VirtualNetworkName
 
 The virtual network name to create.
@@ -520,6 +557,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration, plus the `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, and `MacAddresses` detail fields.
 `Fqdns` is empty unless an attached existing public IP address has a DNS name label; public IP addresses this command creates have none.
 `PublicIps` is empty when `-PublicIpAddressName` is an empty string.
+`Tags` holds the virtual machine's tags as ARM returns them, and is `$null` when it has none.
 
 ## NOTES
 

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -66,6 +67,9 @@ public class NewVMCmdlet : PSCmdlet
     public string? PublicIpAddressName { get; set; }
 
     [Parameter(Mandatory = false)]
+    public Hashtable? Tag { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -99,6 +103,8 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityGroupName)) && SecurityGroupName is not null) { parameters.Add("SecurityGroupName", SecurityGroupName); }
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
+        // Omitted or $null sends no tags; vm create converts the hashtable as legacy New-AzVM does.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tag)) && Tag is not null) { parameters.Add("Tag", Tag); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

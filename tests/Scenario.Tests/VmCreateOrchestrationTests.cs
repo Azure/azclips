@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
@@ -755,6 +756,23 @@ public class VmCreateOrchestrationTests
         AssertVm(outputs);
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(s_expectedTags, vm.Tags);
+    }
+
+    [Fact]
+    public void PowerShell_Tag_HashtableTagsTheSameResources()
+    {
+        var parameters = PsParameters();
+        parameters.Remove("SecurityGroupName");
+
+        // What NewVMCmdlet forwards for -Tag @{ Env = 'prod'; owner = $null }: the hashtable itself.
+        parameters["Tag"] = new Hashtable { ["Env"] = "prod", ["owner"] = null };
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        foreach (var put in s_taggedPuts)
+        {
+            Assert.Equal(s_expectedTags, PutTags(record, put));
+        }
     }
 
     private static void AssertVm(IReadOnlyList<object> outputs)
