@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791348626579,
+  "lastUpdate": 1791411263477,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8276,6 +8276,48 @@ window.BENCHMARK_DATA = {
             "value": 2891415.8857889236,
             "unit": "ns",
             "range": "± 63842.01447538661"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24dabf8d5bb8c2a056ed04bf0bbbd8cf8e55a0ed",
+          "message": "[PowerShell] Fallback logger is config aware (#1071)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n`Import-Module Accounts`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes Azure/CLIPS#961.\n\nDuring PowerShell module import, startup telemetry can load the active\nprofile before a cmdlet execution session installs its logging scope.\nThe existing `ScopedLoggingService` then fell back to an unfiltered\n`ConsoleLoggingService`, allowing verbose profile-loading diagnostics to\nappear at the default `warn` level.\n\nThis change makes the existing no-session fallback resolve\n`core.logging.level` through `IConfigurationService` before forwarding\nmessages to the console. Active CLI and PowerShell execution scopes are\nunchanged, preserving their host-specific streams and command-level\noverrides.\n\nThe broader cleanup to consolidate duplicated CLI and PowerShell logging\nthreshold semantics is tracked in Azure/CLIPS#962, a sub-issue of\nAzure/CLIPS#542.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj --no-restore\n--configuration Release --filter\n\"FullyQualifiedName~ScopedLoggingServiceTests\"` — passed, 6 tests\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj --no-restore\n--configuration Release` — passed, 161 tests\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore\n--configuration Release` — passed, 1,077 tests; 8 skipped\n- `dotnet build azclips.slnx --no-restore --configuration Debug` —\npassed with 0 errors; one unrelated existing nullable warning in\n`TUI/services/PromptService.cs`\n- Manual PowerShell validation with an existing `profiles.json`:\n- Set `core.logging.level` to `debug`, re-imported Accounts, and\nconfirmed the `ProfileService` verbose diagnostic was emitted\n- Set `core.logging.level` to `warn`, re-imported Accounts, and\nconfirmed the verbose diagnostic was suppressed\n- Documentation was not changed because this fixes internal startup\nrouting without changing the configuration or command contract\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[PowerShell] `Import-Module Accounts`: Prevent verbose profile logs from\nleaking at the default warning level\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-07T21:46:20Z",
+          "tree_id": "55ed0afd6df79b1b49f6423577ff66102f54a28d",
+          "url": "https://github.com/Azure/azclips/commit/24dabf8d5bb8c2a056ed04bf0bbbd8cf8e55a0ed"
+        },
+        "date": 1791411260222,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2725556.5296849757,
+            "unit": "ns",
+            "range": "± 76163.20513266968"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7219810.436117428,
+            "unit": "ns",
+            "range": "± 65842.99309777666"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2735436.635058633,
+            "unit": "ns",
+            "range": "± 74460.4740872031"
           }
         ]
       }
