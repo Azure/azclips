@@ -365,7 +365,6 @@ Per command (`IRCommandSchema.superRefine`):
 - parameter names are unique within the command;
 - every path/query/header hole resolves to a declared parameter — otherwise the
   generator would emit uncompilable code;
-- `dialect.ps.defaultParameterSet` names a set some parameter declares;
 - `surface.paginated` implies some step carries `pagination`.
 
 Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server rules:
@@ -374,7 +373,8 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - every `steps[].operation` resolves into `IR.operations`;
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
-- PowerShell sibling commands agree on a declared family default parameter set.
+- PowerShell sibling commands agree on one default parameter set, and that default
+  is covered by a visible parameter's named or all-set membership.
 
 ## Consuming it
 

@@ -275,6 +275,45 @@ describe("PowerShell parameter-set families", () => {
     expect(safeParseTransformedIR(familyDocument(["ByName", "ByName"])).success).toBe(true);
   });
 
+  it("accepts a default covered by an omitted all-set membership", () => {
+    const input = familyDocument(["ByName"]);
+    delete input.commands[0]!.parameters[0]!.dialect.ps.parameterSets;
+
+    expect(safeParseTransformedIR(input).success).toBe(true);
+  });
+
+  it("accepts a default covered by an unnamed all-set membership", () => {
+    const input = familyDocument(["ByName"]);
+    input.commands[0]!.parameters[0]!.dialect.ps.parameterSets = [{ mandatory: true }];
+
+    expect(safeParseTransformedIR(input).success).toBe(true);
+  });
+
+  it("rejects a default that no visible parameter membership covers", () => {
+    const result = safeParseTransformedIR(familyDocument(["Missing"]));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "defaultParameterSet"] }),
+      ]));
+    }
+  });
+
+  it("ignores removed parameters when resolving the family default", () => {
+    const input = familyDocument(["ByName"]);
+    input.commands[0]!.parameters[0]!.dialect.ps.removed = true;
+
+    const result = safeParseTransformedIR(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "defaultParameterSet"] }),
+      ]));
+    }
+  });
+
   it("rejects a sibling that omits the family default", () => {
     const result = safeParseTransformedIR(familyDocument(["ByName", undefined]));
 

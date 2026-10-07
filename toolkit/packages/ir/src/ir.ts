@@ -190,7 +190,11 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
     const identities = new Set<string>();
     const psFamilies = new Map<
       string,
-      { commands: { index: number; name: string; defaultSet?: string | undefined }[]; sets: Set<string> }
+      {
+        commands: { index: number; name: string; defaultSet?: string | undefined }[];
+        sets: Set<string>;
+        hasAllSetsParameter: boolean;
+      }
     >();
 
     ir.commands.forEach((command, index) => {
@@ -236,15 +240,28 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
 
       if (command.dialect?.ps !== undefined) {
         const familyKey = commandActionKey(command.id);
-        const family = psFamilies.get(familyKey) ?? { commands: [], sets: new Set<string>() };
+        const family = psFamilies.get(familyKey) ?? {
+          commands: [],
+          sets: new Set<string>(),
+          hasAllSetsParameter: false,
+        };
         family.commands.push({
           index,
           name: command.name,
           defaultSet: command.dialect.ps.defaultParameterSet,
         });
         command.parameters.forEach((parameter) => {
-          parameter.dialect?.ps?.parameterSets?.forEach((membership) => {
-            if (membership.set !== undefined) family.sets.add(membership.set);
+          const dialect = parameter.dialect?.ps;
+          if (dialect?.removed === true) return;
+
+          const memberships = dialect?.parameterSets;
+          if (memberships === undefined) {
+            family.hasAllSetsParameter = true;
+            return;
+          }
+          memberships.forEach((membership) => {
+            if (membership.set === undefined) family.hasAllSetsParameter = true;
+            else family.sets.add(membership.set);
           });
         });
         psFamilies.set(familyKey, family);
@@ -270,7 +287,12 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         }
       });
 
-      if (defaults.size === 1 && defaultSet !== undefined && !family.sets.has(defaultSet)) {
+      if (
+        defaults.size === 1 &&
+        defaultSet !== undefined &&
+        !family.hasAllSetsParameter &&
+        !family.sets.has(defaultSet)
+      ) {
         const command = family.commands[0]!;
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
