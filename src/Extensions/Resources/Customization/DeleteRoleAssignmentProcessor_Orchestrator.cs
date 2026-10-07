@@ -19,12 +19,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>role assignment list</c> / <c>Get-AzRoleAssignment</c> first to find it.</item>
 /// </list>
 /// Deliberately scoped to this single-resource delete (by scope + name) only. Classic
-/// <c>az role assignment delete</c> / <c>Remove-AzRoleAssignment</c> also accept a bare filter
-/// (principal/role/scope, or no arguments at all) and silently delete every matching assignment —
-/// behavior both tools' own maintainers and users have called a footgun after real incidents of
-/// accidental mass-deletion (e.g. github.com/Azure/azure-cli/issues/13577, where an empty shell
-/// variable deleted every Owner assignment in a subscription). That bulk/filter-based delete mode is
-/// intentionally not supported here.
+/// <c>az role assignment delete</c> / <c>Remove-AzRoleAssignment</c> support deleting by a bare
+/// principal/role/scope filter, which can match and delete more than one assignment — a
+/// well-documented footgun (github.com/Azure/azure-cli/issues/13577). That filter-based delete
+/// mode is intentionally not supported here.
 /// </summary>
 public class DeleteRoleAssignmentProcessor_Orchestrator : DeleteRoleAssignmentProcessor
 {
