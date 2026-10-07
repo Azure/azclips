@@ -10,7 +10,6 @@ import type { IR } from "@azure-client-engine/ir";
 import type { EmitProducer } from "./emit-producer.js";
 import type { Runtime } from "./runtime.js";
 import type { IRSnapshot, OutputDelegate } from "./output.js";
-import type { CompilerRegistry } from "./registry.js";
 import type { StageDescriptor } from "./stages.js";
 
 /** Severity levels mirror the TypeSpec compiler's diagnostic model. */
@@ -97,9 +96,9 @@ export interface CompileInput {
   /**
    * Resolved compile configuration (see `CompileConfig`). All app-resolved
    * settings are named fields here — the emit stage reads compiler/emitter
-   * fields, and transform/generate steps read their fields off the same
-   * `config` (exposed read-only on their contexts). There is no separate
-   * free-form `extensions` bag.
+   * fields, each transform receives its own `stageOptions` entry, and generate
+   * steps read their fields off the same `config` (exposed read-only on their
+   * context). There is no separate free-form `extensions` bag.
    */
   config?: CompileConfig;
 }
@@ -125,13 +124,6 @@ export interface CompileOptions {
    * `compile()` fails with a `no-emit-producer` diagnostic.
    */
   emit?: EmitProducer;
-  /**
-   * Implementations for the compiler's declared stage ids — the fulfilment seam.
-   * The compiler owns *which* stages exist and *where* they sit; a host supplies
-   * the code behind ids it can serve. Built-in stages (`tsp-emit`, `csharp`) run
-   * through `runtime` when the registry does not override them.
-   */
-  registry?: CompilerRegistry;
   /**
    * Stage catalog to plan against. **Escape hatch** for embedders and tests —
    * orchestration is compiler-owned, so production callers leave this unset and

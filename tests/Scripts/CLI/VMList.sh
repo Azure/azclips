@@ -77,7 +77,7 @@ trap cleanup EXIT
     --resource-group "$RESOURCE_GROUP" \
     --name "$VM_NAME" \
     --location "$LOCATION" \
-    --vm-size Standard_D2s_v3 \
+    --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
     --network-interface-name "azclips-vmlist-nic-$SUFFIX" \
@@ -85,7 +85,7 @@ trap cleanup EXIT
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmlist-subnet-$SUFFIX" \
     --subnet-address-prefixes 10.0.2.0/24 \
-    --network-security-group-name "azclips-vmlist-nsg-$SUFFIX"
+    --nsg "azclips-vmlist-nsg-$SUFFIX"
 
 echo "== 1. vm list --resource-group (scoped list) =="
 "$AZ" vm list \
