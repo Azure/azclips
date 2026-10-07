@@ -1,7 +1,7 @@
 ---
 name: azclips-scenario-test-converter
 description: "Use when converting remote main Azure CLI or Azure PowerShell live tests into Azclips record/playback scenario tests under tests/Scenario.Tests with verified command syntax, assertion evidence, and user review approval."
-argument-hint: "Provide target Azclips command plus the remote main upstream Azure CLI or Azure PowerShell live test to convert."
+argument-hint: "Provide the Azclips commands, command group, or module to scope, and optionally the upstream live test to convert."
 ---
 
 # Azclips Scenario Test Converter
@@ -39,18 +39,20 @@ Every CLI and PowerShell key the `ExtensionIndex` exposes ends with a scenario, 
 
 ### Rule 2: an upstream case whose logic exists in Azclips must be converted
 
-Run three checks in order, stopping at the first failure:
+Run four checks in order, stopping at the first failure:
 
 1. **Command.** Is it in `GetCommandTable` for either surface?
 2. **Parameters.** Is every parameter the case uses in that command's `Parameters` or `ParameterAliases`?
 3. **Implementation.** Is the asserted behavior reachable? A parameter can bind to a processor property that nothing reads, accepting the input and ignoring it.
+4. **Dependencies.** Can every command the case leans on — setup, intermediate state, cleanup — be driven from the table?
 
 | Outcome | Decision |
 | --- | --- |
-| All three pass | `convert` |
+| All four pass | `convert` |
 | Command and behavior exist, some parameters absent | `convert-partial`: convert the expressible part, record the absent parameters as a review gap |
 | Command and parameters exist, behavior not reachable | `not-implemented`: skip the assertion, and send the finding back to `/integrate-spec` |
 | Command absent from the table | `out-of-scope` |
+| The case needs another command absent from the table | `prerequisite-missing`: skip the command under test and report it |
 
 ### Confirming the behavior is implemented
 
@@ -94,6 +96,7 @@ For a worked example, read an existing scenario that resembles the target: `test
 
 ## Inputs To Resolve
 
+- The scope anchor: an approved OpenSpec change, or an Azclips command, command group, or module. A command name resolves fastest, because it is an exact `ExtensionIndex` CLI key (PowerShell keys carry a `_<ParameterSet>` suffix, so match by prefix) and a literal string in the upstream tests. Grep `src/Extensions/*/ExtensionIndex.cs` for it to get the module, then narrow the command table to that command or group.
 - Azclips command names for both surfaces, such as `vm create` and `New-AzVM`.
 - Selected custom-code feature ids and expected behavior contracts, when provided by the custom-code integration workflow.
 - The verified Azclips evidence source for each generated assertion, including command/cmdlet name, parameter name, output model type, and property path.
@@ -129,9 +132,9 @@ upstream_cases:
   azclips_command: "<command table key, or none>"
   asserted_on: ["cli", "powershell"]
   implementation_evidence: "<file that reads the parameter or exposes the asserted property>"
-  decision: "convert | convert-partial | not-implemented | out-of-scope | duplicate-of: U<id>"
-  target: "new scenario <Class> | extend <Class>, re-record | assert on <Class>, no re-record"
-  reason: "<required unless decision is convert; name the absent parameters, or the one nothing reads>"
+  decision: "convert | convert-partial | not-implemented | out-of-scope | prerequisite-missing | duplicate-of: U<id>"
+  target: "new scenario <Class> | extend <Class>, re-record | assert on <Class>, no re-record | none"
+  reason: "<required unless decision is convert; name the absent parameters, the one nothing reads, or the missing command and surface>"
 
 assertion_plan:
 - behavior: "<behavior under test>"

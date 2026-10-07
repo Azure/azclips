@@ -113,6 +113,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 10. **Write customization**
 	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 10 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
 	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
+	- The OpenSpec flow below is optional. Skip it when the customization is small and already agreed with the user, and implement directly; step 16 then scopes from the step 14 command list instead of `<change-id>`.
 	- Follow the custom-code workflow in `<project-root>/eng-docs/howto/integrate-custom-code-agent.md`:
 		1. Run `/integrate-compare` to compare the upstream implementations and identify their custom-code logic. Derive its required service module, resource, and action from `<spec-path>` and `<operation-groups>`; ask the user only when those are unavailable.
 		2. Ask the user which custom-code logic to migrate, then run `/integrate-spec` with only the selected logic to create or update the OpenSpec change. Capture the change ID it reports as `<change-id>`.
@@ -122,6 +123,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Customization should be placed under `<output-path>/Customization`
 	- Customization folder can contain any kinds of C# code. But those classes implement or inherited processors are the customer facing "commands". That is to say, if there is a finalized workflow requires customization, there has to be a customized class implementing or inheriting the relevant processor.
 	- Inherit processor only when the interface covers all parameters from the parent processor. It can have more but no less.
+	- Customization never owns the endpoint: no `Method`, `CreateRequestUri()`, api-version, or request URL under `Customization/`. Every route comes from an atomic processor, inherited or composed with `CreateExtendedProcessor<T>` — never copied.
 	- Customization should only write those entries provided by processors to wire with runtime. Otherwise should be private helper functions only.
 	- When customization engages multiple processors, strictly follow the `CreateExtendedProcessor` usage in `<project-root>/src/Extensions/Compute/Customization`.
 	- If external API needed for customization, see step 11.
@@ -153,11 +155,17 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Ask user to review each sub-step and accept user modification on the fly.
 	- Rebuild solution at `<project-root>` with PS project added
 
-15. **Write scenario tests**
-	- Generate record/playback scenario tests with `/integrate-scenario-test <change-id>`, passing the OpenSpec change from step 10. The extension is already under `<project-root>/src/Extensions/<extension-name>`, so its paths apply as written.
+15. **Write command help**
+	- Follow `<project-root>/eng-docs/howto/help.md`.
+	- Scaffold and complete CLI help for each changed verb.
+	- Scaffold and complete PowerShell help after rebuilding the cmdlets.
+	- Run `<project-root>/build/build.ps1 -GenerateHelpArtifacts` and fix all errors.
+
+16. **Write scenario tests**
+	- Generate record/playback scenario tests with `/integrate-scenario-test`. Pass `<change-id>` when step 10 ran the OpenSpec flow; otherwise pass the exact CLI and PowerShell keys step 14 added to `ExtensionIndex`. 
 	- The command table from step 14 is its scope. For a new extension the `ExtensionUnderTest` entry and `ProjectReference` will be missing: add them rather than reporting a gap.
 
-16. **Final cleanup**
+17. **Final cleanup**
 	- Delete everything under `<output-path>` except `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Delete the output path for external API if any
 
@@ -174,6 +182,7 @@ Summarize:
 - Keep generated-style atomic processors separate from handwritten customization code.
 - Do not hand-roll authentication, retry, polling, serialization, or event publication already owned by the runtime or processor base.
 - Do not expose commands or parameters that were not requested.
+- When something a step depends on is absent from the Azclips surface, stop and report it; never work around it with a raw HTTP passthrough or an out-of-band resource.
 - Keep API versions explicit and grounded in the selected specification.
 - Read upstream evidence from remote branches only: `Azure/azure-rest-api-specs@main`, `Azure/azure-powershell@main`, `Azure/azure-cli@dev`. Do not treat a local clone, fork, or feature branch as evidence.
 - Follow nullable C#, namespace, file layout, and naming conventions from the chosen reference extension.
