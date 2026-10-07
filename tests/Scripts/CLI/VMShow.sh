@@ -81,7 +81,7 @@ trap cleanup EXIT
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmshow-subnet-$SUFFIX" \
     --subnet-address-prefixes 10.0.2.0/24 \
-    --network-security-group-name "azclips-vmshow-nsg-$SUFFIX"
+    --nsg "azclips-vmshow-nsg-$SUFFIX"
 
 echo "== 1. vm show (plain) =="
 "$AZ" vm show \
