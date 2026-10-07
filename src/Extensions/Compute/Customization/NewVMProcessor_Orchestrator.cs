@@ -53,8 +53,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Network Arguments")]
         public string? PublicIpAddress { get; set; }
 
+        /// <summary>
+        /// <c>--tags</c> KEY[=VALUE] tokens or the <c>-Tag</c> hashtable, as bound;
+        /// <see cref="ResourceTags.Normalize"/> turns either into the tags every PUT carries.
+        /// </summary>
+        public object? Tags { get; set; }
+
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            Dictionary<string, string>? tags = ResourceTags.Normalize(Tags);
+
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
             {
                 throw new ArgumentException("Specify an administrator password or SSH public key values.");
@@ -96,6 +104,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PublicIpAddress = PublicIpAddress;
                 p.DefaultPublicIpAddressName = $"{Name}PublicIP";
                 p.OsType = operatingSystemType;
+                p.Tags = tags;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
@@ -133,6 +142,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     p.VTpmEnabled = null;
                 }
                 p.NetworkInterfaceId = nic.Id;
+                p.Tags = tags;
              });
             return await vmProcessor.SendAsync();
         }

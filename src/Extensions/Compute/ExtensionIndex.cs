@@ -464,6 +464,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                             = new("Tags", "tags", typeof(List<string>), "Space-separated tags: key[=value] [key[=value] ...]. Applied to the VM and to each network resource the command creates or updates. Use \"\" to clear existing tags.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

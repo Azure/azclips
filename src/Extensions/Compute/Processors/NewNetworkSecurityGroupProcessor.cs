@@ -23,6 +23,7 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
     public List<string> RuleDestinationPortRanges { get; set; } = [];
     public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
     public List<string> RuleAccesses { get; set; } = [];
+    public Dictionary<string, string>? Tags { get; set; }
 
     protected override HttpMethod Method => HttpMethod.Put;
 
@@ -34,6 +35,7 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
         NetworkSecurityGroup body = new NetworkSecurityGroup
         {
             Location = Location,
+            Tags = Tags,
             Properties = new NetworkSecurityGroupProperties
             {
                 FlushConnection = false,
@@ -73,6 +75,5 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
 
     internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
-
 
 

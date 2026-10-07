@@ -12,6 +12,10 @@ public class VirtualMachine
     public string Name { get; set; } = null!;
     public string Location { get; set; } = null!;
 
+    // Omitted from a create request without tags, and absent from ARM's response for an untagged VM.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ImagePlan? Plan { get; set; }
 

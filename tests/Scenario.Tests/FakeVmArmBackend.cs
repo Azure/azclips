@@ -16,6 +16,8 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
     private readonly string _subscriptionId;
     private int _vmPolls;
     private readonly HashSet<string> _existingIds;
+    // The tags of the last VM PUT, which later VM GETs return the way ARM would.
+    private JsonElement? _vmTags;
 
     /// <param name="existingResourceIds">NSG and public IP ids that exist before vm create runs.</param>
     public FakeVmArmBackend(string subscriptionId, params string[] existingResourceIds)
@@ -176,11 +178,7 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
         {
             if (request.Method == HttpMethod.Put)
             {
-                var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
-                accepted.Headers.TryAddWithoutValidation(
-                    "Azure-AsyncOperation",
-                    $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-11-01");
-                return Task.FromResult(accepted);
+                return AcceptVmCreateAsync(request, cancellationToken);
             }
 
             if (FailVmDetailRead && Uri.UnescapeDataString(request.RequestUri!.Query).Contains("$expand=instanceView", StringComparison.OrdinalIgnoreCase))
@@ -191,12 +189,12 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 }, HttpStatusCode.InternalServerError));
             }
 
-            return Task.FromResult(Json(new
+            var vm = new Dictionary<string, object?>
             {
-                id = Id("Microsoft.Compute/virtualMachines", name),
-                name,
-                location = "westus2",
-                properties = new
+                ["id"] = Id("Microsoft.Compute/virtualMachines", name),
+                ["name"] = name,
+                ["location"] = "westus2",
+                ["properties"] = new
                 {
                     provisioningState = "Succeeded",
                     hardwareProfile = new { vmSize = "Standard_D2s_v3" },
@@ -204,10 +202,33 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                     osProfile = new { computerName = name, adminUsername = "azadmin", windowsConfiguration = new { } },
                     networkProfile = new { networkInterfaces = new[] { new { id = Id("Microsoft.Network/networkInterfaces", "scenario-vm-nic") } } },
                 },
-            }, HttpStatusCode.OK));
+            };
+
+            // Like ARM, return no tags property when the create sent none.
+            if (_vmTags is { } tags)
+            {
+                vm["tags"] = tags;
+            }
+
+            return Task.FromResult(Json(vm, HttpStatusCode.OK));
         }
 
         throw new InvalidOperationException($"Fake ARM got an unexpected request: {request.Method} {uri}");
+    }
+
+    /// <summary>Accepts a VM create as a long-running operation and remembers its tags.</summary>
+    private async Task<HttpResponseMessage> AcceptVmCreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using (var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken)))
+        {
+            _vmTags = body.RootElement.TryGetProperty("tags", out var tags) ? tags.Clone() : null;
+        }
+
+        var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
+        accepted.Headers.TryAddWithoutValidation(
+            "Azure-AsyncOperation",
+            $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-11-01");
+        return accepted;
     }
 
     /// <summary>An NSG or public IP: a PUT creates it, and a GET of one that doesn't exist answers 404.</summary>

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Tests.Recording;
@@ -69,6 +70,22 @@ public class VmCreateOrchestrationTests
 
     // An explicit name the fake doesn't know: vm create looks it up, gets a 404, and creates it.
     private static readonly string[] s_cliArgs = [.. s_cliArgsWithoutNsg, "--nsg", "scenario-vm-nsg"];
+
+    // vm create's legacy CLI tag syntax: a pair, and a key without a value, which gets "".
+    // The capital E pins that tag keys go out verbatim, not camel-cased like property names.
+    private static readonly string[] s_tagArgs = ["--tags", "Env=prod", "owner"];
+
+    private static readonly Dictionary<string, string> s_expectedTags = new() { ["Env"] = "prod", ["owner"] = "" };
+
+    // Every resource the default vm create PUTs, and so tags.
+    private static readonly string[] s_taggedPuts =
+    [
+        "/virtualNetworks/",
+        "/networkSecurityGroups/",
+        "/publicIPAddresses/",
+        "/networkInterfaces/",
+        "/virtualMachines/",
+    ];
 
     private static Dictionary<string, object> PsParameters() => new()
     {
@@ -661,6 +678,85 @@ public class VmCreateOrchestrationTests
         Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/scenario-vm?"));
     }
 
+    [Fact]
+    public void Tags_GoOnTheVmAndEveryNetworkResourceItPuts()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, .. s_tagArgs]);
+
+        foreach (var put in s_taggedPuts)
+        {
+            Assert.Equal(s_expectedTags, PutTags(record, put));
+        }
+    }
+
+    [Fact]
+    public void Tags_Omitted_LeaveTheRequestBodiesAsTheyWere()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgsWithoutNsg);
+
+        Assert.Null(PutTagsJson(record, "/virtualNetworks/"));
+        Assert.Null(PutTagsJson(record, "/publicIPAddresses/"));
+        Assert.Null(PutTagsJson(record, "/networkInterfaces/"));
+        Assert.Null(PutTagsJson(record, "/virtualMachines/"));
+
+        // The NSG model has always written its tags, null included, and the NIC embeds it as its NSG reference.
+        Assert.Equal("null", PutTagsJson(record, "/networkSecurityGroups/"));
+        Assert.Contains("\"location\":null,\"tags\":null", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Tags_EmptyStringOrNoValue_SendEmptyTags(bool passEmptyString)
+    {
+        string[] tagArgs = passEmptyString ? ["--tags", ""] : ["--tags"];
+
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, .. tagArgs]);
+
+        foreach (var put in s_taggedPuts)
+        {
+            Assert.Equal("{}", PutTagsJson(record, put));
+        }
+    }
+
+    [Fact]
+    public void Tags_DoNotReachAnAttachedNsgOrPublicIp()
+    {
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId, SharedNsgId, SharedPublicIpId),
+            [.. s_cliArgsWithoutNsg, "--nsg", "shared-nsg", "--public-ip-address", "shared-ip", .. s_tagArgs]);
+
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/"));
+        Assert.Equal(s_expectedTags, PutTags(record, "/virtualNetworks/"));
+        Assert.Equal(s_expectedTags, PutTags(record, "/networkInterfaces/"));
+        Assert.Equal(s_expectedTags, PutTags(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Tags_RepeatedFlags_Accumulate()
+    {
+        // A documented difference: legacy argparse keeps only the last --tags; every AzClips CLI list parameter accumulates.
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--tags", "Env=prod", "--tags", "owner"]);
+
+        Assert.Equal(s_expectedTags, PutTags(record, "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Tags_AreInTheCreateOutput()
+    {
+        IReadOnlyList<object> outputs;
+        using (var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord()), new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            outputs = host.RunCli([.. s_cliArgsWithoutNsg, .. s_tagArgs]);
+        }
+
+        AssertVm(outputs);
+        var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
+        Assert.Equal(s_expectedTags, vm.Tags);
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
@@ -709,6 +805,24 @@ public class VmCreateOrchestrationTests
     /// <summary>The body of the first PUT whose URI contains <paramref name="uriFragment"/>.</summary>
     private static string PutBody(SessionRecord record, string uriFragment)
         => record.Entries.First(e => IsRequest(e, "PUT", uriFragment)).Request.Body!;
+
+    /// <summary>
+    /// The top-level "tags" of the first PUT whose URI contains <paramref name="uriFragment"/>,
+    /// as raw JSON; null when that body has no "tags" property.
+    /// </summary>
+    private static string? PutTagsJson(SessionRecord record, string uriFragment)
+    {
+        using var body = JsonDocument.Parse(PutBody(record, uriFragment));
+        return body.RootElement.TryGetProperty("tags", out var tags) ? tags.GetRawText() : null;
+    }
+
+    /// <summary>The top-level tags of that PUT; fails when it carries none.</summary>
+    private static Dictionary<string, string> PutTags(SessionRecord record, string uriFragment)
+    {
+        var json = PutTagsJson(record, uriFragment);
+        Assert.False(json is null or "null", $"The PUT to {uriFragment} carried no tags.");
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(json!)!;
+    }
 
     private static string RecordVmBody(string[] args)
     {
