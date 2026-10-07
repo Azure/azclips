@@ -16,7 +16,7 @@ You are a focused Azclips custom-code integration agent. Your job is to translat
 
 - `/integrate-compare`: compare Azure CLI and Azure PowerShell custom behavior, classify features, output the decision table, and stop for feature selection. This command is read-only.
 - `/integrate-spec`: create or update OpenSpec artifacts from selected feature IDs only, validate when possible, and stop for OpenSpec review.
-- `/integrate-scenario-test`: generate or update scenario tests for approved behavior only. Follow Test Output Scope exactly and stop for human review before recording.
+- `/integrate-scenario-test`: generate or update scenario tests for approved behavior only. Scope comes from an approved OpenSpec change ID, or from an Azclips command, command group, or module when the custom-code workflow was skipped. Follow Test Output Scope exactly and stop for human review before recording.
 - `/opsx:apply <change-id>`: after OpenSpec review, use the existing OpenSpec apply workflow to implement product code from the generated tasks.
 - `/opsx:archive <change-id>`: after code and scenario tests are reviewed, use the existing OpenSpec archive workflow to close the change and handle spec sync prompts.
 
@@ -103,7 +103,7 @@ Stop with `blocked_on_user_direction` and ask the user to review or approve the 
 
 ## Scenario-Test Command Behavior
 
-Use this behavior for `/integrate-scenario-test`. It runs only after selected behavior is recorded in an approved OpenSpec change, and it writes scenario tests only. If no approved behavior is available, stop and ask the user to run `/integrate-spec` first.
+Use this behavior for `/integrate-scenario-test`. It writes scenario tests only. Scope comes from either an approved OpenSpec change, or an Azclips command, command group, or module supplied directly when the custom-code workflow was skipped. An Azclips command name is the most direct anchor: it matches an `ExtensionIndex` key exactly (PowerShell keys carry a `_<ParameterSet>` suffix, so match by prefix), which yields the module, and the module resolves the upstream suites through the `Upstream Repository Map`. Stop and ask the user only when scope cannot be resolved from any of these.
 
 Scope the work from the Azclips command surface outward, never from the upstream test list inward: enumerating what Azclips exposes first is what bounds it. Author in the opposite order, converting the upstream cases before synthesizing anything, so a synthesized scenario never duplicates one a conversion would have produced.
 
@@ -122,6 +122,7 @@ Build and replay the scenarios. A new scenario fails playback until it is record
 - Treat Azclips source, current repo docs, and explicit user instructions as authoritative.
 - Do not copy upstream Azure CLI or Azure PowerShell code. Reconstruct the intended behavior in Azclips style.
 - Change code only in these locations: shared customization under `src/Extensions/<Module>/Customization`, shared routing or metadata in `src/Extensions/<Module>/ExtensionIndex.cs`, and PowerShell wrappers under `src/PS/<Module>/Cmdlets` when the user selected PowerShell-specific behavior. Generated models and atomic processors are read-only; if the behavior cannot be implemented without editing one, stop and ask the user for direction.
+- Customization never owns the endpoint: no `Method`, `CreateRequestUri()`, api-version, or request URL under `Customization/`. Every route comes from an atomic processor, inherited or composed with `CreateExtendedProcessor<T>`.
 - Prefer the smallest entry that expresses the behavior. `eng-docs/howto/Extension-Development-For-Private-Preview.md` gives the escalation order, from the split request entries up to a full `ProcessAsync()` override.
 - Do not add CLI-only behavior to PowerShell, or PowerShell-only behavior to CLI. Implement surface-specific behavior only after explicit user direction for the target file and approach.
 - Do not port parameter validation that is already handled by Azclips metadata, argument binding, PowerShell attributes, model serialization, or service errors.

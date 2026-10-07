@@ -3,12 +3,12 @@ name: "integrate-scenario-test"
 description: "Generate or update Azclips record/playback scenario tests for approved custom-code behavior."
 agent: "integrate-custom-code"
 tools: [read, search, edit, execute, web, todo]
-argument-hint: "OpenSpec change ID, selected feature IDs, and optional upstream test hints"
+argument-hint: "OpenSpec change ID, or Azclips commands / command group / module, plus optional upstream test hints"
 ---
 
 Run the agent's `Scenario-Test Command Behavior`. This command writes scenario tests only, within the agent's `Test Output Scope`.
 
-**Input**: an approved OpenSpec change ID or selected feature IDs, plus the target service module, resource, and action. Usually run after `/opsx:apply <change-id>` when product-code changes were required. Optional hints may include repo-relative upstream test paths.
+**Input**: either an approved OpenSpec change ID with optional feature IDs, or Azclips commands, a command group, or a module when the custom-code workflow was skipped. Command names are the most direct anchor. Optional hints may include repo-relative upstream test paths.
 
 Convert with `azclips-scenario-test-converter`, and follow `tests/Scenario.Tests/README.md` for the record/playback shape.
 
