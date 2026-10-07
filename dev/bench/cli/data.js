@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791332832294,
+  "lastUpdate": 1791332897340,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8484,6 +8484,48 @@ window.BENCHMARK_DATA = {
             "value": 3338809.9682571776,
             "unit": "ns",
             "range": "± 100569.71326485487"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5bfaed74eb9ffe49b4a776bab803ade025344e0",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Update `--network-security-group` to `--nsg` params and include default behaviours (#1028)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm create`\n`New-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nDepends on https://github.com/Azure/azclips/pull/1017\nUpdates `--network-security-group` to --`nsg` for CLI\nAdd `-SecurityGroupName` for Powershell\nAdded default behaviour so when parameter is not passed a default NSG is\ncreated with name `<vm-name>NSG`\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\nFullyQualifiedName~VmLifecycleScenarioTests`\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\nFullyQualifiedName~VmCreateScenarioTests`\n`./tests/Scripts/CLI/VMCreate.sh`\n`./tests/Scripts/PS/VMCreate.ps1`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <copilot@github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-07T08:02:29+08:00",
+          "tree_id": "a83df38e152243f1c8b5f469173c821fd0717753",
+          "url": "https://github.com/Azure/azclips/commit/e5bfaed74eb9ffe49b4a776bab803ade025344e0"
+        },
+        "date": 1791332893287,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3450952.775195393,
+            "unit": "ns",
+            "range": "± 102451.54856211106"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3477229.981496461,
+            "unit": "ns",
+            "range": "± 109101.41769053158"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3436041.294639258,
+            "unit": "ns",
+            "range": "± 111523.36442572174"
           }
         ]
       }
