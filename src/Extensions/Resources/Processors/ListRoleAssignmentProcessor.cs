@@ -18,8 +18,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class ListRoleAssignmentProcessor : ResourcesProcessorBase<object, RoleAssignmentListResult>
 {
-    /// <summary>Fully-qualified scope the list is rooted at, e.g. <c>/subscriptions/{id}</c>.</summary>
-    public string Scope { get; set; } = string.Empty;
+    /// <summary>
+    /// Fully-qualified scope the list is rooted at, e.g. <c>/subscriptions/{id}</c>. Nullable (no
+    /// default) so the orchestrator's scope resolver can distinguish "not bound" (null) from an
+    /// explicitly bound but blank value, which must be rejected rather than silently widened to the
+    /// subscription. Always non-null by the time <see cref="CreateRequestUri"/> reads it, since
+    /// <c>BeforeProcessAsync</c> resolves (or throws) before any request is sent.
+    /// </summary>
+    public string? Scope { get; set; }
 
     /// <summary>Optional OData <c>$filter</c> expression applied to the list.</summary>
     public string? Filter { get; set; }

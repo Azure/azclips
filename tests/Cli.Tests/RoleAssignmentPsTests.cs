@@ -42,4 +42,21 @@ public class RoleAssignmentPsTests
         Assert.DoesNotContain("assignee-object-id", metadata.Parameters.Keys);
         Assert.DoesNotContain("resource-group", metadata.Parameters.Keys);
     }
+
+    [Fact]
+    public void PowerShellMetadata_ExposesNewAzRoleAssignment()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("New-AzRoleAssignment", ClientType.PowerShell);
+
+        Assert.Equal(typeof(NewRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
+
+        // PS parameter name -> processor property mapping.
+        Assert.Equal("AssigneeObjectId", metadata.Parameters["ObjectId"].Name);
+        Assert.Equal("RoleDefinitionId", metadata.Parameters["RoleDefinitionId"].Name);
+        Assert.Equal("PrincipalType", metadata.Parameters["ObjectType"].Name);
+
+        Assert.True(metadata.Parameters["ObjectId"].IsRequired);
+        Assert.True(metadata.Parameters["RoleDefinitionId"].IsRequired);
+        Assert.False(metadata.Parameters["Scope"].IsRequired);
+    }
 }
