@@ -1,7 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
+using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
@@ -46,6 +50,12 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     // The only condition syntax version currently supported.
     private const string DefaultConditionVersion = "2.0";
 
+    // True when the assignment name was auto-generated (no --name/-Name supplied). This gates the
+    // idempotent handling of a RoleAssignmentExists conflict: a generated name means the caller only
+    // asked "ensure this grant exists", so returning the pre-existing assignment satisfies them. An
+    // explicitly supplied name means they asked for a specific assignment, so the conflict is surfaced.
+    private bool nameWasGenerated;
+
     protected override async Task BeforeProcessAsync()
     {
         string scope = RoleAssignmentScope.Resolve(SubscriptionId, Scope, ResourceGroupName);
@@ -61,10 +71,96 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         await base.BeforeProcessAsync();
     }
 
+    /// <summary>
+    /// Idempotent create: ARM returns <c>409 RoleAssignmentExists</c> when the same principal, role, and
+    /// scope are already assigned under a different name. When the name was auto-generated the caller did
+    /// not ask for a specific assignment, so the pre-existing one satisfies the request and is returned
+    /// instead of failing. This mirrors classic <c>az role assignment create</c>, but is deliberately
+    /// stricter: with an explicit <c>--name</c>/<c>-Name</c> the conflict is surfaced, because returning a
+    /// differently-named assignment than the one the caller asked to create would be surprising.
+    /// </summary>
+    public override async Task ProcessAsync()
+    {
+        try
+        {
+            await base.ProcessAsync();
+        }
+        catch (HttpRequestException ex) when (nameWasGenerated && IsRoleAssignmentExistsConflict(ex))
+        {
+            RoleAssignment? existing = await FindExistingAssignmentAsync();
+            if (existing is null)
+            {
+                // Could not resolve the existing assignment (e.g. a read permission gap or a race). Fall
+                // back to surfacing the original conflict rather than swallowing it silently.
+                throw;
+            }
+
+            await Publisher.Publish(Events.Warning, new EventData
+            {
+                Message = "A role assignment for this principal, role, and scope already exists; returning the existing assignment.",
+            });
+            await WriteOutput(existing);
+        }
+    }
+
+    // A RoleAssignmentExists conflict is the only 409 this create path treats as idempotent. Both the
+    // 409 status and the ARM error code are required so other conflicts are never silently swallowed.
+    private static bool IsRoleAssignmentExistsConflict(HttpRequestException ex) =>
+        ex.StatusCode == HttpStatusCode.Conflict &&
+        ex.Message.Contains("RoleAssignmentExists", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Looks up the pre-existing assignment that caused the conflict: lists the principal's assignments at
+    /// the scope and returns the one matching this grant's role and scope. Best-effort — any failure
+    /// returns null so the caller rethrows the original conflict.
+    /// </summary>
+    private async Task<RoleAssignment?> FindExistingAssignmentAsync()
+    {
+        try
+        {
+            ListRoleAssignmentProcessor lister = CreateExtendedProcessor<ListRoleAssignmentProcessor>(p =>
+            {
+                p.Scope = Scope;
+                p.Filter = $"principalId eq '{PrincipalId}'";
+            });
+
+            using HttpResponseMessage response = await lister.SendAsync();
+            if (response.Content is null)
+            {
+                return null;
+            }
+
+            string raw = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            RoleAssignmentListResult? list = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
+            return list?.Value?.FirstOrDefault(assignment =>
+                string.Equals(assignment.Properties?.PrincipalId, PrincipalId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(assignment.Properties?.Scope, Scope, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(RoleDefinitionTail(assignment.Properties?.RoleDefinitionId), RoleDefinitionTail(RoleDefinitionId), StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            // Best-effort lookup: never let a failure here mask the original conflict.
+            return null;
+        }
+    }
+
+    // The trailing GUID segment of a (possibly fully-qualified) role definition ID, so built-in roles
+    // rooted at different scopes still compare equal.
+    private static string RoleDefinitionTail(string? roleDefinitionId) =>
+        string.IsNullOrEmpty(roleDefinitionId)
+            ? string.Empty
+            : roleDefinitionId[(roleDefinitionId.LastIndexOf('/') + 1)..];
+
     private string ResolveName()
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
+            nameWasGenerated = true;
             return Guid.NewGuid().ToString();
         }
 

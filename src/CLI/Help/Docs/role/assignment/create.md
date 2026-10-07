@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create an Azure RBAC role assignment, granting a principal a role at a scope. The scope is the grant target (the subscription, resource group, or resource the access applies to): it defaults to the subscription and can be narrowed with `--resource-group` or overridden with `--scope` (the two are mutually exclusive). `--role` takes a role definition GUID or a fully-qualified role definition ID, and the principal (`--assignee-object-id` or `--assignee`) takes a GUID; role name and principal name/UPN/service-principal resolution are not yet supported. Re-running create for a principal, role, and scope that already has an assignment fails with ARM's 409 (`RoleAssignmentExists`), even with a new `--name`.
+Description: Create an Azure RBAC role assignment, granting a principal a role at a scope. The scope is the grant target (the subscription, resource group, or resource the access applies to): it defaults to the subscription and can be narrowed with `--resource-group` or overridden with `--scope` (the two are mutually exclusive). `--role` takes a role definition GUID or a fully-qualified role definition ID, and the principal (`--assignee-object-id` or `--assignee`) takes a GUID; role name and principal name/UPN/service-principal resolution are not yet supported. Re-running create for a principal, role, and scope that already has an assignment is idempotent when the name is auto-generated: the existing assignment is returned instead of failing. When an explicit `--name` is supplied, a conflicting assignment surfaces ARM's 409 (`RoleAssignmentExists`), since a specific assignment was requested.
 
 ### Create a role assignment at a resource group scope
 

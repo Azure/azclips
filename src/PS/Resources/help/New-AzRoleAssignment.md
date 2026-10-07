@@ -52,8 +52,10 @@ subscription and can be narrowed with `-ResourceGroupName` or overridden with `-
 mutually exclusive). `-ObjectId` takes a GUID; `-RoleDefinitionId` takes a role definition GUID or a
 fully-qualified role definition ID. Principal name/UPN/service-principal and role-name resolution are
 not yet supported. The assignment name is generated when `-Name` is omitted. Re-running create for a
-principal, role, and scope that already has an assignment fails with ARM's 409 (`RoleAssignmentExists`),
-even with a new `-Name`.
+principal, role, and scope that already has an assignment is idempotent when the name is auto-generated:
+the existing assignment is returned instead of failing. When an explicit `-Name` is supplied, a
+conflicting assignment surfaces ARM's 409 (`RoleAssignmentExists`), since a specific assignment was
+requested.
 
 ## EXAMPLES
 

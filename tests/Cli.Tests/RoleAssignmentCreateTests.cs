@@ -511,6 +511,153 @@ public class RoleAssignmentCreateTests
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task Create_Conflict_WithGeneratedName_ReturnsExistingAssignment()
+    {
+        // No --name supplied, so the name is auto-generated. A RoleAssignmentExists conflict means the
+        // same principal/role/scope is already assigned under another name; the create is idempotent and
+        // returns that existing assignment instead of failing.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+            request.Method == HttpMethod.Put
+                ? ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"The role assignment already exists."}}""")
+                : JsonResponse($$"""
+                    {
+                      "value": [
+                        {
+                          "name": "existing-name",
+                          "properties": {
+                            "principalId": "{{AssigneeObjectId}}",
+                            "scope": "/subscriptions/{{TestSubscriptionId}}",
+                            "roleDefinitionId": "/subscriptions/{{TestSubscriptionId}}/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}"
+                          }
+                        }
+                      ]
+                    }
+                    """));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+        // No Name: auto-generated.
+
+        await processor.ProcessAsync();
+
+        var existing = Assert.IsType<RoleAssignment>(Assert.Single(output.WrittenValues));
+        Assert.Equal("existing-name", existing.Name);
+        // The PUT plus the follow-up lookup GET.
+        Assert.Equal(2, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Create_Conflict_WithExplicitName_Throws()
+    {
+        // An explicit --name means the caller asked for a specific assignment. A conflict must surface,
+        // not silently return a differently-named existing assignment.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"The role assignment already exists."}}"""));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+        processor.Name = AssignmentName;
+
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+        // Only the PUT: no idempotent lookup is attempted for an explicit name.
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Create_Conflict_GeneratedName_NoMatchingExisting_Rethrows()
+    {
+        // Generated name and a conflict, but the follow-up lookup finds no matching assignment (e.g. a
+        // read-permission gap or a race). The original conflict is surfaced rather than swallowed.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+            request.Method == HttpMethod.Put
+                ? ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"The role assignment already exists."}}""")
+                : JsonResponse("""{"value":[]}"""));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Create_NonConflictError_Propagates_EvenWithGeneratedName()
+    {
+        // Only a RoleAssignmentExists 409 is treated as idempotent; any other failure propagates.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("""{"error":{"code":"InternalServerError","message":"boom"}}""", Encoding.UTF8, "application/json"),
+            });
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Equal(HttpStatusCode.InternalServerError, ex.StatusCode);
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Create_Conflict_GeneratedName_LooksUpByPrincipalAtScope()
+    {
+        // The idempotent lookup lists the principal's assignments at the grant scope.
+        Uri? lookupUri = null;
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                return ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"exists"}}""");
+            }
+
+            lookupUri = request.RequestUri;
+            return JsonResponse($$"""
+                {
+                  "value": [
+                    {
+                      "name": "existing-name",
+                      "properties": {
+                        "principalId": "{{AssigneeObjectId}}",
+                        "scope": "/subscriptions/{{TestSubscriptionId}}",
+                        "roleDefinitionId": "/subscriptions/{{TestSubscriptionId}}/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}"
+                      }
+                    }
+                  ]
+                }
+                """);
+        });
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await processor.ProcessAsync();
+
+        Assert.NotNull(lookupUri);
+        Assert.StartsWith(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01",
+            lookupUri!.AbsoluteUri);
+        Assert.Contains($"principalId%20eq%20%27{AssigneeObjectId}%27", lookupUri!.AbsoluteUri);
+    }
+
+    private static HttpResponseMessage ConflictResponse(string body) =>
+        new(HttpStatusCode.Conflict)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+
     private static async Task<(Uri Uri, HttpMethod Method, JsonElement Body)> Capture(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;
