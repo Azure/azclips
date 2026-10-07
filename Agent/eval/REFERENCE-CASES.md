@@ -1,8 +1,12 @@
 # Reference evaluation cases
 
-These three cases define the initial authoring pattern for Agent plan evaluation.
-They are not command execution tests and do not claim exhaustive coverage of a
-command group.
+The default suite combines three original authoring references with seven
+module-baseline cases. Prefer creation scenarios when a module offers a create
+command; retain non-create cases for modules without one. This is a sampling
+policy, not a measured claim about which commands fail most often.
+
+These are Agent plan evaluations, not command execution tests, and do not claim
+exhaustive coverage of a command group.
 
 ## What is graded
 
@@ -38,7 +42,13 @@ fake those values to make a test pass. Scope resolution belongs to the actual
 command contract: `--subscription-id` is optional for these VM/deployment commands
 because the active profile supplies it.
 
-## The three cases
+The target package must also expose the Network, managed-identity, and MsGraph
+creation commands used below. Check their metadata with `az agent tool help`
+before a model baseline run. A command present in source but absent from the
+installed catalog is a package prerequisite failure, not an Agent quality score.
+Do not replace it with a similarly named classic Azure CLI command.
+
+## The three original references
 
 | Stable ID | Goal and stimulus | Deterministic acceptance |
 | --- | --- | --- |
@@ -62,6 +72,36 @@ recovery. That result is retained as an observed product gap, not claimed as
 covered or fixed here. This reference preserves the original top-level
 unknown-command-group recovery path; it does not substitute for a regression
 test or product fix for nested dispatch.
+
+## Creation-focused module baseline
+
+| Stable ID | Goal and stimulus | Deterministic acceptance |
+| --- | --- | --- |
+| `group-create-missing-location` | Create a named resource group without supplying the required location. | Supply a nonempty location and retain the requested group name. |
+| `vnet-create-missing-location` | Create a VNet in an existing group with an explicit address space and DNS server, but omit the required location. | Supply a nonempty location; retain the name, group, address prefix, and DNS server; do not substitute discovery or add unrelated resource changes. |
+| `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Location is required too; the input provides it so only the group is missing. |
+| `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
+| `config-get-unknown-key` | Read an unknown configuration key. | Use read-only configuration discovery, not set/delete. |
+| `extension-show-not-found` | Inspect an extension name that is not installed. | List installed extensions, without adding or removing one. |
+| `rest-invalid-method` | Use the invalid HTTP method `fetch` for a read request. | Produce `az rest` with the GET method. |
+
+Compute is already represented by `vm-create-long-flags`; a second disk-list
+discovery case is unnecessary. The Network show/list case and MsGraph fake-group-ID
+case are replaced, not retained alongside their creation cases. Accounts, Config,
+and Extension have no create command in this inventory, so their non-create cases
+remain. The additional Resources group/deployment and REST cases are retained.
+
+The four new missing-parameter creation cases deliberately omit one required
+value. Their assertions check every matching create step, require nonempty
+values, and preserve the values already supplied. They do not prescribe one
+specific region, resource group, or display name for the missing parameter.
+Offline grading does not prove that a selected region/group exists or that a
+proposed operation would deploy successfully.
+
+Network parameters follow the [Network registration](../../src/Extensions/Network/ExtensionIndex.cs),
+and identity parameters follow the [Identity registration](../../src/Extensions/Identity/ExtensionIndex.cs).
+Recheck the target package before a real run; the original typo-based references
+remain unchanged and do not imply a typo requirement for the new baseline cases.
 
 ## Assertion responsibilities
 
@@ -92,6 +132,11 @@ The offline tests exercise the same assertion functions used by Promptfoo.
 - Deployment: accept the current-profile default and equivalent relative path
   separators; reject a different subscription/template, missing parameters,
   unrelated resource creation, and Complete mode.
+- Group/VNet/identity/application creation: reject the unchanged failing input
+  and any invalid create step even when another step is valid. Accept different
+  supplied values for the missing field; reject empty values or changes to the
+  supplied name, network settings, identity location, or application audience.
+- VNet/application: reject discovery-only plans and unrelated resource changes.
 - Context: reject an absent active profile rather than treating an undefined
   subscription as a valid default.
 
@@ -102,11 +147,14 @@ test.
 
 ## Baseline evidence
 
-A reference baseline must contain all three cases in one real run with zero
-execution errors. Record source revision, target package, runtime prompt hash,
-model, suite identity, outputs, assertions, and usage.
+A baseline of the current default suite must contain all ten configured cases in
+one real run with zero execution errors. Record source revision, target package,
+runtime prompt hash, model, suite identity, outputs, assertions, and usage.
+Earlier three-reference runs remain historical evidence for that smaller suite,
+not a baseline for the expanded set.
 
 Keep unsuccessful runs when diagnosing a failure. A process or environment error
 is not a quality score, and a result from a different binary or test set is not
 evidence for the current baseline. Upload failures remain failures even when the
-local three-case result is green.
+local result is green. Passing offline tests validates assertion behavior, not
+model quality or availability of the commands in the installed package.

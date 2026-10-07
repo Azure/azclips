@@ -6,6 +6,19 @@ const test = require('node:test');
 const profile = require('./cases/profile-show');
 const vm = require('./cases/vm-create-short-flags');
 const deployment = require('./cases/deploy-web-app');
+const group = require('./cases/group-create-missing-location');
+const vnet = require('./cases/vnet-create-missing-location');
+const identity = require('./cases/identity-create-missing-rg');
+const application = require('./cases/msgraph-app-create-missing-display-name');
+const baseline = [
+  group,
+  vnet,
+  identity,
+  application,
+  require('./cases/config-get-unknown-key'),
+  require('./cases/extension-show-not-found'),
+  require('./cases/rest-invalid-method'),
+];
 const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
 
@@ -13,6 +26,10 @@ const subscription = '11111111-1111-4111-8111-111111111111';
 const groupFor = (scenario) => scenario.assert[0].config.expectedCommandSet[0].argumentValues['--resource-group'];
 const vmCommand = `az vm create --name test-vm --resource-group ${groupFor(vm)} --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password <admin-password> --network-interface-name test-vm-nic --virtual-network-name test-vm-vnet --network-security-group-name test-vm-nsg`;
 const deploymentCommand = `az deployment group create --resource-group ${groupFor(deployment)} --name azclips-eval-web --template-file fixtures/web-app.bicep`;
+const groupCommand = 'az group create --name azclips-eval-rg --location eastus';
+const vnetCommand = `az network vnet create --name azclips-eval-vnet --resource-group ${groupFor(vnet)} --address-prefixes 10.42.0.0/16 --dns-servers 10.42.0.4 --location eastus`;
+const identityCommand = 'az identity create --name azclips-eval-id --location eastus --resource-group identity-eval-rg';
+const applicationCommand = 'az msgraph app create --sign-in-audience AzureADMyOrg --display-name azclips-eval-app';
 const vmNeeds = [{ flag: '--admin-password', description: 'Supply the VM password' }];
 
 function grade(scenario, commands, { placeholders = [], vars = {} } = {}) {
@@ -114,7 +131,7 @@ test('deployment reference rejects wrong scope, changed template, missing parame
   }).some((result) => !result.pass));
 });
 
-test('the reference suite registers exactly three cases and no default LLM judge', (context) => {
+test('the reference suite registers the reference and baseline cases and no default LLM judge', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-reference-config-'));
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const executable = path.join(directory, 'az.exe');
@@ -137,7 +154,158 @@ test('the reference suite registers exactly three cases and no default LLM judge
   });
   Object.assign(process.env, environment);
   const config = require('./promptfooconfig');
-  assert.deepEqual(config.tests, [profile, vm, deployment]);
+  assert.deepEqual(config.tests, [profile, vm, deployment, ...baseline]);
   assert.equal(config.defaultTest.options?.provider, undefined);
   assert.equal(config.defaultTest.vars.subscription_id, subscription);
+});
+
+test('baseline cases have unique ids, deterministic assertions, and no destructive operations', () => {
+  assert.equal(new Set([profile, vm, deployment, ...baseline].map((s) => s.vars.case_id)).size, 3 + baseline.length);
+  for (const scenario of baseline) {
+    assert.ok(scenario.assert.every((a) => a.type === 'javascript'));
+    const allowed = scenario.assert[1].config.allowedCommands;
+    assert.ok(allowed.every((c) => !/ (delete|remove|set|add)$/.test(c)));
+  }
+});
+
+test('the suite prefers create cases where available and removes redundant discovery cases', () => {
+  const scenarios = [profile, vm, deployment, ...baseline];
+  assert.deepEqual(scenarios.map((scenario) => scenario.vars.case_id), [
+    'profile-show-active',
+    'vm-create-long-flags',
+    'deployment-template-recovery',
+    'group-create-missing-location',
+    'vnet-create-missing-location',
+    'identity-create-missing-rg',
+    'msgraph-app-create-missing-display-name',
+    'config-get-unknown-key',
+    'extension-show-not-found',
+    'rest-invalid-method',
+  ]);
+  for (const [scenario, command] of [
+    [vm, 'az vm create'],
+    [deployment, 'az deployment group create'],
+    [group, 'az group create'],
+    [vnet, 'az network vnet create'],
+    [identity, 'az identity create'],
+    [application, 'az msgraph app create'],
+  ]) {
+    assert.equal(scenario.assert[0].config.expectedCommandSet[0].command, command);
+  }
+});
+
+test('missing-parameter create cases reject their unchanged failing inputs', () => {
+  for (const scenario of [group, vnet, identity, application]) {
+    assert.ok(grade(scenario, [`az ${scenario.vars.command}`]).some((result) => !result.pass),
+      scenario.vars.case_id);
+  }
+});
+
+test('group create accepts different supplied locations while preserving the name', () => {
+  for (const command of [groupCommand, groupCommand.replace('eastus', 'westeurope')]) {
+    assert.ok(grade(group, [command]).every((result) => result.pass), command);
+  }
+  for (const command of [
+    groupCommand.replace('--location eastus', '--location'),
+    groupCommand.replace('azclips-eval-rg', 'another-rg'),
+  ]) {
+    assert.ok(grade(group, [command]).some((result) => !result.pass), command);
+  }
+});
+
+test('VNet create accepts a supplied location, preserved network settings, and active subscription', () => {
+  for (const command of [
+    vnetCommand,
+    vnetCommand.replace('--location eastus', '--location westeurope'),
+    `${vnetCommand} --subscription-id ${subscription}`,
+  ]) {
+    assert.ok(grade(vnet, [command]).every((result) => result.pass), command);
+  }
+});
+
+test('VNet create rejects missing values, altered network settings, and a different scope', () => {
+  for (const command of [
+    vnetCommand.replace('--location eastus', ''),
+    vnetCommand.replace('--location eastus', '--location'),
+    vnetCommand.replace('--location eastus', '--location ""'),
+    vnetCommand.replace('--name azclips-eval-vnet', '--name another-vnet'),
+    vnetCommand.replace(`--resource-group ${groupFor(vnet)}`, '--resource-group another-rg'),
+    vnetCommand.replace('--address-prefixes 10.42.0.0/16', '--address-prefixes 10.43.0.0/16'),
+    vnetCommand.replace('--address-prefixes 10.42.0.0/16', ''),
+    vnetCommand.replace('--dns-servers 10.42.0.4', '--dns-servers 10.42.0.5'),
+    vnetCommand.replace('--dns-servers 10.42.0.4', ''),
+    `${vnetCommand} --subscription-id another-subscription`,
+    `${vnetCommand} --unknown-setting value`,
+  ]) {
+    assert.ok(grade(vnet, [command]).some((result) => !result.pass), command);
+  }
+  assert.ok(grade(vnet, [vnetCommand], {
+    vars: { signed_in: false, subscription_id: '' },
+  }).some((result) => !result.pass));
+});
+
+test('VNet recovery cannot replace creation with discovery or add unrelated changes', () => {
+  for (const commands of [
+    [`az network vnet list --resource-group ${groupFor(vnet)}`],
+    [vnetCommand, groupCommand],
+    [vnetCommand, `az network vnet delete --name azclips-eval-vnet --resource-group ${groupFor(vnet)}`],
+  ]) {
+    assert.ok(grade(vnet, commands).some((result) => !result.pass), commands.join('; '));
+  }
+});
+
+test('identity create supplies a group without changing the given name or required location', () => {
+  for (const command of [
+    identityCommand,
+    identityCommand.replace('identity-eval-rg', 'another-existing-rg'),
+  ]) {
+    assert.ok(grade(identity, [command]).every((result) => result.pass), command);
+  }
+  for (const command of [
+    identityCommand.replace('--resource-group identity-eval-rg', '--resource-group'),
+    identityCommand.replace('--resource-group identity-eval-rg', '--resource-group ""'),
+    identityCommand.replace('--location eastus', ''),
+    identityCommand.replace('--location eastus', '--location'),
+    identityCommand.replace('--location eastus', '--location westus'),
+    identityCommand.replace('azclips-eval-id', 'another-identity'),
+  ]) {
+    assert.ok(grade(identity, [command]).some((result) => !result.pass), command);
+  }
+});
+
+test('application create accepts different display names without changing single-tenant intent', () => {
+  for (const command of [
+    applicationCommand,
+    applicationCommand.replace('azclips-eval-app', '"Evaluation application"'),
+    applicationCommand.replace('azclips-eval-app', '<app-display-name>'),
+  ]) {
+    assert.ok(grade(application, [command]).every((result) => result.pass), command);
+  }
+});
+
+test('application create rejects empty names, changed audience, unsupported flags, and unrelated operations', () => {
+  for (const commands of [
+    [applicationCommand.replace('--display-name azclips-eval-app', '--display-name')],
+    [applicationCommand.replace('--display-name azclips-eval-app', '--display-name ""')],
+    [applicationCommand.replace('--sign-in-audience AzureADMyOrg', '')],
+    [applicationCommand.replace('AzureADMyOrg', 'AzureADMultipleOrgs')],
+    [`${applicationCommand} --subscription-id ${subscription}`],
+    ['az msgraph app list'],
+    [applicationCommand, 'az msgraph app delete --id another-app'],
+    [applicationCommand, groupCommand],
+  ]) {
+    assert.ok(grade(application, commands).some((result) => !result.pass), commands.join('; '));
+  }
+});
+
+test('every create step must satisfy its contract, not only one matching step', () => {
+  for (const [scenario, command] of [
+    [group, groupCommand],
+    [vnet, vnetCommand],
+    [identity, identityCommand],
+    [application, applicationCommand],
+  ]) {
+    assert.ok(grade(scenario, [command, `az ${scenario.vars.command}`]).some((result) => !result.pass),
+      scenario.vars.case_id);
+  }
 });

@@ -14,10 +14,10 @@ Set-Location Agent\eval
 npm ci --legacy-peer-deps
 ```
 
-The builtin Agent model uses AZCLIPS's own Azure sign-in. The three reference
-cases use deterministic assertions, not an LLM judge. Only uploading requires the
-separate classic Azure CLI sign-in below; signing in to one CLI does not sign in
-to the other.
+The builtin Agent model uses AZCLIPS's own Azure sign-in. The default suite's three
+original references and seven module-baseline cases use deterministic assertions,
+not an LLM judge. Only uploading requires the separate classic Azure CLI sign-in
+below; signing in to one CLI does not sign in to the other.
 
 Use classic Azure CLI to complete the one-time interactive browser login for the evaluation API:
 
@@ -38,11 +38,17 @@ platforms, set `AZCLIPS_EVALUATION_AZURE_CLI` to the explicit classic CLI execut
 
 ## Run and upload
 
-The reference suite requires a signed-in active profile. Its VM and deployment
-fixtures use the existing `azclips-test-rg` group by default. Set
+The reference suite requires a signed-in active profile. Its VM, deployment, and
+VNet fixtures use the existing `azclips-test-rg` group by default. Set
 `AZCLIPS_EVALUATION_RESOURCE_GROUP` to another existing group in the active
 subscription when needed, and verify it exists before running. The harness does
-not create fixture groups or execute proposed deployment/VM commands.
+not create fixture groups or execute proposed resource-creation commands.
+
+Use a target package that exposes every configured command, including Network
+and managed-identity creation. Verify the target catalog before running models;
+an extension missing from the installed package is a prerequisite issue, not a
+quality failure. Source metadata and passing offline tests alone do not prove
+that the installed target supports the suite.
 
 Build and install the intended source revision using the repository packaging
 scripts before running the wrapper. It does not build or update the executable,
@@ -132,7 +138,7 @@ An explicit boolean in `argumentValues` is still checked. `argumentValues` and
 `match: all` checks every matching command, while `match: any` requires one match.
 Invalid assertion configuration or an unparseable command fails explicitly.
 
-See [REFERENCE-CASES.md](./REFERENCE-CASES.md) for the three authoring examples,
-their prerequisites, positive/negative checks, and the boundary between command
-contracts and optional semantic grading. No judge model is reported when no LLM
-grading result exists.
+See [REFERENCE-CASES.md](./REFERENCE-CASES.md) for the original authoring examples,
+the creation-focused baseline, prerequisites, positive/negative checks, and the
+boundary between command contracts and optional semantic grading. No judge model
+is reported when no LLM grading result exists.

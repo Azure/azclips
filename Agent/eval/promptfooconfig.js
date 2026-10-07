@@ -1,3 +1,10 @@
+const groupCreateMissingLocation = require('./cases/group-create-missing-location');
+const vnetCreateMissingLocation = require('./cases/vnet-create-missing-location');
+const identityCreateMissingRg = require('./cases/identity-create-missing-rg');
+const msgraphAppCreateMissingDisplayName = require('./cases/msgraph-app-create-missing-display-name');
+const configGetUnknownKey = require('./cases/config-get-unknown-key');
+const extensionShowNotFound = require('./cases/extension-show-not-found');
+const restInvalidMethod = require('./cases/rest-invalid-method');
 const deployWebApp = require('./cases/deploy-web-app');
 const profileShow = require('./cases/profile-show');
 const vmCreateShortFlags = require('./cases/vm-create-short-flags');
@@ -35,5 +42,16 @@ module.exports = {
   defaultTest: {
     vars: runContext,
   },
-  tests: [profileShow, vmCreateShortFlags, deployWebApp],
+  tests: [
+    profileShow,
+    vmCreateShortFlags,
+    deployWebApp,
+    groupCreateMissingLocation,
+    vnetCreateMissingLocation,
+    identityCreateMissingRg,
+    msgraphAppCreateMissingDisplayName,
+    configGetUnknownKey,
+    extensionShowNotFound,
+    restInvalidMethod,
+  ],
 };

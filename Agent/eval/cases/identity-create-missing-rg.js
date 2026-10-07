@@ -1,0 +1,41 @@
+module.exports = {
+  description: 'identity create without required --resource-group -> plan adds one',
+  vars: {
+    case_id: 'identity-create-missing-rg',
+    command_group: 'identity',
+    goal: 'Create the managed identity in eastus; supply the missing resource group without changing the name or location.',
+    command: 'identity create --name azclips-eval-id --location eastus',
+  },
+  assert: [
+    {
+      type: 'javascript',
+      value: 'file://assertions/command-set.js:commandSetAssertion',
+      metric: 'command-set',
+      config: {
+        source: 'metadata',
+        path: 'plan.steps',
+        expectedCommandSet: [
+          {
+            command: 'az identity create',
+            match: 'all',
+            requiredArguments: ['--name', '--resource-group', '--location'],
+            forbiddenArguments: ['-n', '-g'],
+            argumentValues: {
+              '--name': 'azclips-eval-id',
+              '--location': 'eastus',
+            },
+          },
+        ],
+      },
+    },
+    {
+      type: 'javascript',
+      value: 'file://assertions/plan-contract.js:planContractAssertion',
+      metric: 'plan-contract',
+      config: {
+        allowedCommands: ['az identity create', 'az group list'],
+        validateSubscription: true,
+      },
+    },
+  ],
+};
