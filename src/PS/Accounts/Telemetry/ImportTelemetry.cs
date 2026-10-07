@@ -123,5 +123,4 @@ internal static class ImportTelemetry
             }
         });
     }
-
 }

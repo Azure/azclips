@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Runtime;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
