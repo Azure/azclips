@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791265509116,
+  "lastUpdate": 1791332803545,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8234,6 +8234,48 @@ window.BENCHMARK_DATA = {
             "value": 2863222.163688577,
             "unit": "ns",
             "range": "± 86309.37237118531"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5bfaed74eb9ffe49b4a776bab803ade025344e0",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Update `--network-security-group` to `--nsg` params and include default behaviours (#1028)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm create`\n`New-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nDepends on https://github.com/Azure/azclips/pull/1017\nUpdates `--network-security-group` to --`nsg` for CLI\nAdd `-SecurityGroupName` for Powershell\nAdded default behaviour so when parameter is not passed a default NSG is\ncreated with name `<vm-name>NSG`\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\nFullyQualifiedName~VmLifecycleScenarioTests`\n`dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter\nFullyQualifiedName~VmCreateScenarioTests`\n`./tests/Scripts/CLI/VMCreate.sh`\n`./tests/Scripts/PS/VMCreate.ps1`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <copilot@github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-07T08:02:29+08:00",
+          "tree_id": "a83df38e152243f1c8b5f469173c821fd0717753",
+          "url": "https://github.com/Azure/azclips/commit/e5bfaed74eb9ffe49b4a776bab803ade025344e0"
+        },
+        "date": 1791332799276,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2895497.5608802964,
+            "unit": "ns",
+            "range": "± 62824.61457307559"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7670459.8120939005,
+            "unit": "ns",
+            "range": "± 120136.31611589635"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2891415.8857889236,
+            "unit": "ns",
+            "range": "± 63842.01447538661"
           }
         ]
       }
