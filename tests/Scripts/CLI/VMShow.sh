@@ -73,7 +73,7 @@ trap cleanup EXIT
     --resource-group "$RESOURCE_GROUP" \
     --name "$VM_NAME" \
     --location "$LOCATION" \
-    --vm-size Standard_D2s_v3 \
+    --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
     --network-interface-name "azclips-vmshow-nic-$SUFFIX" \
@@ -81,7 +81,7 @@ trap cleanup EXIT
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmshow-subnet-$SUFFIX" \
     --subnet-address-prefixes 10.0.2.0/24 \
-    --network-security-group-name "azclips-vmshow-nsg-$SUFFIX"
+    --nsg "azclips-vmshow-nsg-$SUFFIX"
 
 echo "== 1. vm show (plain) =="
 "$AZ" vm show \

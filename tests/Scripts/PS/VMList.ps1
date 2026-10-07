@@ -113,7 +113,7 @@ try
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "azclips-vmlist-subnet-$suffix" `
         -SubnetAddressPrefixes "10.0.2.0/24" `
-        -NetworkSecurityGroupName "azclips-vmlist-nsg-$suffix"
+        -SecurityGroupName "azclips-vmlist-nsg-$suffix"
 
     $vmCreated = $true
 

@@ -67,7 +67,7 @@ internal sealed class TraceUploader
 
         if (entries.Count == 0)
         {
-            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Global), [], groups, fileGroups);
+            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Unknown), [], groups, fileGroups);
             return;
         }
 
