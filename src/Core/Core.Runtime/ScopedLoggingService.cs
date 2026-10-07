@@ -48,17 +48,10 @@ public class ScopedLoggingService : ILoggingService
             return;
         }
 
-        // Errors must remain reportable even when configuration cannot be loaded.
-        if (severity == LogSeverity.Error)
-        {
-            write(_fallback, message);
-            return;
-        }
-
-        var configuredLevel = _configurationService?
-            .GetConfiguration<CoreOptions>()
-            .Logging.Level;
-        if (ShouldEmit(configuredLevel, severity))
+        // Short-circuit errors so configuration failures cannot suppress them.
+        if (severity == LogSeverity.Error || ShouldEmit(
+            _configurationService?.GetConfiguration<CoreOptions>().Logging.Level,
+            severity))
         {
             write(_fallback, message);
         }
