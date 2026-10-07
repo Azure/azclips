@@ -40,8 +40,10 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
         string? dataBoundary = null,
-        TraceReplayProfile profile = TraceReplayProfile.Legacy) =>
-        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries, dataBoundary, profile));
+        TraceReplayProfile profile = TraceReplayProfile.Legacy,
+        TraceReplayContext? replayContext = null) =>
+        ExportToTargets(_targets,
+            target => ExportTo(target, serviceName, entries, dataBoundary, profile, replayContext?.ForTarget(target)));
 
     /// <summary>
     /// Attempts every target and returns the authoritative target's verdict.
@@ -68,7 +70,8 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
         string? dataBoundary,
-        TraceReplayProfile profile)
+        TraceReplayProfile profile,
+        Dictionary<(string? TraceId, string? SpanId, string DataBoundary), ActivitySpanId>? replayMap)
     {
         using var source = new ActivitySource(serviceName);
 
@@ -79,7 +82,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
 
         using var provider = builder.Build()!;
 
-        TraceReplayer.ReplayEntries(source, entries, profile);
+        TraceReplayer.ReplayEntries(source, entries, profile, replayMap);
 
         return provider.ForceFlush(FlushTimeoutMilliseconds);
     }

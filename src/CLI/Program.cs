@@ -95,6 +95,7 @@ public class Program
 
         Activity? activity = null;
         var invocationTelemetryEnabled = false;
+        string? uploadReservationId = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var errorFormat = OutputFormat.Table;
@@ -112,6 +113,7 @@ public class Program
             {
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
+                uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
@@ -208,7 +210,8 @@ public class Program
 
             return await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
-                context => TryAgentFallbackAsync(positional, ex.Message, context));
+                context => TryAgentFallbackAsync(positional, ex.Message, context),
+                uploadReservationId);
         }
         // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -252,7 +255,8 @@ public class Program
 
             return await StopRootThenFallbackAsync(
                 activity, invocationTelemetryEnabled,
-                context => TryAgentFallbackAsync(positional, ex.Message, context));
+                context => TryAgentFallbackAsync(positional, ex.Message, context),
+                uploadReservationId);
         }
         finally
         {
@@ -266,6 +270,14 @@ public class Program
             // was already disposed) and leak the table regardless of level.
             ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
+            if (uploadReservationId is not null)
+            {
+                try { TelemetryUploadReservation.MarkReady(uploadReservationId); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _logger?.Error($"telemetry upload reservation could not be released: {ex.Message}");
+                }
+            }
             SpawnTelemetryUploader();
         }
     }
@@ -461,11 +473,29 @@ public class Program
     internal static async Task<int> StopRootThenFallbackAsync(
         Activity? root,
         bool telemetryEnabled,
-        Func<TelemetryInvocationContext, Task<int>> fallback)
+        Func<TelemetryInvocationContext, Task<int>> fallback,
+        string? invocationId = null)
     {
         var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
+        if (invocationId is not null)
+            context = context with { InvocationId = invocationId };
         root?.Dispose();
         return await fallback(context);
+    }
+
+    internal static string? BeginCommandUploadReservation(Activity? root, bool telemetryEnabled)
+    {
+        // Startup and command children can export before the command fails.
+        var context = TelemetryInvocationContext.Capture(root, telemetryEnabled);
+        try
+        {
+            return TelemetryUploadReservation.Begin(context) ? context.InvocationId : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.Error($"telemetry upload reservation could not be created: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
@@ -520,24 +550,10 @@ public class Program
     private static async Task<int> TryAgentFallbackAsync(
         string[] args, string? errorText, TelemetryInvocationContext context)
     {
-        var factory = AzclipsServiceProvider.GetRequiredService<ITelemetryLayerScopeFactory>();
         return await TryAgentFallbackAsync(
-            factory,
             () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
+            _telemetryService,
             args, errorText, context);
-    }
-
-    internal static async Task<int> TryAgentFallbackAsync(
-        ITelemetryLayerScopeFactory factory, Func<AgentOptions> getAgentOptions,
-        string[] args, string? errorText, TelemetryInvocationContext context,
-        Func<ProcessStartInfo, Task<int>>? runAgent = null,
-        Func<string?>? findAgent = null)
-    {
-        var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
-        context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
-        await using var scope = factory.CreateScope("Agent", context);
-        return await TryAgentFallbackAsync(
-            getAgentOptions, scope.Telemetry, args, errorText, context, runAgent, findAgent);
     }
 
     internal static async Task<int> TryAgentFallbackAsync(
@@ -546,6 +562,8 @@ public class Program
         Func<ProcessStartInfo, Task<int>>? runAgent = null,
         Func<string?>? findAgent = null)
     {
+        var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
+        context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
@@ -560,13 +578,7 @@ public class Program
                 using var skippedScope = telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecoverySkipped");
                 var skipped = skippedScope?.Activity;
                 skipped?.SetTag(TelemetryTags.RecoverySkipReason, "disabled");
-                skipped?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
-                skipped?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
-                skipped?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
-                if (!string.IsNullOrEmpty(context.Command))
-                {
-                    skipped?.SetTag(TelemetryTags.Command, context.Command);
-                }
+                TagRecoveryContext(skipped, context);
                 return 1;
             }
         }
@@ -603,15 +615,12 @@ public class Program
             return 1;
         }
 
-        using var recoveryScope = telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecovery");
+        using var recoveryScope = context.TryGetCommandParentContext(out var commandParent)
+            ? telemetryService?.StartActivityWithParent("CLI.Activity.AiRecovery", commandParent)
+            : telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecovery");
         var recovery = recoveryScope?.Activity;
-        recovery?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
-        recovery?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
-        recovery?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
-        if (!string.IsNullOrEmpty(context.Command))
-        {
-            recovery?.SetTag(TelemetryTags.Command, context.Command);
-        }
+        context = context.WithRecoveryParent(recovery);
+        TagRecoveryContext(recovery, context);
         RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
 
         try
@@ -656,6 +665,19 @@ public class Program
             recovery?.SetStatus(ActivityStatusCode.Error);
             return 1;
         }
+    }
+
+    private static void TagRecoveryContext(Activity? activity, TelemetryInvocationContext context)
+    {
+        // An explicit W3C parent carries IDs, not the stopped command's routing tags.
+        activity?.SetTag(TelemetryTags.DataBoundary, context.EffectiveDataBoundary);
+        activity?.SetTag(TelemetryTags.TenantId, context.TenantId);
+        activity?.SetTag(TelemetryTags.SubscriptionId, context.SubscriptionId);
+        activity?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
+        activity?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
+        activity?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
+        if (!string.IsNullOrEmpty(context.Command))
+            activity?.SetTag(TelemetryTags.Command, context.Command);
     }
 
     private static async Task<int> RunAgentProcessAsync(ProcessStartInfo startInfo)

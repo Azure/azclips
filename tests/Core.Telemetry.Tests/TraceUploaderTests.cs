@@ -16,7 +16,7 @@ public class TraceUploaderTests
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
 
-        Assert.Empty(Directory.GetFiles(temp.Path));
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class TraceUploaderTests
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
 
-        Assert.Empty(Directory.GetFiles(temp.Path));
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class TraceUploaderTests
         Assert.Equal("EU", call.DataBoundary);
         Assert.Equal(TraceReplayProfile.ManagedLayer, call.Profile);
         Assert.Equal(2, call.Entries.Count);
-        Assert.Empty(Directory.GetFiles(temp.Path));
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
     }
 
     [Fact]
@@ -193,6 +193,113 @@ public class TraceUploaderTests
         Assert.Contains(sink.Calls, call => call.Profile == TraceReplayProfile.ManagedLayer);
     }
 
+    [Fact]
+    public void Reservation_HoldsBothFilesUntilAgentAndCliAreReady_ThenDeletesThemTogether()
+    {
+        using var temp = new TempDirectory();
+        const string traceId = "0123456789abcdef0123456789abcdef";
+        var invocationId = Guid.NewGuid().ToString("N");
+        var reservations = new TraceUploadReservationStore(temp.Path);
+        reservations.Begin(traceId, invocationId);
+        WriteTraceFile(temp.Path, traceId, "CLI", "command");
+        WriteManagedAgentFile(temp.Path, traceId, invocationId);
+
+        var sink = new FakeSink();
+        var uploader = new TraceUploader(new TraceFileStore(temp.Path), sink);
+        uploader.Run();
+        Assert.Empty(sink.Calls);
+        Assert.Equal(2, Directory.GetFiles(temp.Path, "traces-*.log").Length);
+
+        reservations.MarkReady(invocationId);
+        uploader.Run();
+
+        Assert.Equal(2, sink.Calls.Count);
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-*"));
+    }
+
+    [Fact]
+    public void Reservation_KeepsBothClaimedFilesWhenAnyGroupFails()
+    {
+        using var temp = new TempDirectory();
+        const string traceId = "0123456789abcdef0123456789abcdef";
+        var invocationId = Guid.NewGuid().ToString("N");
+        var reservations = new TraceUploadReservationStore(temp.Path);
+        reservations.Begin(traceId, invocationId);
+        WriteTraceFile(temp.Path, traceId, "CLI", "command");
+        WriteManagedAgentFile(temp.Path, traceId, invocationId);
+        reservations.MarkReady(invocationId);
+
+        new TraceUploader(new TraceFileStore(temp.Path), new FakeSink(exportSucceeds: false)).Run();
+
+        Assert.Equal(2, Directory.GetFiles(temp.Path, "traces-*.uploading").Length);
+        Assert.Single(Directory.GetFiles(temp.Path, "traces-hold-*.json"));
+    }
+
+    [Fact]
+    public void Reservation_ExcludesUnpublishedAgentFileAndReleasesCliFile()
+    {
+        using var temp = new TempDirectory();
+        const string traceId = "0123456789abcdef0123456789abcdef";
+        var invocationId = Guid.NewGuid().ToString("N");
+        var reservations = new TraceUploadReservationStore(temp.Path);
+        reservations.Begin(traceId, invocationId);
+        WriteTraceFile(temp.Path, traceId, "CLI", "command");
+        File.WriteAllText(Path.Combine(temp.Path, $"traces-agent-{invocationId}.partial"), "partial");
+        reservations.MarkReady(invocationId);
+        var sink = new FakeSink();
+
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Single(sink.Calls);
+        Assert.Equal(
+            [$"traces-agent-{invocationId}.partial"],
+            Directory.GetFiles(temp.Path, "traces-*").Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void Reservation_RejectsBothArtifactsWhenOneArtifactIsInvalid()
+    {
+        using var temp = new TempDirectory();
+        const string traceId = "0123456789abcdef0123456789abcdef";
+        var invocationId = Guid.NewGuid().ToString("N");
+        var reservations = new TraceUploadReservationStore(temp.Path);
+        reservations.Begin(traceId, invocationId);
+        WriteTraceFile(temp.Path, traceId, "CLI", "command");
+        WriteManagedAgentFile(temp.Path, traceId, invocationId);
+        File.AppendAllText(
+            Path.Combine(temp.Path, $"traces-agent-{invocationId}.log"),
+            "\n--- Batch at 2024-01-01T00:00:00.0000000Z ---\n[{");
+        reservations.MarkReady(invocationId);
+
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Empty(sink.Calls);
+        Assert.Equal(2, Directory.GetFiles(temp.Path, "*.rejected").Length);
+        Assert.Empty(Directory.GetFiles(temp.Path, "traces-hold-*.json"));
+    }
+
+    [Fact]
+    public void Run_WithCyclicGroupDependencies_ReplaysParentsBeforeChildren()
+    {
+        using var temp = new TempDirectory();
+        WriteSpan(temp.Path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "CLI",
+            "1111111111111111", "0000000000000000", "cli-root-a");
+        WriteManagedSpan(temp.Path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "2222222222222222", "1111111111111111", "Agent.Session");
+        WriteManagedSpan(temp.Path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "3333333333333333", "0000000000000000", "Agent.Session");
+        WriteSpan(temp.Path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "CLI",
+            "4444444444444444", "3333333333333333", "cli-child-b");
+
+        var sink = new FakeSink();
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Equal(
+            new[] { "Agent.Session", "cli-root-a", "Agent.Session", "cli-child-b" },
+            sink.Calls.Select(call => Assert.Single(call.Entries).OperationName));
+    }
+
     private static string WriteManagedFile(string directory, string secondService = "Agent", string boundary = "EU")
     {
         var invocation = Guid.NewGuid().ToString("N");
@@ -227,6 +334,99 @@ public class TraceUploaderTests
         var path = Path.Combine(directory, $"traces-agent-{Guid.NewGuid():N}.log");
         File.WriteAllText(path, TraceFileFormat.FormatBatch(records, DateTime.UtcNow));
         return path;
+    }
+
+    private static void WriteManagedAgentFile(string directory, string traceId, string invocationId)
+    {
+        var record = new
+        {
+            TraceId = traceId,
+            SpanId = "2222222222222222",
+            ParentSpanId = "1111111111111111",
+            OperationName = "Agent.Session",
+            DisplayName = "Agent.Session",
+            StartTime = "2024-01-01T00:00:00.0000000Z",
+            Duration = 1.0,
+            Status = "Unset",
+            Kind = "Server",
+            DataBoundary = "Global",
+            Tags = new Dictionary<string, object>
+            {
+                [TelemetryLayerTags.Schema] = "agent-v1",
+                [TelemetryLayerTags.ServiceName] = "Agent",
+                [TelemetryLayerTags.InvocationId] = invocationId,
+                [TelemetryTags.DataBoundary] = "Global",
+            }.ToArray(),
+            Events = Array.Empty<object>(),
+            Resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
+        };
+        File.WriteAllText(Path.Combine(directory, $"traces-agent-{invocationId}.log"),
+            TraceFileFormat.FormatBatch([record], DateTime.UtcNow));
+    }
+
+    private static void WriteSpan(
+        string directory,
+        string traceId,
+        string serviceName,
+        string spanId,
+        string parentSpanId,
+        string operationName)
+    {
+        var record = new
+        {
+            TraceId = traceId,
+            SpanId = spanId,
+            ParentSpanId = parentSpanId,
+            OperationName = operationName,
+            DisplayName = operationName,
+            StartTime = "2024-01-01T00:00:00.0000000Z",
+            Duration = 1.0,
+            Status = "Unset",
+            Kind = "Internal",
+            DataBoundary = "Global",
+            Tags = Array.Empty<object>(),
+            Events = Array.Empty<object>(),
+            Resource = new Dictionary<string, string> { ["service.name"] = serviceName },
+        };
+        var path = Path.Combine(directory, TraceFileStore.FileNameFor(traceId));
+        var batch = TraceFileFormat.FormatBatch([record], DateTime.UtcNow);
+        File.AppendAllText(path, batch);
+    }
+
+    private static void WriteManagedSpan(
+        string directory,
+        string traceId,
+        string spanId,
+        string parentSpanId,
+        string operationName)
+    {
+        var invocationId = Guid.NewGuid().ToString("N");
+        var boundary = "Global";
+        var record = new
+        {
+            TraceId = traceId,
+            SpanId = spanId,
+            ParentSpanId = parentSpanId,
+            OperationName = operationName,
+            DisplayName = operationName,
+            StartTime = "2024-01-01T00:00:00.0000000Z",
+            Duration = 1.0,
+            Status = "Unset",
+            Kind = "Server",
+            DataBoundary = boundary,
+            Tags = new Dictionary<string, object>
+            {
+                [TelemetryLayerTags.Schema] = "agent-v1",
+                [TelemetryLayerTags.ServiceName] = "Agent",
+                [TelemetryLayerTags.InvocationId] = invocationId,
+                [TelemetryTags.DataBoundary] = boundary,
+            }.ToArray(),
+            Events = Array.Empty<object>(),
+            Resource = new Dictionary<string, string> { ["service.name"] = "Agent" },
+        };
+        File.WriteAllText(
+            Path.Combine(directory, $"traces-agent-{invocationId}.log"),
+            TraceFileFormat.FormatBatch([record], DateTime.UtcNow));
     }
 
     private static void WriteTraceFile(
@@ -343,7 +543,7 @@ public class TraceUploaderTests
         public List<(string ServiceName, string? DataBoundary, IReadOnlyList<TraceEntry> Entries, TraceReplayProfile Profile)> Calls { get; } = new();
 
         public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null,
-            TraceReplayProfile profile = TraceReplayProfile.Legacy)
+            TraceReplayProfile profile = TraceReplayProfile.Legacy, TraceReplayContext? replayContext = null)
         {
             Calls.Add((serviceName, dataBoundary, entries, profile));
             return _exportSucceeds && !_boundaryFailures.Contains(dataBoundary ?? string.Empty);

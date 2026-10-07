@@ -15,5 +15,6 @@ internal interface ITraceExportSink
         string serviceName,
         IReadOnlyList<TraceEntry> entries,
         string? dataBoundary = null,
-        TraceReplayProfile profile = TraceReplayProfile.Legacy);
+        TraceReplayProfile profile = TraceReplayProfile.Legacy,
+        TraceReplayContext? replayContext = null);
 }

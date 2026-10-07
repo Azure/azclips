@@ -76,7 +76,7 @@ public sealed class ArmCacheRefresher
     private readonly bool _ownsHttp;
     private readonly object _lifetimeGate = new();
     private readonly HashSet<Task> _tasks = [];
-    private ITelemetryLayerScope? _hostScope;
+    private IAgentProducerLifetime? _hostLifetime;
     private CancellationTokenSource? _hostStopping;
     private bool _closing;
     private Task? _stopTask;
@@ -111,16 +111,17 @@ public sealed class ArmCacheRefresher
     private void Report(string message) => _progress?.Invoke(message);
 
     /// <summary>Only the Agent executable attaches a host lifetime; CLI refreshes stay detached.</summary>
-    public void AttachHostLifetime(ITelemetryLayerScope scope)
+    public void AttachHostLifetime(IAgentProducerLifetime lifetime)
     {
+        ArgumentNullException.ThrowIfNull(lifetime);
         lock (_lifetimeGate)
         {
-            if (ReferenceEquals(_hostScope, scope))
+            if (ReferenceEquals(_hostLifetime, lifetime))
                 return;
-            if (_hostScope is not null || _closing)
+            if (_hostLifetime is not null || _closing)
                 throw new InvalidOperationException("The cache refresher already belongs to an Agent host.");
-            _hostScope = scope;
-            _hostStopping = CancellationTokenSource.CreateLinkedTokenSource(scope.StoppingToken);
+            _hostLifetime = lifetime;
+            _hostStopping = CancellationTokenSource.CreateLinkedTokenSource(lifetime.StoppingToken);
         }
     }
 
@@ -128,7 +129,7 @@ public sealed class ArmCacheRefresher
     {
         lock (_lifetimeGate)
         {
-            if (_hostScope is null)
+            if (_hostLifetime is null)
                 return Task.CompletedTask;
             if (_stopTask is not null)
                 return _stopTask;
@@ -175,7 +176,7 @@ public sealed class ArmCacheRefresher
             if (_closing)
                 return Task.FromCanceled(new CancellationToken(canceled: true));
             var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var task = RunTrackedAsync(work, start.Task, _hostScope, _hostStopping?.Token ?? default);
+            var task = RunTrackedAsync(work, start.Task, _hostLifetime, _hostStopping?.Token ?? default);
             _tasks.Add(task);
             _ = task.ContinueWith(completed =>
             {
@@ -188,12 +189,11 @@ public sealed class ArmCacheRefresher
     }
 
     private static async Task RunTrackedAsync(
-        Func<CancellationToken, Task> work, Task start, ITelemetryLayerScope? scope, CancellationToken token)
+        Func<CancellationToken, Task> work, Task start, IAgentProducerLifetime? lifetime, CancellationToken token)
     {
-        // The async boundary prevents the producer's AsyncLocal admission from leaking back
-        // into the caller. Reserve before publishing the task, not after profile/auth begins.
-        using var producer = scope?.TryEnterProducer();
-        if (scope is not null && producer is null)
+        // Reserve before publishing the task, not after profile/auth begins.
+        using var producer = lifetime?.TryEnterProducer();
+        if (lifetime is not null && producer is null)
             throw new OperationCanceledException("The Agent cache is draining.", token);
         await start.ConfigureAwait(false);
         await Task.Run(() => work(token), CancellationToken.None).ConfigureAwait(false);

@@ -2,11 +2,64 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using System.Diagnostics;
 
 namespace Core.Telemetry.Tests;
 
 public class TelemetryLaunchEnvironmentTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void W3cParents_RoundTripWithDistinctSpanIdsAndPreserveOptOut(bool enabled)
+    {
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled,
+            "11111111111111111111111111111111", "2222222222222222", "vm show", DataBoundary: "EU",
+            CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01",
+            CommandTraceState: "vendor=value",
+            RecoveryTraceParent: "00-11111111111111111111111111111111-3333333333333333-01",
+            RecoveryTraceState: "vendor=value");
+        var environment = new Dictionary<string, string?>();
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, context.InvocationId);
+
+        Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(environment.GetValueOrDefault,
+            out var actual, out _, out var diagnostic));
+        Assert.Null(diagnostic);
+        Assert.Equal(context, actual);
+        Assert.True(actual!.TryGetCommandParentContext(out var command));
+        Assert.True(actual.TryGetRecoveryParentContext(out var recovery));
+        Assert.Equal(command.TraceId, recovery.TraceId);
+        Assert.NotEqual(command.SpanId, recovery.SpanId);
+        Assert.False(command.IsRemote);
+        Assert.True(recovery.IsRemote);
+        Assert.Equal(ActivityTraceFlags.Recorded, recovery.TraceFlags);
+        Assert.Equal("vendor=value", recovery.TraceState);
+        Assert.Equal(enabled, actual.Enabled);
+    }
+
+    [Theory]
+    [InlineData("malformed", null)]
+    [InlineData("00-00000000000000000000000000000000-3333333333333333-01", null)]
+    [InlineData("00-11111111111111111111111111111111-0000000000000000-01", null)]
+    [InlineData("00-11111111111111111111111111111111-3333333333333333-xx", null)]
+    [InlineData("00-44444444444444444444444444444444-3333333333333333-01", null)]
+    [InlineData(null, "vendor=value")]
+    [InlineData("00-11111111111111111111111111111111-3333333333333333-01", "vendor=value\nbad")]
+    public void InvalidRecoveryContext_IsDiagnosedWithoutReenablingTelemetry(string? parent, string? state)
+    {
+        var environment = new Dictionary<string, string?>();
+        var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false,
+            "11111111111111111111111111111111", "2222222222222222",
+            RecoveryTraceParent: parent, RecoveryTraceState: state);
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, context.InvocationId);
+
+        Assert.False(TelemetryLayerEnvironment.TryReadAgentLaunch(environment.GetValueOrDefault,
+            out var actual, out _, out var diagnostic));
+        Assert.Null(actual);
+        Assert.Equal("invalid_agent_telemetry_context", diagnostic);
+        Assert.False(TelemetryLayerEnvironment.ParentAllowsTelemetry(environment.GetValueOrDefault));
+    }
+
     [Fact]
     public void Launch_RoundTripsCorrelationAndRemovesOldParenting()
     {

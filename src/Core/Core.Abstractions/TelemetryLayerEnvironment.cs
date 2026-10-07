@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -68,7 +69,10 @@ public static class TelemetryLayerEnvironment
             if (value is null ||
                 !Guid.TryParseExact(value.InvocationId, "N", out _) ||
                 !IsOptionalHexId(value.CommandTraceId, 32) ||
-                !IsOptionalHexId(value.CommandSpanId, 16))
+                !IsOptionalHexId(value.CommandSpanId, 16) ||
+                !IsOptionalParent(value.CommandTraceParent, value.CommandTraceState) ||
+                !IsOptionalParent(value.RecoveryTraceParent, value.RecoveryTraceState) ||
+                !ParentMatchesCommandIds(value))
             {
                 diagnostic = "invalid_agent_telemetry_context";
                 return false;
@@ -89,6 +93,30 @@ public static class TelemetryLayerEnvironment
         value is null ||
         (value.Length == length && value.Any(character => character != '0') &&
          value.All(char.IsAsciiHexDigit));
+
+    private static bool IsOptionalParent(string? traceParent, string? traceState)
+    {
+        if (traceParent is null)
+            return traceState is null;
+        if (traceState is { Length: > 512 } ||
+            traceState?.Any(character => character is < ' ' or > '~') == true)
+            return false;
+        return ActivityContext.TryParse(traceParent, traceState, out var parent) &&
+            parent.TraceId != default &&
+            parent.SpanId != default;
+    }
+
+    private static bool ParentMatchesCommandIds(TelemetryInvocationContext context)
+    {
+        if (context.CommandTraceParent is not null &&
+            (!context.TryGetCommandParentContext(out var command) ||
+             !command.TraceId.ToString().Equals(context.CommandTraceId, StringComparison.OrdinalIgnoreCase) ||
+             !command.SpanId.ToString().Equals(context.CommandSpanId, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        return context.RecoveryTraceParent is null || context.CommandTraceId is null ||
+            (context.TryGetRecoveryParentContext(out var recovery) &&
+             recovery.TraceId.ToString().Equals(context.CommandTraceId, StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 [JsonSerializable(typeof(TelemetryInvocationContext))]

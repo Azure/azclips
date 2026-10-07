@@ -66,7 +66,6 @@ public class TelemetryLayerFileTests
         TelemetryLayerCompletion? result = null;
         var business = Task.Run(async () =>
         {
-            using (scope.TryEnterProducer())
             using (scope.Telemetry.StartIndependentRootActivity("Test.Child"))
             {
             }
@@ -431,7 +430,7 @@ public class TelemetryLayerFileTests
     }
 
     [Fact]
-    public async Task UnconfirmedCapture_DoesNotCreateAFileWhenItArrivesAfterBothBudgets()
+    public async Task UnconfirmedCapture_DoesNotCreateAFileAfterTheFileBudget()
     {
         using var capture = new TelemetryLayerBarrier();
         var fileSystem = new TelemetryLayerTestFileSystem();
@@ -450,9 +449,8 @@ public class TelemetryLayerFileTests
         var end = Task.Run(child.Stop);
         await capture.Entered.Task.WaitAsync(TestTimeout);
         var completion = scope.CompleteAsync();
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
-        await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
         test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
+        await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
         Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
         capture.Release();
         await end.WaitAsync(TestTimeout);

@@ -23,10 +23,27 @@ public sealed record TelemetryInvocationContext(
     string? Command = null,
     string? TenantId = null,
     string? SubscriptionId = null,
-    string? DataBoundary = null)
+    string? DataBoundary = null,
+    string? CommandTraceParent = null,
+    string? CommandTraceState = null,
+    string? RecoveryTraceParent = null,
+    string? RecoveryTraceState = null)
 {
     public string EffectiveDataBoundary =>
         string.Equals(DataBoundary, "EU", StringComparison.OrdinalIgnoreCase) ? "EU" : "Global";
+
+    public bool TryGetCommandParentContext(out ActivityContext parentContext) =>
+        TryGetParentContext(CommandTraceParent, CommandTraceState, false, out parentContext);
+
+    public bool TryGetRecoveryParentContext(out ActivityContext parentContext) =>
+        TryGetParentContext(RecoveryTraceParent, RecoveryTraceState, true, out parentContext);
+
+    public TelemetryInvocationContext WithRecoveryParent(Activity? activity) =>
+        this with
+        {
+            RecoveryTraceParent = activity is null ? null : FormatTraceParent(activity),
+            RecoveryTraceState = activity?.TraceStateString,
+        };
 
     public static TelemetryInvocationContext Capture(Activity? commandRoot, bool enabled, string? command = null) =>
         new(
@@ -37,7 +54,25 @@ public sealed record TelemetryInvocationContext(
             commandRoot?.GetTagItem(TelemetryTags.Command) as string ?? command,
             commandRoot?.GetTagItem(TelemetryTags.TenantId) as string,
             commandRoot?.GetTagItem(TelemetryTags.SubscriptionId) as string,
-            commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string);
+            commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string,
+            commandRoot is null ? null : FormatTraceParent(commandRoot),
+            commandRoot?.TraceStateString);
+
+    private static bool TryGetParentContext(
+        string? traceParent,
+        string? traceState,
+        bool isRemote,
+        out ActivityContext parentContext)
+    {
+        parentContext = default;
+        return traceParent is not null &&
+            ActivityContext.TryParse(traceParent, traceState, isRemote, out parentContext) &&
+            parentContext.TraceId != default &&
+            parentContext.SpanId != default;
+    }
+
+    private static string FormatTraceParent(Activity activity) =>
+        $"00-{activity.TraceId}-{activity.SpanId}-{((byte)activity.ActivityTraceFlags & 1):x2}";
 }
 
 public enum TelemetryLayerCompletion
@@ -54,16 +89,13 @@ public interface ITelemetryLayerScope : IAsyncDisposable
 {
     ITelemetryService Telemetry { get; }
     TelemetryInvocationContext Context { get; }
-    CancellationToken StoppingToken { get; }
-    TimeSpan RemainingDrainTime { get; }
 
-    IDisposable? TryEnterProducer(bool teardown = false);
-    void BeginDrain();
-    Task<bool> RunCleanupAsync(Func<Task> cleanup);
+    /// <summary>The owner finishes its producers first, or disallows publication if they did not finish.</summary>
     Task<TelemetryLayerCompletion> CompleteAsync(
         Activity? root = null,
         IReadOnlyDictionary<string, object?>? terminalTags = null,
-        ActivityStatusCode? terminalStatus = null);
+        ActivityStatusCode? terminalStatus = null,
+        bool allowPublication = true);
 }
 
 public interface ITelemetryLayerScopeFactory

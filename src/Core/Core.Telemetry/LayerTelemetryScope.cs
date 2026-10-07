@@ -10,18 +10,13 @@ using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
-/// <summary>Owns producer admission, activity terminal ownership and one isolated layer pipeline.</summary>
+/// <summary>Owns activity recording, accepted writes and publication of one isolated layer pipeline.</summary>
 public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivityLifecycle
 {
-    public static readonly TimeSpan ProducerDrainBudget = TimeSpan.FromSeconds(10);
     public static readonly TimeSpan FileCompletionBudget = TimeSpan.FromSeconds(2);
     private readonly object _gate = new();
     private readonly Dictionary<Activity, SpanRegistration> _spans = new(ReferenceEqualityComparer.Instance);
-    private readonly AsyncLocal<ProducerLease?> _producerContext = new();
     private readonly AsyncLocal<CreationLease?> _creationContext = new();
-    private readonly List<RegisteredCleanup> _cleanups = [];
-    private readonly CancellationTokenSource _stopping = new();
-    private readonly CancellationToken _stoppingToken;
     private readonly TelemetryLayerScopeOptions _options;
     private readonly LayerTelemetryDiagnostics _diagnostics;
     private readonly LayerTelemetryProvider _provider;
@@ -33,22 +28,16 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
     private TaskCompletionSource _changed = NewSignal();
     private TaskCompletionSource<TelemetryLayerCompletion>? _completion;
     private TaskCompletionSource<bool>? _providerDisposal;
-    private TelemetryLayerBudget? _drainBudget;
     private TelemetryLayerBudget? _fileBudget;
     private int _generation;
-    private int _producers;
     private int _creations;
     private int _captures;
     private int _acceptedWrites;
-    private int _stoppingDisposed;
-    private bool _cleanupRegistrationClosed;
     private Activity? _root;
     private Dictionary<string, JsonElement>? _rootTags;
     private ActivityStatusCode? _rootStatus;
     private TraceEntry? _normalRoot;
-    private bool _deadline;
     private long _cutoff;
-    private int _pendingAtDeadline;
 
     internal LayerTelemetryScope(
         TelemetryLayer layer,
@@ -68,7 +57,6 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
         _disabled = disabled;
         _unavailable = unavailable;
         _releaseSource = releaseSource;
-        _stoppingToken = _stopping.Token;
         _provider = new LayerTelemetryProvider(layer.SourceName);
         FileSession = new LayerTraceFileSession(directory, layer, fileId, options, _diagnostics);
 
@@ -105,125 +93,15 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
     public ITelemetryProvider TelemetryProvider => _provider;
     public TelemetryInvocationContext Context { get; }
     public LayerTraceFileSession FileSession { get; }
-    public CancellationToken StoppingToken => _stoppingToken;
     public IReadOnlyList<string> Diagnostics => _diagnostics.Codes;
     public TelemetryLayerState State { get { lock (_gate) return _state; } }
-    public TimeSpan RemainingDrainTime
-    {
-        get { lock (_gate) return _drainBudget?.Remaining ?? ProducerDrainBudget; }
-    }
-
-    public IDisposable? TryEnterProducer(bool teardown = false)
-    {
-        var lease = ReserveProducer(teardown);
-        lease?.Install();
-        return lease;
-    }
-
-    private ProducerLease? ReserveProducer(bool teardown, RegisteredCleanup? cleanup = null)
-    {
-        lock (_gate)
-        {
-            if (_state != TelemetryLayerState.Running &&
-                !(_state == TelemetryLayerState.Draining && teardown && _drainBudget!.Remaining > TimeSpan.Zero))
-                return null;
-            if (cleanup is not null)
-                cleanup.Started = true;
-            _producers++;
-            return new ProducerLease(this);
-        }
-    }
-
-    public void BeginDrain()
-    {
-        ProducerLease cancellation;
-        lock (_gate)
-        {
-            if (_state != TelemetryLayerState.Running)
-                return;
-            _state = TelemetryLayerState.Draining;
-            _drainBudget = new TelemetryLayerBudget(_options.TimeProvider, ProducerDrainBudget);
-            _producers++;
-            cancellation = new ProducerLease(this);
-            PulseLocked();
-        }
-        _ = Task.Run(() =>
-        {
-            cancellation.Install();
-            try
-            {
-                // Synchronous cancellation callbacks are producers too, not work outside the budget.
-                _stopping.Cancel();
-            }
-            catch
-            {
-                _diagnostics.Report("cancellation_callback_failed");
-            }
-            finally
-            {
-                cancellation.Dispose();
-            }
-        });
-    }
-
-    /// <summary>Registers owned cleanup before completion; lower order runs first, then registration order.</summary>
-    public void RegisterCleanup(Func<Task> cleanup, int order = 0)
-    {
-        ArgumentNullException.ThrowIfNull(cleanup);
-        lock (_gate)
-        {
-            if (_cleanupRegistrationClosed || _state >= TelemetryLayerState.Fenced)
-                throw new InvalidOperationException("The layer no longer accepts cleanup registrations.");
-            _cleanups.Add(new RegisteredCleanup(cleanup, order));
-            PulseLocked();
-        }
-    }
-
-    public Task<bool> RunCleanupAsync(Func<Task> cleanup) => RunCleanupCoreAsync(cleanup, null);
-
-    private async Task<bool> RunCleanupCoreAsync(Func<Task> cleanup, RegisteredCleanup? registration)
-    {
-        ArgumentNullException.ThrowIfNull(cleanup);
-        BeginDrain();
-        var lease = ReserveProducer(teardown: true, registration);
-        if (lease is null)
-            return false;
-
-        var actual = Task.Run(async () =>
-        {
-            lease.Install();
-            try
-            {
-                await cleanup().ConfigureAwait(false);
-                return true;
-            }
-            catch
-            {
-                _diagnostics.Report("cleanup_failed");
-                return false;
-            }
-            finally
-            {
-                lease.Dispose();
-            }
-        });
-        if (!await _drainBudget!.ObserveAsync(actual).ConfigureAwait(false))
-        {
-            _diagnostics.Report("cleanup_deadline");
-            return false;
-        }
-        return await actual.ConfigureAwait(false);
-    }
 
     IDisposable? ITelemetryActivityLifecycle.TryBeginActivity()
     {
         CreationLease lease;
         lock (_gate)
         {
-            if (_disabled || _unavailable ||
-                (_state != TelemetryLayerState.Running &&
-                 !(_state == TelemetryLayerState.Draining &&
-                    _drainBudget!.Remaining > TimeSpan.Zero && HasActiveProducer())))
+            if (_disabled || _unavailable || _state != TelemetryLayerState.Running)
                 return null;
             _creations++;
             lease = new CreationLease(this, _generation, _creationContext.Value);
@@ -390,7 +268,8 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
     public Task<TelemetryLayerCompletion> CompleteAsync(
         Activity? root = null,
         IReadOnlyDictionary<string, object?>? terminalTags = null,
-        ActivityStatusCode? terminalStatus = null)
+        ActivityStatusCode? terminalStatus = null,
+        bool allowPublication = true)
     {
         lock (_gate)
         {
@@ -420,21 +299,31 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
             _rootStatus = terminalStatus ?? root?.Status;
             if (root is not null && _spans.TryGetValue(root, out var span) && span.Owner == TerminalOwner.None)
                 span.Owner = TerminalOwner.Completion;
+            _state = TelemetryLayerState.Draining;
+            _fileBudget = new TelemetryLayerBudget(_options.TimeProvider, FileCompletionBudget);
+            PulseLocked();
         }
-        BeginDrain();
-        _ = Task.Run(CompleteCoreAsync);
+        FileSession.BeginCompletion(_fileBudget);
+        _ = Task.Run(() => CompleteCoreAsync(allowPublication));
         return result;
     }
 
-    private async Task CompleteCoreAsync()
+    private async Task CompleteCoreAsync(bool allowPublication)
     {
         var result = TelemetryLayerCompletion.NotPublished;
         try
         {
-            var drained = await DrainProducersAsync().ConfigureAwait(false);
-            if (drained)
-                drained = await StopAndCaptureRootAsync().ConfigureAwait(false);
-            Fence(deadline: !drained);
+            if (!allowPublication)
+            {
+                if (_disabled)
+                {
+                    Fence();
+                    result = TelemetryLayerCompletion.Disabled;
+                    return;
+                }
+                NotPublished("owner_incomplete");
+                return;
+            }
 
             if (!await WaitUntilAsync(
                     () => _creations == 0 && _captures == 0, _fileBudget).ConfigureAwait(false))
@@ -442,6 +331,22 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
                 NotPublished("capture_handoff_unconfirmed");
                 return;
             }
+            bool activeSpans;
+            lock (_gate)
+                activeSpans = _spans.Any(item =>
+                    !ReferenceEquals(item.Key, _root) && item.Value.Owner == TerminalOwner.None);
+            if (activeSpans)
+            {
+                NotPublished("active_spans_at_completion");
+                return;
+            }
+            if (!await StopAndCaptureRootAsync().ConfigureAwait(false))
+            {
+                NotPublished("root_capture_unconfirmed");
+                return;
+            }
+            Fence();
+
             // Normal records admitted before the fence must precede the terminal batch,
             // including an admission that had not reached the file queue at the fence.
             if (!await WaitUntilAsync(() => _acceptedWrites == 0, _fileBudget).ConfigureAwait(false))
@@ -533,9 +438,7 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
             _state = TelemetryLayerState.Published;
             PulseLocked();
         }
-        return _deadline
-            ? TelemetryLayerCompletion.PublishedAtDeadline
-            : TelemetryLayerCompletion.Published;
+        return TelemetryLayerCompletion.Published;
     }
 
     private async Task ObserveAdmittedPublicationAsync(Task<bool> publication)
@@ -565,29 +468,6 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
         }
     }
 
-    private async Task<bool> DrainProducersAsync()
-    {
-        while (true)
-        {
-            RegisteredCleanup? cleanup;
-            Task changed;
-            lock (_gate)
-            {
-                cleanup = _cleanups.Where(item => !item.Started).OrderBy(item => item.Order).FirstOrDefault();
-                if (cleanup is null && _producers == 0 && _creations == 0 && _captures == 0 &&
-                    !_spans.Any(item => !ReferenceEquals(item.Key, _root) && item.Value.Owner == TerminalOwner.None))
-                    return true;
-                changed = _changed.Task;
-            }
-            if (_drainBudget!.Remaining == TimeSpan.Zero)
-                return false;
-            if (cleanup is not null)
-                await RunCleanupCoreAsync(cleanup.Callback, cleanup).ConfigureAwait(false);
-            else if (!await _drainBudget.ObserveAsync(changed).ConfigureAwait(false))
-                return false;
-        }
-    }
-
     private async Task<bool> StopAndCaptureRootAsync()
     {
         SpanRegistration? span;
@@ -603,7 +483,7 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
         {
             try
             {
-                if (_drainBudget!.Remaining == TimeSpan.Zero)
+                if (_fileBudget!.Remaining == TimeSpan.Zero)
                     return;
                 foreach (var (key, value) in _rootTags!)
                     _root!.SetTag(key, value);
@@ -636,53 +516,36 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
                 }
             }
         });
-        return await _drainBudget!.ObserveAsync(stop).ConfigureAwait(false) &&
-            _drainBudget.Remaining > TimeSpan.Zero;
+        return await _fileBudget!.ObserveAsync(stop).ConfigureAwait(false) &&
+            _fileBudget.Remaining > TimeSpan.Zero;
     }
 
-    private void Fence(bool deadline)
+    private void Fence()
     {
-        TelemetryLayerBudget budget;
         lock (_gate)
         {
             if (_state >= TelemetryLayerState.Fenced)
                 return;
-            _deadline = deadline;
             _cutoff = _options.TimeProvider.GetTimestamp();
-            _pendingAtDeadline = _producers + _cleanups.Count(item => !item.Started);
-            _cleanupRegistrationClosed = true;
             _state = TelemetryLayerState.Fenced;
             _generation++;
-            _fileBudget = budget = new TelemetryLayerBudget(_options.TimeProvider, FileCompletionBudget);
             PulseLocked();
         }
-        FileSession.BeginCompletion(budget);
-        TryDisposeStoppingSource();
-        if (deadline)
-            _diagnostics.Report("producer_deadline");
     }
 
     private Task SubmitFinalRecords()
     {
-        List<SpanRegistration> abandoned;
         SpanRegistration? root;
         lock (_gate)
         {
-            abandoned = _spans.Where(item => !ReferenceEquals(item.Key, _root) &&
-                item.Value.Owner == TerminalOwner.None).Select(item => item.Value).ToList();
             root = null;
             if (_root is not null)
                 _spans.TryGetValue(_root, out root);
             if (_root is null || root?.Owner is not (TerminalOwner.None or TerminalOwner.Completion))
                 root = null;
-            if (abandoned.Count > 0)
-                _deadline = true;
-            foreach (var span in abandoned)
-                span.Owner = TerminalOwner.Completion;
-            if (root is not null)
-                root.Owner = TerminalOwner.Completion;
-            if (abandoned.Count == 0 && root is null)
+            if (root is null)
                 return Task.CompletedTask;
+            root.Owner = TerminalOwner.Completion;
             _captures++;
         }
 
@@ -692,18 +555,8 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
             var writing = false;
             try
             {
-                var records = abandoned.Select(span => span.Identity.CaptureAtDeadline(
-                    _options.TimeProvider, _cutoff, null, null, root: false,
-                    _pendingAtDeadline, abandoned.Count)).ToList();
-                if (root is not null)
-                {
-                    records.Add(_deadline
-                        ? root.Identity.CaptureAtDeadline(
-                            _options.TimeProvider, _cutoff, _rootTags, _rootStatus, root: true,
-                            _pendingAtDeadline, abandoned.Count)
-                        : root.Identity.CaptureCompletedRoot(
-                            _normalRoot, _options.TimeProvider, _cutoff, _rootTags, _rootStatus));
-                }
+                var record = root.Identity.CaptureCompletedRoot(
+                    _normalRoot, _options.TimeProvider, _cutoff, _rootTags, _rootStatus);
                 lock (_gate)
                 {
                     _captures--;
@@ -713,10 +566,7 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
                         PulseLocked();
                         return;
                     }
-                    foreach (var span in abandoned)
-                        span.Owner = TerminalOwner.Accepted;
-                    if (root is not null)
-                        root.Owner = TerminalOwner.Accepted;
+                    root.Owner = TerminalOwner.Accepted;
                     _acceptedWrites++;
                     writing = true;
                     PulseLocked();
@@ -724,7 +574,7 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
                 _options.Checkpoint?.Invoke(TelemetryLayerCheckpoint.WriteAccepted);
                 Task<bool> write;
                 using (SuppressInstrumentationScope.Begin())
-                    write = FileSession.WriteBatchAsync(records);
+                    write = FileSession.WriteBatchAsync([record]);
                 writing = false;
                 _ = ObserveAcceptedWriteAsync(write);
             }
@@ -787,7 +637,7 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
 
     private void NotPublished(string code)
     {
-        Fence(deadline: true);
+        Fence();
         lock (_gate)
         {
             _state = TelemetryLayerState.NotPublished;
@@ -812,27 +662,6 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
             else if (!await budget.ObserveAsync(changed).ConfigureAwait(false))
                 return false;
         }
-    }
-
-    private bool HasActiveProducer()
-    {
-        for (var producer = _producerContext.Value; producer is not null; producer = producer.Previous)
-        {
-            if (producer.Active)
-                return true;
-        }
-        return false;
-    }
-
-    private void TryDisposeStoppingSource()
-    {
-        lock (_gate)
-        {
-            if (_state < TelemetryLayerState.Fenced || _producers != 0 ||
-                Interlocked.Exchange(ref _stoppingDisposed, 1) != 0)
-                return;
-        }
-        _stopping.Dispose();
     }
 
     private void PulseLocked()
@@ -861,40 +690,6 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
     {
         internal LayerTelemetryRecord Identity { get; } = identity;
         internal TerminalOwner Owner { get; set; }
-    }
-
-    private sealed class RegisteredCleanup(Func<Task> callback, int order)
-    {
-        internal Func<Task> Callback { get; } = callback;
-        internal int Order { get; } = order;
-        internal bool Started { get; set; }
-    }
-
-    private sealed class ProducerLease(LayerTelemetryScope scope) : IDisposable
-    {
-        private int _active = 1;
-        internal bool Active => Volatile.Read(ref _active) != 0;
-        internal ProducerLease? Previous { get; private set; }
-
-        internal void Install()
-        {
-            Previous = scope._producerContext.Value;
-            scope._producerContext.Value = this;
-        }
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _active, 0) == 0)
-                return;
-            if (ReferenceEquals(scope._producerContext.Value, this))
-                scope._producerContext.Value = Previous;
-            lock (scope._gate)
-            {
-                scope._producers--;
-                scope.PulseLocked();
-            }
-            scope.TryDisposeStoppingSource();
-        }
     }
 
     private sealed class CreationLease(

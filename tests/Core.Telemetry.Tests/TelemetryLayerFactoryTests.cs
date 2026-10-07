@@ -189,7 +189,7 @@ public class TelemetryLayerFactoryTests
             Assert.DoesNotContain("properties.otherLayer.count", entry.Tags.GetRawText(), StringComparison.Ordinal);
             Assert.DoesNotContain("http.host", entry.Tags.GetRawText(), StringComparison.Ordinal);
             Assert.Equal("testlayer-v9", Tag(entry, TelemetryLayerTags.Schema).GetString());
-            Assert.Empty(Directory.GetFiles(test.Root));
+            Assert.Empty(Directory.GetFiles(test.Root, "traces-*"));
         }
         finally
         {
@@ -320,7 +320,8 @@ public class TelemetryLayerFactoryTests
         internal List<TraceEntry> Entries { get; } = [];
         public bool TryExport(
             string serviceName, IReadOnlyList<TraceEntry> entries,
-            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy)
+            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
+            TraceReplayContext? replayContext = null)
         {
             Service = serviceName;
             Boundary = dataBoundary;

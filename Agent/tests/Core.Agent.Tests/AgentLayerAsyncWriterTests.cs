@@ -33,9 +33,9 @@ public class AgentLayerAsyncWriterTests
         var businessReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var disposedServices = 0;
         var publishedAfterRelease = false;
-        var host = Task.Run(() => AgentModeEntry.RunSessionAsync(() => scope, (session, _) =>
+        var host = Task.Run(() => AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
         {
-            using var producer = scope.TryEnterProducer();
+            using var producer = lifetime.TryEnterProducer();
             try
             {
                 using var child = scope.Telemetry.StartActivityWithParent("Agent.Send", session!.Context);
@@ -50,7 +50,7 @@ public class AgentLayerAsyncWriterTests
             {
                 businessReturned.TrySetResult();
             }
-        }, () => Interlocked.Increment(ref disposedServices)));
+        }, () => Interlocked.Increment(ref disposedServices), timeProvider: clock));
 
         try
         {
@@ -59,6 +59,7 @@ public class AgentLayerAsyncWriterTests
             Assert.True(businessReturned.Task.IsCompleted,
                 $"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
             await clock.FileWaitArmed.Task.WaitAsync(TestTimeout);
+            await WaitForFileFenceAsync(scope).WaitAsync(TestTimeout);
             Assert.Equal(TelemetryLayerState.Fenced, scope.State);
             Assert.False(scope.FileSession.HasRecords);
             Assert.True(scope.TelemetryProvider.ActivitySource.HasListeners());
@@ -107,6 +108,12 @@ public class AgentLayerAsyncWriterTests
     private static async Task WaitForProviderReleaseAsync(LayerTelemetryScope scope)
     {
         while (scope.TelemetryProvider.ActivitySource.HasListeners())
+            await Task.Delay(1);
+    }
+
+    private static async Task WaitForFileFenceAsync(LayerTelemetryScope scope)
+    {
+        while (scope.State < TelemetryLayerState.Fenced)
             await Task.Delay(1);
     }
 

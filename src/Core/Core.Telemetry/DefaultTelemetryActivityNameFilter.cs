@@ -15,6 +15,8 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // Root activities — one per ClientType, written by TelemetryService.StartRootActivity
         // as $"{ClientType}.Activity.Root".
         "CLI.Activity.Root",
+        "CLI.Activity.AiRecovery",
+        "CLI.Activity.AiRecoverySkipped",
         "PowerShell.Activity.Root",
         "TUI.Activity.Root",
 

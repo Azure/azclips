@@ -284,62 +284,30 @@ public class TelemetryLayerLifecycleTests
         Assert.False(Directory.Exists(test.Root));
     }
 
-    [Fact]
-    public async Task CallbackWithoutActivity_IsTrackedUntilItsActualBodyFinishes()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IncompleteOwnerOrActiveSpan_DoesNotPublish(bool allowPublication)
     {
         await using var test = new TelemetryLayerTestEnvironment();
         var scope = test.Create();
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
         var root = rootScope?.Activity;
-        var callback = scope.TryEnterProducer();
-        Assert.NotNull(callback);
-        var completion = scope.CompleteAsync(root);
-        await scope.WaitForStateAsync(TelemetryLayerState.Draining).WaitAsync(TestTimeout);
-        Assert.Null(scope.TryEnterProducer());
-        Assert.False(completion.IsCompleted);
-        Assert.False(Directory.Exists(test.Root));
-        callback.Dispose();
-        Assert.Equal(TelemetryLayerCompletion.Published, await completion.WaitAsync(TestTimeout));
-        Assert.Single(test.Read(scope));
-    }
-
-    [Fact]
-    public async Task Deadline_UsesImmutableStartMetadataAndFrozenResult_ThenRejectsLateEnd()
-    {
-        await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create();
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
-        var root = rootScope?.Activity;
-        using var producer = scope.TryEnterProducer();
         using var childScope = scope.Telemetry.StartActivityWithParent("Test.Child", root!.Context);
         var child = childScope?.Activity;
         Assert.NotNull(child);
         child.SetTag("properties.testlayer.live", new ThrowIfSerialized());
         var terminal = new Dictionary<string, object?> { ["properties.testlayer.outcome"] = "cancelled" };
-        var completion = scope.CompleteAsync(root, terminal, ActivityStatusCode.Error);
+        var completion = scope.CompleteAsync(root, terminal, ActivityStatusCode.Error, allowPublication);
         terminal["properties.testlayer.outcome"] = "changed after freeze";
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
         await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-
-        var entries = test.Read(scope);
-        Assert.Equal(2, entries.Count);
-        var abandoned = entries.Single(entry => entry.OperationName == "Test.Child");
-        Assert.Equal("abandoned", Tag(abandoned, TelemetryLayerTags.Completion).GetString());
-        Assert.DoesNotContain("properties.testlayer.live", abandoned.Tags.GetRawText(), StringComparison.Ordinal);
-        var terminalRoot = entries.Single(entry => entry.OperationName == "Test.Root");
-        Assert.Equal("Error", terminalRoot.Status);
-        Assert.Equal("cancelled", Tag(terminalRoot, "properties.testlayer.outcome").GetString());
-        Assert.Equal("deadline", Tag(terminalRoot, TelemetryLayerTags.Completion).GetString());
-        Assert.Equal(1, Tag(terminalRoot, TelemetryLayerTags.AbandonedSpans).GetInt32());
-        Assert.True(Tag(terminalRoot, TelemetryLayerTags.PendingProducers).GetInt32() >= 1);
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
+        Assert.Null(scope.FileSession.PublishedPath);
         Assert.False(child.IsStopped);
-        var bytes = File.ReadAllBytes(scope.FileSession.PublishedPath!);
         childScope!.Dispose();
         Assert.Null(scope.Telemetry.StartActivity("Test.Other"));
-        Assert.Null(scope.TryEnterProducer(teardown: true));
-        Assert.Equal(bytes, File.ReadAllBytes(scope.FileSession.PublishedPath!));
-        Assert.False(File.Exists(scope.FileSession.PartialPath));
+        Assert.Null(scope.FileSession.PublishedPath);
+        Assert.Contains(allowPublication ? "active_spans_at_completion" : "owner_incomplete", scope.Diagnostics);
     }
 
     [Fact]
@@ -366,18 +334,15 @@ public class TelemetryLayerLifecycleTests
         var end = Task.Run(child.Stop);
         await capture.Entered.Task.WaitAsync(TestTimeout);
         var completion = scope.CompleteAsync(root);
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
+        test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
         await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
-        Assert.False(completion.IsCompleted);
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
         capture.Release();
         await end.WaitAsync(TestTimeout);
         childScope.Dispose();
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-        var entries = test.Read(scope);
-        Assert.Equal(2, entries.Count);
-        Assert.Single(entries, entry => entry.SpanId == child.SpanId.ToString());
-        Assert.Equal("abandoned", Tag(entries.Single(entry => entry.OperationName == "Test.Child"),
-            TelemetryLayerTags.Completion).GetString());
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
+        Assert.Null(scope.FileSession.PublishedPath);
+        Assert.True(child.Recorded);
     }
 
     [Fact]
@@ -398,14 +363,13 @@ public class TelemetryLayerLifecycleTests
         var end = Task.Run(child.Stop);
         await endBarrier.Entered.Task.WaitAsync(TestTimeout);
         var completion = scope.CompleteAsync(root);
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-        var bytes = File.ReadAllBytes(scope.FileSession.PublishedPath!);
+        test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
+        Assert.Null(scope.FileSession.PublishedPath);
         endBarrier.Release();
         await end.WaitAsync(TestTimeout);
         childScope.Dispose();
-        Assert.Equal(bytes, File.ReadAllBytes(scope.FileSession.PublishedPath!));
-        Assert.Equal(2, test.Read(scope).Count);
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 
     [Fact]
@@ -430,15 +394,15 @@ public class TelemetryLayerLifecycleTests
         var start = Task.Run(() => scope.Telemetry.StartActivity("Test.Child"));
         await creation.Entered.Task.WaitAsync(TestTimeout);
         var completion = scope.CompleteAsync(root);
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
+        test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
         await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
-        Assert.False(completion.IsCompleted);
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
         Assert.False(Directory.Exists(test.Root));
         creation.Release();
         using var late = await start.WaitAsync(TestTimeout);
         Assert.True(late is null || (!late.Recorded && !late.IsAllDataRequested));
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-        Assert.Single(test.Read(scope));
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 
     [Fact]
@@ -463,120 +427,17 @@ public class TelemetryLayerLifecycleTests
         var start = Task.Run(() => scope.Telemetry.StartActivityWithParent("Test.Child", root!.Context));
         await creation.Entered.Task.WaitAsync(TestTimeout);
         var completion = scope.CompleteAsync(root);
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
+        test.Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
         await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
-        Assert.False(completion.IsCompleted);
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
         Assert.False(Directory.Exists(test.Root));
         creation.Release();
         using var childScope = await start.WaitAsync(TestTimeout);
         var child = childScope?.Activity;
         Assert.NotNull(child);
         Assert.True(child.Recorded);
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-        var entries = test.Read(scope);
-        Assert.Equal(2, entries.Count);
-        var abandoned = entries.Single(entry => entry.OperationName == "Test.Child");
-        Assert.Equal(child.SpanId.ToString(), abandoned.SpanId);
-        Assert.Equal(root!.SpanId.ToString(), abandoned.ParentSpanId);
-        Assert.Equal("abandoned", Tag(abandoned, TelemetryLayerTags.Completion).GetString());
-    }
-
-    [Fact]
-    public async Task DisabledScope_StillBudgetsSynchronousCleanup_WithoutFilesOrProvider()
-    {
-        using var cleanup = new TelemetryLayerBarrier();
-        await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create(test.Context(enabled: false));
-        Assert.Same(TracerProvider.Default, scope.TelemetryProvider.TracerProvider);
-        Assert.Null(scope.Telemetry.StartIndependentRootActivity("Test.Root"));
-        var cleanupTask = scope.RunCleanupAsync(() =>
-        {
-            cleanup.Hit();
-            return Task.CompletedTask;
-        });
-        await cleanup.Entered.Task.WaitAsync(TestTimeout);
-        test.Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
-        Assert.False(await cleanupTask.WaitAsync(TestTimeout));
-        var completion = scope.CompleteAsync();
-        Assert.Equal(TelemetryLayerCompletion.Disabled, await completion.WaitAsync(TestTimeout));
-        Assert.False(Directory.Exists(test.Root));
-        Assert.True(scope.Context.Enabled is false);
-        cleanup.Release();
-    }
-
-    [Fact]
-    public async Task CancellationCallback_IsDispatchedAndIncludedInTheSameDrainBudget()
-    {
-        using var cancellation = new TelemetryLayerBarrier();
-        await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create();
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
-        var root = rootScope?.Activity;
-        using var registration = scope.StoppingToken.Register(cancellation.Hit);
-        scope.BeginDrain();
-        await cancellation.Entered.Task.WaitAsync(TestTimeout);
-        test.Clock.Advance(TimeSpan.FromSeconds(9));
-        Assert.Equal(TimeSpan.FromSeconds(1), scope.RemainingDrainTime);
-        var completion = scope.CompleteAsync(root);
-        test.Clock.Advance(TimeSpan.FromSeconds(1));
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline, await completion.WaitAsync(TestTimeout));
-        Assert.Equal(1, Tag(Assert.Single(test.Read(scope)), TelemetryLayerTags.PendingProducers).GetInt32());
-        cancellation.Release();
-    }
-
-    [Fact]
-    public async Task CleanupFailure_PreservesBusinessResult_AndRegisteredTeardownCanRecord()
-    {
-        await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create();
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
-        var root = rootScope?.Activity;
-        var order = new List<string>();
-        scope.RegisterCleanup(() =>
-        {
-            order.Add("context");
-            return Task.CompletedTask;
-        }, order: 20);
-        scope.RegisterCleanup(() =>
-        {
-            order.Add("sdk");
-            using var callback = scope.TryEnterProducer(teardown: true);
-            Assert.NotNull(callback);
-            using var childScope = scope.Telemetry.StartActivityWithParent("Test.Child", root!.Context);
-            Assert.NotNull(childScope?.Activity);
-            throw new InvalidOperationException("Sensitive business details must not appear in diagnostics");
-        }, order: 10);
-        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root,
-            new Dictionary<string, object?> { ["properties.testlayer.outcome"] = "error" },
-            ActivityStatusCode.Error).WaitAsync(TestTimeout));
-        Assert.Equal(["sdk", "context"], order);
-        Assert.Contains("cleanup_failed", scope.Diagnostics);
-        Assert.DoesNotContain(scope.Diagnostics, code => code.Contains("Sensitive", StringComparison.Ordinal));
-        var entry = test.Read(scope).Single(item => item.OperationName == "Test.Root");
-        Assert.Equal("Error", entry.Status);
-        Assert.Equal("error", Tag(entry, "properties.testlayer.outcome").GetString());
-        Assert.False(scope.FileSession.Failed);
-    }
-
-    [Fact]
-    public async Task CleanupCannotRewriteTheFrozenRootStatus_WhenNoOverrideWasSupplied()
-    {
-        await using var test = new TelemetryLayerTestEnvironment();
-        var scope = test.Create();
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Test.Root", activate: false);
-        var root = rootScope?.Activity;
-        root!.SetStatus(ActivityStatusCode.Error);
-        scope.RegisterCleanup(() =>
-        {
-            root.SetStatus(ActivityStatusCode.Ok);
-            root.SetTag("properties.testlayer.outcome", "wrong");
-            return Task.CompletedTask;
-        });
-        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root,
-            new Dictionary<string, object?> { ["properties.testlayer.outcome"] = "error" }).WaitAsync(TestTimeout));
-        var entry = Assert.Single(test.Read(scope));
-        Assert.Equal("Error", entry.Status);
-        Assert.Equal("error", Tag(entry, "properties.testlayer.outcome").GetString());
+        Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(TestTimeout));
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 
     private sealed class RecordOnlySampler : Sampler

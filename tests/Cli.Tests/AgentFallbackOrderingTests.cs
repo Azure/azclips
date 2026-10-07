@@ -14,6 +14,28 @@ namespace Cli.Tests;
 public class AgentFallbackOrderingTests
 {
     [Fact]
+    public async Task StopRootThenFallbackAsync_ReusesTheStartupReservationIdentity()
+    {
+        var invocationId = Guid.NewGuid().ToString("N");
+        using var root = new Activity("CLI.Activity.Root").SetIdFormat(ActivityIdFormat.W3C).Start();
+        root.SetTag(TelemetryTags.DataBoundary, "EU");
+        root.SetTag(TelemetryTags.TenantId, "tenant-test");
+
+        var exit = await Core.Cli.Program.StopRootThenFallbackAsync(root, true, context =>
+        {
+            Assert.True(root.IsStopped);
+            Assert.Equal(invocationId, context.InvocationId);
+            Assert.Equal("EU", context.DataBoundary);
+            Assert.Equal("tenant-test", context.TenantId);
+            Assert.True(context.TryGetCommandParentContext(out var parent));
+            Assert.Equal(root.Context, parent);
+            return Task.FromResult(1);
+        }, invocationId);
+
+        Assert.Equal(1, exit);
+    }
+
+    [Fact]
     public async Task StopRootThenFallbackAsync_StopsTheRoot_BeforeRunningTheFallback()
     {
         var order = new List<string>();

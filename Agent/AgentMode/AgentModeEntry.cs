@@ -225,7 +225,8 @@ public static class AgentModeEntry
     internal static async Task<int> RunSessionAsync(
         Func<ITelemetryLayerScope> getScope,
         Func<Activity?, AgentRuntimeLifetime, Task> runAgent,
-        Action disposeServices)
+        Action disposeServices,
+        TimeProvider? timeProvider = null)
     {
         Activity? session = null;
         TelemetryActivityScope? sessionScope = null;
@@ -245,8 +246,10 @@ public static class AgentModeEntry
                 // the host prints "agent mode error: ..." and returns 1. Hoisting this setup above
                 // the catches would turn that handled failure into an unhandled crash.
                 scope = getScope();
-                lifetime = new AgentRuntimeLifetime(scope);
-                sessionScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+                lifetime = new AgentRuntimeLifetime(scope, timeProvider);
+                sessionScope = scope.Context.TryGetRecoveryParentContext(out var recoveryParent)
+                    ? scope.Telemetry.StartActivityWithParent("Agent.Session", recoveryParent)
+                    : scope.Telemetry.StartIndependentRootActivity("Agent.Session");
                 session = sessionScope?.Activity;
                 session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
 

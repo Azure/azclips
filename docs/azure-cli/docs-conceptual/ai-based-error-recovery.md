@@ -174,14 +174,15 @@ subscription plan and usage.
 
 ### What data is used and collected?
 
-AI-based error recovery emits usage telemetry as its own trace, separate from the
-telemetry for the command that failed. The trace records:
+AI-based error recovery emits usage telemetry in the same distributed trace as the
+failed command. The command, recovery, and Agent session use parent-child links.
+The trace records:
 
 - How long recovery ran, and how long each phase took
 - How many conversation turns and tool calls occurred
 - The configured AI provider and interaction style
 - The model name and the exit code
-- A reference to the failed command's trace, so the two can be correlated
+- Parent-child links between the failed command, recovery, and Agent session
 
 It does **not** record your prompts, the error text, the model's response, or the values
 of any command parameters.

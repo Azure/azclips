@@ -69,12 +69,10 @@ public class TraceReplayerTests
     }
 
     [Fact]
-    public void ReplayEntries_LinksChildToParent_WhenTheyCameFromDifferentFiles()
+    public void ReplayEntries_LinksRecoveryAndSession_WhenMergedIntoOneBatch()
     {
         using var harness = new ReplayHarness();
-        // The CLI and agent write separate trace files. Without the spanIdMap remap the
-        // replayer falls back to ActivitySpanId.CreateRandom() and the agent subtree
-        // detaches from the recovery span with no error.
+        // This exercises one replay batch; TracerProviderExportSinkTests covers separate files/providers.
         var recovery = MakeEntry(SampleTraceId, "00f067aa0ba902b7", parentSpanId: ZeroSpanId, name: "CLI.Activity.AiRecovery");
         var session = MakeEntry(SampleTraceId, "a1b2c3d4e5f60718", parentSpanId: "00f067aa0ba902b7", name: "Agent.Session");
 

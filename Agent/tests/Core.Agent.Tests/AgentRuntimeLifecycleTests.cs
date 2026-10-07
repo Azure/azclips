@@ -21,6 +21,37 @@ public sealed class AgentRuntimeLifecycleTests
 {
     private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    [Fact]
+    public async Task AgentSession_UsesRecoveryContextAsItsNativeParent()
+    {
+        var context = new TelemetryInvocationContext(
+            Guid.NewGuid().ToString("N"),
+            true,
+            RecoveryTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
+        await using var harness = new AgentLayerTestHarness(context: context);
+        var scope = harness.CreateScope();
+        Activity? session = null;
+
+        var exitCode = await AgentModeEntry.RunSessionAsync(
+            () => scope,
+            (activity, _) =>
+            {
+                session = activity;
+                return Task.CompletedTask;
+            },
+            () => { });
+
+        Assert.Equal(0, exitCode);
+        Assert.NotNull(session);
+        Assert.Equal(ActivityTraceId.CreateFromString(
+            "11111111111111111111111111111111".AsSpan()), session.TraceId);
+        Assert.Equal(ActivitySpanId.CreateFromString("2222222222222222".AsSpan()), session.ParentSpanId);
+        var record = Assert.Single(harness.ReadEntries());
+        Assert.Equal("Agent.Session", record.GetProperty("OperationName").GetString());
+        Assert.Equal("11111111111111111111111111111111", record.GetProperty("TraceId").GetString());
+        Assert.Equal("2222222222222222", record.GetProperty("ParentSpanId").GetString());
+    }
+
     [Theory]
     [InlineData("tool")]
     [InlineData("hook")]
@@ -30,7 +61,8 @@ public sealed class AgentRuntimeLifecycleTests
     {
         await using var harness = new AgentLayerTestHarness();
         var scope = harness.CreateScope();
-        using var context = new AgentInvocationContext(null, scope.Telemetry, scope);
+        var lifetime = new AgentRuntimeLifetime(scope);
+        using var context = new AgentInvocationContext(null, scope.Telemetry, lifetime);
         var entered = Signal();
         var cancelled = Signal();
         var releaseFinally = Signal();
@@ -91,8 +123,9 @@ public sealed class AgentRuntimeLifecycleTests
 
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
         var root = rootScope?.Activity;
-        var completion = scope.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok);
+        var completion = lifetime.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok);
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(TelemetryLayerState.Running, scope.State);
         Assert.False(completion.IsCompleted);
         Assert.False(exited);
         releaseFinally.SetResult();
@@ -113,8 +146,8 @@ public sealed class AgentRuntimeLifecycleTests
         var scope = harness.CreateScope();
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
         var root = rootScope?.Activity;
-        var context = new AgentInvocationContext(root, scope.Telemetry, scope);
         var lifetime = new AgentRuntimeLifetime(scope);
+        var context = new AgentInvocationContext(root, scope.Telemetry, lifetime);
         var resource = new AgentSdkLifetime(context);
         var nestedResult = "";
         var sawHostStop = false;
@@ -164,7 +197,7 @@ public sealed class AgentRuntimeLifecycleTests
         var actualCleanupFinished = false;
         var running = AgentModeEntry.RunSessionAsync(() => scope, (session, lifetime) =>
         {
-            context = new AgentInvocationContext(session, scope.Telemetry, scope);
+            context = new AgentInvocationContext(session, scope.Telemetry, lifetime);
             resource = new AgentSdkLifetime(context);
             resource.SetClientCleanup(async () =>
             {
@@ -174,27 +207,21 @@ public sealed class AgentRuntimeLifecycleTests
             });
             lifetime.RegisterCleanup(resource.DisposeAsync);
             throw new InvalidOperationException("original offline create failure");
-        }, () => { });
+        }, () => { }, timeProvider: clock);
         await cleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(running.IsCompleted);
 
         clock.Advance(TimeSpan.FromSeconds(10));
         Assert.Equal(1, await running.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.False(actualCleanupFinished);
-        var root = Assert.Single(harness.ReadEntries());
-        var tags = AgentLayerTestHarness.Tags(root);
-        Assert.Equal("error", tags[TelemetryTags.RecoveryOutcome].GetString());
-        Assert.Equal("host_fault", tags[TelemetryTags.RecoveryFailureReason].GetString());
-        Assert.Equal("deadline", tags[TelemetryLayerTags.Completion].GetString());
-        Assert.True(tags[TelemetryLayerTags.PendingProducers].GetInt32() > 0);
-        var bytes = File.ReadAllBytes(scope.FileSession.PublishedPath!);
+        Assert.Null(scope.FileSession.PublishedPath);
 
         Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
         releaseClient.SetResult();
         await resource!.DisposeAsync().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(actualCleanupFinished);
         Assert.Throws<ObjectDisposedException>(() => context!.StartOperation("Agent.Send"));
-        Assert.Equal(bytes, File.ReadAllBytes(scope.FileSession.PublishedPath!));
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 
     [Fact]
@@ -293,7 +320,7 @@ public sealed class AgentRuntimeLifecycleTests
         var scope = harness.CreateScope();
         using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
         var root = rootScope?.Activity;
-        var lifetime = new AgentRuntimeLifetime(scope);
+        var lifetime = new AgentRuntimeLifetime(scope, clock);
         using var userCancellation = new CancellationTokenSource();
         using var release = new ManualResetEventSlim();
         var entered = Signal();
@@ -309,11 +336,10 @@ public sealed class AgentRuntimeLifecycleTests
         try
         {
             clock.Advance(TimeSpan.FromSeconds(10));
-            Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline,
+            Assert.Equal(TelemetryLayerCompletion.NotPublished,
                 await completion.WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.False(cancelling.IsCompleted);
-            Assert.Equal("cancelled",
-                AgentLayerTestHarness.Tags(Assert.Single(harness.ReadEntries()))[TelemetryTags.RecoveryOutcome].GetString());
+            Assert.Null(scope.FileSession.PublishedPath);
         }
         finally
         {

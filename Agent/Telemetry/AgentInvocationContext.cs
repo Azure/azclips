@@ -13,7 +13,7 @@ namespace Core.Agent.Telemetry;
 /// current operation is read at invocation time, never captured in the tool delegate.
 /// </summary>
 internal sealed class AgentInvocationContext(
-    Activity? session, ITelemetryService telemetry, ITelemetryLayerScope? scope = null,
+    Activity? session, ITelemetryService telemetry, AgentRuntimeLifetime? lifetime = null,
     CancellationToken lifetimeToken = default) : IDisposable
 {
     private readonly object _gate = new();
@@ -24,16 +24,16 @@ internal sealed class AgentInvocationContext(
     private bool _disposed;
     private int _teardown;
 
-    internal CancellationToken StoppingToken => scope?.StoppingToken ?? lifetimeToken;
+    internal CancellationToken StoppingToken => lifetime?.StoppingToken ?? lifetimeToken;
     internal CancellationToken CallbackCancellationToken => _callback.Value?.CancellationToken ?? lifetimeToken;
     internal ITelemetryService Telemetry => telemetry;
     internal IDisposable? StartToolActivity(string name) => telemetry.StartActivity(name);
 
     internal IDisposable? EnterProducer()
     {
-        var producer = scope?.TryEnterProducer();
-        if (scope is not null && producer is null)
-            throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
+        var producer = lifetime?.TryEnterProducer();
+        if (lifetime is not null && producer is null)
+            throw new OperationCanceledException("The Agent is draining.", StoppingToken);
         return producer;
     }
 
@@ -62,9 +62,9 @@ internal sealed class AgentInvocationContext(
             if (_operation is not null)
                 throw new InvalidOperationException("An agent session supports only one in-flight operation.");
 
-            var producer = scope?.TryEnterProducer();
-            if (scope is not null && producer is null)
-                throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
+            var producer = lifetime?.TryEnterProducer();
+            if (lifetime is not null && producer is null)
+                throw new OperationCanceledException("The Agent is draining.", StoppingToken);
             try
             {
                 var parent = IsWithin(Activity.Current, _session) ? Activity.Current : LiveSession();
@@ -187,9 +187,9 @@ internal sealed class AgentInvocationContext(
             ObjectDisposedException.ThrowIf(_disposed && !nested, this);
             if (_closing && _teardown == 0 && !nested)
                 throw new OperationCanceledException("The Agent callback admission is closed.", StoppingToken);
-            var producer = scope?.TryEnterProducer(teardown: nested || _teardown != 0);
-            if (scope is not null && producer is null)
-                throw new OperationCanceledException("The Agent layer is draining.", StoppingToken);
+            var producer = lifetime?.TryEnterProducer(teardown: nested || _teardown != 0);
+            if (lifetime is not null && producer is null)
+                throw new OperationCanceledException("The Agent is draining.", StoppingToken);
             var parent = enclosing?.Parent ?? _operation?.Activity ?? LiveSession();
             if (IsWithin(Activity.Current, parent, allowStoppedAncestor: enclosing is not null))
                 parent = Activity.Current;
@@ -241,8 +241,7 @@ internal sealed class AgentInvocationContext(
             _operation = null;
             _session = null;
         }
-        // The actual send/callback owns its activity and producer lease. At a deadline the layer
-        // writes an immutable abandoned record; this thread must not Stop another thread's span.
+        // Timed-out producers keep the file unpublished; never Stop another thread's span.
     }
 
     internal sealed class Operation(

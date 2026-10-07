@@ -38,7 +38,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
             var scope = GetService<ITelemetryLayerScopeFactory>().CreateScope("Agent", context);
             try
             {
-                using var producer = scope.TryEnterProducer();
                 await run(name => scope.Telemetry.StartIndependentRootActivity(
                     name, ActivityKind.Internal, activate: false)).ConfigureAwait(false);
             }

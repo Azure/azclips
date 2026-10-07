@@ -169,7 +169,7 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         var invocationContext = new AgentInvocationContext(
-            Activity.Current, lifetime.Telemetry, lifetime.Scope, ct);
+            Activity.Current, lifetime.Telemetry, lifetime, ct);
         using var producer = invocationContext.EnterProducer();
         using var create = invocationContext.StartOperation("Agent.Create", ct);
         RecoveryTelemetry.RecordConfiguration(create.Activity, options);
@@ -229,7 +229,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // ResourceCache on every invocation (see CachedResourceTools.SyncTenantAsync),
         // so a mid-session `az account set` is reflected on the next query.
         // Nothing to pin at startup; wire only the background refresher here.
-        refresher.AttachHostLifetime(lifetime.Scope);
+        refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
         var helpTools = new HelpTools(azExePath, invocationContext.StartToolActivity);
         var skuTools = new AvailableLocationsTool(auth, profileService, activityCreator: invocationContext.StartToolActivity);

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text;
+
 namespace Core.Telemetry.Tests;
 
 public class TraceFileStoreTests
@@ -95,6 +97,75 @@ public class TraceFileStoreTests
     }
 
     [Fact]
+    public void ActiveUploader_PreventsASecondUploaderFromReclaimingItsOldFiles()
+    {
+        using var temp = new TempDirectory();
+        var stale = Path.Combine(temp.Path, "traces-ccc.uploading");
+        File.WriteAllText(stale, "payload");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddMinutes(-10));
+        var store = new TraceFileStore(temp.Path);
+        using (var active = store.TryStartUpload())
+        {
+            Assert.NotNull(active);
+            new TraceUploader(store, new NoExportExpected()).Run();
+            Assert.True(File.Exists(stale));
+        }
+        using var next = store.TryStartUpload();
+        Assert.NotNull(next);
+        Assert.Single(store.ClaimPending());
+    }
+
+    [Fact]
+    public async Task ClaimPending_CannotOutrunAConcurrentReservation()
+    {
+        using var temp = new TempDirectory();
+        const string traceId = "11111111111111111111111111111111";
+        var invocationId = Guid.NewGuid().ToString("N");
+        File.WriteAllText(Path.Combine(temp.Path,
+            $"traces-hold-22222222222222222222222222222222-{Guid.NewGuid():N}.json"), "{}");
+        var reservations = new TraceUploadReservationStore(temp.Path);
+        var store = new TraceFileStore(temp.Path);
+        using var barrier = new ReservationScanBarrier();
+        var originalError = Console.Error;
+        Console.SetError(barrier);
+        var claiming = Task.Run(() => store.ClaimPending());
+        try
+        {
+            await barrier.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var reserved = false;
+            try
+            {
+                reservations.Begin(traceId, invocationId);
+                WritePendingFile(temp.Path, traceId, "command");
+                reserved = true;
+            }
+            catch (IOException)
+            {
+                Assert.True(File.Exists(Path.Combine(temp.Path, ".upload.lock")));
+            }
+            finally
+            {
+                barrier.Release.Set();
+            }
+
+            Assert.Empty(await claiming.WaitAsync(TimeSpan.FromSeconds(10)));
+            if (!reserved)
+            {
+                reservations.Begin(traceId, invocationId);
+                WritePendingFile(temp.Path, traceId, "command");
+            }
+            Assert.Empty(store.ClaimPending());
+            Assert.True(File.Exists(Path.Combine(temp.Path, TraceFileStore.FileNameFor(traceId))));
+        }
+        finally
+        {
+            barrier.Release.Set();
+            await claiming.WaitAsync(TimeSpan.FromSeconds(10));
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
     public void TryRead_ReturnsContentOfClaimedFile()
     {
         using var temp = new TempDirectory();
@@ -144,6 +215,37 @@ public class TraceFileStoreTests
         var path = Path.Combine(directory, TraceFileStore.FileNameFor(traceId));
         File.WriteAllText(path, content);
         return path;
+    }
+
+    private sealed class ReservationScanBarrier : TextWriter
+    {
+        internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal ManualResetEventSlim Release { get; } = new();
+        public override Encoding Encoding => Encoding.UTF8;
+
+        public override void WriteLine(string? value)
+        {
+            if (value != "Telemetry upload reservation is invalid; related files remain held.")
+                return;
+            Entered.TrySetResult();
+            if (!Release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The reservation scan barrier was not released.");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                Release.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
+    private sealed class NoExportExpected : ITraceExportSink
+    {
+        public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries,
+            string? dataBoundary = null, TraceReplayProfile profile = TraceReplayProfile.Legacy,
+            TraceReplayContext? replayContext = null) =>
+            throw new InvalidOperationException("A second uploader must not export an active claim.");
     }
 
     /// <summary>A throwaway directory removed when the test finishes.</summary>

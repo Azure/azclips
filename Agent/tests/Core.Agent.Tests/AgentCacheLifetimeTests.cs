@@ -40,8 +40,8 @@ public sealed class AgentCacheLifetimeTests
         };
         using var http = new HttpClient(new AgentOfflineHttp());
         var refresher = new ArmCacheRefresher(new AgentOfflineAuth(), profiles, http, harness.DirectoryPath);
-        refresher.AttachHostLifetime(scope);
         var lifetime = new AgentRuntimeLifetime(scope);
+        refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
         refresher.KickAsync();
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -96,8 +96,8 @@ public sealed class AgentCacheLifetimeTests
             Content = new StringContent("""{"value":[],"data":[]}"""),
         })));
         var refresher = new ArmCacheRefresher(auth, profiles, http, Path.Combine(harness.DirectoryPath, "cache"));
-        refresher.AttachHostLifetime(scope);
         var lifetime = new AgentRuntimeLifetime(scope);
+        refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
         using var caller = new CancellationTokenSource();
 
@@ -168,8 +168,8 @@ public sealed class AgentCacheLifetimeTests
         });
         Assert.Same(actual, installed);
         Assert.False(constructedRejected);
-        installed.AttachHostLifetime(scope);
         var lifetime = new AgentRuntimeLifetime(scope);
+        installed.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(installed.StopAndDrainAsync);
         Assert.Equal(TelemetryLayerCompletion.Published,
             await lifetime.CompleteAsync(root, new Dictionary<string, object?>(), ActivityStatusCode.Ok));
@@ -201,8 +201,8 @@ public sealed class AgentCacheLifetimeTests
         };
         using var http = new HttpClient(new AgentOfflineHttp());
         var refresher = new ArmCacheRefresher(new AgentOfflineAuth(), profiles, http, harness.DirectoryPath);
-        refresher.AttachHostLifetime(scope);
-        var lifetime = new AgentRuntimeLifetime(scope);
+        var lifetime = new AgentRuntimeLifetime(scope, clock);
+        refresher.AttachHostLifetime(lifetime);
         lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
         refresher.KickAsync();
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -210,18 +210,13 @@ public sealed class AgentCacheLifetimeTests
         var completion = lifetime.CompleteAsync(root,
             new Dictionary<string, object?> { [TelemetryTags.RecoveryOutcome] = "ok" }, ActivityStatusCode.Ok);
         clock.Advance(TimeSpan.FromSeconds(10));
-        Assert.Equal(TelemetryLayerCompletion.PublishedAtDeadline,
+        Assert.Equal(TelemetryLayerCompletion.NotPublished,
             await completion.WaitAsync(TimeSpan.FromSeconds(5)));
-        var entries = harness.ReadEntries();
-        var pending = Assert.Single(entries, entry =>
-            entry.GetProperty("OperationName").GetString() == "ProfileService.GetActiveProfileAsync");
-        Assert.Equal("abandoned", AgentLayerTestHarness.Tags(pending)[TelemetryLayerTags.Completion].GetString());
-        var before = File.ReadAllBytes(scope.FileSession.PublishedPath!);
+        Assert.Null(scope.FileSession.PublishedPath);
 
         release.SetResult();
         await refresher.StopAndDrainAsync().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(lateActivityWasRejected);
-        Assert.Equal(before, File.ReadAllBytes(scope.FileSession.PublishedPath!));
-        Assert.False(File.Exists(scope.FileSession.PartialPath));
+        Assert.Null(scope.FileSession.PublishedPath);
     }
 }

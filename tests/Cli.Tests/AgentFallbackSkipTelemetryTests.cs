@@ -20,6 +20,127 @@ public class AgentFallbackSkipTelemetryTests
     private const string ErrorText = "test-only private error detail";
 
     [Fact]
+    public async Task StartupReservation_AlreadyProtectsTheFileBeforeCommandFailure()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "cli-reservation-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+        try
+        {
+            using var harness = new Harness(traceDirectory: HomePaths.GetDefaultTraceDirectory());
+            using var command = harness.Telemetry.StartRootActivity();
+            Assert.NotNull(command);
+            var invocationId = Program.BeginCommandUploadReservation(command, true);
+            Assert.NotNull(invocationId);
+            using (harness.Telemetry.StartActivity("AzureCLI.ParseGlobalArgs")) { }
+
+            var marker = Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-hold-*.json"));
+            using (var document = JsonDocument.Parse(File.ReadAllText(marker)))
+                Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
+            Assert.Single(Directory.GetFiles(HomePaths.GetDefaultTraceDirectory(), "traces-*.log"));
+            Assert.False(command.IsStopped);
+
+            await Program.StopRootThenFallbackAsync(command, true, context =>
+            {
+                Assert.Equal(invocationId, context.InvocationId);
+                Assert.True(command.IsStopped);
+                using var document = JsonDocument.Parse(File.ReadAllText(marker));
+                Assert.False(document.RootElement.GetProperty("Ready").GetBoolean());
+                return Task.FromResult(1);
+            }, invocationId);
+            TelemetryUploadReservation.MarkReady(invocationId);
+            using var ready = JsonDocument.Parse(File.ReadAllText(marker));
+            Assert.True(ready.RootElement.GetProperty("Ready").GetBoolean());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previous);
+            if (Directory.Exists(home))
+                Directory.Delete(home, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("EU")]
+    [InlineData("Global")]
+    public async Task RecoverySpan_PreservesCapturedRoutingInTheCliFile(string boundary)
+    {
+        using var harness = new Harness();
+        harness.Options.Enabled = true;
+        var command = harness.Telemetry.StartRootActivity();
+        Assert.NotNull(command);
+        command.SetTag(TelemetryTags.Command, "vm show");
+        command.SetTag(TelemetryTags.DataBoundary, boundary);
+        command.SetTag(TelemetryTags.TenantId, "tenant-test");
+        command.SetTag(TelemetryTags.SubscriptionId, "subscription-test");
+
+        var exitCode = await Program.StopRootThenFallbackAsync(
+            command, true,
+            context => harness.InvokeAsync(["vm", "show"], ErrorText, context,
+                runAgent: startInfo =>
+                {
+                    Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
+                        key => startInfo.Environment.TryGetValue(key, out var value) ? value : null,
+                        out var launched, out _, out _));
+                    Assert.NotNull(launched);
+                    Assert.Equal(boundary, launched.DataBoundary);
+                    Assert.Equal("tenant-test", launched.TenantId);
+                    Assert.Equal("subscription-test", launched.SubscriptionId);
+                    return Task.FromResult(0);
+                }));
+
+        Assert.Equal(1, exitCode);
+        var recovery = Assert.Single(harness.Exported, item => item.Name == "CLI.Activity.AiRecovery");
+        Assert.Equal(command.TraceId, recovery.TraceId);
+        Assert.Equal(command.SpanId, recovery.ParentSpanId);
+        var tags = AssertPersistedCliRecord(harness, "CLI.Activity.AiRecovery", "vm show", boundary);
+        Assert.Equal("tenant-test", StringTag(tags, TelemetryTags.TenantId));
+        Assert.Equal("subscription-test", StringTag(tags, TelemetryTags.SubscriptionId));
+        Assert.Equal("tenant-test", harness.ReadLastPersistedRecord().GetProperty("TenantId").GetString());
+    }
+
+    [Fact]
+    public async Task RecoverySpan_IsACommandChild_AndPassesItsContextToAgent()
+    {
+        using var harness = new Harness();
+        harness.Options.Enabled = true;
+        var context = new TelemetryInvocationContext(
+            Guid.NewGuid().ToString("N"),
+            true,
+            "11111111111111111111111111111111",
+            "2222222222222222",
+            "vm show",
+            CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
+        TelemetryInvocationContext? launchedContext = null;
+
+        var exitCode = await Program.TryAgentFallbackAsync(
+            () => harness.Options,
+            harness.Telemetry,
+            ["vm", "show"],
+            ErrorText,
+            context,
+            runAgent: startInfo =>
+            {
+                Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
+                    key => startInfo.Environment.TryGetValue(key, out var value) ? value : null,
+                    out launchedContext, out _, out var diagnostic));
+                Assert.Null(diagnostic);
+                return Task.FromResult(0);
+            },
+            findAgent: () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
+
+        Assert.Equal(1, exitCode);
+        var recovery = Assert.Single(harness.Exported);
+        Assert.Equal("CLI.Activity.AiRecovery", recovery.Name);
+        Assert.Equal(ActivityTraceId.CreateFromString(context.CommandTraceId.AsSpan()), recovery.TraceId);
+        Assert.Equal(ActivitySpanId.CreateFromString(context.CommandSpanId.AsSpan()), recovery.ParentSpanId);
+        Assert.NotNull(launchedContext);
+        Assert.True(launchedContext.TryGetRecoveryParentContext(out var sessionParent));
+        Assert.Equal(recovery.TraceId, sessionParent.TraceId);
+        Assert.Equal(recovery.SpanId, sessionParent.SpanId);
+    }
+
+    [Fact]
     public async Task DisabledFallback_EmitsSeparateRoot_WithInstallationIdAndCommandCorrelation()
     {
         using var harness = new Harness();
@@ -50,9 +171,9 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(TelemetryPropertyResolver.InstallationId,
             skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId));
         Assert.False(string.IsNullOrEmpty(skipped.Tags.GetValueOrDefault(TelemetryTags.InstallationId) as string));
-        Assert.Equal("Agent", skipped.Tags.GetValueOrDefault(TelemetryTags.ClientType));
-        Assert.Equal("Agent", skipped.Tags.GetValueOrDefault(TelemetryLayerTags.ServiceName));
-        Assert.Equal("agent-v1", skipped.Tags.GetValueOrDefault(TelemetryLayerTags.Schema));
+        Assert.Equal("CLI", skipped.Tags.GetValueOrDefault(TelemetryTags.ClientType));
+        Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
+        Assert.False(skipped.Tags.ContainsKey(TelemetryLayerTags.Schema));
         Assert.Equal("CLI.Activity.AiRecoverySkipped", skipped.Tags.GetValueOrDefault(TelemetryTags.EventName));
         Assert.Equal(ActivityStatusCode.Unset, skipped.Status);
         Assert.Null(skipped.StatusDescription);
@@ -62,7 +183,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
             (text.Contains(SensitiveValue, StringComparison.Ordinal) ||
              text.Contains(ErrorText, StringComparison.Ordinal)));
-        var persisted = AssertPublishedAgentRecord(
+        var persisted = AssertPersistedCliRecord(
             harness, "CLI.Activity.AiRecoverySkipped", "profile show", "EU");
         Assert.Equal(command.TraceId.ToString(), StringTag(persisted, TelemetryTags.CommandTraceId));
         Assert.Equal(command.SpanId.ToString(), StringTag(persisted, TelemetryTags.CommandSpanId));
@@ -98,7 +219,7 @@ public class AgentFallbackSkipTelemetryTests
         Assert.False(skipped.Tags.ContainsKey(TelemetryTags.CommandSpanId));
         Assert.DoesNotContain(skipped.Tags.Values, value => value is string text &&
             text.Contains(SensitiveValue, StringComparison.Ordinal));
-        var persisted = AssertPublishedAgentRecord(
+        var persisted = AssertPersistedCliRecord(
             harness, "CLI.Activity.AiRecoverySkipped", expectedCommand, "Global");
         Assert.False(persisted.ContainsKey(TelemetryTags.CommandTraceId));
         Assert.False(persisted.ContainsKey(TelemetryTags.CommandSpanId));
@@ -113,7 +234,8 @@ public class AgentFallbackSkipTelemetryTests
         using var harness = new Harness();
         harness.Options.Enabled = true;
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
-            "11111111111111111111111111111111", "2222222222222222", DataBoundary: "EU");
+            "11111111111111111111111111111111", "2222222222222222", DataBoundary: "EU",
+            CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
         TelemetryInvocationContext? childContext = null;
 
         var exitCode = await harness.InvokeAsync(args, ErrorText, context, runAgent: startInfo =>
@@ -127,7 +249,7 @@ public class AgentFallbackSkipTelemetryTests
 
         Assert.Equal(1, exitCode);
         Assert.NotNull(childContext);
-        var persisted = AssertPublishedAgentRecord(
+        var persisted = AssertPersistedCliRecord(
             harness, "CLI.Activity.AiRecovery", expectedCommand, "EU");
         Assert.Equal(expectedCommand, string.IsNullOrEmpty(childContext.Command) ? null : childContext.Command);
         Assert.Equal(context.InvocationId, childContext.InvocationId);
@@ -140,7 +262,7 @@ public class AgentFallbackSkipTelemetryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task EmptyResolvedCommand_IsFilledBeforeTheScopeSnapshot(bool enabled)
+    public async Task EmptyResolvedCommand_IsFilledBeforeRecording(bool enabled)
     {
         using var harness = new Harness();
         harness.Options.Enabled = enabled;
@@ -151,7 +273,7 @@ public class AgentFallbackSkipTelemetryTests
             ["__unknown_group__", "--name", SensitiveValue], ErrorText, context, runAgent: runner);
 
         Assert.Equal(1, exitCode);
-        var persisted = AssertPublishedAgentRecord(harness,
+        var persisted = AssertPersistedCliRecord(harness,
             enabled ? "CLI.Activity.AiRecovery" : "CLI.Activity.AiRecoverySkipped",
             "__unknown_group__", "Global");
         Assert.Equal(context.InvocationId, StringTag(persisted, TelemetryLayerTags.InvocationId));
@@ -224,7 +346,9 @@ public class AgentFallbackSkipTelemetryTests
         using var harness = new Harness();
         harness.Options.Enabled = true;
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
-            "11111111111111111111111111111111", "2222222222222222", "vm show", DataBoundary: "EU");
+            "11111111111111111111111111111111", "2222222222222222", "vm show", DataBoundary: "EU",
+            CommandTraceParent: "00-11111111111111111111111111111111-2222222222222222-01");
+        TelemetryInvocationContext? childContext = null;
         var launched = false;
 
         var result = await harness.InvokeAsync(["vm", "show"], ErrorText, context, runAgent: startInfo =>
@@ -232,8 +356,7 @@ public class AgentFallbackSkipTelemetryTests
             launched = true;
             Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
                 key => startInfo.Environment.TryGetValue(key, out var value) ? value : null,
-                out var childContext, out var fileId, out var diagnostic));
-            Assert.Equal(context, childContext);
+                out childContext, out var fileId, out var diagnostic));
             Assert.Equal(context.InvocationId, fileId);
             Assert.Null(diagnostic);
             Assert.False(startInfo.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
@@ -244,12 +367,17 @@ public class AgentFallbackSkipTelemetryTests
         Assert.Equal(expectedCommandExitCode, result);
         var recovery = Assert.Single(harness.Exported);
         Assert.Equal("CLI.Activity.AiRecovery", recovery.Name);
+        Assert.Equal(ActivityTraceId.CreateFromString(context.CommandTraceId!.AsSpan()), recovery.TraceId);
+        Assert.Equal(ActivitySpanId.CreateFromString(context.CommandSpanId!.AsSpan()), recovery.ParentSpanId);
+        Assert.NotNull(childContext);
+        Assert.True(childContext.TryGetRecoveryParentContext(out var agentSessionParent));
+        Assert.Equal(recovery.TraceId, agentSessionParent.TraceId);
+        Assert.Equal(recovery.SpanId, agentSessionParent.SpanId);
         Assert.Equal(agentExitCode, recovery.Tags[TelemetryTags.RecoveryExitCode]);
-        Assert.Equal("Agent", recovery.Tags[TelemetryLayerTags.ServiceName]);
+        Assert.False(recovery.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
         Assert.Equal("EU", recovery.Tags[TelemetryTags.DataBoundary]);
         Assert.Equal(context.InvocationId, recovery.Tags[TelemetryLayerTags.InvocationId]);
-        Assert.Equal(default, recovery.ParentSpanId);
-        var persisted = AssertPublishedAgentRecord(
+        var persisted = AssertPersistedCliRecord(
             harness, "CLI.Activity.AiRecovery", "vm show", "EU");
         Assert.Equal(context.CommandTraceId, StringTag(persisted, TelemetryTags.CommandTraceId));
         Assert.Equal(context.CommandSpanId, StringTag(persisted, TelemetryTags.CommandSpanId));
@@ -258,7 +386,7 @@ public class AgentFallbackSkipTelemetryTests
     }
 
     [Fact]
-    public async Task SpawnFailure_StillEndsTheAgentInvocationRecord()
+    public async Task SpawnFailure_StillEndsTheCliRecoveryRecord()
     {
         using var harness = new Harness();
         harness.Options.Enabled = true;
@@ -271,21 +399,20 @@ public class AgentFallbackSkipTelemetryTests
         var record = Assert.Single(harness.Exported);
         Assert.Equal("CLI.Activity.AiRecovery", record.Name);
         Assert.Equal(ActivityStatusCode.Error, record.Status);
-        Assert.Equal("Agent", record.Tags[TelemetryLayerTags.ServiceName]);
+        Assert.False(record.Tags.ContainsKey(TelemetryLayerTags.ServiceName));
     }
 
-    private static Dictionary<string, JsonElement> AssertPublishedAgentRecord(
+    private static Dictionary<string, JsonElement> AssertPersistedCliRecord(
         Harness harness, string expectedName, string? expectedCommand, string expectedBoundary)
     {
-        var record = harness.ReadSinglePublishedRecord();
+        var record = harness.ReadLastPersistedRecord();
         Assert.Equal(expectedName, record.GetProperty("OperationName").GetString());
-        Assert.Equal(string.Empty, record.GetProperty("ParentSpanId").GetString());
-        Assert.Equal("Agent", record.GetProperty("Resource").GetProperty("service.name").GetString());
+        Assert.Equal(harness.SourceName, record.GetProperty("Resource").GetProperty("service.name").GetString());
         Assert.Equal(expectedBoundary, record.GetProperty("DataBoundary").GetString());
         var tags = record.GetProperty("Tags").EnumerateArray()
             .ToDictionary(tag => tag.GetProperty("Key").GetString()!, tag => tag.GetProperty("Value").Clone());
-        Assert.Equal("Agent", StringTag(tags, TelemetryLayerTags.ServiceName));
-        Assert.Equal("agent-v1", StringTag(tags, TelemetryLayerTags.Schema));
+        Assert.False(tags.ContainsKey(TelemetryLayerTags.ServiceName));
+        Assert.False(tags.ContainsKey(TelemetryLayerTags.Schema));
         Assert.Equal(expectedBoundary, StringTag(tags, TelemetryTags.DataBoundary));
         Assert.Equal(expectedCommand, StringTag(tags, TelemetryTags.Command));
         if (expectedCommand is null)
@@ -301,43 +428,32 @@ public class AgentFallbackSkipTelemetryTests
         tags.TryGetValue(key, out var value) ? value.GetString() : null;
 
     private sealed record ExportedActivity(
-        string Name, ActivityTraceId TraceId, ActivitySpanId ParentSpanId,
+        string Name, ActivityTraceId TraceId, ActivitySpanId SpanId, ActivitySpanId ParentSpanId,
         ActivityStatusCode Status, string? StatusDescription,
         Dictionary<string, object?> Tags, ActivityEvent[] Events);
 
     private sealed class Harness : IDisposable
     {
         private readonly TestTelemetryProvider _provider;
-        private readonly ActivityListener _agentListener;
-        private readonly TelemetryLayerScopeFactory _factory;
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "cli-agent-layer-" + Guid.NewGuid().ToString("N"));
+        private readonly string _directory;
         private readonly bool _enabled;
 
         public AgentOptions Options { get; } = new() { Enabled = false, SessionStyle = "oneshot" };
         public List<ExportedActivity> Exported { get; } = [];
         public TelemetryService Telemetry { get; }
+        public string SourceName => _provider.ActivitySource.Name;
 
-        public Harness(bool telemetryEnabled = true)
+        public Harness(bool telemetryEnabled = true, string? traceDirectory = null)
         {
+            _directory = traceDirectory ??
+                Path.Combine(Path.GetTempPath(), "cli-recovery-" + Guid.NewGuid().ToString("N"));
             var configuration = new Mock<IConfigurationService>();
             configuration.Setup(config => config.GetConfiguration<TelemetryOptions>(
                     It.IsAny<string?>(), It.IsAny<TelemetryOptions?>()))
                 .Returns(new TelemetryOptions { Enabled = telemetryEnabled });
-            _provider = new TestTelemetryProvider(Exported);
+            _provider = new TestTelemetryProvider(Exported, new TraceDirectory(_directory));
             Telemetry = new TelemetryService(_provider, configuration.Object, ClientType.CLI);
             _enabled = telemetryEnabled;
-            _factory = new TelemetryLayerScopeFactory(new TraceDirectory(_directory), configuration.Object);
-            _agentListener = new ActivityListener
-            {
-                ShouldListenTo = source => source.Name == "Agent",
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-                SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
-                ActivityStopped = activity => Exported.Add(new ExportedActivity(
-                    activity.OperationName, activity.TraceId, activity.ParentSpanId, activity.Status,
-                    activity.StatusDescription, activity.TagObjects.ToDictionary(tag => tag.Key, tag => tag.Value),
-                    activity.Events.ToArray())),
-            };
-            ActivitySource.AddActivityListener(_agentListener);
         }
 
         public async Task<int> InvokeAsync(
@@ -349,16 +465,19 @@ public class AgentFallbackSkipTelemetryTests
         {
             context ??= new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), _enabled);
             return await Program.TryAgentFallbackAsync(
-                _factory, getOptions ?? (() => Options), args, errorText, context,
+                getOptions ?? (() => Options), Telemetry, args, errorText, context,
                 runAgent, runAgent is null ? null : () => Path.Combine(AppContext.BaseDirectory, "fake-agent.exe"));
         }
 
-        public JsonElement ReadSinglePublishedRecord()
+        public JsonElement ReadLastPersistedRecord()
         {
             Assert.True(Directory.Exists(_directory));
-            var file = Assert.Single(Directory.GetFiles(_directory, "traces-agent-*.log"));
+            var file = Assert.Single(Directory.GetFiles(_directory, "traces-*.log"));
+            Assert.DoesNotContain("traces-agent-", Path.GetFileName(file), StringComparison.Ordinal);
             var content = File.ReadAllText(file);
-            var arrayStart = content.IndexOf('[');
+            var batchStart = content.LastIndexOf("--- Batch at ", StringComparison.Ordinal);
+            Assert.True(batchStart >= 0);
+            var arrayStart = content.IndexOf('[', batchStart);
             Assert.InRange(arrayStart, 0, content.Length - 1);
             using var batch = JsonDocument.Parse(content[arrayStart..]);
             return Assert.Single(batch.RootElement.EnumerateArray()).Clone();
@@ -368,7 +487,6 @@ public class AgentFallbackSkipTelemetryTests
         {
             Telemetry.Dispose();
             _provider.ActivitySource.Dispose();
-            _agentListener.Dispose();
             if (Directory.Exists(_directory))
                 Directory.Delete(_directory, recursive: true);
         }
@@ -381,15 +499,16 @@ public class AgentFallbackSkipTelemetryTests
 
     private sealed class TestTelemetryProvider : DefaultTelemetryProvider
     {
-        public TestTelemetryProvider(List<ExportedActivity> exported)
+        public TestTelemetryProvider(List<ExportedActivity> exported, ITraceDirectoryProvider directory)
         {
             ActivitySource = new ActivitySource("cli-skip-test-" + Guid.NewGuid().ToString("N"));
-            TracerProvider = Sdk.CreateTracerProviderBuilder()
+            var builder = Sdk.CreateTracerProviderBuilder()
                 .AddSource(ActivitySource.Name)
                 .AddProcessor(new DefaultActivityNameFilterProcessor(new DefaultTelemetryActivityNameFilter()))
                 .AddProcessor(new DefaultTelemetryPropertyFilterProcessor(new DefaultTelemetryPropertyFilter()))
-                .AddProcessor(new SimpleActivityExportProcessor(new SnapshotExporter(exported)))
-                .Build()!;
+                .AddProcessor(new SimpleActivityExportProcessor(new SnapshotExporter(exported)));
+            new FileTelemetrySender(directory).ConfigureExporter(builder);
+            TracerProvider = builder.Build()!;
         }
     }
 
@@ -400,7 +519,7 @@ public class AgentFallbackSkipTelemetryTests
             foreach (var activity in batch)
             {
                 exported.Add(new ExportedActivity(
-                    activity.OperationName, activity.TraceId, activity.ParentSpanId,
+                    activity.OperationName, activity.TraceId, activity.SpanId, activity.ParentSpanId,
                     activity.Status, activity.StatusDescription,
                     activity.TagObjects.ToDictionary(tag => tag.Key, tag => tag.Value),
                     activity.Events.ToArray()));

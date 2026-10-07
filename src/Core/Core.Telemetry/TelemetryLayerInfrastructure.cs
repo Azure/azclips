@@ -21,12 +21,12 @@ public enum TelemetryLayerState
     Published,
 }
 
-internal sealed class TelemetryLayerBudget(TimeProvider timeProvider, TimeSpan duration)
+public sealed class TelemetryLayerBudget(TimeProvider timeProvider, TimeSpan duration)
 {
     internal static readonly TimeSpan SchedulingTolerance = TimeSpan.FromMilliseconds(1);
     private readonly long _started = timeProvider.GetTimestamp();
 
-    internal TimeSpan Remaining
+    public TimeSpan Remaining
     {
         get
         {
@@ -35,7 +35,7 @@ internal sealed class TelemetryLayerBudget(TimeProvider timeProvider, TimeSpan d
         }
     }
 
-    internal async Task<bool> ObserveAsync(Task task)
+    public async Task<bool> ObserveAsync(Task task)
     {
         if (task.IsCompleted)
         {

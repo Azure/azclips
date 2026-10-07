@@ -68,12 +68,7 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
     {
         var completion = scope.CompleteAsync(root);
         if (!completion.IsCompleted)
-        {
-            Clock.Advance(LayerTelemetryScope.ProducerDrainBudget);
-            await scope.WaitForStateAsync(TelemetryLayerState.Fenced).WaitAsync(TestTimeout);
-            if (!completion.IsCompleted)
-                Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
-        }
+            Clock.Advance(LayerTelemetryScope.FileCompletionBudget);
         await completion.WaitAsync(TestTimeout);
         await scope.ProviderDisposalCompletion.WaitAsync(TestTimeout);
     }
