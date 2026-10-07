@@ -23,7 +23,7 @@
  * peak memory on a large spec.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
 import {
   idKey,
   indexIR,

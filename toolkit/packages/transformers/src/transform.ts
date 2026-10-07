@@ -1,26 +1,31 @@
 /**
- * Transform stage: one IR -> IR step in the compiler's stage sequence.
+ * The transform contract: one IR -> IR step in the compiler's stage sequence.
  *
- * A step has no say in where it runs. The compiler's `STAGE_CATALOG` declares
- * its id, its position, and whether it is on by default; a host only supplies
- * the implementation behind the id via `CompileOptions.registry`. There is no
- * host-authored pipeline object — the catalog is the pipeline.
+ * Defined next to the steps, so this package depends only on the IR. The compiler
+ * depends on this package: its `STAGE_CATALOG` declares each step's id, position
+ * and default, it maps each id to the step implementing it, and it builds the
+ * context handed to the step. A step has no say in where it runs.
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { CompileConfig, CompilerDiagnostic } from "./types.js";
 
-/** Per-run services handed to every step. */
+/** Per-run services the compiler hands every step. */
 export interface TransformContext {
-  /** Record a diagnostic without throwing; collected into the final result. */
-  reportDiagnostic(diagnostic: CompilerDiagnostic): void;
+  /**
+   * Record a diagnostic without throwing; the compiler collects it into the run's
+   * result.
+   *
+   * A function-typed property rather than a method, so the reporter the compiler
+   * passes in is checked contravariantly against this shape: the compiler stops
+   * building if its diagnostic type no longer accepts what a step reports.
+   */
+  readonly reportDiagnostic: (diagnostic: {
+    severity: "error" | "warning";
+    code: string;
+    message: string;
+  }) => void;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
-  /**
-   * App-resolved compile configuration (`CompileInput.config`); `{}` if none.
-   * Per-stage options arrive through the step's factory, not from here.
-   */
-  readonly config: CompileConfig;
 }
 
 /**
