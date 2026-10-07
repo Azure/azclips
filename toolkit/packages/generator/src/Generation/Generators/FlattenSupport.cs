@@ -9,41 +9,39 @@ namespace Ace.Generator.Generators;
 /// </summary>
 /// <remarks>
 /// The transform already resolved naming and collisions, so nothing here re-derives a
-/// name: this only resolves a member's <see cref="IRId"/> path back to the properties it
-/// walks, and renders the access chain. The IR keeps wire truth on the properties
-/// themselves, so a flattened member is always <c>[JsonIgnore]</c> sugar over the real
-/// nested graph — never a replacement for it.
+/// name: this only resolves a member's property, and the containers it is reached through,
+/// back to the properties they name, and renders the access chain. The IR keeps wire truth
+/// on the properties themselves, so a flattened member is always <c>[JsonIgnore]</c> sugar
+/// over the real nested graph — never a replacement for it.
 /// </remarks>
 internal static class FlattenSupport
 {
     /// <summary>
-    /// Resolve a flattening path to the properties it walks, or <c>null</c> when a hop is
-    /// unknown or cannot be walked (only a named model can sit between the root and the leaf).
+    /// Resolve a property reference to the properties it walks — each container in
+    /// <paramref name="via"/>, outermost first, then <paramref name="property"/> itself — or
+    /// <c>null</c> when one is unknown or a container cannot be walked (only a named model can
+    /// be materialized on the way to the property).
     /// </summary>
-    public static IRProperty[]? ResolvePath(IReadOnlyList<IRId>? path, IrIndex index)
+    public static IRProperty[]? ResolveHops(IRId? property, IReadOnlyList<IRId>? via, IrIndex index)
     {
-        if (path is null || path.Count == 0)
+        if (property is null || index.Property(property) is not { } leaf)
         {
             return null;
         }
 
-        var hops = new IRProperty[path.Count];
-        for (int i = 0; i < path.Count; i++)
+        via ??= [];
+        var hops = new IRProperty[via.Count + 1];
+        for (int i = 0; i < via.Count; i++)
         {
-            if (index.Property(path[i]) is not { } hop)
+            if (index.Property(via[i]) is not IRPropertyObject { Type: IRTypeRefModel } container)
             {
                 return null;
             }
 
-            // Every hop before the leaf must be a materializable model instance.
-            if (i < path.Count - 1 && hop is not IRPropertyObject { Type: IRTypeRefModel })
-            {
-                return null;
-            }
-
-            hops[i] = hop;
+            hops[i] = container;
         }
 
+        hops[^1] = leaf;
         return hops;
     }
 

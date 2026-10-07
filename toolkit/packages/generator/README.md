@@ -121,8 +121,18 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> --generator csharp --root-namespace <ns> --out-dir <dir>
+ace compile --tsp-location <spec> [--entrypoint <path>] --generator csharp --root-namespace <ns> --out-dir <dir>
 ```
+
+`--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
+its containing directory). `--entrypoint` selects the `.tsp` file or directory to
+compile inside that copy — absolute, or relative to the copied directory — and
+defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
+import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
+the copied directory.
+
+> **Temporary:** `--entrypoint` is a stopgap. A compiler configuration, now being
+> designed, will replace parameterized entrypoints.
 
 ## IR POCOs (single source of truth)
 
@@ -183,12 +193,15 @@ to rendered clients. Existing LRO hooks and response-body next-link selectors
 consume the new types; unsupported or ambiguous paging bindings are diagnosed.
 LRO rendering still takes precedence when both traits are present.
 
-### Flattening metadata (IR 0.12.0)
+### Flattening metadata (IR 0.12.0, reshaped in 0.13.0)
 
 `ModelHints.Flattened` and `RequestBodyHints.Parameters` carry resolved property
-flattening — `FlattenedMember` (name, id `Path`, `Optional`, intersected
-`Visibility`) and `FlattenedParameter` (name, id `Path`, `Required`). Both are
-optional, so older captures still deserialize and emit exactly as before.
+flattening — `FlattenedMember` (name, leaf `Property` id plus the `Via` container
+ids that reach it, `Optional`, intersected `Visibility`) and `FlattenedParameter`
+(name, `Property` + `Via`, `Required`). Both are optional, so captures predating
+0.12.0 still deserialize and emit exactly as before. 0.13.0 replaced each id `Path`
+with `Property` + `Via` — the `IRPropertyRef` shape that command pagination's
+`Items`/`NextLink` share — so regenerate any 0.12.0 capture that carries them.
 
 Because `ModelHints` now has a member the other `CommonHints` aliases lack, it is
 structurally distinct and `IRModel.Rendering` resolves to `ModelHints` instead of
@@ -317,14 +330,15 @@ internal ElasticSan? Body { get; set; }
 public long? BaseSizeTiB { get => Body?.BaseSizeTiB; set => (Body ??= new ElasticSan()).BaseSizeTiB = value ?? default; }
 ```
 
-If no flat member resolves (an unresolvable path warns and skips), `Body` stays
+If no flat member resolves (an unresolvable reference warns and skips), `Body` stays
 public — otherwise the operation would have no way to send a payload at all.
 
-Each delegates to the **model's** member rather than re-walking the path, so the
+Each delegates to the **model's** member rather than re-walking the containers, so the
 model stays the single place that knows how to read and materialize the graph. The
-target is resolved *by id path*, never by name — the transform resolves body
-parameter names against the operation's own path/query/header parameters, so a
-parameter can legitimately be named differently from the member it feeds.
+target is resolved *by id* (its `Property` plus its `Via` containers), never by name:
+the transform resolves body parameter names against the operation's own
+path/query/header parameters, so a parameter can legitimately be named differently
+from the member it feeds.
 
 **Narrowing caveat.** Reading through `Body?` or an optional hop always produces a
 nullable value, so an accessor over a *non-nullable* leaf is widened. Assigning it
@@ -333,7 +347,7 @@ type falls back to `value ?? default` — so setting null writes `0`/`default` r
 than throwing. Required-parameter validation (`[ArgumentInfo]`) is still deferred,
 so nothing yet rejects the unset case.
 
-An unresolvable path reports `ace-generator/unresolved-flattened-path` (or
+A reference that does not resolve reports `ace-generator/unresolved-flattened-path` (or
 `…/unresolved-flattened-parameter`) and skips only that member; the nested
 properties and the rest of the type are emitted normally.
 
@@ -412,7 +426,7 @@ success response (or `object`). Long-running operations also emit the four
 final-state/polling hook overrides — mapped **strictly** from IR `finalStateVia`
 (`location` → the `Location` header; otherwise the base re-GETs the original URI) —
 and `SendAsync() => SendAsyncLRO()`. Pageable operations emit the pagination wiring
-(`pageItems`/`nextLink` selectors from IR `itemsPath`/`nextLinkPath` + a
+(`pageItems`/`nextLink` selectors from the IR's `items`/`nextLink` property references + a
 `BeforeWriteOutputAsyncAndReturn` override handing them to the runtime
 `WriteOutputWithPaginationAsync` helper). Spec-vs-reality deviations are handled by
 customization on top of the generated (`partial`) processor, never by the generator.

@@ -10,7 +10,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -87,6 +87,72 @@ describe("stageLocalProject", () => {
 
     // The source keeps its own (stale) node_modules; staging copied, not moved.
     expect(existsSync(join(sourceDir, "node_modules", "junk.txt"))).toBe(true);
+  });
+});
+
+describe("stageLocalProject: entrypoint", () => {
+  it("stages the whole --tsp-location tree and points at the entrypoint inside it", async () => {
+    const staged = await stageLocalProject(sourceDir, outRoot, join("sub", "extra.tsp"));
+
+    expect(staged.entrypoint).toBe(join(staged.root, "sub", "extra.tsp"));
+    expect(existsSync(staged.entrypoint)).toBe(true);
+    // The copy is rooted at --tsp-location, not at the entrypoint's directory.
+    expect(existsSync(join(staged.root, "main.tsp"))).toBe(true);
+  });
+
+  it("accepts an absolute entrypoint, including a directory", async () => {
+    const staged = await stageLocalProject(sourceDir, outRoot, join(sourceDir, "sub"));
+
+    expect(staged.entrypoint).toBe(join(staged.root, "sub"));
+  });
+
+  it("resolves a relative entrypoint against a file --tsp-location's directory", async () => {
+    const staged = await stageLocalProject(
+      join(sourceDir, "main.tsp"),
+      outRoot,
+      join("sub", "extra.tsp"),
+    );
+
+    expect(staged.entrypoint).toBe(join(staged.root, "sub", "extra.tsp"));
+  });
+
+  it("rejects an invalid entrypoint before touching <out>/source", async () => {
+    // A prior run's staged copy, which staging would wipe first.
+    const prior = join(outRoot, "source", "prior.tsp");
+    mkdirSync(dirname(prior), { recursive: true });
+    writeFileSync(prior, "// prior\n", "utf8");
+    const sub = join(sourceDir, "sub");
+
+    // Outside --tsp-location, relative or absolute...
+    await expect(stageLocalProject(sub, outRoot, join("..", "main.tsp"))).rejects.toThrow(
+      /--entrypoint/,
+    );
+    await expect(stageLocalProject(sub, outRoot, outRoot)).rejects.toThrow(/--entrypoint/);
+    // ...missing, or inside a directory staging does not copy.
+    await expect(stageLocalProject(sourceDir, outRoot, "missing.tsp")).rejects.toThrow(
+      /--entrypoint/,
+    );
+    await expect(
+      stageLocalProject(sourceDir, outRoot, join("node_modules", "junk.txt")),
+    ).rejects.toThrow(/--entrypoint/);
+
+    expect(existsSync(prior)).toBe(true);
+  });
+
+  it("rejects an --out-dir whose staging root overlaps --tsp-location, deleting nothing", async () => {
+    // <out>/source inside the copied tree: the copy would recurse into itself.
+    const userFile = join(sourceDir, "source", "user.tsp");
+    mkdirSync(dirname(userFile), { recursive: true });
+    writeFileSync(userFile, "// user\n", "utf8");
+    await expect(stageLocalProject(sourceDir, sourceDir)).rejects.toThrow(/--out-dir/);
+    expect(existsSync(userFile)).toBe(true);
+
+    // A spec inside <out>/source: the staging wipe would delete it.
+    const nested = join(outRoot, "source", "spec");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, "main.tsp"), "// nested\n", "utf8");
+    await expect(stageLocalProject(nested, outRoot)).rejects.toThrow(/--out-dir/);
+    expect(existsSync(join(nested, "main.tsp"))).toBe(true);
   });
 });
 
