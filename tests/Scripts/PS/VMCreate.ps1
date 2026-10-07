@@ -1,14 +1,18 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 #
-# Smoke test for New-AzVM's public IP workflows through the built Compute module.
+# Smoke test for New-AzVM's public IP and network security group workflows through
+# the built Compute module.
 #
 # Creates four VMs in one resource group, one per public IP mode, and checks the
 # detail fields New-AzVM returns:
-#   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set
+#   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set;
+#                                                     creates <vm>NSG with only the rdp rule
 #   2. New-AzVM -PublicIpAddressName <new name>    -> creates that public IP; PublicIps is set
-#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
-#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty
+#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set;
+#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
+#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
+#               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
 #                                                     anything is created
 #   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
@@ -19,6 +23,13 @@
 # Case 3 pre-creates its public IP through Invoke-AzRestMethod, then verifies
 # New-AzVM attaches that resource without replacing its tags.
 #
+# Before case 1 the script pre-creates an NSG through Invoke-AzRestMethod, with its
+# own tag and one rule, smoke-allow-https. The NSG checks read the VM's NIC and the
+# NSG back through Invoke-AzRestMethod: the NIC must reference the expected NSG, and
+# the NSG must hold exactly one rule: rdp for case 1's default <vm>NSG, and
+# smoke-allow-https, with the tag intact, for the NSG that cases 3 and 4 attach.
+# Every other VM gets its own default <vm>NSG.
+#
 # Prereqs: build the solution with dotnet build, then import the modules:
 #     Import-Module ./src/PS/Accounts/Accounts.psd1
 #     Import-Module ./src/PS/Resources/Resources.psd1
@@ -28,9 +39,10 @@
 #
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
 # created is deleted with Remove-AzResourceGroup, which removes the VMs, public IPs,
-# NICs, VNets and NSGs with it, including the pre-created public IP. A group named
-# through $env:AZCLIPS_RESOURCE_GROUP may already hold other resources, so the script
-# only removes its VMs there and leaves the public IPs and network resources to you.
+# NICs, VNets and NSGs with it, including the pre-created public IP and NSG. A group
+# named through $env:AZCLIPS_RESOURCE_GROUP may already hold other resources, so the
+# script only removes its VMs there and leaves the public IPs and network resources,
+# including the pre-created NSG, to you.
 #
 # Usage: ./tests/Scripts/PS/VMCreate.ps1
 
@@ -60,6 +72,13 @@ $missingVm         = "vmc-mis-$suffix"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
 $reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
 $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$suffix"
+$existingNsg       = "azclips-vmcreate-existing-nsg-$suffix"
+$existingNsgId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/$existingNsg"
+$defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/${defaultVm}NSG"
+
+# Rules as name/protocol/source address/source port/destination address/destination port/access/direction/priority; see Format-NsgRule.
+$defaultNsgRule    = 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'
+$existingNsgRule   = 'smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100'
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
 # Az modules (Az.Resources, Az.Compute) export the same cmdlet names and PowerShell
@@ -106,62 +125,64 @@ function Add-Failure([string]$Message)
     $failures.Add($Message)
 }
 
-function Get-PublicIpUrl([string]$Name)
+# ARM URL of a network resource in this script's resource group, e.g. -Type publicIPAddresses.
+function Get-NetworkUrl([string]$Type, [string]$Name)
 {
-    "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/${Name}?api-version=2025-05-01"
+    "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/$Type/${Name}?api-version=2025-05-01"
 }
 
-function Get-PublicIpByName([string]$Name)
+function Get-NetworkResource([string]$Type, [string]$Name)
 {
-    $response = Invoke-AzRestMethod -Method GET -Uri (Get-PublicIpUrl -Name $Name)
+    $response = Invoke-AzRestMethod -Method GET -Uri (Get-NetworkUrl -Type $Type -Name $Name)
     $response.Content | ConvertFrom-Json
 }
 
-function Wait-PublicIpSucceeded([string]$Label, [string]$Name)
+# Polls a network resource until its provisioningState is Succeeded; $What names it in messages.
+function Wait-ResourceSucceeded([string]$Label, [string]$Type, [string]$Name, [string]$What)
 {
     $lastResult = $null
     for ($attempt = 0; $attempt -lt 24; $attempt++)
     {
         try
         {
-            $publicIp = Get-PublicIpByName -Name $Name
-            $lastResult = $publicIp.properties.provisioningState
+            $resource = Get-NetworkResource -Type $Type -Name $Name
+            $lastResult = $resource.properties.provisioningState
             if ($lastResult -eq 'Succeeded')
             {
-                Write-Host "OK: ${Label}: public IP '$Name' provisioningState is Succeeded"
+                Write-Host "OK: ${Label}: $What provisioningState is Succeeded"
                 return $true
             }
-            Write-Host "== waiting for public IP ${Name}: provisioningState='$lastResult' =="
+            Write-Host "== waiting for ${What}: provisioningState='$lastResult' =="
         }
         catch
         {
             $lastResult = $_.Exception.Message
-            Write-Host "== waiting for public IP ${Name}: GET failed: $lastResult =="
+            Write-Host "== waiting for ${What}: GET failed: $lastResult =="
         }
         Start-Sleep -Seconds 5
     }
 
-    Add-Failure "${Label}: public IP '$Name' did not reach provisioningState Succeeded after about 2 minutes (last result: $lastResult)"
+    Add-Failure "${Label}: $What did not reach provisioningState Succeeded after about 2 minutes (last result: $lastResult)"
     $false
 }
 
-# New-AzVM with per-VM network resource names; $Extra is splatted on top.
+# New-AzVM with per-VM network resource names; $Extra is splatted on top. Unless $Extra
+# sets SecurityGroupName, the VM gets its default <vm>NSG.
 function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
 {
     $parameters = @{
-        SubscriptionId           = $subscriptionId
-        ResourceGroupName        = $resourceGroup
-        Name                     = $Name
-        Location                 = $location
-        VmSize                   = 'Standard_D2s_v3'
-        AdminUsername            = 'Artemis'
-        AdminPassword            = $env:AZCLIPS_VM_ADMIN_PASSWORD
-        NetworkInterfaceName     = "$Name-nic"
-        VirtualNetworkName       = "$Name-vnet"
-        AddressPrefixes          = '10.0.0.0/16'
-        SubnetNames              = "$Name-subnet"
-        SubnetAddressPrefixes    = '10.0.2.0/24'
-        NetworkSecurityGroupName = "$Name-nsg"
+        SubscriptionId        = $subscriptionId
+        ResourceGroupName     = $resourceGroup
+        Name                  = $Name
+        Location              = $location
+        VmSize                = 'Standard_D2s_v3'
+        AdminUsername         = 'Artemis'
+        AdminPassword         = $env:AZCLIPS_VM_ADMIN_PASSWORD
+        NetworkInterfaceName  = "$Name-nic"
+        VirtualNetworkName    = "$Name-vnet"
+        AddressPrefixes       = '10.0.0.0/16'
+        SubnetNames           = "$Name-subnet"
+        SubnetAddressPrefixes = '10.0.2.0/24'
     }
     New-AzVM @parameters @Extra
 }
@@ -170,7 +191,7 @@ function Test-PublicIpResource([string]$Label, [string]$ExpectedName, [string]$E
 {
     try
     {
-        $publicIp = Get-PublicIpByName -Name $ExpectedName
+        $publicIp = Get-NetworkResource -Type 'publicIPAddresses' -Name $ExpectedName
     }
     catch
     {
@@ -219,6 +240,53 @@ function Test-PublicIp([string]$Label, $Vm, [bool]$ExpectPublicIp, [string]$Expe
     }
 }
 
+# A rule as name/protocol/source address/source port/destination address/destination port/access/direction/priority, so whole rules compare as one string.
+function Format-NsgRule($Rule)
+{
+    $p = $Rule.properties
+    "$($Rule.name)/$($p.protocol)/$($p.sourceAddressPrefix)/$($p.sourcePortRange)/$($p.destinationAddressPrefix)/$($p.destinationPortRange)/$($p.access)/$($p.direction)/$($p.priority)"
+}
+
+# The NIC <vm>-nic must reference the NSG $ExpectedId; -ne compares case-insensitively, which
+# matters because ARM can return the resource group in another case. That NSG must hold exactly
+# one rule, equal to $ExpectedRule, and carry the azclips-smoke tag $ExpectedSmokeTag when given.
+function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]$ExpectedRule, [string]$ExpectedSmokeTag = '')
+{
+    $nsgName = ($ExpectedId -split '/')[-1]
+    try
+    {
+        $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "$VmName-nic"
+        $nsg = Get-NetworkResource -Type 'networkSecurityGroups' -Name $nsgName
+    }
+    catch
+    {
+        Add-Failure "${Label}: could not read NIC '$VmName-nic' or NSG '$nsgName': $($_.Exception.Message)"
+        return
+    }
+
+    if ($nic.properties.networkSecurityGroup.id -ne $ExpectedId)
+    {
+        Add-Failure "${Label}: NIC '$VmName-nic' references NSG '$($nic.properties.networkSecurityGroup.id)', expected '$ExpectedId'"
+        return
+    }
+
+    $rules = @($nsg.properties.securityRules | Where-Object { $_ })
+    $actualRule = if ($rules.Count -gt 0) { Format-NsgRule $rules[0] } else { '' }
+    if ($rules.Count -ne 1 -or $actualRule -ne $ExpectedRule)
+    {
+        Add-Failure "${Label}: NSG '$nsgName' has $($rules.Count) rule(s), the first '$actualRule'; expected only '$ExpectedRule'"
+        return
+    }
+
+    if ($ExpectedSmokeTag -and $nsg.tags.'azclips-smoke' -ne $ExpectedSmokeTag)
+    {
+        Add-Failure "${Label}: NSG '$nsgName' azclips-smoke tag '$($nsg.tags.'azclips-smoke')' did not match '$ExpectedSmokeTag'"
+        return
+    }
+
+    Write-Host "OK: ${Label}: NIC '$VmName-nic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
+}
+
 # Guard the cleanup block: each resource is only deleted once it exists.
 $groupCreated = $false
 $createdVms   = [System.Collections.Generic.List[string]]::new()
@@ -232,17 +300,52 @@ try
     New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroup -Location $location
     $groupCreated = $true
 
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP) =="
+    Write-Host "== pre-create NSG $existingNsg (attached by cases 3 and 4) =="
+    $nsgBody = @{
+        location = $location
+        tags = @{ 'azclips-smoke' = 'reuse-nsg' }
+        properties = @{
+            securityRules = @(
+                @{
+                    name = 'smoke-allow-https'
+                    properties = @{
+                        protocol                 = 'Tcp'
+                        sourcePortRange          = '*'
+                        destinationPortRange     = '443'
+                        sourceAddressPrefix      = '*'
+                        destinationAddressPrefix = '*'
+                        access                   = 'Allow'
+                        priority                 = 1100
+                        direction                = 'Inbound'
+                    }
+                }
+            )
+        }
+    }
+    # Without a ready NSG, cases 3 and 4 still run their public IP checks, just without it.
+    $existingNsgReady = $false
+    try
+    {
+        $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'networkSecurityGroups' -Name $existingNsg) -Payload ($nsgBody | ConvertTo-Json -Depth 6 -Compress)
+        $existingNsgReady = Wait-ResourceSucceeded -Label 'existing nsg' -Type 'networkSecurityGroups' -Name $existingNsg -What "NSG '$existingNsg'"
+    }
+    catch
+    {
+        Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
+    }
+
+    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
     $defaultResult = New-SmokeVM -Name $defaultVm
     Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
+    Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
 
     Write-Host "== 2. New-AzVM -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)
     $namedResult = New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }
     Test-PublicIp -Label 'named' -Vm $namedResult -ExpectPublicIp $true -ExpectedPublicIpName $namedPublicIp
 
-    Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp (existing name) =="
+    Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp -SecurityGroupName $existingNsg (existing names) =="
     $body = @{
         location = $location
         sku = @{ name = 'Standard' }
@@ -252,7 +355,7 @@ try
     $reusePublicIpCreated = $false
     try
     {
-        $null = Invoke-AzRestMethod -Method PUT -Uri (Get-PublicIpUrl -Name $reusePublicIp) -Payload ($body | ConvertTo-Json -Depth 5 -Compress)
+        $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'publicIPAddresses' -Name $reusePublicIp) -Payload ($body | ConvertTo-Json -Depth 5 -Compress)
         $reusePublicIpCreated = $true
     }
     catch
@@ -262,11 +365,17 @@ try
 
     if ($reusePublicIpCreated)
     {
-        if (Wait-PublicIpSucceeded -Label 'reuse' -Name $reusePublicIp)
+        if (Wait-ResourceSucceeded -Label 'reuse' -Type 'publicIPAddresses' -Name $reusePublicIp -What "public IP '$reusePublicIp'")
         {
             $createdVms.Add($reuseVm)
-            $reuseResult = New-SmokeVM -Name $reuseVm -Extra @{ PublicIpAddressName = $reusePublicIp }
+            $reuseExtra = @{ PublicIpAddressName = $reusePublicIp }
+            if ($existingNsgReady) { $reuseExtra.SecurityGroupName = $existingNsg }
+            $reuseResult = New-SmokeVM -Name $reuseVm -Extra $reuseExtra
             Test-PublicIp -Label 'reuse' -Vm $reuseResult -ExpectPublicIp $true -ExpectedPublicIpName $reusePublicIp -ExpectedSmokeTag 'reuse'
+            if ($existingNsgReady)
+            {
+                Test-Nsg -Label 'reuse' -VmName $reuseVm -ExpectedId $existingNsgId -ExpectedRule $existingNsgRule -ExpectedSmokeTag 'reuse-nsg'
+            }
         }
         else
         {
@@ -274,9 +383,15 @@ try
         }
     }
 
-    Write-Host "== 4. New-AzVM -PublicIpAddressName '' (no public IP) =="
+    Write-Host "== 4. New-AzVM -PublicIpAddressName '' -SecurityGroupName <existing NSG id> (no public IP, existing NSG) =="
     $createdVms.Add($noneVm)
-    Test-PublicIp -Label 'none' -Vm (New-SmokeVM -Name $noneVm -Extra @{ PublicIpAddressName = '' }) -ExpectPublicIp $false
+    $noneExtra = @{ PublicIpAddressName = '' }
+    if ($existingNsgReady) { $noneExtra.SecurityGroupName = $existingNsgId }
+    Test-PublicIp -Label 'none' -Vm (New-SmokeVM -Name $noneVm -Extra $noneExtra) -ExpectPublicIp $false
+    if ($existingNsgReady)
+    {
+        Test-Nsg -Label 'none' -VmName $noneVm -ExpectedId $existingNsgId -ExpectedRule $existingNsgRule -ExpectedSmokeTag 'reuse-nsg'
+    }
 
     Write-Host "== 5. New-AzVM -PublicIpAddressName <missing resource id> (expect 'was not found') =="
     $createdVms.Add($missingVm)

@@ -119,7 +119,6 @@ public class VmLifecycleScenarioTests
             "--admin-password", Password,
             "--network-interface-name", $"scenario-lifecycle-nic-{suffix}",
             "--virtual-network-name", $"scenario-lifecycle-vnet-{suffix}",
-            "--network-security-group-name", $"scenario-lifecycle-nsg-{suffix}",
             "--subnet-names", "default",
             "--subnet-address-prefixes", "10.0.0.0/24",
             "--address-prefixes", "10.0.0.0/16");
@@ -198,7 +197,6 @@ public class VmLifecycleScenarioTests
         ["AdminPassword"] = Password,
         ["NetworkInterfaceName"] = $"scenario-lifecycle-nic-{suffix}",
         ["VirtualNetworkName"] = $"scenario-lifecycle-vnet-{suffix}",
-        ["NetworkSecurityGroupName"] = $"scenario-lifecycle-nsg-{suffix}",
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
