@@ -10,6 +10,12 @@ namespace Cmdlets.Tests;
 public class ScopedLoggingServiceTests
 {
     [Fact]
+    public void PublicParameterlessConstructor_IsPreserved()
+    {
+        Assert.NotNull(typeof(ScopedLoggingService).GetConstructor(Type.EmptyTypes));
+    }
+
+    [Fact]
     public void Fallback_SuppressesProfileVerboseAtWarn()
     {
         var sink = new RecordingLoggingService();
@@ -62,6 +68,23 @@ public class ScopedLoggingServiceTests
         logger.Error("startup failed");
 
         Assert.Equal(["startup failed"], sink.Errors);
+    }
+
+    [Fact]
+    public void Fallback_UsesWarnWhenConfigurationThrows()
+    {
+        var configuration = new Mock<IConfigurationService>();
+        configuration
+            .Setup(service => service.GetConfiguration<CoreOptions>(null, null))
+            .Throws(new InvalidOperationException("invalid configuration"));
+        var sink = new RecordingLoggingService();
+        var logger = new ScopedLoggingService(configuration.Object, sink);
+
+        logger.Verbose("profile details");
+        logger.Warn("startup warning");
+
+        Assert.Empty(sink.VerboseMessages);
+        Assert.Equal(["startup warning"], sink.Warnings);
     }
 
     private static IConfigurationService Configuration(string level)

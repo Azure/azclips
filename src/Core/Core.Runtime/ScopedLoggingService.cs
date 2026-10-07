@@ -22,7 +22,12 @@ public class ScopedLoggingService : ILoggingService
     private readonly IConfigurationService? _configurationService;
     private readonly ILoggingService _fallback;
 
-    public ScopedLoggingService(IConfigurationService? configurationService = null)
+    public ScopedLoggingService()
+        : this(null, new ConsoleLoggingService())
+    {
+    }
+
+    public ScopedLoggingService(IConfigurationService configurationService)
         : this(configurationService, new ConsoleLoggingService())
     {
     }
@@ -62,9 +67,20 @@ public class ScopedLoggingService : ILoggingService
             return true;
         }
 
-        return ShouldEmit(
-            _configurationService?.GetConfiguration<CoreOptions>().Logging.Level,
-            severity);
+        return ShouldEmit(GetConfiguredFallbackLevel(), severity);
+    }
+
+    private string? GetConfiguredFallbackLevel()
+    {
+        try
+        {
+            return _configurationService?.GetConfiguration<CoreOptions>().Logging.Level;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            // Logging must not mask startup failures; unreadable configuration uses the normal warn default.
+            return null;
+        }
     }
 
     private static bool ShouldEmit(string? configuredLevel, LogSeverity severity)
