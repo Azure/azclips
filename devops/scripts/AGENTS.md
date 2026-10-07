@@ -26,7 +26,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/linux/` | Linux tarball build + test, including offline installation of each runtime-compatible pipeline archive. |
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
 | `packaging/windows/` | Windows zip build + test. |
-| `packaging/powershell/` | PowerShell module packaging/validation. |
+| `packaging/powershell/` | PowerShell module packaging/validation. The bundled installer infers versions from the package matching the requested module name. |
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
