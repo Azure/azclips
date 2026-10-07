@@ -639,3 +639,4 @@ CLAUDE.md
 devops/out/
 devops/sim/
 *scratch*
+testResults.xml

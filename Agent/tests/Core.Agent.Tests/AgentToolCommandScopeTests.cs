@@ -26,70 +26,39 @@ public sealed class AgentToolCommandScopeTests
         string command, string toolName, string boundary)
     {
         using var cli = new AgentTraceCapture(sourceName: "CLI");
-        await using var layer = new AgentLayerTestHarness();
-        using var dependencies = new Dependencies(cli, layer);
+        using var dependencies = new Dependencies(cli);
         var commandName = $"agent tool resource {command}";
-        var inheritedId = Guid.NewGuid().ToString("N");
-        var inheritedInvocation = Guid.NewGuid().ToString("N");
-        var launch = new Dictionary<string, string?>();
-        TelemetryLayerEnvironment.SetAgentLaunch(launch,
-            new TelemetryInvocationContext(inheritedInvocation, true, DataBoundary: boundary == "EU" ? "Global" : "EU"),
-            inheritedId);
-        var saved = launch.Keys.ToDictionary(name => name, Environment.GetEnvironmentVariable);
-        foreach (var (name, value) in launch) Environment.SetEnvironmentVariable(name, value);
-        try
+        string baselineOutput;
+        using (var baselineRoot = cli.Telemetry.StartRootActivity())
         {
-            JsonElement recordedTool = default;
-            string baselineOutput;
-            using (var baselineRoot = cli.Telemetry.StartRootActivity())
-            {
-                TagCommand(baselineRoot!, commandName, boundary);
-                using var processor = cli.Telemetry.StartActivity("ProcessorProcessAsyncStart");
-                using var oldTool = cli.Telemetry.StartActivity(toolName);
-                baselineOutput = await dependencies.InvokeBusinessAsync(command);
-            }
-            var baseline = cli.Stopped.ToArray();
-            cli.Stopped.Clear();
-
-            using (var root = cli.Telemetry.StartRootActivity())
-            {
-                TagCommand(root!, commandName, boundary);
-                dependencies.CommandContext.BindCommand(root);
-                var processor = dependencies.Processor(command);
-
-                await processor.ProcessAsync();
-
-                Assert.Same(root, Activity.Current);
-                Assert.Equal(baselineOutput, Assert.Single(dependencies.Output));
-                var scope = Assert.Single(dependencies.Factory.Scopes);
-                Assert.Equal(root!.TraceId.ToString(), scope.Context.CommandTraceId);
-                Assert.Equal(root.SpanId.ToString(), scope.Context.CommandSpanId);
-                Assert.Equal("invocation-tenant", scope.Context.TenantId);
-                Assert.Equal(boundary, scope.Context.EffectiveDataBoundary);
-                Assert.NotEqual(inheritedInvocation, scope.Context.InvocationId);
-                Assert.DoesNotContain(inheritedId, scope.FileSession.PublishedPath!);
-                var entry = Assert.Single(AgentLayerTestHarness.ReadEntries(scope));
-                recordedTool = entry;
-                var tags = AgentLayerTestHarness.Tags(entry);
-                Assert.Equal(toolName, entry.GetProperty("OperationName").GetString());
-                Assert.Equal("Internal", entry.GetProperty("Kind").GetString());
-                Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("TraceId").GetString());
-                Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
-                Assert.Equal(boundary, entry.GetProperty("DataBoundary").GetString());
-                Assert.False(tags.ContainsKey(TelemetryTags.Parameter));
-            }
-
-            Assert.Equal(RetainedGraph(baseline), RetainedGraph(cli.Stopped.ToArray()));
-            Assert.DoesNotContain(cli.Stopped.SelectMany(activity => activity.TagObjects),
-                tag => tag.Key is TelemetryLayerTags.Schema or TelemetryLayerTags.ServiceName or TelemetryLayerTags.InvocationId);
-            Assert.Equal(0, dependencies.Auth.AcquireCount);
-            Assert.Equal(0, dependencies.HttpGuard.Requests);
-            Assert.Equal("", recordedTool.GetProperty("ParentSpanId").GetString());
+            TagCommand(baselineRoot!, commandName, boundary);
+            using var processor = cli.Telemetry.StartActivity("ProcessorProcessAsyncStart");
+            using var oldTool = cli.Telemetry.StartActivity(toolName);
+            baselineOutput = await dependencies.InvokeBusinessAsync(command);
         }
-        finally
+        var baseline = cli.Stopped.ToArray();
+        cli.Stopped.Clear();
+
+        using (var root = cli.Telemetry.StartRootActivity())
         {
-            foreach (var (name, value) in saved) Environment.SetEnvironmentVariable(name, value);
+            TagCommand(root!, commandName, boundary);
+            var processor = dependencies.Processor(command);
+
+            await processor.ProcessAsync();
+
+            Assert.Same(root, Activity.Current);
+            Assert.Equal(baselineOutput, Assert.Single(dependencies.Output));
+            var stopped = cli.Stopped.ToArray();
+            var tool = Assert.Single(stopped, activity => activity.OperationName == toolName);
+            Assert.Equal(root!.TraceId, tool.TraceId);
+            Assert.DoesNotContain(tool.TagObjects, tag => tag.Key == TelemetryTags.Parameter);
         }
+
+        Assert.Equal(RetainedGraph(baseline), RetainedGraph(cli.Stopped.ToArray()));
+        Assert.DoesNotContain(cli.Stopped.SelectMany(activity => activity.TagObjects),
+            tag => tag.Key is TelemetryLayerTags.Schema or TelemetryLayerTags.ServiceName or TelemetryLayerTags.InvocationId);
+        Assert.Equal(0, dependencies.Auth.AcquireCount);
+        Assert.Equal(0, dependencies.HttpGuard.Requests);
     }
 
     [Theory]
@@ -100,24 +69,14 @@ public sealed class AgentToolCommandScopeTests
     public async Task RealProcessor_ExceptionCompletesItsScopeBeforeFallbackCanStart(string command)
     {
         using var cli = new AgentTraceCapture(sourceName: "CLI");
-        await using var layer = new AgentLayerTestHarness();
-        using var dependencies = new Dependencies(cli, layer) { FailOutput = true };
+        using var dependencies = new Dependencies(cli) { FailOutput = true };
         using var root = cli.Telemetry.StartRootActivity();
         TagCommand(root!, $"agent tool resource {command}", "EU");
-        dependencies.CommandContext.BindCommand(root);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => dependencies.Processor(command).ProcessAsync());
 
         Assert.Equal("offline output failure", error.Message);
-        var completed = Assert.Single(dependencies.Factory.Scopes);
-        Assert.NotNull(completed.FileSession.PublishedPath);
-        await using var fallback = layer.Factory.CreateScope("Agent", dependencies.CommandContext.Capture());
-        using var recoveryScope = fallback.Telemetry.StartIndependentRootActivity("CLI.Activity.AiRecovery");
-        var recovery = recoveryScope?.Activity;
-        Assert.NotNull(recovery);
-        Assert.DoesNotContain("source_already_owned", fallback.Diagnostics);
-        Assert.Equal(TelemetryLayerCompletion.Published, await fallback.CompleteAsync(recovery));
-        Assert.NotEqual(completed.Context.InvocationId, fallback.Context.InvocationId);
+        Assert.Contains(cli.Stopped, activity => activity.OperationName == ToolName(command));
     }
 
     [Theory]
@@ -128,18 +87,14 @@ public sealed class AgentToolCommandScopeTests
     public async Task DisabledToolScope_PreservesOutputWithoutPublishingAFile(string command)
     {
         using var cli = new AgentTraceCapture(sourceName: "CLI");
-        await using var layer = new AgentLayerTestHarness(enabled: false);
-        using var dependencies = new Dependencies(cli, layer);
+        using var dependencies = new Dependencies(cli);
         using var root = cli.Telemetry.StartRootActivity();
-        dependencies.CommandContext.BindCommand(root);
 
         await dependencies.Processor(command).ProcessAsync();
 
         Assert.Single(dependencies.Output);
-        var scope = Assert.Single(dependencies.Factory.Scopes);
-        Assert.False(scope.Context.Enabled);
-        Assert.Null(scope.FileSession.PartialPath);
-        Assert.Null(scope.FileSession.PublishedPath);
+        Assert.DoesNotContain(cli.Stopped.SelectMany(activity => activity.TagObjects),
+            tag => tag.Key is TelemetryLayerTags.Schema or TelemetryLayerTags.ServiceName or TelemetryLayerTags.InvocationId);
     }
 
     private static void TagCommand(Activity root, string name, string boundary)
@@ -164,18 +119,13 @@ public sealed class AgentToolCommandScopeTests
             }).OrderBy(row => row).ToArray();
     }
 
-    private sealed class RecordingFactory(TelemetryLayerScopeFactory factory) : ITelemetryLayerScopeFactory
+    private static string ToolName(string command) => command switch
     {
-        internal List<LayerTelemetryScope> Scopes { get; } = [];
-        public ITelemetryLayerScope CreateScope(string layer, TelemetryInvocationContext context, string? fileId = null)
-        {
-            Assert.Equal("Agent", layer);
-            Assert.Null(fileId);
-            var scope = factory.CreateScope(layer, context, fileId);
-            Scopes.Add(scope);
-            return scope;
-        }
-    }
+        "find" => "tool.find_resources",
+        "tree" => "tool.get_resource_tree",
+        "show" => "tool.get_resource_details",
+        _ => "tool.find_available_locations",
+    };
 
     private sealed class Dependencies : IDisposable
     {
@@ -184,24 +134,19 @@ public sealed class AgentToolCommandScopeTests
         internal AgentOfflineProfiles Profiles { get; }
         internal AgentOfflineHttp HttpGuard { get; } = new();
         internal HttpClient Http { get; }
-        internal CommandTelemetryContext CommandContext { get; }
-        internal RecordingFactory Factory { get; }
         internal Publisher Publisher { get; }
         internal List<string> Output { get; } = [];
         internal bool FailOutput { get; set; }
 
-        internal Dependencies(AgentTraceCapture cli, AgentLayerTestHarness layer)
+        internal Dependencies(AgentTraceCapture cli)
         {
             Profiles = new AgentOfflineProfiles { Telemetry = cli.Telemetry };
             Http = new HttpClient(HttpGuard);
-            CommandContext = new CommandTelemetryContext(layer.Configuration);
-            Factory = new RecordingFactory(layer.Factory);
             Publisher = new Publisher(cli.Telemetry);
             _services = new()
             {
                 [typeof(IAuthService)] = Auth, [typeof(IProfileService)] = Profiles,
-                [typeof(HttpClient)] = Http, [typeof(ITelemetryLayerScopeFactory)] = Factory,
-                [typeof(ICommandTelemetryContext)] = CommandContext,
+                [typeof(HttpClient)] = Http, [typeof(ITelemetryService)] = cli.Telemetry,
             };
         }
 

@@ -27,6 +27,8 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "AzureCLI.ProcessCommand",
         "AzureCLI.DispatchVersion",
         "AzureCLI.DispatchHelp",
+        "CLI.Activity.AiRecovery",
+        "CLI.Activity.AiRecoverySkipped",
         // PowerShell module import phases, replayed by ImportTelemetry on a background
         // thread once the telemetry stack is built. Encloses PowerShell.Startup.*.
         "PowerShell.Startup",

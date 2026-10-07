@@ -19,16 +19,15 @@ public class TelemetryLaunchEnvironmentTests
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             "11111111111111111111111111111111", "2222222222222222", "vm show",
             DataBoundary: "EU");
-        var fileId = Guid.NewGuid().ToString("N");
 
-        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, fileId);
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context);
 
         Assert.False(environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
         Assert.False(environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
+        Assert.False(environment.ContainsKey(TelemetryLayerEnvironment.FileId));
         Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
-            name => environment.GetValueOrDefault(name), out var actual, out var actualFile, out var diagnostic));
+            name => environment.GetValueOrDefault(name), out var actual, out var diagnostic));
         Assert.Equal(context, actual);
-        Assert.Equal(fileId, actualFile);
         Assert.Null(diagnostic);
     }
 
@@ -37,11 +36,11 @@ public class TelemetryLaunchEnvironmentTests
     {
         var environment = new Dictionary<string, string?>();
         TelemetryLayerEnvironment.SetAgentLaunch(environment,
-            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true), Guid.NewGuid().ToString("N"));
+            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true));
         environment[TelemetryLayerEnvironment.Enabled] = "false";
 
         Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
-            name => environment.GetValueOrDefault(name), out var actual, out _, out _));
+            name => environment.GetValueOrDefault(name), out var actual, out _));
 
         Assert.NotNull(actual);
         Assert.False(actual.Enabled);
@@ -52,7 +51,7 @@ public class TelemetryLaunchEnvironmentTests
     public void MissingLaunch_IsDistinctFromMalformedLaunch()
     {
         Assert.False(TelemetryLayerEnvironment.TryReadAgentLaunch(
-            _ => null, out _, out _, out var absentDiagnostic));
+            _ => null, out _, out var absentDiagnostic));
         Assert.Null(absentDiagnostic);
 
         var environment = new Dictionary<string, string?>
@@ -63,7 +62,7 @@ public class TelemetryLaunchEnvironmentTests
             [TelemetryLayerEnvironment.Enabled] = "false",
         };
         Assert.False(TelemetryLayerEnvironment.TryReadAgentLaunch(
-            name => environment.GetValueOrDefault(name), out _, out _, out var invalidDiagnostic));
+            name => environment.GetValueOrDefault(name), out _, out var invalidDiagnostic));
         Assert.NotNull(invalidDiagnostic);
         Assert.False(TelemetryLayerEnvironment.ParentAllowsTelemetry(name => environment.GetValueOrDefault(name)));
     }

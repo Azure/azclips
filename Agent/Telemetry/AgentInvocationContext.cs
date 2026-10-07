@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Telemetry;
 using GitHub.Copilot;
 using Microsoft.Extensions.AI;
 

@@ -22,6 +22,8 @@ public class ActivityNameFilterTests
     [InlineData("SessionCreated")]
     [InlineData("AuthBeforeTokenAcquisition")]
     [InlineData("ProcessorProcessAsyncStart")]
+    [InlineData("CLI.Activity.AiRecovery")]
+    [InlineData("CLI.Activity.AiRecoverySkipped")]
     public void IsAllowed_ExactNameInAllowlist_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));
@@ -63,8 +65,6 @@ public class ActivityNameFilterTests
     [InlineData("Agent.NotARealSpan")]             // Agent.* is exact-matched, not a prefix
     [InlineData("CLI.Activity.AiRecoverySkipped.Other")]
     [InlineData("toolbox.something")]              // "tool." prefix must not match "toolbox."
-    [InlineData("CLI.Activity.AiRecovery")]
-    [InlineData("CLI.Activity.AiRecoverySkipped")]
     [InlineData("Agent.Session")]
     [InlineData("Agent.Create")]
     [InlineData("Agent.Turn")]

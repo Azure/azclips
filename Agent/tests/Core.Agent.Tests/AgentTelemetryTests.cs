@@ -23,14 +23,12 @@ public sealed class AgentLaunchContextTests
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), parentEnabled,
             new string('1', 32), new string('2', 16), "profile show", "tenant", "subscription", "EU");
-        var fileId = Guid.NewGuid().ToString("N");
         var environment = new Dictionary<string, string?>();
-        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, fileId);
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context);
 
         var launch = AgentTelemetryHost.ResolveLaunch(localEnabled, name => environment.GetValueOrDefault(name),
             _ => throw new InvalidOperationException("A valid launch must not read standalone routing."));
 
-        Assert.Equal(fileId, launch.FileId);
         Assert.Null(launch.Diagnostic);
         Assert.Equal(context with { Enabled = localEnabled && parentEnabled }, launch.Context);
     }
@@ -45,7 +43,6 @@ public sealed class AgentLaunchContextTests
         var environment = new Dictionary<string, string?>
         {
             [TelemetryLayerEnvironment.Layer] = "agent",
-            [TelemetryLayerEnvironment.FileId] = Guid.NewGuid().ToString("N"),
             [TelemetryLayerEnvironment.Context] = json,
             [TelemetryLayerEnvironment.Enabled] = "false",
         };
@@ -56,9 +53,8 @@ public sealed class AgentLaunchContextTests
             Assert.False(enabled);
             return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled, DataBoundary: "EU");
         });
-
         Assert.NotNull(launch.Diagnostic);
-        Assert.Null(launch.FileId);
+        Assert.NotNull(launch.Diagnostic);
         Assert.False(launch.Context.Enabled);
         Assert.Equal("EU", launch.Context.DataBoundary);
         Assert.Equal(1, reads);
@@ -72,11 +68,10 @@ public sealed class AgentLaunchContextTests
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true);
         var environment = new Dictionary<string, string?>();
-        TelemetryLayerEnvironment.SetAgentLaunch(environment, context, Guid.NewGuid().ToString("N"));
+        TelemetryLayerEnvironment.SetAgentLaunch(environment, context);
         environment[TelemetryLayerEnvironment.FileId] = fileId;
         var launch = AgentTelemetryHost.ResolveLaunch(true, name => environment.GetValueOrDefault(name),
             enabled => new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled));
-        Assert.Null(launch.FileId);
         Assert.NotNull(launch.Diagnostic);
         Assert.NotEqual(context.InvocationId, launch.Context.InvocationId);
     }

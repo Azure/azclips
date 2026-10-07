@@ -69,8 +69,6 @@ public class Program
                 services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
                 services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
-                services.AddSingleton<ITelemetryLayerScopeFactory, TelemetryLayerScopeFactory>();
-                services.AddSingleton<ICommandTelemetryContext, CommandTelemetryContext>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
             AzclipsServiceProvider.Initialize(_clientType);
@@ -112,7 +110,6 @@ public class Program
             {
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
                 // than writing to AsyncLocal-backed ambient state, so the tag is visible to
@@ -476,8 +473,7 @@ public class Program
         string agentExe,
         string[] args,
         string? errorText,
-        TelemetryInvocationContext context,
-        string fileId)
+        TelemetryInvocationContext context)
     {
         var psi = new ProcessStartInfo
         {
@@ -503,7 +499,7 @@ public class Program
         try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
         catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
 
-        TelemetryLayerEnvironment.SetAgentLaunch(psi.Environment, context, fileId);
+        TelemetryLayerEnvironment.SetAgentLaunch(psi.Environment, context);
 
         psi.ArgumentList.Add("--agent-mode");
         psi.ArgumentList.Add("--failed-command");
@@ -520,24 +516,9 @@ public class Program
     private static async Task<int> TryAgentFallbackAsync(
         string[] args, string? errorText, TelemetryInvocationContext context)
     {
-        var factory = AzclipsServiceProvider.GetRequiredService<ITelemetryLayerScopeFactory>();
         return await TryAgentFallbackAsync(
-            factory,
             () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
-            args, errorText, context);
-    }
-
-    internal static async Task<int> TryAgentFallbackAsync(
-        ITelemetryLayerScopeFactory factory, Func<AgentOptions> getAgentOptions,
-        string[] args, string? errorText, TelemetryInvocationContext context,
-        Func<ProcessStartInfo, Task<int>>? runAgent = null,
-        Func<string?>? findAgent = null)
-    {
-        var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
-        context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
-        await using var scope = factory.CreateScope("Agent", context);
-        return await TryAgentFallbackAsync(
-            getAgentOptions, scope.Telemetry, args, errorText, context, runAgent, findAgent);
+            _telemetryService, args, errorText, context);
     }
 
     internal static async Task<int> TryAgentFallbackAsync(
@@ -546,6 +527,9 @@ public class Program
         Func<ProcessStartInfo, Task<int>>? runAgent = null,
         Func<string?>? findAgent = null)
     {
+        var commandName = string.IsNullOrEmpty(context.Command) ? GetCommandGroupFromArgs(args) : context.Command;
+        context = context with { Command = string.IsNullOrEmpty(commandName) ? null : commandName };
+
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
@@ -556,17 +540,12 @@ public class Program
             agentOptions = getAgentOptions();
             if (!agentOptions.Enabled)
             {
-                // A separate root preserves InstallationId without counting an execution.
+                // A separate CLI root acknowledges that AI recovery was considered without
+                // counting the failed command's execution time.
                 using var skippedScope = telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecoverySkipped");
                 var skipped = skippedScope?.Activity;
                 skipped?.SetTag(TelemetryTags.RecoverySkipReason, "disabled");
-                skipped?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
-                skipped?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
-                skipped?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
-                if (!string.IsNullOrEmpty(context.Command))
-                {
-                    skipped?.SetTag(TelemetryTags.Command, context.Command);
-                }
+                TagRecoveryContext(skipped, context);
                 return 1;
             }
         }
@@ -605,18 +584,12 @@ public class Program
 
         using var recoveryScope = telemetryService?.StartIndependentRootActivity("CLI.Activity.AiRecovery");
         var recovery = recoveryScope?.Activity;
-        recovery?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
-        recovery?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
-        recovery?.SetTag(TelemetryLayerTags.InvocationId, context.InvocationId);
-        if (!string.IsNullOrEmpty(context.Command))
-        {
-            recovery?.SetTag(TelemetryTags.Command, context.Command);
-        }
+        TagRecoveryContext(recovery, context);
         RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
 
         try
         {
-            var psi = BuildAgentStartInfo(agentExe, args, errorText, context, context.InvocationId);
+            var psi = BuildAgentStartInfo(agentExe, args, errorText, context);
 
             // The child agent takes over Ctrl+C (it cancels the session). The parent
             // must also intercept it — otherwise Ctrl+C kills the parent first, the
@@ -655,6 +628,19 @@ public class Program
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             recovery?.SetStatus(ActivityStatusCode.Error);
             return 1;
+        }
+    }
+
+    private static void TagRecoveryContext(Activity? activity, TelemetryInvocationContext context)
+    {
+        activity?.SetTag(TelemetryTags.CommandTraceId, context.CommandTraceId);
+        activity?.SetTag(TelemetryTags.CommandSpanId, context.CommandSpanId);
+        activity?.SetTag(TelemetryTags.TenantId, context.TenantId);
+        activity?.SetTag(TelemetryTags.SubscriptionId, context.SubscriptionId);
+        activity?.SetTag(TelemetryTags.DataBoundary, context.DataBoundary);
+        if (!string.IsNullOrEmpty(context.Command))
+        {
+            activity?.SetTag(TelemetryTags.Command, context.Command);
         }
     }
 

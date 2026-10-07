@@ -116,8 +116,7 @@ public static class TelemetryLayers
         "Agent", "agent", "agent-v1",
         [
             "Agent.Session", "Agent.Create", "Agent.Turn", "Agent.Send", "Agent.Reprompt",
-            "Agent.DataBoundary", "CLI.Activity.AiRecovery", "CLI.Activity.AiRecoverySkipped",
-            "SessionCreated", "AuthBeforeTokenAcquisition",
+            "Agent.DataBoundary", "SessionCreated", "AuthBeforeTokenAcquisition",
         ],
         ["tool.", "MsalAuthService.", "ManagedIdentityAuthenticator.", "ProfileService."]);
 

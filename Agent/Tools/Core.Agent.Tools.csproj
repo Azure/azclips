@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.Telemetry\Core.Telemetry.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">

@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Telemetry;
 
 namespace Core.Agent.Telemetry;
 

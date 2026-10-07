@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Telemetry;
 
 namespace Core.Agent.Tools.Resource.Cache;
 

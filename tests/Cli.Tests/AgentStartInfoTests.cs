@@ -3,12 +3,13 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Telemetry;
 using Xunit;
 
 namespace Cli.Tests;
 
 /// <summary>
-/// The child receives correlation data and its own file ID, never a trace parent.
+/// The child receives correlation data, never a trace parent or caller-owned file ID.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class AgentStartInfoTests
@@ -27,15 +28,14 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_ForwardsCorrelationAndCallerGeneratedFileIdWithoutAParent()
     {
         var context = Context();
-        var fileId = Guid.NewGuid().ToString("N");
-        var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, ["profile", "show"], "private error", context, fileId);
+        var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, ["profile", "show"], "private error", context);
 
         Assert.True(TelemetryLayerEnvironment.TryReadAgentLaunch(
             key => psi.Environment.TryGetValue(key, out var value) ? value : null,
-            out var actual, out var actualFileId, out var diagnostic));
+            out var actual, out var diagnostic));
         Assert.Equal(context, actual);
-        Assert.Equal(fileId, actualFileId);
         Assert.Null(diagnostic);
+        Assert.False(psi.Environment.ContainsKey(TelemetryLayerEnvironment.FileId));
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
         Assert.DoesNotContain("private error", psi.Environment[TelemetryLayerEnvironment.Context]);
@@ -45,7 +45,7 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_CarriesExplicitOptOutWithoutReusingTheOldParent()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, ["profile", "show"], "boom", Context(enabled: false), Guid.NewGuid().ToString("N"));
+            AgentExe, ["profile", "show"], "boom", Context(enabled: false));
         Assert.Equal("false", psi.Environment[TelemetryLayerEnvironment.Enabled]);
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
         Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
@@ -63,12 +63,11 @@ public class AgentStartInfoTests
             Environment.SetEnvironmentVariable("AZCLIPS_RECOVERY_HIERARCHY", "stale hierarchy");
             Environment.SetEnvironmentVariable(TelemetryLayerEnvironment.FileId, "inherited-file");
 
-            var fileId = Guid.NewGuid().ToString("N");
-            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, Context(enabled: false), fileId);
+            var psi = Core.Cli.Program.BuildAgentStartInfo(AgentExe, [], null, Context(enabled: false));
 
             Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_TRACEPARENT"));
             Assert.False(psi.Environment.ContainsKey("AZCLIPS_RECOVERY_HIERARCHY"));
-            Assert.Equal(fileId, psi.Environment[TelemetryLayerEnvironment.FileId]);
+            Assert.False(psi.Environment.ContainsKey(TelemetryLayerEnvironment.FileId));
             Assert.Equal(Traceparent, Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT"));
         }
         finally
@@ -83,7 +82,7 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, "boom", Context(), Guid.NewGuid().ToString("N"));
+            AgentExe, new[] { "profile", "show" }, "boom", Context());
 
         // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
         Assert.Equal("1", psi.Environment["AZCLIPS_IN_AGENT_MODE"]);
@@ -103,7 +102,7 @@ public class AgentStartInfoTests
     public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
     {
         var psi = Core.Cli.Program.BuildAgentStartInfo(
-            AgentExe, new[] { "profile", "show" }, null, Context(), Guid.NewGuid().ToString("N"));
+            AgentExe, new[] { "profile", "show" }, null, Context());
 
         Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
     }

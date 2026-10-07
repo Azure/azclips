@@ -4,7 +4,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Core.Abstractions;
+namespace Core.Telemetry;
 
 public static class TelemetryLayerEnvironment
 {
@@ -16,11 +16,8 @@ public static class TelemetryLayerEnvironment
 
     public static void SetAgentLaunch(
         IDictionary<string, string?> environment,
-        TelemetryInvocationContext context,
-        string fileId)
+        TelemetryInvocationContext context)
     {
-        if (!Guid.TryParseExact(fileId, "N", out _))
-            throw new ArgumentException("A layer file ID must be a GUID in N format.", nameof(fileId));
         if (!Guid.TryParseExact(context.InvocationId, "N", out _))
             throw new ArgumentException("A layer invocation ID must be a GUID in N format.", nameof(context));
 
@@ -31,7 +28,6 @@ public static class TelemetryLayerEnvironment
         environment.Remove(Context);
         environment.Remove(Enabled);
         environment[Layer] = Agent;
-        environment[FileId] = fileId;
         environment[Enabled] = context.Enabled ? "true" : "false";
         environment[Context] = JsonSerializer.Serialize(context, TelemetryEnvironmentJsonContext.Default.TelemetryInvocationContext);
     }
@@ -42,11 +38,9 @@ public static class TelemetryLayerEnvironment
     public static bool TryReadAgentLaunch(
         Func<string, string?> read,
         out TelemetryInvocationContext? context,
-        out string? fileId,
         out string? diagnostic)
     {
         context = null;
-        fileId = null;
         diagnostic = null;
         var layer = read(Layer);
         var id = read(FileId);
@@ -54,7 +48,7 @@ public static class TelemetryLayerEnvironment
         if (layer is null && id is null && json is null)
             return false;
 
-        if (layer != Agent || !Guid.TryParseExact(id, "N", out _) ||
+        if (layer != Agent || id is not null ||
             string.IsNullOrWhiteSpace(json) || json.Length > 8192 ||
             read(Enabled) is not ("true" or "false"))
         {
@@ -73,9 +67,7 @@ public static class TelemetryLayerEnvironment
                 diagnostic = "invalid_agent_telemetry_context";
                 return false;
             }
-
             context = value with { Enabled = value.Enabled && ParentAllowsTelemetry(read) };
-            fileId = id;
             return true;
         }
         catch (JsonException)

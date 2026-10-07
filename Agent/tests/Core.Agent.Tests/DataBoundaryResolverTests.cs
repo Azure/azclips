@@ -3,12 +3,14 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Agent.Providers;
+using Core.Telemetry;
 using Xunit;
+using AgentDataBoundaryResolver = Core.Agent.Providers.DataBoundaryResolver;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Contract tests for <see cref="DataBoundaryResolver"/> and the value it produces.
+/// Contract tests for <see cref="AgentDataBoundaryResolver"/> and the value it produces.
 ///
 /// <para>The behavior that matters most here is what the resolver does when things go wrong.
 /// It sits on the startup path of every AI recovery while nothing yet depends on its answer, and
@@ -38,7 +40,7 @@ public class DataBoundaryResolverTests
         """;
     }
 
-    private static DataBoundaryResolver Build(HttpMessageHandler handler, string? tenantId = TenantId) =>
+    private static AgentDataBoundaryResolver Build(HttpMessageHandler handler, string? tenantId = TenantId) =>
         new(new FakeProfileService(tenantId), new HttpClient(handler));
 
     [Theory]
@@ -53,7 +55,7 @@ public class DataBoundaryResolverTests
         var session = sessionScope?.Activity;
         Assert.NotNull(session);
         using var http = new HttpClient(new DelayedTelemetryHandler(status));
-        using var resolver = new DataBoundaryResolver(new FakeProfileService(TenantId), http, scope.Telemetry);
+        using var resolver = new AgentDataBoundaryResolver(new FakeProfileService(TenantId), http, scope.Telemetry);
         var result = await resolver.ResolveAsync(CallerToken);
         Assert.Equal(expectedOutcome, result.Value);
         Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(session));
@@ -301,7 +303,7 @@ public class DataBoundaryResolverTests
         // instead of being absorbed by a type test that happens to match.
         const string Invariant = "the resolver must classify every failure rather than throw;";
 
-        using var profileBroken = new DataBoundaryResolver(
+        using var profileBroken = new AgentDataBoundaryResolver(
             new ThrowingProfileService(),
             new HttpClient(new FakeHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU")))));
         using var armBroken = Build(new ThrowingHandler(new InvalidOperationException("the handler is broken")));
@@ -322,11 +324,11 @@ public class DataBoundaryResolverTests
         // on file I/O or its own gate would otherwise stall recovery startup past the ceiling this
         // lookup advertises, and no ARM call would ever be attempted to hit the later timeout.
         var handler = new FakeHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU")));
-        using var resolver = new DataBoundaryResolver(new HangingProfileService(), new HttpClient(handler));
+        using var resolver = new AgentDataBoundaryResolver(new HangingProfileService(), new HttpClient(handler));
 
         // A hard ceiling at four times the budget. It exists so that an unbounded profile read
         // ends as a named assertion rather than hanging the run.
-        var ceiling = DataBoundaryResolver.LookupTimeout * 4;
+        var ceiling = AgentDataBoundaryResolver.LookupTimeout * 4;
         using var hard = new CancellationTokenSource(ceiling);
 
         var started = Stopwatch.StartNew();
@@ -337,7 +339,7 @@ public class DataBoundaryResolverTests
 
         Assert.Equal("timeout_profile", result.Value);
         Assert.True(
-            started.Elapsed < DataBoundaryResolver.LookupTimeout + TimeSpan.FromSeconds(3),
+            started.Elapsed < AgentDataBoundaryResolver.LookupTimeout + TimeSpan.FromSeconds(3),
             $"the lookup budget did not bound the profile read; took {started.Elapsed}");
         Assert.Equal(0, handler.RequestCount);
     }
@@ -351,7 +353,7 @@ public class DataBoundaryResolverTests
         var handler = new DisposeTrackingHandler(_ => (HttpStatusCode.OK, BoundaryPayload("EU")));
         using var injected = new HttpClient(handler);
 
-        using (var borrower = new DataBoundaryResolver(new FakeProfileService(TenantId), injected))
+        using (var borrower = new AgentDataBoundaryResolver(new FakeProfileService(TenantId), injected))
         {
             Assert.NotNull(borrower);
         }
@@ -359,12 +361,12 @@ public class DataBoundaryResolverTests
         Assert.False(handler.Disposed, "the resolver disposed a client it did not create.");
 
         // Still usable, which is the part the owner actually depends on.
-        using var next = new DataBoundaryResolver(new FakeProfileService(TenantId), injected);
+        using var next = new AgentDataBoundaryResolver(new FakeProfileService(TenantId), injected);
         var result = await next.ResolveAsync(CallerToken);
         Assert.Equal("eu", result.Value);
 
         // A client it created is its own to close, and closing twice must stay safe.
-        var owner = new DataBoundaryResolver(new FakeProfileService(TenantId));
+        var owner = new AgentDataBoundaryResolver(new FakeProfileService(TenantId));
         owner.Dispose();
         owner.Dispose();
     }

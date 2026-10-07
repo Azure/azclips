@@ -2,8 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 
-namespace Core.Abstractions;
+namespace Core.Telemetry;
 
 public static class TelemetryLayerTags
 {
@@ -38,6 +39,14 @@ public sealed record TelemetryInvocationContext(
             commandRoot?.GetTagItem(TelemetryTags.TenantId) as string,
             commandRoot?.GetTagItem(TelemetryTags.SubscriptionId) as string,
             commandRoot?.GetTagItem(TelemetryTags.DataBoundary) as string);
+
+    public static TelemetryInvocationContext StandaloneFromCache(bool enabled)
+    {
+        var tenant = DataBoundaryResolver.GetActiveTenantId();
+        var boundary = tenant is null ? null : DataBoundaryCache.Get(tenant);
+        return new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled,
+            TenantId: tenant, DataBoundary: boundary);
+    }
 }
 
 public enum TelemetryLayerCompletion
@@ -72,10 +81,4 @@ public interface ITelemetryLayerScopeFactory
         string layer,
         TelemetryInvocationContext context,
         string? fileId = null);
-}
-
-public interface ICommandTelemetryContext
-{
-    void BindCommand(Activity? root);
-    TelemetryInvocationContext Capture(string? command = null);
 }
