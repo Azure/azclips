@@ -21,21 +21,21 @@ List Azure RBAC role assignments.
 
 ```
 Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-Profile <string>] [<CommonParameters>]
+ [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### ResourceGroup
 
 ```
 Get-AzRoleAssignment -ResourceGroupName <string> [-SubscriptionId <string>] [-ObjectId <string>]
- [-RoleDefinitionId <string>] [-Profile <string>] [<CommonParameters>]
+ [-RoleDefinitionId <string>] [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Scope
 
 ```
 Get-AzRoleAssignment -Scope <string> [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-Profile <string>] [<CommonParameters>]
+ [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -46,6 +46,10 @@ List Azure role-based access control (RBAC) role assignments at a subscription, 
 The scope defaults to the active subscription and can be narrowed with `-ResourceGroupName` or overridden
 with `-Scope` (the two are mutually exclusive). Use `-ObjectId` to filter to a single principal by its
 object (principal) ID. Filtering by sign-in name, service-principal name, or role name is not yet supported.
+
+By default only assignments made at the exact scope are listed. Use `-AtScope` to also include assignments
+inherited from ancestor scopes. Use `-ExpandPrincipalGroups` together with `-ObjectId` to also include
+assignments the principal receives transitively through the groups it belongs to.
 
 ## EXAMPLES
 
@@ -89,7 +93,65 @@ Filter role assignments to the given role definition ID. Role name resolution is
 Get-AzRoleAssignment -RoleDefinitionId b24988ac-6180-42a0-ab88-20f7382dd24c
 ```
 
+### Include assignments inherited from ancestor scopes
+
+By default only assignments made at the exact scope are listed. `-AtScope` also includes assignments inherited from parent scopes.
+
+```powershell
+Get-AzRoleAssignment -Scope /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg -AtScope
+```
+
+### Include assignments granted through group membership
+
+`-ExpandPrincipalGroups` returns assignments the principal receives transitively through the groups it belongs to.
+
+```powershell
+Get-AzRoleAssignment -ObjectId 11111111-2222-3333-4444-555555555555 -ExpandPrincipalGroups
+```
+
 ## PARAMETERS
+
+### -AtScope
+
+Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ExpandPrincipalGroups
+
+When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -ObjectId
 

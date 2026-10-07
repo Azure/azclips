@@ -125,6 +125,12 @@ try {
     Section 'Get-AzRoleAssignment filtered by role definition ID'
     Get-AzRoleAssignment -Scope $scope -RoleDefinitionId $readerRoleDefinitionId | Out-Host
 
+    Section 'Get-AzRoleAssignment including inherited (ancestor-scope) assignments'
+    Get-AzRoleAssignment -Scope $scope -AtScope | Out-Host
+
+    Section 'Get-AzRoleAssignment expanding the principal''s group memberships'
+    Get-AzRoleAssignment -Scope $scope -ObjectId $principalId -ExpandPrincipalGroups | Out-Host
+
     Write-Host ''
     Write-Host 'All role assignment lifecycle smoke checks completed.' -ForegroundColor Green
 }

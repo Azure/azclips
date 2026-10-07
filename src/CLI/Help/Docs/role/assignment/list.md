@@ -44,3 +44,27 @@ az role assignment list --assignee 11111111-2222-3333-4444-555555555555
 ```bash
 az role assignment list --role b24988ac-6180-42a0-ab88-20f7382dd24c
 ```
+
+### Include assignments inherited from ancestor scopes
+
+By default only assignments made at the exact scope are listed. Use `--include-inherited` to also include assignments inherited from parent scopes (for example a management-group grant effective at the subscription).
+
+```bash
+az role assignment list --include-inherited
+```
+
+### List across the whole subscription including nested scopes
+
+`--all` lists role assignments at the subscription and every nested scope (resource groups and resources) beneath it. It cannot be combined with `--scope` or `--resource-group`.
+
+```bash
+az role assignment list --all
+```
+
+### Include assignments granted through group membership
+
+When filtering by assignee, `--include-groups` also returns assignments the principal receives transitively through the groups it belongs to.
+
+```bash
+az role assignment list --assignee-object-id 11111111-2222-3333-4444-555555555555 --include-groups
+```
