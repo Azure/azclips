@@ -48,6 +48,7 @@ public class ScopedLoggingService : ILoggingService
             return;
         }
 
+        // Errors must remain reportable even when configuration cannot be loaded.
         if (severity == LogSeverity.Error)
         {
             write(_fallback, message);
