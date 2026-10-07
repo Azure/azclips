@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791332897340,
+  "lastUpdate": 1791348601223,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8526,6 +8526,48 @@ window.BENCHMARK_DATA = {
             "value": 3436041.294639258,
             "unit": "ns",
             "range": "± 111523.36442572174"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "33156605c90714af7e2000af4387cd0239bccd81",
+          "message": "[Resources] `az role assignment create`: Add role assignment creation for CLI and PowerShell (#1022)\n\n## Related command\n\n`az role assignment create` and `New-AzRoleAssignment`\n\n## Description\n\nAdds the **create** command for both surfaces, backed by ARM\n`RoleAssignments - Create`\n(`PUT\n{scope}/providers/Microsoft.Authorization/roleAssignments/{name}`).\nGrants a principal a role\nat a scope.\n\n**What changed:**\n\n- Atomic `NewRoleAssignmentProcessor` issues the PUT with a dedicated\n`RoleAssignmentCreateParameters` body (`WhenWritingNull`, so only the\nproperties that are set are\n  sent and ARM never receives read-only fields).\n- Orchestrator resolves the grant scope, expands a role definition GUID\nto a fully-qualified role\ndefinition ID rooted at the scope's subscription (or the scope itself\nfor management-group / tenant\nscopes), accepts an already fully-qualified role definition ID as-is,\nsupplies the principal ID, and\n  generates the assignment name (a GUID) when omitted.\n- `New-AzRoleAssignment` cmdlet supports `ShouldProcess` (`-WhatIf` /\n`-Confirm`).\n- Extracted a shared `RoleAssignmentScope` helper (scope precedence +\nnormalization) now used by both\nthe list and create orchestrators, matching the repo's resolver-helper\nconvention.\n- CLI and PowerShell help docs, and offline tests (48 role-assignment\ntests total).\n\n**Surface behavior:**\n\n- **Scope** is the grant target. It defaults to the subscription scope\non **both** surfaces and can be\nnarrowed with `--resource-group` / `-ResourceGroupName`, overridden with\n`--scope` / `-Scope`, or\nderived from `--subscription-id`. `--scope` / `-Scope` and\n`--resource-group` / `-ResourceGroupName`\nare mutually exclusive. This matches classic `az` (shared `role` arg\ncontext: `--scope` optional,\n  `--resource-group` / `-g` exposed).\n- **Principal** (`--assignee-object-id` / `--assignee` / `-ObjectId`)\ntakes a GUID. **Role**\n(`--role` / `-RoleDefinitionId`) takes a role definition GUID or a\nfully-qualified role definition\nID. Principal name/UPN/service-principal and role-name resolution are\nnot yet supported (they need a\nMicrosoft Graph or ARM `roleDefinitions` lookup) and are reported with a\nclear usage error. Tracked\n  as a follow-up.\n- Optional body fields are supported: `--assignee-principal-type` /\n`-ObjectType`, `--description`,\n`--condition`, `--condition-version`. The condition version defaults to\n`2.0` when a condition is\nsupplied without one, a version without a condition is rejected, and any\nversion other than `2.0` is\n  rejected.\n\n**Notes for reviewers:**\n\n- Error messages are surface-neutral (no CLI- or PowerShell-specific\nparameter spellings) because the\norchestrator is shared by both surfaces; a test asserts messages contain\nno `--` flags.\n- ARM create is a create-or-update PUT. Because the assignment name is\nauto-generated, re-creating an\nalready-granted principal + role + scope returns ARM's 409\n(`RoleAssignmentExists`), which we surface\nas an error. This matches classic `New-AzRoleAssignment` (it also fails\non the conflict), but **not**\nclassic `az role assignment create`, which catches the conflict and\nreturns the existing assignment\ninstead (idempotent by design — classic's own code comments it as such).\nThe two classic surfaces\ndisagree with each other here; we currently match PowerShell's behavior\non both surfaces. Tracked as\n  a follow-up, not changed in this PR.\n- Considered adding `delegatedManagedIdentityResourceId` (a documented\nARM create-body field, used for\nAzure Lighthouse-style delegation) for full spec parity. Confirmed\nneither classic `az role assignment\ncreate` nor classic `New-AzRoleAssignment` expose it as a create\nparameter on either surface (classic\n`az role assignment update --role-assignment <json>` does support\nsetting it via a raw JSON blob, but\ncreate does not, on either surface). Left out to match the\nclassic-parity surface exactly.\n\n## Testing Guide\n\n**Automated:**\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignment\"` — 48\ntests green: create URI/body construction, role-definition-id rooting\nfor subscription / resource /\nmanagement-group scopes, fully-qualified role-id passthrough and\ninvalid-path rejection, name\ngeneration, GUID validation, scope / assignee / role / condition usage\nerrors, and CLI + PowerShell\nmetadata (CLI `--scope` optional and `--resource-group` / `-g` exposed).\n- Help validation (`tools/Help/Azclips.Help.Tool`) and PowerShell help\ndrift\n  (`build/Test-PSHelpMarkdown.ps1 -Module Resources`): no issues.\n\n**Manual (PowerShell):**\n\n- `Import-Module` the built\n`Microsoft.Azure.Azclips.Cmdlets.Resources.dll`;\n`New-AzRoleAssignment -Syntax` shows the three parameter sets with\nmandatory `-ObjectId` /\n  `-RoleDefinitionId` plus `-WhatIf` / `-Confirm`.\n- `New-AzRoleAssignment -ObjectId <guid> -RoleDefinitionId <not-a-guid>\n-Scope /subscriptions/<id>`\n  returns a usage error.\n\n## History Notes\n\n- [Resources] `az role assignment create`: Add command to grant a\nprincipal a role at a scope\n- [Resources] `New-AzRoleAssignment`: Add cmdlet to create an RBAC role\nassignment\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the History Notes section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-07T15:30:00+11:00",
+          "tree_id": "cf336f9326f2b2b2bb287fd9b63df1f7bbf0fb72",
+          "url": "https://github.com/Azure/azclips/commit/33156605c90714af7e2000af4387cd0239bccd81"
+        },
+        "date": 1791348597616,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3404731.1997146932,
+            "unit": "ns",
+            "range": "± 90905.8731270957"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3451264.1829416533,
+            "unit": "ns",
+            "range": "± 107137.38773581285"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3394770.6189418416,
+            "unit": "ns",
+            "range": "± 108808.2346070198"
           }
         ]
       }
