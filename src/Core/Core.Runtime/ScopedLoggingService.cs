@@ -48,6 +48,12 @@ public class ScopedLoggingService : ILoggingService
             return;
         }
 
+        if (severity == LogSeverity.Error)
+        {
+            write(_fallback, message);
+            return;
+        }
+
         var configuredLevel = _configurationService?
             .GetConfiguration<CoreOptions>()
             .Logging.Level;

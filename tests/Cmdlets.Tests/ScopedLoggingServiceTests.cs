@@ -49,6 +49,21 @@ public class ScopedLoggingServiceTests
         Assert.Equal(["command verbose"], scoped.VerboseMessages);
     }
 
+    [Fact]
+    public void Fallback_ErrorEmitsWhenConfigurationThrows()
+    {
+        var configuration = new Mock<IConfigurationService>();
+        configuration
+            .Setup(service => service.GetConfiguration<CoreOptions>(null, null))
+            .Throws(new InvalidOperationException("invalid configuration"));
+        var sink = new RecordingLoggingService();
+        var logger = new ScopedLoggingService(configuration.Object, sink);
+
+        logger.Error("startup failed");
+
+        Assert.Equal(["startup failed"], sink.Errors);
+    }
+
     private static IConfigurationService Configuration(string level)
     {
         var configuration = new Mock<IConfigurationService>();
@@ -62,12 +77,13 @@ public class ScopedLoggingServiceTests
     {
         public List<string> VerboseMessages { get; } = [];
         public List<string> Warnings { get; } = [];
+        public List<string> Errors { get; } = [];
 
         public void Log(string message) { }
         public void Info(string message) { }
         public void Verbose(string message) => VerboseMessages.Add(message);
         public void Debug(string message) { }
         public void Warn(string message) => Warnings.Add(message);
-        public void Error(string message) { }
+        public void Error(string message) => Errors.Add(message);
     }
 }
