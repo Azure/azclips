@@ -22,14 +22,11 @@ Create a virtual machine together with its network interface, public IP address,
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubscriptionId <string>]
- [-Image <string>]
+ -VirtualNetworkName <string> [-SubscriptionId <string>] [-Image <string>]
+ [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
- [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
- [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
- [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -38,6 +35,9 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 
 Provisions the full networking + VM stack as a single operation.
 Creates a virtual network, network security group, public IP address, network interface, and virtual machine using the supplied names and parameters.
+By default the network security group is named after the virtual machine with an `NSG` suffix (for example `myvmNSG`), created or, if it already exists, updated.
+A network security group this command creates has one inbound rule for the image's operating system, allowing traffic from any source: `rdp` (TCP port 3389) for Windows or `default-allow-ssh` (TCP port 22) for Linux.
+Use `-SecurityGroupName` to choose the network security group by name or resource ID, or pass an empty string to create none.
 By default the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
@@ -46,12 +46,22 @@ Use this command when you want a one-shot VM deployment without composing the un
 
 ### Create a VM with its networking stack
 
-Provision a `Standard_D2s_v3` virtual machine named `myvm` in `myrg` (East US) along with a fresh virtual network (`myvnet`), network security group (`mynsg`), and network interface (`mynic`).
+Provision a `Standard_D2s_v3` virtual machine named `myvm` in `myrg` (East US) along with a fresh virtual network (`myvnet`), network interface (`mynic`), and network security group (`myvmNSG`, which allows inbound RDP).
 Assign `$adminPassword` from a secure source in your own pipeline before invoking the cmdlet (the value below is a literal placeholder, not a real password).
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
+```
+
+### Create a VM that uses an existing network security group
+
+Provision the same stack, but attach the existing network security group `mynsg` in `myrg` instead of creating one.
+The network security group is attached as-is; its rules are not changed.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -SecurityGroupName mynsg
 ```
 
 ### Create a VM with a named public IP address
@@ -61,7 +71,7 @@ If a public IP address named `myvm-ip` already exists in `myrg`, it is attached 
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg -PublicIpAddressName myvm-ip
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName myvm-ip
 ```
 
 ### Create a VM without a public IP address
@@ -71,7 +81,7 @@ The virtual machine is then reachable only from inside its virtual network.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg -PublicIpAddressName ''
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName ''
 ```
 
 ## PARAMETERS
@@ -268,27 +278,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -NetworkSecurityGroupName
-
-The network security group name to create.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Profile
 
 Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
@@ -358,180 +347,18 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -RuleAccesses
+### -SecurityGroupName
 
-Access types (Allow/Deny) of the security rules.
+Name of the network security group to create (default: '{vm}NSG') or of an existing one to attach.
+Can also reference an existing NSG by resource ID, or specify "" for none.
 
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleDestinationAddressPrefixes
-
-Destination address prefixes of the security rules.
+When omitted, a network security group named after the virtual machine with an `NSG` suffix is created, or updated if it already exists.
+A name is looked up in the resource group: an existing network security group is attached as-is, otherwise one is created.
+A resource ID must reference an existing network security group, which is attached as-is.
+A network security group this command creates has one inbound rule for the image's operating system, allowing traffic from any source: `rdp` (TCP port 3389) for Windows or `default-allow-ssh` (TCP port 22) for Linux.
 
 ```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleDestinationPortRanges
-
-Destination port ranges of the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleDirections
-
-Directions of the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleNames
-
-Names of the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RulePriorities
-
-Priorities of the security rules.
-
-```yaml
-Type: System.Int32[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleProtocols
-
-Protocols of the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleSourceAddressPrefixes
-
-Source address prefixes of the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -RuleSourcePortRanges
-
-Source port ranges of the security rules.
-
-```yaml
-Type: System.String[]
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []

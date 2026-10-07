@@ -3,7 +3,6 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
@@ -27,6 +26,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Authentication Arguments")]
         public string AdminPassword { get; set; } = string.Empty;
 
+        [ParameterGroup("Authentication Arguments")]
+        public List<string> SshKeyValues { get; set; } = [];
+
         [ParameterGroup("Network Arguments")]
         public string NetworkInterfaceName { get; set; } = string.Empty;
 
@@ -34,7 +36,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string VirtualNetworkName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
-        public string NetworkSecurityGroupName { get; set; } = string.Empty;
+        public string? NetworkSecurityGroup { get; set; }
 
         [ParameterGroup("Network Arguments")]
         public List<string> SubnetNames { get; set; } = [];
@@ -46,33 +48,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public List<string> AddressPrefixes { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
-        public List<string> RuleNames { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDirections { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleProtocols { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<int> RulePriorities { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourceAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleSourcePortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationPortRanges { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public List<string> RuleAccesses { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
         public bool AcceleratedNetworking { get; set; }
 
         [ParameterGroup("Network Arguments")]
@@ -80,6 +55,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
+            {
+                throw new ArgumentException("Specify an administrator password or SSH public key values.");
+            }
+
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
             var operatingSystemType = OperatingSystemTypes.Windows;
             ImagePlan? plan = null;
@@ -89,6 +69,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
+            if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+            }
+
+            ResolvedLinuxProfile? linuxProfile = null;
+            if (operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
+            {
+                linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
+            }
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -96,22 +87,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VirtualNetworkName = VirtualNetworkName;
-                p.NetworkSecurityGroupName = NetworkSecurityGroupName;
+                p.NetworkSecurityGroup = NetworkSecurityGroup;
+                p.DefaultNetworkSecurityGroupName = $"{Name}NSG";
                 p.SubnetNames = SubnetNames;
                 p.SubnetAddressPrefixes = SubnetAddressPrefixes;
                 p.AddressPrefixes = AddressPrefixes;
-                p.RuleNames = RuleNames;
-                p.RuleDirections = RuleDirections;
-                p.RuleProtocols = RuleProtocols;
-                p.RulePriorities = RulePriorities;
-                p.RuleSourceAddressPrefixes = RuleSourceAddressPrefixes;
-                p.RuleSourcePortRanges = RuleSourcePortRanges;
-                p.RuleDestinationPortRanges = RuleDestinationPortRanges;
-                p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
-                p.RuleAccesses = RuleAccesses;
                 p.AcceleratedNetworking = AcceleratedNetworking;
                 p.PublicIpAddress = PublicIpAddress;
                 p.DefaultPublicIpAddressName = $"{Name}PublicIP";
+                p.OsType = operatingSystemType;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
@@ -134,9 +118,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
                 p.AdminUsername = AdminUsername;
-                p.AdminPassword = AdminPassword;
-                p.WindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase) ?
-                    new WindowsConfiguration() : null;
+                p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
+                p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+                if (linuxProfile is not null)
+                {
+                    p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
+                    p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
+                    p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
+                }
                 if (!useTrustedLaunchDefaults)
                 {
                     p.SecurityType = null;
@@ -232,7 +221,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// For the time being shows az vm show -d output, with enriched network details
+        /// Writes the created VM with the az vm show -d detail fields.
+        /// As in legacy CLI, a failed detail read fails the command, although the VM itself was already created.
         /// TODO: Jayson - client side rendering of views for different clients.
         /// </summary>
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachine? body)
@@ -242,31 +232,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 return false;
             }
 
-            VirtualMachine output = body;
-            try
+            using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
             {
-                using HttpResponseMessage response = await CreateExtendedProcessor<GetVMProcessor>(p =>
-                {
-                    p.SubscriptionId = SubscriptionId;
-                    p.ResourceGroupName = ResourceGroupName;
-                    p.Name = Name;
-                    p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
-                }).SendAsync();
+                p.SubscriptionId = SubscriptionId;
+                p.ResourceGroupName = ResourceGroupName;
+                p.Name = Name;
+                p.Expand = VirtualMachineDetailEnricher.ResolveExpand(instanceView: true, userData: false);
+            }).SendAsync();
 
-                VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
-                await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
-                VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
-                output = detailed;
-            }
-            catch (Exception exception)
-            {
-                await Publisher.Publish(Events.Warning, new EventData
-                {
-                    Message = $"Created virtual machine '{Name}' but could not retrieve its details: {exception.Message}"
-                });
-            }
-
-            await WriteOutput(output);
+            VirtualMachine detailed = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
+            await VirtualMachineDetailEnricher.ApplyNetworkAsync(this, detailed);
+            VirtualMachineDetailEnricher.ApplyInstanceView(detailed, includeStatusFields: false);
+            await WriteOutput(detailed);
             return true;
         }
     }

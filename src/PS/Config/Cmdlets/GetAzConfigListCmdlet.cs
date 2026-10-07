@@ -6,14 +6,13 @@ using System.Management.Automation;
 namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Get, "AzConfigList")]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigEntry")]
 public class GetAzConfigListCmdlet : ConfigCmdletBase
 {
-    [Parameter(Mandatory = false)]
-    public SwitchParameter IncludeDefaults { get; set; }
+    protected override bool EnumerateOutput => true;
 
     [Parameter(Mandatory = false)]
-    public SwitchParameter AsJson { get; set; }
+    public SwitchParameter IncludeDefaults { get; set; }
 
     protected override void ProcessRecord()
     {
@@ -22,11 +21,6 @@ public class GetAzConfigListCmdlet : ConfigCmdletBase
         if (MyInvocation.BoundParameters.ContainsKey(nameof(IncludeDefaults)))
         {
             parameters.Add("All", IncludeDefaults.IsPresent);
-        }
-
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(AsJson)))
-        {
-            parameters.Add("Json", AsJson.IsPresent);
         }
 
         ExecuteInvocation(parameters);
