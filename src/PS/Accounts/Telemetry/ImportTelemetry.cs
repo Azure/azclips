@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Core.Telemetry;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
@@ -94,6 +95,10 @@ internal static class ImportTelemetry
                 {
                     return;
                 }
+
+                var configuredLogLevel = configuration.GetConfiguration<CoreOptions>().Logging.Level;
+                using var loggingScope = ScopedLoggingService.UseScope(
+                    new LevelFilteredLoggingService(new ConsoleLoggingService(), configuredLogLevel));
 
                 // Best-effort: resolves the CURRENTLY ACTIVE profile (module import precedes
                 // any command, so there is no --profile override to bind against yet). Runs
