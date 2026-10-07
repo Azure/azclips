@@ -48,13 +48,23 @@ public class ScopedLoggingService : ILoggingService
             return;
         }
 
-        // Short-circuit errors so configuration failures cannot suppress them.
-        if (severity == LogSeverity.Error || ShouldEmit(
-            _configurationService?.GetConfiguration<CoreOptions>().Logging.Level,
-            severity))
+        if (ShouldEmitFallback(severity))
         {
             write(_fallback, message);
         }
+    }
+
+    private bool ShouldEmitFallback(LogSeverity severity)
+    {
+        // Configuration failures must not suppress the error being reported.
+        if (severity == LogSeverity.Error)
+        {
+            return true;
+        }
+
+        return ShouldEmit(
+            _configurationService?.GetConfiguration<CoreOptions>().Logging.Level,
+            severity);
     }
 
     private static bool ShouldEmit(string? configuredLevel, LogSeverity severity)
