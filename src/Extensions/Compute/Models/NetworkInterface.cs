@@ -16,6 +16,7 @@ public class NetworkInterface
 
 public class NetworkInterfaceProperties
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NetworkSecurityGroup? NetworkSecurityGroup { get; set; }
     public List<IPConfiguration> IPConfigurations { get; set; } = [];
     public bool EnableAcceleratedNetworking { get; set; }

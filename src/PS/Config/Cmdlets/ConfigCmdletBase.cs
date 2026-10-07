@@ -13,10 +13,15 @@ public abstract class ConfigCmdletBase : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     protected OutputStreams Streams = null!;
     protected IEngine Engine = null!;
+    protected virtual bool EnumerateOutput => false;
 
     protected override void BeginProcessing()
     {
-        Streams = CmdletOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
+        Streams = CmdletOutputStreamsFactory.Create(
+            this,
+            "ConfigError",
+            ErrorCategory.NotSpecified,
+            enumerateOutput: EnumerateOutput);
 
         Engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
