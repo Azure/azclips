@@ -712,6 +712,40 @@ public class RoleAssignmentCliTests
         Assert.Equal("match", Assert.Single(assignments).Name);
     }
 
+    [Fact]
+    public async Task List_TenantRootScope_KeepsTenantRootAssignments()
+    {
+        // Normalize("/") yields "" (the request-path form of tenant root), but ARM returns those
+        // assignments with scope "/". The exact-scope trim must compare against "/", not "", or it
+        // would discard every tenant-root assignment.
+        Uri? sentUri = null;
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            return JsonResponse($$"""
+                {
+                  "value": [
+                    { "name": "atRoot", "properties": { "scope": "/" } },
+                    { "name": "atSub", "properties": { "scope": "/subscriptions/{{TestSubscriptionId}}" } }
+                  ]
+                }
+                """);
+        });
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.Scope = "/";
+
+        await processor.ProcessAsync();
+
+        // Request path is tenant root (no scope segment before /providers).
+        Assert.Equal(
+            "https://management.azure.com/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&$filter=atScope%28%29",
+            sentUri!.AbsoluteUri);
+        // Only the tenant-root assignment is kept by the default exact-scope trim.
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal("atRoot", Assert.Single(assignments).Name);
+    }
+
     private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;        var output = new FakeOutputHandler();

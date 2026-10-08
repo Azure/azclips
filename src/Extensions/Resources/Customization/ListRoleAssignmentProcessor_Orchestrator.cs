@@ -122,7 +122,10 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
             // the ancestor (inherited) assignments atScope() also returns.
             if (!IncludeInherited)
             {
-                exactScope = Scope;
+                // Normalize() returns "" for the tenant-root scope (its request-path form, which builds
+                // "/providers/..."), but ARM identifies tenant-root assignments with "/". Compare against
+                // "/" so the exact-scope trim keeps them instead of discarding every tenant-root grant.
+                exactScope = string.IsNullOrEmpty(Scope) ? "/" : Scope;
             }
         }
 
