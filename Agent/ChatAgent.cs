@@ -422,10 +422,14 @@ public sealed class ChatAgent : IAsyncDisposable
                 // Cache tools are read-only — silently approve. Bash + every
                 // other built-in mutator goes through the user prompt.
                 if (toolName is not null && PreToolUseHook.IsReadOnlyCacheTool(toolName))
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                     return PermissionDecision.ApproveOnce();
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
                 var ok = await approvalSink.RequestAsync(req, invocationContext.CallbackCancellationToken).ConfigureAwait(false);
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
                 return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             },
             OnEvent = eventRenderer.Forward,
         };

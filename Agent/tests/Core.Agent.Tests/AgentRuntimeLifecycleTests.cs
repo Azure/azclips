@@ -302,7 +302,7 @@ public sealed class AgentRuntimeLifecycleTests
         var entry = Assert.Single(harness.ReadEntries());
         var tags = AgentLayerTestHarness.Tags(entry);
         Assert.Equal(expectedBoundary, tags[TelemetryTags.RecoveryDataBoundary].GetString());
-        Assert.Equal("Global", entry.GetProperty("DataBoundary").GetString());
+        Assert.Equal("Unknown", entry.GetProperty("DataBoundary").GetString());
     }
 
     private sealed class StubBoundary : IDataBoundaryResolver

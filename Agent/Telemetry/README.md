@@ -106,6 +106,11 @@ EU and Global never share a map or an ingestion route. An already delivered grou
 may be exported again on retry; this is not exactly-once delivery or a durable
 mapping across uploader runs.
 
+Routing follows the shared fail-closed policy: only confirmed `Global` uses the
+ROW collector. Missing boundary values remain `Unknown`, and future values stay
+visible rather than becoming `Global`; both route to EU. The launch context,
+layer records and replay validation use the same normalization.
+
 ## Validation
 
 Use the explicitly selected offline Agent test classes with

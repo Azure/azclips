@@ -29,8 +29,18 @@ public sealed record TelemetryInvocationContext(
     string? RecoveryTraceParent = null,
     string? RecoveryTraceState = null)
 {
-    public string EffectiveDataBoundary =>
-        string.Equals(DataBoundary, "EU", StringComparison.OrdinalIgnoreCase) ? "EU" : "Global";
+    public string EffectiveDataBoundary => NormalizeDataBoundary(DataBoundary);
+
+    public static string NormalizeDataBoundary(string? dataBoundary)
+    {
+        if (string.IsNullOrWhiteSpace(dataBoundary))
+            return "Unknown";
+        if (string.Equals(dataBoundary, "EU", StringComparison.OrdinalIgnoreCase))
+            return "EU";
+        if (string.Equals(dataBoundary, "Global", StringComparison.OrdinalIgnoreCase))
+            return "Global";
+        return dataBoundary;
+    }
 
     public bool TryGetCommandParentContext(out ActivityContext parentContext) =>
         TryGetParentContext(CommandTraceParent, CommandTraceState, false, out parentContext);

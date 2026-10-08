@@ -78,7 +78,7 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     {
         ArgumentNullException.ThrowIfNull(loggerFactory);
         _dynamicRouting = true;
-        _globalLoggerFactory = loggerFactory(WellKnownEndpoints.AriaConnectionString, null);
+        _globalLoggerFactory = loggerFactory(WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint);
         _globalLogger = _globalLoggerFactory.CreateLogger("Azclips");
         _euLoggerFactory = loggerFactory(WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
         _euLogger = _euLoggerFactory.CreateLogger("Azclips");
@@ -138,9 +138,11 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
         if (!_dynamicRouting || _euLogger is null)
             return _globalLogger;
 
-        return DataBoundaryRouting.IsEu(ResolveDataBoundary(activity))
-            ? _euLogger
-            : _globalLogger;
+        // Fail-closed: only a CONFIRMED Global boundary routes to the ROW logger; EU, missing,
+        // and unrecognized values all stay on the EU logger (see DataBoundaryRouting.IsConfirmedGlobal).
+        return DataBoundaryRouting.IsConfirmedGlobal(ResolveDataBoundary(activity))
+            ? _globalLogger
+            : _euLogger;
     }
 
     /// <summary>

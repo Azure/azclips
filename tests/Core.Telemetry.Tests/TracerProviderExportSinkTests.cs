@@ -175,6 +175,9 @@ public class TracerProviderExportSinkTests
     [InlineData("Global", false)]
     [InlineData("EU", true)]
     [InlineData("Global", true)]
+    [InlineData("Unknown", false)]
+    [InlineData("Unknown", true)]
+    [InlineData("APAC", false)]
     public void Uploader_PreservesFullTreeAcrossServicesAndTargets(string boundary, bool retryAfterAgentFailure)
     {
         using var noNetwork = TelemetryNetworkGuard.Disable();

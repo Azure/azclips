@@ -11,7 +11,12 @@ using System.Text.Json;
 
 public static class Pagination
 {
-    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    /// <summary>
+    /// Follows every <c>nextLink</c> and returns the accumulated items without writing them.
+    /// Use this when a caller needs to filter, sort or enrich the full result set before output;
+    /// use <see cref="WriteOutputWithPaginationAsync"/> when the raw set should go straight out.
+    /// </summary>
+    public static async Task<List<TItem>> CollectWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
     {
         HttpRequestMessage request = await getRequest();
         int page = 1;
@@ -54,11 +59,20 @@ public static class Pagination
                     }
                 }
             }
-            await writeOutput(batchedItems);
+            return batchedItems;
         }
         finally
         {
             request.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Follows every <c>nextLink</c> and writes the accumulated items as a single batch.
+    /// </summary>
+    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    {
+        List<TItem> batchedItems = await body.CollectWithPaginationAsync(pageItems, nextLink, getRequest, publisher, httpPipeline, jsonOptions);
+        await writeOutput(batchedItems);
     }
 }

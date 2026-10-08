@@ -122,13 +122,19 @@ public class TelemetryLaunchEnvironmentTests
     }
 
     [Theory]
-    [InlineData(null, "Global")]
-    [InlineData("unknown", "Global")]
+    [InlineData(null, "Unknown")]
+    [InlineData("", "Unknown")]
+    [InlineData("   ", "Unknown")]
+    [InlineData("Unknown", "Unknown")]
+    [InlineData("unknown", "unknown")]
+    [InlineData("APAC", "APAC")]
     [InlineData("Global", "Global")]
+    [InlineData("global", "Global")]
     [InlineData("eu", "EU")]
-    public void Routing_UsesTheExistingFallback(string? raw, string expected)
+    public void Routing_MatchesSharedFailClosedNormalization(string? raw, string expected)
     {
         var context = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, DataBoundary: raw);
         Assert.Equal(expected, context.EffectiveDataBoundary);
+        Assert.Equal(DataBoundaryRouting.Normalize(raw), context.EffectiveDataBoundary);
     }
 }

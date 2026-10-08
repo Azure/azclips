@@ -23,6 +23,7 @@ public class RoleAssignmentCliTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
     private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
+    private const string RoleDefinitionId = "cccccccc-1111-2222-3333-444444444444";
     private const string Scope = "/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/test-rg";
 
     [Fact]
@@ -208,6 +209,52 @@ public class RoleAssignmentCliTests
     }
 
     [Fact]
+    public async Task List_WhitespaceOnlyResourceGroup_Throws()
+    {
+        // Shared RoleAssignmentScope.Resolve: a bound-but-blank resource group must not be silently
+        // treated as omitted, which would otherwise widen the list to the whole subscription.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroupName = "   ";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task List_EmptyStringScope_Throws()
+    {
+        // An explicitly bound empty string (--scope "") is distinct from an unbound (null) scope and
+        // must be rejected too: the CLI parser preserves an empty quoted string verbatim.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Scope = string.Empty;
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task List_RepeatedSlashScope_Throws()
+    {
+        // Shared RoleAssignmentScope.Normalize: a leading "//" is not a well-formed scope. Left
+        // unchecked, TrimEnd('/') would collapse an all-slashes value to the same empty string used
+        // for the tenant-root scope, silently turning malformed input into a tenant-root list request.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Scope = "//";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
     public async Task List_NoSubscriptionAndNoScope_Throws()
     {
         var output = new FakeOutputHandler();
@@ -303,10 +350,91 @@ public class RoleAssignmentCliTests
         Assert.Equal(["a1", "a2", "a3", "a4", "a5"], assignments.Select(a => a.Name!).ToArray());
     }
 
-    private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
+    [Fact]
+    public void CliMetadata_ExposesRoleParameter()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
+
+        Assert.Equal("RoleDefinitionId", metadata.Parameters["role"].Name);
+        Assert.False(metadata.Parameters["role"].IsRequired);
+    }
+
+    [Fact]
+    public async Task List_FiltersByRoleDefinitionId_ClientSide()
     {
         Uri? sentUri = null;
         var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            return JsonResponse($$"""
+                {
+                  "value": [
+                    { "name": "a1", "properties": { "roleDefinitionId": "/subscriptions/s/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}" } },
+                    { "name": "a2", "properties": { "roleDefinitionId": "/subscriptions/s/providers/Microsoft.Authorization/roleDefinitions/99999999-8888-7777-6666-555555555555" } },
+                    { "name": "a3", "properties": { "roleDefinitionId": "/subscriptions/s/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId.ToUpperInvariant()}}" } }
+                  ]
+                }
+                """);
+        });
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await processor.ProcessAsync();
+
+        // Role filtering is client-side: the request carries no $filter for role.
+        Assert.DoesNotContain("$filter", sentUri!.AbsoluteUri);
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["a1", "a3"], assignments.Select(a => a.Name!).ToArray());
+    }
+
+    [Fact]
+    public async Task List_RoleFilter_CombinesWithAssigneeServerFilter()
+    {
+        Uri? sentUri = null;
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            return JsonResponse($$"""
+                {
+                  "value": [
+                    { "name": "match", "properties": { "roleDefinitionId": "/x/roleDefinitions/{{RoleDefinitionId}}" } },
+                    { "name": "wrongRole", "properties": { "roleDefinitionId": "/x/roleDefinitions/99999999-8888-7777-6666-555555555555" } }
+                  ]
+                }
+                """);
+        });
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await processor.ProcessAsync();
+
+        // Assignee stays a server-side $filter; role is applied client-side on top.
+        Assert.Contains($"$filter=principalId%20eq%20%27{AssigneeObjectId}%27", sentUri!.AbsoluteUri);
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal("match", Assert.Single(assignments).Name);
+    }
+
+    [Fact]
+    public async Task List_RoleNotGuid_Throws()
+    {
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.RoleDefinitionId = "Reader";
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
+    {
+        Uri? sentUri = null;        var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
             sentUri = request.RequestUri;

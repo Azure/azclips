@@ -44,6 +44,25 @@ Configuration follows strict precedence: **command args > environment variables 
 Use `--debug` to force debug-level output for a single invocation; this
 override does not persist to config.
 
+The CLI, configuration-aware PowerShell command streams, and no-session fallback
+use the same baseline thresholds:
+
+| Configured level | Enabled message severities |
+| --- | --- |
+| `error` | Error |
+| `warn` | Error, Warning |
+| `info` | Error, Warning, Information |
+| `debug` | Error, Warning, Information, Debug, Verbose |
+
+`verbose` is a message severity, not a configured level. Runtime level parsing
+ignores casing and surrounding whitespace; missing or unrecognized values use
+`warn`. Configuration commands still validate values against the supported levels.
+
+CLI invocations capture their effective level during startup, before early profile
+reads. No-session background logging instead resolves the global level for each
+non-error message. Errors remain reportable even if configuration cannot be read;
+expected configuration-read failures in the fallback use `warn`.
+
 ### Stream routing
 
 `az` follows the POSIX/GNU convention shared with every Azure-family and general-purpose CLI (Azure CLI Python, Az PowerShell, AWS CLI, `git`, `kubectl`, `docker`, `terraform`):
@@ -66,27 +85,15 @@ Use explicit parameter names for CLI config commands:
 # Retrieve a single key
 az config get --key core.logging.level
 
-# Output: core.logging.level = warn [default]
-
-# Retrieve a section (text output)
+# Retrieve a section as flat entries with relative keys
 az config get --key core
 
-# Example output:
-#   logging.level = warn
-#   engine.extensionIndexCacheSize = 512
-#   http.maxRetries = 3
-#   http.maxRetriesFor429 = 5
+# Select a standard output format
+az config get --key core --output table
+az config get --key core --output json
 
-# Retrieve a subsection as JSON
-az config get --key core.logging --json
-
-# Example output:
-# {
-#   "level": "warn"
-# }
-
-# Retrieve a section as nested JSON
-az config get --key core --json
+# Query the structured result
+az config get --key core.logging.level --query "value"
 ```
 
 ### Set a configuration value
@@ -110,8 +117,9 @@ az config list
 # List with defaults (shows all keys with their current values)
 az config list --all
 
-# Output as JSON
-az config list --all --json
+# Select a standard output format
+az config list --all --output json
+az config list --all --output table
 ```
 
 ### Delete a configuration value
@@ -190,7 +198,7 @@ az config list --all
 
 ```bash
 # Delete all user-set config
-az config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
+az config list --query "[].key" --output tsv | while IFS= read -r key; do
   az config delete --key "$key" --force
 done
 ```

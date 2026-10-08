@@ -95,7 +95,7 @@ create_vm() {
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --vm-size "$VM_SIZE" \
+        --size "$VM_SIZE" \
         --admin-username azadmin \
         --admin-password 'ArtemisCriticalX4!' \
         --network-interface-name "${PREFIX}-nic-$suffix" \
@@ -103,16 +103,7 @@ create_vm() {
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "${PREFIX}-subnet-$suffix" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "${PREFIX}-nsg-$suffix" \
-        --rule-names rdp \
-        --rule-protocols tcp \
-        --rule-directions Inbound \
-        --rule-priorities 1001 \
-        --rule-source-address-prefixes "*" \
-        --rule-source-port-ranges "*" \
-        --rule-destination-port-ranges 3389 \
-        --rule-destination-address-prefixes "*" \
-        --rule-accesses Allow
+        --nsg "${PREFIX}-nsg-$suffix"
 }
 
 FAILED=0

@@ -332,7 +332,7 @@ internal sealed class TraceUploader
 
         if (entries.Count == 0)
         {
-            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Global, profile), [], groups, fileGroups);
+            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Unknown, profile), [], groups, fileGroups);
             return;
         }
 
@@ -377,7 +377,7 @@ internal sealed class TraceUploader
             return false;
 
         var boundary = entries[0].DataBoundary;
-        if (boundary is not (DataBoundaryRouting.Eu or DataBoundaryRouting.Global))
+        if (boundary is null || boundary != DataBoundaryRouting.Normalize(boundary))
             return false;
 
         return entries.All(entry =>

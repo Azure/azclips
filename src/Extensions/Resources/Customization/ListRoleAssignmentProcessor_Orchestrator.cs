@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
@@ -28,49 +29,68 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
     public string? AssigneeObjectId { get; set; }
 
+    public string? RoleDefinitionId { get; set; }
+
     protected override async Task BeforeProcessAsync()
     {
-        Scope = ResolveScope();
+        Scope = RoleAssignmentScope.Resolve(SubscriptionId, Scope, ResourceGroupName);
 
         if (ResolveAssigneeObjectId() is { } objectId)
         {
             Filter = $"principalId eq '{objectId}'";
         }
 
+        ValidateRoleDefinitionId();
+
         await base.BeforeProcessAsync();
     }
 
     /// <summary>
-    /// Resolves the effective scope with precedence: explicit <see cref="ListRoleAssignmentProcessor.Scope"/>
-    /// first, then subscription + <see cref="ResourceGroupName"/>, then the subscription alone.
-    /// <see cref="ListRoleAssignmentProcessor.Scope"/> and <see cref="ResourceGroupName"/> are mutually
-    /// exclusive.
+    /// Applies the client-side <c>--role</c> filter. ARM's role-assignment list cannot filter by role
+    /// server-side, so matching assignments are selected here by comparing the trailing GUID segment of
+    /// each assignment's <c>roleDefinitionId</c> against <see cref="RoleDefinitionId"/>.
     /// </summary>
-    private string ResolveScope()
+    protected override IEnumerable<RoleAssignment> FilterPageItems(IEnumerable<RoleAssignment> items)
     {
-        bool hasScope = !string.IsNullOrWhiteSpace(Scope);
-        bool hasResourceGroup = !string.IsNullOrWhiteSpace(ResourceGroupName);
-
-        if (hasScope && hasResourceGroup)
+        if (string.IsNullOrWhiteSpace(RoleDefinitionId))
         {
-            throw AzclipsErrorException.UsageError("Specify either --scope or --resource-group, not both.");
+            return items;
         }
 
-        if (hasScope)
+        string target = RoleDefinitionId.Trim();
+        return items.Where(assignment => MatchesRoleDefinition(assignment, target));
+    }
+
+    private static bool MatchesRoleDefinition(RoleAssignment assignment, string roleDefinitionId)
+    {
+        string? id = assignment.Properties?.RoleDefinitionId;
+        if (string.IsNullOrEmpty(id))
         {
-            return NormalizeScope(Scope);
+            return false;
         }
 
-        if (string.IsNullOrWhiteSpace(SubscriptionId))
+        string tail = id[(id.LastIndexOf('/') + 1)..];
+        return string.Equals(tail, roleDefinitionId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Validates the role filter. Only a role definition ID (GUID) is supported; resolving a role name to
+    /// its definition ID needs an extra ARM roleDefinitions lookup that is not yet performed.
+    /// </summary>
+    private void ValidateRoleDefinitionId()
+    {
+        if (string.IsNullOrWhiteSpace(RoleDefinitionId))
         {
-            throw AzclipsErrorException.MissingRequiredParameters(
-                "A subscription is required to list role assignments. Provide --scope, or set an active subscription.");
+            return;
         }
 
-        string subscriptionScope = $"/subscriptions/{SubscriptionId.Trim()}";
-        return hasResourceGroup
-            ? $"{subscriptionScope}/resourceGroups/{ResourceGroupName!.Trim()}"
-            : subscriptionScope;
+        RoleDefinitionId = RoleDefinitionId.Trim();
+        if (!Guid.TryParse(RoleDefinitionId, out _))
+        {
+            throw AzclipsErrorException.UsageError(
+                $"The role '{RoleDefinitionId}' is not a role definition ID (GUID). Role name resolution is not yet supported; " +
+                "specify the role definition ID (GUID).");
+        }
     }
 
     /// <summary>
@@ -85,7 +105,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
         if (hasAssignee && hasObjectId)
         {
-            throw AzclipsErrorException.UsageError("Specify only one of --assignee or --assignee-object-id.");
+            throw AzclipsErrorException.UsageError("Specify only one assignee.");
         }
 
         if (hasObjectId)
@@ -94,7 +114,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
             if (!Guid.TryParse(objectId, out _))
             {
                 throw AzclipsErrorException.UsageError(
-                    $"--assignee-object-id '{objectId}' is not a valid object ID (GUID).");
+                    $"The assignee object ID '{objectId}' is not a valid object ID (GUID).");
             }
 
             return objectId;
@@ -106,24 +126,13 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
             if (!Guid.TryParse(value, out _))
             {
                 throw AzclipsErrorException.UsageError(
-                    $"--assignee '{value}' is not an object ID. Name, UPN, and service-principal resolution is not yet supported; " +
-                    "pass the principal's object ID, or use --assignee-object-id.");
+                    $"The assignee '{value}' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; " +
+                    "specify the principal's object ID (GUID).");
             }
 
             return value;
         }
 
         return null;
-    }
-
-    private static string NormalizeScope(string scope)
-    {
-        string effectiveScope = scope.Trim();
-        if (!effectiveScope.StartsWith('/'))
-        {
-            effectiveScope = "/" + effectiveScope;
-        }
-
-        return effectiveScope.TrimEnd('/');
     }
 }

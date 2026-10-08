@@ -33,7 +33,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
+    private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -96,6 +96,7 @@ public class Program
         Activity? activity = null;
         var invocationTelemetryEnabled = false;
         string? uploadReservationId = null;
+        IDisposable? startupLoggingScope = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var errorFormat = OutputFormat.Table;
@@ -104,14 +105,30 @@ public class Program
         var positional = args;
         CommandInvocation? invocation = null;
 
+        GlobalArgs globalArgs;
+        EffectiveSessionSettings sessionSettings;
+
         try
         {
+            using (performance.Measure("AzureCLI.ParseGlobalArgs"))
+            {
+                globalArgs = GlobalArgParser.Parse(args);
+            }
+
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
-
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
+                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(sessionSettings.Color);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+
+                // Startup/profile reads happen before the session logger is set in ExecutionSession.
+                startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
+
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
                 uploadReservationId = BeginCommandUploadReservation(activity, invocationTelemetryEnabled);
                 AzclipsServiceProvider.GetRequiredService<ICommandTelemetryContext>().BindCommand(activity);
@@ -129,21 +146,17 @@ public class Program
                 // telemetry to the Global endpoint. ExecutionSession.RunAsync below
                 // re-resolves and re-tags from the bound --profile once it's known, which is
                 // authoritative for the command's own spans.
-                var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
+                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token);
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
                 if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
+                if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
                 performance.Replay(_telemetryService);
-            }
-
-            GlobalArgs globalArgs;
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
-            {
-                globalArgs = GlobalArgParser.Parse(args);
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
@@ -154,14 +167,9 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-                ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
                 errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
                     errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
-                    configuredFormat: settings.Format,
+                    configuredFormat: sessionSettings.Format,
                     explicitFormat: globalArgs.Output);
                 errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
@@ -260,6 +268,8 @@ public class Program
         }
         finally
         {
+            startupLoggingScope?.Dispose();
+
             // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
             // below disposes the TracerProvider, after which nothing can be exported.
             activity?.Dispose();
@@ -282,7 +292,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -301,7 +311,7 @@ public class Program
             },
             WriteVerbose: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Verbose))
                 {
                     ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
@@ -309,7 +319,7 @@ public class Program
             },
             WriteDebug: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Debug))
                 {
                     ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
@@ -317,7 +327,7 @@ public class Program
             },
             WriteWarning: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Warn))
                 {
                     ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
@@ -325,7 +335,7 @@ public class Program
             },
             WriteInformation: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Info))
                 {
                     ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }

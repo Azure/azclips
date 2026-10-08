@@ -4,6 +4,10 @@
 > fork-only tree this record originally decided was replaced by a **single linear
 > sequence** before it shipped. Decision point 2 below is superseded — see
 > [Revision — from fork-only tree to linear sequence](#revision--from-fork-only-tree-to-linear-sequence).
+> A second revision (2026-10-07) moves stage implementations into the compiler,
+> implemented the same day, and narrows point 3, which lands with the aceconfig
+> work — see
+> [Revision — compiler-owned stage implementations](#revision--compiler-owned-stage-implementations).
 > Every other point stands as written. _(originally accepted 2026-08-26)_
 >
 > **Scope:** the Azure Client Engine (ACE) compiler pipeline
@@ -107,6 +111,98 @@ wrong generated code.
   mutates one IR end to end, so a retaining sink that skips the copy does not get
   a slightly stale snapshot — it gets N references to the run's final state.
   Forking used to mask this.
+
+## Revision — compiler-owned stage implementations
+
+_2026-10-07. Implemented 2026-10-07, except the disable-only switch for Decision
+point 3, which lands with the aceconfig work. Supersedes the "Escape hatches
+stay" item of the design sketch. Everything else in this record stands._
+
+**The packages layer as `cli` → `compiler` → `transformers`, and every package
+depends on `ir`.** The compiler maps catalog ids to transform implementations
+itself (`packages/compiler/src/transforms.ts`), so hosts supply no stage code.
+The CLI uses only compiler interfaces, plus the host `Runtime` it already
+provides for out-of-process tools (the TypeSpec toolchain and the C# generator
+host). Resolving those tools is the CLI's job; keeping it there keeps the
+compiler free of `child_process` and `fs`.
+
+### What changes
+
+- **The transform contract moves into `transformers`.** `TransformStep` and
+  `TransformContext` are defined next to the steps
+  (`packages/transformers/src/transform.ts`). `transformers` stops depending on
+  `compiler`, and `compiler` starts depending on `transformers`.
+- **Diagnostics stay in the compiler.** `CompilerDiagnostic` remains a compiler
+  type that hosts use directly. A transform reports through a delegate whose
+  parameter shape `transformers` declares inline. Declared as a function-typed
+  property rather than a method, the delegate is checked under
+  `strictFunctionTypes` when the compiler builds the context, so incompatible
+  shapes stop the compiler from building. (Verified: a method declaration would
+  accept a drifted shape silently.)
+- **The host registry is dropped.** `CompileOptions.registry` and
+  `createRegistry` are gone. The built-in external stages (`tsp-emit`, `csharp`)
+  still run through the host `Runtime`.
+- **Point 3 becomes disable-only.** It shipped as a two-way toggle
+  (`config.pipeline`). With nothing off by default, a host can only disable a
+  non-mandatory stage (see
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md)).
+  Not implemented yet.
+- **A no-output run disables the generate stage**, and the planner reports it as
+  a warning (`no-generator`). `noopGenerator` had no remaining injection path and
+  is removed.
+
+### Why
+
+- **The CLI stops knowing transformers.** It resolves tools and passes input;
+  stage code is the compiler's dependency.
+- **The awkward edge was only the contract.** `transformers` imported two types
+  from the compiler (`TransformStep`, `TransformContext`), and of those used only
+  `reportDiagnostic`.
+- **A host can no longer omit a stage the catalog declares.** That matters once a
+  mandatory transform (`seed-ir`) exists.
+
+### Costs
+
+- **Tests lost the registry seam.** Tests that stubbed stages through
+  `createRegistry` now run the real transforms or disable stages through config.
+  Tests that only made sense with fake stages were dropped (see below).
+- **The diagnostic shape is declared twice:** once as the compiler type and once
+  inline in `transformers`. The compile-time check above keeps them compatible.
+
+### Consequences for the rest of this record
+
+- **Decision 3** ("turn-on only") is now disable-only, as above.
+- **"Escape hatches stay"** in the design sketch is superseded for transforms and
+  generators. `CompileOptions.emit` and `CompileOptions.catalog` were kept.
+- **"`noopGenerator` is reachable only as an explicit escape hatch"** under
+  Non-goals is superseded: a no-output run disables the generate stage.
+- **The JSON-RPC ADR's in-process channel** for transforms becomes the
+  compiler's own. A host binds channels only for out-of-process stages.
+
+### Open points from the implementation (for discussion)
+
+- **Orchestration coverage dropped with the fake-stage tests.** These behaviors
+  of `compile()` are no longer covered by unit tests:
+  - stopping at the first failing transform;
+  - tagging generated artifacts with the stage that produced them;
+  - two generate stages writing the same path (`output-path-collision`);
+  - rejecting a document a generator cannot render (`invalid-generator-input`);
+  - snapshot index gaps around a generate stage in mid-sequence.
+
+  Restoring them would need a way to run fake stages, for example an internal,
+  non-exported entry point.
+- **Keep `CompileOptions.emit` and `CompileOptions.catalog`?** Both remain as
+  embedder and test escape hatches. Now that every standard id has an
+  implementation, a custom `catalog` is the only way to reach
+  `unimplemented-stage`.
+- **`TransformContext` carries no config, but `GeneratorContext` still exposes
+  all of `CompileConfig`.** The transform contract cannot name a compiler type,
+  so its `config` field was removed (no step read it); options still arrive
+  through each step's factory. Routing each stage's own entry into its context
+  is the aceconfig work.
+- **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
+  to map `--generator` and `--root-namespace` onto config. They are compiler
+  exports, not transformer details, and go away with the aceconfig flags.
 
 ## Context — where we are today
 

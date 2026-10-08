@@ -8,6 +8,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Microsoft.Extensions.Logging;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -39,11 +40,11 @@ public class AriaActivityExporterTests
         using var noNetwork = TelemetryNetworkGuard.Disable();
         using var logs = new RecordingLoggerFactory();
         var exporter = new AriaActivityExporter(
-            WellKnownEndpoints.AriaConnectionString, null,
+            WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint,
             (connection, endpoint) =>
             {
                 Assert.Equal(WellKnownEndpoints.AriaConnectionString, connection);
-                Assert.Null(endpoint);
+                Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, endpoint);
                 return logs;
             });
         using var source = new ActivitySource("AriaIntegrationTest");
@@ -239,6 +240,40 @@ public class AriaActivityExporterTests
                 Assert.Equal(span.ParentSpanId, entry["ParentSpanId"]);
             Assert.Equal(span.Name, entry[TelemetryTags.EventName]);
         }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("APAC")]
+    public async Task ActualAgentLayer_PreservesUnconfirmedBoundaryAndRoutesToEu(string? boundary)
+    {
+        using var noNetwork = TelemetryNetworkGuard.Disable();
+        await using var environment = new TelemetryLayerTestEnvironment(layer: TelemetryLayers.Agent);
+        var context = environment.Context() with { DataBoundary = boundary };
+        var scope = environment.Create(context);
+        using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+        Assert.NotNull(root);
+        Assert.Equal(TelemetryLayerCompletion.Published,
+            await scope.CompleteAsync(root.Activity).WaitAsync(TelemetryLayerTestEnvironment.TestTimeout));
+
+        var expected = DataBoundaryRouting.Normalize(boundary);
+        Assert.Equal(expected, Assert.Single(environment.Read(scope)).DataBoundary);
+        using var global = new RecordingLoggerFactory();
+        using var eu = new RecordingLoggerFactory();
+        var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, _, actualBoundary) =>
+        {
+            Assert.Equal(expected, actualBoundary);
+            Assert.False(DataBoundaryRouting.IsConfirmedGlobal(actualBoundary));
+            builder.AddProcessor(new SimpleActivityExportProcessor(
+                new AriaActivityExporter((_, endpoint) =>
+                    endpoint == WellKnownEndpoints.AriaEuEndpoint ? eu : global)));
+        });
+
+        new TraceUploader(new TraceFileStore(environment.Root), sink).Run();
+
+        Assert.Empty(global.Entries);
+        Assert.Equal(expected, Assert.Single(eu.Entries)[TelemetryTags.DataBoundary]);
+        Assert.Empty(Directory.GetFiles(environment.Root, "traces-*"));
     }
 
     private sealed record ExportedSpan(

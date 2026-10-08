@@ -36,3 +36,11 @@ az role assignment list --assignee-object-id 11111111-2222-3333-4444-55555555555
 ```bash
 az role assignment list --assignee 11111111-2222-3333-4444-555555555555
 ```
+
+### List role assignments for a specific role
+
+`--role` currently takes a role definition ID (GUID); role name resolution is not yet supported.
+
+```bash
+az role assignment list --role b24988ac-6180-42a0-ab88-20f7382dd24c
+```

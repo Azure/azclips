@@ -41,8 +41,7 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
             ("AdminUsername", "benchadmin"),
             ("AdminPassword", "Benchmark!Pass123"),
             ("NetworkInterfaceName", $"bench-nic-{n}"),
-            ("VirtualNetworkName", $"bench-vnet-{n}"),
-            ("NetworkSecurityGroupName", $"bench-nsg-{n}"));
+            ("VirtualNetworkName", $"bench-vnet-{n}"));
     }
 
     [Benchmark(Description = "PS: Get VM")]

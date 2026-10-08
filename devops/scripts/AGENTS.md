@@ -27,7 +27,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/macos/` | macOS tarball build/test and signing entitlements (`azclips-runtime.entitlements.plist`). |
 | `packaging/windows/` | Windows zip build + test. |
 | `packaging/powershell/` | PowerShell module packaging/validation. |
-| `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs. |
+| `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
 ## Path Resolution Convention (Bash)
@@ -69,6 +69,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Validate SDK-bundled Copilot runtimes with their server contract (`--server --stdio`); they do not expose the user-facing CLI's `--version` command.
 - Keep active Windows process redirection files outside published artifact directories, wait for asynchronous stream handling to finish, and dispose process handles before copying diagnostics into artifacts.
 - Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
+- Validate structured CLI results with `--query` and compare stdout rather than parsing presentation-oriented output; keep diagnostics on stderr separate from asserted values.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).
