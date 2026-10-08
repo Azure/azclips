@@ -40,7 +40,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
+    private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -284,7 +284,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -303,7 +303,7 @@ public class Program
             },
             WriteVerbose: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Verbose))
                 {
                     ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
@@ -311,7 +311,7 @@ public class Program
             },
             WriteDebug: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Debug))
                 {
                     ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
@@ -319,7 +319,7 @@ public class Program
             },
             WriteWarning: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Warn))
                 {
                     ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
@@ -327,7 +327,7 @@ public class Program
             },
             WriteInformation: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Info))
                 {
                     ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }
