@@ -69,6 +69,25 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         string? objectId = ResolveAssigneeObjectId();
         ValidateRoleDefinitionId();
 
+        // Group expansion only means something relative to a principal; without an assignee the switch
+        // would be a silent no-op. Classic agrees — its -ExpandPrincipalGroups is "supported only for a
+        // user principal" — so require an assignee rather than ignoring the switch. (Neutral wording: this
+        // orchestrator backs both the CLI and PowerShell surfaces.)
+        if (IncludeGroups && objectId is null)
+        {
+            throw AzclipsErrorException.UsageError(
+                "Expanding group memberships requires an assignee. Specify the principal's object ID (GUID).");
+        }
+
+        // Listing every nested scope and including inherited (ancestor) scopes widen in opposite
+        // directions and cannot both be satisfied by a single list call, so reject the combination
+        // rather than silently honouring only one.
+        if (All && IncludeInherited)
+        {
+            throw AzclipsErrorException.UsageError(
+                "Listing every nested scope cannot be combined with including inherited (ancestor) assignments; they widen in opposite directions.");
+        }
+
         if (All)
         {
             // --all lists the whole subscription (every nested scope), so an explicit scope or

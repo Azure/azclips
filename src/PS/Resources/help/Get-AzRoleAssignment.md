@@ -51,9 +51,10 @@ By default only assignments made at the exact scope are listed. Use `-IncludeInh
 assignments inherited from ancestor scopes. (This widening switch is deliberately named `-IncludeInherited`
 rather than classic's `-AtScope`, whose name signals the opposite — restricting to a scope — to avoid
 surprising scripts migrated from classic.) Use `-ExpandPrincipalGroups` together with `-ObjectId` to also
-include assignments the principal receives transitively through the groups it belongs to. Use
-`-IncludeNestedScopes` to list assignments across the whole subscription including every nested scope
-(resource groups and resources); it cannot be combined with `-Scope` or `-ResourceGroupName`.
+include assignments the principal receives transitively through the groups it belongs to (it requires
+an assignee). Use `-IncludeNestedScopes` to list assignments across the whole subscription including
+every nested scope (resource groups and resources); it cannot be combined with `-Scope`,
+`-ResourceGroupName`, or `-IncludeInherited`.
 
 ## EXAMPLES
 

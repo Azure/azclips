@@ -55,7 +55,7 @@ az role assignment list --include-inherited
 
 ### List across the whole subscription including nested scopes
 
-`--all` lists role assignments at the subscription and every nested scope (resource groups and resources) beneath it. It cannot be combined with `--scope` or `--resource-group`.
+`--all` lists role assignments at the subscription and every nested scope (resource groups and resources) beneath it. It cannot be combined with `--scope`, `--resource-group`, or `--include-inherited` (which widens in the opposite direction, toward ancestor scopes).
 
 ```bash
 az role assignment list --all
@@ -63,7 +63,7 @@ az role assignment list --all
 
 ### Include assignments granted through group membership
 
-When filtering by assignee, `--include-groups` also returns assignments the principal receives transitively through the groups it belongs to.
+When filtering by assignee, `--include-groups` also returns assignments the principal receives transitively through the groups it belongs to. It requires an assignee (`--assignee-object-id`).
 
 ```bash
 az role assignment list --assignee-object-id 11111111-2222-3333-4444-555555555555 --include-groups

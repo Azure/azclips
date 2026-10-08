@@ -746,6 +746,37 @@ public class RoleAssignmentCliTests
         Assert.Equal("atRoot", Assert.Single(assignments).Name);
     }
 
+    [Fact]
+    public async Task List_IncludeGroupsWithoutAssignee_Throws()
+    {
+        // --include-groups / -ExpandPrincipalGroups filters a principal's group memberships, so it
+        // requires an assignee; without one it must error rather than be a silent no-op.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.IncludeGroups = true;
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task List_AllWithIncludeInherited_Throws()
+    {
+        // --all (nested scopes below) and --include-inherited (ancestor scopes above) widen in opposite
+        // directions and cannot both be honoured by one list call, so the combination is rejected.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("""{"value":[]}"""));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.All = true;
+        processor.IncludeInherited = true;
+
+        await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
     private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;        var output = new FakeOutputHandler();
