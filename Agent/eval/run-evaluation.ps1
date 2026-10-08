@@ -25,7 +25,7 @@ if (Test-Path -LiteralPath $OutputPath) {
 }
 & node (Join-Path $PSScriptRoot 'judge\judge-azure.js') --check-config
 if ($LASTEXITCODE -ne 0) {
-    throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
+    throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Set endpoint/deployment in Agent/eval/judge.config.local.json or configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
 }
 $configuration = if ($RecoveryMode -eq 'manual') {
     [ordered]@{ 'agent.recovery' = 'manual' }

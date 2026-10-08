@@ -27,14 +27,44 @@ write command in a proposed plan is not itself a failure or evidence of executio
 The judge receives the original command/error, full response, structured plan,
 and recorded tool context. It is not asked to grade prose style or length.
 
-Set the endpoint and **existing deployment name** for an approved Azure OpenAI
-resource before running the suite:
+Save the endpoint and **existing deployment name** for an approved Azure OpenAI
+resource in `judge.config.local.json`, beside this
+README. This is the evaluation client's persistent local configuration, not
+AZCLIPS's global configuration or dashboard server configuration. It is ignored
+by Git and contains no credentials.
+
+On a new checkout, copy [judge.config.example.json](./judge.config.example.json)
+to `judge.config.local.json`, then fill the empty `endpoint` and `deployment`
+fields. The example deliberately contains no default resource or judge model.
+The optional `apiVersion` and `timeoutMs` fields default to
+`2024-12-01-preview` and `60000`.
+
+Both wrapper preflight and Promptfoo resolve this file relative to the evaluation
+directory, regardless of the shell's current directory. Missing files are allowed
+when environment variables supply the required settings. Invalid JSON, unsupported
+fields, unreadable files, and invalid values fail explicitly. Never put an API
+key, token, or client secret in this file.
+
+Environment variables override the corresponding local file values, allowing CI
+or a one-off local run to use a different deployment without editing the file:
 
 ```powershell
 $env:AZURE_OPENAI_ENDPOINT = 'https://<approved-resource>.openai.azure.com'
 $env:AZURE_OPENAI_DEPLOYMENT = '<existing-judge-deployment>'
 $env:AZURE_OPENAI_API_VERSION = '2024-12-01-preview'
 ```
+
+These PowerShell assignments last only for that shell and its child processes;
+the local JSON file persists across shells. Check configuration without logging
+in, calling a model, or changing Agent settings with:
+
+```powershell
+node .\judge\judge-azure.js --check-config
+```
+
+This check validates configuration only, not the actual deployment or inference
+permission. The provider receives the resolved settings from Promptfoo; explicit
+provider configuration takes precedence over its environment.
 
 The signed-in classic Azure CLI identity must have inference permission for that
 resource and be able to acquire a `https://cognitiveservices.azure.com/.default`

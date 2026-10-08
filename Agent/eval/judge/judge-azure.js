@@ -12,7 +12,8 @@
 // promptfoo still owns the grading logic (llm-rubric) — this only supplies the
 // token + endpoint, so grading quality tracks promptfoo's updates.
 //
-// Env:
+// Local file: Agent/eval/judge.config.local.json (git-ignored).
+// Env overrides the corresponding local file values:
 //   AZURE_OPENAI_ENDPOINT   e.g. https://cli-copilot.openai.azure.com
 //   AZURE_OPENAI_DEPLOYMENT e.g. gpt-5.4-mini
 //   AZURE_OPENAI_API_VERSION e.g. 2024-12-01-preview
@@ -20,6 +21,8 @@
 //            SYSTEM_ACCESSTOKEN
 
 const OPENAI_SCOPE = 'https://cognitiveservices.azure.com/.default';
+const fs = require('node:fs');
+const path = require('node:path');
 const { LocalAzureCliCredential } = require('../local-azure-cli');
 
 function makeCredential(identity, env = process.env) {
@@ -51,7 +54,7 @@ function readJudgeConfiguration(cfg = {}, env = process.env) {
   const apiVersion = (cfg.apiVersion || env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview').trim();
   const timeoutMs = cfg.timeoutMs ?? 60000;
   if (!endpoint || !deployment) {
-    throw new Error('Semantic grading requires AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT (or explicit judge endpoint/deployment); no judge will be selected automatically.');
+    throw new Error('Semantic grading requires AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT, or endpoint/deployment in Agent/eval/judge.config.local.json; no judge will be selected automatically.');
   }
   let parsed;
   try {
@@ -66,6 +69,50 @@ function readJudgeConfiguration(cfg = {}, env = process.env) {
     throw new Error('The Azure judge requires a nonempty API version and a positive integer timeoutMs.');
   }
   return { endpoint, deployment, apiVersion, timeoutMs };
+}
+
+function loadJudgeConfiguration(
+  env = process.env,
+  configPath = path.join(__dirname, '..', 'judge.config.local.json'),
+) {
+  let content;
+  try {
+    content = fs.readFileSync(configPath, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw new Error(`Unable to read judge configuration "${configPath}" (${error.code || 'read failed'}).`);
+    }
+  }
+  let local = {};
+  if (content !== undefined) {
+    try {
+      local = JSON.parse(content.replace(/^\uFEFF/, ''));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      throw new Error(`Invalid JSON in judge configuration "${configPath}".`);
+    }
+    if (!local || typeof local !== 'object' || Array.isArray(local)) {
+      throw new Error(`Judge configuration "${configPath}" must be a JSON object.`);
+    }
+    const allowed = ['endpoint', 'deployment', 'apiVersion', 'timeoutMs'];
+    if (Object.keys(local).some((key) => !allowed.includes(key))) {
+      throw new Error(`Judge configuration "${configPath}" only supports ${allowed.join(', ')}. Do not store credentials in this file; authentication uses Entra.`);
+    }
+    for (const key of ['endpoint', 'deployment', 'apiVersion']) {
+      if (local[key] !== undefined && typeof local[key] !== 'string') {
+        throw new Error(`Judge configuration "${configPath}": ${key} must be a string.`);
+      }
+    }
+    if (local.timeoutMs !== undefined && (!Number.isSafeInteger(local.timeoutMs) || local.timeoutMs <= 0)) {
+      throw new Error(`Judge configuration "${configPath}": timeoutMs must be a positive integer.`);
+    }
+  }
+  return readJudgeConfiguration({
+    ...local,
+    endpoint: env.AZURE_OPENAI_ENDPOINT || local.endpoint,
+    deployment: env.AZURE_OPENAI_DEPLOYMENT || local.deployment,
+    apiVersion: env.AZURE_OPENAI_API_VERSION || local.apiVersion,
+  }, env);
 }
 
 function tokenUsageFromResponse(usage) {
@@ -172,10 +219,11 @@ module.exports = JudgeAzureProvider;
 module.exports.makeCredential = makeCredential;
 module.exports.tokenUsageFromResponse = tokenUsageFromResponse;
 module.exports.readJudgeConfiguration = readJudgeConfiguration;
+module.exports.loadJudgeConfiguration = loadJudgeConfiguration;
 
 if (require.main === module) {
   try {
-    readJudgeConfiguration();
+    loadJudgeConfiguration();
     process.stdout.write('Semantic judge configuration is present; inference access is verified by the grading call.\n');
   } catch (error) {
     process.stderr.write(`${error.message}\n`);

@@ -9,7 +9,7 @@ const deployWebApp = require('./cases/deploy-web-app');
 const profileShow = require('./cases/profile-show');
 const vmCreateShortFlags = require('./cases/vm-create-short-flags');
 const { readRuntimePrompt } = require('./targets/azclips');
-const { readJudgeConfiguration } = require('./judge/judge-azure');
+const { loadJudgeConfiguration } = require('./judge/judge-azure');
 
 const runtimePrompt = readRuntimePrompt();
 
@@ -26,7 +26,7 @@ if (!runContext.signed_in || !runContext.subscription_id) {
   throw new Error('Run the reference suite through run-evaluation.ps1 with a signed-in active profile.');
 }
 
-const judgeConfiguration = readJudgeConfiguration();
+const judgeConfiguration = loadJudgeConfiguration();
 const tests = [
   profileShow,
   vmCreateShortFlags,

@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 const JudgeAzureProvider = require('./judge-azure');
-const { makeCredential, readJudgeConfiguration, tokenUsageFromResponse } = JudgeAzureProvider;
+const { loadJudgeConfiguration, makeCredential, readJudgeConfiguration, tokenUsageFromResponse } = JudgeAzureProvider;
 
 const configuration = {
   endpoint: 'https://test-judge.openai.azure.com',
@@ -9,6 +13,111 @@ const configuration = {
   apiVersion: '2024-12-01-preview',
   timeoutMs: 1000,
 };
+
+function localConfigFile(context, content) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-judge-config-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const configPath = path.join(directory, 'judge.config.local.json');
+  if (content !== undefined) {
+    fs.writeFileSync(configPath, typeof content === 'string' ? content : JSON.stringify(content));
+  }
+  return configPath;
+}
+
+test('loads persistent judge settings including a Windows UTF-8 BOM', (context) => {
+  const configPath = localConfigFile(context, `\uFEFF${JSON.stringify(configuration)}`);
+  assert.deepEqual(loadJudgeConfiguration({}, configPath), configuration);
+});
+
+test('environment overrides local judge settings without changing the local file', (context) => {
+  const configPath = localConfigFile(context, configuration);
+  const original = fs.readFileSync(configPath);
+  const resolved = loadJudgeConfiguration({
+    AZURE_OPENAI_ENDPOINT: 'https://override.openai.azure.com/',
+    AZURE_OPENAI_DEPLOYMENT: 'override-deployment',
+    AZURE_OPENAI_API_VERSION: '2025-01-01-preview',
+  }, configPath);
+  assert.deepEqual(resolved, {
+    endpoint: 'https://override.openai.azure.com',
+    deployment: 'override-deployment',
+    apiVersion: '2025-01-01-preview',
+    timeoutMs: configuration.timeoutMs,
+  });
+  assert.deepEqual(fs.readFileSync(configPath), original);
+  assert.equal(loadJudgeConfiguration({
+    AZURE_OPENAI_DEPLOYMENT: 'another-deployment',
+  }, configPath).endpoint, configuration.endpoint);
+});
+
+test('environment-only configuration remains supported and missing settings still stop evaluation', (context) => {
+  const missing = localConfigFile(context);
+  assert.deepEqual(loadJudgeConfiguration({
+    AZURE_OPENAI_ENDPOINT: configuration.endpoint,
+    AZURE_OPENAI_DEPLOYMENT: configuration.deployment,
+  }, missing), { ...configuration, timeoutMs: 60000 });
+  assert.throws(() => loadJudgeConfiguration({}, missing), /judge\.config\.local\.json/);
+  const empty = localConfigFile(context, { endpoint: '', deployment: '' });
+  assert.throws(() => loadJudgeConfiguration({}, empty), /no judge will be selected automatically/);
+});
+
+test('invalid local judge files and credential fields fail without exposing their contents', (context) => {
+  const configPath = localConfigFile(context);
+  for (const [content, reason] of [
+    ['{"endpoint":"private-value",', /Invalid JSON/],
+    ['[]', /JSON object/],
+    ['null', /JSON object/],
+    [{ ...configuration, endpoint: 17 }, /endpoint must be a string/],
+    [{ ...configuration, deployment: [] }, /deployment must be a string/],
+    [{ ...configuration, apiVersion: null }, /apiVersion must be a string/],
+    [{ ...configuration, timeoutMs: '1000' }, /timeoutMs/],
+    [{ ...configuration, timeoutMs: null }, /timeoutMs/],
+    [{ ...configuration, timeoutMs: -1 }, /timeoutMs/],
+    [{ ...configuration, apiKey: 'private-value' }, /Do not store credentials/],
+    [{ ...configuration, typo: 'private-value' }, /only supports/],
+  ]) {
+    fs.writeFileSync(configPath, typeof content === 'string' ? content : JSON.stringify(content));
+    assert.throws(() => loadJudgeConfiguration({}, configPath), (error) => {
+      assert.match(error.message, reason);
+      assert.doesNotMatch(error.message, /private-value/);
+      return true;
+    });
+  }
+});
+
+test('unreadable judge configuration is not silently replaced by environment settings', (context) => {
+  context.mock.method(fs, 'readFileSync', () => {
+    throw Object.assign(new Error('unreadable'), { code: 'EACCES' });
+  });
+  assert.throws(() => loadJudgeConfiguration({
+    AZURE_OPENAI_ENDPOINT: configuration.endpoint,
+    AZURE_OPENAI_DEPLOYMENT: configuration.deployment,
+  }), /Unable to read judge configuration.*EACCES/);
+});
+
+test('real preflight loads the evaluation-local file from a different working directory', (context) => {
+  const configPath = localConfigFile(context, configuration);
+  const directory = path.dirname(configPath);
+  const judgeDirectory = path.join(directory, 'judge');
+  fs.mkdirSync(judgeDirectory);
+  const entry = path.join(judgeDirectory, 'judge-azure.js');
+  fs.copyFileSync(path.join(__dirname, 'judge-azure.js'), entry);
+  fs.copyFileSync(path.join(__dirname, '..', 'local-azure-cli.js'), path.join(directory, 'local-azure-cli.js'));
+  const env = { ...process.env };
+  for (const name of ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_DEPLOYMENT', 'AZURE_OPENAI_API_VERSION']) {
+    delete env[name];
+  }
+  const result = spawnSync(process.execPath, [entry, '--check-config'], {
+    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 15000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /inference access is verified by the grading call/);
+  fs.writeFileSync(configPath, '{"endpoint":"","deployment":""}');
+  const incomplete = spawnSync(process.execPath, [entry, '--check-config'], {
+    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 15000,
+  });
+  assert.equal(incomplete.status, 1);
+  assert.match(incomplete.stderr, /judge\.config\.local\.json/);
+});
 
 test('uses the local Azure CLI credential outside CI', () => {
   const credential = makeCredential(
