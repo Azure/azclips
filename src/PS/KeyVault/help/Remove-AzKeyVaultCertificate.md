@@ -30,7 +30,7 @@ None.
 
 ## DESCRIPTION
 
-Deletes all versions and the associated policy from an existing public-cloud vault. Requires certificates/delete. Honors ShouldProcess and high-impact confirmation. Returns service recovery metadata without deleted-state polling. Never purges or changes retention settings. Recovery requires another tool.
+Deletes all versions and the associated policy from an existing public-cloud vault. Requires certificates/delete. Honors ShouldProcess and high-impact confirmation. Returns service recovery metadata without deleted-state polling. Never purges or changes retention settings. Use Undo-AzKeyVaultCertificateRemoval to recover the certificate within the retention period.
 
 ## EXAMPLES
 
@@ -185,11 +185,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.KeyVault.Models.DeletedCertificateBundle
 
-Deletes all versions and the associated policy from an existing public-cloud vault. Requires certificates/delete. Honors ShouldProcess and high-impact confirmation. Returns service recovery metadata without deleted-state polling. Never purges or changes retention settings. Recovery requires another tool.
+Deleted-certificate metadata, including recovery information when supplied by the service. The result does not contain private-key material.
 
 ## NOTES
 
-Public Azure only. Uses an existing vault and profile. Recovery, purge, backup/restore and standalone key operations are not included.
+Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertificateRemoval for certificate recovery. Purge, backup/restore and standalone key operations are not included.
 
 ## RELATED LINKS
 

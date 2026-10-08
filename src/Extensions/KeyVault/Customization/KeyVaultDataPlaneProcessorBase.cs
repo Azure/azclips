@@ -62,7 +62,9 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
                 uri.Port != 443 || !string.Equals(uri.IdnHost, vault.IdnHost, StringComparison.OrdinalIgnoreCase) ||
                 uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
                                 !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
-                                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal)))
+                                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal) ||
+                                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
+                                        "^/deletedcertificates/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
                                 throw new ArgumentException("The request must target the selected vault's secrets or certificates endpoint.");
 
             request.MarkSensitive();

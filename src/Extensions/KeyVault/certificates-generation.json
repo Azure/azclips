@@ -27,6 +27,7 @@
     { "name": "GetCertificateVersionsProcessor", "operation": "getCertificateVersions" },
     { "name": "UpdateCertificateProcessor", "operation": "updateCertificate" },
     { "name": "DeleteCertificateProcessor", "operation": "deleteCertificate" },
+    { "name": "RecoverDeletedCertificateProcessor", "operation": "recoverDeletedCertificate" },
     { "name": "GetCertificateOperationProcessor", "operation": "getCertificateOperation" },
     { "name": "UpdateCertificatePolicyProcessor", "operation": "updateCertificatePolicy" }
   ],

@@ -72,6 +72,15 @@ public class RemoveCertificateCommand : DeleteCertificateProcessor
     }
 }
 
+public class RecoverCertificateCommand : RecoverDeletedCertificateProcessor
+{
+    protected override Task BeforeProcessAsync()
+    {
+        CertificateCommandInputs.Validate(CertificateName);
+        return base.BeforeProcessAsync();
+    }
+}
+
 public class DownloadCertificateCommand : ShowCertificateCommand
 {
     public string File { get; set; } = string.Empty;

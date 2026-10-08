@@ -22,7 +22,7 @@
     FunctionsToExport = @()
     CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret',
         'Add-AzKeyVaultCertificate', 'Import-AzKeyVaultCertificate', 'Get-AzKeyVaultCertificate',
-        'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate')
+        'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate', 'Undo-AzKeyVaultCertificateRemoval')
     VariablesToExport = @()
     AliasesToExport = @()
     PrivateData = @{

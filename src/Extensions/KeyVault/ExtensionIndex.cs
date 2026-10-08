@@ -26,6 +26,7 @@ public class ExtensionIndex : IExtensionIndex
         Add<UpdateCertificateCommand>("set-attributes", "Update-AzKeyVaultCertificate", hasName: true, version: true, attributes: true, certificate: true);
         Add<DownloadCertificateCommand>("download", "Export-AzKeyVaultCertificate", hasName: true, version: true, certificate: true);
         Add<RemoveCertificateCommand>("delete", "Remove-AzKeyVaultCertificate", hasName: true, certificate: true);
+        if (!cli) Add<RecoverCertificateCommand>("recover", "Undo-AzKeyVaultCertificateRemoval", hasName: true, certificate: true);
         return table;
 
         void Add<T>(string verb, string psName, bool hasName = false, bool version = false, bool attributes = false, bool page = false, bool certificate = false)

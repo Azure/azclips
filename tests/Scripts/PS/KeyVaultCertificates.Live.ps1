@@ -106,13 +106,17 @@ Import-Module (Join-Path $repoRoot 'src/PS/Accounts/Accounts.psd1')
 Import-Module (Join-Path $repoRoot 'src/PS/KeyVault/KeyVault.psd1')
 
 if ($Phase -eq 'VerifyLocal') {
-    Assert-CertificateCheck 'Six certificate cmdlets exported' (@(Get-Command -Module KeyVault -Name '*KeyVaultCertificate').Count -eq 6)
+    Assert-CertificateCheck 'Seven certificate cmdlets exported' (@(Get-Command -Module KeyVault -Name '*KeyVaultCertificate*').Count -eq 7)
     $destination = Join-Path ([IO.Path]::GetTempPath()) ("clips-whatif-" + [Guid]::NewGuid().ToString('N') + '.cer')
     Add-AzKeyVaultCertificate -VaultName fixture -Name test -Policy '{}' -WhatIf
     Import-AzKeyVaultCertificate -VaultName fixture -Name test -FilePath missing.pfx -WhatIf
     Update-AzKeyVaultCertificate -VaultName fixture -Name test -Enabled $false -WhatIf
     Export-AzKeyVaultCertificate -VaultName fixture -Name test -FilePath $destination -WhatIf
     Remove-AzKeyVaultCertificate -VaultName fixture -Name test -WhatIf
+    $recovery = Get-Command -Module KeyVault -Name Undo-AzKeyVaultCertificateRemoval
+    Assert-CertificateCheck 'Recovery supports WhatIf and Confirm' ($recovery.Parameters.ContainsKey('WhatIf') -and $recovery.Parameters.ContainsKey('Confirm'))
+    $preview = @(Undo-AzKeyVaultCertificateRemoval -VaultName fixture -Name test -Profile 'whatif-profile-does-not-exist' -WhatIf -ErrorAction Stop)
+    Assert-CertificateCheck 'Recovery WhatIf returns no service output' ($preview.Count -eq 0)
     Assert-CertificateCheck 'WhatIf creates no download file' (-not (Test-Path -LiteralPath $destination))
     Assert-CertificateCheck 'Get has List, Get and Versions parameter sets' (((Get-Command Get-AzKeyVaultCertificate).ParameterSets.Name | Sort-Object) -join ',' -eq 'Get,List,Versions')
     return

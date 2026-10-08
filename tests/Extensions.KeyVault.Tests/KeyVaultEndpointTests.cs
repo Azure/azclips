@@ -50,10 +50,11 @@ public class KeyVaultEndpointTests
     }
 
     [Theory]
-    [InlineData("/secrets/test")]
-    [InlineData("/certificates")]
-    [InlineData("/certificates/test/pending")]
-    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string requestPath)
+    [InlineData("GET", "/secrets/test")]
+    [InlineData("GET", "/certificates")]
+    [InlineData("GET", "/certificates/test/pending")]
+    [InlineData("POST", "/deletedcertificates/test/recover")]
+    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string requestPath)
     {
         var profile = new Profile { TenantId = "fixture-tenant", CloudName = "AzureCloud" };
         string[]? capturedScopes = null;
@@ -84,7 +85,11 @@ public class KeyVaultEndpointTests
         factory.Setup(value => value.Create()).Returns(terminal.Object);
         var pipeline = new HttpPipeline(factory.Object);
         pipeline.Prepend(auth.SendAsync);
-        var processor = new EndpointProcessor { VaultName = "fixture", RequestUri = "https://fixture.vault.azure.net" + requestPath };
+        var processor = new EndpointProcessor
+        {
+            VaultName = "fixture", RequestMethod = new HttpMethod(method),
+            RequestUri = "https://fixture.vault.azure.net" + requestPath
+        };
         processor.Init(Context(pipeline, auth, profile));
         await processor.ProcessAsync();
         Assert.NotNull(capturedScopes);
@@ -92,6 +97,34 @@ public class KeyVaultEndpointTests
         Assert.Same(profile, capturedProfile);
         Assert.False(auth.ApplyOverride);
         Assert.Null(auth.AcquireTokenAsyncOverride);
+    }
+
+    [Theory]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("PATCH", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedcertificates")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedcertificates/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test/recover/extra")]
+    [InlineData("POST", "https://other.vault.azure.net/deletedcertificates/test/recover")]
+    public async Task OtherDeletedCertificateRequestsAreRejectedBeforeAuth(string method, string requestUri)
+    {
+        var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
+        var terminal = new Mock<ISendAsync>(MockBehavior.Strict);
+        var factory = new Mock<ISendAsyncTerminalFactory>();
+        factory.Setup(value => value.Create()).Returns(terminal.Object);
+        var pipeline = new HttpPipeline(factory.Object);
+        pipeline.Prepend(auth.SendAsync);
+        var processor = new EndpointProcessor
+        {
+            VaultName = "fixture", RequestUri = requestUri, RequestMethod = new HttpMethod(method)
+        };
+        processor.Init(Context(pipeline, auth));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        terminal.VerifyNoOtherCalls();
     }
 
     private static ProcessorContext Context(IRuntimeHttpPipeline pipeline, AuthHandler auth, Profile? profile = null)
@@ -105,7 +138,8 @@ public class KeyVaultEndpointTests
     private sealed class EndpointProcessor : KeyVaultDataPlaneProcessorBase<object, object>
     {
         public string RequestUri { get; set; } = "https://fixture.vault.azure.net/secrets/test";
-        protected override HttpMethod Method => HttpMethod.Get;
+        public HttpMethod RequestMethod { get; set; } = HttpMethod.Get;
+        protected override HttpMethod Method => RequestMethod;
         protected override string CreateRequestUri() => RequestUri;
     }
 }

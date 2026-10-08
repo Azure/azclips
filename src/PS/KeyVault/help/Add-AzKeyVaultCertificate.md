@@ -360,7 +360,7 @@ Starts issuance in an existing public-cloud vault. Supply Policy or PolicyPath. 
 
 ## NOTES
 
-Public Azure only. Uses an existing vault and profile. Recovery, purge, backup/restore and standalone key operations are not included.
+Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertificateRemoval for certificate recovery. Purge, backup/restore and standalone key operations are not included.
 
 ## RELATED LINKS
 

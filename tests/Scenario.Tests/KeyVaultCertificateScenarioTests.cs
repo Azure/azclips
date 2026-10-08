@@ -184,6 +184,53 @@ public class KeyVaultCertificateScenarioTests
         Assert.Single(interceptor.Sent);
     }
 
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.OK)]
+    [InlineData(System.Net.HttpStatusCode.Forbidden)]
+    [InlineData(System.Net.HttpStatusCode.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.Conflict)]
+    public void PowerShellRecoveryUsesProtectedTransportAndDoesNotExposeSecretMaterial(System.Net.HttpStatusCode statusCode)
+    {
+        const string sensitive = "private-fixture";
+        using var backend = new CertificateBackend((message, _) =>
+        {
+            Assert.Equal(HttpMethod.Post, message.Method);
+            Assert.Equal($"{Root}/deletedcertificates/test/recover?{Version}", message.RequestUri!.AbsoluteUri);
+            Assert.Null(message.Content);
+            return Task.FromResult(new HttpResponseMessage(statusCode)
+            {
+                RequestMessage = message,
+                Content = new StringContent(statusCode == System.Net.HttpStatusCode.OK
+                    ? JsonSerializer.Serialize(new { id = Root + "/certificates/test/version1", sid = Root + "/secrets/test/version1", cer = new byte[] { 1, 2, 3 }, x5t = "-_8", value = sensitive, pwd = sensitive })
+                    : JsonSerializer.Serialize(new { error = new { message = sensitive } }))
+            });
+        });
+        var record = new SessionRecord();
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, interceptor, backendHandler: backend, extensions: [ExtensionUnderTest.KeyVault]);
+        var parameters = new Dictionary<string, object> { ["VaultName"] = "fixture", ["CertificateName"] = "test" };
+
+        if (statusCode == System.Net.HttpStatusCode.OK)
+        {
+            var output = host.RunPowerShell("Undo-AzKeyVaultCertificateRemoval", parameters);
+            var certificate = Assert.IsType<CertificateBundle>(Assert.Single(output));
+            Assert.Equal($"{Root}/certificates/test/version1", certificate.Id);
+            Assert.Equal(new byte[] { 1, 2, 3 }, certificate.Cer);
+            Assert.Equal(new byte[] { 251, 255 }, certificate.X509Thumbprint);
+            Assert.DoesNotContain(sensitive, JsonSerializer.Serialize(output));
+        }
+        else
+        {
+            var error = Assert.ThrowsAny<Exception>(() => host.RunPowerShell("Undo-AzKeyVaultCertificateRemoval", parameters));
+            Assert.Contains($"HTTP {(int)statusCode}", error.ToString());
+            Assert.DoesNotContain(sensitive, error.ToString());
+        }
+
+        Assert.Equal(1, backend.Calls);
+        Assert.Single(record.Entries);
+        Assert.DoesNotContain(sensitive, JsonSerializer.Serialize(record));
+    }
+
     private sealed class CertificateBackend(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         public int Calls { get; private set; }

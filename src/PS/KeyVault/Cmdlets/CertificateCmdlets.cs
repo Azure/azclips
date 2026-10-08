@@ -178,6 +178,21 @@ public class ExportAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
     }
 }
 
+[Cmdlet(VerbsCommon.Undo, "AzKeyVaultCertificateRemoval", SupportsShouldProcess = true)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.CertificateBundle")]
+public class UndoAzKeyVaultCertificateRemovalCmdlet : KeyVaultCmdletBase
+{
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string Name { get; set; } = string.Empty;
+
+    protected override void ProcessRecord()
+    {
+        if (!ShouldProcess($"{VaultName ?? VaultUrl}/{Name}", "Recover a soft-deleted certificate and its versions")) return;
+        Execute("Undo-AzKeyVaultCertificateRemoval", new Dictionary<string, object> { ["CertificateName"] = Name });
+    }
+}
+
 [Cmdlet(VerbsCommon.Remove, "AzKeyVaultCertificate", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Models.DeletedCertificateBundle")]
 public class RemoveAzKeyVaultCertificateCmdlet : KeyVaultCmdletBase
