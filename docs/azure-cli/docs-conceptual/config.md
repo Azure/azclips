@@ -44,7 +44,8 @@ Configuration follows strict precedence: **command args > environment variables 
 Use `--debug` to force debug-level output for a single invocation; this
 override does not persist to config.
 
-The CLI, PowerShell, and no-session fallback use the same baseline thresholds:
+The CLI, configuration-aware PowerShell command streams, and no-session fallback
+use the same baseline thresholds:
 
 | Configured level | Enabled message severities |
 | --- | --- |
