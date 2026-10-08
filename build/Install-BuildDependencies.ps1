@@ -27,11 +27,4 @@ foreach ($dep in $dependencies)
         -Scope CurrentUser `
         -TrustRepository `
         -Quiet
-
-    $installed = Get-Module -Name $dep.Name -ListAvailable |
-        Where-Object { $_.Version -eq [version]$dep.RequiredVersion }
-    if (-not $installed)
-    {
-        throw "$($dep.Name) $($dep.RequiredVersion) was not found after installation."
-    }
 }

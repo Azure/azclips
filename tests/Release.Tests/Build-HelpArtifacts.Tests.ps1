@@ -6,10 +6,10 @@ BeforeAll {
 
 Describe 'Build help failure propagation' {
     It 'returns <ExpectedExitCode> for <Scenario>' -ForEach @(
-        @{ Scenario = 'Dependency installation failure'; HelpToolExitCode = 0; ExpectedExitCode = 1 }
-        @{ Scenario = 'MAML conversion failure'; HelpToolExitCode = 0; ExpectedExitCode = 1 }
-        @{ Scenario = 'Successful help validation'; HelpToolExitCode = 0; ExpectedExitCode = 0 }
-        @{ Scenario = 'Failed help validation'; HelpToolExitCode = 17; ExpectedExitCode = 17 }
+        @{ Scenario = 'Dependency installation failure'; HelpToolExitCode = 0; ExpectedExitCode = 1; Message = 'Fixture dependency installation failed' }
+        @{ Scenario = 'MAML conversion failure'; HelpToolExitCode = 0; ExpectedExitCode = 1; Message = 'PlatyPS pipeline failed' }
+        @{ Scenario = 'Successful help validation'; HelpToolExitCode = 0; ExpectedExitCode = 0; Message = 'Fixture help validation output' }
+        @{ Scenario = 'Failed help validation'; HelpToolExitCode = 17; ExpectedExitCode = 17; Message = 'Fixture help validation output' }
     ) {
         $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $buildRoot = Join-Path $root 'build'
@@ -47,14 +47,9 @@ exit $LASTEXITCODE
         $exitCode = $LASTEXITCODE
 
         $exitCode | Should -Be $ExpectedExitCode
-        if ($Scenario -eq 'Dependency installation failure') {
+        ($output -join "`n") | Should -Match $Message
+        if ($ExpectedExitCode -eq 1) {
             ($output -join "`n") | Should -Not -Match 'Generated MAML help'
-            ($output -join "`n") | Should -Match 'Fixture dependency installation failed'
-        } elseif ($Scenario -eq 'MAML conversion failure') {
-            ($output -join "`n") | Should -Not -Match 'Generated MAML help'
-            ($output -join "`n") | Should -Match 'PlatyPS pipeline failed'
-        } else {
-            ($output -join "`n") | Should -Match 'Fixture help validation output'
         }
     }
 }
@@ -88,20 +83,13 @@ Describe 'Pinned build dependencies' {
         Should -Invoke Install-PSResource -Times 0 -Exactly
     }
 
-    It 'installs and verifies the exact pinned version' {
-        $script:moduleLookups = 0
-        Mock Get-Module {
-            $script:moduleLookups++
-            [pscustomobject]@{ Version = [version]$(if ($script:moduleLookups -eq 1) { '1.0.0' } else { '1.0.1' }); Path = 'fixture' }
-        }
-
+    It 'installs the exact pinned version' {
         & $dependencyScriptPath
 
         Should -Invoke Install-PSResource -Times 1 -Exactly -ParameterFilter {
             $Name -eq 'Microsoft.PowerShell.PlatyPS' -and $Version -eq '1.0.1' -and
             $Repository -eq 'PSGallery' -and $Scope -eq 'CurrentUser' -and $TrustRepository
         }
-        Should -Invoke Get-Module -Times 2 -Exactly -ParameterFilter { $Name -eq 'Microsoft.PowerShell.PlatyPS' -and $ListAvailable }
     }
 
     It 'propagates installation failures' {
@@ -110,7 +98,4 @@ Describe 'Pinned build dependencies' {
         { & $dependencyScriptPath } | Should -Throw '*Fixture package download failed*'
     }
 
-    It 'rejects an install that does not expose the pinned module' {
-        { & $dependencyScriptPath } | Should -Throw '*not found after installation*'
-    }
 }

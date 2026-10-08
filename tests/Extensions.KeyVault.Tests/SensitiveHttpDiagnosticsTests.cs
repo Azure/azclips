@@ -63,6 +63,32 @@ public class SensitiveHttpDiagnosticsTests
     private sealed record PaginationPage(string[] Items, string? NextLink);
 
     [Fact]
+    public void DisposedTransportProviderIsCollectible()
+    {
+        var reference = CreateDisposedTransportProvider();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.False(reference.IsAlive);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference CreateDisposedTransportProvider()
+    {
+        var handlers = new List<SocketsHttpHandler>();
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler((handler, _) =>
+            handlers.Add(Assert.IsType<SocketsHttpHandler>(handler))));
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<HttpClient>();
+        provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>();
+        Assert.Equal(2, handlers.Count);
+        Assert.All(handlers, handler => Assert.Equal(TimeSpan.FromMinutes(2), handler.PooledConnectionLifetime));
+        return new WeakReference(provider);
+    }
+
+    [Fact]
     public async Task BothTransportsUseSharedHostConfiguration()
     {
         Assert.NotNull(typeof(Core.Runtime.SensitiveHttpClient).GetConstructor([typeof(HttpMessageHandler)]));

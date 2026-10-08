@@ -18,7 +18,14 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterEngineServices(this IServiceCollection services)
     {
-        services.AddHttpClient();
+        foreach (var name in new[] { Options.DefaultName, SensitiveClientName })
+            services.AddHttpClient(name)
+                .SetHandlerLifetime(Timeout.InfiniteTimeSpan)
+                .ConfigurePrimaryHttpMessageHandler((handler, _) =>
+                {
+                    if (handler is SocketsHttpHandler sockets && sockets.PooledConnectionLifetime == Timeout.InfiniteTimeSpan)
+                        sockets.PooledConnectionLifetime = TimeSpan.FromMinutes(2);
+                });
         services.AddHttpClient(SensitiveClientName).RemoveAllLoggers();
         services.PostConfigure<HttpClientFactoryOptions>(SensitiveClientName, options =>
             options.HttpMessageHandlerBuilderActions.Add(builder =>
