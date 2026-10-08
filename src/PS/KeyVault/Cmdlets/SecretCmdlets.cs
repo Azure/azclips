@@ -160,6 +160,21 @@ public class UpdateAzKeyVaultSecretCmdlet : SecretMutationCmdletBase
     }
 }
 
+[Cmdlet(VerbsCommon.Undo, "AzKeyVaultSecretRemoval", SupportsShouldProcess = true)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.SecretMetadata")]
+public class UndoAzKeyVaultSecretRemovalCmdlet : KeyVaultCmdletBase
+{
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string Name { get; set; } = string.Empty;
+
+    protected override void ProcessRecord()
+    {
+        if (!ShouldProcess($"{VaultName ?? VaultUrl}/{Name}", "Recover a soft-deleted secret and its versions")) return;
+        Execute("Undo-AzKeyVaultSecretRemoval", new Dictionary<string, object> { ["SecretName"] = Name });
+    }
+}
+
 [Cmdlet(VerbsCommon.Remove, "AzKeyVaultSecret", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.SecretMetadata")]
 public class RemoveAzKeyVaultSecretCmdlet : KeyVaultCmdletBase

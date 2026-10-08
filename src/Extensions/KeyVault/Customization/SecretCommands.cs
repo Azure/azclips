@@ -128,6 +128,21 @@ public class RemoveSecretCommand : DeleteSecretProcessor
     }
 }
 
+public class RecoverSecretCommand : RecoverDeletedSecretProcessor
+{
+    protected override Task BeforeProcessAsync()
+    {
+        SecretCommandInputs.ValidateName(SecretName);
+        return base.BeforeProcessAsync();
+    }
+
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(SecretBundle? body)
+    {
+        if (body is not null) await WriteOutput(SecretMetadata.From(body));
+        return true;
+    }
+}
+
 public class ListSecretsCommand : GetSecretsProcessor
 {
     public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }

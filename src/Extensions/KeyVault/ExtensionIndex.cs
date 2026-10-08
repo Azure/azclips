@@ -18,6 +18,7 @@ public class ExtensionIndex : IExtensionIndex
         Add<ListSecretVersionsCommand>("list-versions", "Get-AzKeyVaultSecret_Versions", hasName: true, page: true);
         Add<UpdateSecretCommand>("set-attributes", "Update-AzKeyVaultSecret", hasName: true, version: true, attributes: true);
         Add<RemoveSecretCommand>("delete", "Remove-AzKeyVaultSecret", hasName: true);
+        if (!cli) Add<RecoverSecretCommand>("recover", "Undo-AzKeyVaultSecretRemoval", hasName: true);
         return table;
 
         void Add<T>(string verb, string psName, bool hasName = false, bool version = false, bool attributes = false, bool page = false)

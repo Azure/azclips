@@ -155,7 +155,7 @@ function Assert-Metadata([string]$Name, $Metadata) {
 function Import-TestModule {
     Import-Module (Join-Path $repoRoot 'src/PS/Accounts/Accounts.psd1') -ErrorAction Stop
     Import-Module (Join-Path $repoRoot 'src/PS/KeyVault/KeyVault.psd1') -ErrorAction Stop
-    Assert-Check 'PowerShell module exports four commands' (@(Get-Command -Module KeyVault).Count -eq 4)
+    Assert-Check 'PowerShell module exports five secret commands' (@(Get-Command -Module KeyVault -Name '*AzKeyVaultSecret*').Count -eq 5)
 }
 
 try {

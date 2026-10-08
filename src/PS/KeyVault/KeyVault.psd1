@@ -20,7 +20,7 @@
     )
     NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll')
     FunctionsToExport = @()
-    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret')
+    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret', 'Undo-AzKeyVaultSecretRemoval')
     VariablesToExport = @()
     AliasesToExport = @()
     PrivateData = @{

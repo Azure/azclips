@@ -262,7 +262,7 @@ The secret value, only when AsPlainText is supplied.
 
 ## NOTES
 
-AzureCloud only. URI aliases, wildcard names, recovery and private-key export convenience workflows are not included.
+AzureCloud only. URI aliases, wildcard names and private-key export convenience workflows are not included. Use Undo-AzKeyVaultSecretRemoval to recover a soft-deleted secret by name.
 
 ## RELATED LINKS
 

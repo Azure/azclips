@@ -9,6 +9,7 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
 {
     public string? VaultName { get; set; }
     public string? VaultUrl { get; set; }
+    protected string Endpoint => VaultBaseUrl!.AbsoluteUri.TrimEnd('/');
     private bool dataPlanePrepared;
 
     protected void PrepareDataPlane()
@@ -43,7 +44,9 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             if (uri is null || !uri.IsAbsoluteUri || uri.Scheme != Uri.UriSchemeHttps ||
                 uri.Port != 443 || !string.Equals(uri.IdnHost, vault.IdnHost, StringComparison.OrdinalIgnoreCase) ||
                 uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
-                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal)))
+                                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
+                                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
+                                            "^/deletedsecrets/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
                 throw new ArgumentException("The request must target the selected vault's secrets endpoint.");
 
             request.MarkSensitive();

@@ -190,7 +190,7 @@ Deleted-secret metadata, including recovery ID and retention dates when returned
 
 ## NOTES
 
-Recovery is not exposed in this release. Use an existing recovery tool within the vault's retention period if needed. A soft-deleted name remains reserved until recovered or removed by the service's retention policy.
+Use Undo-AzKeyVaultSecretRemoval within the vault's retention period to recover a soft-deleted secret and its versions. A soft-deleted name remains reserved until recovered or removed by the service's retention policy. Purged secrets cannot be recovered.
 
 ## RELATED LINKS
 
