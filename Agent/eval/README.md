@@ -14,10 +14,41 @@ Set-Location Agent\eval
 npm ci --legacy-peer-deps
 ```
 
-The builtin Agent model uses AZCLIPS's own Azure sign-in. The default suite's three
-original references and seven module-baseline cases use deterministic assertions,
-not an LLM judge. Only uploading requires the separate classic Azure CLI sign-in
-below; signing in to one CLI does not sign in to the other.
+The builtin Agent model uses AZCLIPS's own Azure sign-in. All ten cases use
+deterministic checks; Config and Extension also use an explicit LLM judge for
+contextual advice. Uploading and the Azure judge use the separate classic Azure
+CLI credential; signing in to one CLI does not sign in to the other.
+
+### Semantic judge configuration
+
+These two semantic checks distinguish a relevant, conditional `config set` or
+`extension add` suggestion from a mandatory unrelated change. The presence of a
+write command in a proposed plan is not itself a failure or evidence of execution.
+The judge receives the original command/error, full response, structured plan,
+and recorded tool context. It is not asked to grade prose style or length.
+
+Set the endpoint and **existing deployment name** for an approved Azure OpenAI
+resource before running the suite:
+
+```powershell
+$env:AZURE_OPENAI_ENDPOINT = 'https://<approved-resource>.openai.azure.com'
+$env:AZURE_OPENAI_DEPLOYMENT = '<existing-judge-deployment>'
+$env:AZURE_OPENAI_API_VERSION = '2024-12-01-preview'
+```
+
+The signed-in classic Azure CLI identity must have inference permission for that
+resource and be able to acquire a `https://cognitiveservices.azure.com/.default`
+token. This is distinct from the dashboard's `Evaluation.Submit` permission and
+from the target Agent's builtin APIM authentication. No resource or deployment is
+created automatically, and no judge model is silently selected.
+
+The wrapper validates judge configuration before changing Agent settings or
+running any target case. Missing configuration fails explicitly; HTTP, token,
+timeout, or malformed-response failures are reported by the grader, never
+replaced with an automatic passing grade. The offline tests use mocked judges
+and are not evidence of a real semantic score. The original eight cases remain
+deterministic-only. Judge token usage is recorded separately from target usage;
+target provider latency does not include judge calls.
 
 Use classic Azure CLI to complete the one-time interactive browser login for the evaluation API:
 

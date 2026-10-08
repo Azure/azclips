@@ -11,13 +11,15 @@ const vnet = require('./cases/vnet-create-missing-location');
 const identity = require('./cases/identity-create-missing-rg');
 const application = require('./cases/msgraph-app-create-missing-display-name');
 const rest = require('./cases/rest-invalid-method');
+const config = require('./cases/config-get-unknown-key');
+const extension = require('./cases/extension-show-not-found');
 const baseline = [
   group,
   vnet,
   identity,
   application,
-  require('./cases/config-get-unknown-key'),
-  require('./cases/extension-show-not-found'),
+  config,
+  extension,
   rest,
 ];
 const { commandSetAssertion } = require('./assertions/command-set');
@@ -42,7 +44,7 @@ const vmNeeds = [{ flag: '--admin-password', description: 'Supply the VM passwor
 
 function grade(scenario, commands, { placeholders = [], vars = {} } = {}) {
   const plan = { steps: commands.map((cmd, index) => ({ id: index + 1, label: 'Next step', cmd })), placeholders };
-  return scenario.assert.map((assertion) => {
+  return scenario.assert.filter((assertion) => assertion.type === 'javascript').map((assertion) => {
     assert.equal(assertion.type, 'javascript');
     const run = assertionRunners[assertion.value];
     assert.equal(typeof run, 'function', `Unsupported assertion: ${assertion.value}`);
@@ -142,7 +144,7 @@ test('deployment reference rejects wrong scope, changed template, missing parame
   }).some((result) => !result.pass));
 });
 
-test('the reference suite registers the reference and baseline cases and no default LLM judge', (context) => {
+test('the suite registers an explicit semantic judge only for the two conditional-advice cases', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-reference-config-'));
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const executable = path.join(directory, 'az.exe');
@@ -154,6 +156,8 @@ test('the reference suite registers the reference and baseline cases and no defa
     AZCLIPS_EXE: executable,
     AZCLIPS_EVALUATION_SIGNED_IN: 'true',
     AZCLIPS_EVALUATION_SUBSCRIPTION_ID: subscription,
+    AZURE_OPENAI_ENDPOINT: 'https://test-judge.openai.azure.com',
+    AZURE_OPENAI_DEPLOYMENT: 'test-judge',
   };
   const before = Object.fromEntries(Object.keys(environment).map((key) => [key, process.env[key]]));
   context.after(() => {
@@ -165,19 +169,58 @@ test('the reference suite registers the reference and baseline cases and no defa
   });
   Object.assign(process.env, environment);
   const config = require('./promptfooconfig');
-  assert.deepEqual(config.tests, [profile, vm, deployment, ...baseline]);
+  assert.deepEqual(config.tests.map((scenario) => scenario.vars), [profile, vm, deployment, ...baseline].map((scenario) => scenario.vars));
+  assert.deepEqual(config.tests.filter((scenario) => scenario.options?.provider).map((scenario) => scenario.vars.case_id),
+    ['config-get-unknown-key', 'extension-show-not-found']);
+  for (const scenario of config.tests.filter((candidate) => candidate.options?.provider)) {
+    assert.equal(scenario.options.provider.id, 'file://judge/judge-azure.js');
+    assert.equal(scenario.options.provider.config.endpoint, 'https://test-judge.openai.azure.com');
+    assert.equal(scenario.options.provider.config.deployment, 'test-judge');
+    assert.equal(scenario.assert.filter((assertion) => assertion.type === 'llm-rubric').length, 1);
+  }
   assert.equal(config.defaultTest.options?.provider, undefined);
   assert.equal(config.defaultTest.vars.subscription_id, subscription);
   assert.equal(config.evaluateOptions.maxConcurrency, 1);
   assert.equal(config.providers[0].config.timeoutMs, 300000);
 });
 
-test('baseline cases have unique ids, deterministic assertions, and no destructive operations', () => {
+test('baseline cases keep deterministic checks and reject removal without rejecting optional set or add advice', () => {
   assert.equal(new Set([profile, vm, deployment, ...baseline].map((s) => s.vars.case_id)).size, 3 + baseline.length);
   for (const scenario of baseline) {
-    assert.ok(scenario.assert.every((a) => a.type === 'javascript'));
+    assert.equal(scenario.assert.filter((a) => a.type === 'javascript').length, 2);
     const allowed = scenario.assert[1].config.allowedCommands;
-    assert.ok(allowed.every((c) => !/ (delete|remove|set|add)$/.test(c)));
+    assert.ok(allowed.every((c) => !/ (delete|remove)$/.test(c)));
+  }
+});
+
+test('structural checks accept the optional configuration and extension advice from the recorded responses', () => {
+  for (const [scenario, commands] of [
+    [config, [
+      'az config list --all',
+      'az config get --key output.format',
+      'az config set --key agent.nonexistent --value myvalue --force',
+      'az config get --key agent.nonexistent',
+    ]],
+    [extension, [
+      'az extension list',
+      'az extension show --name <installed-extension-name>',
+      'az extension add --name <extension-name>',
+      'az extension show --name <extension-name>',
+    ]],
+  ]) {
+    assert.ok(grade(scenario, commands).every((result) => result.pass));
+    assert.equal(scenario.assert.at(-1).type, 'llm-rubric', 'Semantic correctness is a separate judge decision.');
+  }
+});
+
+test('conditional-advice cases still require discovery and reject unrelated operations', () => {
+  for (const [scenario, commands] of [
+    [config, ['az config set --key agent.nonexistent --value myvalue --force']],
+    [config, ['az config list', 'az config delete --key agent.enabled']],
+    [extension, ['az extension add --name guessed-package']],
+    [extension, ['az extension list', 'az extension remove --name Accounts']],
+  ]) {
+    assert.ok(grade(scenario, commands).some((result) => !result.pass));
   }
 });
 

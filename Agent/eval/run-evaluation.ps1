@@ -23,6 +23,10 @@ $TracePath = [IO.Path]::GetFullPath($TracePath)
 if (Test-Path -LiteralPath $OutputPath) {
     throw "Output already exists: $OutputPath. Choose a new path so a previous artifact cannot be uploaded as this run."
 }
+& node (Join-Path $PSScriptRoot 'judge\judge-azure.js') --check-config
+if ($LASTEXITCODE -ne 0) {
+    throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
+}
 $configuration = if ($RecoveryMode -eq 'manual') {
     [ordered]@{ 'agent.recovery' = 'manual' }
 }

@@ -1,11 +1,11 @@
-const resourceGroup = process.env.AZCLIPS_EVALUATION_RESOURCE_GROUP || 'azclips-test-rg';
+const { conditionalAdviceAssertion } = require('../judge/conditional-advice');
 
 module.exports = {
   description: 'config get with an unknown key -> list config',
   vars: {
     case_id: 'config-get-unknown-key',
     command_group: 'config',
-    goal: 'The configuration key does not exist; list available settings read-only, do not change config.',
+    goal: 'Explain the missing key and discover available settings; optionally explain how to create the requested custom setting if that is what the user wants.',
     command: `config get --key agent.nonexistent`,
   },
   assert: [
@@ -32,10 +32,11 @@ module.exports = {
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
       config: {
-        checkName: 'Read-only configuration discovery',
-        allowedCommands: ['az config list', 'az config get'],
+        checkName: 'Configuration recovery scope',
+        allowedCommands: ['az config list', 'az config get', 'az config set'],
         validateSubscription: true,
       },
     },
+    conditionalAdviceAssertion('configuration'),
   ],
 };

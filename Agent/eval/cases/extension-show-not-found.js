@@ -1,11 +1,11 @@
-const resourceGroup = process.env.AZCLIPS_EVALUATION_RESOURCE_GROUP || 'azclips-test-rg';
+const { conditionalAdviceAssertion } = require('../judge/conditional-advice');
 
 module.exports = {
   description: 'extension show with an unknown name -> list extensions',
   vars: {
     case_id: 'extension-show-not-found',
     command_group: 'extension',
-    goal: 'The extension is not installed; list installed extensions read-only, do not add or remove.',
+    goal: 'Discover installed extensions and explain the missing name; optionally offer installation if the intended extension is not installed.',
     command: `extension show --name no-such-extension`,
   },
   assert: [
@@ -32,10 +32,11 @@ module.exports = {
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
       config: {
-        checkName: 'Read-only extension discovery',
-        allowedCommands: ['az extension list', 'az extension show'],
+        checkName: 'Extension recovery scope',
+        allowedCommands: ['az extension list', 'az extension show', 'az extension add'],
         validateSubscription: true,
       },
     },
+    conditionalAdviceAssertion('extension'),
   ],
 };

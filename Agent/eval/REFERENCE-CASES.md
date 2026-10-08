@@ -21,9 +21,11 @@ exhaustive coverage of a command group.
   why every selected value needs confirmation.
 - Never remove a valid constraint merely to obtain a green result.
 
-The default suite has no LLM judge. The optional Azure judge provider remains
-available for future cases with justified semantic assertions; those cases must
-configure their provider and rubric explicitly.
+The Config and Extension cases now include an explicit `llm-rubric` check. They
+need semantic judgment because conditional alternatives cannot be assessed by
+looking only at a command name. The other eight cases remain deterministic-only;
+there is no global/default judge. Configure the existing Azure judge deployment
+as described in [README.md](./README.md#semantic-judge-configuration).
 
 ## Prerequisites
 
@@ -81,8 +83,8 @@ test or product fix for nested dispatch.
 | `vnet-create-missing-location` | Create a VNet in an existing group with an explicit address space and DNS server, but omit the required location. | Supply a nonempty location; retain the name, group, address prefix, and DNS server; do not substitute discovery or add unrelated resource changes. |
 | `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Creating that same group first is allowed; the prerequisite must have a name/location and be used by a later identity step in the intended subscription. |
 | `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
-| `config-get-unknown-key` | Read an unknown configuration key. | Use read-only configuration discovery, not set/delete. |
-| `extension-show-not-found` | Inspect an extension name that is not installed. | List installed extensions, without adding or removing one. |
+| `config-get-unknown-key` | Read an unknown configuration key. | Include configuration discovery. A relevant conditional `config set` suggestion is allowed; the LLM judge evaluates its relation to the user's intent and supplied context. |
+| `extension-show-not-found` | Inspect an extension name that is not installed. | Include installed-extension discovery. A conditional `extension add` suggestion for the intended extension is allowed; the LLM judge evaluates the explanation, rather than treating installation advice as execution. |
 | `rest-invalid-method` | Use the unsupported HTTP method `fetch` with a valid `--uri` in the recorded subscription. | Preserve the URI and use explicit GET (case-insensitive) or the supported GET default; reject non-GET steps and unrelated arguments. |
 
 Compute is already represented by `vm-create-long-flags`; a second disk-list
@@ -148,6 +150,10 @@ The offline tests exercise the same assertion functions used by Promptfoo.
   subscriptions without forbidding the legitimate create sequence.
 - REST: accept explicit GET in any casing or its default; reject changed URIs,
   unsupported argument names, and any non-GET step even after a valid one.
+- Config/Extension: structural checks accept discovery plus optional set/add
+  advice and still reject removal or missing discovery. Their semantic rubric
+  checks the full response and conditional labels, not write-command keywords.
+  Mock judge tests validate wiring and failure propagation, not model quality.
 - Context: reject an absent active profile rather than treating an undefined
   subscription as a valid default.
 
@@ -163,6 +169,11 @@ one real run with zero execution errors. Record source revision, target package,
 runtime prompt hash, model, suite identity, outputs, assertions, and usage.
 Earlier three-reference runs remain historical evidence for that smaller suite,
 not a baseline for the expanded set.
+
+Earlier runs of these ten cases used deterministic-only grading. Do not relabel
+them as LLM-graded or change their scores in place. Adding semantic checks changes
+the suite identity; a real judge result must include its rubric, reason and model
+configuration, with original target responses and timings preserved when replayed.
 
 The latency baseline uses single concurrency and a five-minute provider timeout.
 Use `-RecoveryMode manual` with a package supporting `az troubleshoot`. The

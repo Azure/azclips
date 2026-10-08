@@ -9,6 +9,7 @@ const deployWebApp = require('./cases/deploy-web-app');
 const profileShow = require('./cases/profile-show');
 const vmCreateShortFlags = require('./cases/vm-create-short-flags');
 const { readRuntimePrompt } = require('./targets/azclips');
+const { readJudgeConfiguration } = require('./judge/judge-azure');
 
 const runtimePrompt = readRuntimePrompt();
 
@@ -25,8 +26,22 @@ if (!runContext.signed_in || !runContext.subscription_id) {
   throw new Error('Run the reference suite through run-evaluation.ps1 with a signed-in active profile.');
 }
 
+const judgeConfiguration = readJudgeConfiguration();
+const tests = [
+  profileShow,
+  vmCreateShortFlags,
+  deployWebApp,
+  groupCreateMissingLocation,
+  vnetCreateMissingLocation,
+  identityCreateMissingRg,
+  msgraphAppCreateMissingDisplayName,
+  configGetUnknownKey,
+  extensionShowNotFound,
+  restInvalidMethod,
+];
+
 module.exports = {
-  description: 'AZCLIPS Agent reference plans: deterministic contracts',
+  description: 'AZCLIPS Agent plans: deterministic contracts and contextual advice grading',
   prompts: [
     {
       raw: runtimePrompt.content,
@@ -49,16 +64,13 @@ module.exports = {
   evaluateOptions: {
     maxConcurrency: 1,
   },
-  tests: [
-    profileShow,
-    vmCreateShortFlags,
-    deployWebApp,
-    groupCreateMissingLocation,
-    vnetCreateMissingLocation,
-    identityCreateMissingRg,
-    msgraphAppCreateMissingDisplayName,
-    configGetUnknownKey,
-    extensionShowNotFound,
-    restInvalidMethod,
-  ],
+  tests: tests.map((scenario) => scenario.assert.some((assertion) => assertion.type === 'llm-rubric')
+    ? {
+      ...scenario,
+      options: {
+        ...scenario.options,
+        provider: { id: 'file://judge/judge-azure.js', config: judgeConfiguration },
+      },
+    }
+    : scenario),
 };

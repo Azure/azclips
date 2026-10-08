@@ -5,7 +5,7 @@
 // (no secret) WITHOUT hijacking PATH (that would shadow the azclips `az` under test).
 // So this provider gets the token itself via @azure/identity and forwards the call.
 //
-// Auth (no secret, no classic-az dependency):
+// Auth (no secret in configuration):
 //   - local: classic Azure CLI (reuses the developer's interactive login)
 //   - CI (Azure DevOps): AzurePipelinesCredential (Workload Identity Federation)
 //
@@ -44,6 +44,29 @@ function makeCredential(identity, env = process.env) {
 // process, so parallel cases reuse one token.
 let s_tokenPromise = null;
 let s_token = null;
+
+function readJudgeConfiguration(cfg = {}, env = process.env) {
+  const endpoint = (cfg.endpoint || env.AZURE_OPENAI_ENDPOINT || '').trim().replace(/\/+$/, '');
+  const deployment = (cfg.deployment || env.AZURE_OPENAI_DEPLOYMENT || '').trim();
+  const apiVersion = (cfg.apiVersion || env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview').trim();
+  const timeoutMs = cfg.timeoutMs ?? 60000;
+  if (!endpoint || !deployment) {
+    throw new Error('Semantic grading requires AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT (or explicit judge endpoint/deployment); no judge will be selected automatically.');
+  }
+  let parsed;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error('The Azure judge endpoint must be an absolute HTTPS URL.');
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('The Azure judge endpoint must use HTTPS without embedded credentials, query parameters, or a fragment.');
+  }
+  if (!apiVersion || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('The Azure judge requires a nonempty API version and a positive integer timeoutMs.');
+  }
+  return { endpoint, deployment, apiVersion, timeoutMs };
+}
 
 function tokenUsageFromResponse(usage) {
   if (!usage || typeof usage !== 'object') return undefined;
@@ -94,10 +117,7 @@ async function sharedBearer(identity) {
 
 class JudgeAzureProvider {
   constructor(options) {
-    const cfg = (options && options.config) || {};
-    this.endpoint = (cfg.endpoint || process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/$/, '');
-    this.deployment = cfg.deployment || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.4-mini';
-    this.apiVersion = cfg.apiVersion || process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+    Object.assign(this, readJudgeConfiguration(options?.config));
   }
 
   id() { return `judge-azure:${this.deployment}`; }
@@ -107,20 +127,42 @@ class JudgeAzureProvider {
   }
 
   async callApi(prompt, _context) {
-    const token = await this._bearer();
-    const url = `${this.endpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
-    });
-    if (!res.ok) {
-      return { error: `judge HTTP ${res.status}: ${await res.text()}` };
+    let token;
+    try {
+      token = await this._bearer();
+    } catch (error) {
+      return { error: `Azure judge authentication failed: ${error.message}` };
     }
-    const data = await res.json();
+    const url = `${this.endpoint}/openai/deployments/${encodeURIComponent(this.deployment)}/chat/completions?api-version=${encodeURIComponent(this.apiVersion)}`;
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      return { error: error.name === 'TimeoutError' || error.name === 'AbortError'
+        ? `Azure judge request timed out after ${this.timeoutMs} ms.`
+        : `Azure judge request failed: ${error.message}` };
+    }
+    if (!res.ok) {
+      return { error: `Azure judge returned HTTP ${res.status}. Check the deployment, API version, and Cognitive Services inference permissions.` };
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      return { error: 'Azure judge returned invalid JSON instead of a completion.' };
+    }
+    const output = data?.choices?.[0]?.message?.content;
+    if (typeof output !== 'string' || !output.trim()) {
+      return { error: 'Azure judge returned no grading content; the semantic check was not completed.' };
+    }
     const tokenUsage = tokenUsageFromResponse(data.usage);
     return {
-      output: data.choices?.[0]?.message?.content ?? '',
+      output,
       ...(tokenUsage && { tokenUsage }),
     };
   }
@@ -129,3 +171,14 @@ class JudgeAzureProvider {
 module.exports = JudgeAzureProvider;
 module.exports.makeCredential = makeCredential;
 module.exports.tokenUsageFromResponse = tokenUsageFromResponse;
+module.exports.readJudgeConfiguration = readJudgeConfiguration;
+
+if (require.main === module) {
+  try {
+    readJudgeConfiguration();
+    process.stdout.write('Semantic judge configuration is present; inference access is verified by the grading call.\n');
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  }
+}

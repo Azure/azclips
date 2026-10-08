@@ -120,6 +120,10 @@ function global:npx {
 }
 
 function global:node {
+    if ($args[0] -like '*judge-azure.js' -and $args[1] -eq '--check-config') {
+        $global:LASTEXITCODE = if ($scenario.missingJudgeConfiguration) { 1 } else { 0 }
+        return
+    }
     Add-Content (Join-Path $root 'calls.txt') 'upload'
     '{"dashboardUrl":"https://evaluation.example/run"}'
     $global:LASTEXITCODE = 0
@@ -251,6 +255,16 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   const paths = result.calls.map((call) => call.slice('evaluate|'.length));
   assert.equal(new Set(paths).size, 2);
   assert.ok(paths.every((file) => fs.existsSync(file)));
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
+});
+
+test('wrapper stops before configuration changes or model calls when the semantic judge is not configured', (context) => {
+  const result = runWrapper(context, { missingJudgeConfiguration: true, upload: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /Semantic judge configuration is incomplete/);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
 });
