@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791422827450,
+  "lastUpdate": 1791424177303,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8652,6 +8652,48 @@ window.BENCHMARK_DATA = {
             "value": 3475670.745149555,
             "unit": "ns",
             "range": "± 108292.3051037215"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a175d368f1691983070368641dc387fe0d8658a7",
+          "message": "[Resources] `az role assignment delete`: Add role assignment deletion for CLI and PowerShell (#1042)\n\n**Related command**\n\n`az role assignment delete` and `Remove-AzRoleAssignment`\n\n**Description**\n\nAdds the **delete** command for both surfaces, backed by ARM\n`RoleAssignments - Delete`\n(`DELETE\n{scope}/providers/Microsoft.Authorization/roleAssignments/{name}`).\nDeletes exactly one\nalready-known role assignment by scope and name.\n\nWhat changed: atomic `DeleteRoleAssignmentProcessor` issues the DELETE\n(ARM returns the deleted\n`RoleAssignment` on 200 OK, or 204 No Content when the assignment didn't\nalready exist — not an\nerror). The orchestrator reuses the same `RoleAssignmentScope` resolver\nalready shared by\ncreate/list (scope precedence, mutual exclusion,\nwhitespace/empty/repeated-slash rejection).\n`Name` is mandatory with no auto-generate fallback — unlike create,\nthere's no sensible default\ntarget for a delete. `Remove-AzRoleAssignment` supports `ShouldProcess`\n(`-WhatIf`/`-Confirm`) with\n`ConfirmImpact.High`, matching the repo's convention for destructive\n`Remove-*` cmdlets.\n\nThis command **only** supports exact single-resource deletion by\n`--scope`/`-Scope` +\n`--name`/`-Name` (a GUID). It does not support classic's filter-based\nbulk delete (by principal,\nby role, or \"everything at a scope\" with no filter at all). This is\nintentional, not a gap:\nclassic's own CLI docs say *\"it is highly recommended to run `az role\nassignment list` first ...\nto see which role assignments will be deleted\"* before running delete,\nand GitHub\n\n[Azure/azure-cli#13577](https://github.com/Azure/azure-cli/issues/13577)\ndocuments a real\nincident where an empty shell variable in `--assignee \"$SOME_VAR\"`\ndeleted every Owner role\nassignment in a subscription. Neither classic surface has a true \"delete\nthis one exact\nassignment, nothing else\" primitive either — `--ids`/`-InputObject` are\nthe closest\napproximations, and both still require the caller to have already\nresolved the exact target some\nother way (typically via `list`/`Get-` first). We provide that primitive\ndirectly instead of\nreplicating the filter model.\n\n**Testing Guide**\n\nAutomated: `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignmentDelete\"`\n— 20 tests green: metadata, URI/method construction, GUID validation,\nscope mutual exclusion,\nwhitespace/empty/repeated-slash scope hardening (via the shared\nresolver), CLI binder aliases, and\n200-with-body / 204-no-content response handling. Help validation\n(`tools/Help/Azclips.Help.Tool`) and PowerShell help drift\n(`build/Test-PSHelpMarkdown.ps1 -Module\nResources`): no issues.\n\nManual (live, needs a real subscription):\n`tests/Scripts/PS/RoleAssignmentLifecycle.ps1` /\n`tests/Scripts/CLI/RoleAssignmentLifecycle.sh` create a resource group\nand a fresh user-assigned\nidentity (self-contained, no external fixture), grant it Reader, list it\nthree ways, delete it,\nverify it's gone via `list`, then delete it again to prove the 204\n\"already deleted\" path doesn't\nthrow. `Remove-AzRoleAssignment -Scope <scope> -Name <not-a-guid>`\nreturns a usage error.\n\n**History Notes**\n\n[Resources] `az role assignment delete`: Add command to delete a role\nassignment by scope and name\n[Resources] `Remove-AzRoleAssignment`: Add cmdlet to delete an RBAC role\nassignment by scope and name\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-08T12:01:03+11:00",
+          "tree_id": "cea3924ca640bce84f44c7bf61b979e4245cfd34",
+          "url": "https://github.com/Azure/azclips/commit/a175d368f1691983070368641dc387fe0d8658a7"
+        },
+        "date": 1791424172995,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 4118717.4282954056,
+            "unit": "ns",
+            "range": "± 292221.6708552272"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 4195413.373873874,
+            "unit": "ns",
+            "range": "± 284783.7400262744"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 4102393.4158777967,
+            "unit": "ns",
+            "range": "± 272473.46942968754"
           }
         ]
       }
