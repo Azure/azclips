@@ -64,13 +64,12 @@ if output=$(az deployment mg validate \
     --debug 2>&1)
 then
     echo "$output"
-    fail "validate with an undefined parameter reference was expected to fail"
-elif grep -qF "Management group deployment validation failed" <<< "$output"; then
-    echo "OK: validate failed with the expected message"
+    didFail=false
 else
-    echo "$output"
-    fail "validate failed, but not with the expected message"
+    grep -qF "Management group deployment validation failed" <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "validate failed with the expected message" "true" "$didFail"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg validate smoke test finished with $FAILURES failure(s) =="

@@ -1,8 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Management group scope deployment - PowerShell (New-AzManagementGroupDeployment)
-# Equivalent of: New-AzManagementGroupDeployment / Get-AzManagementGroupDeployment / Remove-AzManagementGroupDeployment
+# Management group scope deployment create - PowerShell (New-AzManagementGroupDeployment)
+# Equivalent of: New-AzManagementGroupDeployment
+# Get/Remove/Stop are covered by ManagementGroupDeploymentShow.ps1 / Delete.ps1 / Stop.ps1.
 #
 # Shared test context:
 #   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
@@ -68,19 +69,11 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template
 # unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. create / get / remove / get (the last get is expected to fail) =='
+Write-Host '== 1. create: provisioning state =='
 $name = "azclips-mg-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 $created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile
 Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
-$shown = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name
-Assert-Equal 'get name' $name $shown.Name
 Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
-try {
-    $null = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -ErrorAction Stop
-    Add-Failure "get still finds '$name' after remove"
-} catch {
-    Write-Host "OK: '$name' no longer exists"
-}
 
 Write-Host '== 2. -Tag (deployment tags round-trip on create) =='
 $name = "azclips-mg-tags-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
@@ -108,17 +101,7 @@ try {
     New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-validationlevel-negative -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
     Add-Failure 'invalid -ValidationLevel Foo did not throw'
 } catch {
-    Write-Host "OK: invalid -ValidationLevel Foo failed as expected: $($_.Exception.Message)"
-}
-
-Write-Host '== 5. removing a deployment name that does not exist succeeds (ARM DELETE is idempotent) =='
-# Expected result: no error. Remove-AzManagementGroupDeployment maps directly to an ARM DELETE,
-# which returns success whether or not the deployment currently exists.
-try {
-    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-remove-does-not-exist -Confirm:$false -ErrorAction Stop
-    Write-Host 'OK: remove of a nonexistent deployment completed without error'
-} catch {
-    Add-Failure "remove of a nonexistent deployment threw unexpectedly: $($_.Exception.Message)"
+    Assert-Equal 'invalid -ValidationLevel Foo error mentions ValidationLevel' $true ($_.Exception.Message -match 'ValidationLevel')
 }
 
 if ($failures.Count -gt 0) {

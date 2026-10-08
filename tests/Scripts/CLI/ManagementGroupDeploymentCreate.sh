@@ -1,5 +1,6 @@
-# Management group scope deployment - CLI (az deployment mg create)
-# Equivalent of: az deployment mg create / az deployment mg show / az deployment mg delete
+# Management group scope deployment create - CLI (az deployment mg create)
+# Equivalent of: az deployment mg create
+# Show/Delete are covered by ManagementGroupDeploymentShow.sh / Delete.sh.
 #
 # Shared test context:
 #   AZCLIPS_MANAGEMENT_GROUP_ID - child management group ID to deploy to
@@ -32,7 +33,7 @@ cat > "$TEMPLATE_FILE" <<'JSON'
 }
 JSON
 
-echo "== 1. create / show / delete / show (the last show is expected to fail) =="
+echo "== 1. create: provisioning state =="
 NAME="azclips-mg-$(date +%y%m%d%H%M%S)"
 state=$(az deployment mg create \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
@@ -41,24 +42,7 @@ state=$(az deployment mg create \
     --template-file "$TEMPLATE_FILE" \
     --query properties.provisioningState --output tsv --debug)
 assert_eq "create" "Succeeded" "$state"
-
-shown=$(az deployment mg show \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME" \
-    --query name --output tsv --debug)
-assert_eq "show" "$NAME" "$shown"
-
-az deployment mg delete \
-    --management-group-id "$MANAGEMENT_GROUP_ID" \
-    --name "$NAME" \
-    --debug
-[[ $? -eq 0 ]] && echo "OK: delete exited 0" || fail "delete exited non-zero"
-
-if az deployment mg show --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" >/dev/null 2>&1; then
-    fail "show still finds '$NAME' after delete"
-else
-    echo "OK: '$NAME' no longer exists"
-fi
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --debug
 
 echo "== 2. --mode Incremental =="
 NAME="azclips-mg-mode-$(date +%y%m%d%H%M%S)"
@@ -92,13 +76,12 @@ if output=$(az deployment mg create \
     --debug 2>&1)
 then
     echo "$output"
-    fail "invalid --mode Foo was expected to fail"
-elif grep -qF "Parameter 'Mode' value 'Foo' is not allowed. Allowed values: Incremental, Complete" <<< "$output"; then
-    echo "OK: invalid --mode Foo failed with the expected message"
+    didFail=false
 else
     echo "$output"
-    fail "invalid --mode Foo failed, but not with the expected message"
+    grep -qF "Parameter 'Mode' value 'Foo' is not allowed. Allowed values: Incremental, Complete" <<< "$output" && didFail=true || didFail=false
 fi
+assert_eq "invalid --mode Foo failed with the expected message" "true" "$didFail"
 
 echo "== 5. --template-spec-id (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
 if [[ -n "${AZCLIPS_TEMPLATE_SPEC_ID:-}" ]]; then

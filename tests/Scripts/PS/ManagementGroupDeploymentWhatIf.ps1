@@ -120,11 +120,7 @@ Assert-Equal 'empty-template change count' 0 $result.Properties.Changes.Count
 Write-Host '== 2. -WhatIfResultFormat ResourceIdOnly: predicted changes carry resource ids only =='
 $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -Name azclips-mg-whatif-idonly -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfResultFormat ResourceIdOnly -WhatIf
 Assert-Equal 'resource-id-only status' 'Succeeded' $result.Status
-if ($result.Properties.Changes.Count -gt 0) {
-    Write-Host "OK: resource-id-only reported $($result.Properties.Changes.Count) change(s)"
-} else {
-    Add-Failure 'resource-id-only expected at least one predicted change'
-}
+Assert-Equal 'resource-id-only reported at least one change' $true ($result.Properties.Changes.Count -gt 0)
 
 Write-Host '== 3. -WhatIfExcludeChangeType Create: excludes the predicted "Create" change, leaving none =='
 $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -Name azclips-mg-whatif-exclude -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfExcludeChangeType Create -WhatIf
@@ -140,11 +136,7 @@ try {
     New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-whatif-rf-negative -TemplateFile $basicTemplateFile -WhatIfResultFormat Foo -WhatIf -ErrorAction Stop
     Add-Failure 'invalid -WhatIfResultFormat Foo did not throw'
 } catch {
-    if ($_.Exception.Message -match 'ResultFormat must be one of') {
-        Write-Host "OK: invalid -WhatIfResultFormat Foo failed with the expected message"
-    } else {
-        Add-Failure "invalid -WhatIfResultFormat Foo failed, but not with the expected message: $($_.Exception.Message)"
-    }
+    Assert-Equal 'invalid -WhatIfResultFormat Foo error has the expected message' $true ($_.Exception.Message -match 'ResultFormat must be one of')
 }
 
 if ($failures.Count -gt 0) {

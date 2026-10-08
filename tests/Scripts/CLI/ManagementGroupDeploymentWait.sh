@@ -15,6 +15,7 @@ az config set --key agent.enabled --value false
 
 FAILURES=0
 fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
+assert_eq() { [[ "$3" == "$2" ]] && echo "OK: $1 => '$3'" || fail "$1 expected '$2' but got '$3'"; }
 
 MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
 NAME="azclips-mg-wait-$(date +%y%m%d%H%M%S)"
@@ -37,25 +38,16 @@ az deployment mg create \
     --debug
 
 echo "== 1. --exists (returns immediately since the deployment already exists) =="
-if az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --exists --debug; then
-    echo "OK: --exists returned 0"
-else
-    fail "--exists was expected to return 0"
-fi
+az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --exists --debug
+assert_eq "--exists returned 0" "0" "$?"
 
 echo "== 2. --created (returns immediately since the deployment already succeeded) =="
-if az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --created --debug; then
-    echo "OK: --created returned 0"
-else
-    fail "--created was expected to return 0"
-fi
+az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --created --debug
+assert_eq "--created returned 0" "0" "$?"
 
 echo "== 3. --custom (returns immediately once the JMESPath expression evaluates to true) =="
-if az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --custom "properties.provisioningState=='Succeeded'" --debug; then
-    echo "OK: --custom returned 0"
-else
-    fail "--custom was expected to return 0"
-fi
+az deployment mg wait --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --custom "properties.provisioningState=='Succeeded'" --debug
+assert_eq "--custom returned 0" "0" "$?"
 
 echo "== 4. negative: --custom with a condition that never becomes true (must time out) =="
 if output=$(az deployment mg wait \
@@ -67,13 +59,12 @@ if output=$(az deployment mg wait \
     --debug 2>&1)
 then
     echo "$output"
-    fail "wait with an unsatisfiable --custom condition was expected to time out"
-elif grep -qF "Wait operation timed-out" <<< "$output"; then
-    echo "OK: wait with an unsatisfiable --custom condition timed out as expected"
+    didTimeOut=false
 else
-    echo "$output"
-    fail "wait with an unsatisfiable --custom condition failed, but not with the expected message"
+    grep -qF "Wait operation timed-out" <<< "$output" && didTimeOut=true || didTimeOut=false
+    [[ "$didTimeOut" == "false" ]] && echo "$output"
 fi
+assert_eq "wait with an unsatisfiable --custom condition timed out as expected" "true" "$didTimeOut"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg wait smoke test finished with $FAILURES failure(s) =="

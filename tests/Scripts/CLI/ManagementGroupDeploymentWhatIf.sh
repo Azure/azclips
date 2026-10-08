@@ -98,7 +98,8 @@ changeCount=$(az deployment mg what-if \
     --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
     --result-format ResourceIdOnly \
     --query "length(properties.changes)" --output tsv --debug)
-if (( changeCount > 0 )); then echo "OK: result-format change count '$changeCount' > 0"; else fail "result-format expected at least one change, got '$changeCount'"; fi
+(( changeCount > 0 )) && hasChanges=true || hasChanges=false
+assert_eq "result-format reported at least one change" "true" "$hasChanges"
 
 echo "== 3. --exclude-change-types Create (expect the Create change filtered out) =="
 RGNAME3="azclips-mg-nested-$(date +%y%m%d%H%M%S)"
@@ -138,13 +139,12 @@ if output=$(az deployment mg what-if \
     --debug 2>&1)
 then
     echo "$output"
-    fail "invalid --result-format Foo was expected to fail"
-elif grep -qF "Parameter 'ResultFormat' value 'Foo' is not allowed. Allowed values: FullResourcePayloads, ResourceIdOnly" <<< "$output"; then
-    echo "OK: invalid --result-format Foo failed with the expected message"
+    didFail=false
 else
-    echo "$output"
-    fail "invalid --result-format Foo failed, but not with the expected message"
+    grep -qF "Parameter 'ResultFormat' value 'Foo' is not allowed. Allowed values: FullResourcePayloads, ResourceIdOnly" <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "invalid --result-format Foo failed with the expected message" "true" "$didFail"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg what-if smoke test finished with $FAILURES failure(s) =="

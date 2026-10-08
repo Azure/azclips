@@ -51,13 +51,12 @@ if output=$(az deployment mg export \
     --debug 2>&1)
 then
     echo "$output"
-    fail "export of a nonexistent deployment was expected to fail"
-elif grep -qiE "not found|NotFound" <<< "$output"; then
-    echo "OK: export of a nonexistent deployment failed as expected"
+    didFail=false
 else
-    echo "$output"
-    fail "export of a nonexistent deployment failed, but not with the expected message"
+    grep -qiE "not found|NotFound" <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "export of a nonexistent deployment failed as expected" "true" "$didFail"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg export smoke test finished with $FAILURES failure(s) =="

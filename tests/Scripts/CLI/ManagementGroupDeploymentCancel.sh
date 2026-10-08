@@ -14,6 +14,7 @@ az config set --key agent.enabled --value false
 
 FAILURES=0
 fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
+assert_eq() { [[ "$3" == "$2" ]] && echo "OK: $1 => '$3'" || fail "$1 expected '$2' but got '$3'"; }
 
 MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP_ID to a child management group.}"
 NAME="azclips-mg-cancel-$(date +%y%m%d%H%M%S)"
@@ -38,24 +39,22 @@ az deployment mg create \
 echo "== 1. negative: cancel an already-succeeded deployment (must be rejected) =="
 if output=$(az deployment mg cancel --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --debug 2>&1); then
     echo "$output"
-    fail "cancel of an already-succeeded deployment was expected to fail"
-elif grep -qF "No running deployments with name '$NAME' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output"; then
-    echo "OK: cancel of an already-succeeded deployment failed with the expected message"
+    didFail=false
 else
-    echo "$output"
-    fail "cancel of an already-succeeded deployment failed, but not with the expected message"
+    grep -qF "No running deployments with name '$NAME' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "cancel of an already-succeeded deployment failed with the expected message" "true" "$didFail"
 
 echo "== 2. negative: cancel a deployment name that does not exist (must be rejected) =="
 if output=$(az deployment mg cancel --management-group-id "$MANAGEMENT_GROUP_ID" --name azclips-mg-cancel-does-not-exist --debug 2>&1); then
     echo "$output"
-    fail "cancel of a nonexistent deployment was expected to fail"
-elif grep -qF "No running deployments with name 'azclips-mg-cancel-does-not-exist' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output"; then
-    echo "OK: cancel of a nonexistent deployment failed with the expected message"
+    didFail=false
 else
-    echo "$output"
-    fail "cancel of a nonexistent deployment failed, but not with the expected message"
+    grep -qF "No running deployments with name 'azclips-mg-cancel-does-not-exist' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "cancel of a nonexistent deployment failed with the expected message" "true" "$didFail"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg cancel smoke test finished with $FAILURES failure(s) =="

@@ -33,32 +33,25 @@ az deployment mg create \
     --debug
 
 echo "== 1. list (unfiltered; expect '$NAME' among the results) =="
-if az deployment mg list --management-group-id "$MANAGEMENT_GROUP_ID" --query "value[?name=='$NAME']" --output tsv --debug | grep -qF "$NAME"; then
-    echo "OK: list contains '$NAME'"
-else
-    fail "list did not contain '$NAME'"
-fi
+az deployment mg list --management-group-id "$MANAGEMENT_GROUP_ID" --query "value[?name=='$NAME']" --output tsv --debug | grep -qF "$NAME" && listContainsName=true || listContainsName=false
+assert_eq "list contains '$NAME'" "true" "$listContainsName"
 
 echo "== 2. list --filter \"provisioningState eq 'Succeeded'\" (expect '$NAME' among the results) =="
-if az deployment mg list \
+az deployment mg list \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --filter "provisioningState eq 'Succeeded'" \
-    --query "value[?name=='$NAME']" --output tsv --debug | grep -qF "$NAME"; then
-    echo "OK: filtered list contains '$NAME'"
-else
-    fail "filtered list did not contain '$NAME'"
-fi
+    --query "value[?name=='$NAME']" --output tsv --debug | grep -qF "$NAME" && filteredListContainsName=true || filteredListContainsName=false
+assert_eq "filtered list contains '$NAME'" "true" "$filteredListContainsName"
 
 echo "== 3. negative: list without --management-group-id (required parameter must be rejected) =="
 if output=$(az deployment mg list --debug 2>&1); then
     echo "$output"
-    fail "list without --management-group-id was expected to fail"
-elif grep -qF "Required parameter '--management-group-id' is missing." <<< "$output"; then
-    echo "OK: list without --management-group-id failed with the expected message"
+    didFail=false
 else
-    echo "$output"
-    fail "list without --management-group-id failed, but not with the expected message"
+    grep -qF "Required parameter '--management-group-id' is missing." <<< "$output" && didFail=true || didFail=false
+    [[ "$didFail" == "false" ]] && echo "$output"
 fi
+assert_eq "list without --management-group-id failed with the expected message" "true" "$didFail"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg list smoke test finished with $FAILURES failure(s) =="

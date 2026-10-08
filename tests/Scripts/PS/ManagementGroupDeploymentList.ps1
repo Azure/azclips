@@ -38,6 +38,13 @@ function Add-Failure([string]$Message) {
     Write-Host "FAIL: $Message"
     $failures.Add($Message)
 }
+function Assert-Equal([string]$Label, $Expected, $Actual) {
+    if ($Actual -eq $Expected) {
+        Write-Host "OK: ${Label} => '$Actual'"
+    } else {
+        Add-Failure "${Label} expected '$Expected' but got '$Actual'"
+    }
+}
 
 $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template-$([guid]::NewGuid()).json"
 @'
@@ -57,11 +64,7 @@ New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 
 
 $list = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId
 $match = $list | Where-Object { $_.Name -eq $name }
-if ($null -ne $match) {
-    Write-Host "OK: list contains '$name'"
-} else {
-    Add-Failure "list did not contain '$name'"
-}
+Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
 
 Write-Host '== 2. negative: list against a management group that does not exist must be rejected =='
 try {
@@ -70,11 +73,7 @@ try {
 } catch {
     # ARM checks RBAC before existence, so a nonexistent management group surfaces as
     # 403 AuthorizationFailed rather than 404 NotFound.
-    if ($_.Exception.Message -match 'NotFound|not found|AuthorizationFailed|Forbidden') {
-        Write-Host "OK: list against a nonexistent management group failed as expected: $($_.Exception.Message)"
-    } else {
-        Add-Failure "list against a nonexistent management group failed, but not with an expected error: $($_.Exception.Message)"
-    }
+    Assert-Equal 'list against a nonexistent management group error is NotFound/Forbidden' $true ($_.Exception.Message -match 'NotFound|not found|AuthorizationFailed|Forbidden')
 }
 
 if ($failures.Count -gt 0) {

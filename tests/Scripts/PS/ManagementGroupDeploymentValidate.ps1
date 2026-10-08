@@ -45,6 +45,13 @@ function Add-Failure([string]$Message) {
     Write-Host "FAIL: $Message"
     $failures.Add($Message)
 }
+function Assert-Equal([string]$Label, $Expected, $Actual) {
+    if ($Actual -eq $Expected) {
+        Write-Host "OK: ${Label} => '$Actual'"
+    } else {
+        Add-Failure "${Label} expected '$Expected' but got '$Actual'"
+    }
+}
 
 $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-mg-template-$([guid]::NewGuid()).json"
 @'
@@ -81,11 +88,7 @@ $DebugPreference = 'Continue'
 
 Write-Host '== 1. happy path: validate succeeds and returns nothing (SuppressSuccessOutput) =='
 $result = Test-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location WestUS -TemplateFile $templateFile
-if ($null -eq $result) {
-    Write-Host 'OK: successful validate returned $null'
-} else {
-    Add-Failure "successful validate expected to return `$null but got: $result"
-}
+Assert-Equal 'successful validate returned $null' $true ($null -eq $result)
 
 Write-Host '== 2. negative: invalid template (default value not in allowedValues) must report an error, not throw =='
 # Reset before the call (instead of reusing case 1's $null) so a thrown/non-assigning call can't
@@ -103,12 +106,10 @@ $validationError = $result.Error
 if ($null -eq $validationError) {
     $validationError = $result.Properties.Error
 }
-if ($null -eq $result) {
-    Add-Failure 'invalid template expected a non-null result with an .Error, but got $null'
-} elseif ($null -eq $validationError) {
-    Add-Failure "invalid template expected a populated .Error property, but got: $($result | ConvertTo-Json -Depth 10 -Compress)"
-} else {
-    Write-Host "OK: invalid template reported .Error: $($validationError.Code): $($validationError.Message)"
+Assert-Equal 'invalid template returned a non-null result' $true ($null -ne $result)
+Assert-Equal 'invalid template reported a populated .Error' $true ($null -ne $validationError)
+if ($null -ne $validationError) {
+    Write-Host "invalid template .Error: $($validationError.Code): $($validationError.Message)"
 }
 
 if ($failures.Count -gt 0) {
