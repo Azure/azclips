@@ -118,6 +118,11 @@ build-time codegen tool.
   the compiler sends requests and consumes responses/notifications over it.
   `emit` / `generate` bind to subprocess channels; `transform` binds to
   in-process (loopback) or external channels.
+
+  > **Note (2026-10-07):** in-process transforms are now compiler dependencies
+  > (see [Revision — compiler-owned stage implementations](./Compiler-Owned-Stage-Orchestration.md#revision--compiler-owned-stage-implementations)),
+  > so their loopback channel is the compiler's own. A host binds channels only
+  > for out-of-process stages: `emit`, `generate`, and any external transform.
 - **Methods over IR.** Roughly: `emit(source/config) → IR`,
   `transform(IR, options) → IR`, `generate(IR, options) → { diagnostics, success }`
   with generated **files/removes streamed as notifications** (the JSON-RPC analog

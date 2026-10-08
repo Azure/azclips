@@ -42,7 +42,7 @@
  * pairing that belongs in its own pass, so every command here has exactly one step.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
 import {
   commandKey,
   indexIR,
@@ -62,6 +62,7 @@ import {
   type IROperation,
   type IRPagingProperty,
   type IRParameter,
+  type IRPropertyRef,
   type IRTarget,
   type IRTypeRef,
   type TransformedIR,
@@ -534,13 +535,12 @@ function bodyParameters(
   const parameters: IRCommandParameter[] = [];
 
   for (const parameter of projected) {
-    const leafId = parameter.path.at(-1);
-    const leaf = leafId !== undefined ? pass.index.property(leafId) : undefined;
+    const leaf = pass.index.property(parameter.property);
     if (leaf === undefined) {
       pass.report(
         "warning",
         "unresolved-body-parameter",
-        `Operation '${operation.name}' projects body parameter '${parameter.name}', whose path ` +
+        `Operation '${operation.name}' projects body parameter '${parameter.name}', whose property ` +
           "does not resolve to a model property. The parameter is skipped; the body member remains.",
       );
       continue;
@@ -550,7 +550,7 @@ function bodyParameters(
     taken.add(name);
     parameters.push({
       name,
-      source: { kind: "body", path: parameter.path },
+      source: { kind: "body", property: parameter.property, via: parameter.via },
       type: leaf.type,
       required: parameter.required,
       nullable: leaf.nullable,
@@ -715,13 +715,13 @@ function toCommandResponse(response: IROperation["responses"][number]): IRComman
 // ─── Pagination ─────────────────────────────────────────────────────────
 
 /**
- * Resolve declared paging roles into member-id paths.
+ * Resolve declared paging roles into property references.
  *
  * `IRPageableSemantics` records paths as *wire* segments, which leaves the generator
  * PascalCasing each one and hoping it matches an emitted member — explicitly a
  * heuristic, and a fragile one now that flattening renames members. Resolving here
- * against the response model makes the path exact, the same way `FlattenedMember.path`
- * is.
+ * against the response model makes the reference exact, the same way a
+ * `FlattenedMember`'s is.
  */
 function buildPagination(
   pass: PassContext,
@@ -741,8 +741,8 @@ function buildPagination(
     return undefined;
   }
 
-  const itemsPath = resolveWirePath(pass, envelope, pageable.output.pageItems);
-  if (itemsPath === undefined) {
+  const items = resolveWirePath(pass, envelope, pageable.output.pageItems);
+  if (items === undefined) {
     pass.report(
       "warning",
       "paging-binding-unresolved",
@@ -752,11 +752,11 @@ function buildPagination(
     return undefined;
   }
 
-  const nextLinkPath =
+  const nextLink =
     pageable.output.nextLink !== undefined
       ? resolveWirePath(pass, envelope, pageable.output.nextLink)
       : undefined;
-  if (pageable.output.nextLink !== undefined && nextLinkPath === undefined) {
+  if (pageable.output.nextLink !== undefined && nextLink === undefined) {
     pass.report(
       "warning",
       "paging-binding-unresolved",
@@ -768,8 +768,8 @@ function buildPagination(
 
   return {
     itemType: pageable.itemType,
-    itemsPath,
-    ...(nextLinkPath !== undefined ? { nextLinkPath } : {}),
+    items,
+    ...(nextLink !== undefined ? { nextLink } : {}),
     nextLinkVerb: pageable.sdk.nextLinkVerb,
   };
 }
@@ -789,7 +789,8 @@ function modelOf(pass: PassContext, type: IRTypeRef): IRModel | undefined {
 }
 
 /**
- * Walk a paging role's response-body wire path to the properties it names.
+ * Walk a paging role's response-body wire path to the property it names, through
+ * the containers on the way.
  *
  * Only an unambiguous body binding can be resolved: a header or query binding names
  * no model property, and bindings that disagree describe more than one shape.
@@ -798,7 +799,7 @@ function resolveWirePath(
   pass: PassContext,
   envelope: IRModel,
   property: IRPagingProperty,
-): IRId[] | undefined {
+): IRPropertyRef | undefined {
   const bindings = property.bindings.filter((binding) => binding.response !== undefined);
   if (bindings.length === 0 || bindings.some((binding) => binding.location !== "body")) {
     return undefined;
@@ -816,7 +817,7 @@ function resolveWirePath(
   }
   if (wirePath.length === 0) return undefined;
 
-  const resolved: IRId[] = [];
+  const hops: IRId[] = [];
   let current: IRModel | undefined = envelope;
   for (const segment of wirePath) {
     if (current === undefined) return undefined;
@@ -824,10 +825,11 @@ function resolveWirePath(
       (candidate) => candidate.wireName === segment,
     );
     if (match === undefined) return undefined;
-    resolved.push(match.id);
+    hops.push(match.id);
     current = nested(pass, match.type);
   }
-  return resolved;
+  const leaf = hops.pop();
+  return leaf !== undefined ? { property: leaf, via: hops } : undefined;
 }
 
 /** The model a property's type leads into, following an array's element type. */
