@@ -11,8 +11,8 @@
 #   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
 #                                                    -> creates that public IP; PublicIps is set
 #   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
-#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty
-#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
+#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
+#               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before

@@ -33,6 +33,7 @@ public class VmCreateOrchestrationTests
     // A well-formed NSG id the fake has never heard of, and a public IP id passed where an NSG id belongs.
     private const string MissingNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg";
     private const string NotAnNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-an-nsg";
+    private const string NotADiskEncryptionSetId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-a-des";
 
     private static readonly string[] s_groupArgs =
     [
@@ -341,6 +342,27 @@ public class VmCreateOrchestrationTests
         var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly", "--os-disk-secure-vm-disk-encryption-set", "mydes"]));
 
         Assert.Contains("can only be specified when OS disk security encryption type is DiskWithVMGuestState", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void OsDiskSecureVMDiskEncryptionSet_InvalidResourceId_FailsBeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli(
+            [.. s_cliArgs,
+                "--security-type", "ConfidentialVM",
+                "--os-disk-security-encryption-type", "DiskWithVMGuestState",
+                "--os-disk-secure-vm-disk-encryption-set", NotADiskEncryptionSetId]));
+
+        Assert.Contains("Invalid disk encryption set resource id", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
     }
 

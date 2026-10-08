@@ -47,6 +47,20 @@ internal static class VmSecurityProfileResolver
         var value = diskEncryptionSet.Trim();
         if (value.StartsWith("/subscriptions/", StringComparison.OrdinalIgnoreCase))
         {
+            try
+            {
+                VirtualMachineIdResolver.ParseResourceId(
+                    value,
+                    "Microsoft.Compute",
+                    "diskEncryptionSets",
+                    "Disk encryption set",
+                    "diskEncryptionSetName");
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw AzclipsErrorException.UsageError(ex.Message);
+            }
+
             return value;
         }
 

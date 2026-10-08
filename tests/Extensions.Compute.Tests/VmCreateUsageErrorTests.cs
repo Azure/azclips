@@ -33,6 +33,41 @@ public class VmCreateUsageErrorTests
         Assert.Contains(expectedMessage, error.Message);
     }
 
+    [Fact]
+    public void DiskEncryptionSetResourceId_ValidatesExpectedResourceType()
+    {
+        const string publicIpId = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/not-a-des";
+
+        var error = Assert.Throws<UsageErrorException>(() =>
+            VmSecurityProfileResolver.Resolve(
+                "ConfidentialVM",
+                useTrustedLaunchDefaults: false,
+                "DiskWithVMGuestState",
+                publicIpId,
+                "sub",
+                "rg"));
+
+        Assert.Equal("UsageError", error.Code);
+        Assert.Contains("Invalid disk encryption set resource id", error.Message);
+        Assert.Contains("Microsoft.Compute/diskEncryptionSets", error.Message);
+    }
+
+    [Fact]
+    public void DiskEncryptionSetResourceId_PreservesValidId()
+    {
+        const string diskEncryptionSetId = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/diskEncryptionSets/des";
+
+        var profile = VmSecurityProfileResolver.Resolve(
+            "ConfidentialVM",
+            useTrustedLaunchDefaults: false,
+            "DiskWithVMGuestState",
+            diskEncryptionSetId,
+            "other-sub",
+            "other-rg");
+
+        Assert.Equal(diskEncryptionSetId, profile.OsDiskSecureVMDiskEncryptionSetId);
+    }
+
     [Theory]
     [InlineData("", "Image must not be empty")]
     [InlineData("UbuntuLTS", "Only marketplace image URNs")]
