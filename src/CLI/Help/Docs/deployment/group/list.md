@@ -18,3 +18,11 @@ az deployment group list --resource-group myResourceGroup
 ```bash
 az deployment group list --resource-group myResourceGroup --subscription-id 00000000-0000-0000-0000-000000000000
 ```
+
+### List only failed deployments
+
+Use `--filter` to pass an OData filter expression to the service.
+
+```bash
+az deployment group list --resource-group myResourceGroup --filter "provisioningState eq 'Failed'"
+```

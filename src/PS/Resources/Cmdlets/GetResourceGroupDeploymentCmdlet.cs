@@ -25,7 +25,13 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Alias("DeploymentName")]
     public string? Name { get; set; }
+
+    [Parameter(ParameterSetName = "GetById", Mandatory = true)]
+    [Alias("DeploymentId", "ResourceId")]
+    [ValidateNotNullOrEmpty]
+    public string? Id { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -40,10 +46,15 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
     {
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object>();
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceGroupName)))
         {
-            { "ResourceGroupName", ResourceGroupName },
-        };
+            parameters.Add("ResourceGroupName", ResourceGroupName);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Id)))
+        {
+            parameters.Add("Id", Id!);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
             parameters.Add("SubscriptionId", SubscriptionId);

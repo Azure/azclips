@@ -250,30 +250,49 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateObject"]    = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["QueryString"]       = new("QueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI. Only valid together with a template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file to evaluate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]     = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"]    = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local parameters file to evaluate inline.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
                 ["Mode"]              = new("Mode", "Mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
                 ["Parameter"]         = new("Parameter", "Parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"]   = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
-                ["RollbackOnError"]   = new("RollbackOnError", "RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RollbackToDeploymentName"] = new("RollbackToDeploymentName", "RollbackToDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["RollbackOnError"]   = new("RollbackOnError", "RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: ["RollbackToLastDeployment"], AllowedValues: []),
+                ["RollbackToDeploymentName"] = new("RollbackToDeploymentName", "RollbackToDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.", IsRequired: false, Aliases: ["RollBackDeploymentName"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["TemplateParameterUri"] = "ParametersUri",
+                ["TemplateParameterFile"] = "ParametersFile",
+                ["RollbackToLastDeployment"] = "RollbackOnError",
+                ["RollBackDeploymentName"] = "RollbackToDeploymentName",
+            }
         );
         private static readonly CommandMetadata s_getResourceGroupDeployment_PS = new(
-            Name: "GetResourceGroupDeploymentProcessor",
+            Name: "GetResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Get-AzResourceGroupDeployment_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.GetResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
+        );
+        private static readonly CommandMetadata s_getResourceGroupDeploymentById_PS = new(
+            Name: "GetResourceGroupDeploymentProcessor_Orchestrator",
+            InvocationName: "Get-AzResourceGroupDeployment_GetById",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.GetResourceGroupDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment.", IsRequired: true, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         private static readonly CommandMetadata s_listResourceGroupDeployment_PS = new(
             Name: "ListResourceGroupDeploymentProcessor",
@@ -596,12 +615,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getResourceGroupDeployment_CLI = new(
-            Name: "GetResourceGroupDeploymentProcessor",
+            Name: "GetResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.GetResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -621,6 +640,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group whose deployments to list.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["filter"]          = new("Filter", "filter", typeof(string), "Filter expression using OData notation, e.g. \"provisioningState eq 'Failed'\".", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -705,6 +725,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
             ["Test-AzResourceGroupDeployment"] = s_testResourceGroupDeployment_PS,
             ["Get-AzResourceGroupDeployment_Get"]  = s_getResourceGroupDeployment_PS,
+            ["Get-AzResourceGroupDeployment_GetById"] = s_getResourceGroupDeploymentById_PS,
             ["Get-AzResourceGroupDeployment_List"] = s_listResourceGroupDeployment_PS,
             ["Stop-AzResourceGroupDeployment"] = s_stopResourceGroupDeployment_PS,
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,

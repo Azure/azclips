@@ -31,11 +31,17 @@ Get-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-Subsc
  [-Profile <string>] [<CommonParameters>]
 ```
 
+### GetById
+
+```
+Get-AzResourceGroupDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
+```
+
 ## ALIASES
 
 ## DESCRIPTION
 
-Retrieves Azure Resource Manager deployments scoped to a resource group. Supply `-Name` to get a single deployment; omit it to list every deployment in the resource group. The returned `DeploymentExtended` objects carry the provisioning state, deployment mode, timestamp, duration, template hash, outputs, and the resources the deployment provisioned. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+Retrieves Azure Resource Manager deployments scoped to a resource group. Supply `-Name` to get a single deployment, or `-Id` with the deployment's fully qualified resource id; omit both to list every deployment in the resource group. The returned `DeploymentExtended` objects carry the ARM shape (`Name`, `Properties.*`) plus top-level `DeploymentName`, `ResourceGroupName`, `ProvisioningState`, `Timestamp`, `Mode`, `CorrelationId`, `Parameters`, `Outputs`, `TemplateLink`, and `OnErrorDeployment` properties for compatibility with Az.Resources scripts. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
 
 ## EXAMPLES
 
@@ -61,10 +67,39 @@ Retrieve a deployment and inspect the values its template returned.
 
 ```powershell
 $deployment = Get-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18
-$deployment.Properties.Outputs
+$deployment.Outputs
+```
+
+### Get a deployment by resource id
+
+```powershell
+Get-AzResourceGroupDeployment -Id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Resources/deployments/infra-prod-2026-06-18
 ```
 
 ## PARAMETERS
+
+### -Id
+
+The fully qualified resource id of the deployment, in the form `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/{deploymentName}`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- DeploymentId
+- ResourceId
+ParameterSets:
+- Name: GetById
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Name
 
@@ -74,7 +109,8 @@ The name of the deployment to retrieve. When supplied the cmdlet gets that singl
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: Get
   Position: Named
@@ -175,7 +211,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-A `DeploymentExtended` for each matching deployment. The `Get` parameter set emits exactly one object; the `List` parameter set emits one object per deployment in the resource group, following paged results automatically.
+A `DeploymentExtended` for each matching deployment. The `Get` and `GetById` parameter sets emit exactly one object; the `List` parameter set emits one object per deployment in the resource group, following paged results automatically.
 
 ## NOTES
 

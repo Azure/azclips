@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
@@ -36,6 +38,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 
         // The deployment error, if any.
         public object? Error { get; set; }
+
+        // Deployment parameters.
+        public object? Parameters { get; set; }
+
+        // The URI referencing the template.
+        public TemplateLink? TemplateLink { get; set; }
+
+        // The URI referencing the parameters.
+        public ParametersLink? ParametersLink { get; set; }
+
+        // The deployment on error behavior.
+        public OnErrorDeployment? OnErrorDeployment { get; set; }
 
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }
@@ -82,6 +96,46 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 
         // Deployment tags.
         public IDictionary<string, string>? Tags { get; set; }
+
+        // Legacy Az.Resources PSResourceGroupDeployment top-level properties, kept for script
+        // compatibility. Hidden from JSON so CLI output keeps the ARM shape.
+        [JsonIgnore, IgnoreDataMember]
+        public string? DeploymentName => Name;
+
+        [JsonIgnore, IgnoreDataMember]
+        public string? ResourceGroupName
+        {
+            get
+            {
+                string[] segments = Id?.Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+                int index = Array.FindIndex(segments, s => s.Equals("resourceGroups", StringComparison.OrdinalIgnoreCase));
+                return index >= 0 && index + 1 < segments.Length ? segments[index + 1] : null;
+            }
+        }
+
+        [JsonIgnore, IgnoreDataMember]
+        public string? ProvisioningState => Properties?.ProvisioningState;
+
+        [JsonIgnore, IgnoreDataMember]
+        public string? CorrelationId => Properties?.CorrelationId;
+
+        [JsonIgnore, IgnoreDataMember]
+        public DateTime? Timestamp => Properties?.Timestamp;
+
+        [JsonIgnore, IgnoreDataMember]
+        public DeploymentMode? Mode => Properties?.Mode;
+
+        [JsonIgnore, IgnoreDataMember]
+        public object? Parameters => Properties?.Parameters;
+
+        [JsonIgnore, IgnoreDataMember]
+        public object? Outputs => Properties?.Outputs;
+
+        [JsonIgnore, IgnoreDataMember]
+        public TemplateLink? TemplateLink => Properties?.TemplateLink;
+
+        [JsonIgnore, IgnoreDataMember]
+        public OnErrorDeployment? OnErrorDeployment => Properties?.OnErrorDeployment;
 
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }

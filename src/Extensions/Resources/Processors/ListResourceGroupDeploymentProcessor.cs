@@ -20,10 +20,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string ResourceGroupName { get; set; } = string.Empty;
 
+        /// <summary>Optional OData <c>$filter</c>, e.g. <c>provisioningState eq 'Failed'</c>.</summary>
+        public string? Filter { get; set; }
+
         protected override HttpMethod Method => HttpMethod.Get;
 
-        protected override string CreateRequestUri() =>
-            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments?api-version={ApiVersion}";
+        protected override string CreateRequestUri()
+        {
+            var uri = $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments?api-version={ApiVersion}";
+            return string.IsNullOrWhiteSpace(Filter) ? uri : $"{uri}&$filter={Uri.EscapeDataString(Filter)}";
+        }
 
         private string? nextLink(DeploymentExtendedListResult body) => body.NextLink;
         private DeploymentExtended[]? pageItems(DeploymentExtendedListResult body) => body.Value;

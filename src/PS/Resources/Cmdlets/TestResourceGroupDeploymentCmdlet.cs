@@ -42,9 +42,11 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     public string? QueryString { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterUri")]
     public string? ParametersUri { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("TemplateParameterFile")]
     public string? ParametersFile { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -54,9 +56,11 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     public string[]? Parameter { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("RollbackToLastDeployment")]
     public SwitchParameter RollbackOnError { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("RollBackDeploymentName")]
     public string? RollbackToDeploymentName { get; set; }
 
     [Parameter(Mandatory = false)]

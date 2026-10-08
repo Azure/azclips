@@ -128,7 +128,8 @@ Path to a local ARM/Bicep parameters file (`*.parameters.json`).
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- TemplateParameterFile
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -149,7 +150,8 @@ URI of a remote ARM/Bicep parameters file (for example, a blob URL).
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- TemplateParameterUri
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -233,7 +235,8 @@ Record that the resource group should roll back to its last successful deploymen
 Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- RollbackToLastDeployment
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -254,7 +257,8 @@ Name of an explicit prior deployment to roll back to on failure. Mutually exclus
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- RollBackDeploymentName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -413,7 +417,9 @@ A `DeploymentValidateResult` describing the outcome of the validation, including
 
 ## NOTES
 
-Validation is read-only: it never creates or modifies resources. A template that fails validation is reported as a terminating error listing the validation failures, so a non-zero exit code means "the template would be rejected", not "the command malfunctioned". Use `New-AzResourceGroupDeployment` to deploy once validation passes.
+Validation is read-only: it never creates or modifies resources. A template that fails validation is reported as an error listing the validation failures, so a non-zero exit code means "the template would be rejected", not "the command malfunctioned". Use `New-AzResourceGroupDeployment` to deploy once validation passes.
+
+Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream (capture them with `-ErrorVariable`) instead of to the output stream as a list of `PSResourceManagerError` objects. The legacy parameter names `-TemplateParameterFile`, `-TemplateParameterUri`, `-RollbackToLastDeployment`, and `-RollBackDeploymentName` are accepted as aliases.
 
 ## RELATED LINKS
 
