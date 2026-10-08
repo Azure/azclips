@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzTenantDeployment
 ---
@@ -25,14 +25,11 @@ New-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateFile <strin
  [-QueryString <string>] [-TemplateParameterFile <string>] [-TemplateParameterUri <string>]
  [-TemplateParameterObject <hashtable>] [-Parameter <string[]>] [-ValidationLevel <string>]
  [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -47,7 +44,29 @@ Create an empty tenant deployment from a local template.
 ```powershell
 New-AzTenantDeployment -Location eastus -Name tenant-baseline -TemplateFile .\tenant.bicep
 ```
+
 ## PARAMETERS
+
+### -AsJob
+
+{{ Fill AsJob Description }}
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -497,4 +516,5 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 
 ## RELATED LINKS
 
-[Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
+
+- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)

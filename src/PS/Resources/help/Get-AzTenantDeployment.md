@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzTenantDeployment
 ---
@@ -37,9 +37,6 @@ Get-AzTenantDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
 
 ## ALIASES
 
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
-
 ## DESCRIPTION
 
 Gets a tenant deployment by name or resource ID. Omit both to list all tenant deployments; list output follows ARM pagination.
@@ -53,6 +50,7 @@ List tenant deployments.
 ```powershell
 Get-AzTenantDeployment
 ```
+
 ## PARAMETERS
 
 ### -Id
@@ -142,5 +140,5 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 
 ## RELATED LINKS
 
-[Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
 
+- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)

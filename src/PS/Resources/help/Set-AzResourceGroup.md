@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/21/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Set-AzResourceGroup
 ---
@@ -20,20 +20,21 @@ Replaces the tags on a resource group.
 ### SetByResourceGroupName (Default)
 
 ```
-Set-AzResourceGroup -Name <string> [-Tag] <hashtable> [-SubscriptionId <string>]
- [-Profile <string>] [<CommonParameters>]
+Set-AzResourceGroup [-Tag] <hashtable> -Name <string> [-SubscriptionId <string>] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### SetByResourceGroupId
 
 ```
-Set-AzResourceGroup -Id <string> [-Tag] <hashtable> [-SubscriptionId <string>]
- [-Profile <string>] [<CommonParameters>]
+Set-AzResourceGroup [-Tag] <hashtable> -Id <string> [-SubscriptionId <string>] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -210,5 +211,6 @@ Returns the updated resource group.
 This cmdlet replaces tags; it does not merge them with the existing tag collection.
 
 ## RELATED LINKS
+
 
 - [Online Version]()

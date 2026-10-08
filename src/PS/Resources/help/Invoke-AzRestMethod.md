@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/14/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Invoke-AzRestMethod
 ---

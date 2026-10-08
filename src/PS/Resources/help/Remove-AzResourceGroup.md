@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/16/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzResourceGroup
 ---
@@ -34,6 +34,7 @@ Remove-AzResourceGroup -Id <string> [-ForceDeletionType <string>] [-Force]
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -269,5 +270,6 @@ Returns `True` after the resource group deletion completes successfully.
 Deleting a resource group permanently deletes all resources contained in the group.
 
 ## RELATED LINKS
+
 
 - [Online Version]()

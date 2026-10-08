@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzTenantDeployment
 ---
@@ -29,9 +29,6 @@ Test-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateFile <stri
 
 ## ALIASES
 
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
-
 ## DESCRIPTION
 
 Validates a tenant-scope deployment without creating resources. Supply exactly one template source and the location used to store deployment metadata.
@@ -45,6 +42,7 @@ Validate a local tenant template.
 ```powershell
 Test-AzTenantDeployment -Location eastus -Name tenant-validation -TemplateFile .\tenant.bicep
 ```
+
 ## PARAMETERS
 
 ### -Location
@@ -346,4 +344,5 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 
 ## RELATED LINKS
 
-[Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
+
+- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)

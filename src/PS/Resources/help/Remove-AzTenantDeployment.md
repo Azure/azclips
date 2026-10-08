@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/08/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzTenantDeployment
 ---
@@ -20,28 +20,25 @@ Remove a tenant deployment record.
 ### RemoveByName (Default)
 
 ```
-Remove-AzTenantDeployment [-Name] <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+Remove-AzTenantDeployment [-Name] <string> [-PassThru] [-AsJob] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveById
 
 ```
-Remove-AzTenantDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+Remove-AzTenantDeployment -Id <string> [-PassThru] [-AsJob] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
+Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-AsJob] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -56,7 +53,29 @@ Remove a tenant deployment record.
 ```powershell
 Remove-AzTenantDeployment -Name tenant-rollout -PassThru
 ```
+
 ## PARAMETERS
+
+### -AsJob
+
+{{ Fill AsJob Description }}
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -235,5 +254,5 @@ Tenant deployments use API version 2025-04-01 and Incremental mode.
 
 ## RELATED LINKS
 
-[Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
 
+- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
