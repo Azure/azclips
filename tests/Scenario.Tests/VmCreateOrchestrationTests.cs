@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Tests.Recording;
@@ -15,6 +16,23 @@ public class VmCreateOrchestrationTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string VmName = "scenario-vm";
     private const string Password = "PlaceholderP@ss1";
+    private const string PublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8g";
+    private const string Image = "MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest";
+    private const string LinuxImage = "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest";
+
+    // A public IP the fake is seeded with, in the VM's resource group.
+    private const string SharedPublicIpId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/publicIPAddresses/shared-ip";
+
+    // A well-formed id the fake has never heard of.
+    private const string MissingPublicIpId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip";
+
+    // NSGs the fake is seeded with: one in the VM's resource group, one in another.
+    private const string SharedNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg";
+    private const string OtherGroupNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg";
+
+    // A well-formed NSG id the fake has never heard of, and a public IP id passed where an NSG id belongs.
+    private const string MissingNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg";
+    private const string NotAnNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-an-nsg";
 
     private static readonly string[] s_groupArgs =
     [
@@ -31,23 +49,26 @@ public class VmCreateOrchestrationTests
         ["Location"] = "westus2",
     };
 
-    private static readonly string[] s_cliArgs =
+    private static readonly string[] s_cliArgsWithoutNsg =
     [
         "vm", "create",
         "--subscription-id", SubscriptionId,
         "--name", VmName,
         "--location", "westus2",
         "--resource-group", "scenario-vm-rg",
-        "--vm-size", "Standard_D2s_v3",
+        "--size", "Standard_D2s_v3",
+        "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
         "--network-interface-name", "scenario-vm-nic",
         "--virtual-network-name", "scenario-vm-vnet",
-        "--network-security-group-name", "scenario-vm-nsg",
         "--subnet-names", "default",
         "--subnet-address-prefixes", "10.0.0.0/24",
         "--address-prefixes", "10.0.0.0/16",
     ];
+
+    // An explicit name the fake doesn't know: vm create looks it up, gets a 404, and creates it.
+    private static readonly string[] s_cliArgs = [.. s_cliArgsWithoutNsg, "--nsg", "scenario-vm-nsg"];
 
     private static Dictionary<string, object> PsParameters() => new()
     {
@@ -56,11 +77,12 @@ public class VmCreateOrchestrationTests
         ["Location"] = "westus2",
         ["ResourceGroupName"] = "scenario-vm-rg",
         ["VmSize"] = "Standard_D2s_v3",
+        ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
         ["NetworkInterfaceName"] = "scenario-vm-nic",
         ["VirtualNetworkName"] = "scenario-vm-vnet",
-        ["NetworkSecurityGroupName"] = "scenario-vm-nsg",
+        ["SecurityGroupName"] = "scenario-vm-nsg",
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
         ["AddressPrefixes"] = new List<string> { "10.0.0.0/16" },
@@ -74,6 +96,266 @@ public class VmCreateOrchestrationTests
         host.RunCli(s_groupArgs);
         AssertVm(host.RunCli(s_cliArgs));
         return record;
+    }
+
+    [Fact]
+    public void Size_BindsVmSize()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(s_cliArgs));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"vmSize\":\"Standard_D2s_v3\"", vmBody);
+    }
+
+    [Fact]
+    public void SshKeyValues_BindLinuxConfigurationPublicKeys()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", PublicKey]));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"linuxConfiguration\"", vmBody);
+        Assert.Contains("\"disablePasswordAuthentication\":false", vmBody);
+        Assert.Contains("\"path\":\"/home/azadmin/.ssh/authorized_keys\"", vmBody);
+        Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
+    }
+
+    [Fact]
+    public void SshKeyValues_CanOmitAdminPassword()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(ArgsWithImage(LinuxImage).Where(arg => arg != "--admin-password" && arg != Password).Append("--ssh-key-values").Append(PublicKey).ToArray()));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"disablePasswordAuthentication\":true", vmBody);
+        Assert.DoesNotContain("adminPassword", vmBody);
+    }
+
+    [Fact]
+    public void Create_RequiresPasswordOrSshKey_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).ToArray()));
+
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Create_RequiresAdminPasswordForPowerShell_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["AdminPassword"] = "";
+        var error = Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_RequireLinuxImage_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
+
+        Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_WhitespaceKey_FailsBeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "  "]));
+
+        Assert.Contains("SSH public key value cannot be empty.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void Image_Urn_BindsMarketplaceImageReference()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"));
+
+        Assert.Contains("\"publisher\":\"Canonical\"", vmBody);
+        Assert.Contains("\"offer\":\"0001-com-ubuntu-server-jammy\"", vmBody);
+        Assert.Contains("\"sku\":\"22_04-lts-gen2\"", vmBody);
+        Assert.Contains("\"version\":\"22.04.202409010\"", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
+    }
+
+    [Fact]
+    public void Image_Urn_BindsMarketplacePlanWhenImageHasPlan()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("Contoso:offer:sku:with-plan"));
+
+        Assert.Contains("\"plan\":{\"name\":\"plan-name\",\"product\":\"plan-product\",\"publisher\":\"plan-publisher\"}", vmBody);
+    }
+
+    [Fact]
+    public void Image_LatestVersion_UsesNumericOrdering()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("VersionTest:offer:sku:latest"));
+
+        Assert.Contains("\"version\":\"10.0.0\"", vmBody);
+    }
+
+    [Fact]
+    public void Image_TrustedLaunchFeature_PreservesTrustedLaunchDefaults()
+    {
+        var vmBody = RecordVmBody(ArgsWithImage("TrustedLaunchTest:offer:sku:1.0.0"));
+
+        Assert.Contains("\"securityType\":\"trustedlaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Theory]
+    [InlineData("Ubuntu2204")]
+    [InlineData("custom-image")]
+    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/images-rg/providers/Microsoft.Compute/images/custom-image")]
+    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/images-rg/providers/Microsoft.Compute/galleries/gallery/images/image/versions/1.0.0")]
+    [InlineData("/SharedGalleries/galleryName/Images/imageName/Versions/1.0.0")]
+    [InlineData("/CommunityGalleries/galleryName/Images/imageName/Versions/1.0.0")]
+    [InlineData("https://storage.blob.core.windows.net/vhds/source.vhd")]
+    public void Image_NonUrnForms_FailBeforeCreatingNetworkResources(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        Assert.Throws<NotImplementedException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        Assert.Throws<ArgumentException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Image_EmptyOrWhitespace_FailsBeforeCreatingNetworkResources_PowerShell(string image)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["Image"] = image;
+        Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SshKeyValues_ReadPublicKeyFiles_AndTrimContent()
+    {
+        var keyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pub");
+        File.WriteAllText(keyPath, $"{PublicKey}{Environment.NewLine}");
+
+        try
+        {
+            var record = new SessionRecord();
+            var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+            using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+            {
+                host.RunCli(s_groupArgs);
+                AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", keyPath]));
+            }
+
+            var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+            Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+            Assert.DoesNotContain("\\n", vmBody);
+        }
+        finally
+        {
+            File.Delete(keyPath);
+        }
+    }
+
+    [Fact]
+    public void SshKeyValues_PassThroughMissingPublicKeyFilesAsInlineValues()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "missing-key.pub"]));
+        }
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"keyData\":\"missing-key.pub\"", vmBody);
     }
 
     [Fact]
@@ -183,11 +465,269 @@ public class VmCreateOrchestrationTests
             => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/")).Request.Body!;
     }
 
+    [Fact]
+    public void PublicIp_Omitted_CreatesTheDefaultWithoutALookup()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        var publicIpPutIndex = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/publicIPAddresses/scenario-vmPublicIP?"));
+        Assert.True(publicIpPutIndex >= 0);
+        Assert.DoesNotContain(record.Entries[..publicIpPutIndex], e => IsRequest(e, "GET", "/publicIPAddresses/"));
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/scenario-vmPublicIP?"));
+        Assert.Contains("/publicIPAddresses/scenario-vmPublicIP", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_EmptyString_AttachesNone()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--public-ip-address", ""]);
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/publicIPAddresses/"));
+        Assert.DoesNotContain("publicIPAddress", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_ExistingName_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, SharedPublicIpId), [.. s_cliArgs, "--public-ip-address", "shared-ip"]);
+
+        var publicIpGetIndex = record.Entries.FindIndex(e => IsRequest(e, "GET", "/publicIPAddresses/shared-ip?"));
+        Assert.True(publicIpGetIndex >= 0);
+        Assert.DoesNotContain(record.Entries[..publicIpGetIndex], e => IsRequest(e, "PUT", "/providers/"));
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/publicIPAddresses/shared-ip?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/publicIPAddresses/"));
+        Assert.Contains(SharedPublicIpId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PublicIp_MissingResourceId_FailsBeforeAnythingIsCreated()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--public-ip-address", MissingPublicIpId]);
+
+        Assert.Equal($"Public IP address '{MissingPublicIpId}' was not found.", error.Message);
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip?"));
+
+        // Every network and VM request carries /providers/; the resource group create does not.
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void NewNetworkSecurityGroup_GetsTheDefaultRdpRule()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        // vm create deploys a Windows image, so the new NSG gets legacy CLI's RDP rule and nothing else.
+        Assert.Contains(
+            "\"securityRules\":[{\"name\":\"rdp\",\"properties\":{\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"*\",\"access\":\"Allow\",\"priority\":1000,\"direction\":\"Inbound\"}}]",
+            PutBody(record, "/networkSecurityGroups/"));
+    }
+
+    [Fact]
+    public void NewNetworkSecurityGroup_ForALinuxImage_GetsTheDefaultSshRule()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), ArgsWithImage(LinuxImage));
+
+        // The image's metadata says Linux, so the new NSG gets legacy CLI's SSH rule instead of RDP.
+        Assert.Contains(
+            "\"securityRules\":[{\"name\":\"default-allow-ssh\",\"properties\":{\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"22\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"*\",\"access\":\"Allow\",\"priority\":1000,\"direction\":\"Inbound\"}}]",
+            PutBody(record, "/networkSecurityGroups/"));
+    }
+
+    [Fact]
+    public void Nsg_Omitted_CreatesTheDefaultWithoutALookup()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgsWithoutNsg);
+
+        // Every create is a long-running operation whose poll GETs the same URI after the PUT,
+        // so a lookup would be a GET before the PUT.
+        int create = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+        Assert.True(create >= 0, "vm create never created the default NSG.");
+        Assert.DoesNotContain(record.Entries[..create], e => IsRequest(e, "GET", "/networkSecurityGroups/"));
+        Assert.Contains("/networkSecurityGroups/scenario-vmNSG", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_NewName_IsLookedUpThenCreated()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
+
+        int lookup = record.Entries.FindIndex(e => IsRequest(e, "GET", "/networkSecurityGroups/scenario-vm-nsg?"));
+        int create = record.Entries.FindIndex(e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vm-nsg?"));
+        Assert.True(lookup >= 0, "vm create never looked the NSG up.");
+        Assert.Equal(404, record.Entries[lookup].Response.StatusCode);
+        Assert.True(create > lookup, "vm create did not create the NSG after its lookup.");
+        Assert.Contains("/networkSecurityGroups/scenario-vm-nsg", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_ExistingName_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, SharedNsgId), [.. s_cliArgsWithoutNsg, "--nsg", "shared-nsg"]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/networkSecurityGroups/shared-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(SharedNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_ResourceIdInAnotherGroup_IsAttachedWithoutBeingPut()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId, OtherGroupNsgId), [.. s_cliArgsWithoutNsg, "--nsg", OtherGroupNsgId]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/shared-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(OtherGroupNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_MissingResourceId_FailsBeforeAnythingIsCreated()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId]);
+
+        Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void Nsg_MalformedResourceId_FailsBeforeAnyNetworkRequest()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", NotAnNsgId]);
+
+        Assert.Equal(
+            $"Invalid network security group resource id '{NotAnNsgId}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Network/networkSecurityGroups/{{networkSecurityGroupName}}.",
+            error.Message);
+
+        // As in legacy CLI, only the image is resolved first; no network resource is read or created.
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/providers/Microsoft.Network/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void Nsg_EmptyString_AttachesNone()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", ""]);
+
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain("networkSecurityGroup", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void Nsg_IsResolvedBeforeThePublicIp()
+    {
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId, "--public-ip-address", MissingPublicIpId]);
+
+        // Legacy CLI validates the NSG first, so its error wins and the public IP is never looked up.
+        Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/publicIPAddresses/"));
+    }
+
+    [Fact]
+    public void PowerShell_SecurityGroupName_AttachesAnExistingNsg()
+    {
+        var parameters = PsParameters();
+        parameters["SecurityGroupName"] = "shared-nsg";
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId, SharedNsgId), parameters);
+
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/"));
+        Assert.Contains(SharedNsgId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void PowerShell_SecurityGroupNameOmitted_CreatesTheDefault()
+    {
+        var parameters = PsParameters();
+        parameters.Remove("SecurityGroupName");
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/networkSecurityGroups/scenario-vmNSG?"));
+    }
+
+    [Fact]
+    public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), new FakeVmArmBackend(SubscriptionId) { FailVmDetailRead = true }, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+        host.RunCli(s_groupArgs);
+
+        // As in legacy CLI, a failed read after the create fails the command rather than
+        // writing the VM without its details, even though the VM now exists.
+        var error = Assert.Throws<HttpRequestException>(() => host.RunCli(s_cliArgs));
+        Assert.Equal(HttpStatusCode.InternalServerError, error.StatusCode);
+        Assert.Contains(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/scenario-vm?"));
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(VmName, vm.Name);
         Assert.Equal("westus2", vm.Location);
         Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+    }
+
+    /// <summary>Runs group create then vm create against <paramref name="backend"/>, recording both.</summary>
+    private static SessionRecord RecordCli(FakeVmArmBackend backend, string[] vmCreateArgs)
+    {
+        var record = new SessionRecord();
+        using (var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(vmCreateArgs));
+        }
+        return record;
+    }
+
+    /// <summary>Like <see cref="RecordCli"/>, for a vm create that must fail; returns what it sent and the error.</summary>
+    private static (SessionRecord Record, InvalidOperationException Error) RecordCliFailure(FakeVmArmBackend backend, string[] vmCreateArgs)
+    {
+        var record = new SessionRecord();
+        using var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<InvalidOperationException>(() => host.RunCli(vmCreateArgs));
+        return (record, error);
+    }
+
+    /// <summary>Runs New-AzResourceGroup then New-AzVM against <paramref name="backend"/>, recording both.</summary>
+    private static SessionRecord RecordPowerShell(FakeVmArmBackend backend, Dictionary<string, object> vmParameters)
+    {
+        var record = new SessionRecord();
+        using (var host = new ScenarioHost(ClientType.PowerShell, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+            AssertVm(host.RunPowerShell("New-AzVM", vmParameters, extension: "Compute"));
+        }
+        return record;
+    }
+
+    private static bool IsRequest(SessionRecordEntry entry, string method, string uriFragment)
+        => entry.Request.Method == method && entry.Request.Uri.Contains(uriFragment);
+
+    /// <summary>The body of the first PUT whose URI contains <paramref name="uriFragment"/>.</summary>
+    private static string PutBody(SessionRecord record, string uriFragment)
+        => record.Entries.First(e => IsRequest(e, "PUT", uriFragment)).Request.Body!;
+
+    private static string RecordVmBody(string[] args)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(args));
+        }
+
+        return record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+    }
+
+    private static string[] ArgsWithImage(string image)
+    {
+        var args = s_cliArgs.ToArray();
+        var imageIndex = Array.IndexOf(args, "--image");
+        args[imageIndex + 1] = image;
+        return args;
     }
 }

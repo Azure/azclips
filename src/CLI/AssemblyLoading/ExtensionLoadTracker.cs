@@ -45,11 +45,9 @@ public static class ExtensionLoadTracker
     /// Callback that writes one Debug line. Callers are expected to pass a delegate that
     /// applies the CLI log-level gate (e.g. <c>streams.WriteDebug</c> built by
     /// <c>Program.BuildStreams</c>), so the summary is suppressed under levels &lt; Debug.
-    /// Routing through the streams — not <see cref="ILoggingService.Debug"/> directly — is
-    /// required because <c>EmitSummary</c> is invoked in <c>Program.Main</c>'s <c>finally</c>
-    /// block, after the session's <c>UseScope</c> has been disposed, so
-    /// <see cref="ScopedLoggingService"/> would otherwise fall back to the ungated
-    /// <see cref="ConsoleLoggingService"/> and leak the table under <c>warn</c>/<c>error</c>.
+    /// Routing through the streams — not <see cref="ILoggingService.Debug"/> directly — preserves
+    /// the CLI session's resolved policy, including <c>--debug</c>, after its <c>UseScope</c> has
+    /// been disposed. The no-session fallback only knows the global configured level.
     /// </param>
     public static void EmitSummary(Action<string> writeDebug)
     {

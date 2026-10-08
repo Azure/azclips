@@ -597,6 +597,3 @@ public static class AgentModeEntry
     private static string Truncate(string s, int max) =>
         s.Length > max ? s[..max] + "…" : s;
 }
-
-
-

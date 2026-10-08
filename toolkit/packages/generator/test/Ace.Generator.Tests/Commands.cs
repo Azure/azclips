@@ -50,8 +50,8 @@ internal static class Commands
 
     public static IRCommandParameterSource FromHeader(IRId id) => new IRCommandParameterSourceHeader { Parameter = id };
 
-    public static IRCommandParameterSource FromBody(params IRId[] path) =>
-        new IRCommandParameterSourceBody { Path = path };
+    public static IRCommandParameterSource FromBody(IRId property, params IRId[] via) =>
+        new IRCommandParameterSourceBody { Property = property, Via = via };
 
     /// <summary>
     /// A single-call command. Defaults to a bodyless GET with no parameters, so a test states
