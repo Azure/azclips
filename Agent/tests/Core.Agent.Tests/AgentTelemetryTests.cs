@@ -539,5 +539,3 @@ public class AgentSpanNestingTests
         Assert.Equal(turn.SpanId, send.ParentSpanId);
     }
 }
-
-

@@ -27,13 +27,13 @@ public class StubAuthService : IAuthService
     /// <summary>True when <see cref="LogoutAsync"/> has been invoked at least once.</summary>
     public bool LogoutCalled { get; private set; }
 
-    /// <summary>The user principal name passed to the most recent <see cref="LogoutAsync"/> call.</summary>
-    public string? LastLoggedOutUserPrincipalName { get; private set; }
+    /// <summary>The profile name passed to the most recent <see cref="LogoutAsync"/> call.</summary>
+    public string? LastLoggedOutProfileName { get; private set; }
 
-    public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
+    public Task LogoutAsync(string profileName, CancellationToken cancellationToken = default)
     {
         LogoutCalled = true;
-        LastLoggedOutUserPrincipalName = userPrincipalName;
+        LastLoggedOutProfileName = profileName;
         return Task.CompletedTask;
     }
 

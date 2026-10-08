@@ -286,4 +286,3 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 - **Flush on Dispose**: `TelemetryService.Dispose()` calls `ForceFlush()` which can block CLI exit
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
 - **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time
-
