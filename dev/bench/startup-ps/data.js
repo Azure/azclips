@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791437274222,
+  "lastUpdate": 1791441141333,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4284,6 +4284,42 @@ window.BENCHMARK_DATA = {
             "value": 287120240.64,
             "unit": "ns",
             "range": "± 6073017.3933510035"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "586261ffdfe96fa17d6e4155216b7751369d7a0a",
+          "message": "{Auth} Use different FPA IDs for CLI/PS (#1054)\n\n**Related command**\naz login\n\n**Description**\n1. Instead of having one single first-party app ID for both CLI and\nPowerShell, this PR introduces one app ID for each client type,\nrespectively.\n2. In order to implement number one, this PR also introduces the concept\nof client metadata, which is a superset of the previous client type and\nalso includes first-party app ID.\n- The alternative design was for the auth service to do an `if-else`\ndepending on the client type. But it's against the separate-of-concern\nprinciple because the core would have knowledge of the clients.\n\n**Testing Guide**\naz login -> you are signing to **Microsoft Azure Cross-platform Command\nLine Interface**\n\n<img width=\"548\" height=\"548\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/e271f47b-4e1e-4d96-a37d-c213760f0f2f\"\n/>\n\nConnect-AzAccount -> You're signing in to **Microsoft Azure PowerShell**\n\n<img width=\"535\" height=\"580\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/d47db573-714e-401c-a6a3-d5528e9d8c41\"\n/>\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-08T17:03:29+11:00",
+          "tree_id": "5e7efe82590918ea2b202b6539d2afd5b0fc62e4",
+          "url": "https://github.com/Azure/azclips/commit/586261ffdfe96fa17d6e4155216b7751369d7a0a"
+        },
+        "date": 1791441141204,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 287497726.63,
+            "unit": "ns",
+            "range": "± 4887484.238778572"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 278618179.86,
+            "unit": "ns",
+            "range": "± 6828123.025512205"
           }
         ]
       }
