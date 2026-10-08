@@ -147,6 +147,35 @@ describe("PsParameterDialect", () => {
     expect(PsParameterDialectSchema.safeParse({ validateSet: [] }).success).toBe(false);
   });
 
+  it.each([
+    { kind: "string", value: "eastus" },
+    { kind: "boolean", value: true },
+    { kind: "number", value: 1 },
+    { kind: "bigint", value: "1" },
+    { kind: "null" },
+  ])("rejects duplicate $kind completer values", (value) => {
+    const result = PsParameterDialectSchema.safeParse({ completer: [value, value] });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["completer", 1] }),
+      ]));
+    }
+  });
+
+  it("treats completer values with different literal kinds as distinct", () => {
+    const result = PsParameterDialectSchema.safeParse({
+      completer: [
+        { kind: "string", value: "1" },
+        { kind: "number", value: 1 },
+        { kind: "bigint", value: "1" },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects duplicate ValidateSet values", () => {
     expect(PsParameterDialectSchema.safeParse({ validateSet: ["eastus", "eastus"] }).success).toBe(false);
   });

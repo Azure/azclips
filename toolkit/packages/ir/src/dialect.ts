@@ -222,6 +222,22 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
   })
   .strict()
   .superRefine((dialect, ctx) => {
+    const completer = dialect.completer;
+    if (completer !== undefined) {
+      const values = new Set<string>();
+      completer.forEach((value, index) => {
+        const key = JSON.stringify(value);
+        if (values.has(key)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Completer value ${key} is declared more than once.`,
+            path: ["completer", index],
+          });
+        }
+        values.add(key);
+      });
+    }
+
     const validateSet = dialect.validateSet;
     if (validateSet !== undefined) {
       const values = new Set<string>();
