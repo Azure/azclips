@@ -21,10 +21,17 @@ foreach ($dep in $dependencies)
     }
 
     Write-Host "Installing $($dep.Name) $($dep.RequiredVersion) (CurrentUser scope)..."
-    Install-Module -Name $dep.Name `
-        -RequiredVersion $dep.RequiredVersion `
+    Install-PSResource -Name $dep.Name `
+        -Version $dep.RequiredVersion `
         -Repository PSGallery `
         -Scope CurrentUser `
-        -Force `
-        -AllowClobber
+        -TrustRepository `
+        -Quiet
+
+    $installed = Get-Module -Name $dep.Name -ListAvailable |
+        Where-Object { $_.Version -eq [version]$dep.RequiredVersion }
+    if (-not $installed)
+    {
+        throw "$($dep.Name) $($dep.RequiredVersion) was not found after installation."
+    }
 }
