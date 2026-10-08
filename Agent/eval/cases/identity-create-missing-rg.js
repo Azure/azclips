@@ -12,6 +12,7 @@ module.exports = {
       value: 'file://assertions/command-set.js:commandSetAssertion',
       metric: 'command-set',
       config: {
+        checkName: 'Required commands and parameters',
         source: 'metadata',
         path: 'plan.steps',
         expectedCommandSet: [
@@ -33,6 +34,7 @@ module.exports = {
       value: 'file://assertions/identity-plan.js:identityPlanAssertion',
       metric: 'plan-contract',
       config: {
+        checkName: 'Identity prerequisites',
         allowedCommands: ['az identity create', 'az group list', 'az group create'],
         validateSubscription: true,
       },

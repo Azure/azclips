@@ -6,6 +6,7 @@ const test = require('node:test');
 const {
   acquireAuthorization,
   modelDimensions,
+  projectSchema,
   registerEvaluationArtifact,
   sourceContext,
 } = require('./upload-result');
@@ -18,6 +19,17 @@ const pipelineEnvironment = {
   SYSTEM_PULLREQUEST_SOURCECOMMITID: '6832555fb1234567890abcdef1234567890abcd',
   SYSTEM_PULLREQUEST_PULLREQUESTNUMBER: '123',
 };
+
+test('question schema separates original CLI input errors from check failures', () => {
+  assert.equal(projectSchema.version, 'agent-eval-v2');
+  const original = projectSchema.questionFields.find((field) => field.key === 'original-error');
+  assert.equal(original.label, 'Original CLI error');
+  assert.deepEqual(original.sources, [
+    { path: 'responseMetadata.originalError.message' },
+    { path: 'responseMetadata.executionError.message' },
+  ]);
+  assert.ok(!projectSchema.questionFields.some((field) => field.key === 'execution-error'));
+});
 
 test('builds PR source metadata from Azure Pipelines variables', () => {
   assert.deepEqual(

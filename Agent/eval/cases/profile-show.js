@@ -12,6 +12,7 @@ module.exports = {
       value: 'file://assertions/command-set.js:commandSetAssertion',
       metric: 'command-set',
       config: {
+        checkName: 'Required commands and parameters',
         source: 'metadata',
         path: 'plan.steps',
         expectedCommandSet: [
@@ -29,6 +30,7 @@ module.exports = {
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
       config: {
+        checkName: 'Plan steps and scope',
         allowedCommands: ['az profile show'],
         allowedArguments: ['--active'],
         booleanArguments: ['--active'],

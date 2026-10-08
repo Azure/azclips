@@ -14,6 +14,7 @@ module.exports = {
       value: 'file://assertions/command-set.js:commandSetAssertion',
       metric: 'command-set',
       config: {
+        checkName: 'Required discovery command',
         source: 'metadata',
         path: 'plan.steps',
         expectedCommandSet: [
@@ -31,6 +32,7 @@ module.exports = {
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
       config: {
+        checkName: 'Read-only extension discovery',
         allowedCommands: ['az extension list', 'az extension show'],
         validateSubscription: true,
       },

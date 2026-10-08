@@ -65,6 +65,9 @@ The provider records the original CLI diagnostic in
 `response.metadata.originalError` before starting analysis. It is separate from
 the proposed plan, assertion failures, and provider/process errors. Existing
 credential-shaped redaction also applies to this diagnostic.
+Project schema `agent-eval-v2` presents this as `Original CLI error` and never
+falls back to a grading failure. Cases supply `config.checkName` for readable
+checks; the original assertion implementation remains available for diagnostics.
 An unsuccessful troubleshoot process is an execution error, even if it emitted a
 partial plan; it must not be reported as an ordinary assertion failure.
 The original automatic mode remains available for compatible older suites.

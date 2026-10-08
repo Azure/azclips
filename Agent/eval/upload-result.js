@@ -8,7 +8,7 @@ const DEFAULT_SERVICE_URL = 'https://azclis-evaluation-web-6b085460.azurewebsite
 const DEFAULT_API_SCOPE = 'api://d70aaaba-e3a4-4746-bbd3-15ebcd9cb454/.default';
 const DEFAULT_LOCAL_API_SCOPE = 'api://d70aaaba-e3a4-4746-bbd3-15ebcd9cb454/access_as_user';
 const PROJECT = 'azclips';
-const PROJECT_SCHEMA_VERSION = 'agent-eval-v1';
+const PROJECT_SCHEMA_VERSION = 'agent-eval-v2';
 
 const projectSchema = {
   project: PROJECT,
@@ -23,8 +23,7 @@ const projectSchema = {
   questionFields: [
     { key: 'scenario', label: 'Scenario', order: 10, sources: [{ path: 'description' }] },
     { key: 'submitted-command', label: 'Submitted command', order: 20, tone: 'subtle', sources: [{ path: 'command' }], emptyText: 'Not provided' },
-    { key: 'execution-error', label: 'Execution error', order: 30, tone: 'error', selection: 'first-present', sources: [{ path: 'responseMetadata.executionError' }, { path: 'error' }], emptyText: 'No execution error' },
-    { key: 'generated-plan', label: 'Generated plan', order: 40, format: 'json', sources: [{ path: 'responseMetadata.plan' }], emptyText: 'No structured plan' },
+    { key: 'original-error', label: 'Original CLI error', order: 30, tone: 'subtle', selection: 'first-present', sources: [{ path: 'responseMetadata.originalError.message' }, { path: 'responseMetadata.executionError.message' }], emptyText: 'The original CLI error was not captured in this result.' },
     { key: 'runtime-prompt', label: 'Runtime prompt', order: 50, sources: [{ path: 'prompt' }] },
     { key: 'tool-queries', label: 'Tool queries and results', order: 60, kind: 'tool-calls' },
   ],

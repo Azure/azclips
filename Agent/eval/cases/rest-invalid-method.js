@@ -15,6 +15,7 @@ module.exports = {
       value: 'file://assertions/command-set.js:commandSetAssertion',
       metric: 'command-set',
       config: {
+        checkName: 'Preserve the requested URI',
         source: 'metadata',
         path: 'plan.steps',
         expectedCommandSet: [
@@ -32,6 +33,7 @@ module.exports = {
       value: 'file://assertions/plan-contract.js:planContractAssertion',
       metric: 'plan-contract',
       config: {
+        checkName: 'Read-only HTTP request',
         allowedCommands: ['az rest'],
         allowedArguments: ['--method', '--uri'],
         optionalArgumentValues: { '--method': 'GET' },
