@@ -45,3 +45,52 @@ profile:
     question: question
     wontfix: wontfix
   triaged_label: agent-assist-triaged
+
+# How the engine publishes changes: from its fork (fork), from its fork with a verified
+# head (verified-fork) or from a branch in this repository (upstream-branch).
+publication:
+  mode: upstream-branch
+
+# What this repository's tools may reach. Reads stay within the Azure organization;
+# a write to another repository needs that repository to list this one in accept_from.
+access:
+  read:
+  - Azure/azclips
+  - Azure/azure-cli
+  - Azure/azure-powershell
+  - Azure/azure-cli-extensions
+  - Azure/terraform-provider-azapi
+  - Azure/CLIPS
+  credentials:
+  - clips
+  organization_reads:
+  - /orgs/Azure/teams/act-codegen-extensibility-squad/members
+  - /orgs/Azure/teams/act-experience-enablement-squad/members
+  - /orgs/Azure/teams/act-identity-squad/members
+  - /orgs/Azure/teams/act-observability-squad/members
+  - /orgs/Azure/teams/act-platform-engineering-squad/members
+  - /orgs/Azure/teams/act-quality-productivity-squad/members
+  graphql:
+  - organization: Azure
+    project: 957
+    query_sha256: 97405635a6e3f7aadc802ef72ddeb935e38a554ec8add05a85dcce8331e7713c
+
+# Files a generated change may touch and the bounds of its execution job.
+job:
+  allowed_paths:
+  - src/*
+  - tests/*
+  - tools/*
+  - build/*
+  - docs/*
+  - wiki/*
+  - TUI/*
+  - toolkit/*
+  - devops/scripts/*
+  - install/*
+  - README.md
+  - global.json
+  - Directory.*
+  - NuGet.config
+  - azclips.slnx
+  execution_slice_seconds: 900
