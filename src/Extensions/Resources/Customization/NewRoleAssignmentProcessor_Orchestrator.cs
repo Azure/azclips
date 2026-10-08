@@ -5,6 +5,7 @@ using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -78,79 +79,169 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     /// instead of failing. This mirrors classic <c>az role assignment create</c>, but is deliberately
     /// stricter: with an explicit <c>--name</c>/<c>-Name</c> the conflict is surfaced, because returning a
     /// differently-named assignment than the one the caller asked to create would be surprising.
+    /// <para>
+    /// Sent inline rather than through <c>base.ProcessAsync</c> so the expected conflict is not routed
+    /// through <c>EnsureSuccessAsync</c> (which would publish a failure event before we could handle it);
+    /// only a genuinely unhandled failure is. Mirrors <see cref="ExistsResourceGroupProcessor_Orchestrator"/>.
+    /// </para>
     /// </summary>
     public override async Task ProcessAsync()
     {
         try
         {
-            await base.ProcessAsync();
-        }
-        catch (HttpRequestException ex) when (nameWasGenerated && IsRoleAssignmentExistsConflict(ex))
-        {
-            RoleAssignment? existing = await FindExistingAssignmentAsync();
-            if (existing is null)
+            await BeforeProcessAsync();
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+
+            using HttpRequestMessage request = await CreateRequestMessage();
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+
+            string? rawBody = response.Content is null ? null : await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
             {
-                // Could not resolve the existing assignment (e.g. a read permission gap or a race). Fall
-                // back to surfacing the original conflict rather than swallowing it silently.
-                throw;
+                await WriteCreatedAsync(rawBody);
+                return;
             }
 
-            await Publisher.Publish(Events.Warning, new EventData
+            // Expected idempotent conflict: the same principal/role/scope already exists under another
+            // name, and we generated the name, so return the existing assignment instead of failing.
+            if (nameWasGenerated && IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
             {
-                Message = "A role assignment for this principal, role, and scope already exists; returning the existing assignment.",
-            });
-            await WriteOutput(existing);
+                RoleAssignment? existing = await FindExistingAssignmentAsync();
+                if (existing is not null)
+                {
+                    await Publisher.Publish(Events.Warning, new EventData
+                    {
+                        Message = "A role assignment for this principal, role, and scope already exists; returning the existing assignment.",
+                    });
+                    await WriteOutput(existing);
+                    return;
+                }
+
+                // Could not resolve the existing assignment (e.g. a read permission gap or a race). Fall
+                // through to surface the original conflict rather than swallowing it silently.
+            }
+
+            // Any other failure (or an unresolvable conflict) is surfaced the normal way: this publishes
+            // ResourceOperationFailed and throws.
+            await response.EnsureSuccessAsync(Publisher);
+        }
+        finally
+        {
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 
-    // A RoleAssignmentExists conflict is the only 409 this create path treats as idempotent. Both the
-    // 409 status and the ARM error code are required so other conflicts are never silently swallowed.
-    private static bool IsRoleAssignmentExistsConflict(HttpRequestException ex) =>
-        ex.StatusCode == HttpStatusCode.Conflict &&
-        ex.Message.Contains("RoleAssignmentExists", StringComparison.OrdinalIgnoreCase);
+    // Deserializes and writes the created assignment, mirroring the base success path.
+    private async Task WriteCreatedAsync(string? rawBody)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            return;
+        }
+
+        RoleAssignment? created = JsonSerializer.Deserialize<RoleAssignment>(rawBody, JsonOptions);
+        if (created is not null)
+        {
+            await WriteOutput(created);
+        }
+    }
+
+    // The ARM error *code* (parsed from the response body) is required, not a substring of the flattened
+    // message, so an unrelated 409 that merely mentions "RoleAssignmentExists" is never swallowed.
+    private static bool IsRoleAssignmentExistsConflict(HttpStatusCode status, string? rawBody)
+    {
+        if (status != HttpStatusCode.Conflict || string.IsNullOrWhiteSpace(rawBody))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(rawBody);
+            return doc.RootElement.TryGetProperty("error", out JsonElement error)
+                && error.TryGetProperty("code", out JsonElement code)
+                && code.ValueKind == JsonValueKind.String
+                && string.Equals(code.GetString(), "RoleAssignmentExists", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Looks up the pre-existing assignment that caused the conflict: lists the principal's assignments at
-    /// the scope and returns the one matching this grant's role and scope. Best-effort — any failure
-    /// returns null so the caller rethrows the original conflict.
+    /// the scope (following every <c>nextLink</c> page) and returns the one matching this grant's role and
+    /// scope. Best-effort — any failure returns null so the caller rethrows the original conflict.
     /// </summary>
     private async Task<RoleAssignment?> FindExistingAssignmentAsync()
     {
+        ListRoleAssignmentProcessor lister = CreateExtendedProcessor<ListRoleAssignmentProcessor>(p =>
+        {
+            p.Scope = Scope;
+            p.Filter = $"principalId eq '{PrincipalId}'";
+        });
+
+        HttpResponseMessage? response = null;
         try
         {
-            ListRoleAssignmentProcessor lister = CreateExtendedProcessor<ListRoleAssignmentProcessor>(p =>
+            response = await lister.SendAsync();
+            while (true)
             {
-                p.Scope = Scope;
-                p.Filter = $"principalId eq '{PrincipalId}'";
-            });
+                if (response.Content is null)
+                {
+                    return null;
+                }
 
-            using HttpResponseMessage response = await lister.SendAsync();
-            if (response.Content is null)
-            {
-                return null;
+                string raw = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    return null;
+                }
+
+                RoleAssignmentListResult? page = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
+                if (page?.Value?.FirstOrDefault(MatchesExisting) is { } match)
+                {
+                    return match;
+                }
+
+                if (page is null || string.IsNullOrWhiteSpace(page.NextLink))
+                {
+                    return null;
+                }
+
+                string next = page.NextLink;
+                response.Dispose();
+                response = null;
+                using HttpRequestMessage request = new(HttpMethod.Get, next);
+                response = await HttpPipeline.SendAsync(request, Publisher);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
             }
-
-            string raw = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(raw))
-            {
-                return null;
-            }
-
-            RoleAssignmentListResult? list = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
-            return list?.Value?.FirstOrDefault(assignment =>
-                string.Equals(assignment.Properties?.PrincipalId, PrincipalId, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(assignment.Properties?.Scope, Scope, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(RoleDefinitionTail(assignment.Properties?.RoleDefinitionId), RoleDefinitionTail(RoleDefinitionId), StringComparison.OrdinalIgnoreCase));
         }
         catch
         {
             // Best-effort lookup: never let a failure here mask the original conflict.
             return null;
         }
+        finally
+        {
+            response?.Dispose();
+        }
     }
 
-    // The trailing GUID segment of a (possibly fully-qualified) role definition ID, so built-in roles
-    // rooted at different scopes still compare equal.
+    // Matches an assignment to this create's principal, scope, and role (by trailing role GUID, so a
+    // built-in role rooted at a different scope still compares equal).
+    private bool MatchesExisting(RoleAssignment assignment) =>
+        string.Equals(assignment.Properties?.PrincipalId, PrincipalId, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(assignment.Properties?.Scope, Scope, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(RoleDefinitionTail(assignment.Properties?.RoleDefinitionId), RoleDefinitionTail(RoleDefinitionId), StringComparison.OrdinalIgnoreCase);
+
+    // The trailing GUID segment of a (possibly fully-qualified) role definition ID.
     private static string RoleDefinitionTail(string? roleDefinitionId) =>
         string.IsNullOrEmpty(roleDefinitionId)
             ? string.Empty
