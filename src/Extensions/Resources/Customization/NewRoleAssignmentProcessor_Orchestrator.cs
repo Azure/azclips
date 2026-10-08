@@ -73,17 +73,11 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     }
 
     /// <summary>
-    /// Idempotent create: ARM returns <c>409 RoleAssignmentExists</c> when the same principal, role, and
-    /// scope are already assigned under a different name. When the name was auto-generated the caller did
-    /// not ask for a specific assignment, so the pre-existing one satisfies the request and is returned
-    /// instead of failing. This mirrors classic <c>az role assignment create</c>, but is deliberately
-    /// stricter: with an explicit <c>--name</c>/<c>-Name</c> the conflict is surfaced, because returning a
-    /// differently-named assignment than the one the caller asked to create would be surprising.
-    /// <para>
-    /// Sent inline rather than through <c>base.ProcessAsync</c> so the expected conflict is not routed
-    /// through <c>EnsureSuccessAsync</c> (which would publish a failure event before we could handle it);
-    /// only a genuinely unhandled failure is. Mirrors <see cref="ExistsResourceGroupProcessor_Orchestrator"/>.
-    /// </para>
+    /// Overrides the standard pipeline to make create idempotent. The request is sent inline (not via
+    /// <c>base.ProcessAsync</c>) so an expected <c>409 RoleAssignmentExists</c> is not routed through
+    /// <c>EnsureSuccessAsync</c>, which would publish a failure event before the conflict could be handled.
+    /// The method reads as four steps: send, write-on-success, recover-on-expected-conflict, else surface
+    /// the failure normally. Mirrors <see cref="ExistsResourceGroupProcessor_Orchestrator"/>.
     /// </summary>
     public override async Task ProcessAsync()
     {
@@ -92,10 +86,7 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            using HttpRequestMessage request = await CreateRequestMessage();
-            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
-            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
-
+            using HttpResponseMessage response = await SendCreateRequestAsync();
             string? rawBody = response.Content is null ? null : await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
@@ -104,21 +95,9 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 return;
             }
 
-            // Expected idempotent conflict (generated name): return the pre-existing assignment, not an error.
-            if (nameWasGenerated && IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
+            if (await TryReturnExistingAsync(response, rawBody))
             {
-                RoleAssignment? existing = await FindExistingAssignmentAsync();
-                if (existing is not null)
-                {
-                    await Publisher.Publish(Events.Warning, new EventData
-                    {
-                        Message = "A role assignment for this principal, role, and scope already exists; returning the existing assignment.",
-                    });
-                    await WriteOutput(existing);
-                    return;
-                }
-
-                // Could not resolve it (permission gap or race): fall through and surface the conflict.
+                return;
             }
 
             // Any other failure (or an unresolvable conflict): surfaced normally (publishes the failure and throws).
@@ -128,6 +107,47 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
+    }
+
+    // Sends the create PUT and traces the response, as the base pipeline would. The request is disposed
+    // once the send completes; the caller owns (and disposes) the returned response.
+    private async Task<HttpResponseMessage> SendCreateRequestAsync()
+    {
+        using HttpRequestMessage request = await CreateRequestMessage();
+        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+        return response;
+    }
+
+    /// <summary>
+    /// Idempotent-create recovery from an expected conflict. ARM returns <c>409 RoleAssignmentExists</c>
+    /// when the same principal, role, and scope are already assigned under a different name. When the name
+    /// was auto-generated the caller did not ask for a specific assignment, so the pre-existing one is
+    /// looked up and written (returning <c>true</c>) instead of failing — mirroring classic
+    /// <c>az role assignment create</c>. Returns <c>false</c> for any other response, or when the existing
+    /// assignment can't be resolved (a permission gap or race), so the caller surfaces the conflict. With an
+    /// explicit <c>--name</c>/<c>-Name</c> this is deliberately skipped: returning a differently-named
+    /// assignment than the one the caller asked to create would be surprising, so the conflict is surfaced.
+    /// </summary>
+    private async Task<bool> TryReturnExistingAsync(HttpResponseMessage response, string? rawBody)
+    {
+        if (!nameWasGenerated || !IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
+        {
+            return false;
+        }
+
+        RoleAssignment? existing = await FindExistingAssignmentAsync();
+        if (existing is null)
+        {
+            return false;
+        }
+
+        await Publisher.Publish(Events.Warning, new EventData
+        {
+            Message = "A role assignment for this principal, role, and scope already exists; returning the existing assignment.",
+        });
+        await WriteOutput(existing);
+        return true;
     }
 
     // Writes the created assignment with the same no-content / empty-body / invalid-JSON handling the base
@@ -187,64 +207,33 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     }
 
     /// <summary>
-    /// Best-effort lookup of the assignment that caused the conflict: lists the principal's assignments at
-    /// the scope (following every <c>nextLink</c>) and returns the role/scope match. Drives its own transport
-    /// (not the atomic's <c>SendAsync</c>) so a lookup failure doesn't publish a <c>ResourceOperationFailed</c>
-    /// event ahead of the original conflict; cancellation still propagates, any other failure returns null.
+    /// Best-effort lookup of the assignment that caused the conflict: pages through the principal's
+    /// assignments at the scope (following every <c>nextLink</c>) and returns the role/scope match.
+    /// Cancellation propagates; any other failure returns null so the caller surfaces the original conflict.
     /// </summary>
     private async Task<RoleAssignment?> FindExistingAssignmentAsync()
     {
-        ListRoleAssignmentProcessor lister = CreateExtendedProcessor<ListRoleAssignmentProcessor>(p =>
-        {
-            p.Scope = Scope;
-            p.Filter = $"principalId eq '{PrincipalId}'";
-        });
-
-        HttpRequestMessage request = await lister.BuildRequestAsync();
+        HttpRequestMessage? request = await BuildLookupRequestAsync();
         try
         {
-            while (true)
+            while (request is not null)
             {
-                using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
-                // Each page publishes its own trace; HttpPipeline.SendAsync does not emit it.
-                await Publisher.Publish(Events.TracingHttpResponseMessage, response);
-
-                // Non-success returns null WITHOUT publishing a failure event, keeping the 409 the only error.
-                if (!response.IsSuccessStatusCode || response.Content is null)
+                RoleAssignmentListResult? page = await FetchLookupPageAsync(request);
+                if (page is null)
                 {
                     return null;
                 }
 
-                string raw = await response.Content.ReadAsStringAsync();
-                if (string.IsNullOrWhiteSpace(raw))
-                {
-                    return null;
-                }
-
-                RoleAssignmentListResult? page;
-                try
-                {
-                    page = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
-                }
-                catch (JsonException)
-                {
-                    return null;
-                }
-
-                if (page?.Value?.FirstOrDefault(MatchesExisting) is { } match)
+                if (page.Value?.FirstOrDefault(MatchesExisting) is { } match)
                 {
                     return match;
                 }
 
-                if (page is null || string.IsNullOrWhiteSpace(page.NextLink))
-                {
-                    return null;
-                }
-
-                string next = page.NextLink;
                 request.Dispose();
-                request = new HttpRequestMessage(HttpMethod.Get, next);
+                request = string.IsNullOrWhiteSpace(page.NextLink) ? null : new HttpRequestMessage(HttpMethod.Get, page.NextLink);
             }
+
+            return null;
         }
         catch (OperationCanceledException)
         {
@@ -258,7 +247,50 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         }
         finally
         {
-            request.Dispose();
+            request?.Dispose();
+        }
+    }
+
+    // Builds the first-page lookup request: the principal's assignments at the scope.
+    private async Task<HttpRequestMessage> BuildLookupRequestAsync()
+    {
+        ListRoleAssignmentProcessor lister = CreateExtendedProcessor<ListRoleAssignmentProcessor>(p =>
+        {
+            p.Scope = Scope;
+            p.Filter = $"principalId eq '{PrincipalId}'";
+        });
+        return await lister.BuildRequestAsync();
+    }
+
+    /// <summary>
+    /// Sends one lookup page over a raw transport — not the atomic's <c>SendAsync</c> — so a lookup failure
+    /// doesn't publish a <c>ResourceOperationFailed</c> event ahead of the original conflict, then traces and
+    /// parses it. Returns null to stop the lookup on a non-success status, an empty body, or malformed JSON.
+    /// </summary>
+    private async Task<RoleAssignmentListResult?> FetchLookupPageAsync(HttpRequestMessage request)
+    {
+        using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        // Each page publishes its own trace; HttpPipeline.SendAsync does not emit it.
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+
+        if (!response.IsSuccessStatusCode || response.Content is null)
+        {
+            return null;
+        }
+
+        string raw = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 
