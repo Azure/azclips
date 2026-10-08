@@ -51,20 +51,16 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     // The only condition syntax version currently supported.
     private const string DefaultConditionVersion = "2.0";
 
-    // True when no name was supplied, so ResolveName generates one. This gates the idempotent handling of a
-    // RoleAssignmentExists conflict: a generated name means the caller only asked "ensure this grant exists",
-    // so returning the pre-existing assignment satisfies them; an explicit name asked for a specific
-    // assignment, so the conflict is surfaced. Derived from the input, which create never overwrites.
-    private bool NameWasGenerated => string.IsNullOrWhiteSpace(Name);
+    // True when no name was supplied, so ResolveName mints one. Gates idempotent conflict handling: a
+    // generated name means the caller only wanted the grant to exist, so returning the pre-existing
+    // assignment satisfies them; an explicit name asked for a specific assignment, so the conflict surfaces.
+    private bool ShouldGenerateName => string.IsNullOrWhiteSpace(Name);
 
     protected override async Task BeforeProcessAsync()
     {
         string scope = RoleAssignmentScope.Resolve(SubscriptionId, Scope, ResourceGroupName);
         Scope = scope;
         RoleAssignmentName = ResolveName();
-
-        // Each resolver reads the raw CLI-bound value still held in the property below, before the
-        // property is overwritten in place with the resolved/validated value ARM expects.
         PrincipalId = ResolvePrincipalId();
         RoleDefinitionId = ResolveRoleDefinitionId(scope);
         (Condition, ConditionVersion) = ResolveCondition();
@@ -99,8 +95,6 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             {
                 return;
             }
-
-            // Any other failure (or an unresolvable conflict): surfaced normally (publishes the failure and throws).
             await response.EnsureSuccessAsync(Publisher);
         }
         finally
@@ -109,8 +103,6 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         }
     }
 
-    // Sends the create PUT and traces the response, as the base pipeline would. The request is disposed
-    // once the send completes; the caller owns (and disposes) the returned response.
     private async Task<HttpResponseMessage> SendCreateRequestAsync()
     {
         using HttpRequestMessage request = await CreateRequestMessage();
@@ -131,7 +123,7 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     /// </summary>
     private async Task<bool> TryReturnExistingAsync(HttpResponseMessage response, string? rawBody)
     {
-        if (!NameWasGenerated || !IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
+        if (!ShouldGenerateName || !IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
         {
             return false;
         }
@@ -307,23 +299,16 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             ? string.Empty
             : roleDefinitionId[(roleDefinitionId.LastIndexOf('/') + 1)..];
 
-    // Pure transform of the Name input into the ARM assignment name: a blank input generates a fresh GUID;
-    // otherwise the supplied name is trimmed and validated as a GUID. Whether it was generated is read
-    // separately via NameWasGenerated, so this has no side effects.
+    // Produces the ARM assignment name from the Name input: mints a fresh GUID when none was supplied,
+    // otherwise returns the caller's trimmed-and-validated GUID (reusing the shared RequireGuid validator).
     private string ResolveName()
     {
-        if (NameWasGenerated)
+        if (ShouldGenerateName)
         {
             return Guid.NewGuid().ToString();
         }
 
-        string value = Name!.Trim();
-        if (!Guid.TryParse(value, out _))
-        {
-            throw AzclipsErrorException.UsageError($"The role assignment name '{value}' must be a GUID.");
-        }
-
-        return value;
+        return RequireGuid(Name!, value => $"The role assignment name '{value}' must be a GUID.");
     }
 
     /// <summary>
@@ -395,8 +380,9 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 "specify the principal's object ID (GUID).");
     }
 
-    // Trims and validates a principal value is an object ID (GUID); throws the caller-supplied usage-error
-    // message (with the trimmed value already substituted in) otherwise.
+    // Trims a value and validates it is a GUID; returns the trimmed value, or throws the caller-supplied
+    // usage-error message (with the trimmed value already substituted in) otherwise. Shared by the name and
+    // principal resolvers.
     private static string RequireGuid(string rawValue, Func<string, string> errorMessage)
     {
         string value = rawValue.Trim();
