@@ -1,13 +1,172 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Extensions.KeyVault.Tests;
 
 public class SensitiveHttpDiagnosticsTests
 {
+    [Theory]
+    [InlineData("request", null)]
+    [InlineData("request", " ")]
+    [InlineData("request", "{invalid")]
+    [InlineData("response", null)]
+    [InlineData("response", " ")]
+    [InlineData("response", "{invalid")]
+    [InlineData("none", null)]
+    [InlineData("none", " ")]
+    [InlineData("none", "{invalid")]
+    public async Task PaginationDiagnosticsRespectSensitiveMarkers(string marker, string? body)
+    {
+        const string sentinel = "private-vault-and-secret";
+        const string nextLink = "https://fixture.invalid/" + sentinel;
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        using var responseRequest = new HttpRequestMessage(HttpMethod.Get, nextLink);
+        if (marker == "response") responseRequest.MarkSensitive();
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher.Object))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                if (marker == "request") request.MarkSensitive();
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    RequestMessage = responseRequest,
+                    Content = body is null ? null : new StringContent(body)
+                });
+            });
+        var page = new PaginationPage(["first"], nextLink);
+        var collecting = page.CollectWithPaginationAsync(value => value.Items, value => value.NextLink,
+            () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/first")),
+            publisher.Object, pipeline.Object, new System.Text.Json.JsonSerializerOptions());
+
+        if (body == "{invalid")
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => collecting);
+            if (marker != "none") Assert.DoesNotContain(body, error.ToString());
+        }
+        else
+        {
+            Assert.Equal(new[] { "first" }, await collecting);
+        }
+
+        var messages = string.Join("\n", publisher.Invocations.SelectMany(invocation => invocation.Arguments.OfType<string>()));
+        if (marker == "none") Assert.Contains(sentinel, messages);
+        else Assert.DoesNotContain(sentinel, messages);
+    }
+
+    private sealed record PaginationPage(string[] Items, string? NextLink);
+
+    [Fact]
+    public async Task BothTransportsUseSharedHostConfiguration()
+    {
+        var handlers = new List<HttpClientHandler>();
+        using var interceptor = new CapturingHandler();
+        using var key = RSA.Create(2048);
+        var certificateRequest = new CertificateRequest("CN=transport-fixture", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificate = certificateRequest.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var logs = new TransportLogProvider();
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(logs));
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder
+            .ConfigureHttpClient(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(7);
+                client.DefaultRequestHeaders.Add("host-setting", "shared");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() =>
+            {
+                var handler = new HttpClientHandler
+                {
+                    AllowAutoRedirect = true,
+                    UseProxy = false,
+                    Proxy = new WebProxy("http://127.0.0.1:8888"),
+                    SslProtocols = System.Security.Authentication.SslProtocols.Tls12
+                };
+                handler.ClientCertificates.Add(certificate);
+                handlers.Add(handler);
+                return handler;
+            })
+            .AddHttpMessageHandler(() => new HostConfiguredHandler(interceptor)));
+        using var provider = services.BuildServiceProvider();
+        var ordinary = provider.GetRequiredService<HttpClient>();
+        var sensitive = provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>();
+
+        Assert.Equal(2, handlers.Count);
+        Assert.True(handlers[0].AllowAutoRedirect);
+        Assert.False(handlers[1].AllowAutoRedirect);
+        Assert.All(handlers, handler =>
+        {
+            Assert.False(handler.UseProxy);
+            Assert.NotNull(handler.Proxy);
+            Assert.Equal(System.Security.Authentication.SslProtocols.Tls12, handler.SslProtocols);
+            Assert.Contains(certificate, handler.ClientCertificates.Cast<X509Certificate2>());
+        });
+        Assert.Equal(TimeSpan.FromSeconds(7), ordinary.Timeout);
+        Assert.Equal(ordinary.Timeout, sensitive.Timeout);
+        var transport = new Core.Runtime.HttpClientFactory(ordinary, sensitive);
+        using var ordinaryRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/ordinary");
+        using var sensitiveRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/private-secret-uri");
+        sensitiveRequest.MarkSensitive();
+        using var ordinaryResponse = await transport.SendAsync(ordinaryRequest, Mock.Of<IEventPublisher>());
+        using var sensitiveResponse = await transport.SendAsync(sensitiveRequest, Mock.Of<IEventPublisher>());
+
+        Assert.Equal(2, interceptor.Calls);
+        Assert.Equal("shared", interceptor.HostSetting);
+        Assert.Contains(logs.Messages, message => message.Contains("https://fixture.invalid/ordinary"));
+        Assert.DoesNotContain(logs.Messages, message => message.Contains("private-secret-uri"));
+    }
+
+    [Fact]
+    public void SensitiveFactoryRejectsUnknownPrimaryTransport()
+    {
+        using var handler = new CapturingHandler();
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler(() => handler));
+        using var provider = services.BuildServiceProvider();
+
+        var error = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>());
+
+        Assert.Contains("redirects can be disabled", error.Message);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    private sealed class TransportLogProvider : ILoggerProvider
+    {
+        public List<string> Messages { get; } = [];
+        public ILogger CreateLogger(string categoryName) => new TransportLogger(Messages);
+        public void Dispose() { }
+
+        private sealed class TransportLogger(List<string> messages) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                messages.Add(formatter(state, exception));
+        }
+    }
+
+    private sealed class HostConfiguredHandler(CapturingHandler interceptor) : DelegatingHandler
+    {
+        private readonly HttpMessageInvoker invoker = new(interceptor, disposeHandler: false);
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            invoker.SendAsync(request, cancellationToken);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) invoker.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

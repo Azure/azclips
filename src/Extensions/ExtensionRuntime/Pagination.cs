@@ -44,8 +44,15 @@ public static class Pagination
                     throw;
                 }
                 string rawBody;
-                if (response.Content is null) await publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                bool sensitive = request.HasSensitiveDiagnostics() || response.RequestMessage.HasSensitiveDiagnostics();
+                if (response.Content is null)
+                    await publisher.Publish(Events.ResponseNoContent, sensitive
+                        ? "Response has no content. Sensitive details omitted."
+                        : $"response has no content for {response.RequestMessage?.RequestUri}");
+                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
+                    await publisher.Publish(Events.ResponseEmptyBody, sensitive
+                        ? "Response has empty body. Sensitive details omitted."
+                        : $"response has empty body for {response.RequestMessage?.RequestUri}");
                 else
                 {
                     try
@@ -54,7 +61,7 @@ public static class Pagination
                     }
                     catch (JsonException)
                     {
-                        if (request.HasSensitiveDiagnostics())
+                        if (sensitive)
                         {
                             await publisher.Publish(Events.ResponseInvalidJson, "Response has invalid JSON. Sensitive details omitted.");
                             throw new InvalidOperationException("Failed to deserialize the response. Sensitive details omitted.");
