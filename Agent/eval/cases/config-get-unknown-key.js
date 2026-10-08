@@ -1,30 +1,20 @@
 const { recoveryQualityAssertion } = require('../judge/recovery-quality');
 
 module.exports = {
-  description: 'config get with an unknown key -> list config',
+  description: 'config get with an unknown key -> provide a usable configuration read path',
   vars: {
     case_id: 'config-get-unknown-key',
     command_group: 'config',
-    goal: 'Explain the missing key and discover available settings; optionally explain how to create the requested custom setting if that is what the user wants.',
+    goal: 'Explain the missing key and show how to read a valid setting, discover available keys, or conditionally create and read the requested custom setting.',
     command: `config get --key agent.nonexistent`,
   },
   assert: [
     {
       type: 'javascript',
-      value: 'file://assertions/command-set.js:commandSetAssertion',
+      value: 'file://assertions/configuration-read.js:configurationReadAssertion',
       metric: 'command-set',
       config: {
-        checkName: 'Required discovery command',
-        source: 'metadata',
-        path: 'plan.steps',
-        expectedCommandSet: [
-          {
-            command: 'az config list',
-            match: 'any',
-            requiredArguments: [],
-            forbiddenArguments: ['-n', '-g'],
-          },
-        ],
+        checkName: 'Usable configuration read path',
       },
     },
     {

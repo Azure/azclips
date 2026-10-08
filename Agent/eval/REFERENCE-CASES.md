@@ -86,7 +86,7 @@ test or product fix for nested dispatch.
 | `vnet-create-missing-location` | Create a VNet in an existing group with an explicit address space and DNS server, but omit the required location. | Supply a nonempty location; retain the name, group, address prefix, and DNS server; do not substitute discovery or add unrelated resource changes. |
 | `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Creating that same group first is allowed; the prerequisite must have a name/location and be used by a later identity step in the intended subscription. |
 | `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
-| `config-get-unknown-key` | Read an unknown configuration key. | Include configuration discovery. A relevant conditional `config set` suggestion is allowed; the LLM judge evaluates its relation to the user's intent and supplied context. |
+| `config-get-unknown-key` | Read an unknown configuration key. | Include discovery, a read with a corrected key, or conditional creation followed by a read. Reject unchanged missing-key retries, missing values, and invalid prerequisites; the LLM checks whether the suggested key and advice are justified. |
 | `extension-show-not-found` | Inspect an extension name that is not installed. | Include installed-extension discovery. A conditional `extension add` suggestion for the intended extension is allowed; the LLM judge evaluates the explanation, rather than treating installation advice as execution. |
 | `rest-invalid-method` | Use the unsupported HTTP method `fetch` with a valid `--uri` in the recorded subscription. | Preserve the URI and use explicit GET (case-insensitive) or the supported GET default; reject non-GET steps and unrelated arguments. |
 
@@ -153,8 +153,10 @@ The offline tests exercise the same assertion functions used by Promptfoo.
   subscriptions without forbidding the legitimate create sequence.
 - REST: accept explicit GET in any casing or its default; reject changed URIs,
   unsupported argument names, and any non-GET step even after a valid one.
-- Config/Extension: structural checks accept discovery plus optional set/add
-  advice and still reject removal or missing discovery. Their semantic rubric
+- Config/Extension: structural checks accept usable recovery plus optional set/add
+  advice and still reject removal or incomplete recovery. Config accepts a corrected
+  key read without requiring `config list`; Extension still requires installed
+  extension discovery. Their semantic rubric
   checks the full response and conditional labels, not write-command keywords.
   Mock judge tests validate wiring and failure propagation, not model quality.
 - Context: reject an absent active profile rather than treating an undefined
@@ -164,6 +166,15 @@ Each new case should carry `case_id`, `command_group`, a concise `goal`, a
 controlled failing command, declared prerequisites, and positive/negative
 fixtures. Register it explicitly in the suite; adding a file does not register a
 test.
+
+The first three-repeat all-LLM calibration exposed a mismatched Config contract:
+the LLM rubric already accepted the documented `output.format` read example, but
+the deterministic check required `config list` in every plan. The corrected
+structural assertion recognizes alternative read paths and checks every supplied
+parameter and the ordering of custom-key creation before a read. It does not
+establish that an arbitrary replacement key exists; that evidence belongs to the
+semantic check. Keep the 28/30 calibration result as evidence and rerun the full
+suite after freezing this correction, rather than selecting its successful rows.
 
 ## Baseline evidence
 

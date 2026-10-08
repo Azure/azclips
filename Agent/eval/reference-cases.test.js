@@ -25,10 +25,12 @@ const baseline = [
 const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
 const { identityPlanAssertion } = require('./assertions/identity-plan');
+const { configurationReadAssertion } = require('./assertions/configuration-read');
 const assertionRunners = {
   'file://assertions/command-set.js:commandSetAssertion': commandSetAssertion,
   'file://assertions/plan-contract.js:planContractAssertion': planContractAssertion,
   'file://assertions/identity-plan.js:identityPlanAssertion': identityPlanAssertion,
+  'file://assertions/configuration-read.js:configurationReadAssertion': configurationReadAssertion,
 };
 
 const subscription = '11111111-1111-4111-8111-111111111111';
@@ -219,7 +221,36 @@ test('structural checks accept the optional configuration and extension advice f
   }
 });
 
-test('conditional-advice cases still require discovery and reject unrelated operations', () => {
+test('configuration recovery accepts discovery, a corrected-key example, or a conditional create/read path', () => {
+  for (const commands of [
+    ['az config list --all'],
+    ['az config get --key output.format', 'az config get --key output.format --json'],
+    ['az config get --key <intended-key>'],
+    ['az config set --key agent.nonexistent --value myvalue --force', 'az config get --key agent.nonexistent'],
+  ]) {
+    assert.ok(grade(config, commands).every((result) => result.pass));
+  }
+});
+
+test('configuration recovery rejects unchanged failures, incomplete reads, and invalid creation prerequisites', () => {
+  for (const commands of [
+    ['az config get --key agent.nonexistent'],
+    ['az config list', 'az config get --key agent.nonexistent'],
+    ['az config get --key'],
+    ['az config get --key output.format --json invalid'],
+    ['az config get --key output.format --value ignored'],
+    ['az config set --key agent.nonexistent --value myvalue', 'az config get --key agent.nonexistent'],
+    ['az config set --key agent.nonexistent --value myvalue --force false', 'az config get --key agent.nonexistent'],
+    ['az config get --key agent.nonexistent', 'az config set --key agent.nonexistent --value myvalue --force'],
+    ['az config set --key agent.nonexistent --value --force', 'az config get --key agent.nonexistent'],
+  ]) {
+    assert.ok(grade(config, commands).some((result) => !result.pass));
+  }
+  assert.equal(configurationReadAssertion('', { vars: {}, metadata: {} }).pass, false);
+  assert.equal(configurationReadAssertion('', { vars: {}, metadata: { plan: { steps: [{ cmd: 'az config list' }] } } }).pass, false);
+});
+
+test('conditional-advice cases require a usable read path and reject unrelated operations', () => {
   for (const [scenario, commands] of [
     [config, ['az config set --key agent.nonexistent --value myvalue --force']],
     [config, ['az config list', 'az config delete --key agent.enabled']],
