@@ -79,7 +79,7 @@ test or product fix for nested dispatch.
 | --- | --- | --- |
 | `group-create-missing-location` | Create a named resource group without supplying the required location. | Supply a nonempty location and retain the requested group name. |
 | `vnet-create-missing-location` | Create a VNet in an existing group with an explicit address space and DNS server, but omit the required location. | Supply a nonempty location; retain the name, group, address prefix, and DNS server; do not substitute discovery or add unrelated resource changes. |
-| `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Location is required too; the input provides it so only the group is missing. |
+| `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Creating that same group first is allowed; the prerequisite must have a name/location and be used by a later identity step in the intended subscription. |
 | `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
 | `config-get-unknown-key` | Read an unknown configuration key. | Use read-only configuration discovery, not set/delete. |
 | `extension-show-not-found` | Inspect an extension name that is not installed. | List installed extensions, without adding or removing one. |
@@ -95,6 +95,9 @@ The four new missing-parameter creation cases deliberately omit one required
 value. Their assertions check every matching create step, require nonempty
 values, and preserve the values already supplied. They do not prescribe one
 specific region, resource group, or display name for the missing parameter.
+An identity's resource-group prerequisite is not an unrelated operation merely
+because it adds a create step. The group may use a different Azure location from
+the identity; the identity's explicitly supplied location still must be retained.
 Offline grading does not prove that a selected region/group exists or that a
 proposed operation would deploy successfully.
 
@@ -140,6 +143,9 @@ The offline tests exercise the same assertion functions used by Promptfoo.
   supplied values for the missing field; reject empty values or changes to the
   supplied name, network settings, identity location, or application audience.
 - VNet/application: reject discovery-only plans and unrelated resource changes.
+- Identity: accept a complete matching resource-group prerequisite before the
+  identity; reject unused groups, missing prerequisite values, and changed
+  subscriptions without forbidding the legitimate create sequence.
 - REST: accept explicit GET in any casing or its default; reject changed URIs,
   unsupported argument names, and any non-GET step even after a valid one.
 - Context: reject an absent active profile rather than treating an undefined

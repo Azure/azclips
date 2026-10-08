@@ -3,7 +3,7 @@ module.exports = {
   vars: {
     case_id: 'identity-create-missing-rg',
     command_group: 'identity',
-    goal: 'Create the managed identity in eastus; supply the missing resource group without changing the name or location.',
+    goal: 'Create the managed identity in eastus; supply the missing resource group, creating it first when needed, without changing the identity name or location.',
     command: 'identity create --name azclips-eval-id --location eastus',
   },
   assert: [
@@ -30,10 +30,10 @@ module.exports = {
     },
     {
       type: 'javascript',
-      value: 'file://assertions/plan-contract.js:planContractAssertion',
+      value: 'file://assertions/identity-plan.js:identityPlanAssertion',
       metric: 'plan-contract',
       config: {
-        allowedCommands: ['az identity create', 'az group list'],
+        allowedCommands: ['az identity create', 'az group list', 'az group create'],
         validateSubscription: true,
       },
     },

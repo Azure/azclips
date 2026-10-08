@@ -22,6 +22,12 @@ const baseline = [
 ];
 const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
+const { identityPlanAssertion } = require('./assertions/identity-plan');
+const assertionRunners = {
+  'file://assertions/command-set.js:commandSetAssertion': commandSetAssertion,
+  'file://assertions/plan-contract.js:planContractAssertion': planContractAssertion,
+  'file://assertions/identity-plan.js:identityPlanAssertion': identityPlanAssertion,
+};
 
 const subscription = '11111111-1111-4111-8111-111111111111';
 const groupFor = (scenario) => scenario.assert[0].config.expectedCommandSet[0].argumentValues['--resource-group'];
@@ -38,7 +44,8 @@ function grade(scenario, commands, { placeholders = [], vars = {} } = {}) {
   const plan = { steps: commands.map((cmd, index) => ({ id: index + 1, label: 'Next step', cmd })), placeholders };
   return scenario.assert.map((assertion) => {
     assert.equal(assertion.type, 'javascript');
-    const run = assertion.metric === 'command-set' ? commandSetAssertion : planContractAssertion;
+    const run = assertionRunners[assertion.value];
+    assert.equal(typeof run, 'function', `Unsupported assertion: ${assertion.value}`);
     return run('', {
       config: assertion.config,
       metadata: { plan },
@@ -276,6 +283,39 @@ test('identity create supplies a group without changing the given name or requir
     identityCommand.replace('azclips-eval-id', 'another-identity'),
   ]) {
     assert.ok(grade(identity, [command]).some((result) => !result.pass), command);
+  }
+});
+
+test('identity recovery accepts a matching resource-group prerequisite, including a different group location', () => {
+  for (const location of ['eastus', 'westeurope']) {
+    const commands = [
+      `az group create --name identity-eval-rg --location ${location} --subscription-id ${subscription}`,
+      `${identityCommand} --subscription ${subscription}`,
+    ];
+    assert.ok(grade(identity, commands).every((result) => result.pass), commands.join('; '));
+  }
+  assert.ok(grade(identity, [
+    'az group list',
+    identityCommand,
+  ]).every((result) => result.pass));
+});
+
+test('identity prerequisites must be complete, used by the identity, and in the intended subscription', () => {
+  const prerequisite = 'az group create --name identity-eval-rg --location eastus';
+  for (const commands of [
+    [prerequisite.replace('--location eastus', ''), identityCommand],
+    [prerequisite.replace('--location eastus', '--location'), identityCommand],
+    [prerequisite.replace('--name identity-eval-rg', ''), identityCommand],
+    [prerequisite.replace('identity-eval-rg', 'unrelated-rg'), identityCommand],
+    [identityCommand, prerequisite],
+    [`${prerequisite} --subscription-id another-subscription`, identityCommand],
+    [prerequisite, `${identityCommand} --subscription another-subscription`],
+    [prerequisite, `${identityCommand} --subscription`],
+    [prerequisite, identityCommand.replace('--name azclips-eval-id', '--name another-id')],
+    [prerequisite, identityCommand.replace('--location eastus', '--location westus')],
+    [prerequisite, identityCommand, 'az group delete --name another-rg'],
+  ]) {
+    assert.ok(grade(identity, commands).some((result) => !result.pass), commands.join('; '));
   }
 });
 

@@ -61,6 +61,10 @@ and pass `-RecoveryMode manual`. The provider first runs the failing command,
 then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Duration includes failure recording,
 the troubleshoot process, and trace extraction; compare runs using the same mode.
+The provider records the original CLI diagnostic in
+`response.metadata.originalError` before starting analysis. It is separate from
+the proposed plan, assertion failures, and provider/process errors. Existing
+credential-shaped redaction also applies to this diagnostic.
 An unsuccessful troubleshoot process is an execution error, even if it emitted a
 partial plan; it must not be reported as an ordinary assertion failure.
 The original automatic mode remains available for compatible older suites.

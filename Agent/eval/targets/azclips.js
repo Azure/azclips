@@ -160,6 +160,60 @@ function findFailureId(raw) {
   return ids[0];
 }
 
+function originalCliError(stdout, stderr, exitCode) {
+  for (const text of [stderr || '', stdout || '']) {
+    let start = -1;
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let index = 0; index < text.length; index += 1) {
+      const character = text[index];
+      if (start < 0) {
+        if (character !== '{') continue;
+        start = index;
+        depth = 1;
+        continue;
+      }
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') quoted = false;
+        continue;
+      }
+      if (character === '"') quoted = true;
+      else if (character === '{') depth += 1;
+      else if (character === '}') depth -= 1;
+      if (depth !== 0) continue;
+      let value;
+      try {
+        value = JSON.parse(text.slice(start, index + 1));
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+      }
+      start = -1;
+      if (typeof value?.error?.message === 'string' && value.error.message.trim()) {
+        return redactTraceValue({
+          source: 'azclips',
+          exitCode,
+          ...(typeof value.error.code === 'string' && { code: value.error.code }),
+          message: value.error.message,
+        });
+      }
+    }
+  }
+  const raw = [stderr, stdout].filter((text) => typeof text === 'string' && text.trim()).join('\n');
+  const { executionError } = splitAgentOutput(raw, exitCode);
+  const message = executionError?.message || stripNoise(raw)
+    .split('\n')
+    .filter((line) => !/\baz troubleshoot(?: --id\b| without arguments\b)/.test(line))
+    .join('\n').trim();
+  return redactTraceValue({
+    source: 'azclips',
+    exitCode,
+    message: message || `The CLI exited with code ${exitCode} without an error message.`,
+  });
+}
+
 function readStructuredPlan(tracePath) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   const lines = fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean);
@@ -418,6 +472,9 @@ class AzclipsAgentProvider {
           toolCalls: readToolCalls(tracePath),
           toolTraceAvailable: toolTraceAvailable(tracePath),
           ...(executionError && { executionError }),
+          ...(!recoveryMetadata.originalError && executionError && {
+            originalError: redactTraceValue(executionError),
+          }),
         };
         let tokenUsage;
         try {
@@ -462,6 +519,7 @@ class AzclipsAgentProvider {
         }
         try {
           if (!error) throw new Error('The manual evaluation stimulus succeeded instead of recording a failure.');
+          recoveryMetadata.originalError = originalCliError(stdout, stderr, error.code);
           const failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
           recoveryMetadata.recoveryMode = 'manual';
           recoveryMetadata.failureId = failureId;
@@ -482,6 +540,7 @@ class AzclipsAgentProvider {
             error: message,
             prompt: renderedRuntimePrompt,
             metadata: {
+              ...recoveryMetadata,
               resultType: 'azclips.plan.v1',
               runtimePromptSha256: runtimePrompt.sha256,
               recoveryMode: 'manual',
@@ -499,6 +558,7 @@ module.exports.buildEvaluationEnvironment = buildEvaluationEnvironment;
 module.exports.execFileUnattended = execFileUnattended;
 module.exports.findTracePath = findTracePath;
 module.exports.findFailureId = findFailureId;
+module.exports.originalCliError = originalCliError;
 module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;

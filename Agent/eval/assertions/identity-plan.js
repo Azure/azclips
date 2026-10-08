@@ -1,0 +1,57 @@
+const { argumentMap, commandName, commandSetAssertion, shellTokens } = require('./command-set');
+const { planContractAssertion } = require('./plan-contract');
+
+function identityPlanAssertion(output, context) {
+  const contract = planContractAssertion(output, context);
+  if (!contract.pass) return contract;
+
+  const steps = context.metadata.plan.steps.map((step) => {
+    const tokens = shellTokens(step.cmd);
+    return { name: commandName(tokens), args: argumentMap(tokens) };
+  });
+  if (steps.some((step) => step.name === 'az group create')) {
+    const groups = commandSetAssertion(output, {
+      ...context,
+      config: {
+        source: 'metadata',
+        path: 'plan.steps',
+        expectedCommandSet: [{
+          command: 'az group create',
+          match: 'all',
+          requiredArguments: ['--name', '--location'],
+        }],
+      },
+    });
+    if (!groups.pass) return groups;
+  }
+
+  const failures = [];
+  for (const [index, step] of steps.entries()) {
+    if (step.name === 'az group create') {
+      const group = step.args.get('--name');
+      const usedLater = steps.slice(index + 1).some((candidate) =>
+        candidate.name === 'az identity create' &&
+        typeof candidate.args.get('--resource-group') === 'string' &&
+        candidate.args.get('--resource-group').toLowerCase() === group.toLowerCase());
+      if (!usedLater) {
+        failures.push(`Plan step ${index + 1}: the created resource group must be used by a later identity creation step.`);
+      }
+    }
+    if (context.config?.validateSubscription && step.name === 'az identity create' &&
+        step.args.has('--subscription')) {
+      const subscription = step.args.get('--subscription');
+      if (typeof subscription !== 'string' ||
+          subscription.toLowerCase() !== context.vars.subscription_id.toLowerCase()) {
+        failures.push(`Plan step ${index + 1}: the identity subscription must match the recorded active subscription.`);
+      }
+    }
+  }
+  return {
+    pass: failures.length === 0,
+    score: failures.length === 0 ? 1 : 0,
+    reason: failures.length ? failures.join('; ') :
+      'The plan stays within identity creation and its required resource group; creating that group first is allowed.',
+  };
+}
+
+module.exports = { identityPlanAssertion };

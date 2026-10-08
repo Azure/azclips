@@ -11,6 +11,7 @@ const {
   execFileUnattended,
   findTracePath,
   findFailureId,
+  originalCliError,
   findRuntimePromptPath,
   readRuntimePrompt,
   readModels,
@@ -364,6 +365,7 @@ test('scores completed CLI responses including numeric nonzero recovery', async 
         exitCode,
         message: 'A profile name is required, or use --active.',
       } : undefined);
+      assert.deepEqual(response.metadata.originalError, response.metadata.executionError);
     });
   }
 });
@@ -391,6 +393,45 @@ test('manual recovery extracts one exact failure ID from structured or human hin
   assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
 });
 
+test('extracts the original structured CLI error separately from diagnostics and the recovery hint', () => {
+  const diagnostic = JSON.stringify({ recoveryWarning: 'An obsolete setting is present.' });
+  const error = {
+    error: {
+      code: 'UsageError',
+      message: 'Required parameter "--resource-group" is missing; value may contain {braces}.',
+    },
+    recovery: { command: 'az troubleshoot --id 1234-2026-1008-0000-0001' },
+  };
+  for (const stderr of [JSON.stringify(error), `${diagnostic}\n${JSON.stringify(error, null, 2)}\n`]) {
+    assert.deepEqual(originalCliError('', stderr, 2), {
+      source: 'azclips',
+      exitCode: 2,
+      code: 'UsageError',
+      message: error.error.message,
+    });
+  }
+});
+
+test('captures plaintext CLI errors without confusing recovery hints or model output with the input error', () => {
+  assert.deepEqual(originalCliError('', [
+    '[ERROR] The requested resource group was not found.',
+    'To troubleshoot this error with AI, run: az troubleshoot --id 1234-2026-1008-0000-0001',
+  ].join('\n'), 1), {
+    source: 'azclips',
+    exitCode: 1,
+    message: 'The requested resource group was not found.',
+  });
+  assert.equal(originalCliError('', '', 1).message, 'The CLI exited with code 1 without an error message.');
+});
+
+test('redacts credential-shaped values from captured original error messages', () => {
+  const error = originalCliError('', JSON.stringify({
+    error: { code: 'Unauthorized', message: 'Bearer private-token at https://example.test/?sig=private-signature' },
+  }), 1);
+  assert.doesNotMatch(JSON.stringify(error), /private-token|private-signature/);
+  assert.match(error.message, /\[REDACTED\]/);
+});
+
 test('manual recovery records the failure then analyzes its exact ID with closed stdin', async (context) => {
   const fixture = createProviderFixture(context);
   const provider = new AzclipsAgentProvider({
@@ -406,7 +447,10 @@ test('manual recovery records the failure then analyzes its exact ID with closed
     queueMicrotask(() => {
       if (calls.length === 1) {
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
-          JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } }));
+          JSON.stringify({
+            error: { code: 'UsageError', message: 'The requested profile was not found.' },
+            recovery: { id, command: `az troubleshoot --id ${id}` },
+          }));
       } else {
         callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
       }
@@ -423,6 +467,12 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   assert.equal(response.metadata.failureId, id);
   assert.equal(response.metadata.failureExitCode, 2);
   assert.equal(response.metadata.recoveryMode, 'manual');
+  assert.deepEqual(response.metadata.originalError, {
+    source: 'azclips',
+    exitCode: 2,
+    code: 'UsageError',
+    message: 'The requested profile was not found.',
+  });
   assert.ok(response.metadata.failureCaptureDurationMs >= 0);
   assert.ok(response.metadata.troubleshootDurationMs >= 0);
   assert.deepEqual(response.metadata.plan, fixture.plan);
