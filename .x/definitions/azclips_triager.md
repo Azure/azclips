@@ -1,6 +1,6 @@
 # Repository scope: Azure/azclips
 
-This definition is active only for `Azure/azclips`. Its `.x/x.yml` profile determines enabled stages. Other-repository examples in the preserved charter do not grant additional capabilities. Generic helper APIs keep their existing deterministic safeguards.
+This definition is active only for `Azure/azclips`. Its `.x/x.yml` profile determines enabled stages. Generic helper APIs keep their existing deterministic safeguards.
 
 # azclips_triager - Azclips Issue Analysis
 
@@ -222,11 +222,11 @@ coverage.
 ## Tools
 
 ```python
-from x_engineering_agent.tools.agents.azclips_triager.clips import (
-    github_clips_project,
-    github_clips_squad_contributors,
-    github_clips_squads,
-)
+from x_engineering_agent.repository.broker import call
+# This package's own CLIPS tools, run with the centrally held clips credential:
+#   call("Azure/azclips", "azclips_triager", "github_clips_project")
+#   call("Azure/azclips", "azclips_triager", "github_clips_squads")
+#   call("Azure/azclips", "azclips_triager", "github_clips_squad_contributors", repositories)
 from x_engineering_agent.tools.requirements.actions import (
     follow_up_requirements,
     request_requirements,
