@@ -14,17 +14,20 @@ exhaustive coverage of a command group.
   scope, and explicit constraints.
 - Prefer the structured `response.metadata.plan` and the shared parser over
   matching the full console transcript.
-- Use LLM grading only when a separately stated semantic requirement cannot be
-  checked reliably in code. Natural-language text alone is not a reason to add a
-  judge.
+- Every case also has a separately stated semantic rubric: the recovery must
+  address the recorded failure and user goal, preserve intent, and avoid false
+  claims of execution or unsupported changes. Code checks alone cannot establish
+  that the explanation and plan agree with each other and with the evidence.
 - Do not require longer explanations, a particular sentence, or an explanation of
   why every selected value needs confirmation.
 - Never remove a valid constraint merely to obtain a green result.
 
-The Config and Extension cases now include an explicit `llm-rubric` check. They
-need semantic judgment because conditional alternatives cannot be assessed by
-looking only at a command name. The other eight cases remain deterministic-only;
-there is no global/default judge. Configure the existing Azure judge deployment
+All ten cases include one explicit `llm-rubric` check from
+[recovery-quality.js](./judge/recovery-quality.js), version `recovery-quality-v1`.
+Each case has its own goal-specific acceptance criteria plus the same shared
+evidence, brevity, suggested-value and non-execution rules. Config and Extension
+also judge conditional alternatives rather than looking only at a command name.
+The suite explicitly wires the configured judge to every case. Configure the existing Azure judge deployment
 as described in [README.md](./README.md#semantic-judge-configuration).
 
 ## Prerequisites
@@ -165,7 +168,8 @@ test.
 ## Baseline evidence
 
 A baseline of the current default suite must contain all ten configured cases in
-one real run with zero execution errors. Record source revision, target package,
+one real run, using `-Repeat 3` for thirty independent results, with zero execution
+or judge errors and a real LLM verdict for every result. Record source revision, target package,
 runtime prompt hash, model, suite identity, outputs, assertions, and usage.
 Earlier three-reference runs remain historical evidence for that smaller suite,
 not a baseline for the expanded set.
@@ -182,6 +186,10 @@ ID, so a different process's latest failure cannot be selected. Missing IDs and
 unexpectedly successful stimuli are execution errors, not quality scores.
 Duration includes failure recording and troubleshooting, not just model inference. One pass
 provides one observation per case; it does not establish stable tail latency.
+Use the same three-repeat protocol for later optimization PRs. Retain every
+result, report per-case median and range, and keep judge usage/time separate from
+target measurements. Freeze the rubric before measuring; investigate failures
+without relaxing valid constraints or selecting only successful attempts.
 
 Older packages may report token usage without model names in their trace events.
 Keep the observed model list empty in that situation and record the configured

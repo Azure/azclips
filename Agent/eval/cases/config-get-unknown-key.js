@@ -1,4 +1,4 @@
-const { conditionalAdviceAssertion } = require('../judge/conditional-advice');
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
 
 module.exports = {
   description: 'config get with an unknown key -> list config',
@@ -37,6 +37,6 @@ module.exports = {
         validateSubscription: true,
       },
     },
-    conditionalAdviceAssertion('configuration'),
+    recoveryQualityAssertion('configuration'),
   ],
 };

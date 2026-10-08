@@ -1,3 +1,4 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
 const resourceGroup = process.env.AZCLIPS_EVALUATION_RESOURCE_GROUP || 'azclips-test-rg';
 
 module.exports = {
@@ -52,5 +53,6 @@ module.exports = {
         secretArguments: ['--admin-password'],
       },
     },
+    recoveryQualityAssertion('vm'),
   ],
 };

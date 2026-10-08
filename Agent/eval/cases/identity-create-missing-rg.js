@@ -1,3 +1,5 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
+
 module.exports = {
   description: 'identity create without required --resource-group -> plan adds one',
   vars: {
@@ -39,5 +41,6 @@ module.exports = {
         validateSubscription: true,
       },
     },
+    recoveryQualityAssertion('identity'),
   ],
 };

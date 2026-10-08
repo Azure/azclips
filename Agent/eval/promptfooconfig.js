@@ -41,7 +41,7 @@ const tests = [
 ];
 
 module.exports = {
-  description: 'AZCLIPS Agent plans: deterministic contracts and contextual advice grading',
+  description: 'AZCLIPS Agent plans: deterministic contracts and semantic recovery quality for all ten cases',
   prompts: [
     {
       raw: runtimePrompt.content,

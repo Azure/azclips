@@ -1,3 +1,5 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
+
 module.exports = {
   description: 'profile active-flag typo -> show the active profile',
   vars: {
@@ -36,5 +38,6 @@ module.exports = {
         booleanArguments: ['--active'],
       },
     },
+    recoveryQualityAssertion('profile'),
   ],
 };

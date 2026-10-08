@@ -1,3 +1,5 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
+
 module.exports = {
   description: 'group create without required --location -> plan adds a location',
   vars: {
@@ -36,5 +38,6 @@ module.exports = {
         validateSubscription: true,
       },
     },
+    recoveryQualityAssertion('group'),
   ],
 };

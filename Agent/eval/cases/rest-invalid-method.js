@@ -1,3 +1,4 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
 const subscriptionId = process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || '11111111-1111-4111-8111-111111111111';
 const resourceUri = `https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups?api-version=2021-04-01`;
 
@@ -40,5 +41,6 @@ module.exports = {
         validateSubscription: true,
       },
     },
+    recoveryQualityAssertion('rest'),
   ],
 };

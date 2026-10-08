@@ -1,4 +1,4 @@
-const { conditionalAdviceAssertion } = require('../judge/conditional-advice');
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
 
 module.exports = {
   description: 'extension show with an unknown name -> list extensions',
@@ -37,6 +37,6 @@ module.exports = {
         validateSubscription: true,
       },
     },
-    conditionalAdviceAssertion('extension'),
+    recoveryQualityAssertion('extension'),
   ],
 };

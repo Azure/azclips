@@ -1,3 +1,5 @@
+const { recoveryQualityAssertion } = require('../judge/recovery-quality');
+
 module.exports = {
   description: 'msgraph app create without required --display-name -> add a name without changing the audience',
   vars: {
@@ -35,5 +37,6 @@ module.exports = {
         allowedArguments: ['--display-name', '--sign-in-audience'],
       },
     },
+    recoveryQualityAssertion('application'),
   ],
 };

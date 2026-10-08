@@ -56,13 +56,19 @@ function grade(scenario, commands, { placeholders = [], vars = {} } = {}) {
   });
 }
 
-test('the three reference cases use only deterministic assertions and stable identifiers', () => {
+test('all ten cases keep deterministic checks and one scenario-specific semantic rubric', () => {
   assert.equal(new Set([profile, vm, deployment].map((scenario) => scenario.vars.case_id)).size, 3);
-  for (const scenario of [profile, vm, deployment]) {
+  const rubrics = [];
+  for (const scenario of [profile, vm, deployment, ...baseline]) {
     assert.ok(scenario.vars.goal);
     assert.ok(scenario.vars.command_group);
-    assert.ok(scenario.assert.every((assertion) => assertion.type === 'javascript'));
+    assert.equal(scenario.assert.filter((assertion) => assertion.type === 'javascript').length, 2);
+    const semantic = scenario.assert.filter((assertion) => assertion.type === 'llm-rubric');
+    assert.equal(semantic.length, 1);
+    assert.equal(semantic[0].config.rubricVersion, 'recovery-quality-v1');
+    rubrics.push(semantic[0].value);
   }
+  assert.equal(new Set(rubrics).size, 10);
   assert.match(profile.vars.command, /^profile show --actve$/);
   assert.match(deployment.vars.command, /^deploment group create --resource-group /);
 });
@@ -144,7 +150,7 @@ test('deployment reference rejects wrong scope, changed template, missing parame
   }).some((result) => !result.pass));
 });
 
-test('the suite registers an explicit semantic judge only for the two conditional-advice cases', (context) => {
+test('the suite registers an explicit semantic judge for every one of its ten cases', (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-reference-config-'));
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const executable = path.join(directory, 'az.exe');
@@ -170,8 +176,8 @@ test('the suite registers an explicit semantic judge only for the two conditiona
   Object.assign(process.env, environment);
   const config = require('./promptfooconfig');
   assert.deepEqual(config.tests.map((scenario) => scenario.vars), [profile, vm, deployment, ...baseline].map((scenario) => scenario.vars));
-  assert.deepEqual(config.tests.filter((scenario) => scenario.options?.provider).map((scenario) => scenario.vars.case_id),
-    ['config-get-unknown-key', 'extension-show-not-found']);
+  assert.equal(config.tests.length, 10);
+  assert.equal(config.tests.filter((scenario) => scenario.options?.provider).length, 10);
   for (const scenario of config.tests.filter((candidate) => candidate.options?.provider)) {
     assert.equal(scenario.options.provider.id, 'file://judge/judge-azure.js');
     assert.equal(scenario.options.provider.config.endpoint, 'https://test-judge.openai.azure.com');

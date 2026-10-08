@@ -6,6 +6,8 @@ param(
     [string] $TracePath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-traces-$([guid]::NewGuid().ToString('N'))"),
     [ValidateSet('automatic', 'manual')]
     [string] $RecoveryMode = 'automatic',
+    [ValidateRange(1, 2147483647)]
+    [int] $Repeat = 1,
     [switch] $Upload,
     [string] $ServiceUrl = 'https://azclis-evaluation-web-6b085460.azurewebsites.net'
 )
@@ -105,6 +107,7 @@ try {
         & npx --no-install promptfoo eval `
             --config promptfooconfig.js `
             --no-cache `
+            --repeat $Repeat `
             --output $OutputPath
         $evaluationExitCode = $LASTEXITCODE
     }

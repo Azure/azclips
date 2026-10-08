@@ -15,14 +15,16 @@ npm ci --legacy-peer-deps
 ```
 
 The builtin Agent model uses AZCLIPS's own Azure sign-in. All ten cases use
-deterministic checks; Config and Extension also use an explicit LLM judge for
-contextual advice. Uploading and the Azure judge use the separate classic Azure
+deterministic checks and an explicit, scenario-specific LLM judge for recovery
+correctness and relevance. Uploading and the Azure judge use the separate classic Azure
 CLI credential; signing in to one CLI does not sign in to the other.
 
 ### Semantic judge configuration
 
-These two semantic checks distinguish a relevant, conditional `config set` or
-`extension add` suggestion from a mandatory unrelated change. The presence of a
+Every case checks whether the explanation and proposed plan address the user's
+goal and actual failure without unsupported claims or unrelated changes.
+Config and Extension additionally distinguish a relevant, conditional `config set`
+or `extension add` suggestion from a mandatory unrelated change. The presence of a
 write command in a proposed plan is not itself a failure or evidence of execution.
 The judge receives the original command/error, full response, structured plan,
 and recorded tool context. It is not asked to grade prose style or length.
@@ -76,8 +78,8 @@ The wrapper validates judge configuration before changing Agent settings or
 running any target case. Missing configuration fails explicitly; HTTP, token,
 timeout, or malformed-response failures are reported by the grader, never
 replaced with an automatic passing grade. The offline tests use mocked judges
-and are not evidence of a real semantic score. The original eight cases remain
-deterministic-only. Judge token usage is recorded separately from target usage;
+and are not evidence of a real semantic score. Every baseline result must include
+its actual LLM verdict, reason and token usage. Judge token usage is recorded separately from target usage;
 target provider latency does not include judge calls.
 
 Use classic Azure CLI to complete the one-time interactive browser login for the evaluation API:
@@ -89,7 +91,9 @@ $env:AZURE_CORE_ENABLE_BROKER_ON_WINDOWS = 'false'
   --scope api://d70aaaba-e3a4-4746-bbd3-15ebcd9cb454/access_as_user
 ```
 
-The signed-in user must have the `Evaluation.Submit` app role on `azclis-evaluation`.
+The internal dashboard grants signed-in users in its configured tenant full
+evaluation access without individual app-role assignment. Automated uploaders
+still require an explicit `Evaluation.Submit` app role on `azclis-evaluation`.
 Token retrieval is bounded to 60 seconds; complete interactive sign-in separately
 if the uploader reports that the CLI timed out or requires interaction.
 On Windows the helper resolves classic Azure CLI from its standard installation,
@@ -149,8 +153,23 @@ Set-Location <repository-root>
 .\Agent\eval\run-evaluation.ps1 `
   -AzclipsExe "$env:LOCALAPPDATA\Programs\azcli-dev\az.exe" `
   -RecoveryMode manual `
+  -Repeat 3 `
   -Upload
 ```
+
+`-Repeat` defaults to 1 for compatibility. Use `-Repeat 3` for the baseline and
+each candidate build: ten cases produce thirty independently generated answers
+and thirty real semantic judgments in one artifact. A repeat is a new target call,
+not a reused response or an internal LLM turn. All attempts are retained, including
+failures. Compare case-level median and range as well as the overall mean; three
+observations per case are not sufficient to claim stable p95 latency.
+
+Freeze the case inputs, rubric version/content, judge deployment, runtime settings,
+fixture subscription/group, concurrency, repetition count and cache policy across
+baseline and candidate runs. Record binary and runtime-prompt hashes separately;
+do not present a replay/regrade as a fresh speed measurement. A provider, judge, or
+authentication error invalidates that measurement rather than producing a passing
+grade. Never retry until green and discard the failed attempts.
 
 The wrapper uses the package-local Promptfoo version, runs the configured suite
 without Promptfoo caching, restores temporary Agent configuration and the

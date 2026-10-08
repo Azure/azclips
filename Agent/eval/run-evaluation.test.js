@@ -76,6 +76,11 @@ $env:AZCLIPS_EVALUATION_RECOVERY_MODE = 'original-recovery-mode'
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
+    $repeatIndex = [array]::IndexOf([object[]]$args, '--repeat')
+    $expectedRepeat = if ($null -ne $scenario.repeat) { [int]$scenario.repeat } else { 1 }
+    if ($repeatIndex -lt 0 -or [int]$args[$repeatIndex + 1] -ne $expectedRepeat) {
+        throw 'Expected the requested independent repeat count'
+    }
     if ($env:PROMPTFOO_DISABLE_TELEMETRY -ne 'true' -or $env:PROMPTFOO_DISABLE_UPDATE -ne 'true') {
         throw 'Promptfoo telemetry and update checks must be disabled during evaluation'
     }
@@ -136,6 +141,7 @@ $parameters = @{
 if (-not $scenario.defaultOutput) { $parameters.OutputPath = Join-Path $root 'result.json' }
 if ($scenario.upload) { $parameters.Upload = $true }
 if ($scenario.recoveryMode) { $parameters.RecoveryMode = $scenario.recoveryMode }
+if ($null -ne $scenario.repeat) { $parameters.Repeat = $scenario.repeat }
 $exitCode = 0
 $failure = $null
 try {
@@ -257,6 +263,22 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   assert.ok(paths.every((file) => fs.existsSync(file)));
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
+});
+
+test('wrapper forwards three independent repetitions and still restores configuration', (context) => {
+  const result = runWrapper(context, { repeat: 3 });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.equal(result.calls.length, 1);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+});
+
+test('wrapper rejects an invalid repetition count before any side effect', (context) => {
+  const result = runWrapper(context, { repeat: 0 });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /Repeat/);
+  assert.deepEqual(result.calls, []);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
 });
 
 test('wrapper stops before configuration changes or model calls when the semantic judge is not configured', (context) => {
