@@ -51,11 +51,11 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     // The only condition syntax version currently supported.
     private const string DefaultConditionVersion = "2.0";
 
-    // True when the assignment name was auto-generated (no --name/-Name supplied). This gates the
-    // idempotent handling of a RoleAssignmentExists conflict: a generated name means the caller only
-    // asked "ensure this grant exists", so returning the pre-existing assignment satisfies them. An
-    // explicitly supplied name means they asked for a specific assignment, so the conflict is surfaced.
-    private bool nameWasGenerated;
+    // True when no name was supplied, so ResolveName generates one. This gates the idempotent handling of a
+    // RoleAssignmentExists conflict: a generated name means the caller only asked "ensure this grant exists",
+    // so returning the pre-existing assignment satisfies them; an explicit name asked for a specific
+    // assignment, so the conflict is surfaced. Derived from the input, which create never overwrites.
+    private bool NameWasGenerated => string.IsNullOrWhiteSpace(Name);
 
     protected override async Task BeforeProcessAsync()
     {
@@ -131,7 +131,7 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     /// </summary>
     private async Task<bool> TryReturnExistingAsync(HttpResponseMessage response, string? rawBody)
     {
-        if (!nameWasGenerated || !IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
+        if (!NameWasGenerated || !IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
         {
             return false;
         }
@@ -307,15 +307,17 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             ? string.Empty
             : roleDefinitionId[(roleDefinitionId.LastIndexOf('/') + 1)..];
 
+    // Pure transform of the Name input into the ARM assignment name: a blank input generates a fresh GUID;
+    // otherwise the supplied name is trimmed and validated as a GUID. Whether it was generated is read
+    // separately via NameWasGenerated, so this has no side effects.
     private string ResolveName()
     {
-        if (string.IsNullOrWhiteSpace(Name))
+        if (NameWasGenerated)
         {
-            nameWasGenerated = true;
             return Guid.NewGuid().ToString();
         }
 
-        string value = Name.Trim();
+        string value = Name!.Trim();
         if (!Guid.TryParse(value, out _))
         {
             throw AzclipsErrorException.UsageError($"The role assignment name '{value}' must be a GUID.");
