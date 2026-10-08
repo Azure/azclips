@@ -245,6 +245,9 @@ export {
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
+  ConfirmImpacts,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
   type IRClientDialect,
@@ -252,6 +255,9 @@ export {
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,
+  type ConfirmImpact,
+  type PSDeprecated,
+  type PSPreview,
   type CliCommandDialect,
   type CliParameterDialect,
 } from "./dialect.js";
@@ -267,12 +273,3 @@ export {
   indexIR,
   type IRIndex,
 } from "./lookup.js";
-
-export {
-  ConfirmImpacts,
-  PSDeprecatedSchema,
-  PSPreviewSchema,
-  type ConfirmImpact,
-  type PSDeprecated,
-  type PSPreview,
-} from "./ps.js";

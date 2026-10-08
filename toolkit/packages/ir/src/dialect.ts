@@ -37,14 +37,6 @@
  */
 
 import { z } from "zod";
-import {
-  ConfirmImpacts,
-  PSDeprecatedSchema,
-  PSPreviewSchema,
-  type ConfirmImpact,
-  type PSDeprecated,
-  type PSPreview,
-} from "./ps.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
@@ -75,6 +67,32 @@ const clientDialectFields = {
 };
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
+
+/** PowerShell `ConfirmImpact` level. */
+export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
+export type ConfirmImpact = (typeof ConfirmImpacts)[number];
+
+/** Deprecation announcement emitted for a PowerShell command or parameter. */
+export type PSDeprecated = {
+  message: string;
+};
+
+export const PSDeprecatedSchema: z.ZodType<PSDeprecated> = z
+  .object({ message: z.string().min(1) })
+  .strict();
+
+/** Preview announcement emitted for a PowerShell command or parameter. */
+export type PSPreview = {
+  message: string;
+  estimatedGaDate?: string | undefined;
+};
+
+export const PSPreviewSchema: z.ZodType<PSPreview> = z
+  .object({
+    message: z.string().min(1),
+    estimatedGaDate: z.string().min(1).optional(),
+  })
+  .strict();
 
 /** PowerShell metadata shared by every command emitted into one module. */
 export type PsModuleDialect = {
