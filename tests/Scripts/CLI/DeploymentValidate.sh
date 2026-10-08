@@ -1,127 +1,197 @@
-# Resource group scope deployment validate - CLI (az deployment group validate)
-# Equivalent of: az deployment group validate
+#!/usr/bin/env bash
+# Resource group deployment validate smoke test for the azclips CLI surface.
+# Exercises `az deployment group validate`. Validate is READ-ONLY: it asks ARM whether a template
+# would be accepted and never creates or modifies resources, so there is nothing to clean up.
+# The resource-group-scoped validate inherits the resource group's region, so no location is needed.
 #
-# Validate is READ-ONLY: it asks ARM whether a template would be accepted and never
-# creates or modifies resources. The same name can be reused safely.
+# Prereqs:
+#   1. Build the solution: dotnet build azclips.slnx
+#   2. Sign in, or provide AZCLIPS_TENANT_ID so this script can sign in.
+#   3. Template-file cases compile Bicep, so the Bicep CLI must be on PATH or at ~/.azure/bin/bicep.
+#   4. A resource group must already exist. If you don't have one, run:
+#        ./tests/Scripts/CLI/CreateResourceGroup.sh <resource-group> -l <location> -s <subscription-id>
 #
-# Shared test context:
-#   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: azclips-test-group-1 (region: australiaeast)
-# The resource-group-scoped validate inherits the resource group's region,
-# so no location flag is required here.
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
+#
+# Optional:
+#   AZCLIPS_TENANT_ID      - tenant to sign in with before running commands
+#   AZCLIPS_RESOURCE_GROUP - existing resource group to validate against; defaults to azclips-test-group-1
+#
+# Usage:
+#   AZCLIPS_TENANT_ID=<tenant> AZCLIPS_SUBSCRIPTION_ID=<subscription> ./tests/Scripts/CLI/DeploymentValidate.sh
+set -euo pipefail
 
-# Run unattended: on a command ERROR az normally hands off to the interactive
-# agent-mode TUI (which would block on input). Disable the agent via config so the
-# classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang. (The old AZCLIPS_AGENT_DISABLED env var was removed; the agent now
-# reads config.agent.enabled and also auto-skips when stdin isn't a TTY.)
-az config set --key agent.enabled --value false
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# az.exe can't open Git Bash paths (/c/...); `pwd -W` gives the Windows form.
+BICEP_DIR="$(cd "$REPO_ROOT/tests/Scripts/Bicep" && { pwd -W 2>/dev/null || pwd; })"
 
-# No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
-# continue past them. Each command's exit code surfaces its own error on stderr.
+AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
+[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-# Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BICEP_DIR="$SCRIPT_DIR/../Bicep"
+# Stop Git Bash from rewriting ARM IDs like /subscriptions/... into Windows paths.
+export MSYS_NO_PATHCONV=1
 
-# Happy path (template-uri): validate a public quickstart template in Incremental mode.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-1 \
-    --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
-    --mode Incremental \
-    --debug
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.}"
+TENANT_ID="${AZCLIPS_TENANT_ID:-}"
+RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
+TEMPLATE_URI="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json"
 
-# Bicep happy path (template-file): compile a local .bicep template via the Bicep CLI and
-# validate it. Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-bicep \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
-    --mode Incremental \
-    --debug
+expect_succeeded() {
+  if [[ "$2" != "Succeeded" ]]; then
+    echo "$1 returned provisioningState '$2', expected 'Succeeded'" >&2
+    exit 1
+  fi
+  echo "provisioningState: $2"
+}
 
-# Inline-parameter precedence: the .bicepparam supplies storageAccountName=azclipsbicep0001
-# (the base); the repeatable --parameter overrides it, proving inline overlays the file.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-inline \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
-    --parameter "storageAccountName=azclipsvalidateinline" \
-    --mode Incremental \
-    --debug
+# Disable the interactive agent so errors surface as non-zero exits.
+"$AZ" config set --key agent.enabled --value false
 
-# --validation-level Template: validate the template only, without calling resource providers.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-level \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=azclipsvalidatelevel" \
-    --validation-level Template \
-    --mode Incremental \
-    --debug
+if [[ -n "$TENANT_ID" ]]; then
+  echo -e "\n=== [login] ==="
+  "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"
+fi
 
-# Rollback option: record that the group should roll back to its last successful deployment
-# on failure. Accepted by validate and carried in the request body.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-rollback \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=azclipsvalidaterollback" \
-    --rollback-on-error \
-    --mode Incremental \
-    --debug
+echo -e "\n=== [deployment group validate] template uri ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-1 \
+  --template-uri "$TEMPLATE_URI" \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "template-uri validate" "$STATE"
 
-# Expected-failure case: a malformed .bicep must fail compilation and surface bicep's
-# diagnostics (non-zero exit -> InvalidOperationException). No validate call is made.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-bicep-negative \
-    --template-file "$BICEP_DIR/malformed.bicep" \
-    --mode Incremental \
-    --debug
+echo -e "\n=== [deployment group validate] bicep template + bicepparam ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-bicep \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "bicep validate" "$STATE"
 
-# Negative case: invalid --validation-level value (Foo) must be rejected.
-# Expected result: the command fails fast with a clear validation message listing the
-# allowed values (Template, Provider, ProviderNoRbac) and does NOT call the validate API.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-vl-negative \
-    --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
-    --validation-level Foo \
-    --mode Incremental \
-    --debug
+echo -e "\n=== [deployment group validate] inline parameter overrides bicepparam ==="
+# The .bicepparam sets storageAccountName=azclipsbicep0001; --parameter overlays it.
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-inline \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
+  --parameter "storageAccountName=azclipsvalidateinline" \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "inline-override validate" "$STATE"
 
-# Negative case: the two rollback options are mutually exclusive and must be rejected
-# locally before any request is sent.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-rollback-negative \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --rollback-on-error \
-    --rollback-to-deployment-name azclips-test-validate-1 \
-    --mode Incremental \
-    --debug
+echo -e "\n=== [deployment group validate] --validation-level Template ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-level \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameter "storageAccountName=azclipsvalidatelevel" \
+  --validation-level Template \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "template-level validate" "$STATE"
 
-# Expected-failure case (LIVE validate API error): whatif-invalid-template.json parses fine but
-# references the undefined parameter 'undefinedNameParam', so ARM rejects it. Validate reports
-# this as HTTP 400 carrying a DeploymentValidateResult whose error describes the failure. This
-# exercises the processor's 400 handling (NOT a local pre-flight check): the command MUST exit
-# non-zero with a flattened, readable error rather than raw ARM JSON, and MUST NOT report success.
-az deployment group validate \
-    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group azclips-test-group-1 \
-    --name azclips-test-validate-apierror \
-    --template-file "$BICEP_DIR/whatif-invalid-template.json" \
-    --mode Incremental \
-    --debug
+echo -e "\n=== [deployment group validate] --rollback-on-error ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-rollback \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameter "storageAccountName=azclipsvalidaterollback" \
+  --rollback-on-error \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "rollback-on-error validate" "$STATE"
+
+echo -e "\n=== [deployment group validate] --validation-level Provider (202 long-running) ==="
+# ARM answers 202 + Location and the command polls it; the output must be the final result.
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-lro \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameter "storageAccountName=azclipsvalidatelro" \
+  --validation-level Provider \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "long-running validate" "$STATE"
+
+# Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
+echo -e "\n=== [deployment group validate] malformed bicep must fail to compile ==="
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-bicep-negative \
+      --template-file "$BICEP_DIR/malformed.bicep" \
+      --mode Incremental 2>&1)"; then
+  echo "validate of a malformed bicep file succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *BCP* ]]; then
+  echo "malformed bicep failed without a bicep diagnostic: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: bicep diagnostic"
+
+echo -e "\n=== [deployment group validate] --validation-level Foo is rejected ==="
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-vl-negative \
+      --template-uri "$TEMPLATE_URI" \
+      --validation-level Foo \
+      --mode Incremental 2>&1)"; then
+  echo "validate with --validation-level Foo succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *ProviderNoRbac* ]]; then
+  echo "invalid validation level failed without listing the allowed values: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: invalid --validation-level"
+
+echo -e "\n=== [deployment group validate] rollback options are mutually exclusive ==="
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-rollback-negative \
+      --template-file "$BICEP_DIR/sample-storage.bicep" \
+      --rollback-on-error \
+      --rollback-to-deployment-name azclips-test-validate-1 \
+      --mode Incremental 2>&1)"; then
+  echo "validate with both rollback options succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *"mutually exclusive"* ]]; then
+  echo "both rollback options failed without 'mutually exclusive': $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: rollback options are mutually exclusive"
+
+echo -e "\n=== [deployment group validate] ARM rejects an invalid template ==="
+# whatif-invalid-template.json references an undefined parameter; ARM answers 400 with a
+# DeploymentValidateResult, which the command must flatten into a readable error.
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-apierror \
+      --template-file "$BICEP_DIR/whatif-invalid-template.json" \
+      --mode Incremental 2>&1)"; then
+  echo "validate of an invalid template succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *"Deployment validation failed"* ]]; then
+  echo "invalid template failed without 'Deployment validation failed': $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: Deployment validation failed"
+
+echo -e "\nAll deployment validate smoke checks completed."

@@ -44,13 +44,28 @@ $StorageAccountName = 'azclipsdeploydelete'
 # unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
 
-# Nothing is fatal on its own: the negative cases below must all run. Every unexpected outcome is
-# counted here instead, and the script exits non-zero at the end if any were recorded.
-$script:failures = 0
+# Every check is tallied rather than thrown, so all cases and the cleanup at the bottom always run;
+# the script exits non-zero at the end if any failed (same pattern as
+# DeploymentParametersQueryString.ps1).
+$failures = 0
+function Assert-Equal {
+    param($Expected, $Actual, [string]$Case)
+    if ($Expected -eq $Actual) {
+        Write-Host "PASS  $Case  => '$Actual'"
+    } else {
+        Write-Host "FAIL  $Case  expected '$Expected' but got '$Actual'" -ForegroundColor Red
+        $script:failures++
+    }
+}
 
-function Add-Failure([string]$message) {
-    $script:failures++
-    Write-Host "UNEXPECTED: $message" -ForegroundColor Red
+function Assert-Match {
+    param([string]$Pattern, $Actual, [string]$Case)
+    if ($Actual -match $Pattern) {
+        Write-Host "PASS  $Case  => '$Actual'"
+    } else {
+        Write-Host "FAIL  $Case  expected a message matching '$Pattern' but got '$Actual'" -ForegroundColor Red
+        $script:failures++
+    }
 }
 
 # Empty template: no resources, so the deployment reaches Succeeded almost immediately and creates
@@ -65,135 +80,82 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) 'azclips-empty-templ
 '@ | Set-Content -Path $templateFile -Encoding utf8
 
 # Arrange: create a deployment and wait for it to finish, leaving a terminal history record.
-try {
-    New-AzResourceGroupDeployment `
-        -SubscriptionId $SubscriptionId `
-        -ResourceGroupName $ResourceGroupName `
-        -Name $DeploymentName `
-        -TemplateFile $templateFile `
-        -ErrorAction Stop | Out-Null
-    Write-Host "ARRANGE: deployment '$DeploymentName' created and terminal"
-} catch {
-    Add-Failure "arrange failed to create '$DeploymentName': $($_.Exception.Message)"
-}
+$arranged = New-AzResourceGroupDeployment `
+    -SubscriptionId $SubscriptionId `
+    -ResourceGroupName $ResourceGroupName `
+    -Name $DeploymentName `
+    -TemplateFile $templateFile
+Assert-Equal 'Succeeded' $arranged.Properties.ProvisioningState 'arrange: deployment created'
 
 # Happy path: delete the terminal deployment. ARM answers 202 and the cmdlet polls the Location
 # header until it returns 204, so this BLOCKS until the delete has actually finished. There is no
 # response body, so the cmdlet emits NOTHING -- a silent return and no error is the pass condition.
 # ConfirmImpact is Medium and $ConfirmPreference defaults to High, so this does not prompt; the
 # explicit -Confirm:$false keeps it unattended even if the caller raised $ConfirmPreference.
-try {
-    $deleteOutput = Remove-AzResourceGroupDeployment `
-        -SubscriptionId $SubscriptionId `
-        -ResourceGroupName $ResourceGroupName `
-        -Name $DeploymentName `
-        -Confirm:$false `
-        -ErrorAction Stop
-
-    if ($null -ne $deleteOutput) {
-        Add-Failure "delete emitted output '$deleteOutput', expected nothing"
-    } else {
-        Write-Host 'PASS (delete): completed silently'
-    }
-} catch {
-    Add-Failure "delete threw: $($_.Exception.Message)"
-}
+$deleteOutput = Remove-AzResourceGroupDeployment `
+    -SubscriptionId $SubscriptionId `
+    -ResourceGroupName $ResourceGroupName `
+    -Name $DeploymentName `
+    -Confirm:$false `
+    -ErrorVariable err
+Assert-Equal 0 $err.Count 'delete: no error'
+Assert-Equal $null $deleteOutput 'delete: emits nothing'
 
 # Assert the record is gone. Because delete waits for the LRO to complete, no polling is needed
 # here -- Get must ALREADY fail with DeploymentNotFound.
-try {
-    Get-AzResourceGroupDeployment `
-        -SubscriptionId $SubscriptionId `
-        -ResourceGroupName $ResourceGroupName `
-        -Name $DeploymentName `
-        -ErrorAction Stop | Out-Null
-    Add-Failure 'the deployment record still exists after delete'
-} catch {
-    if ($_.Exception.Message -match 'DeploymentNotFound|not found|404') {
-        Write-Host "PASS (gone): $($_.Exception.Message)"
-    } else {
-        Add-Failure "get after delete failed for the wrong reason: $($_.Exception.Message)"
-    }
-}
+Get-AzResourceGroupDeployment `
+    -SubscriptionId $SubscriptionId `
+    -ResourceGroupName $ResourceGroupName `
+    -Name $DeploymentName `
+    -ErrorVariable err | Out-Null
+Assert-Match 'DeploymentNotFound|not found|404' $err.Message 'delete: record is gone'
 
 # SubscriptionId is optional: it defaults to the active profile's subscription. Deleting the same
 # name a second time is the "does not exist" case, which SUCCEEDS SILENTLY (see header note 1), so
 # this call doubles as proof that -SubscriptionId binds optionally.
-try {
-    Remove-AzResourceGroupDeployment `
-        -ResourceGroupName $ResourceGroupName `
-        -Name $DeploymentName `
-        -Confirm:$false `
-        -ErrorAction Stop
-    Write-Host 'PASS (already deleted): silent success, as ARM returns 204 either way'
-} catch {
-    Add-Failure "deleting an absent deployment threw: $($_.Exception.Message)"
-}
+Remove-AzResourceGroupDeployment `
+    -ResourceGroupName $ResourceGroupName `
+    -Name $DeploymentName `
+    -Confirm:$false `
+    -ErrorVariable err
+Assert-Equal 0 $err.Count 'already deleted: silent success, as ARM returns 204 either way'
 
 # Legacy binding parity, part 1: -ResourceGroupName is position 0 and -Name is position 1, so the
 # parameter names can be omitted entirely. Still the "does not exist" path, so still silent.
-try {
-    Remove-AzResourceGroupDeployment $ResourceGroupName azclips-test-deployment-does-not-exist -Confirm:$false -ErrorAction Stop
-    Write-Host 'PASS (positional): bound -ResourceGroupName/-Name positionally'
-} catch {
-    Add-Failure "positional binding threw: $($_.Exception.Message)"
-}
+Remove-AzResourceGroupDeployment $ResourceGroupName azclips-test-deployment-does-not-exist -Confirm:$false -ErrorVariable err
+Assert-Equal 0 $err.Count 'positional: bound -ResourceGroupName/-Name'
 
 # Legacy binding parity, part 2: -Name carries the legacy alias -DeploymentName.
-try {
-    Remove-AzResourceGroupDeployment `
-        -ResourceGroupName $ResourceGroupName `
-        -DeploymentName azclips-test-deployment-does-not-exist `
-        -Confirm:$false `
-        -ErrorAction Stop
-    Write-Host 'PASS (alias): bound -DeploymentName'
-} catch {
-    Add-Failure "-DeploymentName alias threw: $($_.Exception.Message)"
-}
+Remove-AzResourceGroupDeployment `
+    -ResourceGroupName $ResourceGroupName `
+    -DeploymentName azclips-test-deployment-does-not-exist `
+    -Confirm:$false `
+    -ErrorVariable err
+Assert-Equal 0 $err.Count 'alias: bound -DeploymentName'
 
 # Legacy binding parity, part 3: the -Id parameter set. The subscription is read out of the id, so
 # -SubscriptionId is not needed. -DeploymentId and -ResourceId are aliases of -Id.
-try {
-    Remove-AzResourceGroupDeployment `
-        -Id "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Resources/deployments/azclips-test-deployment-does-not-exist" `
-        -Confirm:$false `
-        -ErrorAction Stop
-    Write-Host 'PASS (-Id): resolved resource group, name and subscription from the id'
-} catch {
-    Add-Failure "-Id parameter set threw: $($_.Exception.Message)"
-}
+Remove-AzResourceGroupDeployment `
+    -Id "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Resources/deployments/azclips-test-deployment-does-not-exist" `
+    -Confirm:$false `
+    -ErrorVariable err
+Assert-Equal 0 $err.Count '-Id: resolved resource group, name and subscription from the id'
 
 # Negative case: a malformed -Id must fail argument validation in the cmdlet BEFORE any HTTP call is
 # made, rather than building a nonsense request URI.
-try {
-    Remove-AzResourceGroupDeployment -Id 'not-a-resource-id' -Confirm:$false -ErrorAction Stop
-    Add-Failure 'a malformed -Id did not throw'
-} catch {
-    if ($_.FullyQualifiedErrorId -match 'InvalidDeploymentId') {
-        Write-Host "EXPECTED FAILURE (malformed -Id): $($_.Exception.Message)"
-    } else {
-        Add-Failure "a malformed -Id failed for the wrong reason: $($_.Exception.Message)"
-    }
-}
+Remove-AzResourceGroupDeployment -Id 'not-a-resource-id' -Confirm:$false -ErrorVariable err
+Assert-Match 'InvalidDeploymentId' $err.ErrorRecord.FullyQualifiedErrorId 'malformed -Id is rejected locally'
 
 # Negative case: a resource group that does not exist must surface an ARM 404
 # (ResourceGroupNotFound). The resource group is a real path segment, so unlike the deployment name
 # it is NOT silently tolerated.
-try {
-    Remove-AzResourceGroupDeployment `
-        -SubscriptionId $SubscriptionId `
-        -ResourceGroupName azclips-test-group-does-not-exist `
-        -Name $DeploymentName `
-        -Confirm:$false `
-        -ErrorAction Stop
-    Add-Failure 'missing resource group did not throw'
-} catch {
-    if ($_.Exception.Message -match 'ResourceGroupNotFound|not found|404') {
-        Write-Host "EXPECTED FAILURE (missing resource group): $($_.Exception.Message)"
-    } else {
-        Add-Failure "missing resource group failed for the wrong reason: $($_.Exception.Message)"
-    }
-}
+Remove-AzResourceGroupDeployment `
+    -SubscriptionId $SubscriptionId `
+    -ResourceGroupName azclips-test-group-does-not-exist `
+    -Name $DeploymentName `
+    -Confirm:$false `
+    -ErrorVariable err
+Assert-Match 'ResourceGroupNotFound|not found|404' $err.Message 'missing resource group surfaces 404'
 
 # No missing-mandatory-parameter case here: omitting -Name on a Mandatory parameter makes
 # PowerShell PROMPT for it, which would hang an unattended run. The CLI script
@@ -226,41 +188,25 @@ $runningPayload = @'
 '@
 
 $put = Invoke-AzRestMethod -Method PUT -Uri $runningUri -Payload $runningPayload
+Assert-Equal 201 $put.StatusCode 'arrange: running deployment accepted'
 
-$runningIsArranged = $false
-if ($put.StatusCode -ne 201) {
-    Add-Failure "arrange PUT returned $($put.StatusCode), expected 201 - the running-delete case below cannot run"
-} else {
-    $runningIsArranged = $true
-    Write-Host "ARRANGE: deployment '$RunningDeploymentName' accepted (201), now running"
-}
+# Without a 201 from THIS run, the delete, cancel and poll below would act on whatever record an
+# earlier run left behind and report its state as if it were this run's result, so they are skipped.
+if ($put.StatusCode -eq 201) {
+    # Only a 409 DeploymentCannotBeDeleted proves the running deployment was rejected for the right
+    # reason; a malformed request, a missing group or an auth failure would fail too and must not be
+    # mistaken for a pass.
+    Remove-AzResourceGroupDeployment `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroupName $ResourceGroupName `
+        -Name $RunningDeploymentName `
+        -Confirm:$false `
+        -ErrorVariable err
+    Assert-Match 'DeploymentCannotBeDeleted|409|Conflict' $err.Message 'running deployment cannot be deleted'
 
-# Only a 409 DeploymentCannotBeDeleted proves the running deployment was rejected for the right
-# reason; a malformed request, a missing group or an auth failure would throw too and must not be
-# mistaken for a pass.
-if ($runningIsArranged) {
-    try {
-        Remove-AzResourceGroupDeployment `
-            -SubscriptionId $SubscriptionId `
-            -ResourceGroupName $ResourceGroupName `
-            -Name $RunningDeploymentName `
-            -Confirm:$false `
-            -ErrorAction Stop
-        Add-Failure 'deleting a running deployment did not throw'
-    } catch {
-        if ($_.Exception.Message -match 'DeploymentCannotBeDeleted|409|Conflict') {
-            Write-Host "EXPECTED FAILURE (running deployment): $($_.Exception.Message)"
-        } else {
-            Add-Failure "deleting a running deployment failed for the wrong reason: $($_.Exception.Message)"
-        }
-    }
-}
-
-# Cleanup: cancel the in-flight deployment so it reaches a terminal state, poll until it gets there,
-# then delete its record -- which also demonstrates that a cancelled deployment IS deletable. This
-# too is gated: without a 201 from THIS run the cancel and poll would act on whatever record an
-# earlier run left behind and report its state as if it were this run's result.
-if ($runningIsArranged) {
+    # Cleanup: cancel the in-flight deployment so it reaches a terminal state, poll until it gets
+    # there, then delete its record -- which also demonstrates that a cancelled deployment IS
+    # deletable.
     Stop-AzResourceGroupDeployment `
         -SubscriptionId $SubscriptionId `
         -ResourceGroupName $ResourceGroupName `
@@ -276,19 +222,15 @@ if ($runningIsArranged) {
         if ($state -in @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) { break }
         Start-Sleep -Seconds 2
     }
-    Write-Host "CLEANUP: running deployment provisioningState is '$state'"
-    if ($state -notin @('Canceled', 'Cancelled', 'Succeeded', 'Failed')) {
-        Add-Failure "running deployment never reached a terminal state (last state '$state')"
-    }
+    Assert-Match '^(Canceled|Cancelled|Succeeded|Failed)$' $state 'cleanup: running deployment reached a terminal state'
 
     Remove-AzResourceGroupDeployment `
         -SubscriptionId $SubscriptionId `
         -ResourceGroupName $ResourceGroupName `
         -Name $RunningDeploymentName `
-        -Confirm:$false
-    Write-Host "CLEANUP: deployment record '$RunningDeploymentName' removed"
-} else {
-    Write-Host 'SKIPPED: running-deployment cancel and record cleanup (arrange did not return 201)'
+        -Confirm:$false `
+        -ErrorVariable err
+    Assert-Equal 0 $err.Count "cleanup: deployment record '$RunningDeploymentName' removed"
 }
 
 # The cancelled deployment may have created the storage account before it was stopped, and deleting
@@ -297,18 +239,13 @@ if ($runningIsArranged) {
 $delete = Invoke-AzRestMethod `
     -Method DELETE `
     -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/$StorageAccountName`?api-version=2023-01-01"
-
-if ($delete.StatusCode -in @(200, 204)) {
-    Write-Host "CLEANUP: storage account '$StorageAccountName' removed (HTTP $($delete.StatusCode))"
-} else {
-    Add-Failure "cleanup returned $($delete.StatusCode); '$StorageAccountName' may still exist"
-}
+Assert-Match '^20[04]$' $delete.StatusCode "cleanup: storage account '$StorageAccountName' removed"
 
 Remove-Item -Path $templateFile -ErrorAction SilentlyContinue
 
-if ($script:failures -eq 0) {
-    Write-Host 'RESULT: all assertions passed'
-} else {
-    Write-Host "RESULT: $($script:failures) unexpected outcome(s)" -ForegroundColor Red
+if ($failures -gt 0) {
+    Write-Host "`n$failures assertion(s) failed." -ForegroundColor Red
+    exit 1
 }
-exit $script:failures
+Write-Host "`nAll assertions passed."
+exit 0

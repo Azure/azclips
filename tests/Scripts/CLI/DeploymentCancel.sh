@@ -1,47 +1,92 @@
-# Resource group scope deployment cancel - CLI (az deployment group cancel)
-# Equivalent of: az deployment group cancel
+#!/usr/bin/env bash
+# Resource group deployment cancel smoke test for the azclips CLI surface.
+# Exercises `az deployment group cancel`. A deployment can only be cancelled while it is Accepted or
+# Running, and `az deployment group create` blocks until the deployment is terminal, so the arrange
+# step issues the deployment PUT through `az rest`, which does no LRO polling and returns while the
+# deployment is still running. The deployment name is timestamped, so each run cancels the record it
+# just created; that record and the storage account it may have partially created are deleted on exit.
 #
-# A deployment can only be cancelled while its provisioningState is Accepted or Running.
-# `az deployment group create` BLOCKS until the deployment reaches a terminal state, so it cannot
-# arrange the happy path -- by the time it returns there is nothing left to cancel. The arrange step
-# below therefore issues the deployment PUT through `az rest`, which by design does NO LRO polling
-# (see RestProcessor_Orchestrator): it returns the moment ARM accepts the request, leaving the
-# deployment Running and cancellable. No background job and no sleep-and-hope required.
+# Prereqs:
+#   1. Build the solution: dotnet build azclips.slnx
+#   2. Sign in, or provide AZCLIPS_TENANT_ID so this script can sign in.
+#   3. A resource group must already exist. This script creates and deletes only the deployment and
+#      its storage account; it never creates or deletes the resource group. If you don't have one, run:
+#        ./tests/Scripts/CLI/CreateResourceGroup.sh <resource-group> -l <location> -s <subscription-id>
 #
-# All names are STABLE, so repeated runs overwrite the same deployment record and reuse the same
-# storage account instead of accumulating new ones. The cleanup step at the bottom deletes the
-# storage account the cancelled deployment may have partially created.
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
 #
-# Shared test context:
-#   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: azclips-test-group-1 (region: australiaeast)
+# Optional:
+#   AZCLIPS_TENANT_ID      - tenant to sign in with before running commands
+#   AZCLIPS_RESOURCE_GROUP - existing resource group to deploy into; defaults to azclips-test-group-1
+#
+# Usage:
+#   AZCLIPS_TENANT_ID=<tenant> AZCLIPS_SUBSCRIPTION_ID=<subscription> ./tests/Scripts/CLI/DeploymentCancel.sh
+set -euo pipefail
 
-# Run unattended: on a command ERROR az normally hands off to the interactive
-# agent-mode TUI (which would block on input). Disable the agent via config so the
-# classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang.
-az config set --key agent.enabled --value false
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
-# No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must continue past
-# them so cleanup always runs. Every expectation is therefore asserted explicitly and tallied in
-# FAILURES, and the script exits non-zero at the very bottom if any of them did not hold. Without
-# this the final expected-failure would become the script's exit status and a broken cancel would
-# still look like a clean run.
-FAILURES=0
-fail() {
-    echo "UNEXPECTED: $*" >&2
-    FAILURES=$((FAILURES + 1))
-}
+AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
+[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-SUBSCRIPTION_ID=282bb33f-067d-4179-a7a4-b833c13af735
-RESOURCE_GROUP=azclips-test-group-1
-DEPLOYMENT_NAME=azclips-test-deployment-cancel
+# Stop Git Bash from rewriting ARM IDs like /subscriptions/... into Windows paths.
+export MSYS_NO_PATHCONV=1
+
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.}"
+TENANT_ID="${AZCLIPS_TENANT_ID:-}"
+RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
+DEPLOYMENT_NAME="azclips-test-deployment-cancel-$(date +%Y%m%d%H%M%S)"
 STORAGE_ACCOUNT=azclipsdeploycancel
 
 DEPLOYMENT_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourcegroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$DEPLOYMENT_NAME?api-version=2025-04-01"
+STORAGE_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT?api-version=2023-01-01"
 
-# Single-quoted: the ARM template's "$schema" key must NOT be expanded by the shell.
-read -r -d '' TEMPLATE_PAYLOAD <<'JSON'
+# Always delete the storage account and this run's deployment record, even if a check fails.
+# Cancelling does not roll back what the deployment already created, and an account whose create
+# was in flight answers 409 until it settles, so the delete is retried. A leaked account fails the run.
+cleanup() {
+  local exit_code=$?
+  echo -e "\n=== [deployment group cancel] cleanup $DEPLOYMENT_NAME ==="
+  "$AZ" deployment group cancel \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$DEPLOYMENT_NAME" > /dev/null 2>&1 || true
+
+  echo -e "\n=== [rest] cleanup storage account $STORAGE_ACCOUNT ==="
+  local status=""
+  for _ in $(seq 1 12); do
+    status="$("$AZ" rest --method DELETE --uri "$STORAGE_URI" --query statusCode -o tsv 2>/dev/null || true)"
+    if [[ "$status" == 200 || "$status" == 204 ]]; then
+      break
+    fi
+    sleep 5
+  done
+  if [[ "$status" == 200 || "$status" == 204 ]]; then
+    echo "storage account delete returned $status"
+  else
+    echo "storage account $STORAGE_ACCOUNT delete never succeeded (last status '$status'); it may still exist" >&2
+    exit_code=1
+  fi
+
+  echo -e "\n=== [deployment group delete] cleanup $DEPLOYMENT_NAME ==="
+  "$AZ" deployment group delete \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$DEPLOYMENT_NAME" || true
+  exit "$exit_code"
+}
+trap cleanup EXIT
+
+# Disable the interactive agent so errors surface as non-zero exits.
+"$AZ" config set --key agent.enabled --value false
+
+if [[ -n "$TENANT_ID" ]]; then
+  echo -e "\n=== [login] ==="
+  "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"
+fi
+
+# Single-quoted heredoc: the template's "$schema" key must not be expanded by the shell.
+TEMPLATE_PAYLOAD="$(cat <<'JSON'
 {
   "properties": {
     "mode": "Incremental",
@@ -53,7 +98,7 @@ read -r -d '' TEMPLATE_PAYLOAD <<'JSON'
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
           "name": "azclipsdeploycancel",
-          "location": "australiaeast",
+          "location": "[resourceGroup().location]",
           "sku": { "name": "Standard_LRS" },
           "kind": "StorageV2"
         }
@@ -62,179 +107,119 @@ read -r -d '' TEMPLATE_PAYLOAD <<'JSON'
   }
 }
 JSON
+)"
 
-# Arrange: start the deployment without waiting for it. ARM answers 201/200 the moment it accepts
-# the request and the deployment begins provisioning the storage account, leaving it Running and
-# cancellable.
-PUT_STATUS=$(az rest \
-    --method PUT \
-    --uri "$DEPLOYMENT_URI" \
-    --body "$TEMPLATE_PAYLOAD" \
-    --output json | grep -o '"statusCode": *[0-9]*' | head -1)
-
-# The deployment name is stable and reused across runs, so a failed arrange would leave the checks
-# below asserting against STALE state from an earlier run. Skip straight to cleanup instead.
-# ARM answers 201 the first time this name is created and 200 when it overwrites the existing
-# record, so both mean the deployment was accepted and is now running.
-ARRANGE_OK=0
-case "$PUT_STATUS" in
-    *200*|*201*) ARRANGE_OK=1 ;;
-esac
-if [[ $ARRANGE_OK -eq 0 ]]; then
-    fail "arrange PUT returned '$PUT_STATUS', expected 200 or 201 - skipping the cancel checks"
-else
-    echo "ARRANGE: deployment '$DEPLOYMENT_NAME' PUT -> $PUT_STATUS"
+echo -e "\n=== [rest] arrange running deployment $DEPLOYMENT_NAME ==="
+STATUS="$("$AZ" rest \
+  --method PUT \
+  --uri "$DEPLOYMENT_URI" \
+  --body "$TEMPLATE_PAYLOAD" \
+  --query statusCode -o tsv)"
+if [[ "$STATUS" != 201 ]]; then
+  echo "arrange PUT returned '$STATUS', expected 201" >&2
+  exit 1
 fi
+echo "PUT returned $STATUS"
 
-# Synchronize on a cancellable state instead of assuming the PUT left one. A deployment is only
-# cancellable while it is Accepted or Running, and assuming that window is open is exactly what made
-# this test flake with DeploymentCannotBeCancelled. The loop exits on the first cancellable reading,
-# so in practice it costs a single GET.
-CANCELLABLE=0
-if [[ $ARRANGE_OK -eq 1 ]]; then
-    PRE_CANCEL_STATE=""
-    for _ in $(seq 1 15); do
-        PRE_CANCEL_STATE=$(az deployment group show \
-            --subscription-id "$SUBSCRIPTION_ID" \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$DEPLOYMENT_NAME" \
-            --output json | grep -o '"provisioningState": *"[^"]*"' | head -1)
-        case "$PRE_CANCEL_STATE" in
-            *Accepted*|*Running*) CANCELLABLE=1; break ;;
-        esac
-        sleep 2
-    done
-    if [[ $CANCELLABLE -eq 1 ]]; then
-        echo "ARRANGE: $PRE_CANCEL_STATE, deployment is cancellable"
-    else
-        fail "deployment settled at '$PRE_CANCEL_STATE' before it could be cancelled - skipping the cancel checks"
-    fi
-fi
-
-if [[ $CANCELLABLE -eq 1 ]]; then
-    # Happy path: cancel the in-flight deployment. ARM answers 204 No Content, so the command prints
-    # NOTHING on stdout -- silent output plus exit code 0 is the pass condition. --debug writes to
-    # stderr, so it stays visible without polluting the captured stdout.
-    CANCEL_OUTPUT=$(az deployment group cancel \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --resource-group "$RESOURCE_GROUP" \
-        --name "$DEPLOYMENT_NAME" \
-        --debug)
-    CANCEL_EXIT=$?
-    if [[ $CANCEL_EXIT -ne 0 ]]; then
-        fail "cancel exited $CANCEL_EXIT, expected 0"
-    elif [[ -n "${CANCEL_OUTPUT//[[:space:]]/}" ]]; then
-        fail "cancel printed '$CANCEL_OUTPUT', expected no output"
-    else
-        echo 'PASS (cancel): exited 0 with no output'
-    fi
-
-    # Assert the cancel actually took effect. ARM acknowledges the cancel with 204 immediately but
-    # only flips provisioningState to Canceled after the in-flight resource operation settles, so
-    # the budget has to outlast one storage account create rather than just the POST. The loop exits
-    # as soon as the state flips.
-    STATE=""
-    for _ in $(seq 1 30); do
-        STATE=$(az deployment group show \
-            --subscription-id "$SUBSCRIPTION_ID" \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$DEPLOYMENT_NAME" \
-            --output json | grep -o '"provisioningState": *"[^"]*"' | head -1)
-        case "$STATE" in
-            *Cancel*) break ;;
-        esac
-        sleep 2
-    done
-    if [[ "$STATE" == *Cancel* ]]; then
-        echo "PASS (state): $STATE"
-    else
-        fail "provisioningState is '$STATE', expected Canceled"
-    fi
-
-    # subscription-id is optional: it defaults to the active profile's subscription. The deployment is
-    # now terminal, so this doubles as the next negative case.
-
-    # Negative case: the deployment is now in a terminal state, so a second cancel must surface
-    # DeploymentCannotBeCancelled and exit non-zero, not report a silent success.
-    if TERMINAL_OUTPUT=$(az deployment group cancel \
-        --resource-group "$RESOURCE_GROUP" \
-        --name "$DEPLOYMENT_NAME" \
-        --debug 2>&1); then
-        fail 'cancelling a terminal deployment did not fail'
-    elif [[ "$TERMINAL_OUTPUT" != *DeploymentCannotBeCancelled* ]]; then
-        fail "terminal deployment failed without DeploymentCannotBeCancelled -> $TERMINAL_OUTPUT"
-    else
-        echo 'EXPECTED FAILURE: DeploymentCannotBeCancelled'
-    fi
-fi
-
-# Negative case: a deployment name that does not exist must surface an ARM 404
-# (DeploymentNotFound) and exit non-zero, not print an empty success.
-if MISSING_DEPLOYMENT_OUTPUT=$(az deployment group cancel \
+# The deployment is only cancellable while Accepted or Running; confirm that before cancelling.
+STATE=""
+for _ in $(seq 1 15); do
+  STATE="$("$AZ" deployment group show \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
-    --name azclips-test-deployment-does-not-exist \
-    --debug 2>&1); then
-    fail 'missing deployment did not fail'
-elif [[ "$MISSING_DEPLOYMENT_OUTPUT" != *DeploymentNotFound* ]]; then
-    fail "missing deployment failed without DeploymentNotFound -> $MISSING_DEPLOYMENT_OUTPUT"
-else
-    echo 'EXPECTED FAILURE: DeploymentNotFound'
-fi
-
-# Negative case: a resource group that does not exist must surface an ARM 404
-# (ResourceGroupNotFound).
-if MISSING_GROUP_OUTPUT=$(az deployment group cancel \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group azclips-test-group-does-not-exist \
     --name "$DEPLOYMENT_NAME" \
-    --debug 2>&1); then
-    fail 'missing resource group did not fail'
-elif [[ "$MISSING_GROUP_OUTPUT" != *ResourceGroupNotFound* ]]; then
-    fail "missing resource group failed without ResourceGroupNotFound -> $MISSING_GROUP_OUTPUT"
-else
-    echo 'EXPECTED FAILURE: ResourceGroupNotFound'
-fi
-
-# Negative case: --name is required; omitting it must fail argument binding before any HTTP call
-# is made.
-if MISSING_NAME_OUTPUT=$(az deployment group cancel \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" 2>&1); then
-    fail 'omitting --name did not fail'
-else
-    echo 'EXPECTED FAILURE: --name is required'
-fi
-
-# Cleanup: the cancelled deployment may have created the storage account before it was stopped.
-# Cancelling does not roll anything back, so delete it explicitly. ARM answers 200 when the
-# account existed and 204 when it did not, so both are a clean teardown. An account whose create was
-# already in flight when the cancel landed keeps provisioning in the Storage RP and answers 409
-# until it settles, so retry rather than stranding it -- but a delete that never succeeds is still
-# tallied, because a leaked account must make the run non-zero.
-REMOVED=0
-for _ in $(seq 1 12); do
-    DELETE_STATUS=$(az rest \
-        --method DELETE \
-        --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT?api-version=2023-01-01" \
-        --output json 2>&1 | grep -o '"statusCode": *[0-9]*' | head -1)
-    if [[ "$DELETE_STATUS" == *200* || "$DELETE_STATUS" == *204* ]]; then
-        REMOVED=1
-        break
-    fi
-    sleep 5
+    --query properties.provisioningState -o tsv)"
+  if [[ "$STATE" == Accepted || "$STATE" == Running ]]; then
+    break
+  fi
+  sleep 2
 done
-if [[ $REMOVED -eq 1 ]]; then
-    echo "CLEANUP: storage account '$STORAGE_ACCOUNT' delete -> $DELETE_STATUS"
-else
-    fail "cleanup of '$STORAGE_ACCOUNT' never succeeded, last status '$DELETE_STATUS'; it may still exist"
+if [[ "$STATE" != Accepted && "$STATE" != Running ]]; then
+  echo "deployment settled at '$STATE' before it could be cancelled" >&2
+  exit 1
 fi
+echo "provisioningState: $STATE"
 
-# The deployment record itself is left behind on purpose: the name is stable, so the next run
-# overwrites it rather than accumulating a new one.
-
-if [[ $FAILURES -gt 0 ]]; then
-    echo "FAILED: $FAILURES check(s) did not meet expectations" >&2
-    exit 1
+echo -e "\n=== [deployment group cancel] running deployment ==="
+# ARM answers 204 No Content, so the command must print nothing.
+OUTPUT="$("$AZ" deployment group cancel \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME")"
+if [[ -n "${OUTPUT//[[:space:]]/}" ]]; then
+  echo "cancel printed '$OUTPUT', expected no output" >&2
+  exit 1
 fi
-echo 'PASS: all deployment cancel checks met expectations'
+echo "cancel exited 0 with no output"
+
+echo -e "\n=== [deployment group show] state flips to Canceled ==="
+# ARM flips provisioningState only after the in-flight storage create settles.
+for _ in $(seq 1 30); do
+  STATE="$("$AZ" deployment group show \
+    --subscription-id "$SUBSCRIPTION_ID" \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$DEPLOYMENT_NAME" \
+    --query properties.provisioningState -o tsv)"
+  if [[ "$STATE" == Canceled ]]; then
+    break
+  fi
+  sleep 2
+done
+if [[ "$STATE" != Canceled ]]; then
+  echo "provisioningState is '$STATE', expected 'Canceled'" >&2
+  exit 1
+fi
+echo "provisioningState: $STATE"
+
+# Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
+echo -e "\n=== [deployment group cancel] terminal deployment, default subscription ==="
+if OUTPUT="$("$AZ" deployment group cancel \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$DEPLOYMENT_NAME" 2>&1)"; then
+  echo "cancel of a terminal deployment succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *DeploymentCannotBeCancelled* ]]; then
+  echo "terminal deployment failed without DeploymentCannotBeCancelled: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: DeploymentCannotBeCancelled"
+
+echo -e "\n=== [deployment group cancel] missing deployment must 404 ==="
+if OUTPUT="$("$AZ" deployment group cancel \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-deployment-does-not-exist 2>&1)"; then
+  echo "cancel of a missing deployment succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *DeploymentNotFound* ]]; then
+  echo "missing deployment failed without DeploymentNotFound: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: DeploymentNotFound"
+
+echo -e "\n=== [deployment group cancel] missing resource group must 404 ==="
+if OUTPUT="$("$AZ" deployment group cancel \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group azclips-test-group-does-not-exist \
+      --name "$DEPLOYMENT_NAME" 2>&1)"; then
+  echo "cancel in a missing resource group succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *ResourceGroupNotFound* ]]; then
+  echo "missing resource group failed without ResourceGroupNotFound: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: ResourceGroupNotFound"
+
+echo -e "\n=== [deployment group cancel] --name is required ==="
+if "$AZ" deployment group cancel \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" > /dev/null 2>&1; then
+  echo "cancel without --name succeeded" >&2
+  exit 1
+fi
+echo "Expected failure: cancel requires --name"
+
+echo -e "\nAll deployment cancel smoke checks completed."

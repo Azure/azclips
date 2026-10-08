@@ -1,102 +1,160 @@
-# Resource group scope deployment export - CLI (az deployment group export)
-# Equivalent of: az deployment group export
+#!/usr/bin/env bash
+# Resource group deployment export smoke test for the azclips CLI surface.
+# Exercises `az deployment group export`. Export is READ-ONLY; the one write below uses a
+# timestamped deployment name, so each run exports the record it just created rather than one left
+# by an earlier run; that record is deleted on exit. The storage account it provisions keeps a fixed
+# name, so repeated runs reuse the same account.
 #
-# export is READ-ONLY: it returns the template the deployment was created from and never
-# touches any resource. The one write below reuses a STABLE deployment name, so repeated runs
-# overwrite the same deployment record instead of accumulating new ones -- nothing to clean up
-# in Azure. The storage account it provisions is likewise idempotent (same name every run).
-# The only thing this script creates locally is a temp directory, removed at the end.
+# Prereqs:
+#   1. Build the solution: dotnet build azclips.slnx
+#   2. Sign in, or provide AZCLIPS_TENANT_ID so this script can sign in.
+#   3. A resource group must already exist. This script creates and deletes only the deployment;
+#      it never creates or deletes the resource group. If you don't have one, run:
+#        ./tests/Scripts/CLI/CreateResourceGroup.sh <resource-group> -l <location> -s <subscription-id>
 #
-# Shared test context:
-#   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: azclips-test-group-1 (region: australiaeast)
+# Required:
+#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
+#
+# Optional:
+#   AZCLIPS_TENANT_ID      - tenant to sign in with before running commands
+#   AZCLIPS_RESOURCE_GROUP - existing resource group to deploy into; defaults to azclips-test-group-1
+#
+# Usage:
+#   AZCLIPS_TENANT_ID=<tenant> AZCLIPS_SUBSCRIPTION_ID=<subscription> ./tests/Scripts/CLI/DeploymentExport.sh
+set -euo pipefail
 
-# Run unattended: on a command ERROR az normally hands off to the interactive
-# agent-mode TUI (which would block on input). Disable the agent via config so the
-# classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang.
-az config set --key agent.enabled --value false
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# az.exe can't open Git Bash paths (/c/...); `pwd -W` gives the Windows form.
+BICEP_DIR="$(cd "$REPO_ROOT/tests/Scripts/Bicep" && { pwd -W 2>/dev/null || pwd; })"
 
-# No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
-# continue past them. Each command's exit code surfaces its own error on stderr.
+AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
+[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BICEP_DIR="$SCRIPT_DIR/../Bicep"
+# Stop Git Bash from rewriting ARM IDs like /subscriptions/... into Windows paths.
+export MSYS_NO_PATHCONV=1
 
-SUBSCRIPTION_ID=282bb33f-067d-4179-a7a4-b833c13af735
-RESOURCE_GROUP=azclips-test-group-1
-DEPLOYMENT_NAME=azclips-test-deployment-export
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?AZCLIPS_SUBSCRIPTION_ID must be set.}"
+TENANT_ID="${AZCLIPS_TENANT_ID:-}"
+RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
+DEPLOYMENT_NAME="azclips-test-deployment-export-$(date +%Y%m%d%H%M%S)"
 
-OUTPUT_DIR=$(mktemp -d)
-# Remove the temp directory however the script exits, including the negative cases.
-trap 'rm -rf "$OUTPUT_DIR"' EXIT
+WORK_DIR="$(mktemp -d)"
+EXPORTED_FILE="$(cd "$WORK_DIR" && { pwd -W 2>/dev/null || pwd; })/exported.json"
 
-# Arrange: ensure there is a deployment to export. Stable name -> idempotent.
-az deployment group create \
+# Always remove the temp dir and delete this run's deployment record, even if a check fails.
+cleanup() {
+  local exit_code=$?
+  rm -rf "$WORK_DIR"
+  echo -e "\n=== [deployment group delete] cleanup $DEPLOYMENT_NAME ==="
+  "$AZ" deployment group delete \
     --subscription-id "$SUBSCRIPTION_ID" \
     --resource-group "$RESOURCE_GROUP" \
-    --name "$DEPLOYMENT_NAME" \
-    --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=azclipsdeploymentexport" \
-    --mode Incremental
+    --name "$DEPLOYMENT_NAME" || true
+  exit "$exit_code"
+}
+trap cleanup EXIT
 
-# Happy path: export the deployment's template.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$DEPLOYMENT_NAME" \
-    --debug
+# Disable the interactive agent so errors surface as non-zero exits.
+"$AZ" config set --key agent.enabled --value false
 
-# Assert the payload is the template ITSELF, not the ARM { "template": ... } envelope:
-# the top level must carry $schema/contentVersion and must NOT carry a "template" key.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$DEPLOYMENT_NAME" \
-    --output json > "$OUTPUT_DIR/exported.json"
-
-SCHEMA=$(grep -o '"\$schema": *"[^"]*"' "$OUTPUT_DIR/exported.json" | head -1)
-echo "export \$schema -> $SCHEMA"
-if grep -q '"template"' "$OUTPUT_DIR/exported.json"; then
-    echo "UNEXPECTED: the ARM envelope was not unwrapped"
-else
-    echo "envelope unwrapped as expected"
+if [[ -n "$TENANT_ID" ]]; then
+  echo -e "\n=== [login] ==="
+  "$AZ" login --tenant-id "$TENANT_ID" --subscription-id "$SUBSCRIPTION_ID"
 fi
 
-# The redirected file must be a usable template: feed it straight back into a validate.
-az deployment group validate \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$DEPLOYMENT_NAME-replay" \
-    --template-file "$OUTPUT_DIR/exported.json" \
-    --parameter "storageAccountName=azclipsdeploymentexport"
+echo -e "\n=== [deployment group create] arrange $DEPLOYMENT_NAME ==="
+"$AZ" deployment group create \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  --template-file "$BICEP_DIR/sample-storage.bicep" \
+  --parameter "storageAccountName=azclipsdeploymentexport" \
+  --mode Incremental \
+  > /dev/null
 
-# subscription-id is optional: it defaults to the active profile's subscription.
-az deployment group export --resource-group "$RESOURCE_GROUP" --name "$DEPLOYMENT_NAME"
+echo -e "\n=== [deployment group export] by name ==="
+"$AZ" deployment group export \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  -o json > "$WORK_DIR/exported.json"
+# The payload must be the template itself, not the ARM { "template": ... } envelope.
+if ! grep -q '"contentVersion"' "$WORK_DIR/exported.json"; then
+  echo "export did not return a template: $(cat "$WORK_DIR/exported.json")" >&2
+  exit 1
+fi
+if grep -q '"template"' "$WORK_DIR/exported.json"; then
+  echo "export did not unwrap the ARM envelope: $(cat "$WORK_DIR/exported.json")" >&2
+  exit 1
+fi
+echo "export returned the unwrapped template"
 
-# Negative case: a deployment name that does not exist must surface an ARM 404
-# (DeploymentNotFound) and exit non-zero, not print an empty success.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP" \
-    --name azclips-test-deployment-does-not-exist \
-    --debug
+echo -e "\n=== [deployment group validate] replay exported template ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME-replay" \
+  --template-file "$EXPORTED_FILE" \
+  --parameter "storageAccountName=azclipsdeploymentexport" \
+  --query properties.provisioningState -o tsv)"
+if [[ "$STATE" != "Succeeded" ]]; then
+  echo "validate of the exported template returned '$STATE', expected 'Succeeded'" >&2
+  exit 1
+fi
+echo "provisioningState: $STATE"
 
-# Negative case: a resource group that does not exist must surface an ARM 404
-# (ResourceGroupNotFound) and exit non-zero.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group azclips-test-group-does-not-exist \
-    --name "$DEPLOYMENT_NAME" \
-    --debug
+echo -e "\n=== [deployment group export] default subscription ==="
+"$AZ" deployment group export \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  > /dev/null
+echo "export exited 0"
 
-# Negative case: --name is required; omitting it must fail argument binding before any
-# HTTP call is made.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --resource-group "$RESOURCE_GROUP"
+# Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
+echo -e "\n=== [deployment group export] missing deployment must 404 ==="
+if OUTPUT="$("$AZ" deployment group export \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-deployment-does-not-exist 2>&1)"; then
+  echo "export of a missing deployment succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *DeploymentNotFound* ]]; then
+  echo "missing deployment failed without DeploymentNotFound: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: DeploymentNotFound"
 
-# Negative case: --resource-group is required; omitting it must fail argument binding too.
-az deployment group export \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$DEPLOYMENT_NAME"
+echo -e "\n=== [deployment group export] missing resource group must 404 ==="
+if OUTPUT="$("$AZ" deployment group export \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group azclips-test-group-does-not-exist \
+      --name "$DEPLOYMENT_NAME" 2>&1)"; then
+  echo "export from a missing resource group succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *ResourceGroupNotFound* ]]; then
+  echo "missing resource group failed without ResourceGroupNotFound: $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: ResourceGroupNotFound"
+
+echo -e "\n=== [deployment group export] --name is required ==="
+if "$AZ" deployment group export \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" > /dev/null 2>&1; then
+  echo "export without --name succeeded" >&2
+  exit 1
+fi
+echo "Expected failure: export requires --name"
+
+echo -e "\n=== [deployment group export] --resource-group is required ==="
+if "$AZ" deployment group export \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --name "$DEPLOYMENT_NAME" > /dev/null 2>&1; then
+  echo "export without --resource-group succeeded" >&2
+  exit 1
+fi
+echo "Expected failure: export requires --resource-group"
+
+echo -e "\nAll deployment export smoke checks completed."
