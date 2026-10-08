@@ -58,8 +58,8 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string VirtualNetworkName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
-    public string NetworkSecurityGroupName { get; set; } = "";
+    [Parameter(Mandatory = false)]
+    public string? SecurityGroupName { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[]? SubnetNames { get; set; }
@@ -69,33 +69,6 @@ public class NewVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string[]? AddressPrefixes { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleNames { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDirections { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleProtocols { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public int[]? RulePriorities { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleSourceAddressPrefixes { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleSourcePortRanges { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDestinationPortRanges { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleDestinationAddressPrefixes { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string[]? RuleAccesses { get; set; }
 
     [Parameter(Mandatory = false)]
     public SwitchParameter AcceleratedNetworking { get; set; }
@@ -126,7 +99,6 @@ public class NewVMCmdlet : PSCmdlet
             { "AdminPassword", AdminPassword },
             { "NetworkInterfaceName", NetworkInterfaceName },
             { "VirtualNetworkName", VirtualNetworkName },
-            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Image)))                          { parameters.Add("Image", Image!); }
@@ -136,16 +108,9 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleNames)))                      { parameters.Add("RuleNames", RuleNames!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDirections)))                 { parameters.Add("RuleDirections", RuleDirections!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleProtocols)))                  { parameters.Add("RuleProtocols", RuleProtocols!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RulePriorities)))                 { parameters.Add("RulePriorities", RulePriorities!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourceAddressPrefixes)))      { parameters.Add("RuleSourceAddressPrefixes", RuleSourceAddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourcePortRanges)))           { parameters.Add("RuleSourcePortRanges", RuleSourcePortRanges!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AcceleratedNetworking)))          { parameters.Add("AcceleratedNetworking", AcceleratedNetworking.IsPresent); }
+        // Omitted or $null keeps the default {vm}NSG; "" is forwarded because it means none.
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityGroupName)) && SecurityGroupName is not null) { parameters.Add("SecurityGroupName", SecurityGroupName); }
         // Omitted or $null keeps the default public IP; "" is forwarded because it means none.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIpAddressName)) && PublicIpAddressName is not null) { parameters.Add("PublicIpAddressName", PublicIpAddressName); }
 

@@ -6,8 +6,8 @@
   "workspaces": [
     "packages/ir",
     "packages/typespec-emitter",
-    "packages/compiler",
     "packages/transformers",
+    "packages/compiler",
     "packages/cli"
   ],
   "scripts": {

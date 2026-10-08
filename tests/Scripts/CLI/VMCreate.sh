@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# Smoke test for vm create's public IP workflows through the built CLI.
+# Smoke test for vm create's public IP and network security group workflows through
+# the built CLI.
 #
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
-#   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set
+#   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
+#                                                    creates <vm>NSG with only the rdp rule
 #   2. vm create --security-type Standard --public-ip-address <new name>
-#                                                  -> creates that public IP; publicIps is set
+#                --nsg <existing resource id>        creates that public IP; publicIps is set;
+#                                                    attaches the pre-created NSG untouched
 #   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set
-#   4. vm create --ssh-key-values --public-ip-address <new name>
-#                                                  -> Linux SSH path; publicIps is set
+#                --nsg <existing name>               attaches the pre-created NSG untouched
+#   4. vm create --ssh-key-values <file>          -> Linux VM with no public IP; publicIps is
+#                --public-ip-address ""              empty; creates <vm>NSG with only the
+#                                                    default-allow-ssh rule
 #   5. vm create --public-ip-address <missing id> -> fails with "was not found" before
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
@@ -24,7 +29,7 @@
 # attaches that resource without replacing its tags.
 #
 # Prereqs: build the solution first with dotnet build, then sign in. The subscription
-# needs quota for four Standard_D2s_v3 VMs and four Standard public IPs.
+# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
 #
 # Standard run:
 #   export AZCLIPS_SUBSCRIPTION_ID=<subscription-id>
@@ -32,9 +37,8 @@
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
 # The standard run covers TrustedLaunch, Standard, public IP create/reuse/none,
-# missing public IP validation, and a Linux SSH VM. The SSH VM uses its own public
-# IP named "azclips-vmcreate-ssh-pip-$SUFFIX"; use the "ssh: publicIps=..." output
-# with the generated private key at "$KEY_FILE" to test SSH manually during a run.
+# missing public IP validation, and a Linux SSH VM. The SSH VM uses a generated
+# temporary key pair and no public IP by default.
 #
 # To preserve resources for portal/SSH inspection, temporarily comment out the
 # cleanup trap/block below.
@@ -46,11 +50,21 @@
 #   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
+# Case 4 deploys an Ubuntu image with a temporary key pair from ssh-keygen, deleted on exit.
+#
+# Before case 1 the script pre-creates an NSG through az rest, with its own tag and
+# one rule, smoke-allow-https. The NSG checks read the VM's NIC and the NSG back
+# through az rest: the NIC must reference the expected NSG, and the NSG must hold
+# exactly one rule: rdp for case 1's default <vm>NSG, default-allow-ssh for case 4's,
+# and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
+#
+# ssh-keygen must be on PATH.
+#
 # Cleanup: on exit the resource group this script created is deleted, which removes
 # the VMs, public IPs, NICs, VNets and NSGs with it, including the pre-created
-# public IP. A group supplied through AZCLIPS_RESOURCE_GROUP may hold other
+# public IP and NSG. A group supplied through AZCLIPS_RESOURCE_GROUP may hold other
 # resources, so the script only deletes its VMs there and leaves the public IPs and
-# network resources to you.
+# network resources, including the pre-created NSG, to you.
 #
 # Usage: ./tests/Scripts/CLI/VMCreate.sh
 set -uo pipefail
@@ -89,6 +103,16 @@ NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
 SSH_PUBLIC_IP="azclips-vmcreate-ssh-pip-$SUFFIX"
 MISSING_PUBLIC_IP_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$SUFFIX"
+EXISTING_NSG="azclips-vmcreate-existing-nsg-$SUFFIX"
+EXISTING_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/$EXISTING_NSG"
+DEFAULT_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/${DEFAULT_VM}NSG"
+LINUX_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/${NONE_VM}NSG"
+
+# A rule as name/protocol/source address/source port/destination address/destination port/access/direction/priority, so whole rules compare as one string.
+NSG_RULE_QUERY="json.properties.securityRules[0] | join('/', [name, properties.protocol, properties.sourceAddressPrefix, properties.sourcePortRange, properties.destinationAddressPrefix, properties.destinationPortRange, properties.access, properties.direction, to_string(properties.priority)])"
+RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
+SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
+EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
 KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
 SSH_PUBLIC_KEY=""
 CVM_ENABLED="${AZCLIPS_ENABLE_CVM:-0}"
@@ -116,11 +140,17 @@ json_field()
     sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" <<< "$2" | head -n 1
 }
 
-public_ip_url()
+lowercase()
 {
-    local name="$1"
-    printf 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/publicIPAddresses/%s?api-version=2025-05-01' \
-        "$SUBSCRIPTION_ID" "$RESOURCE_GROUP" "$name"
+    tr '[:upper:]' '[:lower:]' <<< "$1"
+}
+
+# ARM URL of a network resource in this script's resource group, e.g. network_url publicIPAddresses <name>.
+network_url()
+{
+    local type="$1" name="$2"
+    printf 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/%s/%s?api-version=2025-05-01' \
+        "$SUBSCRIPTION_ID" "$RESOURCE_GROUP" "$type" "$name"
 }
 
 # Run unattended: disable the interactive agent so a command error surfaces a classic
@@ -146,7 +176,8 @@ cleanup()
 }
 trap cleanup EXIT
 
-# vm create with per-VM network resource names; extra arguments are appended.
+# vm create with per-VM network resource names; extra arguments are appended. Unless the
+# extra arguments pass --nsg, the VM gets its default <vm>NSG.
 create_vm()
 {
     local name="$1"
@@ -165,7 +196,6 @@ create_vm()
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "$name-nsg" \
         --output json \
         "$@"
 }
@@ -189,16 +219,6 @@ create_ssh_vm()
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "$name-nsg" \
-        --rule-names ssh \
-        --rule-protocols tcp \
-        --rule-directions Inbound \
-        --rule-priorities 1001 \
-        --rule-source-address-prefixes "*" \
-        --rule-source-port-ranges "*" \
-        --rule-destination-port-ranges 22 \
-        --rule-destination-address-prefixes "*" \
-        --rule-accesses Allow \
         --output json \
         "$@"
 }
@@ -222,16 +242,15 @@ create_cvm()
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
         --subnet-address-prefixes 10.0.2.0/24 \
-        --network-security-group-name "$name-nsg" \
+        --nsg "$name-nsg" \
         --public-ip-address "" \
         --output json
 }
 
-wait_public_ip_succeeded()
+# Polls url until the resource's provisioningState is Succeeded; what names it in messages.
+wait_succeeded()
 {
-    local label="$1" name="$2" state=""
-    local url
-    url=$(public_ip_url "$name")
+    local label="$1" what="$2" url="$3" state=""
 
     for _ in {1..24}
     do
@@ -239,17 +258,17 @@ wait_public_ip_succeeded()
         then
             if [[ "$state" == "Succeeded" ]]
             then
-                echo "OK: $label: public IP '$name' provisioningState is Succeeded"
+                echo "OK: $label: $what provisioningState is Succeeded"
                 return 0
             fi
-            echo "== waiting for public IP $name: provisioningState='$state' =="
+            echo "== waiting for $what: provisioningState='$state' =="
         else
-            echo "== waiting for public IP $name: GET failed: $state =="
+            echo "== waiting for $what: GET failed: $state =="
         fi
         sleep 5
     done
 
-    fail "$label: public IP '$name' did not reach provisioningState Succeeded after about 2 minutes (last result: ${state:-<none>})"
+    fail "$label: $what did not reach provisioningState Succeeded after about 2 minutes (last result: ${state:-<none>})"
     return 1
 }
 
@@ -257,7 +276,7 @@ check_public_ip_resource()
 {
     local label="$1" expected_name="$2" expected_address="$3" expected_tag="${4:-}"
     local url actual_address actual_tag
-    url=$(public_ip_url "$expected_name")
+    url=$(network_url publicIPAddresses "$expected_name")
 
     if actual_address=$("$AZ" rest --method GET --uri "$url" --query json.properties.ipAddress --output tsv 2>&1)
     then
@@ -316,6 +335,52 @@ check_public_ip()
     fi
 }
 
+# The NIC <vm>-nic must reference the NSG expected_id, compared case-insensitively because ARM
+# can return the resource group in another case. That NSG must hold exactly one rule, equal to
+# expected_rule, and carry the azclips-smoke tag expected_tag when one is given.
+check_nsg()
+{
+    local label="$1" vm="$2" expected_id="$3" expected_rule="$4" expected_tag="${5:-}"
+    local nsg_name="${expected_id##*/}"
+    local nsg_url actual_id rule_count actual_rule actual_tag
+    nsg_url=$(network_url networkSecurityGroups "$nsg_name")
+
+    if ! actual_id=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "$vm-nic")" --query json.properties.networkSecurityGroup.id --output tsv 2>&1)
+    then
+        fail "$label: could not read NIC '$vm-nic': $actual_id"
+        return
+    fi
+    if [[ "$(lowercase "$actual_id")" != "$(lowercase "$expected_id")" ]]
+    then
+        fail "$label: NIC '$vm-nic' references NSG '$actual_id', expected '$expected_id'"
+        return
+    fi
+
+    if ! rule_count=$("$AZ" rest --method GET --uri "$nsg_url" --query 'length(json.properties.securityRules)' --output tsv 2>&1)
+    then
+        fail "$label: could not read NSG '$nsg_name': $rule_count"
+        return
+    fi
+    actual_rule=$("$AZ" rest --method GET --uri "$nsg_url" --query "$NSG_RULE_QUERY" --output tsv 2>&1)
+    if [[ "$rule_count" != "1" || "$actual_rule" != "$expected_rule" ]]
+    then
+        fail "$label: NSG '$nsg_name' has $rule_count rule(s), the first '$actual_rule'; expected only '$expected_rule'"
+        return
+    fi
+
+    if [[ -n "$expected_tag" ]]
+    then
+        actual_tag=$("$AZ" rest --method GET --uri "$nsg_url" --query 'json.tags."azclips-smoke"' --output tsv 2>&1)
+        if [[ "$actual_tag" != "$expected_tag" ]]
+        then
+            fail "$label: NSG '$nsg_name' azclips-smoke tag '$actual_tag' did not match '$expected_tag'"
+            return
+        fi
+    fi
+
+    echo "OK: $label: NIC '$vm-nic' uses NSG '$nsg_name', whose only rule is '$expected_rule'"
+}
+
 "$AZ" group create \
     --subscription-id "$SUBSCRIPTION_ID" \
     --name "$RESOURCE_GROUP" \
@@ -331,31 +396,60 @@ ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || e
 SSH_PUBLIC_KEY="$(tr -d '\r\n' < "$KEY_FILE.pub")"
 
 echo "== 1. vm create --security-type TrustedLaunch (default public IP ${DEFAULT_VM}PublicIP) =="
+echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
+existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
+existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
+# Without a ready NSG, cases 2 and 3 still run their public IP checks, just without --nsg.
+EXISTING_NSG_READY=0
+named_nsg_args=()
+reuse_nsg_args=()
+if "$AZ" rest --method PUT --uri "$existing_nsg_url" --body "$existing_nsg_body" --output json >/dev/null
+then
+    if wait_succeeded "existing nsg" "NSG '$EXISTING_NSG'" "$existing_nsg_url"
+    then
+        EXISTING_NSG_READY=1
+        named_nsg_args=(--nsg "$EXISTING_NSG_ID")
+        reuse_nsg_args=(--nsg "$EXISTING_NSG")
+    fi
+else
+    fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
+fi
+
 if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch)
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
+    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
 else
     fail "default: vm create failed"
 fi
 
 echo "== 2. vm create --security-type Standard --public-ip-address $NAMED_PUBLIC_IP (new name) =="
-if output=$(create_vm "$NAMED_VM" --security-type Standard --public-ip-address "$NAMED_PUBLIC_IP")
+# ${args[@]+"${args[@]}"} expands an empty array safely under set -u on older bash.
+if output=$(create_vm "$NAMED_VM" --security-type Standard --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
 then
     check_public_ip "named" "$output" yes "$NAMED_PUBLIC_IP"
+    if [[ "$EXISTING_NSG_READY" == "1" ]]
+    then
+        check_nsg "named" "$NAMED_VM" "$EXISTING_NSG_ID" "$EXISTING_NSG_RULE" reuse-nsg
+    fi
 else
     fail "named: vm create failed"
 fi
 
-echo "== 3. vm create --public-ip-address $REUSE_PUBLIC_IP (existing name) =="
-reuse_public_ip_url=$(public_ip_url "$REUSE_PUBLIC_IP")
+echo "== 3. vm create --public-ip-address $REUSE_PUBLIC_IP --nsg $EXISTING_NSG (existing names) =="
+reuse_public_ip_url=$(network_url publicIPAddresses "$REUSE_PUBLIC_IP")
 reuse_public_ip_body=$(printf '{"location":"%s","sku":{"name":"Standard"},"tags":{"azclips-smoke":"reuse"},"properties":{"publicIPAllocationMethod":"Static"}}' "$LOCATION")
 if "$AZ" rest --method PUT --uri "$reuse_public_ip_url" --body "$reuse_public_ip_body" --output json >/dev/null
 then
-    if wait_public_ip_succeeded "reuse" "$REUSE_PUBLIC_IP"
+    if wait_succeeded "reuse" "public IP '$REUSE_PUBLIC_IP'" "$reuse_public_ip_url"
     then
-        if output=$(create_vm "$REUSE_VM" --public-ip-address "$REUSE_PUBLIC_IP")
+        if output=$(create_vm "$REUSE_VM" --public-ip-address "$REUSE_PUBLIC_IP" ${reuse_nsg_args[@]+"${reuse_nsg_args[@]}"})
         then
             check_public_ip "reuse" "$output" yes "$REUSE_PUBLIC_IP" reuse
+            if [[ "$EXISTING_NSG_READY" == "1" ]]
+            then
+                check_nsg "reuse" "$REUSE_VM" "$EXISTING_NSG_ID" "$EXISTING_NSG_RULE" reuse-nsg
+            fi
         else
             fail "reuse: vm create failed"
         fi
@@ -366,10 +460,11 @@ else
     fail "reuse: failed to pre-create public IP '$REUSE_PUBLIC_IP'"
 fi
 
-echo "== 4. vm create --ssh-key-values <key> --public-ip-address $SSH_PUBLIC_IP (Linux SSH) =="
-if output=$(create_ssh_vm "$NONE_VM" --public-ip-address "$SSH_PUBLIC_IP")
+echo "== 4. vm create --ssh-key-values <file> --public-ip-address \"\" (Linux, no public IP, default NSG ${NONE_VM}NSG) =="
+if output=$(create_ssh_vm "$NONE_VM" --public-ip-address "")
 then
-    check_public_ip "ssh" "$output" yes "$SSH_PUBLIC_IP"
+    check_public_ip "none" "$output" no
+    check_nsg "none" "$NONE_VM" "$LINUX_NSG_ID" "$SSH_NSG_RULE"
 else
     fail "ssh: vm create failed"
 fi

@@ -84,7 +84,6 @@ function run(
   const diagnostics: { severity: string; code: string; message: string }[] = [];
   const result = createCommandStep(options).run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d),
-    config: {},
   }) as TransformedIR;
   parseTransformedIR(result);
   return { out: result, diagnostics };
@@ -682,7 +681,6 @@ describe("degradation", () => {
     const diagnostics: { severity: string; code: string; message: string }[] = [];
     const out = createCommandStep({}).run(ir, {
       reportDiagnostic: (d) => diagnostics.push(d),
-      config: {},
     }) as TransformedIR;
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["empty-operation-name"]);

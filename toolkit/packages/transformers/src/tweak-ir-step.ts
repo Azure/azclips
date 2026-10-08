@@ -22,7 +22,7 @@
  * a reference after a rename.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
 import {
   serializeId,
   type IR,
