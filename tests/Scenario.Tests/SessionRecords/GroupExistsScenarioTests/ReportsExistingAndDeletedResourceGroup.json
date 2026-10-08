@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "GroupExistsScenarioTests/ReportsExistingAndDeletedResourceGroup"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-exists-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-group-exists-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "e8145792-060c-4842-9886-4cf24d01137e"
+          ],
+          "x-ms-correlation-request-id": [
+            "e8145792-060c-4842-9886-4cf24d01137e"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20260917T073912Z:e8145792-060c-4842-9886-4cf24d01137e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E93F5812571741A688C712AB0C07DA8D Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:05Z"
+          ],
+          "Date": [
+            "Thu, 17 Sep 2026 07:39:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-group-exists-rg\u0022,\u0022name\u0022:\u0022scenario-group-exists-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-exists-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "9a9ea1bc-1934-4614-b55c-28b5b685b189"
+          ],
+          "x-ms-correlation-request-id": [
+            "9a9ea1bc-1934-4614-b55c-28b5b685b189"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260917T073912Z:9a9ea1bc-1934-4614-b55c-28b5b685b189"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 44D265E4ECE442E4A848CD62B5EAD328 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:12Z"
+          ],
+          "Date": [
+            "Thu, 17 Sep 2026 07:39:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-exists-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=sanitized\u0026c=sanitized\u0026s=sanitized\u0026h=sanitized"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-request-id": [
+            "b86e75fd-c249-4991-a792-d260e3f73e7f"
+          ],
+          "x-ms-correlation-request-id": [
+            "b86e75fd-c249-4991-a792-d260e3f73e7f"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS2:20260917T073913Z:b86e75fd-c249-4991-a792-d260e3f73e7f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9C8DE90C0560422382A973D2CC7F9FC1 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:12Z"
+          ],
+          "Date": [
+            "Thu, 17 Sep 2026 07:39:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=sanitized\u0026c=sanitized\u0026s=sanitized\u0026h=sanitized",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "971a2916-cd78-4aba-bcca-064854b0c827"
+          ],
+          "x-ms-correlation-request-id": [
+            "971a2916-cd78-4aba-bcca-064854b0c827"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20260917T073929Z:971a2916-cd78-4aba-bcca-064854b0c827"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 08A89B6C36344988A29ECD9201594C40 Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:28Z"
+          ],
+          "Date": [
+            "Thu, 17 Sep 2026 07:39:28 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-group-exists-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-throttling-version": [
+            "v2"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-request-id": [
+            "94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
+          ],
+          "x-ms-correlation-request-id": [
+            "94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20260917T073931Z:94072b5b-7f0e-48a9-afc9-d9ccb818dfc8"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 53A80E5B4864450189F679EACAC4F88C Ref B: SYD281080707029 Ref C: 2026-09-17T07:39:29Z"
+          ],
+          "Date": [
+            "Thu, 17 Sep 2026 07:39:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

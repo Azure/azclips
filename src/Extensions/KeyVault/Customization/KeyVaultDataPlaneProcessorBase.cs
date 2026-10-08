@@ -12,6 +12,8 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     protected string Endpoint => VaultBaseUrl!.AbsoluteUri.TrimEnd('/');
     private bool dataPlanePrepared;
 
+    private protected partial void EnsureExecutionAllowed() => PrepareDataPlane();
+
     protected void PrepareDataPlane()
     {
         if (!JsonOptions.IsReadOnly)
@@ -89,15 +91,5 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     {
         if (!Regex.IsMatch(name, "^[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]$", RegexOptions.CultureInvariant) || name.Contains("--", StringComparison.Ordinal))
             throw new ArgumentException("Vault names must be 3-24 letters, digits or hyphens, start with a letter, end with a letter or digit and contain no consecutive hyphens.");
-    }
-}
-
-public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse>
-    where TRequest : class
-    where TResponse : class
-{
-    partial void OverrideBeforeProcessBase()
-    {
-        PrepareDataPlane();
     }
 }

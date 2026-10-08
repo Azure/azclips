@@ -40,7 +40,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         // Under the warn default, a plain get produces no diagnostic chatter on stderr —
         // including the ExtensionLoadTracker summary, which must stay gated behind --debug.
         Assert.DoesNotContain("DEBUG:", stderr);
@@ -52,25 +52,70 @@ public class StreamRoutingIntegrationTests
     public async Task ConfigGet_AppliesQuery_ToCommandOutput()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "config", "get", "--key", "core.logging.level", "--query", "@");
+            "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
         // A --query narrowing a result to a scalar now uses clients.cli.output.simpleFormat
         // (default tsv) rather than the complex-result default (json) -- plain text, no quotes.
-        // Source is "environment" because RunCliAsync pins AZCLIPS_LOG_LEVEL for determinism.
-        Assert.Equal("core.logging.level = warn [environment]", stdout.Trim());
+        Assert.Equal("warn", stdout.Trim());
         Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StartupProfileLoad_AppliesDebugOverride_WhenProfileFileExists(bool debugOverride)
+    {
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-startup-log-tests-").FullName;
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "profiles.json"), """
+{
+  "default": {
+    "name": "default",
+    "tenantId": "11111111-1111-1111-1111-111111111111",
+    "subscriptionId": "22222222-2222-2222-2222-222222222222",
+    "cloudName": "AzureCloud",
+    "authMethod": "Browser"
+  }
+}
+""");
+        File.WriteAllText(Path.Combine(homeDirectory, "active-profile"), "default");
+
+        try
+        {
+            var args = new List<string> { "config", "get", "--key", "core.logging.level" };
+            if (debugOverride)
+            {
+                args.Insert(0, "--debug");
+            }
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, args.ToArray());
+
+            Assert.Equal(0, exit);
+            AssertConfigGetResult(stdout, "core.logging.level", "warn");
+            if (debugOverride)
+            {
+                Assert.Contains("VERBOSE: [ProfileService] Loading profiles from", stderr);
+            }
+            else
+            {
+                Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
+            }
+            Assert.DoesNotContain("VERBOSE:", stdout);
+        }
+        finally
+        {
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     [Fact]
     public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "@");
+            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
-        Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
-        Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+        Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
         Assert.DoesNotContain("ERROR:", stderr);
     }
 
@@ -101,7 +146,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         Assert.Contains("DEBUG:", stderr);
         // stdout should still be pure result — no diagnostic leakage.
         Assert.DoesNotContain("DEBUG:", stdout);
@@ -168,7 +213,10 @@ public class StreamRoutingIntegrationTests
         using var document = System.Text.Json.JsonDocument.Parse(stderr);
         var error = document.RootElement.GetProperty("error");
         Assert.Equal("UsageError", error.GetProperty("code").GetString());
-        Assert.Contains("az vm create --help", error.GetProperty("message").GetString());
+        var message = error.GetProperty("message").GetString();
+        Assert.Contains("'--name'", message);
+        Assert.Contains("az vm create --help", message);
+        Assert.DoesNotContain("\\u0027", stderr, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -199,11 +247,10 @@ public class StreamRoutingIntegrationTests
 
             var (exit, stdout, stderr) = await RunCliInHomeAsync(
                 homeDirectory,
-                "config", "get", "--key", "core.logging.level", "--query", "@");
+                "config", "get", "--key", "core.logging.level", "--query", "value");
 
             Assert.Equal(0, exit);
-            Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
-            Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+            Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
             Assert.DoesNotContain("ERROR:", stderr);
         }
         finally
@@ -233,6 +280,15 @@ public class StreamRoutingIntegrationTests
             // where an open handle turns this into a flaky IOException, not a real failure).
             try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    private static void AssertConfigGetResult(string stdout, string expectedKey, string expectedValue)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(stdout);
+        var entry = document.RootElement;
+
+        Assert.Equal(expectedKey, entry.GetProperty("key").GetString());
+        Assert.Equal(expectedValue, entry.GetProperty("value").GetString());
     }
 
     /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>

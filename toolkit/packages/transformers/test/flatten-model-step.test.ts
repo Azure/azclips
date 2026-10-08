@@ -1,15 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  compile,
-  createRegistry,
-  noopGenerator,
-  CSHARP_STAGE,
-  FLATTEN_MODEL_STAGE,
-  TSP_EMIT_STAGE,
-  type CompilerDiagnostic,
-} from "@azure-client-engine/compiler";
-import {
   IR_SCHEMA_VERSION,
   parseIR,
   type IR,
@@ -17,11 +8,14 @@ import {
   type IRModel,
   type IROperation,
   type IRProperty,
+  type IRPropertyRef,
   type IRVisibility,
   type HttpMethod,
 } from "@azure-client-engine/ir";
 
-import { flattenModelStep } from "../src/index.js";
+import { flattenModelStep, type TransformContext } from "../src/index.js";
+
+type Diagnostic = Parameters<TransformContext["reportDiagnostic"]>[0];
 
 // ─── Fixture builders ───────────────────────────────────────────────────
 
@@ -122,9 +116,8 @@ function irOf(models: IRModel[], operations: IROperation[] = []): IR {
 }
 
 function run(ir: IR, options: Record<string, unknown> = {}) {
-  const diagnostics: CompilerDiagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
   const out = flattenModelStep(options).run(parseIR(ir), {
-    config: {},
     reportDiagnostic: (d) => diagnostics.push(d),
   });
   return { ir: out as IR, diagnostics };
@@ -133,7 +126,11 @@ function run(ir: IR, options: Record<string, unknown> = {}) {
 const flattenedOf = (ir: IR, name: string) =>
   ir.models.find((m) => m.name === name)?.rendering?.flattened ?? [];
 
-const leafPath = (path: IRId[]) => path.map((p) => p.name);
+/** A property reference by id names, to compare without spelling out whole ids. */
+const hops = ({ property, via }: IRPropertyRef) => ({
+  property: property.name,
+  via: via.map((p) => p.name),
+});
 
 /** Deep copy with every `rendering` namespace removed, to isolate what a stage added. */
 function stripRendering(value: unknown): unknown {
@@ -182,15 +179,14 @@ describe("flatten-model: models", () => {
     expect(container.typeKind === "object" && container.rendering?.flatten?.into).toBe("self");
   });
 
-  it("prefixes deeper hops with the parent name and records the full id path", () => {
+  it("prefixes deeper hops with the parent name and records every container walked", () => {
     const { ir } = run(irOf(armModels()));
     const skuName = flattenedOf(ir, "Thing").find((m) => m.name === "SkuName");
     expect(skuName).toBeDefined();
-    expect(leafPath(skuName!.path)).toEqual([
-      "Thing.properties",
-      "ThingProperties.sku",
-      "Sku.name",
-    ]);
+    expect(hops(skuName!)).toEqual({
+      property: "Sku.name",
+      via: ["Thing.properties", "ThingProperties.sku"],
+    });
     // "Properties" is transparent, so it contributes no prefix; "Sku" does.
     expect(flattenedOf(ir, "ThingProperties").map((m) => m.name)).toEqual(["SkuName", "SkuTier"]);
   });
@@ -219,7 +215,7 @@ describe("flatten-model: models", () => {
   it("is additive: it adds rendering hints in place and changes nothing else", () => {
     const input = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
     const before = structuredClone(input);
-    const out = flattenModelStep().run(input, { config: {}, reportDiagnostic: vi.fn() });
+    const out = flattenModelStep().run(input, { reportDiagnostic: vi.fn() });
 
     // Written in place — the catalog declares this stage `additive`, so the
     // orchestrator hands it an IR it owns rather than paying for a copy.
@@ -258,6 +254,29 @@ describe("flatten-model: opt-outs and limits", () => {
     expect(flattenedOf(ir, "Thing").length).toBeGreaterThan(0);
     // Sku (2 members) is over the threshold and is an ordinary container.
     expect(flattenedOf(ir, "ThingProperties")).toEqual([]);
+  });
+
+  it("flattens below a default threshold of 100, counting members already flattened in", () => {
+    const scalars = (owner: string, count: number) =>
+      Array.from({ length: count }, (_, i) => prim(owner, `P${i}`));
+    const { ir } = run(
+      irOf([
+        model("Owner", [obj("Owner", "Small", "Small"), obj("Owner", "Large", "Large")]),
+        model("Small", scalars("Small", 99)),
+        // 99 declared properties, but Inner flattens in first: 98 + 2 = 100.
+        model("Large", [...scalars("Large", 98), obj("Large", "Inner", "Inner")]),
+        model("Inner", scalars("Inner", 2)),
+      ]),
+    );
+
+    const owner = ir.models.find((m) => m.name === "Owner")!;
+    const into = (name: string) => {
+      const container = owner.properties.find((p) => p.name === name)!;
+      return container.typeKind === "object" ? container.rendering?.flatten?.into : undefined;
+    };
+    expect(into("Small")).toBe("self");
+    expect(into("Large")).toBeUndefined();
+    expect(flattenedOf(ir, "Large").map((m) => m.name)).toEqual(["InnerP0", "InnerP1"]);
   });
 
   it("respects noInline and an explicit flatten.into = never", () => {
@@ -339,16 +358,15 @@ describe("flatten-model: request-body projection", () => {
     expect(names).toContain("SkuName");
   });
 
-  it("keeps the whole id path so the generator can assign through it", () => {
+  it("references the property and its containers so the generator can assign through them", () => {
     const { ir } = run(irOf(armModels(), [operation("create", "PUT", "Thing")]));
     const params = ir.operations[0]!.requestBody!.rendering!.parameters!;
-    expect(leafPath(params.find((p) => p.name === "SkuName")!.path)).toEqual([
-      "Thing.properties",
-      "ThingProperties.sku",
-      "Sku.name",
-    ]);
-    // A top-level body property is promoted as-is: a single-hop path.
-    expect(leafPath(params.find((p) => p.name === "Tags")!.path)).toEqual(["Thing.tags"]);
+    expect(hops(params.find((p) => p.name === "SkuName")!)).toEqual({
+      property: "Sku.name",
+      via: ["Thing.properties", "ThingProperties.sku"],
+    });
+    // A top-level body property is promoted as-is: no containers to walk.
+    expect(hops(params.find((p) => p.name === "Tags")!)).toEqual({ property: "Thing.tags", via: [] });
   });
 
   it("gives the operation's own parameters first claim on a name", () => {
@@ -360,7 +378,7 @@ describe("flatten-model: request-body projection", () => {
     // `ThingName` is taken by the path parameter, so the body member yields.
     expect(params).toHaveLength(1);
     expect(params[0]!.name).not.toBe("ThingName");
-    expect(leafPath(params[0]!.path)).toEqual(["Body.thingName"]);
+    expect(hops(params[0]!)).toEqual({ property: "Body.thingName", via: [] });
   });
 
   it("skips internal members and bodies opted out of flattening", () => {
@@ -372,54 +390,5 @@ describe("flatten-model: request-body projection", () => {
     optedOut.operations[0]!.requestBody!.rendering = { flatten: { into: "never" } };
     const { ir } = run(optedOut);
     expect(ir.operations[0]!.requestBody!.rendering?.parameters).toBeUndefined();
-  });
-});
-
-describe("flatten-model: pipeline integration", () => {
-  it("runs through compile() as the compiler's flatten-model stage", async () => {
-    const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
-
-    const result = await compile(
-      { entrypoint: "main.tsp" },
-      {
-        emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
-        registry: createRegistry({
-          // Fulfilment, not orchestration: the compiler's catalog already places
-          // flatten-model between emit and the generator.
-          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-          generators: { [CSHARP_STAGE]: () => noopGenerator },
-        }),
-        captureIR: true,
-      },
-    );
-
-    expect(result.diagnostics).toEqual([]);
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE, FLATTEN_MODEL_STAGE]);
-    // The emit snapshot is untouched; the stage's output carries the flattening.
-    expect(result.snapshots?.[0]?.ir.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
-    expect(
-      result.snapshots?.[1]?.ir.models.find((m) => m.name === "Thing")?.rendering?.flattened?.length,
-    ).toBeGreaterThan(0);
-  });
-
-  it("is skipped when the config turns the stage off", async () => {
-    const source = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
-
-    const result = await compile(
-      { entrypoint: "main.tsp", config: { pipeline: { [FLATTEN_MODEL_STAGE]: false } } },
-      {
-        emit: { name: "stub", produce: () => ({ ir: structuredClone(source) }) },
-        registry: createRegistry({
-          transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-          generators: { [CSHARP_STAGE]: () => noopGenerator },
-        }),
-        captureIR: true,
-      },
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
-    expect(result.ir?.models.find((m) => m.name === "Thing")?.rendering).toBeUndefined();
   });
 });

@@ -14,8 +14,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// filter shortcuts (<c>DisplayName</c>, <c>Mail</c>, <c>DisplayNamePrefix</c>,
     /// <c>UserPrincipalName</c>) and <c>AppendSelected</c> live in
     /// <c>Customization/ListUserProcessor_Orchestrator</c>. Returns an OData envelope; this
-    /// processor writes its <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is not
-    /// followed.
+    /// processor writes its <c>value</c> array and follows <c>@odata.nextLink</c> to return every page.
     /// </summary>
     public class ListUserProcessor : GraphProcessorBase<object, UserList>
     {

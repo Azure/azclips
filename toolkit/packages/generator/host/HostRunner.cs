@@ -114,7 +114,7 @@ public static class HostRunner
 internal sealed record HostRequest
 {
     [JsonPropertyName("ir")]
-    public IRDocument Ir { get; init; } = new();
+    public TransformedIR Ir { get; init; } = new();
 
     [JsonPropertyName("options")]
     public HostOptions Options { get; init; } = new();

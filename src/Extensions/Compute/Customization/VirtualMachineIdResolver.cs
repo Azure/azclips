@@ -3,22 +3,32 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
+    /// <summary>
+    /// Parses ARM resource ids shaped
+    /// <c>/subscriptions/{s}/resourceGroups/{g}/providers/{provider}/{type}/{name}</c>. Shared by
+    /// --ids / -Id addressing and by the network lookups behind --show-details, so all of them
+    /// validate identically and fail with the same wording.
+    /// </summary>
     internal static class VirtualMachineIdResolver
     {
         internal static (string SubscriptionId, string ResourceGroupName, string Name) ParseVirtualMachineResourceId(string id)
+            => ParseResourceId(id, "Microsoft.Compute", "virtualMachines", "Virtual machine", "vmName");
+
+        internal static (string SubscriptionId, string ResourceGroupName, string Name) ParseResourceId(
+            string id, string provider, string resourceType, string displayName, string nameToken)
         {
             if (string.IsNullOrWhiteSpace(id))
-                throw new InvalidOperationException("Virtual machine resource id cannot be empty.");
+                throw new InvalidOperationException($"{displayName} resource id cannot be empty.");
 
             string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length != 8
                 || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
                 || !segments[2].Equals("resourceGroups", StringComparison.OrdinalIgnoreCase)
                 || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
-                || !segments[5].Equals("Microsoft.Compute", StringComparison.OrdinalIgnoreCase)
-                || !segments[6].Equals("virtualMachines", StringComparison.OrdinalIgnoreCase))
+                || !segments[5].Equals(provider, StringComparison.OrdinalIgnoreCase)
+                || !segments[6].Equals(resourceType, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Invalid virtual machine resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Compute/virtualMachines/{{vmName}}.");
+                throw new InvalidOperationException($"Invalid {displayName.ToLowerInvariant()} resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/{provider}/{resourceType}/{{{nameToken}}}.");
             }
 
             return (segments[1], segments[3], segments[7]);

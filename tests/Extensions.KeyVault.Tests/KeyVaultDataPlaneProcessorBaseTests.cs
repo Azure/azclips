@@ -1,4 +1,6 @@
 using System.Net;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
@@ -49,16 +51,18 @@ public class KeyVaultDataPlaneProcessorBaseTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MissingProfileOrVaultRejectsExecutionBeforeNetworkOrOutput(bool hasProfile)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task MissingProfileOrVaultRejectsExecutionBeforeNetworkOrOutput(bool hasProfile, bool skipBaseHook)
     {
         var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
         var publisher = CreatePublisher();
         var profile = hasProfile ? new Profile { TenantId = "fixture-tenant" } : null;
         var authHandler = new AuthHandler { Profile = profile };
         var output = new List<object>();
-        var processor = new TestProcessor();
+    var processor = new TestProcessor { SkipBaseHook = skipBaseHook };
         processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, authHandler,
             new OutputHandler { WriteOutput = (value, _) => { output.Add(value); return Task.CompletedTask; } }, profile));
 
@@ -71,8 +75,45 @@ public class KeyVaultDataPlaneProcessorBaseTests
         Assert.Empty(output);
         Assert.False(authHandler.ApplyOverride);
         Assert.Null(authHandler.AcquireTokenAsyncOverride);
+        Assert.False(processor.BeforeProcessCalled);
+        Assert.False(processor.SendCoreCalled);
+        Assert.False(processor.RequestCreated);
         publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Never);
         publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingProfileRejectsDirectAndChildSendsBeforeCustomization(bool useChild)
+    {
+        var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
+        var publisher = CreatePublisher();
+        var processor = new TestProcessor { SkipBaseHook = true };
+        processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, new AuthHandler(),
+            new OutputHandler { WriteOutput = (_, _) => throw new InvalidOperationException("Unexpected output.") }));
+        var target = useChild ? processor.CreateChild() : processor;
+        var send = typeof(KeyVaultDataPlaneProcessorBase).GetMethod("SendAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Assert.False(send.IsVirtual);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            try
+            {
+                using var response = await (Task<HttpResponseMessage>)send.Invoke(target, null)!;
+            }
+            catch (TargetInvocationException error) when (error.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(error.InnerException).Throw();
+            }
+        });
+
+        pipeline.VerifyNoOtherCalls();
+        Assert.False(target.BeforeProcessCalled);
+        Assert.False(target.SendCoreCalled);
+        Assert.False(target.RequestCreated);
+        publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Never);
+        publisher.Verify(value => value.Publish(Events.TracingHttpResponseMessage, It.IsAny<HttpResponseMessage>()), Times.Never);
     }
 
     [Fact]
@@ -81,29 +122,31 @@ public class KeyVaultDataPlaneProcessorBaseTests
         const string sensitiveValue = "fixture-private-value";
         var publisher = CreatePublisher();
         var output = new List<object>();
-        var processor = CreateWithTestPipeline(
-            "{\"value\":\"" + sensitiveValue + "\",\"broken\":}", publisher.Object, output);
+        var processor = CreateForResponseProcessing(publisher.Object, output);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"value\":\"" + sensitiveValue + "\",\"broken\":}")
+        };
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessResponseForTestAsync(response));
 
         Assert.DoesNotContain(sensitiveValue, exception.ToString());
         Assert.Null(exception.InnerException);
         Assert.Empty(output);
-        publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Once);
         publisher.Verify(value => value.Publish(Events.ResponseInvalidJson, "Response has invalid JSON."), Times.Once);
-        publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Once);
     }
 
     [Theory]
     [InlineData("", false)]
     [InlineData("{\"value\":\"fixture\"}", true)]
-    public async Task LifecycleWritesOnlyNonEmptyResponses(string body, bool expectsOutput)
+    public async Task ResponseProcessingWritesOnlyNonEmptyResponses(string body, bool expectsOutput)
     {
         var publisher = CreatePublisher();
         var output = new List<object>();
-        var processor = CreateWithTestPipeline(body, publisher.Object, output);
+        var processor = CreateForResponseProcessing(publisher.Object, output);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
 
-        await processor.ProcessAsync();
+        await processor.ProcessResponseForTestAsync(response);
 
         if (expectsOutput)
         {
@@ -113,8 +156,8 @@ public class KeyVaultDataPlaneProcessorBaseTests
         {
             Assert.Empty(output);
         }
-        publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Once);
-        publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Once);
+        publisher.Verify(value => value.Publish(Events.ResponseEmptyBody, "Response has an empty body."),
+            expectsOutput ? Times.Never() : Times.Once());
     }
 
     private static Mock<IEventPublisher> CreatePublisher()
@@ -124,12 +167,10 @@ public class KeyVaultDataPlaneProcessorBaseTests
         return publisher;
     }
 
-    private static TestProcessor CreateWithTestPipeline(string body, IEventPublisher publisher, List<object> output)
+    private static TestProcessor CreateForResponseProcessing(IEventPublisher publisher, List<object> output)
     {
         var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
-        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher))
-            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
-        var processor = new TestProcessor { UseTestPipeline = true };
+        var processor = new TestProcessor();
         processor.Init(new ProcessorContext(pipeline.Object, publisher, new AuthHandler(),
             new OutputHandler { WriteOutput = (value, _) => { output.Add(value); return Task.CompletedTask; } }));
         return processor;
@@ -142,13 +183,31 @@ public class KeyVaultDataPlaneProcessorBaseTests
 
     public sealed class TestProcessor : KeyVaultDataPlaneProcessorBase<object, TestResponse>
     {
-        public bool UseTestPipeline { get; set; }
+        public bool SkipBaseHook { get; set; }
+        public bool BeforeProcessCalled { get; private set; }
+        public bool SendCoreCalled { get; private set; }
+        public bool RequestCreated { get; private set; }
         public Profile? CapturedProfile => ResolvedProfile;
         public IAuthHandler CapturedAuthHandler => AuthHandler;
         protected override HttpMethod Method => HttpMethod.Get;
         protected override string CreateRequestUri() => "https://fixture.invalid/";
-        protected override Task BeforeProcessAsync() => UseTestPipeline ? Task.CompletedTask : base.BeforeProcessAsync();
+        protected override Task BeforeProcessAsync()
+        {
+            BeforeProcessCalled = true;
+            return SkipBaseHook ? Task.CompletedTask : base.BeforeProcessAsync();
+        }
+        protected override Task<HttpResponseMessage> SendCoreAsync()
+        {
+            SendCoreCalled = true;
+            return base.SendCoreAsync();
+        }
+        protected override Task<HttpRequestMessage> CreateRequestMessage()
+        {
+            RequestCreated = true;
+            return base.CreateRequestMessage();
+        }
         public TestProcessor CreateChild() => CreateExtendedProcessor<TestProcessor>();
         public Task EmitAsync(TestResponse response) => WriteOutput(response);
+        public Task ProcessResponseForTestAsync(HttpResponseMessage response) => ProcessResponseAsync(response);
     }
 }
