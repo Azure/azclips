@@ -14,47 +14,18 @@ namespace Cli.Tests;
 public class CliLoggingPolicyTests
 {
     [Theory]
-    [InlineData("error", 0)]
-    [InlineData("warn", 1)]
-    [InlineData("info", 2)]
-    [InlineData("debug", 3)]
-    [InlineData("DEBUG", 3)]
-    [InlineData(null, 1)]
-    [InlineData("", 1)]
-    [InlineData("invalid", 1)]
-    public void Parse_ShouldReturnExpectedLevel(string? configuredValue, int expected)
+    [InlineData("error", LogLevel.Error)]
+    [InlineData("warn", LogLevel.Warn)]
+    [InlineData("info", LogLevel.Info)]
+    [InlineData("debug", LogLevel.Debug)]
+    [InlineData(" DEBUG ", LogLevel.Debug)]
+    [InlineData("  ", LogLevel.Warn)]
+    [InlineData("invalid", LogLevel.Warn)]
+    public void ResolveEffectiveLevel_UsesSharedBaselineWithoutOverride(string configuredValue, LogLevel expected)
     {
-        var level = CliLoggingPolicy.Parse(configuredValue);
+        var options = new CoreOptions { Logging = new LoggingOptions { Level = configuredValue } };
 
-        Assert.Equal((CliLogLevel)expected, level);
-    }
-
-    [Fact]
-    public void ShouldEmit_ShouldApplyExpectedMatrix()
-    {
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Error, CliLogSeverity.Error));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Error, CliLogSeverity.Warn));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Error, CliLogSeverity.Info));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Error, CliLogSeverity.Debug));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Error, CliLogSeverity.Verbose));
-
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Warn, CliLogSeverity.Error));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Warn, CliLogSeverity.Warn));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Warn, CliLogSeverity.Info));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Warn, CliLogSeverity.Debug));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Warn, CliLogSeverity.Verbose));
-
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Info, CliLogSeverity.Error));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Info, CliLogSeverity.Warn));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Info, CliLogSeverity.Info));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Info, CliLogSeverity.Debug));
-        Assert.False(CliLoggingPolicy.ShouldEmit(CliLogLevel.Info, CliLogSeverity.Verbose));
-
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Debug, CliLogSeverity.Error));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Debug, CliLogSeverity.Warn));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Debug, CliLogSeverity.Info));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Debug, CliLogSeverity.Debug));
-        Assert.True(CliLoggingPolicy.ShouldEmit(CliLogLevel.Debug, CliLogSeverity.Verbose));
+        Assert.Equal(expected, CliLoggingPolicy.ResolveEffectiveLevel(options, debugOverride: false));
     }
 
     [Fact]
@@ -70,7 +41,7 @@ public class CliLoggingPolicyTests
         {
             var level = CliLoggingPolicy.ResolveEffectiveLevel(service, debugOverride: false);
 
-            Assert.Equal(CliLogLevel.Error, level);
+            Assert.Equal(LogLevel.Error, level);
         }
         finally
         {
@@ -87,7 +58,7 @@ public class CliLoggingPolicyTests
 
         var level = CliLoggingPolicy.ResolveEffectiveLevel(service, debugOverride: true);
 
-        Assert.Equal(CliLogLevel.Debug, level);
+        Assert.Equal(LogLevel.Debug, level);
     }
 
     private sealed class TempConfigurationFixture : IDisposable

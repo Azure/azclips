@@ -61,8 +61,10 @@ public class StreamRoutingIntegrationTests
         Assert.DoesNotContain("ERROR:", stderr);
     }
 
-    [Fact]
-    public async Task StartupProfileLoad_DoesNotLeakVerboseAtWarn_WhenProfileFileExists()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StartupProfileLoad_AppliesDebugOverride_WhenProfileFileExists(bool debugOverride)
     {
         var homeDirectory = Directory.CreateTempSubdirectory("azclips-startup-log-tests-").FullName;
         File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
@@ -81,12 +83,24 @@ public class StreamRoutingIntegrationTests
 
         try
         {
-            var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, "config", "get", "--key", "core.logging.level");
+            var args = new List<string> { "config", "get", "--key", "core.logging.level" };
+            if (debugOverride)
+            {
+                args.Insert(0, "--debug");
+            }
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, args.ToArray());
 
             Assert.Equal(0, exit);
             AssertConfigGetResult(stdout, "core.logging.level", "warn");
-            Assert.DoesNotContain("VERBOSE: [ProfileService] Loading profiles from", stderr);
-            Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
+            if (debugOverride)
+            {
+                Assert.Contains("VERBOSE: [ProfileService] Loading profiles from", stderr);
+            }
+            else
+            {
+                Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
+            }
+            Assert.DoesNotContain("VERBOSE:", stdout);
         }
         finally
         {
