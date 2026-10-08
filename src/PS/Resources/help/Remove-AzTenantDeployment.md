@@ -58,7 +58,7 @@ Remove-AzTenantDeployment -Name tenant-rollout -PassThru
 
 ### -AsJob
 
-{{ Fill AsJob Description }}
+Run the cmdlet in the background and return a job to track and control it.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter

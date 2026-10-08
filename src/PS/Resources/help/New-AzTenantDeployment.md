@@ -49,7 +49,7 @@ New-AzTenantDeployment -Location eastus -Name tenant-baseline -TemplateFile .\te
 
 ### -AsJob
 
-{{ Fill AsJob Description }}
+Run the cmdlet in the background and return a job to track and control it.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
