@@ -63,7 +63,7 @@ az role assignment list --all
 
 ### Include assignments granted through group membership
 
-When filtering by assignee, `--include-groups` also returns assignments the principal receives transitively through the groups it belongs to. It requires an assignee (`--assignee-object-id`).
+When filtering by assignee, `--include-groups` also returns assignments the principal receives transitively through the groups it belongs to. It requires an assignee (`--assignee-object-id` or `--assignee`).
 
 ```bash
 az role assignment list --assignee-object-id 11111111-2222-3333-4444-555555555555 --include-groups
