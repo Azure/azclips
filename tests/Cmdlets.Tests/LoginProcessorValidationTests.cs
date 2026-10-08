@@ -57,7 +57,8 @@ public class LoginProcessorValidationTests
             if (auth is not null) services.AddSingleton(auth);
             if (subs is not null) services.AddSingleton(subs);
         });
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
         return warns;
     }
 

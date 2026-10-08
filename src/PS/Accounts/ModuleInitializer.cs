@@ -13,6 +13,8 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
+    private const string FirstPartyApplicationId = "1950a258-227b-4e31-a9cf-717495945fc2";
+
     public void OnImport()
     {
         var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
@@ -29,7 +31,8 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.PowerShell);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId));
         }
 
         ImportTelemetry.EmitInBackground(timeline, importKind, DateTime.UtcNow);
