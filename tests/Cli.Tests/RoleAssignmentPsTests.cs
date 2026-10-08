@@ -30,8 +30,8 @@ public class RoleAssignmentPsTests
         Assert.Equal("ResourceGroupName", metadata.Parameters["ResourceGroupName"].Name);
         Assert.Equal("AssigneeObjectId", metadata.Parameters["ObjectId"].Name);
         Assert.Equal("RoleDefinitionId", metadata.Parameters["RoleDefinitionId"].Name);
-        Assert.Equal("IncludeInherited", metadata.Parameters["AtScope"].Name);
-        Assert.Equal(typeof(bool), metadata.Parameters["AtScope"].ParameterType);
+        Assert.Equal("IncludeInherited", metadata.Parameters["IncludeInherited"].Name);
+        Assert.Equal(typeof(bool), metadata.Parameters["IncludeInherited"].ParameterType);
         Assert.Equal("IncludeGroups", metadata.Parameters["ExpandPrincipalGroups"].Name);
         Assert.Equal(typeof(bool), metadata.Parameters["ExpandPrincipalGroups"].ParameterType);
         // The CLI's --all nested-scope flag is exposed on PowerShell as -IncludeNestedScopes (the CLI

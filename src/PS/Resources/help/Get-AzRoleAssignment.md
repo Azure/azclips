@@ -21,21 +21,21 @@ List Azure RBAC role assignments.
 
 ```
 Get-AzRoleAssignment [-SubscriptionId <string>] [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-AtScope] [-ExpandPrincipalGroups] [-IncludeNestedScopes] [-Profile <string>] [<CommonParameters>]
+ [-IncludeInherited] [-ExpandPrincipalGroups] [-IncludeNestedScopes] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### ResourceGroup
 
 ```
 Get-AzRoleAssignment -ResourceGroupName <string> [-SubscriptionId <string>] [-ObjectId <string>]
- [-RoleDefinitionId <string>] [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
+ [-RoleDefinitionId <string>] [-IncludeInherited] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Scope
 
 ```
 Get-AzRoleAssignment -Scope <string> [-ObjectId <string>] [-RoleDefinitionId <string>]
- [-AtScope] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
+ [-IncludeInherited] [-ExpandPrincipalGroups] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -47,11 +47,13 @@ The scope defaults to the active subscription and can be narrowed with `-Resourc
 with `-Scope` (the two are mutually exclusive). Use `-ObjectId` to filter to a single principal by its
 object (principal) ID. Filtering by sign-in name, service-principal name, or role name is not yet supported.
 
-By default only assignments made at the exact scope are listed. Use `-AtScope` to also include assignments
-inherited from ancestor scopes. Use `-ExpandPrincipalGroups` together with `-ObjectId` to also include
-assignments the principal receives transitively through the groups it belongs to. Use `-IncludeNestedScopes`
-to list assignments across the whole subscription including every nested scope (resource groups and
-resources); it cannot be combined with `-Scope` or `-ResourceGroupName`.
+By default only assignments made at the exact scope are listed. Use `-IncludeInherited` to also include
+assignments inherited from ancestor scopes. (This widening switch is deliberately named `-IncludeInherited`
+rather than classic's `-AtScope`, whose name signals the opposite — restricting to a scope — to avoid
+surprising scripts migrated from classic.) Use `-ExpandPrincipalGroups` together with `-ObjectId` to also
+include assignments the principal receives transitively through the groups it belongs to. Use
+`-IncludeNestedScopes` to list assignments across the whole subscription including every nested scope
+(resource groups and resources); it cannot be combined with `-Scope` or `-ResourceGroupName`.
 
 ## EXAMPLES
 
@@ -97,10 +99,10 @@ Get-AzRoleAssignment -RoleDefinitionId b24988ac-6180-42a0-ab88-20f7382dd24c
 
 ### Include assignments inherited from ancestor scopes
 
-By default only assignments made at the exact scope are listed. `-AtScope` also includes assignments inherited from parent scopes.
+By default only assignments made at the exact scope are listed. `-IncludeInherited` also includes assignments inherited from parent scopes.
 
 ```powershell
-Get-AzRoleAssignment -Scope /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg -AtScope
+Get-AzRoleAssignment -Scope /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg -IncludeInherited
 ```
 
 ### Include assignments granted through group membership
@@ -121,7 +123,7 @@ Get-AzRoleAssignment -IncludeNestedScopes
 
 ## PARAMETERS
 
-### -AtScope
+### -IncludeInherited
 
 Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.
 

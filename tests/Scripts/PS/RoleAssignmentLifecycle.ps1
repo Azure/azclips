@@ -126,7 +126,7 @@ try {
     Get-AzRoleAssignment -Scope $scope -RoleDefinitionId $readerRoleDefinitionId | Out-Host
 
     Section 'Get-AzRoleAssignment including inherited (ancestor-scope) assignments'
-    Get-AzRoleAssignment -Scope $scope -AtScope | Out-Host
+    Get-AzRoleAssignment -Scope $scope -IncludeInherited | Out-Host
 
     Section 'Get-AzRoleAssignment expanding the principal''s group memberships'
     Get-AzRoleAssignment -Scope $scope -ObjectId $principalId -ExpandPrincipalGroups | Out-Host

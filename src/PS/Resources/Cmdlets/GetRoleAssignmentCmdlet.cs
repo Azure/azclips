@@ -45,7 +45,7 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
     public string? RoleDefinitionId { get; set; }
 
     [Parameter(Mandatory = false, HelpMessage = "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.")]
-    public SwitchParameter AtScope { get; set; }
+    public SwitchParameter IncludeInherited { get; set; }
 
     [Parameter(Mandatory = false, HelpMessage = "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).")]
     public SwitchParameter ExpandPrincipalGroups { get; set; }
@@ -88,9 +88,9 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
         {
             parameters.Add("RoleDefinitionId", RoleDefinitionId!);
         }
-        if (AtScope.IsPresent)
+        if (IncludeInherited.IsPresent)
         {
-            parameters.Add("AtScope", true);
+            parameters.Add("IncludeInherited", true);
         }
         if (ExpandPrincipalGroups.IsPresent)
         {

@@ -21,7 +21,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <list type="bullet">
 /// <item><b>Default</b>: <c>atScope()</c> + trim to the exact scope — only assignments made at this
 /// scope.</item>
-/// <item><see cref="IncludeInherited"/> (<c>--include-inherited</c> / <c>-AtScope</c>): <c>atScope()</c>
+/// <item><see cref="IncludeInherited"/> (<c>--include-inherited</c> / <c>-IncludeInherited</c>): <c>atScope()</c>
 /// with no trim — this scope plus inherited (ancestor) assignments.</item>
 /// <item><see cref="All"/> (<c>--all</c> / <c>-IncludeNestedScopes</c>): no <c>atScope()</c> filter at
 /// the subscription — the subscription and every nested scope beneath it. Mutually exclusive with an
@@ -50,7 +50,7 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
 
     public string? RoleDefinitionId { get; set; }
 
-    /// <summary>Include assignments inherited from ancestor scopes (CLI <c>--include-inherited</c> / PS <c>-AtScope</c>).</summary>
+    /// <summary>Include assignments inherited from ancestor scopes (CLI <c>--include-inherited</c> / PS <c>-IncludeInherited</c>).</summary>
     public bool IncludeInherited { get; set; }
 
     /// <summary>List across the whole subscription including every nested scope (CLI <c>--all</c>).</summary>
