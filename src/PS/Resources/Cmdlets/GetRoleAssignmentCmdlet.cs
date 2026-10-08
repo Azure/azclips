@@ -44,6 +44,15 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "Scope", Mandatory = false)]
     public string? RoleDefinitionId { get; set; }
 
+    [Parameter(Mandatory = false, HelpMessage = "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.")]
+    public SwitchParameter IncludeInherited { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).")]
+    public SwitchParameter ExpandPrincipalGroups { get; set; }
+
+    [Parameter(ParameterSetName = "SubscriptionScope", Mandatory = false, HelpMessage = "List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.")]
+    public SwitchParameter IncludeNestedScopes { get; set; }
+
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
@@ -78,6 +87,18 @@ public class GetRoleAssignmentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RoleDefinitionId)))
         {
             parameters.Add("RoleDefinitionId", RoleDefinitionId!);
+        }
+        if (IncludeInherited.IsPresent)
+        {
+            parameters.Add("IncludeInherited", true);
+        }
+        if (ExpandPrincipalGroups.IsPresent)
+        {
+            parameters.Add("ExpandPrincipalGroups", true);
+        }
+        if (IncludeNestedScopes.IsPresent)
+        {
+            parameters.Add("IncludeNestedScopes", true);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

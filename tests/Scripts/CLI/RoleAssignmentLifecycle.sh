@@ -158,6 +158,15 @@ echo "=== [role assignment list] filtered by assignee object ID ==="
 echo "=== [role assignment list] filtered by role definition ID ==="
 "$AZ" role assignment list --scope "$SCOPE" --role "$READER_ROLE_DEFINITION_ID"
 
+echo "=== [role assignment list] including inherited (ancestor-scope) assignments ==="
+"$AZ" role assignment list --scope "$SCOPE" --include-inherited
+
+echo "=== [role assignment list] across the whole subscription (every nested scope) ==="
+"$AZ" role assignment list --all
+
+echo "=== [role assignment list] expanding the principal's group memberships ==="
+"$AZ" role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" --include-groups
+
 if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" == "1" ]]; then
   echo "AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place."
 else
