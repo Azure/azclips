@@ -762,6 +762,121 @@ public class RoleAssignmentCreateTests
         Assert.Empty(output.WrittenValues);
     }
 
+    [Fact]
+    public async Task Create_SuccessWithMalformedBody_PublishesInvalidJson_AndThrowsWrapped()
+    {
+        // A 2xx create whose body is not valid JSON must keep the base processor's diagnostics: publish
+        // ResponseInvalidJson and throw a wrapped InvalidOperationException, not leak a bare JsonException.
+        var output = new FakeOutputHandler();
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("this is not json"));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output, publisher);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        Assert.IsType<JsonException>(ex.InnerException);
+        Assert.Contains(Events.ResponseInvalidJson, publisher.PublishedIds);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Create_Conflict_LookupPermissionFailure_PublishesNoExtraFailureEvent()
+    {
+        // The best-effort lookup must not route its own failure (here a 403) through EnsureSuccessAsync:
+        // that would publish a second ResourceOperationFailed ahead of the one for the surfaced 409. With
+        // the raw lookup transport, exactly one ResourceOperationFailed is published (for the final 409).
+        var output = new FakeOutputHandler();
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+            request.Method == HttpMethod.Put
+                ? ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"exists"}}""")
+                : new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("""{"error":{"code":"AuthorizationFailed","message":"no read"}}""", Encoding.UTF8, "application/json"),
+                });
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output, publisher);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+        Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+        // PUT + exactly one lookup GET (the 403), and only the final 409 publishes a failure event.
+        Assert.Equal(2, pipeline.SendCount);
+        Assert.Single(publisher.PublishedIds.FindAll(id => id == Events.ResourceOperationFailed));
+    }
+
+    [Fact]
+    public async Task Create_Conflict_LookupCanceled_PropagatesCancellation()
+    {
+        // A cancellation raised during the lookup must surface as cancellation, not be swallowed by the
+        // best-effort fallback (which would otherwise rethrow the original 409).
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+            request.Method == HttpMethod.Put
+                ? ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"exists"}}""")
+                : throw new OperationCanceledException());
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => processor.ProcessAsync());
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Create_Conflict_GeneratedName_TracesEachLookupPage()
+    {
+        // Every lookup page (not just the first) must publish its HTTP response trace; HttpPipeline.SendAsync
+        // does not emit it on its own. A 2-page lookup therefore traces: the PUT + list page 1 + list page 2.
+        var output = new FakeOutputHandler();
+        var publisher = new FakeEventPublisher();
+        int listCall = 0;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                return ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"exists"}}""");
+            }
+
+            listCall++;
+            return listCall == 1
+                ? JsonResponse("""
+                    {
+                      "value": [
+                        { "name": "other", "properties": { "principalId": "99999999-9999-9999-9999-999999999999", "scope": "/subscriptions/x", "roleDefinitionId": "/x/roleDefinitions/00000000-0000-0000-0000-000000000000" } }
+                      ],
+                      "nextLink": "https://management.azure.com/rolepage2"
+                    }
+                    """)
+                : JsonResponse($$"""
+                    {
+                      "value": [
+                        {
+                          "name": "existing-on-page-2",
+                          "properties": {
+                            "principalId": "{{AssigneeObjectId}}",
+                            "scope": "/subscriptions/{{TestSubscriptionId}}",
+                            "roleDefinitionId": "/subscriptions/{{TestSubscriptionId}}/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}"
+                          }
+                        }
+                      ]
+                    }
+                    """);
+        });
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output, publisher);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(3, publisher.PublishedIds.FindAll(id => id == Events.TracingHttpResponseMessage).Count);
+    }
+
     private static HttpResponseMessage ConflictResponse(string body) =>
         new(HttpStatusCode.Conflict)
         {

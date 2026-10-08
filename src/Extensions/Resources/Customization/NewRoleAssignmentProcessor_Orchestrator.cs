@@ -100,12 +100,11 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
 
             if (response.IsSuccessStatusCode)
             {
-                await WriteCreatedAsync(rawBody);
+                await WriteCreatedAsync(response, rawBody);
                 return;
             }
 
-            // Expected idempotent conflict: the same principal/role/scope already exists under another
-            // name, and we generated the name, so return the existing assignment instead of failing.
+            // Expected idempotent conflict (generated name): return the pre-existing assignment, not an error.
             if (nameWasGenerated && IsRoleAssignmentExistsConflict(response.StatusCode, rawBody))
             {
                 RoleAssignment? existing = await FindExistingAssignmentAsync();
@@ -119,12 +118,10 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                     return;
                 }
 
-                // Could not resolve the existing assignment (e.g. a read permission gap or a race). Fall
-                // through to surface the original conflict rather than swallowing it silently.
+                // Could not resolve it (permission gap or race): fall through and surface the conflict.
             }
 
-            // Any other failure (or an unresolvable conflict) is surfaced the normal way: this publishes
-            // ResourceOperationFailed and throws.
+            // Any other failure (or an unresolvable conflict): surfaced normally (publishes the failure and throws).
             await response.EnsureSuccessAsync(Publisher);
         }
         finally
@@ -133,15 +130,33 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         }
     }
 
-    // Deserializes and writes the created assignment, mirroring the base success path.
-    private async Task WriteCreatedAsync(string? rawBody)
+    // Writes the created assignment with the same no-content / empty-body / invalid-JSON handling the base
+    // processor applies, so bypassing base.ProcessAsync doesn't leak a bare serializer exception.
+    private async Task WriteCreatedAsync(HttpResponseMessage response, string? rawBody)
     {
-        if (string.IsNullOrWhiteSpace(rawBody))
+        if (response.Content is null)
         {
+            await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
             return;
         }
 
-        RoleAssignment? created = JsonSerializer.Deserialize<RoleAssignment>(rawBody, JsonOptions);
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+            return;
+        }
+
+        RoleAssignment? created;
+        try
+        {
+            created = JsonSerializer.Deserialize<RoleAssignment>(rawBody, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+            throw new InvalidOperationException($"Failed to deserialize response body into {nameof(RoleAssignment)}. Raw body: {rawBody}", ex);
+        }
+
         if (created is not null)
         {
             await WriteOutput(created);
@@ -172,9 +187,10 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     }
 
     /// <summary>
-    /// Looks up the pre-existing assignment that caused the conflict: lists the principal's assignments at
-    /// the scope (following every <c>nextLink</c> page) and returns the one matching this grant's role and
-    /// scope. Best-effort — any failure returns null so the caller rethrows the original conflict.
+    /// Best-effort lookup of the assignment that caused the conflict: lists the principal's assignments at
+    /// the scope (following every <c>nextLink</c>) and returns the role/scope match. Drives its own transport
+    /// (not the atomic's <c>SendAsync</c>) so a lookup failure doesn't publish a <c>ResourceOperationFailed</c>
+    /// event ahead of the original conflict; cancellation still propagates, any other failure returns null.
     /// </summary>
     private async Task<RoleAssignment?> FindExistingAssignmentAsync()
     {
@@ -184,13 +200,17 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             p.Filter = $"principalId eq '{PrincipalId}'";
         });
 
-        HttpResponseMessage? response = null;
+        HttpRequestMessage request = await lister.BuildRequestAsync();
         try
         {
-            response = await lister.SendAsync();
             while (true)
             {
-                if (response.Content is null)
+                using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+                // Each page publishes its own trace; HttpPipeline.SendAsync does not emit it.
+                await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+
+                // Non-success returns null WITHOUT publishing a failure event, keeping the 409 the only error.
+                if (!response.IsSuccessStatusCode || response.Content is null)
                 {
                     return null;
                 }
@@ -201,7 +221,16 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                     return null;
                 }
 
-                RoleAssignmentListResult? page = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
+                RoleAssignmentListResult? page;
+                try
+                {
+                    page = JsonSerializer.Deserialize<RoleAssignmentListResult>(raw, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    return null;
+                }
+
                 if (page?.Value?.FirstOrDefault(MatchesExisting) is { } match)
                 {
                     return match;
@@ -213,24 +242,23 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 }
 
                 string next = page.NextLink;
-                response.Dispose();
-                response = null;
-                using HttpRequestMessage request = new(HttpMethod.Get, next);
-                response = await HttpPipeline.SendAsync(request, Publisher);
-                if (!response.IsSuccessStatusCode)
-                {
-                    return null;
-                }
+                request.Dispose();
+                request = new HttpRequestMessage(HttpMethod.Get, next);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation must surface, not be masked by the best-effort fallback below.
+            throw;
         }
         catch
         {
-            // Best-effort lookup: never let a failure here mask the original conflict.
+            // Best-effort: never let a lookup failure mask the original conflict.
             return null;
         }
         finally
         {
-            response?.Dispose();
+            request.Dispose();
         }
     }
 
