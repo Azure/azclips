@@ -65,6 +65,7 @@ public class SensitiveHttpDiagnosticsTests
     [Fact]
     public async Task BothTransportsUseSharedHostConfiguration()
     {
+        Assert.NotNull(typeof(Core.Runtime.SensitiveHttpClient).GetConstructor([typeof(HttpMessageHandler)]));
         var handlers = new List<HttpClientHandler>();
         using var interceptor = new CapturingHandler();
         using var key = RSA.Create(2048);
