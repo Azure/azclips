@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791425878835,
+  "lastUpdate": 1791425883181,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -8462,6 +8462,42 @@ window.BENCHMARK_DATA = {
             "value": 396648405.01,
             "unit": "ns",
             "range": "± 8345153.3583075665"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b8a09ecf31b77e7c86698c513fff78e3068ac7c7",
+          "message": "{CLI} Centralize logging policy shared with PowerShell and fallback diagnostics (#1075)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nCLI startup and command diagnostics (including `--debug`), PowerShell\nconfiguration-aware command streams (`-Verbose` / `-Debug`), and\nno-session startup/background logging.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes https://github.com/Azure/CLIPS/issues/962 (Centralize shared\nlogging level and severity policy).\n\nParent: [Azure/CLIPS#542 - AzClips\nLogging/Config](https://github.com/Azure/CLIPS/issues/542). Follow-up to\n[Azure/azclips#1071](https://github.com/Azure/azclips/pull/1071).\n\nThe work items are in the separate Azure/CLIPS tracking repository, not\nAzure/azclips.\n\nConsolidates three duplicated logging-level parsers and severity\nmatrices into a pure `LoggingPolicy` in Core.Abstractions, with shared\n`LogLevel` and `LogSeverity` types. CLI stream construction, the linked\nPowerShell cmdlet output-stream factory, and the existing\nScopedLoggingService fallback now consume the same baseline policy.\n\nThis is an internal refactor intended to preserve existing public\nbehavior:\n\n- Supported levels remain `error`, `warn`, `info`, and `debug`;\nmissing/unrecognized runtime values default to `warn`\n- Verbose remains a message severity enabled at the debug threshold, not\na new configuration level\n- CLI `--debug` and PowerShell stream-specific overrides remain host\nconcerns\n- CLI/cmdlet levels remain invocation snapshots; fallback configuration\nstays live for non-error messages\n- Fallback errors bypass configuration; expected fallback\nconfiguration-read failures retain the warning default\n- Active-scope routing, output streams, logger constructors, and\nsuppressed fallback activity-event behavior remain unchanged\n\nNo new logging service, configuration caching, DI registration, or\nlogging framework dependency is introduced. Configuration documentation\nand regression coverage were updated.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- `dotnet build azclips.slnx --no-restore --configuration Debug` —\npassed, zero warnings and errors\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore\n--configuration Debug` — passed, 1,148 tests; 8 skipped\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj --no-restore\n--configuration Debug` — passed, 150 tests\n- `.\\build\\Set-ModuleConfiguration.ps1 -Configuration Debug` — passed;\nused staged absolute-path manifests after the source-manifest import\nencountered a path-resolution error in the validation host\n- Real PowerShell 7.6.6 subprocess checks with isolated configuration —\npassed:\n  - `warn` suppresses verbose/debug without switches\n  - `-Verbose` enables verbose only; `-Debug` enables debug only\n- Explicit false switches preserve suppression at `warn` and globally\nenabled output at `debug`\n- A command changing the level retains its initial snapshot; the next\ncommand observes the new level\n- `git diff --check` — passed\n\nShared tests cover the full severity matrix and parser edge cases.\nWiring coverage includes CLI environment/flag precedence, early profile\nloading at warn and under --debug, live fallback level changes,\nconfiguration failures, scope bypass/restoration, constructor/DI\ncompatibility, and allowed/suppressed fallback activity events.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n{CLI} Centralize logging thresholds shared with PowerShell and\nno-session diagnostics without changing host behavior\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-08T01:46:23Z",
+          "tree_id": "e4d9f09f19a8060814f377b6259f38de4a21b24e",
+          "url": "https://github.com/Azure/azclips/commit/b8a09ecf31b77e7c86698c513fff78e3068ac7c7"
+        },
+        "date": 1791425883003,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 401885020.14,
+            "unit": "ns",
+            "range": "± 7190162.1588161355"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 395320392.69,
+            "unit": "ns",
+            "range": "± 6262178.7555975905"
           }
         ]
       }
