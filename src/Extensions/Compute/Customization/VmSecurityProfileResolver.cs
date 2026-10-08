@@ -3,6 +3,8 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
+using Core.Abstractions;
+
 internal static class VmSecurityProfileResolver
 {
     internal static ResolvedVmSecurityProfile Resolve(
@@ -63,12 +65,12 @@ internal static class VmSecurityProfileResolver
         {
             if (hasSecurityEncryptionType)
             {
-                throw new ArgumentException("OS disk security encryption type can only be specified when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
+                throw AzclipsErrorException.UsageError("OS disk security encryption type can only be specified when security type is ConfidentialVM.");
             }
 
             if (hasDiskEncryptionSet)
             {
-                throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when security type is ConfidentialVM and OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
+                throw AzclipsErrorException.UsageError("OS disk secure VM disk encryption set can only be specified when security type is ConfidentialVM and OS disk security encryption type is DiskWithVMGuestState.");
             }
 
             return;
@@ -76,18 +78,18 @@ internal static class VmSecurityProfileResolver
 
         if (!hasSecurityEncryptionType)
         {
-            throw new ArgumentException("OS disk security encryption type is required when security type is ConfidentialVM.", nameof(osDiskSecurityEncryptionType));
+            throw AzclipsErrorException.UsageError("OS disk security encryption type is required when security type is ConfidentialVM.");
         }
 
         if (!IsOsDiskSecurityEncryptionType(osDiskSecurityEncryptionType!))
         {
-            throw new ArgumentException("OS disk security encryption type must be one of: VMGuestStateOnly, DiskWithVMGuestState, NonPersistedTPM.", nameof(osDiskSecurityEncryptionType));
+            throw AzclipsErrorException.UsageError("OS disk security encryption type must be one of: VMGuestStateOnly, DiskWithVMGuestState, NonPersistedTPM.");
         }
 
         if (hasDiskEncryptionSet
             && !string.Equals(osDiskSecurityEncryptionType, "DiskWithVMGuestState", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("OS disk secure VM disk encryption set can only be specified when OS disk security encryption type is DiskWithVMGuestState.", nameof(osDiskSecureVMDiskEncryptionSet));
+            throw AzclipsErrorException.UsageError("OS disk secure VM disk encryption set can only be specified when OS disk security encryption type is DiskWithVMGuestState.");
         }
     }
 
@@ -119,7 +121,7 @@ internal static class VmSecurityProfileResolver
             return (requestedSecurityType, true, true);
         }
 
-        throw new ArgumentException("Security type must be one of: TrustedLaunch, ConfidentialVM, Standard.", nameof(requestedSecurityType));
+        throw AzclipsErrorException.UsageError("Security type must be one of: TrustedLaunch, ConfidentialVM, Standard.");
     }
 
     private static bool IsTrustedLaunchOrConfidentialVm(string securityType)

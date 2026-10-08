@@ -3,6 +3,8 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
+using Core.Abstractions;
+
 /// <summary>
 /// Resolves a resource name or id to either an existing resource id, or a name for a new resource.
 /// </summary>
@@ -50,7 +52,7 @@ internal static class NewOrExistingResourceResolver
             var parsed = VirtualMachineIdResolver.ParseResourceId(
                 value, kind.Provider, kind.ResourceType, kind.DisplayName, kind.NameToken);
             string existingId = await findIdAsync(parsed.SubscriptionId, parsed.ResourceGroupName, parsed.Name)
-                ?? throw new InvalidOperationException($"{kind.DisplayName} '{value}' was not found.");
+                ?? throw AzclipsErrorException.UsageError($"{kind.DisplayName} '{value}' was not found.");
             return (existingId, null);
         }
 
