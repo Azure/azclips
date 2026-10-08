@@ -64,8 +64,7 @@ public static class AgentModeEntry
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
-            session?.SetTag(TelemetryTags.RecoverySessionStyle, agentOpts.SessionStyle);
-            session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
+            RecoveryTelemetry.RecordConfiguration(session, agentOpts);
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
@@ -122,23 +121,19 @@ public static class AgentModeEntry
             // idempotent — it Stops first), so this seams into the turn cleanly.
             spinner.Start("Analyzing error root cause using AI");
 
-            ChatAgent agent;
-            // Times Copilot SDK and stdio daemon startup.
-            using (AgentTracing.Source.StartActivity("Agent.Create"))
-            {
-                agent = await ChatAgent.CreateAsync(
-                    flavor: flavor,
-                    auth: auth,
-                    profileService: profileService,
-                    azExePath: az,
-                    approvalSink: approval,
-                    renderer: renderer,
-                    options: agentOpts,
-                    entrypoint: entrypoint,
-                    spinner: spinner,
-                    failedCommand: failedCommand,
-                    ct: cts.Token);
-            }
+            var agent = await ChatAgent.CreateAsync(
+                flavor: flavor,
+                auth: auth,
+                profileService: profileService,
+                azExePath: az,
+                approvalSink: approval,
+                renderer: renderer,
+                options: agentOpts,
+                entrypoint: entrypoint,
+                spinner: spinner,
+                failedCommand: failedCommand,
+                ct: cts.Token);
+            agent.RecordModel(session);
             await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
@@ -153,7 +148,14 @@ public static class AgentModeEntry
 
             var interactive = agentOpts.IsInteractive;
 
-            await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            try
+            {
+                await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            }
+            finally
+            {
+                agent.RecordModel(session);
+            }
             session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
