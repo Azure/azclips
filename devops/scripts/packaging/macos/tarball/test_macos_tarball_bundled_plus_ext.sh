@@ -158,7 +158,7 @@ ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_profile_name"
 ln -s "$CLI_TAR_PATH" "$SIM_ROOT/invalid-archives/$wrong_rid_name"
 printf 'not a tar archive\n' >"$SIM_ROOT/invalid-archives/$archive_name"
 
-echo "[1/15] Reject invalid local archives"
+echo "[1/17] Reject invalid local archives"
 expect_install_failure "empty archive path" "--archive requires a path" \
   --package "$PACKAGE_PROFILE" --archive ""
 expect_install_failure "missing archive" "Archive was not found" \
@@ -231,7 +231,29 @@ echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
 
 echo ""
-echo "[2/15] CLI version (bundled install)"
+echo "[2/17] Verify bundled extension sidecars are present"
+sidecar_count=0
+for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
+  ext_name="$(basename "$ext_dir")"
+  sidecar="$ext_dir$ext_name.commands.json"
+  if [[ ! -f "$sidecar" ]]; then
+    echo "  FAIL: sidecar missing for bundled extension $ext_name ($sidecar)"
+    exit 1
+  fi
+  if ! grep -Fq '"schemaVersion"' "$sidecar" || ! grep -Fq "\"packageId\": \"$ext_name\"" "$sidecar"; then
+    echo "  FAIL: sidecar for $ext_name is malformed: $sidecar"
+    exit 1
+  fi
+  sidecar_count=$((sidecar_count + 1))
+done
+if [[ "$sidecar_count" -eq 0 ]]; then
+  echo "  FAIL: no bundled extensions found under $SIM_ROOT/install/Extensions"
+  exit 1
+fi
+echo "  PASS: $sidecar_count bundled extension sidecar(s) present and well-formed"
+
+echo ""
+echo "[3/17] CLI version (bundled install)"
 if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
   echo "FAIL: az --version exited with a non-zero status"
   printf '%s\n' "$version_output" | sed -n '1,20p'
@@ -244,7 +266,7 @@ fi
 printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
-echo "[3/15] CLI help (bundled install)"
+echo "[4/17] CLI help (bundled install)"
 if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
   echo "FAIL: az --help exited with a non-zero status"
   printf '%s\n' "$help_output" | sed -n '1,20p'
@@ -257,7 +279,7 @@ fi
 printf '%s\n' "$help_output" | sed -n '1,20p'
 
 echo ""
-echo "[4/15] Verify bundled Copilot CLI daemon starts"
+echo "[5/17] Verify bundled Copilot CLI daemon starts"
 copilot_stdout="$SIM_ROOT/copilot.stdout"
 copilot_stderr="$SIM_ROOT/copilot.stderr"
 copilot_timeout="$SIM_ROOT/copilot.timeout"
@@ -291,7 +313,7 @@ fi
 echo "  PASS: Bundled Copilot CLI daemon started and stopped cleanly"
 
 echo ""
-echo "[5/15] Verify built-in extension manager is available"
+echo "[6/17] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
@@ -305,7 +327,7 @@ else
 fi
 
 echo ""
-echo "[6/15] Verify bundled Config commands work"
+echo "[7/17] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level --query "value" || true)
 echo "  $set_output"
@@ -318,7 +340,7 @@ else
 fi
 
 echo ""
-echo "[7/15] Verify reinstall cleanly replaces the install root"
+echo "[8/17] Verify reinstall cleanly replaces the install root"
 touch "$SIM_ROOT/install/reinstall-sentinel"
 HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
   --package "$PACKAGE_PROFILE" \
@@ -330,7 +352,7 @@ fi
 echo "  PASS: Reinstall removed stale files and restored the CLI"
 
 echo ""
-echo "[8/15] Install Resources extension via 'extension add'"
+echo "[9/17] Install Resources extension via 'extension add'"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
@@ -346,7 +368,20 @@ fi
 echo "  PASS: Resources extension installed"
 
 echo ""
-echo "[9/15] Verify Resources appears in extension list JSON"
+echo "[10/17] Verify Resources sidecar installed via 'extension add'"
+res_sidecar=$(find "$SIM_ROOT/home/.azclips/extensions/Microsoft.Azure.Azclips.Extensions.Resources" -maxdepth 2 -name "Microsoft.Azure.Azclips.Extensions.Resources.commands.json" -print -quit 2>/dev/null || true)
+if [[ -z "$res_sidecar" ]]; then
+  echo "  FAIL: Resources sidecar not found after extension add (expected under \$AZCLIPS_HOME/extensions/Microsoft.Azure.Azclips.Extensions.Resources/<version>/)"
+  exit 1
+fi
+if ! grep -Fq '"schemaVersion"' "$res_sidecar"; then
+  echo "  FAIL: installed Resources sidecar is malformed: $res_sidecar"
+  exit 1
+fi
+echo "  PASS: Resources sidecar present after nupkg install: $res_sidecar"
+
+echo ""
+echo "[11/17] Verify Resources appears in extension list JSON"
 if ! list_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" extension list --output json 2>&1); then
   echo "  FAIL: extension list failed"
   printf '%s\n' "$list_output" | sed -n '1,20p'
@@ -360,7 +395,7 @@ fi
 echo "  PASS: extension list reports Resources and its selected version"
 
 echo ""
-echo "[10/15] Verify Resources appears in extension show JSON"
+echo "[12/17] Verify Resources appears in extension show JSON"
 if ! show_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" extension show --name Resources --output json 2>&1); then
   echo "  FAIL: extension show failed"
   printf '%s\n' "$show_output" | sed -n '1,20p'
@@ -374,7 +409,7 @@ fi
 echo "  PASS: extension show reports Resources and its location"
 
 echo ""
-echo "[11/15] Verify Resources command resolves"
+echo "[13/17] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then
@@ -389,7 +424,7 @@ else
 fi
 
 echo ""
-echo "[12/15] Remove Resources extension"
+echo "[14/17] Remove Resources extension"
 if ! remove_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" extension remove --name Resources 2>&1); then
   echo "  FAIL: extension remove failed"
   printf '%s\n' "$remove_output" | sed -n '1,20p'
@@ -399,7 +434,7 @@ printf '%s\n' "$remove_output" | sed -n '1,20p'
 echo "  PASS: Resources extension remove completed"
 
 echo ""
-echo "[13/15] Verify Resources files and registry entry are gone"
+echo "[15/17] Verify Resources files and registry entry are gone"
 if find "$SIM_ROOT/home/.azclips/extensions" -mindepth 1 -iname '*resources*' -print -quit 2>/dev/null | grep -q .; then
   echo "  FAIL: Resources files remain under the installed extensions root"
   exit 1
@@ -412,7 +447,7 @@ fi
 echo "  PASS: Resources files and registry entry are gone"
 
 echo ""
-echo "[14/15] Verify Resources command no longer resolves"
+echo "[16/17] Verify Resources command no longer resolves"
 removed_command_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" group list 2>&1 || true)
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
@@ -428,7 +463,7 @@ else
 fi
 
 echo ""
-echo "[15/15] Uninstall isolated azcli and preserve classic az"
+echo "[17/17] Uninstall isolated azcli and preserve classic az"
 HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-uninstall.sh"
 if [[ -e "$SIM_ROOT/install" ]]; then
   echo "  FAIL: azcli install root remains after uninstall"
