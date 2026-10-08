@@ -184,12 +184,16 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         }
 
         RoleDefinitionId = RoleDefinitionId.Trim();
-        if (!Guid.TryParse(RoleDefinitionId, out _))
+        if (!Guid.TryParse(RoleDefinitionId, out Guid parsed))
         {
             throw AzclipsErrorException.UsageError(
                 $"The role '{RoleDefinitionId}' is not a role definition ID (GUID). Role name resolution is not yet supported; " +
                 "specify the role definition ID (GUID).");
         }
+
+        // Normalize to the canonical GUID form so the client-side role match (which compares against
+        // ARM's canonical roleDefinitionId) is not defeated by a braced or 32-char input.
+        RoleDefinitionId = parsed.ToString();
     }
 
     /// <summary>
@@ -210,26 +214,26 @@ public class ListRoleAssignmentProcessor_Orchestrator : ListRoleAssignmentProces
         if (hasObjectId)
         {
             string objectId = AssigneeObjectId!.Trim();
-            if (!Guid.TryParse(objectId, out _))
+            if (!Guid.TryParse(objectId, out Guid parsed))
             {
                 throw AzclipsErrorException.UsageError(
                     $"The assignee object ID '{objectId}' is not a valid object ID (GUID).");
             }
 
-            return objectId;
+            return parsed.ToString();
         }
 
         if (hasAssignee)
         {
             string value = Assignee!.Trim();
-            if (!Guid.TryParse(value, out _))
+            if (!Guid.TryParse(value, out Guid parsed))
             {
                 throw AzclipsErrorException.UsageError(
                     $"The assignee '{value}' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; " +
                     "specify the principal's object ID (GUID).");
             }
 
-            return value;
+            return parsed.ToString();
         }
 
         return null;

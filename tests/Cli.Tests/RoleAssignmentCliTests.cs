@@ -650,6 +650,68 @@ public class RoleAssignmentCliTests
         Assert.True(processor.IncludeGroups);
     }
 
+    [Fact]
+    public async Task List_AssigneeObjectIdBracedGuid_NormalizedForClientTrim()
+    {
+        // Guid.TryParse accepts a braced GUID, but ARM's principalId is the canonical hyphenated form.
+        // The orchestrator must normalize before the client-side principal trim, or the result is empty.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse($$"""
+            {
+              "value": [
+                { "name": "match", "properties": { "scope": "/subscriptions/{{TestSubscriptionId}}", "principalId": "{{AssigneeObjectId}}" } }
+              ]
+            }
+            """));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.AssigneeObjectId = "{" + AssigneeObjectId + "}";
+
+        await processor.ProcessAsync();
+
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal("match", Assert.Single(assignments).Name);
+    }
+
+    [Fact]
+    public async Task List_AllWithBracedAssignee_NormalizesServerFilter()
+    {
+        // The server-side principalId filter must also receive the canonical GUID, not the braced input.
+        Uri? sentUri = await CaptureUri(p =>
+        {
+            p.SubscriptionId = TestSubscriptionId;
+            p.All = true;
+            p.AssigneeObjectId = "{" + AssigneeObjectId + "}";
+        });
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&$filter=principalId%20eq%20%27{AssigneeObjectId}%27",
+            sentUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task List_RoleDefinitionIdBracedGuid_NormalizedForClientFilter()
+    {
+        // Same normalization concern as the assignee: a braced role GUID must still match ARM's
+        // canonical roleDefinitionId tail in the client-side role filter.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse($$"""
+            {
+              "value": [
+                { "name": "match", "properties": { "scope": "/subscriptions/{{TestSubscriptionId}}", "roleDefinitionId": "/subscriptions/s/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}" } }
+              ]
+            }
+            """));
+        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.RoleDefinitionId = "{" + RoleDefinitionId + "}";
+
+        await processor.ProcessAsync();
+
+        var assignments = Assert.IsType<List<RoleAssignment>>(Assert.Single(output.WrittenValues));
+        Assert.Equal("match", Assert.Single(assignments).Name);
+    }
+
     private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;        var output = new FakeOutputHandler();
