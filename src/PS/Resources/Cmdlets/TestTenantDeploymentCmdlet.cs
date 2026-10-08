@@ -129,4 +129,38 @@ internal static class TenantDeploymentCmdletHelpers
         using ISession session = engine.OpenExecutionSession(invocation, streams, token);
         session.Run();
     }
+
+    // The job owns its own cancellation token (only cancelled via Stop-Job), independent from the
+    // invoking cmdlet's lifecycle, since the cmdlet call returns immediately after this.
+    public static EngineCommandJob RunAsJob(
+        PSCmdlet cmdlet,
+        IEngine engine,
+        string command,
+        Dictionary<string, object> parameters,
+        Action<EngineCommandJob>? onSuccess = null)
+    {
+        var job = new EngineCommandJob(command, cmdlet.MyInvocation.MyCommand.Name);
+        cmdlet.JobRepository.Add(job);
+
+        ITelemetryService telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        CommandInvocation invocation = new(
+            "Resources",
+            command,
+            parameters,
+            false,
+            cmdlet.MyInvocation.MyCommand.ModuleName,
+            cmdlet.MyInvocation.MyCommand.Version?.ToString());
+
+        job.Start(async () =>
+        {
+            using var activity = telemetry.StartRootActivity();
+            telemetry.TagInvocation(invocation);
+            OutputStreams streams = JobOutputStreamsFactory.Create(job, $"{command}Error");
+            using ISession session = engine.OpenExecutionSession(invocation, streams, job.CancellationToken);
+            await session.RunAsync();
+            onSuccess?.Invoke(job);
+        });
+
+        return job;
+    }
 }

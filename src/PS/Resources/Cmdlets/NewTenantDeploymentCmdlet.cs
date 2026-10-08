@@ -72,6 +72,9 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
     public SwitchParameter ProceedIfNoChange { get; set; }
 
     [Parameter(Mandatory = false)]
+    public SwitchParameter AsJob { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -142,6 +145,12 @@ public class NewTenantDeploymentCmdlet : PSCmdlet
         else if (confirmWithWhatIf)
         {
             parameters["ConfirmWithWhatIf"] = true;
+        }
+
+        if (AsJob.IsPresent)
+        {
+            WriteObject(TenantDeploymentCmdletHelpers.RunAsJob(this, engine, "New-AzTenantDeployment", parameters));
+            return;
         }
 
         Run("New-AzTenantDeployment", parameters);

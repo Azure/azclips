@@ -564,12 +564,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             new Dictionary<string, string> { ["DeploymentName"] = "Name" });
         private static readonly CommandMetadata s_removeTenantDeployment_PS = new(
-            "DeleteAtTenantScopeDeploymentsProcessor_Customization",
+            "DeleteAtTenantScopeDeploymentsProcessor",
             "Remove-AzTenantDeployment",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor",
             ResourcesAssembly,
-            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization),
+            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor),
             new Dictionary<string, ParameterMetadata>
             {
                 ["Name"] = new("DeploymentName", "Name", typeof(string), "The tenant deployment name.", true, ["DeploymentName"], []),
@@ -645,12 +645,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             new Dictionary<string, string> { ["n"] = "name" });
         private static readonly CommandMetadata s_deleteTenantDeployment_CLI = new(
-            "DeleteAtTenantScopeDeploymentsProcessor_Customization",
+            "DeleteAtTenantScopeDeploymentsProcessor",
             "deployment tenant delete",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtTenantScopeDeploymentsProcessor",
             ResourcesAssembly,
-            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization),
+            typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor),
             new Dictionary<string, ParameterMetadata>
             {
                 ["name"] = new("DeploymentName", "name", typeof(string), "The tenant deployment name.", true, ["n"], []),
@@ -701,12 +701,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["x"] = "exclude-change-types",
             });
         private static readonly CommandMetadata s_waitTenantDeployment_CLI = new(
-            "WaitTenantDeploymentProcessor",
+            "WaitTenantDeploymentProcessor_Orchestrator",
             "deployment tenant wait",
             [],
-            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.WaitTenantDeploymentProcessor",
+            "Microsoft.Azure.Azclips.Extensions.Resources.Processors.WaitTenantDeploymentProcessor_Orchestrator",
             ResourcesAssembly,
-            typeof(Processors.WaitTenantDeploymentProcessor),
+            typeof(Processors.WaitTenantDeploymentProcessor_Orchestrator),
             new Dictionary<string, ParameterMetadata>
             {
                 ["name"] = new("Name", "name", typeof(string), "The tenant deployment name.", true, ["n"], []),

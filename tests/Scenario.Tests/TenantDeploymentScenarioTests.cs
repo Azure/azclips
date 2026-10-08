@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Tests.Common.Recording;
-using Tests.Common.Utilities;
 using Tests.Recording;
 
 namespace Scenario.Tests;
@@ -73,39 +73,45 @@ public class TenantDeploymentScenarioTests
 
     private static void RunCli(ScenarioHost host)
     {
-        string template = Path.Combine(
-            RepoLocator.GetRepoRoot(),
-            "tests",
-            "Scripts",
-            "Bicep",
-            "tenant-empty.json");
+        // The CLI only accepts a template from a file/URI/spec, unlike PowerShell's
+        // -TemplateObject, so write the shared s_template out to a temp file instead of
+        // depending on a committed Bicep/JSON fixture.
+        string template = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(template, JsonSerializer.Serialize(s_template));
 
-        Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
-            "deployment", "tenant", "validate",
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template)));
+            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
+                "deployment", "tenant", "validate",
+                "--location", Location,
+                "--name", DeploymentName,
+                "--template-file", template)));
 
-        host.RunCli(
-            "deployment", "tenant", "what-if",
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template);
+            host.RunCli(
+                "deployment", "tenant", "what-if",
+                "--location", Location,
+                "--name", DeploymentName,
+                "--template-file", template);
 
-        Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
-            "deployment", "tenant", "create",
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template)));
+            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
+                "deployment", "tenant", "create",
+                "--location", Location,
+                "--name", DeploymentName,
+                "--template-file", template)));
 
-        Assert.Single(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
-        Assert.IsType<DeploymentExtended>(Assert.Single(
-            host.RunCli("deployment", "tenant", "show", "--name", DeploymentName)));
-        Assert.NotEmpty(host.RunCli("deployment", "tenant", "list"));
-        Assert.NotEmpty(host.RunCli("deployment", "tenant", "export", "--name", DeploymentName));
-        host.RunCli("deployment", "tenant", "cancel", "--name", DeploymentName);
-        host.RunCli("deployment", "tenant", "delete", "--name", DeploymentName);
-        host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--deleted");
+            Assert.Single(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
+            Assert.IsType<DeploymentExtended>(Assert.Single(
+                host.RunCli("deployment", "tenant", "show", "--name", DeploymentName)));
+            Assert.NotEmpty(host.RunCli("deployment", "tenant", "list"));
+            Assert.NotEmpty(host.RunCli("deployment", "tenant", "export", "--name", DeploymentName));
+            host.RunCli("deployment", "tenant", "cancel", "--name", DeploymentName);
+            host.RunCli("deployment", "tenant", "delete", "--name", DeploymentName);
+            host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--deleted");
+        }
+        finally
+        {
+            File.Delete(template);
+        }
     }
 
     private static void RunPowerShell(ScenarioHost host)

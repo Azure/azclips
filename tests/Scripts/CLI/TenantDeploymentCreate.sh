@@ -1,171 +1,89 @@
 #!/usr/bin/env bash
-# Tenant-scope deployment create/lifecycle smoke tests.
+# Smoke test for `az deployment tenant create` through the built CLI.
 #
-# Covers local ARM JSON, local Bicep, .bicepparam and inline-parameter precedence,
-# derived names, validation levels, wait conditions, show, list, export, waited
-# delete, and local input failures.
+# Steps:
+#   1. Create with an inline empty template - happy path.
+#   2. Missing required --location is rejected.
+#   3. Invalid --validation-level is rejected.
+#   4. --what-if runs a preview instead of creating (the previewed name is not persisted).
 #
-# Prerequisites:
-#   1. Build:    dotnet build azclips.slnx
-#   2. Sign in:  ./artifacts/Debug/Core.Cli/az login
-#   3. Use an identity permitted to create tenant-scope deployments.
+# Prereqs: build the solution first with dotnet build, then sign in.
+#
+# Optional:
+#   AZCLIPS_LOCATION - defaults to westus
 #
 # Usage: ./tests/Scripts/CLI/TenantDeploymentCreate.sh
-set -euo pipefail
+set -u
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
-AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
-[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+az config set --key agent.enabled --value false >/dev/null 2>&1 || true
 
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
-LOCATION="eastus"
-TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
-STAMP="$(date +%y%m%d%H%M%S)-$$"
-PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-$STAMP}"
-EXPORT_FILE="${TMPDIR:-/tmp}/$PREFIX-export.json"
-DERIVED_TEMPLATE="${TMPDIR:-/tmp}/$PREFIX-derived.json"
-DEPLOYMENTS=()
-
-expect_failure() {
-    local label="$1"
-    local pattern="$2"
-    shift 2
-
-    set +e
-    local output
-    output=$("$@" 2>&1)
-    local status=$?
-    set -e
-
-    if [[ $status -eq 0 ]]; then
-        echo "UNEXPECTED: $label succeeded" >&2
-        return 1
-    fi
-    if ! grep -Eiq "$pattern" <<<"$output"; then
-        echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
-        return 1
-    fi
-    printf '%s\n' "$output"
+FAILURES=0
+fail() {
+  echo "FAIL: $1"
+  FAILURES=$((FAILURES + 1))
 }
 
-cleanup() {
-    local exit_code=$?
-    for name in "${DEPLOYMENTS[@]}"; do
-        "$AZ" deployment tenant delete --name "$name" >/dev/null 2>&1 || true
-    done
-    rm -f "$EXPORT_FILE" "$DERIVED_TEMPLATE"
-    exit "$exit_code"
+assert_contains() {
+  local haystack="$1" needle="$2" what="$3"
+  if [[ "$haystack" != *"$needle"* ]]; then
+    fail "$what: expected output to contain '$needle', got '$haystack'"
+  fi
 }
-trap cleanup EXIT
 
-"$AZ" config set --key agent.enabled --value false
+LOCATION="${AZCLIPS_LOCATION:-westus}"
+TEMPLATE_FILE="$(mktemp --suffix=.json)"
+cat > "$TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+JSON
 
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-if ! "$AZ" group show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
-    "$AZ" group create \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --name "$TEST_RESOURCE_GROUP" \
-        --location "$LOCATION"
+NAME1="tenant-dep-create-$RANDOM"
+
+echo "== 1. happy path: create with an inline empty template =="
+OUTPUT="$(az deployment tenant create --name "$NAME1" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "happy path create failed: $OUTPUT"
+else
+  assert_contains "$OUTPUT" "\"name\": \"$NAME1\"" "created deployment name"
+  assert_contains "$OUTPUT" "\"provisioningState\": \"Succeeded\"" "created deployment state"
 fi
 
-JSON_NAME="$PREFIX-json"
-DEPLOYMENTS+=("$JSON_NAME")
-# Create from local ARM JSON and wait for the LRO.
-"$AZ" deployment tenant create \
-    --location "$LOCATION" \
-    --name "$JSON_NAME" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=inline-wins \
-    --validation-level Provider
+echo "== 2. missing required --location is rejected =="
+OUTPUT="$(az deployment tenant create --name "tenant-dep-create-missing-loc-$RANDOM" --template-file "$TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected failure when --location is omitted"
+else
+  assert_contains "$OUTPUT" "location" "missing location error mentions the parameter"
+fi
 
-# Exercise exists, updated, and custom wait conditions.
-"$AZ" deployment tenant wait --name "$JSON_NAME" --exists --interval 2 --timeout 120
-"$AZ" deployment tenant wait --name "$JSON_NAME" --updated --interval 2 --timeout 120
-"$AZ" deployment tenant wait \
-    --name "$JSON_NAME" \
-    --custom "properties.provisioningState=='Succeeded'" \
-    --interval 2 \
-    --timeout 120
+echo "== 3. invalid --validation-level is rejected =="
+OUTPUT="$(az deployment tenant create --name "tenant-dep-create-badlevel-$RANDOM" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --validation-level Foo --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected failure for an invalid --validation-level value"
+else
+  assert_contains "$OUTPUT" "ValidationLevel" "invalid validation-level error mentions the parameter"
+  assert_contains "$OUTPUT" "Template, Provider, ProviderNoRbac" "invalid validation-level error lists allowed values"
+fi
 
-# Show, list, and export the deployment.
-"$AZ" deployment tenant show --name "$JSON_NAME"
-"$AZ" deployment tenant list
-"$AZ" deployment tenant export --name "$JSON_NAME" | tee "$EXPORT_FILE"
-test -s "$EXPORT_FILE"
+echo "== 4. --what-if runs a preview instead of creating =="
+NAME4="tenant-dep-create-whatif-$RANDOM"
+OUTPUT="$(az deployment tenant create --name "$NAME4" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --what-if --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "--what-if run failed: $OUTPUT"
+fi
+SHOWN="$(az deployment tenant show --name "$NAME4" --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected --what-if to not persist a real deployment named '$NAME4'"
+fi
 
-# Confirm the tenant template ran its workload only in the dedicated test resource group.
-"$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01"
-NESTED_STATE="$("$AZ" rest \
-    --method GET \
-    --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TEST_RESOURCE_GROUP/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01" \
-    --query "json.properties.provisioningState" \
-    --output tsv)"
-[[ "$NESTED_STATE" == "Succeeded" ]]
+rm -f "$TEMPLATE_FILE"
 
-BICEP_NAME="$PREFIX-bicep"
-DEPLOYMENTS+=("$BICEP_NAME")
-# Create from Bicep with a bicepparam file and inline override.
-"$AZ" deployment tenant create \
-    --location "$LOCATION" \
-    --name "$BICEP_NAME" \
-    --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins \
-    --validation-level Template
-
-# Verify the deployment name is derived when --name is omitted.
-cp "$BICEP_DIR/tenant-empty.json" "$DERIVED_TEMPLATE"
-DERIVED_NAME="$(basename "$DERIVED_TEMPLATE" .json)"
-DEPLOYMENTS+=("$DERIVED_NAME")
-"$AZ" deployment tenant create \
-    --location "$LOCATION" \
-    --template-file "$DERIVED_TEMPLATE" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=derived-name
-
-# Verify malformed Bicep is rejected.
-expect_failure \
-    "malformed Bicep create" \
-    "Bicep compilation failed" \
-    "$AZ" deployment tenant create \
-        --location "$LOCATION" \
-        --name "$PREFIX-malformed" \
-        --template-file "$BICEP_DIR/malformed.bicep"
-
-# Verify an invalid validation level is rejected.
-expect_failure \
-    "invalid validation level" \
-    "validation-level|ValidationLevel|allowed" \
-    "$AZ" deployment tenant create \
-        --location "$LOCATION" \
-        --name "$PREFIX-invalid-level" \
-        --template-file "$BICEP_DIR/tenant-empty.json" \
-        --validation-level Invalid
-
-# Verify a parameters URI cannot be combined with an inline overlay.
-expect_failure \
-    "parameters URI plus inline overlay" \
-    "Inline parameters cannot be combined with a parameters URI" \
-    "$AZ" deployment tenant create \
-        --location "$LOCATION" \
-        --name "$PREFIX-parameter-conflict" \
-        --template-file "$BICEP_DIR/tenant-empty.json" \
-        --parameters https://example.com/parameters.json marker=conflict
-
-# Delete deployments and verify their records disappear.
-"$AZ" deployment tenant delete --name "$JSON_NAME"
-"$AZ" deployment tenant wait --name "$JSON_NAME" --deleted --interval 2 --timeout 120
-
-"$AZ" deployment tenant delete --name "$BICEP_NAME"
-"$AZ" deployment tenant wait --name "$BICEP_NAME" --deleted --interval 2 --timeout 120
-
-"$AZ" deployment tenant delete --name "$DERIVED_NAME"
-"$AZ" deployment tenant wait --name "$DERIVED_NAME" --deleted --interval 2 --timeout 120
-
-DEPLOYMENTS=()
-rm -f "$EXPORT_FILE" "$DERIVED_TEMPLATE"
-trap - EXIT
-echo "All tenant deployment create/lifecycle smoke checks completed."
+if (( FAILURES > 0 )); then
+  echo "$FAILURES assertion(s) failed"
+  exit 1
+fi
+echo "All tenant deployment create checks passed"

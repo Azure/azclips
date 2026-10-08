@@ -79,43 +79,101 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
         }
 
         List<string> overlays = [];
+        List<(string Kind, string Value)> sources = [];
         foreach (string token in Parameter)
         {
             if (token.StartsWith('@') && token.Length > 1)
             {
-                if (ParametersFile is not null || ParametersObject is not null || ParametersUri is not null)
-                {
-                    throw new ArgumentException("Only one parameter file, object, or URI source can be provided.");
-                }
-                ParametersFile = token[1..];
+                sources.Add(("file", token[1..]));
                 continue;
             }
 
             if (token.TrimStart().StartsWith('{'))
             {
-                if (ParametersFile is not null || ParametersObject is not null || ParametersUri is not null)
-                {
-                    throw new ArgumentException("Only one parameter file, object, or URI source can be provided.");
-                }
-                ParametersObject = JsonSerializer.Deserialize<JsonElement>(token);
+                sources.Add(("object", token));
                 continue;
             }
 
             if (Uri.TryCreate(token, UriKind.Absolute, out Uri? uri)
                 && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             {
-                if (ParametersFile is not null || ParametersObject is not null || ParametersUri is not null)
-                {
-                    throw new ArgumentException("Only one parameter file, object, or URI source can be provided.");
-                }
-                ParametersUri = token;
+                sources.Add(("uri", token));
                 continue;
             }
 
             overlays.Add(token);
         }
 
+        if (sources.Count > 0 && (ParametersFile is not null || ParametersObject is not null || ParametersUri is not null))
+        {
+            throw new ArgumentException("Only one parameter file, object, or URI source can be provided outside of --parameters.");
+        }
+
+        switch (sources.Count)
+        {
+            case 0:
+                break;
+            case 1:
+                ApplySingleParameterSource(sources[0]);
+                break;
+            default:
+                ParametersObject = MergeParameterSources(sources);
+                break;
+        }
+
         Parameter = overlays.Count == 0 ? null : [.. overlays];
+    }
+
+    private void ApplySingleParameterSource((string Kind, string Value) source)
+    {
+        switch (source.Kind)
+        {
+            case "file":
+                ParametersFile = source.Value;
+                break;
+            case "object":
+                ParametersObject = JsonSerializer.Deserialize<JsonElement>(source.Value);
+                break;
+            case "uri":
+                ParametersUri = source.Value;
+                break;
+        }
+    }
+
+    private JsonObject MergeParameterSources(List<(string Kind, string Value)> sources)
+    {
+        JsonObject merged = new();
+        foreach ((string kind, string value) in sources)
+        {
+            object? part = kind switch
+            {
+                "file" => ReadParametersSourceFile(value),
+                "object" => JsonSerializer.Deserialize<JsonElement>(value),
+                "uri" => DownloadParametersSource(value),
+                _ => null,
+            };
+            JsonObject? partObject = AsJsonObject(part);
+            if (partObject is null)
+            {
+                continue;
+            }
+
+            foreach ((string key, JsonNode? nodeValue) in partObject)
+            {
+                string targetKey = FindExistingKeyIgnoreCase(merged, key) ?? key;
+                merged[targetKey] = nodeValue?.DeepClone();
+            }
+        }
+
+        return merged;
+    }
+
+    private object DownloadParametersSource(string uri)
+    {
+        string requestUri = string.IsNullOrWhiteSpace(QueryString) ? uri : AppendQueryString(uri, QueryString);
+        using HttpClient client = new();
+        string content = client.GetStringAsync(requestUri).GetAwaiter().GetResult();
+        return UnwrapParametersDocument(JsonSerializer.Deserialize<JsonElement>(content));
     }
 
     protected ScopedDeployment BuildDeployment()
@@ -129,7 +187,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
             TemplateLink = templateLink,
             Parameters = BuildTypedParameters(template, out ParametersLink? parametersLink),
             ParametersLink = parametersLink,
-            ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
+            ValidationLevel = NormalizeValidationLevel(ValidationLevel),
             DebugSetting = debugLevel is null
                 ? null
                 : new DebugSetting { DetailLevel = debugLevel },
@@ -156,7 +214,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : De
                 TemplateLink = templateLink,
                 Parameters = BuildTypedParameters(template, out ParametersLink? parametersLink),
                 ParametersLink = parametersLink,
-                ValidationLevel = NormalizeValidationLevel(ValidationLevel) ?? "Provider",
+                ValidationLevel = NormalizeValidationLevel(ValidationLevel),
                 WhatIfSettings = new DeploymentWhatIfSettings
                 {
                     ResultFormat = NormalizeResultFormat(resultFormat),

@@ -8,5 +8,10 @@ public class TestTenantDeploymentProcessor_Orchestrator : ValidateTenantDeployme
     public TestTenantDeploymentProcessor_Orchestrator()
     {
         SuppressSuccessOutput = true;
+        ThrowOnError = false;
     }
+
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(
+        Models.DeploymentValidateResult? body) =>
+        Task.FromResult(body?.Error is null);
 }

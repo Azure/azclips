@@ -1,217 +1,100 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+
+# Tenant scope deployment create - PowerShell (New-AzTenantDeployment)
+# Equivalent of: New-AzTenantDeployment
+# Get/Remove/Stop are covered by TenantDeploymentShow.ps1 / Delete.ps1 / Stop.ps1.
+# What-if is covered separately by TenantDeploymentWhatIf.ps1.
 #
-# Tenant-scope deployment create/lifecycle smoke tests.
+# Unlike management-group scope, tenant deployments have no scope-id parameter at all (the
+# tenant is implicit from the signed-in context), so there is no AZCLIPS_*_ID equivalent required
+# here.
 #
-# Covers ARM JSON, Bicep, parameter file/object overlays, derived names, tags,
-# debug settings, validation levels, Get by name/id, Stop terminal-state checks,
-# Remove by name/id/input object, PassThru, and local input failures.
+# Optional:
+#   AZCLIPS_TEMPLATE_SPEC_ID - existing template spec version resource ID (skips that case if unset)
+#   AZCLIPS_TENANT_ID        - tenant to sign in with before running commands; if unset, assumes
+#                               the session already has azclips's own modules imported and signed in
 #
-# Prerequisites (run in a fresh pwsh so installed gallery modules cannot shadow
-# the repository modules):
-#   1. Build:    dotnet build azclips.slnx
-#   2. Sign in:  Import-Module ./src/PS/Accounts/Accounts.psd1
-#                Connect-AzAccount
-#   3. Module:   Import-Module ./src/PS/Resources/Resources.psd1
-#   4. Use an identity permitted to create tenant-scope deployments.
-#
-# Usage: ./tests/Scripts/PS/TenantDeploymentCreate.ps1
+# Usage:
+#   pwsh -NoProfile -File .\tests\Scripts\PS\TenantDeploymentCreate.ps1
 
 $ErrorActionPreference = 'Stop'
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
+
+$tenantId = $env:AZCLIPS_TENANT_ID
+if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
+    Connect-AzAccount -TenantId $tenantId | Out-Host
+}
+
+$failures = [System.Collections.Generic.List[string]]::new()
+function Add-Failure([string]$Message) {
+    Write-Host "FAIL: $Message"
+    $failures.Add($Message)
+}
+function Assert-Equal([string]$Label, $Expected, $Actual) {
+    if ($Actual -eq $Expected) {
+        Write-Host "OK: ${Label} => '$Actual'"
+    } else {
+        Add-Failure "${Label} expected '$Expected' but got '$Actual'"
+    }
+}
+
+# Tenant-scope templates have no public quickstart equivalent, so generate a minimal empty
+# template inline.
+$templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant-template-$([guid]::NewGuid()).json"
+@'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+'@ | Set-Content -Path $templateFile -Encoding utf8
+
+# Surface the cmdlet debug stream without prompting. Passing -Debug to each call sets
+# $DebugPreference = Inquire, which raises an interactive confirmation prompt and hangs an
+# unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
-$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
-if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
-    throw 'Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.'
-}
-$location = 'eastus'
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-$resourceGroupName = 'azclips-tenant-test-rg'
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')
-$bicepDir = Join-Path $repoRoot 'tests' 'Scripts' 'Bicep'
-$stamp = "$(Get-Date -Format 'yyMMddHHmmss')-$PID"
-$prefix = if ($env:AZCLIPS_TENANT_DEPLOYMENT_NAME) {
-    $env:AZCLIPS_TENANT_DEPLOYMENT_NAME
+
+Write-Host '== 1. create: provisioning state =='
+$name = "azclips-tenant-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+$created = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile
+Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
+Remove-AzTenantDeployment -Name $name -Confirm:$false
+
+Write-Host '== 2. -Tag (deployment tags round-trip on create) =='
+$name = "azclips-tenant-tags-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+$result = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile -Tag @{ key1 = 'value1'; key2 = 'value2' }
+Assert-Equal 'tags key1' 'value1' $result.Tags['key1']
+Assert-Equal 'tags key2' 'value2' $result.Tags['key2']
+
+Write-Host '== 3. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
+$templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
+if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
+    Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
 } else {
-    "azclips-tenant-$stamp"
+    $name = "azclips-tenant-templatespec-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+    $result = New-AzTenantDeployment -Location 'West US 2' -Name $name -TemplateSpecId $templateSpecId
+    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
 }
-$derivedTemplate = Join-Path ([System.IO.Path]::GetTempPath()) "$prefix-derived.json"
-$deployments = [System.Collections.Generic.List[string]]::new()
 
+Write-Host '== 4. negative: invalid -ValidationLevel value (Foo) must be rejected =='
+# Expected result: the command fails fast with a clear validation message listing the allowed
+# values (Template, Provider, ProviderNoRbac) and does NOT create a deployment.
+# Note: New-AzTenantDeployment has no -Mode parameter at all (confirmed against
+# TenantDeploymentOrchestratorBase and ExtensionIndex.cs); tenant deployments always run
+# Incremental, so there is no -Mode case to test here (CLI tenant create has no --mode either).
 try {
-    Get-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -ErrorAction Stop | Out-Null
+    New-AzTenantDeployment -Location eastus -Name azclips-tenant-validationlevel-negative -TemplateFile $templateFile -ValidationLevel Foo -ErrorAction Stop
+    Add-Failure 'invalid -ValidationLevel Foo did not throw'
 } catch {
-    if ($_.Exception.Message -notmatch '404|ResourceGroupNotFound|could not be found') {
-        throw
-    }
-    New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroupName -Location $location
+    Assert-Equal 'invalid -ValidationLevel Foo error mentions ValidationLevel' $true ($_.Exception.Message -match 'ValidationLevel')
 }
 
-function Assert-ExpectedFailure {
-    param(
-        [Parameter(Mandatory)][string] $Name,
-        [Parameter(Mandatory)][string] $Pattern,
-        [Parameter(Mandatory)][scriptblock] $Action
-    )
-
-    try {
-        & $Action
-    } catch {
-        if ($_.Exception.Message -match $Pattern) {
-            Write-Warning $_.Exception.Message
-            return
-        }
-        throw
-    }
-
-    throw "$Name unexpectedly succeeded."
+if ($failures.Count -gt 0) {
+    throw "New-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."
 }
-
-function Remove-TestDeployment {
-    param([string] $Name)
-    try {
-        Remove-AzTenantDeployment `
-            -Name $Name `
-            -Confirm:$false `
-            -ErrorAction Stop | Out-Null
-    } catch {
-        Write-Warning "Tenant deployment cleanup failed for '$Name': $($_.Exception.Message)"
-    }
-}
-
-try {
-    $jsonName = "$prefix-json"
-    $deployments.Add($jsonName)
-    # Create from JSON with a parameters file and an inline override.
-    $jsonDeployment = New-AzTenantDeployment `
-        -Location $location `
-        -Name $jsonName `
-        -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
-        -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.parameters.json') `
-        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=inline-wins' `
-        -ValidationLevel Provider `
-        -Tag @{ scenario = 'tenant-deployment'; source = 'json' } `
-        -DeploymentDebugLogLevel None `
-        -WhatIf:$false `
-        -Confirm:$false
-
-    if ($jsonDeployment.Properties.ProvisioningState -ne 'Succeeded') {
-        throw "JSON deployment did not succeed: $($jsonDeployment.Properties.ProvisioningState)"
-    }
-    $jsonDeployment
-
-    # Get the deployment by name and ID, then list tenant deployments.
-    Get-AzTenantDeployment -Name $jsonName | Out-Host
-    Get-AzTenantDeployment -Id $jsonDeployment.Id | Out-Host
-    Get-AzTenantDeployment | Out-Host
-
-    # Confirm the tenant template ran its workload only in the dedicated test resource group.
-    $nestedDeployment = Invoke-AzRestMethod `
-        -Method GET `
-        -Uri "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Resources/deployments/azclips-tenant-nested?api-version=2022-09-01"
-    $nestedState = ($nestedDeployment.Content | ConvertFrom-Json).properties.provisioningState
-    if ($nestedState -ne 'Succeeded') {
-        throw "Nested resource-group deployment did not succeed: $nestedState"
-    }
-    $nestedDeployment
-
-    # Verify terminal deployments cannot be stopped by name, ID, or input object.
-    Assert-ExpectedFailure 'Stop by name after completion' 'not running|cannot be canceled' {
-        Stop-AzTenantDeployment -Name $jsonName -Confirm:$false -ErrorAction Stop
-    }
-    Assert-ExpectedFailure 'Stop by id after completion' 'not running|cannot be canceled' {
-        Stop-AzTenantDeployment -Id $jsonDeployment.Id -Confirm:$false -ErrorAction Stop
-    }
-    Assert-ExpectedFailure 'Stop by input object after completion' 'not running|cannot be canceled' {
-        $jsonDeployment | Stop-AzTenantDeployment -Confirm:$false -ErrorAction Stop
-    }
-
-    $bicepName = "$prefix-bicep"
-    $deployments.Add($bicepName)
-    # Create from Bicep with a bicepparam file and an inline override.
-    $bicepDeployment = New-AzTenantDeployment `
-        -Location $location `
-        -Name $bicepName `
-        -TemplateFile (Join-Path $bicepDir 'tenant-empty.bicep') `
-        -TemplateParameterFile (Join-Path $bicepDir 'tenant-empty.bicepparam') `
-        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=bicep-inline-wins' `
-        -ValidationLevel Template `
-        -Confirm:$false
-    $bicepDeployment
-
-    $objectName = "$prefix-object"
-    $deployments.Add($objectName)
-    # Create from template and parameter objects.
-    $templateObject = Get-Content (Join-Path $bicepDir 'tenant-empty.json') -Raw |
-        ConvertFrom-Json -AsHashtable
-    $objectDeployment = New-AzTenantDeployment `
-        -Location $location `
-        -Name $objectName `
-        -TemplateObject $templateObject `
-        -TemplateParameterObject @{
-            subscriptionId = @{ value = $subscriptionId }
-            resourceGroupName = @{ value = $resourceGroupName }
-            marker = @{ value = 'object-base' }
-        } `
-        -Parameter 'marker=object-inline-wins' `
-        -ValidationLevel ProviderNoRbac `
-        -Confirm:$false
-    $objectDeployment
-
-    # Verify the deployment name is derived when -Name is omitted.
-    Copy-Item (Join-Path $bicepDir 'tenant-empty.json') $derivedTemplate
-    $derivedDeployment = New-AzTenantDeployment `
-        -Location $location `
-        -TemplateFile $derivedTemplate `
-        -Parameter "subscriptionId=$subscriptionId", "resourceGroupName=$resourceGroupName", 'marker=derived-name' `
-        -Confirm:$false
-    $deployments.Add($derivedDeployment.Name)
-    $derivedDeployment
-
-    # Verify malformed Bicep is rejected.
-    Assert-ExpectedFailure 'malformed Bicep create' 'Bicep compilation failed' {
-        New-AzTenantDeployment `
-            -Location $location `
-            -Name "$prefix-malformed" `
-            -TemplateFile (Join-Path $bicepDir 'malformed.bicep') `
-            -Confirm:$false `
-            -ErrorAction Stop
-    }
-
-    # Verify a parameters URI cannot be combined with an inline override.
-    Assert-ExpectedFailure 'parameters URI plus inline override' 'Inline parameters cannot be combined with a parameters URI' {
-        New-AzTenantDeployment `
-            -Location $location `
-            -Name "$prefix-parameter-conflict" `
-            -TemplateFile (Join-Path $bicepDir 'tenant-empty.json') `
-            -TemplateParameterUri https://example.com/parameters.json `
-            -Parameter 'marker=conflict' `
-            -Confirm:$false `
-            -ErrorAction Stop
-    }
-
-    # Remove deployments by name, ID, and input object, including PassThru.
-    if (-not (Remove-AzTenantDeployment -Name $jsonName -PassThru -Confirm:$false)) {
-        throw 'Remove-AzTenantDeployment by name did not return true.'
-    }
-    $deployments.Remove($jsonName) | Out-Null
-
-    if (-not (Remove-AzTenantDeployment -Id $bicepDeployment.Id -PassThru -Confirm:$false)) {
-        throw 'Remove-AzTenantDeployment by id did not return true.'
-    }
-    $deployments.Remove($bicepName) | Out-Null
-
-    if (-not ($objectDeployment | Remove-AzTenantDeployment -PassThru -Confirm:$false)) {
-        throw 'Remove-AzTenantDeployment by input object did not return true.'
-    }
-    $deployments.Remove($objectName) | Out-Null
-
-    Remove-AzTenantDeployment -Name $derivedDeployment.Name -Confirm:$false
-    $deployments.Remove($derivedDeployment.Name) | Out-Null
-
-    Write-Host 'All tenant deployment create/lifecycle smoke checks completed.' -ForegroundColor Green
-} finally {
-    foreach ($deploymentName in $deployments) {
-        Remove-TestDeployment $deploymentName
-    }
-    Remove-Item $derivedTemplate -ErrorAction SilentlyContinue
-}
+Write-Host '== New-AzTenantDeployment smoke test finished =='

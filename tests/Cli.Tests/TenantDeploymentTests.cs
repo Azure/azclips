@@ -165,7 +165,44 @@ public class TenantDeploymentTests
         JsonElement body = JsonDocument.Parse(requests[1].Body!).RootElement;
         Assert.Equal("eastus", body.GetProperty("location").GetString());
         Assert.Equal("Incremental", body.GetProperty("properties").GetProperty("mode").GetString());
-        Assert.Equal("Provider", body.GetProperty("properties").GetProperty("validationLevel").GetString());
+        Assert.False(body.GetProperty("properties").TryGetProperty("validationLevel", out _));
+    }
+
+    [Fact]
+    public async Task Create_MergesMultipleInlineParameterSources()
+    {
+        List<string?> bodies = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            bodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+            return bodies.Count == 1
+                ? Json("""{ "name": "tenant-test" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        {
+            Name = "tenant-test",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+            Parameter =
+            [
+                """{"first":{"value":"from-object-1"},"shared":{"value":"from-object-1"}}""",
+                """{"shared":{"value":"from-object-2"}}""",
+                "third=from-inline",
+            ],
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        JsonElement parameters = JsonDocument.Parse(bodies[1]!).RootElement
+            .GetProperty("properties").GetProperty("parameters");
+        Assert.Equal("from-object-1", parameters.GetProperty("first").GetProperty("value").GetString());
+        Assert.Equal("from-object-2", parameters.GetProperty("shared").GetProperty("value").GetString());
+        Assert.Equal("from-inline", parameters.GetProperty("third").GetProperty("value").GetString());
     }
 
     [Fact]
@@ -512,7 +549,7 @@ public class TenantDeploymentTests
     }
 
     [Fact]
-    public async Task TestValidation_ThrowsAndWritesNoSuccessOutput()
+    public async Task TestValidation_HttpFailureStillThrows()
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(
             """
@@ -540,6 +577,57 @@ public class TenantDeploymentTests
         Assert.Empty(output.WrittenValues);
     }
 
+    [Fact]
+    public async Task TestValidation_LogicalFailureWritesResultInsteadOfThrowing()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json(
+            """
+            {
+              "error": {
+                "code": "InvalidTemplate",
+                "message": "The template is invalid."
+              }
+            }
+            """));
+        var output = new FakeOutputHandler();
+        var processor = new TestTenantDeploymentProcessor_Orchestrator
+        {
+            Name = "invalid",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        var result = Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
+        Assert.Equal("InvalidTemplate", result.Error?.Code);
+    }
+
+    [Fact]
+    public async Task TestValidation_SuccessWritesNoOutput()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "error": null }"""));
+        var output = new FakeOutputHandler();
+        var processor = new TestTenantDeploymentProcessor_Orchestrator
+        {
+            Name = "valid",
+            Location = "eastus",
+            TemplateObject = new Dictionary<string, object>
+            {
+                ["resources"] = Array.Empty<object>(),
+            },
+        };
+        Init(processor, pipeline, output);
+
+        await processor.ProcessAsync();
+
+        Assert.Empty(output.WrittenValues);
+    }
+
     [Theory]
     [InlineData("Azure-AsyncOperation")]
     [InlineData("Operation-Location")]
@@ -561,7 +649,7 @@ public class TenantDeploymentTests
             };
         });
         var output = new FakeOutputHandler();
-        var processor = new DeleteAtTenantScopeDeploymentsProcessor_Customization
+        var processor = new DeleteAtTenantScopeDeploymentsProcessor
         {
             DeploymentName = "tenant-test",
         };
@@ -581,7 +669,7 @@ public class TenantDeploymentTests
     {
         var pipeline = new FakeHttpPipeline((_, _) =>
             Json("""{ "error": { "code": "NotFound" } }""", HttpStatusCode.NotFound));
-        var processor = new WaitTenantDeploymentProcessor
+        var processor = new WaitTenantDeploymentProcessor_Orchestrator
         {
             Name = "gone",
             Deleted = true,
@@ -602,7 +690,7 @@ public class TenantDeploymentTests
         cancellation.Cancel();
         var pipeline = new FakeHttpPipeline((_, _) => Json(
             """{ "name": "running", "properties": { "provisioningState": "Running" } }"""));
-        var processor = new WaitTenantDeploymentProcessor
+        var processor = new WaitTenantDeploymentProcessor_Orchestrator
         {
             Name = "running",
             Updated = true,

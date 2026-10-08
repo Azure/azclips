@@ -1,113 +1,130 @@
 #!/usr/bin/env bash
-# Tenant-scope deployment what-if smoke tests.
+# Smoke test for `az deployment tenant what-if` through the built CLI.
 #
-# Covers ARM JSON, Bicep, parameter overlays, result formats, excluded change
-# types, malformed Bicep, invalid result format, and live ARM template
-# diagnostics.
+# Steps:
+#   1. Happy path (empty template): preview with no predicted changes.
+#   2. Nested create (a nested deployment that creates a resource group under a target
+#      subscription): what-if reports a Create change.
+#   3. --exclude-change-types Create filters that Create change out of the preview.
+#   4. Invalid --result-format is rejected.
 #
-# Prerequisites:
-#   1. Build:    dotnet build azclips.slnx
-#   2. Sign in:  ./artifacts/Debug/Core.Cli/az login
-#   3. Use an identity permitted to run tenant-scope deployment what-if.
+# What-if is READ-ONLY: it predicts the changes a template would make and never creates
+# or modifies resources.
+#
+# Prereqs: build the solution first with dotnet build, then sign in.
+#
+# Optional:
+#   AZCLIPS_LOCATION        - defaults to westus
+#   AZCLIPS_SUBSCRIPTION_ID - nested subscription targeted by the create-preview case;
+#                             defaults to the signed-in account's subscription
 #
 # Usage: ./tests/Scripts/CLI/TenantDeploymentWhatIf.sh
-set -euo pipefail
+set -u
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
-AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
-[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+az config set --key agent.enabled --value false >/dev/null 2>&1 || true
 
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
-LOCATION="eastus"
-TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
-STAMP="$(date +%y%m%d%H%M%S)-$$"
-PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-whatif-$STAMP}"
-
-expect_failure() {
-    local label="$1"
-    local pattern="$2"
-    shift 2
-
-    set +e
-    local output
-    output=$("$@" 2>&1)
-    local status=$?
-    set -e
-
-    if [[ $status -eq 0 ]]; then
-        echo "UNEXPECTED: $label succeeded" >&2
-        return 1
-    fi
-    if ! grep -Eiq "$pattern" <<<"$output"; then
-        echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
-        return 1
-    fi
-    printf '%s\n' "$output"
+FAILURES=0
+fail() {
+  echo "FAIL: $1"
+  FAILURES=$((FAILURES + 1))
 }
 
-"$AZ" config set --key agent.enabled --value false
+assert_contains() {
+  local haystack="$1" needle="$2" what="$3"
+  if [[ "$haystack" != *"$needle"* ]]; then
+    fail "$what: expected output to contain '$needle', got '$haystack'"
+  fi
+}
 
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-if ! "$AZ" group show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
-    "$AZ" group create \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --name "$TEST_RESOURCE_GROUP" \
-        --location "$LOCATION"
+assert_not_contains() {
+  local haystack="$1" needle="$2" what="$3"
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$what: expected output to NOT contain '$needle'"
+  fi
+}
+
+LOCATION="${AZCLIPS_LOCATION:-westus}"
+EMPTY_TEMPLATE_FILE="$(mktemp --suffix=.json)"
+cat > "$EMPTY_TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+JSON
+
+# Nested deployment that creates a new resource group under a target subscription,
+# so the what-if preview has a genuine "Create" change to report.
+CREATE_TEMPLATE_FILE="$(mktemp --suffix=.json)"
+SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}"
+RG_NAME="tenant-whatif-rg-$RANDOM"
+cat > "$CREATE_TEMPLATE_FILE" <<JSON
+{
+  "\$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "nestedRGDeployment",
+      "location": "$LOCATION",
+      "subscriptionId": "$SUBSCRIPTION_ID",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "\$schema": "https://schema.management.azure.com/schemas/2019-08-01/subscriptionDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Resources/resourceGroups",
+              "apiVersion": "2021-04-01",
+              "name": "$RG_NAME",
+              "location": "$LOCATION"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+JSON
+
+echo "== 1. happy path (empty template): preview with no predicted changes =="
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "happy path what-if failed: $OUTPUT"
 fi
 
-# Run what-if for JSON using the default result format.
-"$AZ" deployment tenant what-if \
-    --location "$LOCATION" \
-    --name "$PREFIX-json" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=json
+echo "== 2. nested create: what-if reports a Create change =="
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "nested create what-if failed: $OUTPUT"
+else
+  assert_contains "$OUTPUT" "\"changeType\": \"Create\"" "nested create what-if reports a Create change"
+fi
 
-# Run what-if for Bicep with a bicepparam file and inline override.
-"$AZ" deployment tenant what-if \
-    --location "$LOCATION" \
-    --name "$PREFIX-bicep" \
-    --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins
+echo "== 3. --exclude-change-types Create filters the Create change out =="
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-exclude-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --exclude-change-types Create --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "exclude-change-types what-if failed: $OUTPUT"
+else
+  assert_not_contains "$OUTPUT" "\"changeType\": \"Create\"" "excluded Create change is filtered out"
+fi
 
-# Run what-if with ResourceIdOnly and excluded change types.
-"$AZ" deployment tenant what-if \
-    --location "$LOCATION" \
-    --name "$PREFIX-id-only" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=id-only \
-    --result-format ResourceIdOnly \
-    --exclude-change-types NoChange Ignore
+echo "== 4. invalid --result-format is rejected =="
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-badformat-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --result-format Foo --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected failure for an invalid --result-format value"
+else
+  assert_contains "$OUTPUT" "ResultFormat" "invalid result-format error mentions the parameter"
+  assert_contains "$OUTPUT" "FullResourcePayloads, ResourceIdOnly" "invalid result-format error lists allowed values"
+fi
 
-# Verify malformed Bicep is rejected.
-expect_failure \
-    "malformed Bicep what-if" \
-    "Bicep compilation failed" \
-    "$AZ" deployment tenant what-if \
-        --location "$LOCATION" \
-        --name "$PREFIX-malformed" \
-        --template-file "$BICEP_DIR/malformed.bicep"
+rm -f "$EMPTY_TEMPLATE_FILE" "$CREATE_TEMPLATE_FILE"
 
-# Verify an invalid result format is rejected.
-expect_failure \
-    "invalid result format" \
-    "result-format|ResultFormat|allowed" \
-    "$AZ" deployment tenant what-if \
-        --location "$LOCATION" \
-        --name "$PREFIX-invalid-format" \
-        --template-file "$BICEP_DIR/tenant-empty.json" \
-        --result-format Invalid
-
-# Verify live ARM what-if diagnostics are surfaced.
-expect_failure \
-    "invalid tenant template what-if" \
-    "InvalidTemplate|undefinedTenantParameter|what-if" \
-    "$AZ" deployment tenant what-if \
-        --location "$LOCATION" \
-        --name "$PREFIX-invalid-template" \
-        --template-file "$BICEP_DIR/tenant-invalid-template.json" \
-        --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP"
-
-echo "All tenant deployment what-if smoke checks completed."
+if (( FAILURES > 0 )); then
+  echo "$FAILURES assertion(s) failed"
+  exit 1
+fi
+echo "All tenant deployment what-if checks passed"

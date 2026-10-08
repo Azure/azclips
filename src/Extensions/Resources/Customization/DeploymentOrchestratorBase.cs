@@ -351,6 +351,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return UnwrapParameters(root);
         }
 
+        protected static object ReadParametersSourceFile(string path) =>
+            IsBicepParamFile(path) ? ReadBicepParamFile(path) : ReadParametersFile(path);
+
+        protected static object UnwrapParametersDocument(JsonElement root) => UnwrapParameters(root);
+
         // Compile a .bicepparam file to ARM parameters JSON and unwrap to the inner "parameters" object.
         // 'bicep build-params --stdout' emits an envelope:
         //   { "parametersJson": "<stringified ARM params file>", "templateJson": ..., "templateSpecId": ... }

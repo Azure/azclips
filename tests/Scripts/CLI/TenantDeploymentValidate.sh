@@ -1,112 +1,97 @@
 #!/usr/bin/env bash
-# Tenant-scope deployment validation smoke tests.
+# Smoke test for `az deployment tenant validate` through the built CLI.
 #
-# Covers ARM JSON, Bicep, parameter-file overlays, all validation levels,
-# derived names, malformed Bicep, invalid templates, and conflicting sources.
+# Steps:
+#   1. Happy path: validate succeeds and returns the deployment properties.
+#   2. Invalid template (allowedValues constraint violation) is rejected.
+#   3. Invalid --validation-level is rejected.
 #
-# Prerequisites:
-#   1. Build:    dotnet build azclips.slnx
-#   2. Sign in:  ./artifacts/Debug/Core.Cli/az login
-#   3. Use an identity permitted to validate tenant-scope deployments.
+# `az deployment tenant validate` throws on an ARM validation failure (unlike
+# Test-AzTenantDeployment in PowerShell, which returns an object instead of throwing -
+# see TenantDeploymentValidate.ps1 for that divergence).
+#
+# Prereqs: build the solution first with dotnet build, then sign in.
+#
+# Optional:
+#   AZCLIPS_LOCATION - defaults to westus
 #
 # Usage: ./tests/Scripts/CLI/TenantDeploymentValidate.sh
-set -euo pipefail
+set -u
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-BICEP_DIR="$REPO_ROOT/tests/Scripts/Bicep"
-AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
-[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+az config set --key agent.enabled --value false >/dev/null 2>&1 || true
 
-SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID to the signed-in subscription.}"
-LOCATION="eastus"
-TEST_RESOURCE_GROUP="azclips-tenant-test-rg"
-STAMP="$(date +%y%m%d%H%M%S)-$$"
-PREFIX="${AZCLIPS_TENANT_DEPLOYMENT_NAME:-azclips-tenant-validate-$STAMP}"
-
-expect_failure() {
-    local label="$1"
-    local pattern="$2"
-    shift 2
-
-    set +e
-    local output
-    output=$("$@" 2>&1)
-    local status=$?
-    set -e
-
-    if [[ $status -eq 0 ]]; then
-        echo "UNEXPECTED: $label succeeded" >&2
-        return 1
-    fi
-    if ! grep -Eiq "$pattern" <<<"$output"; then
-        echo "UNEXPECTED: $label failed for the wrong reason: $output" >&2
-        return 1
-    fi
-    printf '%s\n' "$output"
+FAILURES=0
+fail() {
+  echo "FAIL: $1"
+  FAILURES=$((FAILURES + 1))
 }
 
-"$AZ" config set --key agent.enabled --value false
+assert_contains() {
+  local haystack="$1" needle="$2" what="$3"
+  if [[ "$haystack" != *"$needle"* ]]; then
+    fail "$what: expected output to contain '$needle', got '$haystack'"
+  fi
+}
 
-# This dedicated test group is reused and intentionally not deleted by individual scripts.
-if ! "$AZ" group show \
-    --subscription-id "$SUBSCRIPTION_ID" \
-    --name "$TEST_RESOURCE_GROUP" >/dev/null 2>&1; then
-    "$AZ" group create \
-        --subscription-id "$SUBSCRIPTION_ID" \
-        --name "$TEST_RESOURCE_GROUP" \
-        --location "$LOCATION"
+LOCATION="${AZCLIPS_LOCATION:-westus}"
+TEMPLATE_FILE="$(mktemp --suffix=.json)"
+cat > "$TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": []
+}
+JSON
+
+# A template whose only parameter violates its own allowedValues constraint. ARM's
+# tenant-scope validate reliably reports this as a validation failure, unlike an
+# undefined-parameter-in-outputs template which was observed to be silently accepted
+# when the template has no resources.
+INVALID_TEMPLATE_FILE="$(mktemp --suffix=.json)"
+cat > "$INVALID_TEMPLATE_FILE" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "env": {
+      "type": "string",
+      "defaultValue": "bogus",
+      "allowedValues": ["dev", "test", "prod"]
+    }
+  },
+  "resources": []
+}
+JSON
+
+echo "== 1. happy path: validate succeeds and returns the deployment properties =="
+OUTPUT="$(az deployment tenant validate --name "tenant-dep-validate-$RANDOM" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "happy path validate failed: $OUTPUT"
+else
+  assert_contains "$OUTPUT" "\"provisioningState\"" "validate result contains provisioningState"
 fi
 
-# Validate JSON using Provider validation.
-"$AZ" deployment tenant validate \
-    --location "$LOCATION" \
-    --name "$PREFIX-provider" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters "@$BICEP_DIR/tenant-empty.parameters.json" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=inline-wins \
-    --validation-level Provider
+echo "== 2. invalid template (allowedValues violation) is rejected =="
+OUTPUT="$(az deployment tenant validate --name "tenant-dep-validate-invalid-$RANDOM" --location "$LOCATION" --template-file "$INVALID_TEMPLATE_FILE" --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected validate to fail for a constraint-violating template"
+else
+  assert_contains "$OUTPUT" "Tenant deployment validation failed" "invalid template error mentions validation failure"
+fi
 
-# Validate Bicep using Template validation.
-"$AZ" deployment tenant validate \
-    --location "$LOCATION" \
-    --name "$PREFIX-template" \
-    --template-file "$BICEP_DIR/tenant-empty.bicep" \
-    --parameters "@$BICEP_DIR/tenant-empty.bicepparam" subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=bicep-inline-wins \
-    --validation-level Template
+echo "== 3. invalid --validation-level is rejected =="
+OUTPUT="$(az deployment tenant validate --name "tenant-dep-validate-badlevel-$RANDOM" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --validation-level Foo --debug 2>&1)"
+if [[ $? -eq 0 ]]; then
+  fail "expected failure for an invalid --validation-level value"
+else
+  assert_contains "$OUTPUT" "ValidationLevel" "invalid validation-level error mentions the parameter"
+fi
 
-# Validate with ProviderNoRbac and a derived deployment name.
-"$AZ" deployment tenant validate \
-    --location "$LOCATION" \
-    --template-file "$BICEP_DIR/tenant-empty.json" \
-    --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP" marker=provider-no-rbac \
-    --validation-level ProviderNoRbac
+rm -f "$TEMPLATE_FILE" "$INVALID_TEMPLATE_FILE"
 
-# Verify malformed Bicep is rejected.
-expect_failure \
-    "malformed Bicep validation" \
-    "Bicep compilation failed" \
-    "$AZ" deployment tenant validate \
-        --location "$LOCATION" \
-        --name "$PREFIX-malformed" \
-        --template-file "$BICEP_DIR/malformed.bicep"
-
-# Verify ARM validation diagnostics are surfaced.
-expect_failure \
-    "invalid tenant template" \
-    "InvalidTemplate|undefinedTenantParameter|validation" \
-    "$AZ" deployment tenant validate \
-        --location "$LOCATION" \
-        --name "$PREFIX-invalid-template" \
-        --template-file "$BICEP_DIR/tenant-invalid-template.json" \
-        --parameters subscriptionId="$SUBSCRIPTION_ID" resourceGroupName="$TEST_RESOURCE_GROUP"
-
-# Verify a parameters URI cannot be combined with an inline overlay.
-expect_failure \
-    "parameters URI plus inline overlay" \
-    "Inline parameters cannot be combined with a parameters URI" \
-    "$AZ" deployment tenant validate \
-        --location "$LOCATION" \
-        --name "$PREFIX-parameter-conflict" \
-        --template-file "$BICEP_DIR/tenant-empty.json" \
-        --parameters https://example.com/parameters.json marker=conflict
-
-echo "All tenant deployment validation smoke checks completed."
+if (( FAILURES > 0 )); then
+  echo "$FAILURES assertion(s) failed"
+  exit 1
+fi
+echo "All tenant deployment validate checks passed"

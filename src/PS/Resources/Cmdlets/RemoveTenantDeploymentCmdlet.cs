@@ -35,6 +35,9 @@ public class RemoveTenantDeploymentCmdlet : PSCmdlet
     public SwitchParameter PassThru { get; set; }
 
     [Parameter(Mandatory = false)]
+    public SwitchParameter AsJob { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -57,6 +60,18 @@ public class RemoveTenantDeploymentCmdlet : PSCmdlet
         {
             parameters[nameof(Profile)] = Profile;
         }
+        if (AsJob.IsPresent)
+        {
+            bool passThru = PassThru.IsPresent;
+            WriteObject(TenantDeploymentCmdletHelpers.RunAsJob(
+                this,
+                engine,
+                "Remove-AzTenantDeployment",
+                parameters,
+                onSuccess: passThru ? job => job.Output.Add(PSObject.AsPSObject(true)) : null));
+            return;
+        }
+
         TenantDeploymentCmdletHelpers.Run(this, engine, streams, _cts.Token, "Remove-AzTenantDeployment", parameters);
         if (PassThru)
         {

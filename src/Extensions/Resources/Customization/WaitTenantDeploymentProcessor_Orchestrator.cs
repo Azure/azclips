@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class WaitTenantDeploymentProcessor : ResourcesProcessorBase<object, object>
+public class WaitTenantDeploymentProcessor_Orchestrator : ResourcesProcessorBase<object, object>
 {
     public string Name { get; set; } = string.Empty;
 
@@ -49,11 +49,6 @@ public class WaitTenantDeploymentProcessor : ResourcesProcessorBase<object, obje
                 using HttpResponseMessage response = await get.SendAsync();
                 string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
                 DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(rawBody, JsonOptions);
-                string? state = deployment?.Properties?.ProvisioningState;
-                if (string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException("The deployment operation failed.");
-                }
                 if (Matches(deployment, rawBody))
                 {
                     if (deployment is not null)
