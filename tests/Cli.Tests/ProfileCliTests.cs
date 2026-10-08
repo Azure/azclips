@@ -419,7 +419,8 @@ public sealed class ProfileCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public void SeedProfile(string name, string subscriptionId) =>

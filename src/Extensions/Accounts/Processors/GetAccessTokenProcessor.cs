@@ -200,7 +200,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private static (string SignInCommand, string TenantFlag) SignInGuidance()
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             return clientType == ClientType.PowerShell
                 ? ("Connect-AzAccount", "-TenantId")
                 : ("az login", "--tenant-id");
@@ -214,7 +214,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private static string ManagedIdentitySignInCommand(Profile profile)
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             bool isPowerShell = clientType == ClientType.PowerShell;
             string command = isPowerShell ? "Connect-AzAccount -Identity" : "az login --identity";
 
@@ -249,7 +249,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// </summary>
         private object RenderOutput(AuthResult authResult, string? subscription, string? userId)
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
 
             if (clientType == ClientType.PowerShell && !Plaintext)
             {
