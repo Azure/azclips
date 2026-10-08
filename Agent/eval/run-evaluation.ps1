@@ -4,6 +4,8 @@ param(
     [string] $AzclipsExe = $env:AZCLIPS_EXE,
     [string] $OutputPath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-$([guid]::NewGuid().ToString('N')).json"),
     [string] $TracePath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-traces-$([guid]::NewGuid().ToString('N'))"),
+    [ValidateSet('automatic', 'manual')]
+    [string] $RecoveryMode = 'automatic',
     [switch] $Upload,
     [string] $ServiceUrl = 'https://azclis-evaluation-web-6b085460.azurewebsites.net'
 )
@@ -21,17 +23,23 @@ $TracePath = [IO.Path]::GetFullPath($TracePath)
 if (Test-Path -LiteralPath $OutputPath) {
     throw "Output already exists: $OutputPath. Choose a new path so a previous artifact cannot be uploaded as this run."
 }
-$configuration = [ordered]@{
-    'agent.enabled' = 'true'
-    'agent.sessionStyle' = 'oneshot'
-    'agent.trace.enabled' = 'true'
-    'agent.trace.path' = $TracePath
+$configuration = if ($RecoveryMode -eq 'manual') {
+    [ordered]@{ 'agent.recovery' = 'manual' }
 }
+else {
+    [ordered]@{
+        'agent.enabled' = 'true'
+        'agent.sessionStyle' = 'oneshot'
+    }
+}
+$configuration['agent.trace.enabled'] = 'true'
+$configuration['agent.trace.path'] = $TracePath
 
 function Invoke-Azclips {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
-    $output = & $AzclipsExe @Arguments 2>&1 | Out-String
+    # Keep stderr diagnostics out of structured stdout such as agent tool env.
+    $output = & $AzclipsExe @Arguments | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "azclips exited with $LASTEXITCODE while running: $($Arguments -join ' ')`n$output"
     }
@@ -71,6 +79,7 @@ $previousPromptfooTelemetry = $env:PROMPTFOO_DISABLE_TELEMETRY
 $previousPromptfooUpdate = $env:PROMPTFOO_DISABLE_UPDATE
 $previousSignedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
 $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
+$previousRecoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
 $runFailure = $null
 $restoreFailure = $null
 try {
@@ -85,6 +94,7 @@ try {
     $env:PROMPTFOO_DISABLE_UPDATE = 'true'
     $env:AZCLIPS_EVALUATION_SIGNED_IN = 'true'
     $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $subscriptionId.ToString()
+    $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $RecoveryMode
 
     Push-Location $PSScriptRoot
     try {
@@ -124,6 +134,7 @@ finally {
     $env:PROMPTFOO_DISABLE_UPDATE = $previousPromptfooUpdate
     $env:AZCLIPS_EVALUATION_SIGNED_IN = $previousSignedIn
     $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $previousSubscriptionId
+    $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $previousRecoveryMode
 }
 
 if ($runFailure -or $restoreFailure) {

@@ -50,6 +50,27 @@ an extension missing from the installed package is a prerequisite issue, not a
 quality failure. Source metadata and passing offline tests alone do not prove
 that the installed target supports the suite.
 
+For latency comparisons, the suite runs one provider call at a time and allows
+up to five minutes per call. Promptfoo's duration measures the complete provider
+call, including CLI startup, error recovery, and trace extraction; it is not
+LLM-only latency. Preserve the same concurrency, timeout, case set, model,
+subscription, and cache conditions when comparing an optimized build.
+
+For the on-demand recovery baseline, use a complete package containing PR #934
+and pass `-RecoveryMode manual`. The provider first runs the failing command,
+then invokes `az troubleshoot --id <exact-failure-id> --style oneshot`.
+It never selects the global latest failure. Duration includes failure recording,
+the troubleshoot process, and trace extraction; compare runs using the same mode.
+An unsuccessful troubleshoot process is an execution error, even if it emitted a
+partial plan; it must not be reported as an ordinary assertion failure.
+The original automatic mode remains available for compatible older suites.
+
+The PR #934 package uses `vm create --vm-size` and `rest --uri`. Stable 0.1.4
+instead uses `vm create --size` and does not start Agent recovery for several
+structured errors in this suite; it cannot be substituted for the on-demand
+baseline. The REST fixture resolves its URI from the recorded active subscription;
+the unsupported `fetch` method is rejected before an HTTP request is sent.
+
 Build and install the intended source revision using the repository packaging
 scripts before running the wrapper. It does not build or update the executable,
 and an older installed package does not become current when source files change.
@@ -59,6 +80,7 @@ Use a full packaged installation, not the unstaged debug CLI layout:
 Set-Location <repository-root>
 .\Agent\eval\run-evaluation.ps1 `
   -AzclipsExe "$env:LOCALAPPDATA\Programs\azcli-dev\az.exe" `
+  -RecoveryMode manual `
   -Upload
 ```
 

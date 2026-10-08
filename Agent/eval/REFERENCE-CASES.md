@@ -83,7 +83,7 @@ test or product fix for nested dispatch.
 | `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
 | `config-get-unknown-key` | Read an unknown configuration key. | Use read-only configuration discovery, not set/delete. |
 | `extension-show-not-found` | Inspect an extension name that is not installed. | List installed extensions, without adding or removing one. |
-| `rest-invalid-method` | Use the invalid HTTP method `fetch` for a read request. | Produce `az rest` with the GET method. |
+| `rest-invalid-method` | Use the unsupported HTTP method `fetch` with a valid `--uri` in the recorded subscription. | Preserve the URI and use explicit GET (case-insensitive) or the supported GET default; reject non-GET steps and unrelated arguments. |
 
 Compute is already represented by `vm-create-long-flags`; a second disk-list
 discovery case is unnecessary. The Network show/list case and MsGraph fake-group-ID
@@ -100,8 +100,11 @@ proposed operation would deploy successfully.
 
 Network parameters follow the [Network registration](../../src/Extensions/Network/ExtensionIndex.cs),
 and identity parameters follow the [Identity registration](../../src/Extensions/Identity/ExtensionIndex.cs).
-Recheck the target package before a real run; the original typo-based references
-remain unchanged and do not imply a typo requirement for the new baseline cases.
+Recheck the target package before a real run. The original typo-based stimuli
+do not imply a typo requirement for the new baseline cases. The on-demand
+PR #934 package uses `--vm-size` for VM creation and `--uri` for REST.
+Stable release 0.1.4 uses `--size` instead and skips automatic recovery for
+missing-required-parameter errors; it is not interchangeable with that package.
 
 ## Assertion responsibilities
 
@@ -137,6 +140,8 @@ The offline tests exercise the same assertion functions used by Promptfoo.
   supplied values for the missing field; reject empty values or changes to the
   supplied name, network settings, identity location, or application audience.
 - VNet/application: reject discovery-only plans and unrelated resource changes.
+- REST: accept explicit GET in any casing or its default; reject changed URIs,
+  unsupported argument names, and any non-GET step even after a valid one.
 - Context: reject an absent active profile rather than treating an undefined
   subscription as a valid default.
 
@@ -152,6 +157,18 @@ one real run with zero execution errors. Record source revision, target package,
 runtime prompt hash, model, suite identity, outputs, assertions, and usage.
 Earlier three-reference runs remain historical evidence for that smaller suite,
 not a baseline for the expanded set.
+
+The latency baseline uses single concurrency and a five-minute provider timeout.
+Use `-RecoveryMode manual` with a package supporting `az troubleshoot`. The
+provider captures the precise failure ID and requests oneshot analysis for that
+ID, so a different process's latest failure cannot be selected. Missing IDs and
+unexpectedly successful stimuli are execution errors, not quality scores.
+Duration includes failure recording and troubleshooting, not just model inference. One pass
+provides one observation per case; it does not establish stable tail latency.
+
+Older packages may report token usage without model names in their trace events.
+Keep the observed model list empty in that situation and record the configured
+model separately in the run's provenance; do not fabricate observed model telemetry.
 
 Keep unsuccessful runs when diagnosing a failure. A process or environment error
 is not a quality score, and a result from a different binary or test set is not

@@ -151,6 +151,15 @@ function findTracePath(raw) {
   return matches.at(-1)?.[1]?.trim();
 }
 
+function findFailureId(raw) {
+  const matches = [...raw.matchAll(/\baz troubleshoot --id ([1-9]\d{0,9}-\d{4}-\d{4}-\d{4}-\d{4,20})(?=["'\s]|$)/g)];
+  const ids = [...new Set(matches.map((match) => match[1]).filter((id) => id.length <= 46))];
+  if (ids.length !== 1) {
+    throw new Error('Manual evaluation requires one exact failure ID from the failed command; refusing to troubleshoot the global latest failure.');
+  }
+  return ids[0];
+}
+
 function readStructuredPlan(tracePath) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   const lines = fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean);
@@ -328,6 +337,10 @@ class AzclipsAgentProvider {
     this.exe = (options && options.config && options.config.exe) || process.env.AZCLIPS_EXE || DEFAULT_EXE;
     this.timeoutMs = (options && options.config && options.config.timeoutMs) || 120000;
     this.traceDir = (options && options.config && options.config.traceDir) || DEFAULT_TRACE_DIR;
+    this.recoveryMode = options?.config?.recoveryMode || 'automatic';
+    if (!['automatic', 'manual'].includes(this.recoveryMode)) {
+      throw new Error('recoveryMode must be automatic or manual');
+    }
   }
 
   id() { return 'azclips-agent'; }
@@ -347,16 +360,29 @@ class AzclipsAgentProvider {
 
     return new Promise((resolve) => {
       const env = buildEvaluationEnvironment(process.env, flavor);
+      const startedAt = Date.now();
+      const recoveryMetadata = {};
+      let troubleshootStartedAt;
       const complete = (err, stdout, stderr, failedToStart = false) => {
+        if (troubleshootStartedAt !== undefined) {
+          recoveryMetadata.troubleshootDurationMs = Date.now() - troubleshootStartedAt;
+        }
         const raw = `${stdout || ''}\n${stderr || ''}`;
         const numericExitCode = Number(err?.code ?? 1);
         const exitCode = err
           ? Number.isFinite(numericExitCode) ? numericExitCode : 1
           : 0;
         const tracePath = findTracePath(raw);
-        const processFailure = getProcessFailure(err, this.timeoutMs, failedToStart);
+        const processFailure = getProcessFailure(err, this.timeoutMs, failedToStart) ||
+          (troubleshootStartedAt !== undefined && exitCode !== 0 ? {
+            type: 'infrastructure',
+            reason: 'troubleshoot',
+            code: exitCode,
+            message: `Manual troubleshooting failed with exit code ${exitCode}. Check Agent authentication and the target package before scoring the response.`,
+          } : undefined);
         if (processFailure) {
           const metadata = {
+            ...recoveryMetadata,
             exitCode,
             resultType: 'azclips.plan.v1',
             runtimePromptSha256: runtimePrompt.sha256,
@@ -384,6 +410,7 @@ class AzclipsAgentProvider {
 
         const { output, executionError } = splitAgentOutput(raw, exitCode);
         const metadata = {
+          ...recoveryMetadata,
           exitCode,
           resultType: 'azclips.plan.v1',
           runtimePromptSha256: runtimePrompt.sha256,
@@ -413,15 +440,56 @@ class AzclipsAgentProvider {
           ...(tokenUsage && { tokenUsage }),
         });
       };
-      try {
-        execFileUnattended(this.exe, args, {
-          timeout: this.timeoutMs,
-          maxBuffer: MAX_BUFFER_BYTES,
-          env,
-        }, complete);
-      } catch (error) {
-        complete(error || new Error('Unknown process startup failure'), '', '', true);
+      const runProcess = (processArgs, callback, timeout = this.timeoutMs) => {
+        try {
+          execFileUnattended(this.exe, processArgs, {
+            timeout,
+            maxBuffer: MAX_BUFFER_BYTES,
+            env,
+          }, callback);
+        } catch (error) {
+          complete(error || new Error('Unknown process startup failure'), '', '', true);
+        }
+      };
+      if (this.recoveryMode === 'automatic') {
+        runProcess(args, complete);
+        return;
       }
+      runProcess(args, (error, stdout, stderr) => {
+        if (getProcessFailure(error, this.timeoutMs)) {
+          complete(error, stdout, stderr);
+          return;
+        }
+        try {
+          if (!error) throw new Error('The manual evaluation stimulus succeeded instead of recording a failure.');
+          const failureId = findFailureId(`${stdout || ''}\n${stderr || ''}`);
+          recoveryMetadata.recoveryMode = 'manual';
+          recoveryMetadata.failureId = failureId;
+          recoveryMetadata.failureExitCode = error.code;
+          recoveryMetadata.failureCaptureDurationMs = Date.now() - startedAt;
+          const remaining = this.timeoutMs - recoveryMetadata.failureCaptureDurationMs;
+          if (remaining <= 0) {
+            complete(Object.assign(new Error('Evaluation timeout'), {
+              code: 'ETIMEDOUT', killed: true,
+            }), stdout, stderr);
+            return;
+          }
+          troubleshootStartedAt = Date.now();
+          runProcess(['troubleshoot', '--id', failureId, '--style', 'oneshot'], complete, remaining);
+        } catch (captureError) {
+          const message = captureError instanceof Error ? captureError.message : String(captureError);
+          resolve({
+            error: message,
+            prompt: renderedRuntimePrompt,
+            metadata: {
+              resultType: 'azclips.plan.v1',
+              runtimePromptSha256: runtimePrompt.sha256,
+              recoveryMode: 'manual',
+              processFailure: { type: 'infrastructure', reason: 'failure-capture', message },
+            },
+          });
+        }
+      });
     });
   }
 }
@@ -430,6 +498,7 @@ module.exports = AzclipsAgentProvider;
 module.exports.buildEvaluationEnvironment = buildEvaluationEnvironment;
 module.exports.execFileUnattended = execFileUnattended;
 module.exports.findTracePath = findTracePath;
+module.exports.findFailureId = findFailureId;
 module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;

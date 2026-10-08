@@ -10,6 +10,7 @@ const group = require('./cases/group-create-missing-location');
 const vnet = require('./cases/vnet-create-missing-location');
 const identity = require('./cases/identity-create-missing-rg');
 const application = require('./cases/msgraph-app-create-missing-display-name');
+const rest = require('./cases/rest-invalid-method');
 const baseline = [
   group,
   vnet,
@@ -17,7 +18,7 @@ const baseline = [
   application,
   require('./cases/config-get-unknown-key'),
   require('./cases/extension-show-not-found'),
-  require('./cases/rest-invalid-method'),
+  rest,
 ];
 const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
@@ -30,6 +31,7 @@ const groupCommand = 'az group create --name azclips-eval-rg --location eastus';
 const vnetCommand = `az network vnet create --name azclips-eval-vnet --resource-group ${groupFor(vnet)} --address-prefixes 10.42.0.0/16 --dns-servers 10.42.0.4 --location eastus`;
 const identityCommand = 'az identity create --name azclips-eval-id --location eastus --resource-group identity-eval-rg';
 const applicationCommand = 'az msgraph app create --sign-in-audience AzureADMyOrg --display-name azclips-eval-app';
+const restCommand = `az rest --method GET --uri https://management.azure.com/subscriptions/${process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || subscription}/resourcegroups?api-version=2021-04-01`;
 const vmNeeds = [{ flag: '--admin-password', description: 'Supply the VM password' }];
 
 function grade(scenario, commands, { placeholders = [], vars = {} } = {}) {
@@ -86,6 +88,8 @@ test('VM reference accepts complete long flags and a declared secret placeholder
 test('VM reference rejects missing values, changed user input, short flags, and invented secrets', () => {
   for (const command of [
     vmCommand.replace('--vm-size Standard_D2s_v5', '--vm-size'),
+    vmCommand.replace('--vm-size Standard_D2s_v5', '--size Standard_D2s_v5'),
+    `${vmCommand} --size Standard_D2s_v5`,
     vmCommand.replace('--name test-vm', '--name another-vm'),
     vmCommand.replace('--name test-vm', '-n test-vm'),
     vmCommand.replace('<admin-password>', 'invented-value'),
@@ -157,6 +161,8 @@ test('the reference suite registers the reference and baseline cases and no defa
   assert.deepEqual(config.tests, [profile, vm, deployment, ...baseline]);
   assert.equal(config.defaultTest.options?.provider, undefined);
   assert.equal(config.defaultTest.vars.subscription_id, subscription);
+  assert.equal(config.evaluateOptions.maxConcurrency, 1);
+  assert.equal(config.providers[0].config.timeoutMs, 300000);
 });
 
 test('baseline cases have unique ids, deterministic assertions, and no destructive operations', () => {
@@ -307,5 +313,32 @@ test('every create step must satisfy its contract, not only one matching step', 
   ]) {
     assert.ok(grade(scenario, [command, `az ${scenario.vars.command}`]).some((result) => !result.pass),
       scenario.vars.case_id);
+  }
+});
+
+test('REST accepts explicit case-insensitive GET or the supported GET default while preserving the URI', () => {
+  assert.match(rest.vars.command, /^rest --method fetch --uri https:\/\/management\.azure\.com\/subscriptions\//);
+  for (const command of [
+    restCommand,
+    restCommand.replace('--method GET', '--method get'),
+    restCommand.replace('--method GET', '--method Get'),
+    restCommand.replace('--method GET ', ''),
+  ]) {
+    assert.ok(grade(rest, [command]).every((result) => result.pass), command);
+  }
+});
+
+test('REST rejects the failing stimulus, changed URI, legacy URL flag, and non-GET operations', () => {
+  for (const commands of [
+    [`az ${rest.vars.command}`],
+    [restCommand.replace('--uri ', '--url ')],
+    [restCommand.replace('api-version=2021-04-01', 'api-version=2022-09-01')],
+    [restCommand.replace('/resourcegroups?', '/providers?')],
+    [restCommand.replace('--method GET', '--method')],
+    [restCommand.replace('--method GET', '--method DELETE')],
+    [restCommand, restCommand.replace('--method GET', '--method PUT')],
+    [restCommand, groupCommand],
+  ]) {
+    assert.ok(grade(rest, commands).some((result) => !result.pass), commands.join('; '));
   }
 });

@@ -20,6 +20,7 @@ $ErrorActionPreference = 'Stop'
 $root = $env:AZCLIPS_EVAL_TEST_ROOT
 $scenario = Get-Content (Join-Path $root 'scenario.json') -Raw | ConvertFrom-Json
 if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
+    if ($scenario.environmentWarning) { Write-Error 'Environment diagnostic on stderr' -ErrorAction Continue }
     $signedIn = $scenario.signedOut -ne $true
     $subscription = if ($scenario.missingSubscription) { '' } else { '11111111-1111-4111-8111-111111111111' }
     @{ signedIn = $signedIn; subscriptionId = $subscription } | ConvertTo-Json -Compress
@@ -71,6 +72,7 @@ $env:PROMPTFOO_DISABLE_TELEMETRY = 'false'
 $env:PROMPTFOO_DISABLE_UPDATE = 'false'
 $env:AZCLIPS_EVALUATION_SIGNED_IN = 'original-signed-in'
 $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = 'original-subscription'
+$env:AZCLIPS_EVALUATION_RECOVERY_MODE = 'original-recovery-mode'
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
@@ -86,9 +88,16 @@ function global:npx {
     Add-Content (Join-Path $root 'calls.txt') "evaluate|$output"
     $configPath = Join-Path $env:AZCLIPS_HOME 'config.json'
     $configuration = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
-    if ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
-        $configuration['agent.sessionStyle'] -ne 'oneshot' -or
-        $configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
+    $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
+    if ($env:AZCLIPS_EVALUATION_RECOVERY_MODE -ne $expectedMode) { throw 'Wrong provider recovery mode' }
+    if ($expectedMode -eq 'manual') {
+        if ($configuration['agent.recovery'] -ne 'manual') { throw 'Manual recovery must be enabled' }
+    }
+    elseif ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
+        $configuration['agent.sessionStyle'] -ne 'oneshot') {
+        throw 'Automatic recovery must use the legacy configuration contract'
+    }
+    if ($configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
         throw "Expected temporary Agent configuration during evaluation: $($configuration | ConvertTo-Json -Depth 10 -Compress)"
     }
@@ -122,6 +131,7 @@ $parameters = @{
 }
 if (-not $scenario.defaultOutput) { $parameters.OutputPath = Join-Path $root 'result.json' }
 if ($scenario.upload) { $parameters.Upload = $true }
+if ($scenario.recoveryMode) { $parameters.RecoveryMode = $scenario.recoveryMode }
 $exitCode = 0
 $failure = $null
 try {
@@ -142,6 +152,7 @@ catch {
     update = $env:PROMPTFOO_DISABLE_UPDATE
     signedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
     subscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
+    recoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
 } |
     ConvertTo-Json | Set-Content (Join-Path $root 'summary.json')
 exit $exitCode
@@ -242,6 +253,18 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   assert.ok(paths.every((file) => fs.existsSync(file)));
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
+});
+
+test('manual wrapper uses the new recovery policy and restores configuration and mode', (context) => {
+  const result = runWrapper(context, { recoveryMode: 'manual', environmentWarning: true });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.ok(result.configurationCalls.includes('config set --key agent.recovery --value manual'));
+  assert.ok(!result.configurationCalls.some((call) => /--key agent\.(enabled|sessionStyle)\b/.test(call)));
+  assert.equal(result.configurationCalls.length, 3);
+  assert.equal(result.summary.recoveryMode, 'original-recovery-mode');
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
+  assert.match(result.stderr, /Environment diagnostic on stderr/);
 });
 
 test('wrapper refuses to overwrite or upload a previous artifact', (context) => {

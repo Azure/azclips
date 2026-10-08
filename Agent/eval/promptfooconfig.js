@@ -37,10 +37,17 @@ module.exports = {
     {
       id: 'file://targets/azclips.js',
       label: 'azclips-dev',
+      config: {
+        timeoutMs: 300000,
+        recoveryMode: process.env.AZCLIPS_EVALUATION_RECOVERY_MODE || 'automatic',
+      },
     },
   ],
   defaultTest: {
     vars: runContext,
+  },
+  evaluateOptions: {
+    maxConcurrency: 1,
   },
   tests: [
     profileShow,

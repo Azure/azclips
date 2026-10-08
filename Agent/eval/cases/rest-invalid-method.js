@@ -1,12 +1,13 @@
-const resourceGroup = process.env.AZCLIPS_EVALUATION_RESOURCE_GROUP || 'azclips-test-rg';
+const subscriptionId = process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || '11111111-1111-4111-8111-111111111111';
+const resourceUri = `https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups?api-version=2021-04-01`;
 
 module.exports = {
   description: 'rest with an invalid HTTP method -> corrected to get',
   vars: {
     case_id: 'rest-invalid-method',
     command_group: 'rest',
-    goal: 'fetch is not a valid HTTP method; use the read-only GET method and keep the URL.',
-    command: `rest --method fetch --url https://management.azure.com/subscriptions/{sub}/resourcegroups?api-version=2021-04-01`,
+    goal: 'fetch is not a supported HTTP method; use GET or its supported default and preserve the resource-group URI in the active subscription.',
+    command: `rest --method fetch --uri ${resourceUri}`,
   },
   assert: [
     {
@@ -19,10 +20,9 @@ module.exports = {
         expectedCommandSet: [
           {
             command: 'az rest',
-            match: 'any',
-            requiredArguments: ['--method', '--url'],
-            forbiddenArguments: ['-n', '-g'],
-            argumentValues: { '--method': 'get' },
+            match: 'all',
+            requiredArguments: ['--uri'],
+            argumentValues: { '--uri': resourceUri },
           },
         ],
       },
@@ -33,6 +33,8 @@ module.exports = {
       metric: 'plan-contract',
       config: {
         allowedCommands: ['az rest'],
+        allowedArguments: ['--method', '--uri'],
+        optionalArgumentValues: { '--method': 'GET' },
         validateSubscription: true,
       },
     },

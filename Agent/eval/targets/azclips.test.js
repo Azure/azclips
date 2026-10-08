@@ -10,6 +10,7 @@ const {
   buildEvaluationEnvironment,
   execFileUnattended,
   findTracePath,
+  findFailureId,
   findRuntimePromptPath,
   readRuntimePrompt,
   readModels,
@@ -375,6 +376,108 @@ test('finds the final trace path from mixed output', () => {
   ].join('\n');
 
   assert.equal(findTracePath(output), 'C:\\traces\\final.jsonl');
+});
+
+test('manual recovery extracts one exact failure ID from structured or human hints', () => {
+  const id = '1234-2026-1008-0000-0001';
+  const structured = JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } });
+  const human = `To troubleshoot this error with AI, run: az troubleshoot --id ${id}\n`;
+  assert.equal(findFailureId(structured), id);
+  assert.equal(findFailureId(human), id);
+  assert.equal(findFailureId(`${structured}\n${human}`), id);
+  assert.throws(() => findFailureId('az troubleshoot'), /one exact failure ID/);
+  assert.throws(() => findFailureId(`${human}az troubleshoot --id 1234-2026-1008-0000-0002`),
+    /one exact failure ID/);
+  assert.throws(() => findFailureId('az troubleshoot --id --list'), /one exact failure ID/);
+});
+
+test('manual recovery records the failure then analyzes its exact ID with closed stdin', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({
+    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+  });
+  const id = '1234-2026-1008-0000-0001';
+  const calls = [];
+  let closed = 0;
+  context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
+    assert.equal(file, fixture.exe);
+    assert.ok(options.timeout > 0 && options.timeout <= 2000);
+    calls.push(args);
+    queueMicrotask(() => {
+      if (calls.length === 1) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '',
+          JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } }));
+      } else {
+        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+      }
+    });
+    return { stdin: { end() { closed += 1; } } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.deepEqual(calls, [
+    ['profile', 'show'],
+    ['troubleshoot', '--id', id, '--style', 'oneshot'],
+  ]);
+  assert.equal(closed, 2);
+  assert.equal(response.error, undefined);
+  assert.equal(response.metadata.failureId, id);
+  assert.equal(response.metadata.failureExitCode, 2);
+  assert.equal(response.metadata.recoveryMode, 'manual');
+  assert.ok(response.metadata.failureCaptureDurationMs >= 0);
+  assert.ok(response.metadata.troubleshootDurationMs >= 0);
+  assert.deepEqual(response.metadata.plan, fixture.plan);
+  assert.deepEqual(response.tokenUsage, fixture.tokenUsage);
+});
+
+test('manual recovery does not run AI for successful stimuli or missing failure IDs', async (context) => {
+  for (const error of [null, Object.assign(new Error('Command failed'), { code: 2 })]) {
+    await context.test(error ? 'missing ID' : 'successful stimulus', async (context) => {
+      const fixture = createProviderFixture(context);
+      const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
+      let calls = 0;
+      context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
+        calls += 1;
+        queueMicrotask(() => callback(error, 'No recovery hint', ''));
+        return { stdin: { end() {} } };
+      });
+      const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+      assert.equal(calls, 1);
+      assert.equal(response.metadata.processFailure.reason, 'failure-capture');
+      assert.ok(response.error);
+      assert.equal(response.output, undefined);
+    });
+  }
+});
+
+test('rejects unsupported recovery modes', () => {
+  assert.throws(() => new AzclipsAgentProvider({ config: { recoveryMode: 'latest' } }),
+    /recoveryMode must be automatic or manual/);
+});
+
+test('a failed troubleshoot process is an execution error even when it produced a partial plan', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
+  const id = '1234-2026-1008-0000-0001';
+  let calls = 0;
+  context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
+    const recording = ++calls === 1;
+    queueMicrotask(() => callback(
+      Object.assign(new Error('private-process-secret'), { code: recording ? 2 : 9 }),
+      recording ? `az troubleshoot --id ${id}` : fixture.stdout,
+      '',
+    ));
+    return { stdin: { end() {} } };
+  });
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.equal(calls, 2);
+  assert.equal(response.metadata.processFailure.reason, 'troubleshoot');
+  assert.equal(response.metadata.failureId, id);
+  assert.equal(response.metadata.exitCode, 9);
+  assert.match(response.error, /exit code 9/);
+  assert.equal(response.output, undefined);
+  assert.equal(response.metadata.plan, undefined);
+  assert.deepEqual(response.tokenUsage, fixture.tokenUsage);
+  assert.doesNotMatch(JSON.stringify(response), /private-process-secret/);
 });
 
 test('removes local trace paths from provider output', () => {

@@ -31,7 +31,7 @@ module.exports = {
               '--virtual-network-name',
               '--network-security-group-name',
             ],
-            forbiddenArguments: ['-n', '-g'],
+            forbiddenArguments: ['-n', '-g', '--size'],
             argumentValues: {
               '--name': 'test-vm',
               '--resource-group': resourceGroup,
