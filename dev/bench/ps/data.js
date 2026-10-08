@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791437231789,
+  "lastUpdate": 1791438545783,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -12604,6 +12604,48 @@ window.BENCHMARK_DATA = {
             "value": 2146455.8360589542,
             "unit": "ns",
             "range": "± 86084.98367956899"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d8e22089463d12541bc7efb066be04928454c8a",
+          "message": "[Resources] `az role assignment list`: Add scope-breadth filters and align the default to exact-scope (#1076)\n\n**Related command**\n\n`az role assignment list` and `Get-AzRoleAssignment`\n**Description**\n\nThis command lists who has what access (role assignments) at a given\nscope — a subscription, resource group, or resource. This PR adds\ncontrols for *how wide* that listing reaches, and fixes the default to\nbehave like the official `az`/`Get-AzRoleAssignment`.\n\nBackground: access in Azure is inherited. An assignment made on a\nsubscription also applies to every resource group and resource inside\nit, so \"list the assignments at a subscription\" is ambiguous. Azure's\nAPI can't express \"only this exact level\" in one call; you ask broad and\nnarrow down:\n\n| Azure request | Returns |\n|---|---|\n| no filter | the scope **and everything below** it (nested resource\ngroups/resources) |\n| `atScope()` | the scope **and everything above** it (inherited from\nancestors); excludes below |\n\nThe flags expose each option:\n\n- **Default (no flag)** → only assignments made **directly at the\nrequested scope**. Matches the official tools.\n- **`--include-inherited` / `-IncludeInherited`** → also include\nassignments **inherited from parent scopes** (e.g. a management-group\ngrant effective at the subscription).\n- **`--all` (CLI) / `-IncludeNestedScopes` (PowerShell)** → also include\nassignments on **everything nested underneath** the subscription (its\nresource groups and resources). Cannot be combined with a scope, a\nresource group, or `--include-inherited` (which widens in the opposite\ndirection).\n- **`--include-groups` / `-ExpandPrincipalGroups`** → when filtering by\na principal, also include access granted **through groups they belong\nto** (transitive). Requires an assignee.\n\n**This changes the default output.** Before, listing a subscription also\nreturned every nested resource-group/resource assignment — far more than\nusually wanted, and unlike the official tools. The default now returns\nonly what's assigned directly at the scope. Nothing is lost: use\n`--all`/`-IncludeNestedScopes` for everything below,\n`--include-inherited`/`-IncludeInherited` for everything inherited from\nabove. The command has not shipped to users, so there is no\ncompatibility impact.\n\nPowerShell naming: the widening switch is `-IncludeInherited` (matching\nthe CLI's `--include-inherited`), deliberately **not** classic's\n`-AtScope`. Classic `-AtScope` *narrows* (\"lists role assignments for\nonly the specified scope, not including the role assignments at\nsubscopes\"), so reusing that name for a widening switch would silently\nreturn extra grants for scripts migrated from classic. The CLI's `--all`\nis exposed on PowerShell as `-IncludeNestedScopes` (an idiomatic switch\nname bound to the same behavior); classic PowerShell has no `--all`\nequivalent.\n\nImplementation notes for reviewers: group expansion uses Azure's native\nmembership filter (`assignedTo()`), with no Microsoft Graph call. Azure\nrejects `atScope()` combined with a specific-principal filter, so a\nscoped assignee filter is applied in-process instead, the same way the\nofficial CLI does; the `--role` filter is likewise applied in-process\n(Azure cannot filter a list by role). GUID inputs are normalized to\ncanonical form before use (so braced/32-char GUIDs match Azure's\nhyphenated IDs), and the tenant-root scope (`/`) is handled explicitly.\nResolving names/UPNs to object IDs and enriching output with friendly\nnames remain out of scope (GUIDs only), tracked as future work.\n\n\n**Testing Guide**\n\nAutomated: `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignment\"` — all green. New tests cover each\nflag: the exact-scope default, including inherited (parent) assignments,\n`--all`/`-IncludeNestedScopes` reaching nested scopes and refusing a\nscope/resource group, group-expanded filtering, and that every new flag\nis wired up correctly on both the CLI and PowerShell surfaces.\nPowerShell help-drift check passes.\n\nManual (live, needs a real subscription):\n`tests/Scripts/{PS,CLI}/RoleAssignmentLifecycle.*` now also exercise the\nnew flags. The underlying Azure behavior was double-checked read-only\nagainst a live subscription — a default list correctly dropped the\nnested assignments the old behavior used to include.\n\n**History Notes**\n\n[Resources] `az role assignment list`: Add the `--include-inherited`\n`--all` and `--include-groups` scope-breadth filters and default to\nexact-scope listing\n\n[Resources] `Get-AzRoleAssignment`: Add `-IncludeInherited`\n`-ExpandPrincipalGroups` and `-IncludeNestedScopes` switches and default\nto exact-scope listing\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-08T16:19:09+11:00",
+          "tree_id": "06c136804c80b3446669eece20fba58745aaf5dd",
+          "url": "https://github.com/Azure/azclips/commit/0d8e22089463d12541bc7efb066be04928454c8a"
+        },
+        "date": 1791438542255,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1965678.8777140516,
+            "unit": "ns",
+            "range": "± 65717.31528447533"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2021549.6094589012,
+            "unit": "ns",
+            "range": "± 69738.48105635744"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1869039.3287349273,
+            "unit": "ns",
+            "range": "± 73082.9431276772"
           }
         ]
       }
