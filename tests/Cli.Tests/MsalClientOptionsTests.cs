@@ -69,7 +69,9 @@ public class MsalClientOptionsTests : IDisposable
         var managedIdentity = new ManagedIdentityAuthenticator(
             new AzureCredentialFactory(), logger, telemetry);
         var federated = new FederatedTokenAuthenticator(logger, telemetry, options);
-        return new MsalAuthService(logger, telemetry, profileService, managedIdentity, federated, options);
+        var clientMetadata = new ClientMetadata(ClientType.CLI, ClientId);
+        return new MsalAuthService(
+            logger, telemetry, profileService, clientMetadata, managedIdentity, federated, options);
     }
 
     private static string CreateTempDirectory()

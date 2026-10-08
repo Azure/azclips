@@ -430,7 +430,8 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args, int? terminalWidth = null)
