@@ -114,16 +114,16 @@
         sb.AppendLine("{");
         sb.AppendLine("  \"schemaVersion\": 1,");
         sb.Append("  \"generatedAt\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine("\",");
-        sb.Append("  \"packageId\": \"").Append(PackageId).AppendLine("\",");
+        sb.Append("  \"packageId\": \"").Append(EscapeJson(PackageId)).AppendLine("\",");
         var version = string.IsNullOrEmpty(PackageVersion) ? "0.0.0" : PackageVersion;
-        sb.Append("  \"version\": \"").Append(version).AppendLine("\",");
+        sb.Append("  \"version\": \"").Append(EscapeJson(version)).AppendLine("\",");
 
         sb.AppendLine("  \"verbs\": [");
         int vi = 0;
         foreach (var verb in verbs)
         {
           var comma = (++vi == verbs.Count) ? "" : ",";
-          sb.Append("    \"").Append(verb).Append("\"").AppendLine(comma);
+          sb.Append("    \"").Append(EscapeJson(verb)).Append("\"").AppendLine(comma);
         }
         sb.AppendLine("  ],");
 
@@ -132,7 +132,7 @@
         foreach (var leaf in leaves)
         {
           var comma = (++li == leaves.Count) ? "" : ",";
-          sb.Append("    \"").Append(leaf).Append("\"").AppendLine(comma);
+          sb.Append("    \"").Append(EscapeJson(leaf)).Append("\"").AppendLine(comma);
         }
         sb.AppendLine("  ]");
         sb.AppendLine("}");
@@ -145,6 +145,38 @@
         }
         File.WriteAllText(OutputFile, sb.ToString());
         Log.LogMessage(MessageImportance.Normal, $"[ExtensionSidecar] Wrote {leaves.Count} leaf/leaves, {verbs.Count} verb(s) for '{PackageId}' to {OutputFile}");
+
+        // Source-derived values (verbs, leaf keys, package id/version) are not guaranteed to be
+        // JSON-safe — escape every emitted string so a stray quote/backslash/control character
+        // can't produce malformed JSON or silently relabel a command.
+        string EscapeJson(string value)
+        {
+          var escaped = new StringBuilder(value.Length);
+          foreach (var c in value)
+          {
+            switch (c)
+            {
+              case '"': escaped.Append("\\\""); break;
+              case '\\': escaped.Append("\\\\"); break;
+              case '\n': escaped.Append("\\n"); break;
+              case '\r': escaped.Append("\\r"); break;
+              case '\t': escaped.Append("\\t"); break;
+              case '\b': escaped.Append("\\b"); break;
+              case '\f': escaped.Append("\\f"); break;
+              default:
+                if (c < 0x20)
+                {
+                  escaped.Append("\\u").Append(((int)c).ToString("x4"));
+                }
+                else
+                {
+                  escaped.Append(c);
+                }
+                break;
+            }
+          }
+          return escaped.ToString();
+        }
       ]]></Code>
     </Task>
   </UsingTask>
