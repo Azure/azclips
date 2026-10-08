@@ -86,9 +86,9 @@ test or product fix for nested dispatch.
 | `vnet-create-missing-location` | Create a VNet in an existing group with an explicit address space and DNS server, but omit the required location. | Supply a nonempty location; retain the name, group, address prefix, and DNS server; do not substitute discovery or add unrelated resource changes. |
 | `identity-create-missing-rg` | Create a named managed identity in `eastus`, but omit the required resource group. | Supply a nonempty resource group and retain both name and location. Creating that same group first is allowed; the prerequisite must have a name/location and be used by a later identity step in the intended subscription. |
 | `msgraph-app-create-missing-display-name` | Register a single-tenant application without the required display name. | Supply a nonempty display name and retain `--sign-in-audience AzureADMyOrg`; do not broaden the audience or add unrelated operations. |
-| `config-get-unknown-key` | Read an unknown configuration key. | Include discovery, a read with a corrected key, or conditional creation followed by a read. Reject unchanged missing-key retries, missing values, and invalid prerequisites; the LLM checks whether the suggested key and advice are justified. |
+| `config-get-unknown-key` | Read an unknown configuration key. | Include `config info`/`config list` discovery, a read with a corrected key, or conditional creation followed by a read. Reject unchanged missing-key retries, missing values, and invalid prerequisites; the LLM checks whether the suggested key and advice are justified. |
 | `extension-show-not-found` | Inspect an extension name that is not installed. | Include installed-extension discovery. A conditional `extension add` suggestion for the intended extension is allowed; the LLM judge evaluates the explanation, rather than treating installation advice as execution. |
-| `rest-invalid-method` | Use the unsupported HTTP method `fetch` with a valid `--uri` in the recorded subscription. | Preserve the URI and use explicit GET (case-insensitive) or the supported GET default; reject non-GET steps and unrelated arguments. |
+| `rest-invalid-method` | Use the unsupported HTTP method `fetch` with a valid `--uri` in the recorded subscription. | Preserve the URI and use explicit GET (case-insensitive) or the supported GET default; permit the equivalent ARM collection keyword spellings `resourcegroups`/`resourceGroups`, but reject other origin/path/query changes, credentials, fragments, non-GET steps and unrelated arguments. |
 
 Compute is already represented by `vm-create-long-flags`; a second disk-list
 discovery case is unnecessary. The Network show/list case and MsGraph fake-group-ID
@@ -175,6 +175,14 @@ parameter and the ordering of custom-key creation before a read. It does not
 establish that an arbitrary replacement key exists; that evidence belongs to the
 semantic check. Keep the 28/30 calibration result as evidence and rerun the full
 suite after freezing this correction, rather than selecting its successful rows.
+
+Subsequent calibration also verified `config info --keys-only` in the installed
+catalog and equivalent ARM collection keyword casing via read-only requests.
+These are supported alternatives, not exceptions for a particular model response.
+The assertions still reject a missing `az` executable, changed subscription or
+API version, unrelated endpoints and operations. Preserve raw grading evidence
+when correcting a deterministic false positive after collection; do not alter
+the generated response, measured duration or actual LLM verdict.
 
 ## Baseline evidence
 

@@ -23,7 +23,7 @@ module.exports = {
       metric: 'plan-contract',
       config: {
         checkName: 'Configuration recovery scope',
-        allowedCommands: ['az config list', 'az config get', 'az config set'],
+        allowedCommands: ['az config info', 'az config list', 'az config get', 'az config set'],
         validateSubscription: true,
       },
     },

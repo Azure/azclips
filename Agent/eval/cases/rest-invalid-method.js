@@ -13,20 +13,11 @@ module.exports = {
   assert: [
     {
       type: 'javascript',
-      value: 'file://assertions/command-set.js:commandSetAssertion',
+      value: 'file://assertions/rest-read.js:restReadAssertion',
       metric: 'command-set',
       config: {
         checkName: 'Preserve the requested URI',
-        source: 'metadata',
-        path: 'plan.steps',
-        expectedCommandSet: [
-          {
-            command: 'az rest',
-            match: 'all',
-            requiredArguments: ['--uri'],
-            argumentValues: { '--uri': resourceUri },
-          },
-        ],
+        expectedUri: resourceUri,
       },
     },
     {

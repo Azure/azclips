@@ -26,11 +26,13 @@ const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
 const { identityPlanAssertion } = require('./assertions/identity-plan');
 const { configurationReadAssertion } = require('./assertions/configuration-read');
+const { restReadAssertion } = require('./assertions/rest-read');
 const assertionRunners = {
   'file://assertions/command-set.js:commandSetAssertion': commandSetAssertion,
   'file://assertions/plan-contract.js:planContractAssertion': planContractAssertion,
   'file://assertions/identity-plan.js:identityPlanAssertion': identityPlanAssertion,
   'file://assertions/configuration-read.js:configurationReadAssertion': configurationReadAssertion,
+  'file://assertions/rest-read.js:restReadAssertion': restReadAssertion,
 };
 
 const subscription = '11111111-1111-4111-8111-111111111111';
@@ -223,6 +225,8 @@ test('structural checks accept the optional configuration and extension advice f
 
 test('configuration recovery accepts discovery, a corrected-key example, or a conditional create/read path', () => {
   for (const commands of [
+    ['az config info --keys-only'],
+    ['az config info'],
     ['az config list --all'],
     ['az config get --key output.format', 'az config get --key output.format --json'],
     ['az config get --key <intended-key>'],
@@ -234,6 +238,8 @@ test('configuration recovery accepts discovery, a corrected-key example, or a co
 
 test('configuration recovery rejects unchanged failures, incomplete reads, and invalid creation prerequisites', () => {
   for (const commands of [
+    ['az config info --keys-only invalid'],
+    ['az config info --unsupported'],
     ['az config get --key agent.nonexistent'],
     ['az config list', 'az config get --key agent.nonexistent'],
     ['az config get --key'],
@@ -248,6 +254,24 @@ test('configuration recovery rejects unchanged failures, incomplete reads, and i
   }
   assert.equal(configurationReadAssertion('', { vars: {}, metadata: {} }).pass, false);
   assert.equal(configurationReadAssertion('', { vars: {}, metadata: { plan: { steps: [{ cmd: 'az config list' }] } } }).pass, false);
+});
+
+test('REST accepts collection keyword casing but not a different URI, query, credentials or missing executable', () => {
+  assert.ok(grade(rest, [restCommand.replace('/resourcegroups?', '/resourceGroups?')]).every(result => result.pass));
+  for (const command of [
+    restCommand.replace('management.azure.com', 'untrusted.example'),
+    restCommand.replace('/resourcegroups?', '/resources?'),
+    restCommand.replace('/subscriptions/', '/differentSubscriptions/'),
+    restCommand.replace('2021-04-01', '2020-01-01'),
+    `${restCommand}&extra=1`,
+    `${restCommand}#fragment`,
+    restCommand.replace('https://', 'https://user:password@'),
+    restCommand.replace('az rest', 'rest'),
+    restCommand.replace(/--uri .+$/, '--uri'),
+  ]) {
+    assert.ok(grade(rest, [command]).some(result => !result.pass), command);
+  }
+  assert.equal(restReadAssertion('', { config: {}, metadata: {} }).pass, false);
 });
 
 test('conditional-advice cases require a usable read path and reject unrelated operations', () => {

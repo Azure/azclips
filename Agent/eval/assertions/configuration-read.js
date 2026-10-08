@@ -2,6 +2,7 @@ const { argumentMap, commandName, commandSetAssertion, shellTokens } = require('
 const { planContractAssertion } = require('./plan-contract');
 
 const contracts = {
+  'az config info': { requiredArguments: [], allowedArguments: ['--keys-only'] },
   'az config list': { requiredArguments: [], allowedArguments: ['--all', '--json'] },
   'az config get': { requiredArguments: ['--key'], allowedArguments: ['--key', '--json'] },
   'az config set': { requiredArguments: ['--key', '--value'], allowedArguments: ['--key', '--value', '--force'] },
@@ -40,14 +41,14 @@ function configurationReadAssertion(output, context) {
       config: {
         allowedCommands: [name],
         allowedArguments: contract.allowedArguments,
-        booleanArguments: ['--all', '--json', '--force'],
+        booleanArguments: ['--all', '--json', '--force', '--keys-only'],
       },
     });
     if (!parameters.pass || !flags.pass) {
       failures.push(`step ${index + 1}: ${!parameters.pass ? parameters.reason : flags.reason}`);
       continue;
     }
-    if (name === 'az config list') hasReadPath = true;
+    if (name === 'az config list' || name === 'az config info') hasReadPath = true;
     if (name === 'az config set' && args.get('--key') === missingKey) {
       const force = args.get('--force');
       if (force !== true && String(force).toLowerCase() !== 'true') {
