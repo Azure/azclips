@@ -46,9 +46,11 @@ public class KeyVaultEndpointTests
     }
 
     [Theory]
-    [InlineData("GET", "/secrets/test")]
-    [InlineData("POST", "/deletedsecrets/test/recover")]
-    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string path)
+    [InlineData("GET", "/secrets/test", false)]
+    [InlineData("POST", "/deletedsecrets/test/recover", false)]
+    [InlineData("GET", "/secrets/test", true)]
+    [InlineData("POST", "/deletedsecrets/test/recover", true)]
+    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string path, bool directCoreSend)
     {
         var profile = new Profile { TenantId = "fixture-tenant", CloudName = "AzureCloud" };
         string[]? capturedScopes = null;
@@ -85,7 +87,15 @@ public class KeyVaultEndpointTests
             RequestUri = "https://fixture.vault.azure.net" + path
         };
         processor.Init(Context(pipeline, auth, profile));
-        await processor.ProcessAsync();
+        if (directCoreSend)
+        {
+            using var response = await processor.SendCoreDirectlyAsync();
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        else
+        {
+            await processor.ProcessAsync();
+        }
         Assert.NotNull(capturedScopes);
         Assert.Equal(["https://vault.azure.net/.default"], capturedScopes);
         Assert.Same(profile, capturedProfile);
@@ -135,5 +145,6 @@ public class KeyVaultEndpointTests
         public HttpMethod RequestMethod { get; set; } = HttpMethod.Get;
         protected override HttpMethod Method => RequestMethod;
         protected override string CreateRequestUri() => RequestUri;
+        public Task<HttpResponseMessage> SendCoreDirectlyAsync() => base.SendCoreAsync();
     }
 }

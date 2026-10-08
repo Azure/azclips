@@ -116,6 +116,39 @@ public class KeyVaultDataPlaneProcessorBaseTests
         publisher.Verify(value => value.Publish(Events.TracingHttpResponseMessage, It.IsAny<HttpResponseMessage>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DirectCoreSendRejectsMissingProfileOrInvalidVault(bool hasProfile, bool useChild)
+    {
+        var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
+        var publisher = CreatePublisher();
+        var profile = hasProfile ? new Profile { TenantId = "fixture-tenant" } : null;
+        var authHandler = new AuthHandler { Profile = profile };
+        var processor = new TestProcessor { VaultBaseUrl = new Uri("https://attacker.example/") };
+        processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, authHandler,
+            new OutputHandler { WriteOutput = (_, _) => throw new InvalidOperationException("Unexpected output.") }, profile));
+        var target = useChild ? processor.CreateChild() : processor;
+        Func<Task> send = async () =>
+        {
+            using var response = await target.SendCoreDirectlyAsync();
+        };
+
+        if (hasProfile)
+            await Assert.ThrowsAsync<ArgumentException>(send);
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(send);
+
+        Assert.False(target.RequestCreated);
+        pipeline.VerifyNoOtherCalls();
+        Assert.False(authHandler.ApplyOverride);
+        Assert.Null(authHandler.AcquireTokenAsyncOverride);
+        publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Never);
+        publisher.Verify(value => value.Publish(Events.TracingHttpResponseMessage, It.IsAny<HttpResponseMessage>()), Times.Never);
+    }
+
     [Fact]
     public async Task MalformedResponseDoesNotIncludePayloadInException()
     {
@@ -209,5 +242,6 @@ public class KeyVaultDataPlaneProcessorBaseTests
         public TestProcessor CreateChild() => CreateExtendedProcessor<TestProcessor>();
         public Task EmitAsync(TestResponse response) => WriteOutput(response);
         public Task ProcessResponseForTestAsync(HttpResponseMessage response) => ProcessResponseAsync(response);
+        public Task<HttpResponseMessage> SendCoreDirectlyAsync() => base.SendCoreAsync();
     }
 }
