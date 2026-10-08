@@ -13,6 +13,7 @@ using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
 using Microsoft.Extensions.Logging;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Core.Agent.Tests;
 
