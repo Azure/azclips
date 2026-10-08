@@ -66,7 +66,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
             }
         }
 
-        if (AzclipsServiceProvider.GetRequiredService<ClientType>() != ClientType.CLI)
+        if (AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType != ClientType.CLI)
         {
             return Guid.NewGuid().ToString();
         }

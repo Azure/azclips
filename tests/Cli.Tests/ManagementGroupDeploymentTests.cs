@@ -421,7 +421,8 @@ public class ManagementGroupDeploymentTests
         // template file/URI): falls back to the literal "deployment1", matching
         // `az deployment <scope> create`'s default.
         AzclipsServiceProvider.Dispose();
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
@@ -443,7 +444,8 @@ public class ManagementGroupDeploymentTests
         // default to the template spec ID's last path segment when only `--template-spec` is
         // given (no "/versions/x.y" suffix, so the last segment is the spec's own resource name).
         AzclipsServiceProvider.Dispose();
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         var processor = new NewManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
@@ -467,7 +469,8 @@ public class ManagementGroupDeploymentTests
         // fresh unique name per invocation instead of reusing a fixed literal. (CLI clients fall
         // back to the literal "deployment1" instead; this test exercises the PowerShell client.)
         AzclipsServiceProvider.Dispose();
-        AzclipsServiceProvider.Initialize(ClientType.PowerShell);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
         var first = new NewManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
