@@ -107,6 +107,13 @@ internal sealed class ScenarioHost : IDisposable
             }
             if (backendHandler is not null)
             {
+                // The runtime transport resolves its clients by name through IHttpClientFactory,
+                // so the fake backend must override those named clients' primary handler rather
+                // than replacing a singleton HttpClient (which the transport no longer consults).
+                services.AddHttpClient(string.Empty)
+                    .ConfigurePrimaryHttpMessageHandler(() => backendHandler);
+                services.AddHttpClient(Core.Runtime.HttpClientTransportFactory.SensitiveClientName)
+                    .ConfigurePrimaryHttpMessageHandler(() => backendHandler);
                 services.AddSingleton(new HttpClient(backendHandler));
             }
 

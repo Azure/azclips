@@ -19,6 +19,11 @@
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
+    <!-- OnImport boots the real engine (Core.Engine.RegisterEngineServices), which now pulls in
+         Microsoft.Extensions.Http via AddHttpClient. Reference the engine directly, as Scenario.Tests
+         does, so its full runtime closure (including Microsoft.Extensions.Http.dll) lands in the test
+         output and the module initializer can resolve it. -->
+    <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />

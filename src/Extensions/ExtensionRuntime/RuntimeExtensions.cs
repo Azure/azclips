@@ -322,6 +322,11 @@ public static class RuntimeExtensions
             return string.Empty;
         }
 
+        if (response.RequestMessage.HasSensitiveDiagnostics())
+        {
+            return $"HTTP response: {(int)response.StatusCode}. Sensitive details omitted.";
+        }
+
         string body = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync();
         body = string.IsNullOrEmpty(body) ? string.Empty
             : FormatString(body);
@@ -343,6 +348,11 @@ public static class RuntimeExtensions
         if (request == null)
         {
             return string.Empty;
+        }
+
+        if (request.HasSensitiveDiagnostics())
+        {
+            return $"HTTP request: {request.Method}. Sensitive details omitted.";
         }
 
         string body = request.Content == null ? string.Empty
@@ -470,6 +480,12 @@ public static class RuntimeExtensions
     public static async Task EnsureSuccessAsync(this HttpResponseMessage response, IEventPublisher publisher)
     {
         if (response.IsSuccessStatusCode) return;
+        if (response.RequestMessage.HasSensitiveDiagnostics())
+        {
+            string safeMessage = SensitiveHttpRequestOptions.FailureMessage(response.StatusCode);
+            await publisher.Publish(Events.ResourceOperationFailed, safeMessage);
+            throw new HttpRequestException(safeMessage, inner: null, statusCode: response.StatusCode);
+        }
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
         string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
         string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
@@ -477,8 +493,6 @@ public static class RuntimeExtensions
         throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
     }
 }
-
-
 
 
 
