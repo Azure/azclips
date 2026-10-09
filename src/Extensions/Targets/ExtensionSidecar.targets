@@ -210,4 +210,18 @@
       </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
+
+  <!-- Same NoBuild gap applies to packing: build_common.sh also runs a pack step with NoBuild
+       set to produce the installable .nupkg for "az extension add". Pack gathers its file list
+       from static/dynamic None/Content items (not arbitrary files sitting in the output folder),
+       so the sidecar needs to be registered as a packable item too - alongside the DLL in
+       lib/$(TargetFramework)/, which is where ExtensionInstaller.ExtractLibItemsAsync looks for it. -->
+  <Target Name="AddExtensionSidecarToPackageList"
+          BeforeTargets="_GetPackageFiles">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <None Include="$(OutputPath)$(PackageId).commands.json"
+            Pack="true"
+            PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
+  </Target>
 </Project>

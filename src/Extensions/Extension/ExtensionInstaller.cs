@@ -283,8 +283,10 @@ public class ExtensionInstaller
 
         foreach (var item in nearestGroup.Items)
         {
-            // Only extract DLLs
-            if (!item.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            // Only extract DLLs and the build-time sidecar (CLIPS-933) that ships alongside them.
+            var isDll = item.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+            var isSidecar = item.EndsWith(".commands.json", StringComparison.OrdinalIgnoreCase);
+            if (!isDll && !isSidecar)
             {
                 continue;
             }
