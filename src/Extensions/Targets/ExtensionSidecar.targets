@@ -193,4 +193,21 @@
       PackageVersion="$(Version)"
       OutputFile="$(OutputPath)$(PackageId).commands.json" />
   </Target>
+
+  <!-- Packaging (build_common.sh) runs "dotnet build" then a separate publish step with the
+       NoBuild flag set, to stage builtin extension publish output. NoBuild skips the Build target
+       entirely, so the AfterTargets="Build" hook above never re-runs during that publish
+       invocation, and the sidecar (written directly via File.WriteAllText, not a tracked MSBuild
+       item) would never be copied into the publish directory on its own. Register the file
+       (already on disk from the earlier build step) as a ResolvedFileToPublish right before the
+       publish file list is computed, so it's included in publish output even with NoBuild set. -->
+  <Target Name="AddExtensionSidecarToPublishList"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
+      <ResolvedFileToPublish Include="$(OutputPath)$(PackageId).commands.json">
+        <RelativePath>$(PackageId).commands.json</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>
