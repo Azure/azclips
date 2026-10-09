@@ -51,6 +51,10 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     // The only condition syntax version currently supported.
     private const string DefaultConditionVersion = "2.0";
 
+    // The ARM path segment that precedes a role definition GUID. Shared by the validity check and the
+    // expansion of a bare GUID so the two cannot drift apart.
+    private const string RoleDefinitionsSegment = "/providers/Microsoft.Authorization/roleDefinitions/";
+
     // True when no name was supplied, so ResolveName mints one. Gates idempotent conflict handling: a
     // generated name means the caller only wanted the grant to exist, so returning the pre-existing
     // assignment satisfies them; an explicit name asked for a specific assignment, so the conflict surfaces.
@@ -338,9 +342,11 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
             return (null, null);
         }
 
+        string condition = Condition!.Trim();
+
         if (!hasVersion)
         {
-            return (Condition!.Trim(), DefaultConditionVersion);
+            return (condition, DefaultConditionVersion);
         }
 
         string version = ConditionVersion!.Trim();
@@ -350,7 +356,7 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 $"The condition version '{version}' is not supported. The only supported condition version is '{DefaultConditionVersion}'.");
         }
 
-        return (Condition!.Trim(), version);
+        return (condition, version);
     }
 
     /// <summary>
@@ -428,20 +434,19 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
                 "'/providers/Microsoft.Authorization/roleDefinitions/{guid}'.");
         }
 
-        return $"{RoleDefinitionRoot(scope)}/providers/Microsoft.Authorization/roleDefinitions/{value}";
+        return $"{RoleDefinitionRoot(scope)}{RoleDefinitionsSegment}{value}";
     }
 
     // True when the value is a fully-qualified role definition ID whose final segment is a GUID.
     private static bool IsRoleDefinitionId(string value)
     {
-        const string segment = "/providers/Microsoft.Authorization/roleDefinitions/";
-        int index = value.IndexOf(segment, StringComparison.OrdinalIgnoreCase);
+        int index = value.IndexOf(RoleDefinitionsSegment, StringComparison.OrdinalIgnoreCase);
         if (index < 0)
         {
             return false;
         }
 
-        string tail = value[(index + segment.Length)..].TrimEnd('/');
+        string tail = value[(index + RoleDefinitionsSegment.Length)..].TrimEnd('/');
         return Guid.TryParse(tail, out _);
     }
 
