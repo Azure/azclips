@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.Extensions.Compute.Processors;
+using Core.Abstractions;
 
 namespace Extensions.Compute.Tests;
 
@@ -28,5 +29,19 @@ public class NewOrExistingResourceResolverTests
         Assert.Equal([" "], lookups);
         Assert.Null(existingId);
         Assert.Equal(" ", nameToCreate);
+    }
+
+    [Fact]
+    public async Task MissingResourceId_IsUsageError()
+    {
+        var error = await Assert.ThrowsAsync<UsageErrorException>(() =>
+            NewOrExistingResourceResolver.ResolveAsync(
+                "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/missing",
+                "vmPublicIP", "sub", "rg", NewOrExistingResourceResolver.PublicIpAddress,
+                (_, _, _) => Task.FromResult<string?>(null)));
+
+        Assert.Equal("UsageError", error.Code);
+        Assert.Contains("Public IP address", error.Message);
+        Assert.Contains("was not found", error.Message);
     }
 }
