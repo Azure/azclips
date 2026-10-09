@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Tests.Recording;
 
