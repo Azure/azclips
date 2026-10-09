@@ -134,16 +134,9 @@ public static class AgentModeEntry
             // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
 
-            // Acquire the Azure token once and observe the caller's ARM data boundary before the
-            // provider picks an endpoint. Nothing branches on the boundary yet: the builtin
-            // provider still calls one endpoint for everyone. Recording it now proves the lookup
-            // works and shows what it costs, so the change that routes EU traffic separately
-            // starts from measured behavior.
-            //
-            // Sharing the token matters beyond the saved round trip — MsalAuthService builds a
-            // fresh IPublicClientApplication and re-registers the on-disk token cache per call with
-            // no synchronization, so one acquisition is both cheaper and the prerequisite for ever
-            // running the lookup concurrently with agent startup.
+            // Reuse one Azure token for the builtin provider and this diagnostic ARM probe.
+            // The probe does not select the model endpoint.
+            // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
                 agentOpts, auth, profileService,
                 profile => ResolverFactory(profile, lifetime.Telemetry), session, cts.Token);
@@ -151,11 +144,7 @@ public static class AgentModeEntry
             // The only place this tag is written. Unconditional, because the seam never throws:
             // there is no path from here to ChatAgent.CreateAsync that reaches it without a value.
             session?.SetTag(TelemetryTags.RecoveryDataBoundary, startup.Boundary.Value);
-            // One field, because the boundary value already says everything a second one could.
-            // An earlier draft also noted `tenantMatched: TenantId is not null`, which was a lie:
-            // TenantId is the tenant we asked about, so it stays populated through tenant_mismatch,
-            // tenant_unconfirmed, timeouts and ARM rejections — every one of which would have been
-            // filed as a confirmed match. Whether ARM agreed is in the value itself.
+
             trace?.Note("data_boundary", new { boundary = startup.Boundary.Value });
 
             var azureAuth = startup.Auth;
@@ -232,19 +221,14 @@ public static class AgentModeEntry
         TelemetryActivityScope? sessionScope = null;
         ITelemetryLayerScope? scope = null;
         AgentRuntimeLifetime? lifetime = null;
-        // Pessimistic start: an exit added later that forgets to classify itself exports
-        // "unknown" instead of a value that looks correct. Unreachable in a passing run — every
-        // exit below assigns before the finally — so it is observable only when an assignment is
-        // deliberately removed, which is how the outcome tests are validated.
+        // Leave unclassified exits observable instead of reporting success.
         var outcome = RecoveryOutcome.Unknown;
         try
         {
             try
             {
-                // Inside the inner try on purpose: the outer catch(Exception) used to protect
-                // telemetry startup too -- an unregistered service makes getScope() throw, and
-                // the host prints "agent mode error: ..." and returns 1. Hoisting this setup above
-                // the catches would turn that handled failure into an unhandled crash.
+                // Resolve here so initialization failures use the normal error path.
+                // Resolution attaches the listener before Agent.Session starts.
                 scope = getScope();
                 lifetime = new AgentRuntimeLifetime(scope, timeProvider);
                 sessionScope = scope.Context.TryGetRecoveryParentContext(out var recoveryParent)
@@ -259,11 +243,8 @@ public static class AgentModeEntry
             }
             catch (AgentSessionFailedException ex)
             {
-                // Already surfaced at the point of failure as "✗ session.error [type] message";
-                // printing "agent mode error: ..." on top of it would report the same failure twice.
-                // The SDK's classification is what says whether these failures are ours to fix or
-                // the service's. The message itself stays out: it can echo subscription ids,
-                // resource names, or the user's prompt.
+                // The renderer already reported this error.
+                // Record its classification only; the message may contain user data.
                 outcome = RecoveryOutcome.Error(ClassifySdkFailure(ex.ErrorType));
                 return 1;
             }
@@ -274,8 +255,7 @@ public static class AgentModeEntry
             }
             catch (Exception ex)
             {
-                // Host-side failure rather than a model one: the split is what separates "our bug"
-                // from "the service refused us" once both land in the same error bucket.
+
                 outcome = RecoveryOutcome.Error(RecoveryFailure.HostFault);
                 WriteColor(ConsoleColor.Red, $"agent mode error: {ex.Message}");
                 return 1;
@@ -315,22 +295,13 @@ public static class AgentModeEntry
         }
     }
 
-    /// <summary>
-    /// Maps the SDK's error type onto the closed <see cref="RecoveryFailure"/> vocabulary.
-    /// </summary>
+    /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>
-    /// An allowlist rather than a passthrough: <c>ErrorType</c> is a service-chosen string with no
-    /// constants behind it, so exporting it verbatim makes the dimension unbounded and lets text we
-    /// do not control reach telemetry. Unlisted values become <c>sdk_other</c>, which is expected to
-    /// be common — it measures how much of that vocabulary we have not yet seen.
+    /// Do not export raw SDK values; map unlisted values to <c>sdk_other</c>.
     /// </remarks>
     internal static RecoveryFailure ClassifySdkFailure(string? errorType) => errorType switch
     {
-        // "unknown" before null, because that is the shape this actually arrives in: EventRenderer
-        // substitutes the literal for a missing SessionErrorData.ErrorType before the event reaches
-        // the host, so a genuine "the service sent no type" would otherwise fall to sdk_other and
-        // the documented unknown bucket would never be emitted at all. The null arm stays for
-        // callers that do not go through that mapping.
+        // EventRenderer uses "unknown" when the SDK omits the error type.
         null or "unknown" => RecoveryFailure.Unknown,
         "rate_limit"      => RecoveryFailure.RateLimit,
         "authentication"  => RecoveryFailure.Authentication,
@@ -421,36 +392,12 @@ public static class AgentModeEntry
         }
     }
 
-    /// <summary>
-    /// Ends the session as a failure when its last turn hit a terminal SDK error, or as a
-    /// cancellation when the user asked to stop.
-    /// </summary>
+    /// <summary>Reports a final-turn SDK failure or caller cancellation after the chat loop.</summary>
     /// <remarks>
-    /// <para>Called from one place, immediately after <c>RunChatLoopAsync</c> returns, because
-    /// "the loop finished" is the only condition it cares about and both of the loop's exits mean
-    /// exactly that. Calling it at each exit instead left a new exit path free to skip it
-    /// silently.</para>
-    ///
-    /// <para><see cref="ChatAgent.LastError"/> is per-turn — <c>SendAsync</c> clears it on every new
-    /// turn — so reading it once the loop has finished answers "did the session END in failure",
-    /// not "did one ever occur". That is the right question for both modes: in one-shot the failed
-    /// turn is the session, and in interactive a user who recovers on a later turn still ends
-    /// successfully.</para>
-    ///
-    /// <para><c>SendAndPumpAsync</c> deliberately swallows the cancellation the SDK raises for this
-    /// case so the loop can keep going, which leaves the caller unable to distinguish failure from
-    /// success. Re-raising it here is what makes <c>recovery.outcome</c>, the span status and the
-    /// exit code reflect what the user actually saw.</para>
-    ///
-    /// <para>The loops also exit by observing the token rather than by throwing, so a cancellation
-    /// arriving after a send completed would otherwise return normally and export <c>ok</c> with
-    /// exit code 0. The error is checked first: if a turn failed and the user then stopped, the
-    /// failure is the more useful signal and it happened first.</para>
-    ///
-    /// <para>Callers pass <see cref="ChatAgent.LastError"/> only. A session reaches here having
-    /// always sent at least one prompt, so a null there means the last turn completed and the
-    /// caller was helped — <see cref="ChatAgent.StartupError"/> must not override that, which is
-    /// why it is deliberately not consulted.</para>
+    /// Call once after the loop; it may return after catching a failed send.
+    /// Pass <see cref="ChatAgent.LastError"/>, not <see cref="ChatAgent.StartupError"/>.
+    /// Earlier failures do not override a successful final turn.
+    /// A terminal SDK error takes precedence over caller cancellation.
     /// </remarks>
     internal static void ThrowIfSessionEndedInError(SessionErrored? terminalError, CancellationToken ct)
     {
@@ -575,9 +522,7 @@ public static class AgentModeEntry
         try { await sendTask.ConfigureAwait(false); }
         catch (OperationCanceledException) when (agent.LastError is { } err)
         {
-            // Swallowed so the interactive loop can offer another turn. agent.LastError stays set
-            // for this turn, and ThrowIfSessionEndedInError reads it once the loop finishes — that
-            // is what keeps a session ending in failure from exporting outcome=ok.
+            // Allow another interactive turn; the final check still reads LastError.
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
         catch (OperationCanceledException) when (redirect is not null)

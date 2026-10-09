@@ -53,39 +53,19 @@ public sealed class ChatAgent : IAsyncDisposable
     private SessionErrored? _startupError;
     private int _hasSent;
 
-    /// <summary>
-    /// The terminal SDK error reported during the current turn, or null if the turn is clean.
-    /// </summary>
+    /// <summary>The terminal SDK error for the current turn, or null.</summary>
     /// <remarks>
-    /// <para>Written on the SDK's event-dispatch thread and read on the host thread, so both sides
-    /// go through <see cref="Volatile"/>: without a barrier the host is not guaranteed to observe
-    /// the handler's write at all, and a session the user watched fail exports
-    /// <c>recovery.outcome=ok</c>.</para>
-    ///
-    /// <para>Visibility is all this closes. The dispatch loop is not synchronised with the host's
-    /// turn boundaries, so an error queued during turn N-1 can still be delivered after turn N
-    /// cleared this field, attributing it to the wrong turn. That is not fixable here: the SDK's
-    /// error payload carries no turn identifier, and a handler stamping the turn it sees at
-    /// dispatch time would record the same wrong turn. Closing it needs turn correlation from the
-    /// SDK.</para>
+    /// Reads and writes use <see cref="Volatile"/> for cross-thread visibility.
+    /// This does not prevent late errors from crossing turn boundaries:
+    /// SDK error events carry no turn ID.
     /// </remarks>
     public SessionErrored? LastError => Volatile.Read(ref _lastError);
 
-    /// <summary>
-    /// A session error that arrived before the first turn could start.
-    /// </summary>
+    /// <summary>A session error received before the first turn.</summary>
     /// <remarks>
-    /// <para>Kept apart from <see cref="LastError"/>, which describes the current turn and is
-    /// cleared at the start of every send. The host always sends a first prompt immediately after
-    /// creation, so an error stored on the per-turn field during creation was wiped every time
-    /// before anything could read it.</para>
-    ///
-    /// <para>Nothing consumes this yet, deliberately. <c>recovery.outcome</c> stays driven by the
-    /// last turn: a session whose turn completed did help the caller, whatever went wrong while it
-    /// was starting — and several of these are recoverable by design, which is what the SDK's
-    /// <c>eligibleForAutoSwitch</c> flag is for. The user already sees the error, since every event
-    /// is rendered. What is still missing is a measure of how often the upstream provider is flaky
-    /// at setup, which is a different question from whether recovery succeeded.</para>
+    /// Kept separate because each send clears <see cref="LastError"/>.
+    /// Diagnostic only; the final outcome depends on the last turn,
+    /// not a recoverable startup error.
     /// </remarks>
     public SessionErrored? StartupError => Volatile.Read(ref _startupError);
 
@@ -241,10 +221,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var eventRenderer = new EventRenderer
         {
-            // One line, because the body below is the only translation of an SDK event into agent
-            // state, and CreateCoreAsync needs a live daemon to reach. Leaving it inline left it
-            // with no coverage at all: a test could exercise the handler it hand-rolled and still
-            // be blind to this call site losing a branch.
+
             OnEvent = ev => HandleAgentEvent(ev, self, err => earlyError = err, spinner, renderer),
             OnText  = renderer.OnText,
         };
@@ -434,14 +411,10 @@ public sealed class ChatAgent : IAsyncDisposable
             OnEvent = eventRenderer.Forward,
         };
     }
-    /// <summary>
-    /// A fatal session error arrives on the SDK's own event thread, which is not synchronised with
-    /// the host's turn boundaries, so this can run concurrently with an in-flight SendAsync. It has
-    /// to cancel whichever turn currently holds the slot, not a handle recorded separately that may
-    /// no longer be the live one. The SDK also faults the pending send on its own, so the effect
-    /// here is which of the two wins: Cancel runs its registrations synchronously on this thread,
-    /// so the turn unwinds as a cancellation rather than as an SDK fault.
-    /// </summary>
+    /// <summary>Stores startup errors, or records a turn error and cancels the active operation.</summary>
+    /// <remarks>
+    /// SDK callbacks may race with send completion; use the operation slot's cancellation source.
+    /// </remarks>
     internal void OnSessionErrored(SessionErrored error)
     {
         if (Volatile.Read(ref _hasSent) == 0)
@@ -453,16 +426,9 @@ public sealed class ChatAgent : IAsyncDisposable
         _invocationContext.CancelCurrentOperation();
     }
 
-    /// <summary>
-    /// Translates one SDK event into agent state, spinner verb and rendered output.
-    /// </summary>
+    /// <summary>Updates Agent state and spinner output, then renders an SDK event.</summary>
     /// <remarks>
-    /// Extracted so the wiring is testable. <see cref="CreateCoreAsync"/> needs a live daemon, so
-    /// while this lived inline it had no coverage: a test could hand-roll an equivalent handler,
-    /// exercise that, and stay blind to the real call site dropping a branch. <paramref name="self"/>
-    /// is null until construction finishes, which is the whole reason for
-    /// <paramref name="onEarlyError"/> — an error arriving during session creation has no turn to
-    /// attribute itself to yet.
+    /// Before construction completes, send session errors to <paramref name="onEarlyError"/>.
     /// </remarks>
     internal static void HandleAgentEvent(
         AgentEvent ev,
@@ -495,22 +461,9 @@ public sealed class ChatAgent : IAsyncDisposable
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
         using var producer = _invocationContext.EnterProducer();
-        // Reserving the slot IS publishing the handle, under one lock, so there is no window in
-        // between for an abort to find nothing. The older order published the handle first to close
-        // a supposed Esc window ahead of StartOperation, but that window cannot be reached from the
-        // host: SendAndPumpAsync starts AbortKeyWatcher.RunAsync only after agent.SendAsync has
-        // returned its Task, and everything before this method's first await already ran
-        // synchronously on the caller's thread by then. An abort between entering SendAsync and
-        // reserving the slot is therefore a no-op by construction -- and publishing first is what
-        // let a rejected overlapping send stomp the live turn's handle.
-        //
-        // Disposal order is load-bearing, and `using` disposes in reverse acquisition order: the
-        // Operation must leave the slot before the source it carries is disposed. That is what lets
-        // CancelCurrentOperation take the reference under the lock and cancel outside it -- an abort
-        // racing the end of a turn sees either a live source or an empty slot, never a disposed one.
-        // The source is built on its own line so the two scopes below are independent statements
-        // whose order can be swapped, which is how that guarantee is reverse-validated. If
-        // StartOperation throws, the outer scope still disposes the source, so nothing leaks.
+        // Reserve the operation before changing shared turn state.
+        // Dispose the operation before turnCts, so the slot is cleared before its source is disposed.
+        // The outer using also releases turnCts if StartOperation throws.
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _invocationContext.StoppingToken);
         using (turnCts)
         using (var send = _invocationContext.StartOperation("Agent.Send", turnCts))

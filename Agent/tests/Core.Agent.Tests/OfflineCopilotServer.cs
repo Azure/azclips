@@ -9,16 +9,9 @@ using System.Text.Json;
 
 namespace Core.Agent.Tests;
 
-/// <summary>
-/// The real SDK connects only to this loopback JSON-RPC peer. No native daemon, credentials,
-/// model, Azure endpoint, or SDK private/reflection API is involved.
-/// </summary>
+/// <summary>Loopback JSON-RPC peer for the real SDK; no daemon, credentials or model calls.</summary>
 /// <remarks>
-/// The receive loop runs on a background Task that nothing awaits until teardown. Every failure in
-/// it therefore used to surface as "the server would not shut down", blamed on whichever test was
-/// running at the time rather than the one whose traffic it could not parse. So the loop never
-/// lets an exception escape: it records the failure with the payload that caused it, and
-/// <see cref="ThrowIfFaulted"/> reports it against the test that asks.
+/// Records receive-loop failures for <see cref="ThrowIfFaulted"/> to report in the test body.
 /// </remarks>
 internal sealed class OfflineCopilotServer : IAsyncDisposable
 {
@@ -61,13 +54,8 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
     /// <summary>Completes with the first failure the receive loop could not handle.</summary>
     internal Task Faulted => _fault.Task;
 
-    /// <summary>
-    /// Surfaces a receive-loop failure against the caller. Tests call this explicitly at the end of
-    /// the test body rather than having DisposeAsync throw: <c>await using</c> compiles to a
-    /// try/finally, so a body that fails an assertion while dispose also throws would report only
-    /// the dispose exception -- "the fake server crashed" in place of the real failure, which is a
-    /// worse version of the misattribution this exists to fix.
-    /// </summary>
+    /// <summary>Reports receive-loop failures from the test body.</summary>
+    /// <remarks>Do not throw them from disposal, which could mask the original assertion failure.</remarks>
     internal void ThrowIfFaulted()
     {
         if (_fault.Task.IsCompleted)

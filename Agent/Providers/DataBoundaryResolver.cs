@@ -5,24 +5,11 @@ using Core.Abstractions;
 
 namespace Core.Agent.Providers;
 
-/// <summary>
-/// Resolves the active profile tenant's ARM data boundary at recovery startup.
-/// </summary>
+/// <summary>Observes the active tenant's ARM data boundary for startup telemetry.</summary>
 /// <remarks>
-/// <para>Today this only observes: the result is recorded and nothing branches on it. It lands
-/// ahead of the endpoint move so that, by the time routing needs the value, we already know the
-/// call works and what it costs.</para>
-///
-/// <para>ARM is the authoritative source. The boundary is a per-tenant setting, so it cannot be
-/// inferred from the user's IP, a resource's location, or a subscription's region, and the
-/// <c>tenant_region_scope</c> token claim is not a supported contract for it.</para>
-///
-/// <para>The token is always the caller's. The host acquires one for the model provider anyway, so
-/// reusing it keeps recovery startup to a single MSAL flow — which matters beyond the saved round
-/// trip, because <c>MsalAuthService</c> builds a fresh <c>IPublicClientApplication</c> and
-/// re-registers the on-disk token cache on every acquisition with no synchronization. Acquiring
-/// here as well would put two concurrent acquisitions over one cache file, which is not a tested
-/// configuration.</para>
+/// This diagnostic probe does not select the model endpoint.
+/// Query ARM with the caller's existing token; do not acquire another token.
+/// Do not infer the boundary from IP, resource location or token claims.
 /// </remarks>
 internal sealed class DataBoundaryResolver : IDataBoundaryResolver
 {
@@ -55,14 +42,7 @@ internal sealed class DataBoundaryResolver : IDataBoundaryResolver
         _telemetry = telemetry;
     }
 
-    /// <summary>
-    /// Disposes only the client this instance constructed.
-    /// </summary>
-    /// <remarks>
-    /// An injected client belongs to whoever injected it and outlives this resolver by definition;
-    /// disposing it would tear down a connection pool the owner is still using. This resolver now
-    /// lives for one lookup, so owning what it created is the only part it can safely clean up.
-    /// </remarks>
+    /// <summary>Disposes the owned client, but never an injected client.</summary>
     public void Dispose()
     {
         if (_ownsHttpClient)
@@ -71,18 +51,10 @@ internal sealed class DataBoundaryResolver : IDataBoundaryResolver
         }
     }
 
-    /// <summary>
-    /// Resolves the boundary for the active profile's tenant, using a token the caller already
-    /// holds.
-    /// </summary>
+    /// <summary>Queries the active tenant's boundary with an existing token.</summary>
     /// <remarks>
-    /// <para><b>Never throws</b>, except to propagate a cancellation raised by
-    /// <paramref name="ct"/> so Ctrl+C still exits promptly. Every other failure is classified into
-    /// the returned value. That contract is load-bearing rather than merely polite: the caller
-    /// records whatever this returns as the session's one boundary value, so an escaping exception
-    /// would either lose the tag or export a boundary that never happened.</para>
-    ///
-    /// <para>Recovery is expected to continue no matter what this returns.</para>
+    /// Caller cancellation propagates; other failures return a classified result.
+    /// A failed diagnostic lookup must not prevent recovery.
     /// </remarks>
     public async Task<DataBoundaryResult> ResolveAsync(string accessToken, CancellationToken ct = default)
     {
@@ -157,13 +129,9 @@ internal sealed class DataBoundaryResolver : IDataBoundaryResolver
                 HttpMethod.Get, $"{ArmEndpoint}{DataBoundaryPath}?api-version={ApiVersion}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            // TODO (deferred): no retry while this is observation-only. A failed lookup just
-            // records why it failed, so one attempt under LookupTimeout is enough and keeps the
-            // recovery startup path short. This MUST change before the boundary selects an
-            // endpoint: at that point every transient ARM blip — 429 throttling above all —
-            // becomes a routing decision made on a non-answer, and a non-answer must never
-            // resolve to global. The portal's equivalent (DataBoundaryDataProvider) retries 3
-            // times with exponential backoff over 5xx, 408, 429, network errors and timeouts.
+            // One bounded attempt is sufficient while this probe is diagnostic-only.
+            // TODO: Add bounded retries before using its result for endpoint selection.
+            // A failed lookup must never be treated as a confirmed Global boundary.
             using var response = await _http.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {

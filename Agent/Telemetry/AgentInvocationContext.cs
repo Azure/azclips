@@ -40,12 +40,8 @@ internal sealed class AgentInvocationContext(
     internal Operation StartOperation(string name, CancellationToken cancellationToken = default) =>
         StartOperation(name, turnCts: null, cancellationToken);
 
-    /// <summary>
-    /// Reserves the slot for a turn that owns a <see cref="CancellationTokenSource"/>, so the
-    /// handle an abort has to cancel and the slot it has to find are the same reservation rather
-    /// than two fields updated separately. The source is borrowed, never owned: the caller's
-    /// <c>using</c> disposes it, and must do so only after this operation has left the slot.
-    /// </summary>
+    /// <summary>Reserves the operation and its cancellation source together.</summary>
+    /// <remarks>The caller owns turnCts and disposes it after this operation leaves the slot.</remarks>
     internal Operation StartOperation(string name, CancellationTokenSource turnCts)
     {
         ArgumentNullException.ThrowIfNull(turnCts);
@@ -79,11 +75,7 @@ internal sealed class AgentInvocationContext(
         }
     }
 
-    /// <summary>
-    /// The reservation currently in the slot. The slot is private, so without this nothing --
-    /// including a test -- can observe which operation, and therefore which cancellation handle,
-    /// an abort would actually reach.
-    /// </summary>
+    /// <summary>The currently reserved operation.</summary>
     internal Operation? CurrentOperation
     {
         get { lock (_gate) return _operation; }
@@ -101,16 +93,8 @@ internal sealed class AgentInvocationContext(
     {
         CancellationTokenSource? cts;
         lock (_gate) { cts = _operation?.TurnCts; }
-        // Outside the lock on purpose: Cancel runs registrations synchronously on this thread, and
-        // those continuations can re-enter this type. Taking the reference under the lock is
-        // enough -- the send that owns the source cannot dispose it until its Operation has left
-        // the slot, so what is read here is either live or already unreachable.
-        //
-        // The catch is deliberately as broad as the three call sites it replaces, which all used a
-        // bare `catch { }`. ObjectDisposedException is the expected case (the send finished between
-        // the lock release and the Cancel), but Cancel also rethrows a registered callback's
-        // exception wrapped in AggregateException; narrowing this would let an SDK callback's
-        // failure escape into an abort path that today swallows everything.
+        // Cancel outside _gate because registered callbacks can re-enter this context.
+        // Keep cancellation best-effort if source disposal races or a callback throws.
         try { cts?.Cancel(); } catch { }
     }
 
@@ -252,25 +236,15 @@ internal sealed class AgentInvocationContext(
         private int _disposed;
         internal Activity? Activity => activityScope?.Activity;
 
-        /// <summary>
-        /// The turn's cancellation source, when the slot was reserved with one. Borrowed, not
-        /// owned: this type never disposes it. Its owner outlives this operation on purpose, so a
-        /// concurrent <see cref="CancelCurrentOperation"/> can only ever read a live source.
-        /// </summary>
+        /// <summary>The borrowed cancellation source; the caller disposes it after the operation leaves the slot.</summary>
         internal CancellationTokenSource? TurnCts { get; } = turnCts;
 
         internal CancellationToken CancellationToken { get; } = turnCts?.Token ?? cancellationToken;
 
-        /// <summary>
-        /// Raised once, by whichever caller performed the disposal, after this operation has left
-        /// the slot.
-        /// </summary>
+        /// <summary>Raised once after the operation leaves its slot.</summary>
         /// <remarks>
-        /// It does <b>not</b> promise that <see cref="TurnCts"/> is still usable when it fires.
-        /// Disposal is idempotent and the loser of that race returns immediately, so a concurrent
-        /// teardown can reach the raise after the send that owns the source has already disposed
-        /// it. Subscribers must therefore treat the source as possibly dead — which is what the
-        /// disposal-order test asserts on, rather than assuming.
+        /// Concurrent teardown may already have disposed <see cref="TurnCts"/>.
+        /// Subscribers must not assume that the source is still usable.
         /// </remarks>
         internal event Action? Disposed;
 
@@ -279,12 +253,8 @@ internal sealed class AgentInvocationContext(
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
 
-            // Stop the activity before the slot opens, not after. Between the two, StartOperation
-            // and EnterCallback both look at Activity.Current to pick a parent, and IsWithin only
-            // rejects an activity once it is stopped. Freeing the slot first let a new operation in
-            // while this one still looked live, so it was parented under an ending sibling instead
-            // of the session. Outside the lock deliberately: stopping an activity runs the
-            // telemetry processors synchronously, which should not happen while holding _gate.
+            // Stop before clearing the slot so the next operation cannot inherit an ending span.
+            // Stop outside _gate because telemetry processors run synchronously.
             try
             {
                 activityScope?.Dispose();

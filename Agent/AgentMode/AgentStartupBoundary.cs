@@ -22,27 +22,14 @@ internal readonly record struct StartupBoundary(
     AuthResult? Auth,
     ExceptionDispatchInfo? Failure);
 
-/// <summary>
-/// The token acquisition and data boundary probe that run before the agent is created.
-/// </summary>
-/// <remarks>
-/// A seam, because the recovery entry point around it owns the console, static service
-/// initialization, real MSAL, the spinner and a process spawn, and none of this behaviour can be
-/// driven through it.
-/// </remarks>
+/// <summary>Coordinates token acquisition and the diagnostic boundary lookup before Agent creation.</summary>
 internal static class AgentStartupBoundary
 {
-    /// <summary>
-    /// Acquires the Azure token for the builtin provider and probes the caller tenant's ARM data
-    /// boundary.
-    /// </summary>
+    /// <summary>Acquires a builtin token and probes the active tenant's ARM boundary.</summary>
     /// <remarks>
-    /// <b>Never throws.</b> Failures are classified into <see cref="StartupBoundary.Boundary"/> and
-    /// carried out in <see cref="StartupBoundary.Failure"/> for the caller to re-throw after it has
-    /// recorded the outcome. That is what lets the caller record the boundary unconditionally, with
-    /// no path around the write: returning a failure instead of throwing it keeps the original
-    /// exception and its stack intact while still leaving a value to record, and it keeps this
-    /// method testable through its return value rather than through plumbed exceptions.
+    /// Returns the boundary outcome and any failure with its original stack.
+    /// The caller records the outcome before rethrowing the failure.
+    /// Non-builtin providers skip token acquisition and ARM lookup.
     /// </remarks>
     internal static async Task<StartupBoundary> ResolveAsync(
         AgentOptions options,
@@ -52,14 +39,7 @@ internal static class AgentStartupBoundary
         Activity? session,
         CancellationToken ct)
     {
-        // The provider decision lives inside the seam rather than at the call site. Outside it, the
-        // guarantee that a github session never constructs a resolver would be production code no
-        // test of this seam could reach, so the test would only ever assert against a copy of the
-        // branch.
-        //
-        // github authenticates the model with the user's own Copilot credential and never touches
-        // ARM, so asking those users for an Azure login would be a regression; anything else is a
-        // value startup rejects moments later.
+        // GitHub uses Copilot credentials; do not require Azure login or call ARM here.
         if (!options.IsBuiltinProvider)
         {
             return new StartupBoundary(SkippedBoundaryFor(options), null, null);
@@ -105,10 +85,8 @@ internal static class AgentStartupBoundary
             session?.SetTag(TelemetryTags.RecoveryTokenElapsedMs, tokenWatch.ElapsedMilliseconds);
         }
 
-        // Past this line the token is real, so nothing below may be recorded as an auth failure and
-        // the token must reach the caller whatever happens. A single try around both halves made an
-        // ARM or factory fault report `no_token` and threw the acquired token away, so the caller
-        // re-acquired one it already had.
+        // Preserve the acquired token even if the diagnostic lookup fails.
+        // Keep lookup failures separate from authentication failures.
         try
         {
             using var resolver = resolverFactory(profileService);
@@ -124,24 +102,13 @@ internal static class AgentStartupBoundary
         }
         catch (Exception)
         {
-            // The resolver contracts never to throw, so reaching here means that contract broke —
-            // our bug, and not a reason to deny recovery the user already authenticated for. The
-            // boundary is observation-only today, so it is recorded as faulted and startup goes on;
-            // no failure is handed back to re-raise.
+            // Classify resolver faults without discarding the token or blocking recovery.
             return new StartupBoundary(
                 DataBoundaryResult.NoAnswer(DataBoundaryUnavailable.LookupFaulted), auth, null);
         }
     }
 
-    /// <summary>
-    /// The boundary recorded when no lookup is made, i.e. the provider is not <c>builtin</c>.
-    /// </summary>
-    /// <remarks>
-    /// Two distinct reasons, not one. <c>github</c> deliberately skips ARM; anything else is a
-    /// configuration value that startup rejects moments later. Because the boundary is recorded
-    /// before that rejection happens, collapsing them would file every provider typo in telemetry
-    /// as a GitHub session that ran — a claim that was never true.
-    /// </remarks>
+    /// <summary>Distinguishes a GitHub skip from an unsupported provider.</summary>
     internal static DataBoundaryResult SkippedBoundaryFor(AgentOptions options) =>
         DataBoundaryResult.NoAnswer(
             options.IsGithubProvider

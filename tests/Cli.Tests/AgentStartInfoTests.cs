@@ -7,9 +7,7 @@ using Xunit;
 
 namespace Cli.Tests;
 
-/// <summary>
-/// The child receives correlation data and its own file ID, never a trace parent.
-/// </summary>
+/// <summary>Tests explicit telemetry launch context and removal of legacy handoff variables.</summary>
 [Collection("Azclips Service Provider Tests")]
 public class AgentStartInfoTests
 {
