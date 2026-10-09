@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-30-2026
+ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
 title: Test-AzResourceGroupDeployment
 ---
@@ -69,7 +69,7 @@ ParameterSets:
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues:
@@ -220,7 +220,7 @@ ParameterSets:
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -264,7 +264,7 @@ ParameterSets:
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -408,6 +408,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 [about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
+
+### System.String
+
+TODO - describe what Test-AzResourceGroupDeployment does and when to use it.
 
 ## OUTPUTS
 

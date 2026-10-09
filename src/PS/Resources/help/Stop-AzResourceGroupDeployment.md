@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-30-2026
+ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzResourceGroupDeployment
 ---
@@ -20,8 +20,8 @@ Cancel a currently running resource group deployment.
 ### __AllParameterSets
 
 ```
-Stop-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Stop-AzResourceGroupDeployment [-ResourceGroupName] <string> [-Name] <string>
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -89,13 +89,14 @@ The name of the deployment to cancel.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 1
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -134,10 +135,10 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -196,6 +197,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### System.String
+
+TODO - describe what Stop-AzResourceGroupDeployment does and when to use it.
+
 ## OUTPUTS
 
 ### System.Void
@@ -208,7 +213,7 @@ Only a deployment whose provisioning state is `Accepted` or `Running` can be can
 
 ## RELATED LINKS
 
+
 - [Get-AzResourceGroupDeployment]()
 - [New-AzResourceGroupDeployment]()
 - [Remove-AzResourceGroupDeployment]()
-

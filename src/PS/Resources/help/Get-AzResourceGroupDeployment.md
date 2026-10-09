@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09-30-2026
+ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzResourceGroupDeployment
 ---
@@ -20,15 +20,15 @@ Get a single resource group deployment by name, or list all deployments in a res
 ### List (Default)
 
 ```
-Get-AzResourceGroupDeployment -ResourceGroupName <string> [-SubscriptionId <string>]
- [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroupDeployment [-ResourceGroupName] <string> [[-Name] <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroupDeployment [-ResourceGroupName] <string> [-Name] <string>
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### GetById
@@ -113,10 +113,16 @@ Aliases:
 - DeploymentName
 ParameterSets:
 - Name: Get
-  Position: Named
+  Position: 1
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: 1
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -155,16 +161,16 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: Get
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 - Name: List
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -206,6 +212,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 [about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
+
+### System.String
+
+TODO - describe what Get-AzResourceGroupDeployment does and when to use it.
 
 ## OUTPUTS
 
