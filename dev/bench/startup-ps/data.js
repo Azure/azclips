@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791510321551,
+  "lastUpdate": 1791510325925,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -8678,6 +8678,42 @@ window.BENCHMARK_DATA = {
             "value": 393950971.82,
             "unit": "ns",
             "range": "± 30475214.620317094"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d358c4cd307eee311fade640a76bdb569af14a43",
+          "message": "[Config] Clarify core.output.color only permits color; json/yaml never colorize (#1078)\n\nDocs and tests clarifying that `core.output.color` permits color but\ndoes not choose a format: `json`/`yaml` are never colored,\n`jsonc`/`yamlc` are the colored variants, and `NO_COLOR` makes `jsonc`\nrender as plain `json`.\n\nNo behavior change. Tests run the built `az` with\n`FORCE_COLOR`/`NO_COLOR` and assert what reaches redirected stdout and\nstderr.\n\nRelated: #988, #729. Closes Azure/CLIPS#941.",
+          "timestamp": "2026-10-09T01:18:07Z",
+          "tree_id": "4d5faf4190257949dcf10c859278f073e95bbf9d",
+          "url": "https://github.com/Azure/azclips/commit/d358c4cd307eee311fade640a76bdb569af14a43"
+        },
+        "date": 1791510325780,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 424953956.84,
+            "unit": "ns",
+            "range": "± 12371529.936253963"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 410401769.17,
+            "unit": "ns",
+            "range": "± 8278573.660571468"
           }
         ]
       }
