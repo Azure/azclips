@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text;
 using System.Text.Json;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -28,6 +27,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     public class TestResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentValidateResult>
     {
         public string SubscriptionId { get; set; } = string.Empty;
+
+        public string ResourceGroupName { get; set; } = string.Empty;
 
         public bool RollbackOnError { get; set; }
 
@@ -107,7 +108,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 if (result.Error is not null)
                 {
-                    throw new InvalidOperationException(BuildErrorMessage(result.Error));
+                    throw new InvalidOperationException(BuildErrorMessage("Deployment validation failed.", result.Error));
                 }
 
                 await EnsureSuccessIfNoVerdict(response);
@@ -134,6 +135,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // the rollback rule. Fails fast with deterministic ArgumentExceptions.
         private void ValidateInputs()
         {
+            ValidateResourceGroupName(ResourceGroupName);
             ValidateCommonInputs();
 
             if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToDeploymentName))
@@ -159,40 +161,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return null;
-        }
-
-        // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
-        // is readable instead of a wall of raw JSON.
-        internal static string BuildErrorMessage(ErrorResponse? error)
-        {
-            StringBuilder builder = new StringBuilder("Deployment validation failed.");
-            AppendError(builder, error, indent: 1);
-            return builder.ToString();
-        }
-
-        private static void AppendError(StringBuilder builder, ErrorResponse? error, int indent)
-        {
-            if (error is null)
-            {
-                return;
-            }
-
-            string pad = new string(' ', indent * 2);
-            string code = string.IsNullOrWhiteSpace(error.Code) ? "(no code)" : error.Code!;
-            string message = string.IsNullOrWhiteSpace(error.Message) ? "(no message)" : error.Message!;
-            builder.Append(Environment.NewLine).Append(pad).Append(code).Append(": ").Append(message);
-            if (!string.IsNullOrWhiteSpace(error.Target))
-            {
-                builder.Append(" (target: ").Append(error.Target).Append(')');
-            }
-
-            if (error.Details is { Count: > 0 })
-            {
-                foreach (ErrorResponse detail in error.Details)
-                {
-                    AppendError(builder, detail, indent + 1);
-                }
-            }
         }
     }
 }
