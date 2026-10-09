@@ -71,6 +71,10 @@ generate_guid() {
   fi
 }
 
+az_tsv() {
+  "$AZ" "$@" -o tsv | tr -d '\r'
+}
+
 IDENTITY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IDENTITY_NAME"
 SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 # Reused across every create attempt below (see the retry loop) so a retry after a transient
@@ -144,7 +148,7 @@ echo "=== [identity create] principal for the role assignment ==="
   --location "$LOCATION"
 
 # identity show --ids returns a JSON array (it accepts multiple IDs), so index the first element.
-PRINCIPAL_ID="$("$AZ" identity show --ids "$IDENTITY_ID" --query "[0].properties.principalId" -o tsv)"
+PRINCIPAL_ID="$(az_tsv identity show --ids "$IDENTITY_ID" --query "[0].properties.principalId")"
 if [[ -z "$PRINCIPAL_ID" ]]; then
   echo "identity show did not return a principal ID" >&2
   exit 1
@@ -197,12 +201,12 @@ echo "=== [role assignment create] idempotent re-create without --name returns t
 # Re-running create WITHOUT --name generates a fresh name, so ARM returns a RoleAssignmentExists
 # conflict; because the name was generated the idempotent path must look up and return the existing
 # assignment instead of failing, and must not create a second grant.
-RETURNED_NAME="$("$AZ" role assignment create \
+RETURNED_NAME="$(az_tsv role assignment create \
   --scope "$SCOPE" \
   --assignee-object-id "$PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
   --role "$READER_ROLE_DEFINITION_ID" \
-  --query name -o tsv)"
+  --query name)"
 if [[ "$RETURNED_NAME" != "$ROLE_ASSIGNMENT_NAME" ]]; then
   echo "Idempotent create returned '$RETURNED_NAME', expected the existing assignment '$ROLE_ASSIGNMENT_NAME'" >&2
   exit 1
@@ -238,40 +242,41 @@ echo "Confirmed: explicit-name create surfaced the existing-assignment conflict.
 echo "=== [role assignment list] default scope is exact and also appears in --include-inherited ==="
 # The default list returns assignments at exactly this scope; --include-inherited additionally returns
 # ancestor-scope (inherited) grants. Assert the default list contains only at-scope assignments and
-# that the known at-scope grant appears in both result sets.
-WRONG_SCOPE_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --query "length([?properties.scope!='$SCOPE'])" -o tsv)"
+# that every default assignment also appears in the inherited result set.
+WRONG_SCOPE_COUNT="$(az_tsv role assignment list --scope "$SCOPE" --query "length([?properties.scope!='$SCOPE'])")"
 if [[ "$WRONG_SCOPE_COUNT" != "0" ]]; then
   echo "Default list included $WRONG_SCOPE_COUNT assignment(s) whose properties.scope was not '$SCOPE'" >&2
   exit 1
 fi
-AT_SCOPE_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
-if [[ "$AT_SCOPE_PRESENT" != "1" ]]; then
+DEFAULT_NAMES="$(az_tsv role assignment list --scope "$SCOPE" --query "[].name")"
+INHERITED_NAMES="$(az_tsv role assignment list --scope "$SCOPE" --include-inherited --query "[].name")"
+if ! grep -Fxq "$ROLE_ASSIGNMENT_NAME" <<< "$DEFAULT_NAMES"; then
   echo "Default exact-scope list did not contain the assignment '$ROLE_ASSIGNMENT_NAME' created at this scope" >&2
   exit 1
 fi
-INHERITED_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --include-inherited --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
-if [[ "$INHERITED_PRESENT" != "1" ]]; then
-  echo "--include-inherited did not contain the assignment '$ROLE_ASSIGNMENT_NAME' created at this scope" >&2
-  exit 1
-fi
-echo "Confirmed: default list is exact-scope and the known assignment appears in both default and inherited results."
+while IFS= read -r default_name; do
+  [[ -z "$default_name" ]] && continue
+  if ! grep -Fxq "$default_name" <<< "$INHERITED_NAMES"; then
+    echo "--include-inherited omitted default assignment '$default_name'" >&2
+    exit 1
+  fi
+done <<< "$DEFAULT_NAMES"
+echo "Confirmed: default list is exact-scope and every default assignment appears in --include-inherited."
 
 echo "=== [role assignment create] --resource-group scope form with a fully-qualified role ID ==="
 # Exercise the --resource-group scope form (vs an explicit --scope) together with a fully-qualified role
 # definition ID (vs a bare GUID). Uses a different built-in role (Monitoring Reader) so this is a
 # genuinely new grant rather than an idempotent conflict with the Reader grant above.
 MONITORING_READER_FULL_ID="/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Authorization/roleDefinitions/$MONITORING_READER_ROLE_DEFINITION_ID"
-RG_FORM_NAME="$("$AZ" role assignment create \
+RG_FORM_NAME="$(generate_guid)"
+EXTRA_ASSIGNMENT_NAMES+=("$RG_FORM_NAME")
+"$AZ" role assignment create \
   --resource-group "$RESOURCE_GROUP" \
   --assignee-object-id "$PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
   --role "$MONITORING_READER_FULL_ID" \
-  --query name -o tsv)"
-if [[ -z "$RG_FORM_NAME" ]]; then
-  echo "resource-group-form create did not return an assignment name" >&2
-  exit 1
-fi
-EXTRA_ASSIGNMENT_NAMES+=("$RG_FORM_NAME")
+  --name "$RG_FORM_NAME" \
+  > /dev/null
 echo "Created role assignment via --resource-group and a full role ID: $RG_FORM_NAME"
 
 echo "=== [role assignment delete] --resource-group scope form ==="
@@ -283,19 +288,17 @@ echo "=== [role assignment create] with an ABAC condition ==="
 # against the role's data actions, which the offline tests cannot. Uses Storage Blob Data Reader (whose
 # blob read action the condition references) so ARM accepts the condition.
 BLOB_CONDITION="((!(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read'})) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringEquals 'smoke-test-container'))"
-CONDITION_NAME="$("$AZ" role assignment create \
+CONDITION_NAME="$(generate_guid)"
+EXTRA_ASSIGNMENT_NAMES+=("$CONDITION_NAME")
+"$AZ" role assignment create \
   --scope "$SCOPE" \
   --assignee-object-id "$PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
   --role "$STORAGE_BLOB_DATA_READER_ROLE_DEFINITION_ID" \
   --condition "$BLOB_CONDITION" \
   --condition-version 2.0 \
-  --query name -o tsv)"
-if [[ -z "$CONDITION_NAME" ]]; then
-  echo "conditional create did not return an assignment name" >&2
-  exit 1
-fi
-EXTRA_ASSIGNMENT_NAMES+=("$CONDITION_NAME")
+  --name "$CONDITION_NAME" \
+  > /dev/null
 echo "Created conditional role assignment: $CONDITION_NAME"
 "$AZ" role assignment delete --scope "$SCOPE" --name "$CONDITION_NAME"
 echo "Confirmed: created and deleted a conditional assignment."
@@ -308,8 +311,8 @@ else
   ROLE_ASSIGNMENT_DELETED=1
 
   echo "=== [role assignment list] verify deleted assignment is gone ==="
-  STILL_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" \
-    --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
+  STILL_PRESENT="$(az_tsv role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" \
+    --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])")"
   if [[ "$STILL_PRESENT" != "0" ]]; then
     echo "Deleted role assignment '$ROLE_ASSIGNMENT_NAME' still appears in the list after delete" >&2
     exit 1

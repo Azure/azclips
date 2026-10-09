@@ -216,21 +216,23 @@ try {
     # role definition ID (vs a bare GUID). Uses a different built-in role (Monitoring Reader) so this is a
     # genuinely new grant rather than an idempotent conflict with the Reader grant above.
     $monitoringReaderFullId = "/subscriptions/$subscriptionId/providers/Microsoft.Authorization/roleDefinitions/$monitoringReaderRoleDefinitionId"
+    $rgFormName = [Guid]::NewGuid().ToString()
+    $extraAssignmentNames.Add($rgFormName)
     $rgFormAssignment = New-AzRoleAssignment `
         -ResourceGroupName $resourceGroup `
         -ObjectId $principalId `
         -ObjectType ServicePrincipal `
         -RoleDefinitionId $monitoringReaderFullId `
+        -Name $rgFormName `
         -Confirm:$false
     $rgFormAssignment | Out-Host
-    if ([string]::IsNullOrWhiteSpace($rgFormAssignment.Name)) {
-        throw 'Resource-group-form create did not return an assignment name.'
+    if ($rgFormAssignment.Name -ne $rgFormName) {
+        throw "Resource-group-form create returned '$($rgFormAssignment.Name)', expected '$rgFormName'."
     }
-    $extraAssignmentNames.Add($rgFormAssignment.Name)
     Write-Host "Created role assignment via -ResourceGroupName and a full role ID: $($rgFormAssignment.Name)" -ForegroundColor Green
 
     Section 'Remove-AzRoleAssignment -ResourceGroupName scope form'
-    Remove-AzRoleAssignment -ResourceGroupName $resourceGroup -Name $rgFormAssignment.Name -Confirm:$false | Out-Host
+    Remove-AzRoleAssignment -ResourceGroupName $resourceGroup -Name $rgFormName -Confirm:$false | Out-Host
     Write-Host 'Confirmed: created and deleted an assignment via the -ResourceGroupName scope form.' -ForegroundColor Green
 
     Section 'New-AzRoleAssignment with an ABAC condition'
@@ -238,21 +240,23 @@ try {
     # against the role's data actions, which the offline tests cannot. Uses Storage Blob Data Reader (whose
     # blob read action the condition references) so ARM accepts the condition.
     $blobCondition = '((!(ActionMatches{''Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read''})) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringEquals ''smoke-test-container''))'
+    $conditionName = [Guid]::NewGuid().ToString()
+    $extraAssignmentNames.Add($conditionName)
     $conditionAssignment = New-AzRoleAssignment `
         -Scope $scope `
         -ObjectId $principalId `
         -ObjectType ServicePrincipal `
         -RoleDefinitionId $storageBlobDataReaderRoleDefinitionId `
+        -Name $conditionName `
         -Condition $blobCondition `
         -ConditionVersion '2.0' `
         -Confirm:$false
     $conditionAssignment | Out-Host
-    if ([string]::IsNullOrWhiteSpace($conditionAssignment.Name)) {
-        throw 'Conditional create did not return an assignment name.'
+    if ($conditionAssignment.Name -ne $conditionName) {
+        throw "Conditional create returned '$($conditionAssignment.Name)', expected '$conditionName'."
     }
-    $extraAssignmentNames.Add($conditionAssignment.Name)
     Write-Host "Created conditional role assignment: $($conditionAssignment.Name)" -ForegroundColor Green
-    Remove-AzRoleAssignment -Scope $scope -Name $conditionAssignment.Name -Confirm:$false | Out-Host
+    Remove-AzRoleAssignment -Scope $scope -Name $conditionName -Confirm:$false | Out-Host
     Write-Host 'Confirmed: created and deleted a conditional assignment.' -ForegroundColor Green
 
     if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -eq '1') {
