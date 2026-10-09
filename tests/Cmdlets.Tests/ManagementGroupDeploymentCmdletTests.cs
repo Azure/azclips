@@ -75,11 +75,13 @@ public class ManagementGroupDeploymentCmdletTests
     }
 
     [Fact]
-    public void ManagementGroupDeploymentCmdlets_DoNotExposeAsJob()
+    public void OnlyNewAndRemove_ExposeAsJob()
     {
         foreach (Type cmdletType in CmdletTypes)
         {
-            Assert.Null(cmdletType.GetProperty("AsJob"));
+            bool expected = cmdletType == typeof(NewManagementGroupDeploymentCmdlet)
+                || cmdletType == typeof(RemoveManagementGroupDeploymentCmdlet);
+            Assert.Equal(expected, cmdletType.GetProperty("AsJob") is not null);
         }
     }
 
@@ -109,7 +111,7 @@ public class ManagementGroupDeploymentCmdletTests
 
         Assert.Equal(
             [
-                "Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended",
+                "Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment",
                 "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult",
             ],
             attribute.Type.Select(type => type.Name));

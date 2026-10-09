@@ -465,13 +465,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return root;
         }
 
-        private static bool IsBicepFile(string path) =>
+        protected static bool IsBicepFile(string path) =>
             path.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase);
 
-        private static bool IsBicepParamFile(string path) =>
+        protected static bool IsBicepParamFile(string path) =>
             path.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase);
 
-        private static void EnsureFileExists(string path)
+        protected static void EnsureFileExists(string path)
         {
             if (!File.Exists(path))
             {

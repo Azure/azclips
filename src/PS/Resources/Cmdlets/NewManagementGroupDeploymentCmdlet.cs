@@ -7,18 +7,20 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzManagementGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(
-    "Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended",
-    "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult")]
-public class NewManagementGroupDeploymentCmdlet : PSCmdlet
+    typeof(PSDeployment),
+    typeof(WhatIfOperationResult))]
+public class NewManagementGroupDeploymentCmdlet : PSCmdlet, IDynamicParameters
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+    private RuntimeDefinedParameterDictionary? _templateParameters;
 
     [Parameter(Mandatory = true)]
     public string ManagementGroupId { get; set; } = string.Empty;
@@ -42,10 +44,23 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)] public string? ValidationLevel { get; set; }
     [Parameter(Mandatory = false)] public Hashtable? Tag { get; set; }
     [Parameter(Mandatory = false)] public string? DeploymentDebugLogLevel { get; set; }
-    [Parameter(Mandatory = false)] public string? WhatIfResultFormat { get; set; }
+    [Parameter(Mandatory = false)]
+    [ValidateSet("FullResourcePayloads", "ResourceIdOnly", IgnoreCase = true)]
+    public string? WhatIfResultFormat { get; set; }
     [Parameter(Mandatory = false)] public string[]? WhatIfExcludeChangeType { get; set; }
     [Parameter(Mandatory = false)] public SwitchParameter ProceedIfNoChange { get; set; }
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")] public SwitchParameter AsJob { get; set; }
+    [Parameter(Mandatory = false)] public SwitchParameter SkipTemplateParameterPrompt { get; set; }
+    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
+    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
     [Parameter(Mandatory = false)] public string? Profile { get; set; }
+
+    public object GetDynamicParameters() =>
+        _templateParameters = SkipTemplateParameterPrompt
+            ? new RuntimeDefinedParameterDictionary()
+            : ManagementGroupDeploymentCmdletHelpers.CreateTemplateParameters(
+                this, TemplateObject, TemplateFile, TemplateUri, TemplateSpecId, QueryString,
+                TemplateParameterObject, TemplateParameterFile, TemplateParameterUri);
 
     protected override void BeginProcessing()
     {
@@ -82,6 +97,8 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
             nameof(TemplateParameterObject),
             ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject));
         AddBound(parameters, nameof(Parameter), Parameter);
+        ManagementGroupDeploymentCmdletHelpers.AddTemplateParameterValues(
+            parameters, _templateParameters, Parameter, MyInvocation.BoundParameters.ContainsKey(nameof(TemplateParameterUri)));
         AddBound(parameters, nameof(ValidationLevel), ValidationLevel);
         AddBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);
         AddBound(parameters, nameof(WhatIfResultFormat), WhatIfResultFormat);
@@ -134,6 +151,12 @@ public class NewManagementGroupDeploymentCmdlet : PSCmdlet
             $"management group '{ManagementGroupId}' deployment '{Name ?? "(generated name)"}'";
         if (!skipConfirmation && !ShouldProcess(target, "Create"))
         {
+            return;
+        }
+
+        if (AsJob)
+        {
+            ManagementGroupDeploymentCmdletHelpers.RunAsJob(this, engine, "New-AzManagementGroupDeployment", parameters);
             return;
         }
 

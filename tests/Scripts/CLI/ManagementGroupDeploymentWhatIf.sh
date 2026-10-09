@@ -40,7 +40,7 @@ changeCount=$(az deployment mg what-if \
     --management-group-id "$MANAGEMENT_GROUP_ID" \
     --location eastus \
     --template-file "$TEMPLATE_FILE" \
-    --query "length(properties.changes)" --output tsv --debug)
+    --query "length(changes)" --output tsv --debug)
 assert_eq "empty template change count" "0" "$changeCount"
 
 # Nested resource-group-create template so the what-if preview reports real "Create" changes.
@@ -97,7 +97,7 @@ changeCount=$(az deployment mg what-if \
     --template-file "$NESTED_TEMPLATE_FILE" \
     --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME2" rgLocation=WestUS \
     --result-format ResourceIdOnly \
-    --query "length(properties.changes)" --output tsv --debug)
+    --query "length(changes)" --output tsv --debug)
 (( changeCount > 0 )) && hasChanges=true || hasChanges=false
 assert_eq "result-format reported at least one change" "true" "$hasChanges"
 
@@ -117,7 +117,7 @@ changeCount=$(az deployment mg what-if \
     --template-file "$NESTED_TEMPLATE_FILE" \
     --parameters targetSubscriptionId="$SUBSCRIPTION_ID" rgName="$RGNAME3" rgLocation=WestUS \
     --exclude-change-types Create \
-    --query "length(properties.changes)" --output tsv --debug)
+    --query "length(changes)" --output tsv --debug)
 assert_eq "exclude-change-types change count" "0" "$changeCount"
 
 echo "== 4. --validation-level ProviderNoRbac (preview without an RBAC permission check) =="

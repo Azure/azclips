@@ -20,14 +20,14 @@ Gets management-group deployments.
 ### GetByName (Default)
 
 ```
-Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Profile <string>]
+Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Pre] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### GetById
 
 ```
-Get-AzManagementGroupDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
+Get-AzManagementGroupDeployment -Id <string> [-Pre] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -126,6 +126,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Pre
+
+Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
 The AzClips profile to use instead of the active profile.
@@ -158,7 +179,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
 Returns one or more management-group deployment objects.
 

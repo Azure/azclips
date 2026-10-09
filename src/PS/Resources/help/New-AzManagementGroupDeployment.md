@@ -26,7 +26,7 @@ New-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> [
  [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>]
  [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AsJob] [-SkipTemplateParameterPrompt] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -38,7 +38,8 @@ This cmdlet has no aliases.
 
 Validates and creates a management-group deployment from an ARM JSON, Bicep, template URI,
 template spec, or template object. A true `-WhatIf` runs ARM what-if, while
-`-WhatIf:$false` follows the normal create path.
+`-WhatIf:$false` follows the normal create path. Template parameters are also exposed as
+dynamic parameters, and `-Verbose` shows deployment progress.
 
 ## EXAMPLES
 
@@ -51,6 +52,27 @@ New-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Location e
 ```
 
 ## PARAMETERS
+
+### -AsJob
+
+Runs the cmdlet in the background and returns a job object.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -139,7 +161,7 @@ HelpMessage: ''
 
 ### -Name
 
-The deployment name. When omitted, the template file name or current UTC time is used.
+The deployment name. When omitted, the template file or URI name is used; otherwise a new GUID.
 
 ```yaml
 Type: System.String
@@ -166,6 +188,27 @@ Inline `KEY=VALUE` template parameter overlays.
 ```yaml
 Type: System.String[]
 DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Pre
+
+Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -229,6 +272,27 @@ A query string used with linked template or parameter URIs.
 ```yaml
 Type: System.String
 DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SkipTemplateParameterPrompt
+
+Skips creating dynamic parameters from the template parameters, so PowerShell does not prompt for missing values. Missing required values are reported by the deployment validation instead.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -507,7 +571,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
 Returns the management-group deployment created by Azure Resource Manager.
 
@@ -517,8 +581,7 @@ Returns the predicted resource changes when `-WhatIf` is true.
 
 ## NOTES
 
-Deployment mode is always Incremental. Interactive missing-parameter prompting and `AsJob`
-are not supported.
+Deployment mode is always Incremental, as in Azure PowerShell.
 
 ## RELATED LINKS
 

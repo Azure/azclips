@@ -63,8 +63,9 @@ $name = "azclips-mg-list-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss')
 New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
 $list = Get-AzManagementGroupDeployment -ManagementGroupId $managementGroupId
-$match = $list | Where-Object { $_.Name -eq $name }
+$match = $list | Where-Object { $_.DeploymentName -eq $name }
 Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
+Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 
 Write-Host '== 2. negative: list against a management group that does not exist must be rejected =='
 try {

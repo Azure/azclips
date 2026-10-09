@@ -20,21 +20,21 @@ Removes a management-group deployment from deployment history.
 ### RemoveByName (Default)
 
 ```
-Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru] [-AsJob]
+ [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveById
 
 ```
-Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-AsJob] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
+Remove-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-AsJob] [-Pre] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -67,6 +67,27 @@ Get-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Name myDep
 ```
 
 ## PARAMETERS
+
+### -AsJob
+
+Runs the cmdlet in the background and returns a job object.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Confirm
 
@@ -118,7 +139,7 @@ HelpMessage: ''
 A deployment object returned by `Get-AzManagementGroupDeployment`.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -198,6 +219,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Pre
+
+Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
 The AzClips profile to use instead of the active profile.
@@ -250,7 +292,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
 Accepts a management-group deployment object from the pipeline.
 

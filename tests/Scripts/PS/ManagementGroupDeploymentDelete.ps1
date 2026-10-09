@@ -77,17 +77,15 @@ try {
     Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
 }
 
-Write-Host '== 3. removing a deployment name that does not exist succeeds (ARM DELETE is idempotent) =='
-# Expected result: no error. Remove-AzManagementGroupDeployment maps directly to an ARM DELETE,
-# which returns success whether or not the deployment currently exists.
-$threw = $false
+Write-Host '== 3. negative: removing a deployment name that does not exist must be rejected =='
+# Like legacy PS, Remove checks the deployment exists before deleting it.
+$message = $null
 try {
     Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name azclips-mg-remove-does-not-exist -Confirm:$false -ErrorAction Stop
 } catch {
-    $threw = $true
-    Write-Host "remove of a nonexistent deployment threw: $($_.Exception.Message)"
+    $message = $_.Exception.Message
 }
-Assert-Equal 'remove of a nonexistent deployment completed without error' $false $threw
+Assert-Equal 'remove of a nonexistent deployment has the legacy message' $true ($message -match "Deployment 'azclips-mg-remove-does-not-exist' doesn't exist at management group")
 
 if ($failures.Count -gt 0) {
     throw "Remove-AzManagementGroupDeployment smoke test finished with $($failures.Count) failure(s)."

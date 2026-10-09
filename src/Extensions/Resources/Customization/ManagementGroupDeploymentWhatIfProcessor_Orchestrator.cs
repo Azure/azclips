@@ -1,77 +1,112 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
-using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.ExtensionRuntime;
+using System.Text.Json.Nodes;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
+/// <summary><c>az deployment mg what-if</c>.</summary>
 public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
     : ManagementGroupDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
+    private static readonly string[] ChangeTypes = ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"];
+
     public string? ResultFormat { get; set; }
 
     public string[]? ExcludeChangeTypes { get; set; }
 
+    protected override bool PromptsForMissingParameters => true;
+
+    private string? _rawBody;
+
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        PrepareAndValidate();
-        WhatIfAtManagementGroupScopeDeploymentsProcessor processor =
-            CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
-            {
-                p.GroupId = ManagementGroupId;
-                p.DeploymentName = Name;
-                p.Body = BuildWhatIf(ResultFormat, forceIncrementalMode: true);
-            });
-        return await processor.SendAsync();
+        CheckExcludeChangeTypes(ExcludeChangeTypes);
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            Name = CliDefaultDeploymentName();
+        }
+        ScopedDeploymentWhatIf body = CreateBody(Location, await BuildPropertiesAsync(), ResultFormat);
+        HttpResponseMessage response = await CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
+        {
+            p.GroupId = ManagementGroupId;
+            p.DeploymentName = Name;
+            p.Body = body;
+        }).SendAsync();
+        _rawBody = response.Content is null ? null : await response.Content.ReadAsStringAsync();
+        return response;
     }
 
-    public override async Task ProcessAsync()
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        try
+        // ARM returns 200 with an "error" payload for template errors (legacy _build_preflight_error_message).
+        if (body?.Error is { } error)
         {
-            using HttpResponseMessage response = await SendAsync();
-            string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(rawBody))
-            {
-                return;
-            }
-
-            WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
-                ?? throw new InvalidOperationException(
-                    "Management group deployment what-if returned an empty result.");
-            ThrowIfError(result.Error, "Management group deployment what-if");
-            FilterChanges(result, ExcludeChangeTypes);
+            throw new InvalidOperationException(BuildPreflightErrorMessage(error));
+        }
+        if (body is not null && ToCliResult(_rawBody, ExcludeChangeTypes) is { } result)
+        {
             await WriteOutput(result);
         }
-        finally
+        return true;
+    }
+
+    internal static void CheckExcludeChangeTypes(string[]? types)
+    {
+        foreach (string type in types ?? [])
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            if (!ChangeTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"ExcludeChangeTypes value '{type}' is not allowed. Allowed values: {string.Join(", ", ChangeTypes)}");
+            }
         }
     }
 
-    internal static void FilterChanges(WhatIfOperationResult result, string[]? excludeChangeTypes)
+    // What-if always runs Incremental (legacy CLI and PS), whatever the deployment mode.
+    internal static ScopedDeploymentWhatIf CreateBody(string location, DeploymentProperties properties, string? resultFormat) => new()
     {
-        if (excludeChangeTypes is not { Length: > 0 })
+        Location = location,
+        Properties = new DeploymentWhatIfProperties
         {
-            return;
-        }
+            Mode = DeploymentMode.Incremental,
+            Template = properties.Template,
+            TemplateLink = properties.TemplateLink,
+            Parameters = properties.Parameters,
+            ParametersLink = properties.ParametersLink,
+            ValidationLevel = properties.ValidationLevel,
+            // ponytail: casing is checked by the CLI AllowedValues; ARM default is FullResourcePayloads.
+            WhatIfSettings = string.IsNullOrWhiteSpace(resultFormat) ? null : new DeploymentWhatIfSettings { ResultFormat = resultFormat },
+        },
+    };
 
-        HashSet<string> excluded = new(excludeChangeTypes, StringComparer.OrdinalIgnoreCase);
-        if (result.Properties?.Changes is not null)
+    // Built from the raw body because the generated model drops change fields (identifiers, extension).
+    // Legacy CLI (SDK WhatIfOperationResult) flattens "properties" into the top level.
+    internal static JsonObject? ToCliResult(string? rawBody, string[]? excludeChangeTypes)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody) || JsonNode.Parse(rawBody) is not JsonObject raw)
         {
-            result.Properties.Changes = result.Properties.Changes
-                .Where(change => change.ChangeType is null || !excluded.Contains(change.ChangeType))
-                .ToList();
+            return null;
         }
-        if (result.Properties?.PotentialChanges is not null)
+        JsonNode? properties = raw["properties"];
+        JsonObject result = new()
         {
-            result.Properties.PotentialChanges = result.Properties.PotentialChanges
-                .Where(change => change.ChangeType is null || !excluded.Contains(change.ChangeType))
-                .ToList();
+            ["changes"] = properties?["changes"]?.DeepClone(),
+            ["diagnostics"] = properties?["diagnostics"]?.DeepClone(),
+            ["error"] = raw["error"]?.DeepClone(),
+            ["potentialChanges"] = properties?["potentialChanges"]?.DeepClone(),
+            ["status"] = raw["status"]?.DeepClone(),
+        };
+        if (excludeChangeTypes is { Length: > 0 } && result["changes"] is JsonArray changes)
+        {
+            foreach (JsonNode? change in changes.ToList())
+            {
+                if (excludeChangeTypes.Contains((string?)change?["changeType"], StringComparer.OrdinalIgnoreCase))
+                {
+                    changes.Remove(change);
+                }
+            }
         }
+        return result;
     }
 }

@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "AzManagementGroupDeployment", DefaultParameterSetName = NameSet)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment")]
 public class GetManagementGroupDeploymentCmdlet : PSCmdlet
 {
     private const string NameSet = "GetByName";
@@ -28,6 +28,10 @@ public class GetManagementGroupDeploymentCmdlet : PSCmdlet
     [Alias("DeploymentId", "ResourceId")]
     [Parameter(Mandatory = true, ParameterSetName = IdSet)]
     public string? Id { get; set; }
+
+    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
+    [Parameter(Mandatory = false)]
+    public SwitchParameter Pre { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }

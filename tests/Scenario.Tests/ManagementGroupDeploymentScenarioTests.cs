@@ -1,7 +1,9 @@
 using System.Net;
+using System.Text.Json;
 using System.Text;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
 using Tests.Common.Utilities;
 using Tests.Recording;
@@ -86,21 +88,21 @@ public class ManagementGroupDeploymentScenarioTests
             "--management-group-id", ManagementGroupId,
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template)));
+            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg")));
 
         host.RunCli(
             "deployment", "mg", "what-if",
             "--management-group-id", ManagementGroupId,
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template);
+            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg");
 
         Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
             "deployment", "mg", "create",
             "--management-group-id", ManagementGroupId,
             "--location", Location,
             "--name", DeploymentName,
-            "--template-file", template)));
+            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg")));
 
         // Wait commands are void on success (matches `az resource wait`'s silent convention).
         Assert.Empty(host.RunCli(
@@ -146,9 +148,9 @@ public class ManagementGroupDeploymentScenarioTests
 
         Assert.Empty(host.RunPowerShell("Test-AzManagementGroupDeployment", body));
         body["Tag"] = new Dictionary<string, string> { ["scenario"] = "management-group" };
-        Assert.IsType<DeploymentExtended>(Assert.Single(
+        Assert.IsType<PSDeployment>(Assert.Single(
             host.RunPowerShell("New-AzManagementGroupDeployment", body)));
-        Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell(
+        Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShell(
             "Get-AzManagementGroupDeployment_Get",
             new Dictionary<string, object>
             {
@@ -200,6 +202,14 @@ public class ManagementGroupDeploymentScenarioTests
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+            }
+            if (request.Method == HttpMethod.Get && path.EndsWith("/operations", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json("""{"value":[]}"""));
+            }
+            if (request.Method == HttpMethod.Head)
+            {
+                return Task.FromResult(new HttpResponseMessage(_deleted ? HttpStatusCode.NotFound : HttpStatusCode.NoContent));
             }
             if (request.Method == HttpMethod.Put)
             {

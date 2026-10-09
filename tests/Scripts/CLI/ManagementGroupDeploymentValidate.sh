@@ -41,20 +41,20 @@ state=$(az deployment mg validate \
     --query properties.provisioningState --output tsv --debug)
 assert_eq "validation-level Provider" "Succeeded" "$state"
 
-echo "== 3. negative: template references an undefined parameter (must be rejected) =="
+echo "== 3. negative: default value not in allowedValues (must be rejected) =="
 INVALID_TEMPLATE_FILE="$(mktemp -t azclips-mg-invalid-template-XXXXXX.json)"
 cat > "$INVALID_TEMPLATE_FILE" <<'JSON'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
-  "parameters": {},
-  "resources": [],
-  "outputs": {
-    "undefined": {
+  "parameters": {
+    "mode": {
       "type": "string",
-      "value": "[parameters('undefinedNameParam')]"
+      "allowedValues": ["a", "b"],
+      "defaultValue": "c"
     }
-  }
+  },
+  "resources": []
 }
 JSON
 if output=$(az deployment mg validate \
@@ -66,7 +66,7 @@ then
     echo "$output"
     didFail=false
 else
-    grep -qF "Management group deployment validation failed" <<< "$output" && didFail=true || didFail=false
+    grep -qF "InvalidTemplate" <<< "$output" && didFail=true || didFail=false
     [[ "$didFail" == "false" ]] && echo "$output"
 fi
 assert_eq "validate failed with the expected message" "true" "$didFail"

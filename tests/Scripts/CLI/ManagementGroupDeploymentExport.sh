@@ -58,6 +58,9 @@ else
 fi
 assert_eq "export of a nonexistent deployment failed as expected" "true" "$didFail"
 
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
+rm -f "$TEMPLATE_FILE"
+
 if (( FAILURES > 0 )); then
     echo "== deployment mg export smoke test finished with $FAILURES failure(s) =="
     exit 1

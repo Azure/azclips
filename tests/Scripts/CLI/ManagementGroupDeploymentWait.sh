@@ -66,6 +66,9 @@ else
 fi
 assert_eq "wait with an unsatisfiable --custom condition timed out as expected" "true" "$didTimeOut"
 
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
+rm -f "$TEMPLATE_FILE"
+
 if (( FAILURES > 0 )); then
     echo "== deployment mg wait smoke test finished with $FAILURES failure(s) =="
     exit 1

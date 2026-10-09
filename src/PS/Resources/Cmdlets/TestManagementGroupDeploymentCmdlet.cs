@@ -10,11 +10,12 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsDiagnostic.Test, "AzManagementGroupDeployment")]
-public class TestManagementGroupDeploymentCmdlet : PSCmdlet
+public class TestManagementGroupDeploymentCmdlet : PSCmdlet, IDynamicParameters
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+    private RuntimeDefinedParameterDictionary? _templateParameters;
 
     [Parameter(Mandatory = true)] public string ManagementGroupId { get; set; } = string.Empty;
     [Alias("DeploymentName")]
@@ -30,7 +31,18 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)] public Hashtable? TemplateParameterObject { get; set; }
     [Parameter(Mandatory = false)] public string[]? Parameter { get; set; }
     [Parameter(Mandatory = false)] public string? ValidationLevel { get; set; }
+    [Parameter(Mandatory = false)] public SwitchParameter SuppressDiagnostics { get; set; }
+    [Parameter(Mandatory = false)] public SwitchParameter SkipTemplateParameterPrompt { get; set; }
+    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
+    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
     [Parameter(Mandatory = false)] public string? Profile { get; set; }
+
+    public object GetDynamicParameters() =>
+        _templateParameters = SkipTemplateParameterPrompt
+            ? new RuntimeDefinedParameterDictionary()
+            : ManagementGroupDeploymentCmdletHelpers.CreateTemplateParameters(
+                this, TemplateObject, TemplateFile, TemplateUri, TemplateSpecId, QueryString,
+                TemplateParameterObject, TemplateParameterFile, TemplateParameterUri);
 
     protected override void BeginProcessing()
     {
@@ -61,6 +73,10 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
                 parameters[name] = value;
             }
         }
+        if (SuppressDiagnostics)
+        {
+            parameters[nameof(SuppressDiagnostics)] = true;
+        }
         if (TemplateObject is not null)
         {
             parameters[nameof(TemplateObject)] =
@@ -71,6 +87,8 @@ public class TestManagementGroupDeploymentCmdlet : PSCmdlet
             parameters[nameof(TemplateParameterObject)] =
                 ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject)!;
         }
+        ManagementGroupDeploymentCmdletHelpers.AddTemplateParameterValues(
+            parameters, _templateParameters, Parameter, MyInvocation.BoundParameters.ContainsKey(nameof(TemplateParameterUri)));
 
         ManagementGroupDeploymentCmdletHelpers.Run(
             this,

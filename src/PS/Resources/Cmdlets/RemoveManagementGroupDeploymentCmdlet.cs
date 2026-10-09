@@ -5,7 +5,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
-using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
@@ -29,8 +29,11 @@ public class RemoveManagementGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = true, ParameterSetName = IdSet)]
     public string? Id { get; set; }
     [Parameter(Mandatory = true, ValueFromPipeline = true, ParameterSetName = ObjectSet)]
-    public DeploymentExtended? InputObject { get; set; }
+    public PSDeployment? InputObject { get; set; }
     [Parameter(Mandatory = false)] public SwitchParameter PassThru { get; set; }
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")] public SwitchParameter AsJob { get; set; }
+    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
+    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
     [Parameter(Mandatory = false)] public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -60,6 +63,12 @@ public class RemoveManagementGroupDeploymentCmdlet : PSCmdlet
         if (Profile is not null)
         {
             parameters[nameof(Profile)] = Profile;
+        }
+        if (AsJob)
+        {
+            ManagementGroupDeploymentCmdletHelpers.RunAsJob(
+                this, engine, "Remove-AzManagementGroupDeployment", parameters, PassThru ? true : null);
+            return;
         }
         ManagementGroupDeploymentCmdletHelpers.Run(
             this,

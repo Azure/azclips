@@ -100,16 +100,12 @@ try {
 } catch {
     Add-Failure "invalid template should not throw, but threw: $($_.Exception.Message)"
 }
-# ARM has been observed to report deployment-validation errors either at the top-level .Error or
-# nested under .Properties.Error, depending on when the error is detected; check both.
-$validationError = $result.Error
-if ($null -eq $validationError) {
-    $validationError = $result.Properties.Error
-}
+# Like legacy PS, validation errors are returned as a list of errors (Code/Message).
+$validationError = @($result) | Select-Object -First 1
 Assert-Equal 'invalid template returned a non-null result' $true ($null -ne $result)
-Assert-Equal 'invalid template reported a populated .Error' $true ($null -ne $validationError)
+Assert-Equal 'invalid template reported an error code' $true (-not [string]::IsNullOrWhiteSpace($validationError.Code))
 if ($null -ne $validationError) {
-    Write-Host "invalid template .Error: $($validationError.Code): $($validationError.Message)"
+    Write-Host "invalid template error: $($validationError.Code): $($validationError.Message)"
 }
 
 if ($failures.Count -gt 0) {

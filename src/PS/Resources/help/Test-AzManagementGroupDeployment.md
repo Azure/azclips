@@ -24,7 +24,7 @@ Test-AzManagementGroupDeployment -ManagementGroupId <string> -Location <string> 
  [-TemplateFile <string>] [-TemplateUri <string>] [-TemplateSpecId <string>]
  [-TemplateObject <hashtable>] [-QueryString <string>] [-TemplateParameterFile <string>]
  [-TemplateParameterUri <string>] [-TemplateParameterObject <hashtable>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-Profile <string>] [<CommonParameters>]
+ [-ValidationLevel <string>] [-SuppressDiagnostics] [-SkipTemplateParameterPrompt] [-Pre] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -133,6 +133,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Pre
+
+Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
 The AzClips profile to use instead of the active profile.
@@ -161,6 +182,48 @@ A query string used with linked template or parameter URIs.
 ```yaml
 Type: System.String
 DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SkipTemplateParameterPrompt
+
+Skips creating dynamic parameters from the template parameters, so PowerShell does not prompt for missing values. Missing required values are reported by the deployment validation instead.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SuppressDiagnostics
+
+Hides the validation diagnostics warning for a valid deployment.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -354,9 +417,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### None
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.ErrorResponse
 
-The cmdlet writes validation errors when the template is invalid and produces no output when validation succeeds.
+Returns the validation errors when the template is invalid. Produces no output when validation succeeds.
 
 ### System.Object
 

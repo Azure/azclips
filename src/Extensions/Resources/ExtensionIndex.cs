@@ -285,17 +285,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["TemplateParameterObject"] = new("ParametersObject", "TemplateParameterObject", typeof(object), "An inline parameter object.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Parameter"] = new("Parameter", "Parameter", typeof(string[]), "Inline KEY=VALUE parameter overlays.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["SuppressDiagnostics"] = new("SuppressDiagnostics", "SuppressDiagnostics", typeof(bool), "When set, validation diagnostics will not be shown for valid deployments.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_getManagementGroupDeployment_PS = new(
-            Name: "GetAtManagementGroupScopeDeploymentsProcessor",
+            Name: "GetAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "Get-AzManagementGroupDeployment_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -305,12 +306,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_listManagementGroupDeployment_PS = new(
-            Name: "ListAtManagementGroupScopeDeploymentsProcessor",
+            Name: "ListAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "Get-AzManagementGroupDeployment_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -327,19 +328,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.StopManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ManagementGroupId"] = new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"] = new("Name", "Name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"] = new("DeploymentName", "Name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
                 ["Profile"] = new("Profile", "Profile", typeof(string), "Azure profile name.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = new(
-            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor",
+            Name: "RemoveManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Remove-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.RemoveManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -605,17 +606,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         {
             Dictionary<string, ParameterMetadata> parameters = new()
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("Name", "name", typeof(string), "The deployment name. Derived when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["location"] = new("Location", "location", typeof(string), "The location used to store deployment metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["template-file"] = new("TemplateFile", "template-file", typeof(string), "A local JSON or Bicep template file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-uri"] = new("TemplateUri", "template-uri", typeof(string), "The template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The template spec resource ID.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["query-string"] = new("QueryString", "query-string", typeof(string), "A query string for linked template or parameter URIs.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameters-file"] = new("ParametersFile", "parameters-file", typeof(string), "A local JSON or bicepparam file.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameters-uri"] = new("ParametersUri", "parameters-uri", typeof(string), "The parameter file URI.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["parameters"] = new("Parameter", "parameters", typeof(string[]), "A parameter source or repeated KEY=VALUE overlays.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name. Derived when omitted.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["location"] = new("Location", "location", typeof(string), "The location used to store deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["template-file"] = new("TemplateFile", "template-file", typeof(string), "A local JSON or Bicep template file.", IsRequired: false, Aliases: ["f"], AllowedValues: []),
+                ["template-uri"] = new("TemplateUri", "template-uri", typeof(string), "The template URI.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["template-spec"] = new("TemplateSpecId", "template-spec", typeof(string), "The template spec resource ID.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["query-string"] = new("CliQueryString", "query-string", typeof(string), "The query string (a SAS token) used with --template-uri.", IsRequired: false, Aliases: ["q"], AllowedValues: []),
+                ["parameters"] = new("CliParameters", "parameters", typeof(string[]), "Deployment parameters: a .bicepparam, JSON file, @file, JSON string, URI, or KEY=VALUE pairs (repeatable).", IsRequired: false, Aliases: ["p"], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["no-prompt"] = new("NoPrompt", "no-prompt", typeof(bool), "The option to disable the prompt of missing parameters for ARM template. When the value is true, the prompt requiring users to provide missing parameter will be ignored. The default value is false.", IsRequired: false, Aliases: [], AllowedValues: []),
             };
             if (includeMode)
             {
@@ -623,22 +623,40 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             }
             return parameters;
         }
+        // Legacy `az deployment mg` short options shared by create/validate/what-if.
+        private static Dictionary<string, string> CreateManagementDeploymentBodyCliAliases() => new()
+        {
+            ["m"] = "management-group-id",
+            ["n"] = "name",
+            ["l"] = "location",
+            ["f"] = "template-file",
+            ["u"] = "template-uri",
+            ["s"] = "template-spec",
+            ["q"] = "query-string",
+            ["p"] = "parameters",
+        };
         private static readonly CommandMetadata s_newManagementGroupDeployment_CLI = new(
-            Name: "NewManagementGroupDeploymentProcessor_Orchestrator",
+            Name: "CreateManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewManagementGroupDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.CreateManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.NewManagementGroupDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters())
             {
-                ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Preview changes without creating the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["confirm-with-what-if"] = new("ConfirmWithWhatIf", "confirm-with-what-if", typeof(bool), "Preview changes and ask before creating the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["what-if"] = new("WhatIf", "what-if", typeof(bool), "Preview changes without creating the deployment.", IsRequired: false, Aliases: ["w"], AllowedValues: []),
+                ["confirm-with-what-if"] = new("ConfirmWithWhatIf", "confirm-with-what-if", typeof(bool), "Preview changes and ask before creating the deployment.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
                 ["proceed-if-no-change"] = new("ProceedIfNoChange", "proceed-if-no-change", typeof(bool), "Skip confirmation when what-if reports no changes.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
-                ["what-if-exclude-change-types"] = new("WhatIfExcludeChangeType", "what-if-exclude-change-types", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["what-if-result-format"] = new("WhatIfResultFormat", "what-if-result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["what-if-exclude-change-types"] = new("WhatIfExcludeChangeType", "what-if-exclude-change-types", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: ["x"], AllowedValues: ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"]),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>(CreateManagementDeploymentBodyCliAliases())
+            {
+                ["w"] = "what-if",
+                ["c"] = "confirm-with-what-if",
+                ["r"] = "what-if-result-format",
+                ["x"] = "what-if-exclude-change-types",
+            }
         );
         private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = new(
             Name: "ValidateManagementGroupDeploymentProcessor_Orchestrator",
@@ -648,7 +666,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: CreateManagementDeploymentBodyCliParameters(includeMode: false),
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: CreateManagementDeploymentBodyCliAliases()
         );
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = new(
             Name: "ManagementGroupDeploymentWhatIfProcessor_Orchestrator",
@@ -659,52 +677,56 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.ManagementGroupDeploymentWhatIfProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters(includeMode: false))
             {
-                ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
-                ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "What-if change types to exclude.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+                ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from What-If results.", IsRequired: false, Aliases: ["x"], AllowedValues: ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"]),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>(CreateManagementDeploymentBodyCliAliases())
+            {
+                ["r"] = "result-format",
+                ["x"] = "exclude-change-types",
+            }
         );
         private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = new(
-            Name: "ListAtManagementGroupScopeDeploymentsProcessor",
+            Name: "ListAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "deployment mg list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
                 ["filter"] = new("_filter", "filter", typeof(string), "Filter deployments by provisioning state.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id" }
         );
         private static readonly CommandMetadata s_getManagementGroupDeployment_CLI = new(
-            Name: "GetAtManagementGroupScopeDeploymentsProcessor",
+            Name: "GetAtManagementGroupScopeDeploymentsProcessor_Customization",
             InvocationName: "deployment mg show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = new(
-            Name: "StopManagementGroupDeploymentProcessor_Orchestrator",
+            Name: "CancelAtManagementGroupScopeDeploymentsProcessor",
             InvocationName: "deployment mg cancel",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopManagementGroupDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.StopManagementGroupDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CancelAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("Name", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = new(
             Name: "DeleteAtManagementGroupScopeDeploymentsProcessor",
@@ -715,10 +737,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = new(
             Name: "ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization",
@@ -729,10 +751,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_waitManagementGroupDeployment_CLI = new(
             Name: "WaitManagementGroupDeploymentProcessor_Orchestrator",
@@ -743,8 +765,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.WaitManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"] = new("Name", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
+                ["name"] = new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["created"] = new("Created", "created", typeof(bool), "Wait until provisioning succeeds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["deleted"] = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["exists"] = new("Exists", "exists", typeof(bool), "Wait until the deployment exists.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -753,7 +775,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "Maximum wait time in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()

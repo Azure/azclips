@@ -21,20 +21,20 @@ Cancels a running management-group deployment.
 
 ```
 Stop-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### StopById
 
 ```
-Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ### StopByInputObject
 
 ```
-Stop-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
+Stop-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-Pre] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -118,7 +118,7 @@ HelpMessage: ''
 A deployment object returned by `Get-AzManagementGroupDeployment`.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -198,6 +198,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Pre
+
+Accepted for compatibility with Azure PowerShell. Deployment cmdlets use a fixed API version, so this switch has no effect.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
 The AzClips profile to use instead of the active profile.
@@ -250,7 +271,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
 Accepts a management-group deployment object from the pipeline.
 

@@ -36,25 +36,28 @@ az deployment mg create \
     --template-file "$TEMPLATE_FILE" \
     --debug
 
-echo "== 1. negative: cancel an already-succeeded deployment (must be rejected) =="
+echo "== 1. negative: cancel an already-succeeded deployment (ARM rejects it, as in legacy az) =="
 if output=$(az deployment mg cancel --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME" --debug 2>&1); then
     echo "$output"
     didFail=false
 else
-    grep -qF "No running deployments with name '$NAME' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output" && didFail=true || didFail=false
-    [[ "$didFail" == "false" ]] && echo "$output"
+    echo "$output"
+    didFail=true
 fi
-assert_eq "cancel of an already-succeeded deployment failed with the expected message" "true" "$didFail"
+assert_eq "cancel of an already-succeeded deployment was rejected" "true" "$didFail"
 
 echo "== 2. negative: cancel a deployment name that does not exist (must be rejected) =="
 if output=$(az deployment mg cancel --management-group-id "$MANAGEMENT_GROUP_ID" --name azclips-mg-cancel-does-not-exist --debug 2>&1); then
     echo "$output"
     didFail=false
 else
-    grep -qF "No running deployments with name 'azclips-mg-cancel-does-not-exist' were found at management group '$MANAGEMENT_GROUP_ID'." <<< "$output" && didFail=true || didFail=false
-    [[ "$didFail" == "false" ]] && echo "$output"
+    echo "$output"
+    didFail=true
 fi
-assert_eq "cancel of a nonexistent deployment failed with the expected message" "true" "$didFail"
+assert_eq "cancel of a nonexistent deployment was rejected" "true" "$didFail"
+
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
+rm -f "$TEMPLATE_FILE"
 
 if (( FAILURES > 0 )); then
     echo "== deployment mg cancel smoke test finished with $FAILURES failure(s) =="

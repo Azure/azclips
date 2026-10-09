@@ -72,7 +72,7 @@ $DebugPreference = 'Continue'
 Write-Host '== 1. create: provisioning state =='
 $name = "azclips-mg-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 $created = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile
-Assert-Equal 'create provisioning state' 'Succeeded' $created.Properties.ProvisioningState
+Assert-Equal 'create provisioning state' 'Succeeded' $created.ProvisioningState
 Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 
 Write-Host '== 2. -Tag (deployment tags round-trip on create) =='
@@ -80,6 +80,7 @@ $name = "azclips-mg-tags-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss')
 $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name $name -TemplateFile $templateFile -Tag @{ key1 = 'value1'; key2 = 'value2' }
 Assert-Equal 'tags key1' 'value1' $result.Tags['key1']
 Assert-Equal 'tags key2' 'value2' $result.Tags['key2']
+Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 
 Write-Host '== 3. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
 $templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
@@ -88,7 +89,8 @@ if ([string]::IsNullOrWhiteSpace($templateSpecId)) {
 } else {
     $name = "azclips-mg-templatespec-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
     $result = New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location 'West US 2' -Name $name -TemplateSpecId $templateSpecId
-    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+    Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.ProvisioningState
+    Remove-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Name $name -Confirm:$false
 }
 
 Write-Host '== 4. negative: invalid -ValidationLevel value (Foo) must be rejected =='

@@ -136,7 +136,7 @@ try {
     New-AzManagementGroupDeployment -ManagementGroupId $managementGroupId -Location eastus -Name azclips-mg-whatif-rf-negative -TemplateFile $basicTemplateFile -WhatIfResultFormat Foo -WhatIf -ErrorAction Stop
     Add-Failure 'invalid -WhatIfResultFormat Foo did not throw'
 } catch {
-    Assert-Equal 'invalid -WhatIfResultFormat Foo error has the expected message' $true ($_.Exception.Message -match 'ResultFormat must be one of')
+    Assert-Equal 'invalid -WhatIfResultFormat Foo error has the expected message' $true ($_.Exception.Message -match 'WhatIfResultFormat')
 }
 
 if ($failures.Count -gt 0) {

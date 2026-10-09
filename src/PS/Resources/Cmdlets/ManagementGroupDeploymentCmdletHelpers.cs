@@ -3,18 +3,105 @@
 
 using System.Collections;
 using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Net;
+using System.Security;
+using System.Management.Automation.Runspaces;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 internal static class ManagementGroupDeploymentCmdletHelpers
 {
+    // Legacy PS ResourceManager.format.ps1xml PSDeployment list view (the String properties hold the formatted tables).
+    private static readonly string[] s_deploymentView =
+    [
+        "Id", "DeploymentName", "ManagementGroupId", "Location", "ProvisioningState", "Timestamp", "Mode",
+        "TemplateLinkString", "ParametersString", "OutputsString", "DeploymentDebugLogLevel",
+    ];
+
+    // Same view as format data, so the labels read TemplateLink/Parameters/Outputs like legacy. The module packaging
+    // ships no ps1xml, so it is loaded at run time; s_deploymentView stays as the fallback.
+    private const string DeploymentFormat = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <Configuration><ViewDefinitions><View>
+          <Name>Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment</Name>
+          <ViewSelectedBy><TypeName>Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment</TypeName></ViewSelectedBy>
+          <ListControl><ListEntries><ListEntry><ListItems>
+            <ListItem><Label>Id</Label><PropertyName>Id</PropertyName></ListItem>
+            <ListItem><Label>DeploymentName</Label><PropertyName>DeploymentName</PropertyName></ListItem>
+            <ListItem><ItemSelectionCondition><ScriptBlock>$_.ManagementGroupId -ne $null</ScriptBlock></ItemSelectionCondition><Label>ManagementGroupId</Label><PropertyName>ManagementGroupId</PropertyName></ListItem>
+            <ListItem><ItemSelectionCondition><ScriptBlock>$_.Location -ne $null</ScriptBlock></ItemSelectionCondition><Label>Location</Label><PropertyName>Location</PropertyName></ListItem>
+            <ListItem><Label>ProvisioningState</Label><PropertyName>ProvisioningState</PropertyName></ListItem>
+            <ListItem><Label>Timestamp</Label><PropertyName>Timestamp</PropertyName></ListItem>
+            <ListItem><Label>Mode</Label><PropertyName>Mode</PropertyName></ListItem>
+            <ListItem><Label>TemplateLink</Label><PropertyName>TemplateLinkString</PropertyName></ListItem>
+            <ListItem><Label>Parameters</Label><PropertyName>ParametersString</PropertyName></ListItem>
+            <ListItem><Label>Outputs</Label><PropertyName>OutputsString</PropertyName></ListItem>
+            <ListItem><Label>DeploymentDebugLogLevel</Label><PropertyName>DeploymentDebugLogLevel</PropertyName></ListItem>
+          </ListItems></ListEntry></ListEntries></ListControl>
+        </View></ViewDefinitions></Configuration>
+        """;
+
+    private static readonly HashSet<Guid> s_formatRunspaces = [];
+
+    private static void EnsureDeploymentFormat(PSCmdlet cmdlet)
+    {
+        Guid runspace = Runspace.DefaultRunspace?.InstanceId ?? Guid.Empty;
+        lock (s_formatRunspaces)
+        {
+            // Background (job) threads have no default runspace; the caller thread loaded the format already.
+            if (runspace == Guid.Empty || s_formatRunspaces.Contains(runspace))
+            {
+                return;
+            }
+        }
+        try
+        {
+            string path = Path.Combine(Path.GetTempPath(), "Azclips.Resources.PSDeployment.format.ps1xml");
+            if (!File.Exists(path) || File.ReadAllText(path) != DeploymentFormat)
+            {
+                File.WriteAllText(path, DeploymentFormat);
+            }
+            cmdlet.InvokeCommand.InvokeScript(false, ScriptBlock.Create("Update-FormatData -PrependPath $args[0]"), null, path);
+            lock (s_formatRunspaces)
+            {
+                s_formatRunspaces.Add(runspace);
+            }
+        }
+        catch (Exception)
+        {
+            // Not on the pipeline thread, or format files blocked by policy: DefaultDisplayPropertySet is used instead.
+        }
+    }
+
+    // Legacy PS GetTemplateContentFromTemplateSpec: properties.mainTemplate of the template spec version.
+    private static JsonNode? ReadTemplateSpec(PSCmdlet cmdlet, string templateSpecId)
+    {
+        RestResponse? response = null;
+        OutputStreamDelegate ignore = (_, _) => Task.CompletedTask;
+        OutputStreams quiet = new(
+            (value, _) => { response = value as RestResponse; return Task.CompletedTask; },
+            ignore, ignore, ignore, ignore, ignore);
+        Run(cmdlet, AzclipsServiceProvider.GetRequiredService<IEngine>(), quiet, CancellationToken.None, "Invoke-AzRestMethod",
+            new() { ["Method"] = "GET", ["Uri"] = $"{templateSpecId.Trim('"')}?api-version=2022-02-01" });
+        return response is { StatusCode: >= 200 and < 300 }
+            ? JsonNode.Parse(response.Content)?["properties"]?["mainTemplate"]
+            : null;
+    }
+
     public static object? NormalizeJsonInput(object? value) =>
         value switch
         {
+            PSObject psObject => NormalizeJsonInput(psObject.BaseObject),
+            SecureString secure => new NetworkCredential(string.Empty, secure).Password,
             IDictionary dictionary => dictionary.Cast<DictionaryEntry>().ToDictionary(
                 entry => entry.Key.ToString()!,
                 entry => NormalizeJsonInput(entry.Value)),
@@ -22,6 +109,115 @@ internal static class ManagementGroupDeploymentCmdletHelpers
                 values.Cast<object?>().Select(NormalizeJsonInput).ToArray(),
             _ => value,
         };
+
+    // Legacy PS dynamic parameters: one per template parameter, "FromTemplate" suffix on a clash with a cmdlet parameter,
+    // HelpMessage keeps the template name. PowerShell prompts for the mandatory ones.
+    public static RuntimeDefinedParameterDictionary CreateTemplateParameters(
+        PSCmdlet cmdlet, Hashtable? templateObject, string? templateFile, string? templateUri, string? templateSpecId,
+        string? queryString, Hashtable? parametersObject, string? parametersFile, string? parametersUri)
+    {
+        RuntimeDefinedParameterDictionary result = new();
+        object? template = NormalizeJsonInput(templateObject);
+        if (template is null && string.IsNullOrWhiteSpace(templateFile) && string.IsNullOrWhiteSpace(templateUri)
+            && !string.IsNullOrWhiteSpace(templateSpecId))
+        {
+            try
+            {
+                template = ReadTemplateSpec(cmdlet, templateSpecId);
+            }
+            catch (Exception)
+            {
+                // Like the other sources: no dynamic parameters until the template can be read.
+            }
+        }
+        HashSet<string> staticNames = new(
+            new[] { cmdlet.GetType(), typeof(CommonParameters) }
+                .Concat(cmdlet.GetType().GetCustomAttributes(typeof(CmdletAttribute), true)
+                    .Cast<CmdletAttribute>().Any(a => a.SupportsShouldProcess) ? [typeof(ShouldProcessParameters)] : [])
+                .SelectMany(t => t.GetProperties())
+                .Where(p => p.IsDefined(typeof(ParameterAttribute), true))
+                .Select(p => p.Name),
+            StringComparer.OrdinalIgnoreCase);
+        foreach ((string name, string? type, bool required, int? minLength, int? maxLength) in
+            NewManagementGroupDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
+                template, ResolvePath(cmdlet, templateFile), templateUri, queryString,
+                NormalizeJsonInput(parametersObject), ResolvePath(cmdlet, parametersFile), parametersUri))
+        {
+            RuntimeDefinedParameter parameter = new(
+                staticNames.Contains(name) ? name + "FromTemplate" : name,
+                type?.ToLowerInvariant() switch
+                {
+                    "string" => typeof(string),
+                    "int" => typeof(int),
+                    "securestring" => typeof(SecureString),
+                    "bool" => typeof(bool),
+                    "object" or "secureobject" => typeof(Hashtable),
+                    "array" => typeof(object[]),
+                    _ => typeof(object),
+                },
+                [new ParameterAttribute { Mandatory = required, ValueFromPipelineByPropertyName = true, HelpMessage = name }]);
+            if (minLength is int min && maxLength is int max)
+            {
+                parameter.Attributes.Add(new ValidateLengthAttribute(min, max));
+            }
+            result[parameter.Name] = parameter;
+        }
+        return result;
+    }
+
+    // Legacy PS GetTemplateParameterObject: the template parameters given on the command line override the other sources;
+    // passed as KEY=JSON overlays. Legacy sends only the link when -TemplateParameterUri is used.
+    public static void AddTemplateParameterValues(
+        Dictionary<string, object> parameters, RuntimeDefinedParameterDictionary? templateParameters, string[]? parameter, bool usesParametersUri)
+    {
+        string[] values = (templateParameters?.Values ?? Enumerable.Empty<RuntimeDefinedParameter>())
+            .Where(p => p.IsSet)
+            .Select(p => $"{((ParameterAttribute)p.Attributes[0]).HelpMessage}={JsonSerializer.Serialize(NormalizeJsonInput(p.Value))}")
+            .ToArray();
+        if (values.Length > 0 && !usesParametersUri)
+        {
+            parameters["Parameter"] = (parameter ?? []).Concat(values).ToArray();
+        }
+    }
+
+    private static string? ResolvePath(PSCmdlet cmdlet, string? path) =>
+        string.IsNullOrWhiteSpace(path) ? path : cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(path);
+
+    // Legacy PS output type: PSDeployment shown with the legacy list view properties.
+    private static object ToPowerShellOutput(object value)
+    {
+        if (value is PSDeployment deployment)
+        {
+            PSObject output = PSObject.AsPSObject(deployment);
+            output.Members.Add(new PSMemberSet(
+                "PSStandardMembers",
+                [new PSPropertySet("DefaultDisplayPropertySet", s_deploymentView)]));
+            return output;
+        }
+        return value is IEnumerable<PSDeployment> deployments ? deployments.Select(d => ToPowerShellOutput(d)).ToList() : value;
+    }
+
+    // Legacy PS -AsJob: run the command in the background and return the job right away.
+    public static void RunAsJob(
+        PSCmdlet cmdlet,
+        IEngine engine,
+        string command,
+        Dictionary<string, object> parameters,
+        object? passThru = null)
+    {
+        ManagementGroupDeploymentJob job = new(cmdlet.MyInvocation.Line, $"Long Running Operation for '{cmdlet.MyInvocation.InvocationName}'");
+        cmdlet.JobRepository.Add(job);
+        EnsureDeploymentFormat(cmdlet);
+        cmdlet.WriteObject(job);
+        job.Start(token =>
+        {
+            Run(cmdlet, engine, job.Streams, token, command, parameters);
+            if (passThru is not null)
+            {
+                job.Output.Add(PSObject.AsPSObject(passThru));
+            }
+        });
+    }
 
     public static (string ManagementGroupId, string Name) ParseId(string id)
     {
@@ -60,7 +256,9 @@ internal static class ManagementGroupDeploymentCmdletHelpers
             cmdlet.MyInvocation.MyCommand.ModuleName,
             cmdlet.MyInvocation.MyCommand.Version?.ToString());
         telemetry.TagInvocation(invocation);
-        using ISession session = engine.OpenExecutionSession(invocation, streams, token);
+        EnsureDeploymentFormat(cmdlet);
+        OutputStreams output = streams with { WriteOutput = (value, ct) => streams.WriteOutput(ToPowerShellOutput(value), ct) };
+        using ISession session = engine.OpenExecutionSession(invocation, output, token);
         session.Run();
     }
 
@@ -83,5 +281,77 @@ internal static class ManagementGroupDeploymentCmdletHelpers
         };
         Run(cmdlet, engine, capturingStreams, token, command, parameters);
         return output;
+    }
+}
+
+/// <summary>Legacy PS AzureLongRunningJob: the engine run on a background thread, its streams kept in the job.</summary>
+internal sealed class ManagementGroupDeploymentJob : Job
+{
+    private readonly CancellationTokenSource _cts = new();
+
+    public ManagementGroupDeploymentJob(string command, string name)
+        : base(command, name)
+    {
+        PSJobTypeName = "AzureLongRunningJob";
+        Streams = new OutputStreams(
+            WriteOutput: (value, _) =>
+            {
+                value = value is SerializedJson json ? json.Value : value;
+                foreach (object? item in value is IEnumerable items and not string ? items.Cast<object?>() : [value])
+                {
+                    if (item is not null)
+                    {
+                        Output.Add(PSObject.AsPSObject(item));
+                    }
+                }
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, _) => { Verbose.Add(new VerboseRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteDebug: (value, _) => { Debug.Add(new DebugRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteWarning: (value, _) => { Warning.Add(new WarningRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
+            WriteError: (value, _) =>
+            {
+                Error.Add(new ErrorRecord(new Exception(value?.ToString() ?? string.Empty), "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null));
+                return Task.CompletedTask;
+            },
+            WriteInformation: (value, _) => { Information.Add(new InformationRecord(value, null)); return Task.CompletedTask; });
+    }
+
+    public OutputStreams Streams { get; }
+
+    public override string StatusMessage => string.Empty;
+
+    public override bool HasMoreData =>
+        Output.Count > 0 || Error.Count > 0 || Warning.Count > 0 || Verbose.Count > 0 || Debug.Count > 0 || Information.Count > 0;
+
+    public override string Location => "localhost";
+
+    public void Start(Action<CancellationToken> run)
+    {
+        SetJobState(JobState.Running);
+        Task.Run(() =>
+        {
+            try
+            {
+                run(_cts.Token);
+                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : Error.Count > 0 ? JobState.Failed : JobState.Completed);
+            }
+            catch (Exception ex)
+            {
+                Error.Add(new ErrorRecord(ex, "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null));
+                SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : JobState.Failed);
+            }
+        });
+    }
+
+    public override void StopJob() => _cts.Cancel();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _cts.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }

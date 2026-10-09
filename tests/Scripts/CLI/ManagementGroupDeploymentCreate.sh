@@ -10,6 +10,11 @@
 # Run unattended: on a command ERROR az normally hands off to the interactive agent-mode TUI
 # (which would block on input). Disable the agent via config so the classic error and a non-zero
 # exit surface instead.
+# Keep ARM IDs intact under Git Bash/MSYS on Windows.
+export MSYS_NO_PATHCONV=1
+# ...so native az.exe needs temp files as Windows paths (no-op where cygpath is absent).
+win_path() { if command -v cygpath >/dev/null; then cygpath -m "$1"; else echo "$1"; fi; }
+
 az config set --key agent.enabled --value false
 
 # No `set -e`: the negative cases below are EXPECTED to exit non-zero, and the script must
@@ -23,7 +28,7 @@ MANAGEMENT_GROUP_ID="${AZCLIPS_MANAGEMENT_GROUP_ID:?Set AZCLIPS_MANAGEMENT_GROUP
 
 # Management-group-scope templates have no public quickstart equivalent, so generate a minimal
 # empty template inline.
-TEMPLATE_FILE="$(mktemp -t azclips-mg-template-XXXXXX.json)"
+TEMPLATE_FILE="$(win_path "$(mktemp -t azclips-mg-template-XXXXXX.json)")"
 cat > "$TEMPLATE_FILE" <<'JSON'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#",
@@ -54,6 +59,7 @@ state=$(az deployment mg create \
     --mode Incremental \
     --query properties.provisioningState --output tsv --debug)
 assert_eq "mode incremental" "Succeeded" "$state"
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
 
 echo "== 3. --validation-level Provider =="
 NAME="azclips-mg-vlevel-$(date +%y%m%d%H%M%S)"
@@ -65,6 +71,7 @@ state=$(az deployment mg create \
     --validation-level Provider \
     --query properties.provisioningState --output tsv --debug)
 assert_eq "validation-level Provider" "Succeeded" "$state"
+az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
 
 echo "== 4. negative: invalid --mode Foo (must be rejected, no deployment created) =="
 if output=$(az deployment mg create \
@@ -83,18 +90,19 @@ else
 fi
 assert_eq "invalid --mode Foo failed with the expected message" "true" "$didFail"
 
-echo "== 5. --template-spec-id (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
+echo "== 5. --template-spec (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =="
 if [[ -n "${AZCLIPS_TEMPLATE_SPEC_ID:-}" ]]; then
     NAME="azclips-mg-templatespec-$(date +%y%m%d%H%M%S)"
     state=$(az deployment mg create \
         --management-group-id "$MANAGEMENT_GROUP_ID" \
         --location "West US 2" \
         --name "$NAME" \
-        --template-spec-id "$AZCLIPS_TEMPLATE_SPEC_ID" \
+        --template-spec "$AZCLIPS_TEMPLATE_SPEC_ID" \
         --query properties.provisioningState --output tsv --debug)
-    assert_eq "template-spec-id" "Succeeded" "$state"
+    assert_eq "template-spec" "Succeeded" "$state"
+    az deployment mg delete --management-group-id "$MANAGEMENT_GROUP_ID" --name "$NAME"
 else
-    echo "Skipping --template-spec-id case: AZCLIPS_TEMPLATE_SPEC_ID not set."
+    echo "Skipping --template-spec case: AZCLIPS_TEMPLATE_SPEC_ID not set."
 fi
 
 if (( FAILURES > 0 )); then
