@@ -39,7 +39,8 @@ public class GetAccessTokenProcessorTests
     {
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services => services.AddSingleton(auth));
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
     }
 
     private static Profile ProfileWith(AuthMethod method, string tenantId = "tid", string? managedIdentityId = null) => new()
