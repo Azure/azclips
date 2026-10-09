@@ -20,11 +20,12 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
+    [Parameter(ParameterSetName = "Get", Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = "List", Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "Get", Position = 1, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = "List", Position = 1, Mandatory = false, ValueFromPipelineByPropertyName = true)]
     [Alias("DeploymentName")]
     public string? Name { get; set; }
 
@@ -68,7 +69,9 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
             parameters.Add("Profile", Profile!);
         }
 
-        var commandName = $"Get-AzResourceGroupDeployment_{ParameterSetName}";
+        // Name may arrive via pipeline after the default "List" set is already chosen.
+        var setName = ParameterSetName == "List" && parameters.ContainsKey("Name") ? "Get" : ParameterSetName;
+        var commandName = $"Get-AzResourceGroupDeployment_{setName}";
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

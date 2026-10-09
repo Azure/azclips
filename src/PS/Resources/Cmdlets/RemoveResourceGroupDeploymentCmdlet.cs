@@ -29,11 +29,11 @@ public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(ParameterSetName = ByIdParameterSet, Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
-    [Parameter(ParameterSetName = ByNameParameterSet, Position = 0, Mandatory = true)]
+    [Parameter(ParameterSetName = ByNameParameterSet, Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
     [Alias("DeploymentName")]
-    [Parameter(ParameterSetName = ByNameParameterSet, Position = 1, Mandatory = true)]
+    [Parameter(ParameterSetName = ByNameParameterSet, Position = 1, Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string Name { get; set; } = "";
 
     [Alias("DeploymentId", "ResourceId")]

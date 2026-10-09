@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
@@ -8,6 +9,7 @@ using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cmdlets.Tests;
@@ -68,5 +70,67 @@ public class ResourceGroupDeploymentCmdletTests
             new Profile { SubscriptionId = "sub" });
 
         Assert.Equal(id, processor.Id);
+    }
+
+    // Runs the real PowerShell binder against each cmdlet's exact parameter metadata, via a stand-in
+    // function that returns $PSBoundParameters, so binding is verified without starting the engine.
+    private static Hashtable Bind(Type cmdlet, string invocation, object? pipelineInput = null)
+    {
+        string paramBlock = ProxyCommand.GetCmdletBindingAttribute(new System.Management.Automation.CommandMetadata(cmdlet))
+            + "param(" + ProxyCommand.GetParamBlock(new System.Management.Automation.CommandMetadata(cmdlet)) + ")";
+        var iss = System.Management.Automation.Runspaces.InitialSessionState.Create();
+        iss.LanguageMode = PSLanguageMode.FullLanguage;
+        using var ps = PowerShell.Create(iss);
+        ps.AddScript($"function Target {{ {paramBlock} process {{ $PSBoundParameters }} }}; " + (pipelineInput is null ? invocation : $"$input | {invocation}"));
+        var result = pipelineInput is null ? ps.Invoke() : ps.Invoke(new[] { pipelineInput });
+        Assert.Empty(ps.Streams.Error);
+        var bound = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry e in (IDictionary)Assert.Single(result).BaseObject)
+        {
+            bound[e.Key] = e.Value is PSObject pso ? pso.BaseObject : e.Value;
+        }
+        return bound;
+    }
+
+    [Theory]
+    [InlineData(typeof(GetResourceGroupDeploymentCmdlet))]
+    [InlineData(typeof(StopResourceGroupDeploymentCmdlet))]
+    [InlineData(typeof(RemoveResourceGroupDeploymentCmdlet))]
+    [InlineData(typeof(SaveResourceGroupDeploymentTemplateCmdlet))]
+    public void Pipeline_DeploymentObject_BindsResourceGroupAndName(Type cmdlet)
+    {
+        var bound = Bind(cmdlet, "Target", new DeploymentExtended
+        {
+            Id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep",
+            Name = "dep",
+        });
+
+        Assert.Equal("rg", bound["ResourceGroupName"]);
+        Assert.Equal("dep", bound["Name"]);
+    }
+
+    [Fact]
+    public void Pipeline_DeploymentObject_BindsTestResourceGroupAndMode()
+    {
+        var bound = Bind(typeof(TestResourceGroupDeploymentCmdlet), "Target", new DeploymentExtended
+        {
+            Id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep",
+            Properties = new DeploymentPropertiesExtended { Mode = DeploymentMode.Incremental },
+        });
+
+        Assert.Equal("rg", bound["ResourceGroupName"]);
+        Assert.Equal("Incremental", bound["Mode"]);
+    }
+
+    [Theory]
+    [InlineData(typeof(GetResourceGroupDeploymentCmdlet))]
+    [InlineData(typeof(StopResourceGroupDeploymentCmdlet))]
+    [InlineData(typeof(RemoveResourceGroupDeploymentCmdlet))]
+    public void Positional_BindsResourceGroupThenName(Type cmdlet)
+    {
+        var bound = Bind(cmdlet, "Target rg dep");
+
+        Assert.Equal("rg", bound["ResourceGroupName"]);
+        Assert.Equal("dep", bound["Name"]);
     }
 }

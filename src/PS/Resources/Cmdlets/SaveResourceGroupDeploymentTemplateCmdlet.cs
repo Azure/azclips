@@ -20,14 +20,14 @@ public class SaveResourceGroupDeploymentTemplateCmdlet : PSCmdlet
     public string SubscriptionId { get; set; } = "";
 
     [Alias("ResourceGroup")]
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
     [Alias("DeploymentName")]
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string Name { get; set; } = "";
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
     public string? Path { get; set; }
 
     [Parameter(Mandatory = false)]

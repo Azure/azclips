@@ -95,7 +95,12 @@ public class ResourceGroupDeploymentPsTests
                 "timestamp": "2026-01-02T03:04:05Z",
                 "mode": "Incremental",
                 "parameters": { "p1": { "type": "String", "value": "v1" } },
-                "outputs": { "o1": { "type": "String", "value": "x" } },
+                "outputs": {
+                  "o1": { "type": "String", "value": "x" },
+                  "n": { "type": "Int", "value": 42 },
+                  "obj": { "type": "Object", "value": { "a": true } },
+                  "arr": { "type": "Array", "value": [1, "b"] }
+                },
                 "templateLink": { "uri": "https://example.com/t.json", "contentVersion": "1.0.0.0" },
                 "onErrorDeployment": { "type": "LastSuccessful" }
               }
@@ -117,8 +122,13 @@ public class ResourceGroupDeploymentPsTests
         Assert.Equal("corr-1", deployment.CorrelationId);
         Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc), deployment.Timestamp!.Value.ToUniversalTime());
         Assert.Equal(DeploymentMode.Incremental, deployment.Mode);
-        Assert.NotNull(deployment.Parameters);
-        Assert.NotNull(deployment.Outputs);
+        Assert.Equal("v1", deployment.Parameters!["p1"].Value);
+        Assert.Equal("String", deployment.Outputs!["o1"].Type);
+        Assert.Equal("x", deployment.Outputs["o1"].Value);
+        Assert.Equal(42L, deployment.Outputs["n"].Value);
+        var obj = Assert.IsType<Dictionary<string, object?>>(deployment.Outputs["obj"].Value);
+        Assert.Equal(true, obj["a"]);
+        Assert.Equal(new List<object?> { 1L, "b" }, deployment.Outputs["arr"].Value);
         Assert.Equal("https://example.com/t.json", deployment.TemplateLink!.Uri);
         Assert.Equal("LastSuccessful", deployment.OnErrorDeployment!.Type);
     }
@@ -130,13 +140,19 @@ public class ResourceGroupDeploymentPsTests
         {
             Id = DeploymentId,
             Name = "dep1",
-            Properties = new DeploymentPropertiesExtended { ProvisioningState = "Succeeded" },
+            Properties = new DeploymentPropertiesExtended
+            {
+                ProvisioningState = "Succeeded",
+                Outputs = new() { ["o1"] = new DeploymentVariable { Type = "Object", Value = new Dictionary<string, object?> { ["a"] = 1L } } },
+            },
         };
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(deployment, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var names = json.RootElement.EnumerateObject().Select(p => p.Name).ToList();
 
         Assert.Contains("properties", names);
+        Assert.Equal(1, json.RootElement.GetProperty("properties").GetProperty("outputs").GetProperty("o1").GetProperty("value").GetProperty("a").GetInt32());
+        Assert.DoesNotContain("outputs", names);
         Assert.DoesNotContain("deploymentName", names);
         Assert.DoesNotContain("resourceGroupName", names);
         Assert.DoesNotContain("provisioningState", names);

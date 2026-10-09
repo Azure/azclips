@@ -20,7 +20,7 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(Mandatory = false)]
@@ -49,7 +49,7 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     [Alias("TemplateParameterFile")]
     public string? ParametersFile { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
     public string? Mode { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -59,7 +59,7 @@ public class TestResourceGroupDeploymentCmdlet : PSCmdlet
     [Alias("RollbackToLastDeployment")]
     public SwitchParameter RollbackOnError { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
     [Alias("RollBackDeploymentName")]
     public string? RollbackToDeploymentName { get; set; }
 

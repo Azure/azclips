@@ -19,10 +19,11 @@ public class StopResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Alias("DeploymentName")]
+    [Parameter(Position = 1, Mandatory = true, ValueFromPipelineByPropertyName = true)]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]
