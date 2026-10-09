@@ -143,7 +143,8 @@ echo "=== [identity create] principal for the role assignment ==="
   --name "$IDENTITY_NAME" \
   --location "$LOCATION"
 
-PRINCIPAL_ID="$("$AZ" identity show --ids "$IDENTITY_ID" --query properties.principalId -o tsv)"
+# identity show --ids returns a JSON array (it accepts multiple IDs), so index the first element.
+PRINCIPAL_ID="$("$AZ" identity show --ids "$IDENTITY_ID" --query "[0].properties.principalId" -o tsv)"
 if [[ -z "$PRINCIPAL_ID" ]]; then
   echo "identity show did not return a principal ID" >&2
   exit 1

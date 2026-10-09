@@ -313,7 +313,7 @@ finally {
         try {
             Invoke-AzRestMethod `
                 -Method DELETE `
-                -Uri "/subscriptions/$subscriptionId/resourcegroups/$resourceGroup?api-version=2025-04-01" `
+                -Uri "/subscriptions/$subscriptionId/resourcegroups/${resourceGroup}?api-version=2025-04-01" `
                 -ErrorAction Stop | Out-Host
         } catch {
             Write-Warning "Resource group cleanup failed: $($_.Exception.Message)"
