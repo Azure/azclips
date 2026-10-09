@@ -2,11 +2,13 @@
 # Licensed under the MIT License.
 #
 # Role assignment lifecycle smoke test for the Azclips PowerShell surface.
-# Exercises create, list (by scope, by assignee, and by role), idempotent re-create (a generated
-# name returns the existing assignment; an explicit different name surfaces the conflict), and
-# delete (including ARM's dual 200 OK / 204 No Content response for deleting an already-deleted
-# assignment, which must not be treated as an error). A fresh user-assigned identity is created to
-# act as the principal, so the test is self-contained and needs no pre-existing fixture.
+# Exercises create, list (by scope, by assignee, by role, inherited, nested-scopes, and group-expanded),
+# idempotent re-create (a generated name returns the existing assignment; an explicit different name
+# surfaces the conflict), the -ResourceGroupName scope form with a fully-qualified role ID, an ABAC
+# condition, the exact-scope default list, and delete (including ARM's dual 200 OK / 204 No Content
+# response for deleting an already-deleted assignment, which must not be treated as an error). A fresh
+# user-assigned identity is created to act as the principal, so the test is self-contained and needs no
+# pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -50,6 +52,13 @@ $identityName = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_IDENTITY_NAME)) { 
 # smoke test that only needs to prove the grant works, not actually use it.
 $readerRoleDefinitionId = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
 
+# Two more stable built-in roles for the extended-coverage checks below: "Monitoring Reader" is used
+# (as a fully-qualified role definition ID) to exercise the -ResourceGroupName scope form with a
+# non-Reader role, and "Storage Blob Data Reader" is a data-plane role whose blob read action the ABAC
+# condition references, so ARM accepts a condition on it.
+$monitoringReaderRoleDefinitionId = '43d0d8ad-25c7-4714-9337-8ba259a9fe05'
+$storageBlobDataReaderRoleDefinitionId = '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
+
 function Section($title) {
     Write-Host ''
     Write-Host "=== $title ===" -ForegroundColor Cyan
@@ -58,6 +67,9 @@ function Section($title) {
 $scope = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup"
 $roleAssignmentName = $null
 $roleAssignmentDeleted = $false
+# Names of the extra grants created by the extended-coverage checks. Each is deleted inline right after
+# it is tested; this list is a cleanup safety net in case the script throws in between (delete is 204-safe).
+$extraAssignmentNames = [System.Collections.Generic.List[string]]::new()
 
 try {
     if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
@@ -173,6 +185,64 @@ try {
         throw "Expected create with explicit -Name '$conflictName' to fail with a conflict, but it succeeded."
     }
 
+    Section 'Get-AzRoleAssignment default scope is exact (a subset of -IncludeInherited)'
+    # The default list returns assignments at exactly this scope; -IncludeInherited additionally returns
+    # ancestor-scope (inherited) grants, so it must be a superset. Assert count(default) <= count(inherited)
+    # and that the default list contains the grant created at this scope.
+    $defaultList = @(Get-AzRoleAssignment -Scope $scope)
+    $inheritedList = @(Get-AzRoleAssignment -Scope $scope -IncludeInherited)
+    if ($inheritedList.Count -lt $defaultList.Count) {
+        throw "-IncludeInherited returned fewer assignments ($($inheritedList.Count)) than the default exact-scope list ($($defaultList.Count))."
+    }
+    if (-not ($defaultList | Where-Object { $_.Name -eq $roleAssignmentName })) {
+        throw "Default exact-scope list did not contain the assignment '$roleAssignmentName' created at this scope."
+    }
+    Write-Host 'Confirmed: default list is exact-scope and a subset of -IncludeInherited.' -ForegroundColor Green
+
+    Section 'New-AzRoleAssignment -ResourceGroupName scope form with a fully-qualified role ID'
+    # Exercise the -ResourceGroupName scope form (vs an explicit -Scope) together with a fully-qualified
+    # role definition ID (vs a bare GUID). Uses a different built-in role (Monitoring Reader) so this is a
+    # genuinely new grant rather than an idempotent conflict with the Reader grant above.
+    $monitoringReaderFullId = "/subscriptions/$subscriptionId/providers/Microsoft.Authorization/roleDefinitions/$monitoringReaderRoleDefinitionId"
+    $rgFormAssignment = New-AzRoleAssignment `
+        -ResourceGroupName $resourceGroup `
+        -ObjectId $principalId `
+        -ObjectType ServicePrincipal `
+        -RoleDefinitionId $monitoringReaderFullId `
+        -Confirm:$false
+    $rgFormAssignment | Out-Host
+    if ([string]::IsNullOrWhiteSpace($rgFormAssignment.Name)) {
+        throw 'Resource-group-form create did not return an assignment name.'
+    }
+    $extraAssignmentNames.Add($rgFormAssignment.Name)
+    Write-Host "Created role assignment via -ResourceGroupName and a full role ID: $($rgFormAssignment.Name)" -ForegroundColor Green
+
+    Section 'Remove-AzRoleAssignment -ResourceGroupName scope form'
+    Remove-AzRoleAssignment -ResourceGroupName $resourceGroup -Name $rgFormAssignment.Name -Confirm:$false | Out-Host
+    Write-Host 'Confirmed: created and deleted an assignment via the -ResourceGroupName scope form.' -ForegroundColor Green
+
+    Section 'New-AzRoleAssignment with an ABAC condition'
+    # Exercise the -Condition / -ConditionVersion path end-to-end: ARM validates the condition expression
+    # against the role's data actions, which the offline tests cannot. Uses Storage Blob Data Reader (whose
+    # blob read action the condition references) so ARM accepts the condition.
+    $blobCondition = '((!(ActionMatches{''Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read''})) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringEquals ''smoke-test-container''))'
+    $conditionAssignment = New-AzRoleAssignment `
+        -Scope $scope `
+        -ObjectId $principalId `
+        -ObjectType ServicePrincipal `
+        -RoleDefinitionId $storageBlobDataReaderRoleDefinitionId `
+        -Condition $blobCondition `
+        -ConditionVersion '2.0' `
+        -Confirm:$false
+    $conditionAssignment | Out-Host
+    if ([string]::IsNullOrWhiteSpace($conditionAssignment.Name)) {
+        throw 'Conditional create did not return an assignment name.'
+    }
+    $extraAssignmentNames.Add($conditionAssignment.Name)
+    Write-Host "Created conditional role assignment: $($conditionAssignment.Name)" -ForegroundColor Green
+    Remove-AzRoleAssignment -Scope $scope -Name $conditionAssignment.Name -Confirm:$false | Out-Host
+    Write-Host 'Confirmed: created and deleted a conditional assignment.' -ForegroundColor Green
+
     if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -eq '1') {
         Write-Host ''
         Write-Host 'AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place.'
@@ -208,6 +278,19 @@ finally {
             Remove-AzRoleAssignment -Scope $scope -Name $roleAssignmentName -Confirm:$false -ErrorAction Stop | Out-Host
         } catch {
             Write-Warning "Role assignment cleanup failed: $($_.Exception.Message)"
+        }
+    }
+
+    if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -ne '1' -and $extraAssignmentNames.Count -gt 0) {
+        # Safety net for the extended-coverage grants; each is already deleted inline on the happy path,
+        # and Remove is idempotent (204 No Content), so re-deleting here is harmless.
+        Section 'Remove-AzRoleAssignment cleanup extended-coverage grants (safety net)'
+        foreach ($extraName in $extraAssignmentNames) {
+            try {
+                Remove-AzRoleAssignment -Scope $scope -Name $extraName -Confirm:$false -ErrorAction Stop | Out-Host
+            } catch {
+                Write-Warning "Extended-coverage role assignment cleanup failed for '$extraName': $($_.Exception.Message)"
+            }
         }
     }
 

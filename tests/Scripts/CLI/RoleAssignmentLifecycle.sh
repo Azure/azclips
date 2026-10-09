@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Role assignment lifecycle smoke test for the azclips CLI surface.
-# Exercises create, list (by scope, by assignee, and by role), idempotent re-create (a generated
-# name returns the existing assignment; an explicit different name surfaces the conflict), and
-# delete (including ARM's dual 200 OK / 204 No Content response for deleting an already-deleted
-# assignment, which must not be treated as an error). A fresh user-assigned identity is created to
-# act as the principal, so the test is self-contained and needs no pre-existing fixture.
+# Exercises create, list (by scope, by assignee, by role, inherited, all, and group-expanded),
+# idempotent re-create (a generated name returns the existing assignment; an explicit different name
+# surfaces the conflict), the --resource-group scope form with a fully-qualified role ID, an ABAC
+# condition, the exact-scope default list, and delete (including ARM's dual 200 OK / 204 No Content
+# response for deleting an already-deleted assignment, which must not be treated as an error). A fresh
+# user-assigned identity is created to act as the principal, so the test is self-contained and needs no
+# pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -49,6 +51,13 @@ IDENTITY_NAME="${AZCLIPS_IDENTITY_NAME:-azclips-ra-id-$STAMP}"
 # smoke test that only needs to prove the grant works, not actually use it.
 READER_ROLE_DEFINITION_ID='acdd72a7-3385-48ef-bd42-f606fba81ae7'
 
+# Two more stable built-in roles for the extended-coverage checks below: "Monitoring Reader" is used
+# (as a fully-qualified role definition ID) to exercise the --resource-group scope form with a
+# non-Reader role, and "Storage Blob Data Reader" is a data-plane role whose blob read action the
+# ABAC condition references, so ARM accepts a condition on it.
+MONITORING_READER_ROLE_DEFINITION_ID='43d0d8ad-25c7-4714-9337-8ba259a9fe05'
+STORAGE_BLOB_DATA_READER_ROLE_DEFINITION_ID='2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
+
 # Generates a GUID without relying on a specific toolchain: uuidgen isn't guaranteed present (e.g.
 # some minimal Git Bash installs), so fall back to /dev/urandom, which is universally available on
 # Linux, macOS, and Git Bash for Windows.
@@ -71,6 +80,9 @@ SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 # never recorded.
 ROLE_ASSIGNMENT_NAME="$(generate_guid)"
 ROLE_ASSIGNMENT_DELETED=0
+# Names of the extra grants created by the extended-coverage checks. Each is deleted inline right after
+# it is tested; this array is a cleanup safety net in case the script exits in between (delete is 204-safe).
+EXTRA_ASSIGNMENT_NAMES=()
 
 cleanup() {
   local exit_code=$?
@@ -82,6 +94,15 @@ cleanup() {
     # never created (204 No Content, not an error), so no existence check is needed here.
     echo "=== [role assignment delete] cleanup (safety net) ==="
     "$AZ" role assignment delete --scope "$SCOPE" --name "$ROLE_ASSIGNMENT_NAME" || true
+  fi
+
+  if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" != "1" && ${#EXTRA_ASSIGNMENT_NAMES[@]} -gt 0 ]]; then
+    # Safety net for the extended-coverage grants; each is already deleted inline on the happy path, and
+    # delete is idempotent (204 No Content), so re-deleting here is harmless.
+    echo "=== [role assignment delete] cleanup extended-coverage grants (safety net) ==="
+    for extra_name in "${EXTRA_ASSIGNMENT_NAMES[@]}"; do
+      "$AZ" role assignment delete --scope "$SCOPE" --name "$extra_name" || true
+    done
   fi
 
   if [[ "${AZCLIPS_KEEP_IDENTITY:-0}" != "1" ]]; then
@@ -204,6 +225,67 @@ if "$AZ" role assignment create \
   exit 1
 fi
 echo "Confirmed: explicit-name create surfaced the existing-assignment conflict."
+
+echo "=== [role assignment list] default scope is exact (a subset of --include-inherited) ==="
+# The default list returns assignments at exactly this scope; --include-inherited additionally returns
+# ancestor-scope (inherited) grants, so it must be a superset. Assert count(default) <= count(inherited)
+# and that the default list contains the grant created at this scope.
+DEFAULT_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --query "length(@)" -o tsv)"
+INHERITED_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --include-inherited --query "length(@)" -o tsv)"
+if [[ "$INHERITED_COUNT" -lt "$DEFAULT_COUNT" ]]; then
+  echo "--include-inherited returned fewer assignments ($INHERITED_COUNT) than the default exact-scope list ($DEFAULT_COUNT)" >&2
+  exit 1
+fi
+AT_SCOPE_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
+if [[ "$AT_SCOPE_PRESENT" != "1" ]]; then
+  echo "Default exact-scope list did not contain the assignment '$ROLE_ASSIGNMENT_NAME' created at this scope" >&2
+  exit 1
+fi
+echo "Confirmed: default list is exact-scope and a subset of --include-inherited."
+
+echo "=== [role assignment create] --resource-group scope form with a fully-qualified role ID ==="
+# Exercise the --resource-group scope form (vs an explicit --scope) together with a fully-qualified role
+# definition ID (vs a bare GUID). Uses a different built-in role (Monitoring Reader) so this is a
+# genuinely new grant rather than an idempotent conflict with the Reader grant above.
+MONITORING_READER_FULL_ID="/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Authorization/roleDefinitions/$MONITORING_READER_ROLE_DEFINITION_ID"
+RG_FORM_NAME="$("$AZ" role assignment create \
+  --resource-group "$RESOURCE_GROUP" \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "$MONITORING_READER_FULL_ID" \
+  --query name -o tsv)"
+if [[ -z "$RG_FORM_NAME" ]]; then
+  echo "resource-group-form create did not return an assignment name" >&2
+  exit 1
+fi
+EXTRA_ASSIGNMENT_NAMES+=("$RG_FORM_NAME")
+echo "Created role assignment via --resource-group and a full role ID: $RG_FORM_NAME"
+
+echo "=== [role assignment delete] --resource-group scope form ==="
+"$AZ" role assignment delete --resource-group "$RESOURCE_GROUP" --name "$RG_FORM_NAME"
+echo "Confirmed: created and deleted an assignment via the --resource-group scope form."
+
+echo "=== [role assignment create] with an ABAC condition ==="
+# Exercise the --condition / --condition-version path end-to-end: ARM validates the condition expression
+# against the role's data actions, which the offline tests cannot. Uses Storage Blob Data Reader (whose
+# blob read action the condition references) so ARM accepts the condition.
+BLOB_CONDITION="((!(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read'})) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringEquals 'smoke-test-container'))"
+CONDITION_NAME="$("$AZ" role assignment create \
+  --scope "$SCOPE" \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "$STORAGE_BLOB_DATA_READER_ROLE_DEFINITION_ID" \
+  --condition "$BLOB_CONDITION" \
+  --condition-version 2.0 \
+  --query name -o tsv)"
+if [[ -z "$CONDITION_NAME" ]]; then
+  echo "conditional create did not return an assignment name" >&2
+  exit 1
+fi
+EXTRA_ASSIGNMENT_NAMES+=("$CONDITION_NAME")
+echo "Created conditional role assignment: $CONDITION_NAME"
+"$AZ" role assignment delete --scope "$SCOPE" --name "$CONDITION_NAME"
+echo "Confirmed: created and deleted a conditional assignment."
 
 if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" == "1" ]]; then
   echo "AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place."
