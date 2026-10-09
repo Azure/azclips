@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791510287903,
+  "lastUpdate": 1791516678946,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -12814,6 +12814,48 @@ window.BENCHMARK_DATA = {
             "value": 2124013.137287092,
             "unit": "ns",
             "range": "± 96576.00536883187"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7528c32abb4be42b983fea08f774b95f8656dd3e",
+          "message": "[Resources] `az role assignment create`: Make creation idempotent for auto-generated assignment names (#1072)\n\n**Related command**\n\n`az role assignment create` and `New-AzRoleAssignment`\n\n**Description**\n\nMakes `create` idempotent when the assignment name is auto-generated,\nmatching the official `az role assignment create`.\n\nBackground: a role assignment has a name (a GUID). Azure enforces that\nthe same principal + role + scope can only be assigned once — a second\nassignment of that trio under a *different* name is rejected with `409\nRoleAssignmentExists`. When you don't pass `--name`/`-Name`, we generate\na fresh random one, so re-running the same create (e.g. in a script or\nIaC loop) previously failed with that 409 even though the grant already\nexisted.\n\nNow, when the name was auto-generated and Azure returns `409\nRoleAssignmentExists`, we look up the pre-existing assignment and return\nit instead of failing — so re-running is a safe no-op. This is\ndeliberately **stricter** than the official CLI in one respect: if you\npass an explicit `--name`/`-Name`, a conflict still surfaces, because\nyou asked for a *specific* assignment and silently returning a\ndifferently-named one would be surprising.\n\nHow it works: the create request is sent first (one call), and the\nlookup only happens on the conflict path (so the common success case\nstays a single call). The 409 handler is narrowly scoped — it requires\nboth the 409 status and the `RoleAssignmentExists` error code, so any\nother failure propagates unchanged; the lookup is best-effort, and if it\ncan't resolve the existing assignment the original conflict is rethrown\nrather than swallowed.\n\nNot covered here: resolving names/UPNs to object IDs, and output\nenrichment, remain out of scope (GUIDs only), tracked as future work.\n\n**Testing Guide**\n\nAutomated: `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~RoleAssignment\"` — all green, including new tests:\nan auto-generated-name conflict returns the existing assignment, an\nexplicit-name conflict still errors, a non-`RoleAssignmentExists` error\nalways propagates, the conflict lookup finding no match rethrows the\noriginal 409, and the lookup queries the principal at the grant scope.\n\nManual (live, needs a real subscription):\n`tests/Scripts/{PS,CLI}/RoleAssignmentLifecycle.*` create a role\nassignment, then re-run the same create without a name and confirm it\nreturns the existing assignment instead of failing.\n\n**History Notes**\n\n[Resources] `az role assignment create`: Return the existing assignment\ninstead of failing with a conflict when the auto-generated name collides\n\n[Resources] `New-AzRoleAssignment`: Return the existing assignment\ninstead of failing with a conflict when the auto-generated name collides\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-09T14:11:54+11:00",
+          "tree_id": "7b52a4ff9372b5d31b6da2ec7f25f1a8770a67fc",
+          "url": "https://github.com/Azure/azclips/commit/7528c32abb4be42b983fea08f774b95f8656dd3e"
+        },
+        "date": 1791516674337,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1931838.1269293258,
+            "unit": "ns",
+            "range": "± 63237.511862605345"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1983674.2285012286,
+            "unit": "ns",
+            "range": "± 58871.144281800145"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1893530.4066912215,
+            "unit": "ns",
+            "range": "± 57842.35238072917"
           }
         ]
       }
