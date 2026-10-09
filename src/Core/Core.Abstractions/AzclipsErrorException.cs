@@ -4,10 +4,13 @@
 namespace Core.Abstractions;
 
 /// <summary>
-/// Base exception for structured AzClips CLI errors. Carries a symbolic <see cref="Code"/> for
-/// programmatic callers and a numeric <see cref="ExitCode"/> for shell scripts.
+/// Base exception for known AzClips CLI errors. Carries a symbolic <see cref="Code"/> for
+/// classification and telemetry and a numeric <see cref="ExitCode"/> for shell scripts.
 /// </summary>
 /// <remarks>
+/// Add a focused subtype when an error category changes host behavior such as help rendering,
+/// recovery, exit handling, or telemetry. Errors that differ only in wording can share a type.
+///
 /// Exit codes:
 /// <list type="bullet">
 ///   <item>0 success</item>
@@ -20,7 +23,6 @@ namespace Core.Abstractions;
 ///   <item>7 compatibility violation (<see cref="CompatibilityViolation"/>)</item>
 ///   <item>8 registry concurrency conflict (<see cref="RegistryConcurrency"/>)</item>
 ///   <item>9 registry invariant violation (<see cref="RegistryInvalid"/>)</item>
-///   <item>JSON shape: <c>{ "error": { "code": "...", "message": "...", "details": { ... } } }</c>.</item>
 /// </list>
 /// </remarks>
 public class AzclipsErrorException : Exception
@@ -62,7 +64,7 @@ public class AzclipsErrorException : Exception
         => new UsageErrorException(message, details);
 
     public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new(message, details, hasMissingRequiredParameters: true);
+        => new MissingRequiredArgumentException(message, details);
 
     /// <summary>
     /// Compatibility violation: the extension's <c>[AzclipsCompatibility]</c> declared range
@@ -93,11 +95,25 @@ public class AzclipsErrorException : Exception
 
 public class UsageErrorException : AzclipsErrorException
 {
+    // Retained for compatibility with callers compiled before missing arguments had a dedicated subtype.
     public bool HasMissingRequiredParameters { get; }
 
     public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null, bool hasMissingRequiredParameters = false)
         : base("UsageError", 2, message, details)
     {
         HasMissingRequiredParameters = hasMissingRequiredParameters;
+    }
+}
+
+/// <summary>
+/// A resolved command invocation is missing one or more required arguments.
+/// </summary>
+public sealed class MissingRequiredArgumentException : UsageErrorException
+{
+    public MissingRequiredArgumentException(
+        string message,
+        IReadOnlyDictionary<string, object?>? details = null)
+        : base(message, details, hasMissingRequiredParameters: true)
+    {
     }
 }

@@ -483,7 +483,7 @@ Now the interesting path: what happens when §5 throws.
 
 | Exception               | Handling                                                                   | Fallback?                      |
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| `AzclipsErrorException` | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `AzclipsErrorException` | Known error → `EmitKnownError`, return `ex.ExitCode` | **No** — intent is unambiguous |
 | `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
 | `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
@@ -690,7 +690,7 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Failure                          | Where it surfaces                            | Behavior                                                                  | Notes                                                        |
 | -------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Unknown command / typo           | `ExtensionDispatcher.Parse` throws           | If agent enabled + TTY → agent-mode reinterprets; else exit 1 with error  | The intended "typo correction" UX                            |
-| Structured domain error          | `AzclipsErrorException` at `Program.cs:128`  | `EmitStructuredError` (JSON or `ERROR: [code] msg`), return `ex.ExitCode` | **No** agent fallback — intent was clear                     |
+| Known domain error               | `AzclipsErrorException` at `Program.cs:128`  | `EmitKnownError` (`ERROR: [code] msg`), return `ex.ExitCode`             | **No** agent fallback — intent was clear                     |
 | Network / ARM failure            | `HttpRequestException` at `:121`             | `TryAgentFallbackAsync`                                                   | Agent can suggest fixes / retries                            |
 | Agent disabled                   | `agent.enabled=false`                        | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |

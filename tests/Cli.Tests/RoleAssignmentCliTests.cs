@@ -265,6 +265,7 @@ public class RoleAssignmentCliTests
         ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
 
         UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        Assert.IsType<MissingRequiredArgumentException>(ex);
         Assert.True(ex.HasMissingRequiredParameters);
         Assert.Equal(0, pipeline.SendCount);
     }

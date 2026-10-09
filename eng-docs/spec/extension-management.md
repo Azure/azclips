@@ -1,6 +1,6 @@
 # Design Spec: Extension Management
 
-> **Compat posture.** Source-compat with az-cli. Verbs, primary flags, and `--output json` shapes carry over; secondary flags, error structure, and internals are free to improve. A migration tool is acknowledged as necessary.
+> **Compat posture.** Source-compat with az-cli. Verbs, primary flags, and successful `--output json` result shapes carry over; secondary flags, error structure, and internals are free to improve. A migration tool is acknowledged as necessary.
 >
 > **Related.** [extension-framework.md](./extension-framework.md) covers extension loading, ALC isolation, and the processor contract. This doc covers the layer _above_ that: how extensions are registered, discovered, routed to, and managed over their lifecycle.
 
@@ -127,33 +127,14 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 | 8    | registry concurrency (concurrent write detected)     |
 | 9    | registry invalid (on-disk invariant violation)       |
 
-**Structured output.** `extension` commands respect the host's existing `--output json` flag. On failure:
+**Error output.** The host writes human-readable errors to stderr regardless of `--output`; that
+option formats successful command results on stdout only. Programmatic callers detect failure using
+the process exit code.
 
-```jsonc
-{
-    "error": {
-        "code": "LeafConflict",
-        "message": "Extension 'Contoso.Foo' has 1 leaf conflict with already-installed extensions.",
-        "details": {
-            "packageId": "Contoso.Foo",
-            "conflictCount": 1,
-            "conflicts": [
-                {
-                    "leafKey": "vm contoso-magic",
-                    "verb": "vm",
-                    "path": "contoso-magic",
-                    "existingPackageId": "Microsoft.Azure.Azclips.Extensions.Compute",
-                },
-            ],
-        },
-    },
-}
-```
-
-- `code` is the **contract** for programmatic callers (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`). Tests and downstream tooling MUST assert on `code`, never on `message` — the latter is free to evolve.
+- Known errors retain internal symbolic categories (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`) for host behavior and telemetry.
 - `ExtensionNotFound` (exit 4) fires only when the owning package is genuinely absent from discovery. `CommandNotFound` (exit 4) fires when the top-level verb IS owned by a discovered extension but the specific `(verb, path)` leaf doesn't exist — e.g. `az vm --list` or `az group foobar` when Compute/Resources are installed. Splitting these prevents the misleading "install the extension you already have" hint.
-- `message` is human-readable and not contractual.
-- `details` carries operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on. Field names within `details` are not contractual.
+- Error messages are human-readable and not contractual.
+- Internal details can carry operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on.
 
 ### 3.5 `extension list` output
 

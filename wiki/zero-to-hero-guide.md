@@ -463,11 +463,11 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 
 | Thrown                  | Meaning                   | What happens                                                                    |
 | ----------------------- | ------------------------- | ------------------------------------------------------------------------------- |
-| `AzclipsErrorException` | a known, structured error | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
+| `AzclipsErrorException` | a known error | print `ERROR: [code] message`, return its exit code — **no agent** |
 | `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
+The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -850,7 +850,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 ## 20. Debugging playbook
 
-- **See what's happening:** run with `--debug` to raise the log level; add `--output json` to get structured error payloads. Both are classified by `GlobalArgParser` (`src/CLI/Parser/GlobalArgParser.cs`).
+- **See what's happening:** run with `--debug` to raise the log level. `--output` formats successful command results only; errors remain human-readable text on stderr.
 - **A command "hangs" or spawns the agent unexpectedly:** check `agent.enabled` (`az config list`) — the agent only engages when it's true _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
 - **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
