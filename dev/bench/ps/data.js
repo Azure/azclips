@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791516678946,
+  "lastUpdate": 1791518020706,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8528,6 +8528,48 @@ window.BENCHMARK_DATA = {
             "value": 2771787.114526273,
             "unit": "ns",
             "range": "± 74079.66286998974"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ce78500ea8868268e51d23dcdcd7840c812ee97",
+          "message": "[Compute] `az vm create` / `New-AzVM`: Add security type support (#1044)\n\nThis is part of VM Create Feature:\nhttps://github.com/Azure/CLIPS/issues/831\nAdds `SecurityType` to the orchestrator CLI/PS surfaces, including tests\nand documentation (already exists in the processor).\n\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-09T14:12:54+11:00",
+          "tree_id": "504e735e88499c80e0ef1331728660ca57c78f69",
+          "url": "https://github.com/Azure/azclips/commit/8ce78500ea8868268e51d23dcdcd7840c812ee97"
+        },
+        "date": 1791518017139,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2891264.3171824105,
+            "unit": "ns",
+            "range": "± 88446.81120873755"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 7421109.173187809,
+            "unit": "ns",
+            "range": "± 91714.26780850925"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2857196.2194528873,
+            "unit": "ns",
+            "range": "± 79765.54011092726"
           }
         ]
       }
