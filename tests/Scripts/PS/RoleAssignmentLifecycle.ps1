@@ -256,6 +256,19 @@ try {
         throw "Conditional create returned '$($conditionAssignment.Name)', expected '$conditionName'."
     }
     Write-Host "Created conditional role assignment: $($conditionAssignment.Name)" -ForegroundColor Green
+
+    $persistedConditionAssignment = Get-AzRoleAssignment -Scope $scope | Where-Object { $_.Name -eq $conditionName } | Select-Object -First 1
+    if (-not $persistedConditionAssignment) {
+        throw "Conditional assignment '$conditionName' did not appear in the persisted role assignment list."
+    }
+    if ($persistedConditionAssignment.Properties.Condition -ne $blobCondition) {
+        throw "Conditional assignment '$conditionName' persisted condition '$($persistedConditionAssignment.Properties.Condition)', expected '$blobCondition'."
+    }
+    if ($persistedConditionAssignment.Properties.ConditionVersion -ne '2.0') {
+        throw "Conditional assignment '$conditionName' persisted condition version '$($persistedConditionAssignment.Properties.ConditionVersion)', expected '2.0'."
+    }
+    Write-Host 'Confirmed: conditional assignment persisted the condition and condition version.' -ForegroundColor Green
+
     Remove-AzRoleAssignment -Scope $scope -Name $conditionName -Confirm:$false | Out-Host
     Write-Host 'Confirmed: created and deleted a conditional assignment.' -ForegroundColor Green
 
@@ -297,9 +310,11 @@ finally {
         }
     }
 
-    if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -ne '1' -and $extraAssignmentNames.Count -gt 0) {
+    if ($extraAssignmentNames.Count -gt 0) {
         # Safety net for the extended-coverage grants; each is already deleted inline on the happy path,
-        # and Remove is idempotent (204 No Content), so re-deleting here is harmless.
+        # and Remove is idempotent (204 No Content), so re-deleting here is harmless. These are never
+        # intentionally preserved by AZCLIPS_KEEP_ROLE_ASSIGNMENT; that switch only keeps the primary
+        # Reader grant.
         Section 'Remove-AzRoleAssignment cleanup extended-coverage grants (safety net)'
         foreach ($extraName in $extraAssignmentNames) {
             try {

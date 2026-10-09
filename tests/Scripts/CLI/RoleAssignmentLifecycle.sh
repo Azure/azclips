@@ -100,9 +100,10 @@ cleanup() {
     "$AZ" role assignment delete --scope "$SCOPE" --name "$ROLE_ASSIGNMENT_NAME" || true
   fi
 
-  if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" != "1" && ${#EXTRA_ASSIGNMENT_NAMES[@]} -gt 0 ]]; then
+  if [[ ${#EXTRA_ASSIGNMENT_NAMES[@]} -gt 0 ]]; then
     # Safety net for the extended-coverage grants; each is already deleted inline on the happy path, and
-    # delete is idempotent (204 No Content), so re-deleting here is harmless.
+    # delete is idempotent (204 No Content), so re-deleting here is harmless. These are never intentionally
+    # preserved by AZCLIPS_KEEP_ROLE_ASSIGNMENT; that switch only keeps the primary Reader grant.
     echo "=== [role assignment delete] cleanup extended-coverage grants (safety net) ==="
     for extra_name in "${EXTRA_ASSIGNMENT_NAMES[@]}"; do
       "$AZ" role assignment delete --scope "$SCOPE" --name "$extra_name" || true
@@ -300,6 +301,18 @@ EXTRA_ASSIGNMENT_NAMES+=("$CONDITION_NAME")
   --name "$CONDITION_NAME" \
   > /dev/null
 echo "Created conditional role assignment: $CONDITION_NAME"
+
+PERSISTED_CONDITION="$(az_tsv role assignment list --scope "$SCOPE" --query "[?name=='$CONDITION_NAME'].properties | [0].condition")"
+if [[ "$PERSISTED_CONDITION" != "$BLOB_CONDITION" ]]; then
+  echo "Conditional assignment '$CONDITION_NAME' persisted condition '$PERSISTED_CONDITION', expected '$BLOB_CONDITION'" >&2
+  exit 1
+fi
+PERSISTED_CONDITION_VERSION="$(az_tsv role assignment list --scope "$SCOPE" --query "[?name=='$CONDITION_NAME'].properties | [0].conditionVersion")"
+if [[ "$PERSISTED_CONDITION_VERSION" != "2.0" ]]; then
+  echo "Conditional assignment '$CONDITION_NAME' persisted condition version '$PERSISTED_CONDITION_VERSION', expected '2.0'" >&2
+  exit 1
+fi
+echo "Confirmed: conditional assignment persisted the condition and condition version."
 "$AZ" role assignment delete --scope "$SCOPE" --name "$CONDITION_NAME"
 echo "Confirmed: created and deleted a conditional assignment."
 
