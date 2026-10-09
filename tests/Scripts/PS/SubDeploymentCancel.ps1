@@ -101,18 +101,22 @@ try {
         $state = Wait-State 'Canceled' 30
         Check ($state -eq 'Canceled') 'deployment reaches Canceled' $state
 
-        Stop-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorVariable err
+        # Cmdlet failures are terminating and would skip the rest of this block, so expected ones are caught inline.
+        $err = try { Stop-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction Stop } catch { $_ }
         Check ("$err" -match 'DeploymentCannotBeCancelled') 'rejects cancelling a terminal deployment' "$err"
     }
 
-    Stop-AzDeployment -SubscriptionId $SubscriptionId -Name 'azclips-test-sub-does-not-exist' -Confirm:$false -ErrorVariable err
+    $err = try { Stop-AzDeployment -SubscriptionId $SubscriptionId -Name 'azclips-test-sub-does-not-exist' -Confirm:$false -ErrorAction Stop } catch { $_ }
     Check ("$err" -match 'DeploymentNotFound') 'missing deployment surfaces DeploymentNotFound' "$err"
 }
+catch { Check $false 'no unexpected error' $_ }
 finally {
     # Cancelling does not roll back what was created, so remove the resource group explicitly.
-    Stop-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction SilentlyContinue
-    Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction SilentlyContinue
-    Remove-AzResourceGroup -SubscriptionId $SubscriptionId -Name $Name -Force -ErrorAction SilentlyContinue
+    # -ErrorAction can't silence terminating errors, so each cleanup call is guarded.
+    try { Stop-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false } catch { }
+    try { Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false } catch { }
+    try { $null = Remove-AzResourceGroup -SubscriptionId $SubscriptionId -Name $Name -Force }
+    catch { Write-Warning "Could not delete resource group $Name; delete it manually if it exists." }
 }
 
 if ($failures -gt 0) {

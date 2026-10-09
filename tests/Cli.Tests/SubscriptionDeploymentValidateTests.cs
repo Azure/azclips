@@ -41,4 +41,53 @@ public class SubscriptionDeploymentValidateTests
         Assert.Equal("eastus", JsonDocument.Parse(request.Body!).RootElement.GetProperty("location").GetString());
         Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
     }
+
+    private static TestSubscriptionDeploymentProcessor_Orchestrator Validate(FakeHttpPipeline pipeline, FakeOutputHandler output) =>
+        Configure(new TestSubscriptionDeploymentProcessor_Orchestrator(), pipeline, output, p =>
+        {
+            p.SubscriptionId = SubscriptionId;
+            p.Name = "dep";
+            p.Location = "eastus";
+            p.TemplateUri = "https://example.com/t.json";
+        });
+
+    [Fact]
+    public async Task Validate_ArmValidationError400_ThrowsReadableMessage_AndWritesNothing()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.BadRequest,
+            """{"error":{"code":"InvalidTemplate","message":"Template is invalid."}}"""));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Validate(pipeline, output).ProcessAsync());
+
+        Assert.Single(sent);
+        Assert.StartsWith("Deployment validation failed.", error.Message);
+        Assert.Contains("InvalidTemplate: Template is invalid.", error.Message);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Validate_Accepted_PollsLocation_AndNeverGetsPostOnlyValidateUri()
+    {
+        const string pollUri = "https://management.azure.com/subscriptions/x/operationresults/validate-op?api-version=2025-04-01";
+        var (pipeline, output, sent) = Fake(request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                var accepted = Status(HttpStatusCode.Accepted);
+                accepted.Headers.Location = new Uri(pollUri);
+                return accepted;
+            }
+
+            return request.RequestUri!.AbsoluteUri == pollUri
+                ? Status(HttpStatusCode.OK, SucceededSubscriptionDeployment)
+                : Status(HttpStatusCode.NotFound, """{"message":"No HTTP resource was found that matches the request URI"}""");
+        });
+
+        await Validate(pipeline, output).ProcessAsync();
+
+        Assert.Equal(2, sent.Count);
+        Assert.Equal(HttpMethod.Get, sent[1].Method);
+        Assert.Equal(pollUri, sent[1].Uri);
+        Assert.IsType<DeploymentValidateResult>(Assert.Single(output.WrittenValues));
+    }
 }

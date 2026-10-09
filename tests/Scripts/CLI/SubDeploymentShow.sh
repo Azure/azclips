@@ -41,6 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -54,10 +55,12 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-file "$BICEP_DIR/subscription-empty-template.json" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "arrange ended in '$STATE'"
+pass
 
 echo -e "\n=== [deployment sub show] ==="
 SHOWN="$("$AZ" deployment sub show "${TARGET[@]}" --query name -o tsv)"
 [[ "$SHOWN" == "$NAME" ]] || fail "show returned '$SHOWN', expected $NAME"
+pass
 
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub show] missing deployment must 404 ==="
@@ -66,10 +69,12 @@ if OUTPUT="$("$AZ" deployment sub show --subscription-id "$SUBSCRIPTION_ID" \
   fail "show of a missing deployment succeeded"
 fi
 [[ "$OUTPUT" == *DeploymentNotFound* ]] || fail "missing deployment failed without DeploymentNotFound: $OUTPUT"
+pass
 
 echo -e "\n=== [deployment sub show] --name is required ==="
 if "$AZ" deployment sub show --subscription-id "$SUBSCRIPTION_ID" > /dev/null 2>&1; then
   fail "show without --name succeeded"
 fi
+pass
 
 echo -e "\nAll deployment sub show smoke checks completed."

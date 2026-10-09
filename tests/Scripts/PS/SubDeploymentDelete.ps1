@@ -34,15 +34,17 @@ try {
     $removed = Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorVariable err
     Check ($err.Count -eq 0 -and $null -eq $removed) 'deletes silently' "$err"
 
-    Get-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -ErrorVariable err
+    # Cmdlet failures are terminating and would skip the rest of this block, so expected ones are caught inline.
+    $err = try { Get-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -ErrorAction Stop } catch { $_ }
     Check ("$err" -match 'DeploymentNotFound') 'record is gone' "$err"
 
     # Legacy alias, on a name that no longer exists.
     Remove-AzSubscriptionDeployment -SubscriptionId $SubscriptionId -DeploymentName $Name -Confirm:$false -ErrorVariable err
     Check ($err.Count -eq 0) 'already deleted: silent success via legacy alias' "$err"
 }
+catch { Check $false 'no unexpected error' $_ }
 finally {
-    Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction SilentlyContinue
+    try { Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false } catch { }
 }
 
 if ($failures -gt 0) {

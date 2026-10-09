@@ -45,6 +45,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -58,6 +59,7 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-uri "$TEMPLATE_URI" --parameter "rgName=$NAME" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "create ended in '$STATE'"
+pass
 
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub create] a template source is required ==="
@@ -66,11 +68,13 @@ if OUTPUT="$("$AZ" deployment sub create --subscription-id "$SUBSCRIPTION_ID" --
   fail "create without a template succeeded"
 fi
 [[ "$OUTPUT" == *"Exactly one of"* ]] || fail "unexpected error: $OUTPUT"
+pass
 
 echo -e "\n=== [deployment sub create] --location is required ==="
 if "$AZ" deployment sub create --subscription-id "$SUBSCRIPTION_ID" --name "$NAME-none" \
       --template-uri "$TEMPLATE_URI" > /dev/null 2>&1; then
   fail "create without --location succeeded"
 fi
+pass
 
 echo -e "\nAll deployment sub create smoke checks completed."

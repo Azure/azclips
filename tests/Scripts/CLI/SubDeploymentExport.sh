@@ -41,6 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -54,11 +55,13 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-file "$BICEP_DIR/subscription-empty-template.json" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "arrange ended in '$STATE'"
+pass
 
 echo -e "\n=== [deployment sub export] ==="
 # The exported template is the one deployed, so it carries the subscription template schema.
 OUTPUT="$("$AZ" deployment sub export "${TARGET[@]}")"
 [[ "$OUTPUT" == *subscriptionDeploymentTemplate.json* ]] || fail "export is missing the template: $OUTPUT"
+pass
 
 # Negative case runs inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub export] missing deployment must 404 ==="
@@ -67,5 +70,6 @@ if OUTPUT="$("$AZ" deployment sub export --subscription-id "$SUBSCRIPTION_ID" \
   fail "export of a missing deployment succeeded"
 fi
 [[ "$OUTPUT" == *DeploymentNotFound* ]] || fail "missing deployment failed without DeploymentNotFound: $OUTPUT"
+pass
 
 echo -e "\nAll deployment sub export smoke checks completed."

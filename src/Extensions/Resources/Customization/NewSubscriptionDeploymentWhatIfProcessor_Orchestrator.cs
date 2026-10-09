@@ -49,7 +49,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.WhatIf = body;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncPollLocation();
         }
 
         // Same as the resource-group variant: what-if answers HTTP 200 even when the template has an
