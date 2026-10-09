@@ -411,7 +411,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String
 
-TODO - describe what Test-AzResourceGroupDeployment does and when to use it.
+You can pipe the **ResourceGroupName**, **Mode**, and **RollbackToDeploymentName** values to this cmdlet by property name.
 
 ## OUTPUTS
 

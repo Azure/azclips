@@ -199,7 +199,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String
 
-TODO - describe what Stop-AzResourceGroupDeployment does and when to use it.
+You can pipe the **ResourceGroupName** and **Name** values to this cmdlet by property name, for example the output of `Get-AzResourceGroupDeployment`.
 
 ## OUTPUTS
 

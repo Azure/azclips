@@ -261,7 +261,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String
 
-TODO - describe what Save-AzResourceGroupDeploymentTemplate does and when to use it.
+You can pipe the **ResourceGroupName**, **Name**, and **Path** values to this cmdlet by property name, for example the output of `Get-AzResourceGroupDeployment`.
 
 ## OUTPUTS
 
