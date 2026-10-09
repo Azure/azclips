@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791510207616,
+  "lastUpdate": 1791510264871,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8862,6 +8862,48 @@ window.BENCHMARK_DATA = {
             "value": 3593645.759890444,
             "unit": "ns",
             "range": "± 170596.150033431"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d358c4cd307eee311fade640a76bdb569af14a43",
+          "message": "[Config] Clarify core.output.color only permits color; json/yaml never colorize (#1078)\n\nDocs and tests clarifying that `core.output.color` permits color but\ndoes not choose a format: `json`/`yaml` are never colored,\n`jsonc`/`yamlc` are the colored variants, and `NO_COLOR` makes `jsonc`\nrender as plain `json`.\n\nNo behavior change. Tests run the built `az` with\n`FORCE_COLOR`/`NO_COLOR` and assert what reaches redirected stdout and\nstderr.\n\nRelated: #988, #729. Closes Azure/CLIPS#941.",
+          "timestamp": "2026-10-09T01:18:07Z",
+          "tree_id": "4d5faf4190257949dcf10c859278f073e95bbf9d",
+          "url": "https://github.com/Azure/azclips/commit/d358c4cd307eee311fade640a76bdb569af14a43"
+        },
+        "date": 1791510261532,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3393402.243860361,
+            "unit": "ns",
+            "range": "± 87430.98573682936"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3454755.6834880905,
+            "unit": "ns",
+            "range": "± 103456.51169830187"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3382047.9510439895,
+            "unit": "ns",
+            "range": "± 118540.96857524732"
           }
         ]
       }
