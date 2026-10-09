@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, and `Remove-AzDeployment`
+    - Legacy `*-AzSubscriptionDeployment` names are accepted as aliases
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

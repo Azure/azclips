@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Reso
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'New-AzManagementGroupDeployment', 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', 'Remove-AzManagementGroupDeployment', 'Test-AzManagementGroupDeployment', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment', 'Get-AzResourceGroupDeploymentOperation', 'Get-AzDeploymentOperation', 'Get-AzManagementGroupDeploymentOperation', 'Get-AzTenantDeploymentOperation'
+CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'New-AzDeployment', 'Test-AzDeployment', 'Get-AzDeployment', 'Stop-AzDeployment', 'Remove-AzDeployment', 'New-AzManagementGroupDeployment', 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', 'Remove-AzManagementGroupDeployment', 'Test-AzManagementGroupDeployment', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment', 'Get-AzResourceGroupDeploymentOperation', 'Get-AzDeploymentOperation', 'Get-AzManagementGroupDeploymentOperation', 'Get-AzTenantDeploymentOperation'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',
@@ -170,6 +170,8 @@ CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceG
 
 # Variables to export from this module
 # VariablesToExport = @()
+
+AliasesToExport = 'New-AzSubscriptionDeployment', 'Test-AzSubscriptionDeployment', 'Get-AzSubscriptionDeployment', 'Stop-AzSubscriptionDeployment', 'Remove-AzSubscriptionDeployment'
 
 # # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
 # AliasesToExport = 'Get-AzADServicePrincipalCredential',

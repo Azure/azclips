@@ -99,7 +99,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
         if (!string.IsNullOrWhiteSpace(body) && JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is { } error)
         {
             response.Dispose();
-            throw new InvalidOperationException(TestResourceGroupDeploymentProcessor_Orchestrator.BuildErrorMessage(error));
+            throw new InvalidOperationException(TestResourceGroupDeploymentProcessor_Orchestrator.BuildErrorMessage("Deployment validation failed.", error));
         }
         if (!response.IsSuccessStatusCode)
         {
