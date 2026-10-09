@@ -230,6 +230,56 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task ForceColor_KeepsJsonResultAnsiFree_OnRedirectedStdout()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain('\u001b', stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task ForceColor_ColorsJsoncResult_OnRedirectedStdout()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "--output", "jsonc", "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.Contains('\u001b', stdout);
+        AssertConfigGetResult(StripAnsi(stdout), "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task NoColor_RendersJsoncAsPlainJson_EvenWhenColorIsForced()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["NO_COLOR"] = "1", ["FORCE_COLOR"] = "1" },
+            "--output", "jsonc", "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain('\u001b', stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task ForceColor_KeepsStructuredJsonErrorAnsiFree_OnRedirectedStderr()
+    {
+        var (exit, stdout, stderr) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "--output", "json", "vm", "create");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.DoesNotContain('\u001b', stderr);
+        using var document = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task ConfigSet_SimpleFormat_ChangesQueryScalarRendering_EndToEnd()
     {
         // Exercises the real path -- az config set writes JSON, ConfigurationService binds it into
@@ -259,7 +309,15 @@ public class StreamRoutingIntegrationTests
         }
     }
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+    private static Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+        => RunCliWithEnvAsync(null, args);
+
+    private static string StripAnsi(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, "\u001b\\[[0-9;]*m", string.Empty);
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
+        IReadOnlyDictionary<string, string>? env,
+        params string[] args)
     {
         // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
         // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
@@ -270,7 +328,7 @@ public class StreamRoutingIntegrationTests
         File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
         try
         {
-            return await RunCliInHomeAsync(homeDirectory, args);
+            return await RunCliInHomeWithEnvAsync(homeDirectory, env, args);
         }
         finally
         {
@@ -292,7 +350,13 @@ public class StreamRoutingIntegrationTests
     }
 
     /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>
-    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
+    private static Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
+        => RunCliInHomeWithEnvAsync(homeDirectory, null, args);
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+        string homeDirectory,
+        IReadOnlyDictionary<string, string>? env,
+        params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -307,6 +371,13 @@ public class StreamRoutingIntegrationTests
         // `args > env` precedence means the flag still wins over this pin.
         psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
         psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+        // Ambient color vars would otherwise leak into every assertion.
+        psi.Environment.Remove("NO_COLOR");
+        psi.Environment.Remove("FORCE_COLOR");
+        foreach (var (name, value) in env ?? new Dictionary<string, string>())
+        {
+            psi.Environment[name] = value;
+        }
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);
