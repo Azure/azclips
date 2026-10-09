@@ -33,6 +33,7 @@ TEMPLATE_URI=https://raw.githubusercontent.com/Azure/azure-quickstart-templates/
 DEPLOY=(--subscription-id "$SUBSCRIPTION_ID" --name "$NAME" --location "$LOCATION" --template-uri "$TEMPLATE_URI")
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -45,6 +46,7 @@ echo -e "\n=== [deployment sub what-if] ==="
 # The resource group does not exist yet, so it must be predicted as a Create.
 OUTPUT="$("$AZ" deployment sub what-if "${DEPLOY[@]}" --parameter "rgName=$NAME")"
 [[ "$OUTPUT" == *"$NAME"* && "$OUTPUT" == *Create* ]] || fail "what-if does not predict creating $NAME: $OUTPUT"
+pass
 
 # Negative case runs inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub what-if] missing required template parameter ==="
@@ -52,5 +54,6 @@ if OUTPUT="$("$AZ" deployment sub what-if "${DEPLOY[@]}" 2>&1)"; then
   fail "what-if without rgName succeeded"
 fi
 [[ "$OUTPUT" == *rgName* ]] || fail "error does not mention rgName: $OUTPUT"
+pass
 
 echo -e "\nAll deployment sub what-if smoke checks completed."

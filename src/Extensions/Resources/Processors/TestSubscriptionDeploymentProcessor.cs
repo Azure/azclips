@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -38,58 +37,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         protected override Deployment? CreateRequestBody() => new Deployment { Location = Location, Properties = Properties };
 
-        /// <summary>
-        /// Sends the validate request, returning HTTP 400 untouched (ARM reports a failed validation as
-        /// 400 with a typed <see cref="DeploymentValidateResult"/> body) and continuing a 202 via the
-        /// Location header. See <see cref="TestResourceGroupDeploymentProcessor"/> for the rationale.
-        /// </summary>
-        internal override async Task<HttpResponseMessage> SendAsync()
-        {
-            HttpResponseMessage response;
-            using (HttpRequestMessage request = await CreateRequestMessage())
-            {
-                response = await HttpPipeline.SendAsync(request, Publisher);
-            }
-
-            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
-
-            if (response.StatusCode == HttpStatusCode.BadRequest)
-            {
-                return response;
-            }
-
-            if (response.StatusCode == HttpStatusCode.Accepted)
-            {
-                string? location = GetLocationUri(response);
-                response.Dispose();
-
-                if (string.IsNullOrWhiteSpace(location))
-                {
-                    throw new InvalidOperationException(
-                        "The validate operation returned 202 Accepted without a Location header, so its result cannot be retrieved.");
-                }
-
-                return await HttpRuntime.SendAsyncLRO(
-                    () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, location)),
-                    Publisher,
-                    HttpPipeline,
-                    GetFinalUri,
-                    GetOperationLocationUri,
-                    GetAsyncOperationUri,
-                    GetLocationUri);
-            }
-
-            try
-            {
-                await response.EnsureSuccessAsync(Publisher);
-            }
-            catch
-            {
-                response.Dispose();
-                throw;
-            }
-
-            return response;
-        }
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }

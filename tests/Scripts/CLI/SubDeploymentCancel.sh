@@ -48,6 +48,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 state() { "$AZ" deployment sub show "${TARGET[@]}" --query properties.provisioningState -o tsv; }
 
@@ -117,11 +118,13 @@ for _ in $(seq 1 15); do
   sleep 2
 done
 [[ "$STATE" == Accepted || "$STATE" == Running ]] || fail "deployment settled at '$STATE' before it could be cancelled"
+pass
 
 echo -e "\n=== [deployment sub cancel] running deployment ==="
 # ARM answers 204 No Content, so the command must print nothing.
 OUTPUT="$("$AZ" deployment sub cancel "${TARGET[@]}")"
 [[ -z "${OUTPUT//[[:space:]]/}" ]] || fail "cancel printed '$OUTPUT', expected no output"
+pass
 
 echo -e "\n=== [deployment sub show] state flips to Canceled ==="
 # ARM flips provisioningState only after the in-flight work settles.
@@ -131,6 +134,7 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 [[ "$STATE" == Canceled ]] || fail "provisioningState is '$STATE', expected 'Canceled'"
+pass
 
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub cancel] terminal deployment ==="
@@ -138,6 +142,7 @@ if OUTPUT="$("$AZ" deployment sub cancel "${TARGET[@]}" 2>&1)"; then
   fail "cancel of a terminal deployment succeeded"
 fi
 [[ "$OUTPUT" == *DeploymentCannotBeCancelled* ]] || fail "terminal deployment failed without DeploymentCannotBeCancelled: $OUTPUT"
+pass
 
 echo -e "\n=== [deployment sub cancel] missing deployment must 404 ==="
 if OUTPUT="$("$AZ" deployment sub cancel --subscription-id "$SUBSCRIPTION_ID" \
@@ -145,5 +150,6 @@ if OUTPUT="$("$AZ" deployment sub cancel --subscription-id "$SUBSCRIPTION_ID" \
   fail "cancel of a missing deployment succeeded"
 fi
 [[ "$OUTPUT" == *DeploymentNotFound* ]] || fail "missing deployment failed without DeploymentNotFound: $OUTPUT"
+pass
 
 echo -e "\nAll deployment sub cancel smoke checks completed."

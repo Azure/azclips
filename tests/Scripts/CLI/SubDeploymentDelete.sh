@@ -42,6 +42,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -55,11 +56,13 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-file "$BICEP_DIR/subscription-empty-template.json" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "arrange ended in '$STATE'"
+pass
 
 echo -e "\n=== [deployment sub delete] ==="
 # Blocks until the delete LRO finishes and has no response body.
 OUTPUT="$("$AZ" deployment sub delete "${TARGET[@]}")"
 [[ -z "${OUTPUT//[[:space:]]/}" ]] || fail "delete printed '$OUTPUT', expected no output"
+pass
 
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub show] record is gone ==="
@@ -67,13 +70,16 @@ if OUTPUT="$("$AZ" deployment sub show "${TARGET[@]}" 2>&1)"; then
   fail "deployment $NAME still exists after delete"
 fi
 [[ "$OUTPUT" == *DeploymentNotFound* ]] || fail "show failed without DeploymentNotFound: $OUTPUT"
+pass
 
 echo -e "\n=== [deployment sub delete] already deleted: silent success ==="
 "$AZ" deployment sub delete "${TARGET[@]}"
+pass
 
 echo -e "\n=== [deployment sub delete] --name is required ==="
 if "$AZ" deployment sub delete --subscription-id "$SUBSCRIPTION_ID" > /dev/null 2>&1; then
   fail "delete without --name succeeded"
 fi
+pass
 
 echo -e "\nAll deployment sub delete smoke checks completed."

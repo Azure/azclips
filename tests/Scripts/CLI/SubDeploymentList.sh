@@ -41,6 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -54,13 +55,16 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-file "$BICEP_DIR/subscription-empty-template.json" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "arrange ended in '$STATE'"
+pass
 
 echo -e "\n=== [deployment sub list] ==="
 OUTPUT="$("$AZ" deployment sub list --subscription-id "$SUBSCRIPTION_ID")"
 [[ "$OUTPUT" == *"$NAME"* ]] || fail "list does not include $NAME"
+pass
 
 echo -e "\n=== [deployment sub list] --filter excludes it ==="
 OUTPUT="$("$AZ" deployment sub list --subscription-id "$SUBSCRIPTION_ID" --filter "provisioningState eq 'Failed'")"
 [[ "$OUTPUT" != *"$NAME"* ]] || fail "filtered list still includes the Succeeded deployment $NAME"
+pass
 
 echo -e "\nAll deployment sub list smoke checks completed."

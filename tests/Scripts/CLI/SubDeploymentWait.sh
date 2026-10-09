@@ -41,6 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -54,21 +55,25 @@ STATE="$("$AZ" deployment sub create "${TARGET[@]}" --location "$LOCATION" \
   --template-file "$BICEP_DIR/subscription-empty-template.json" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "arrange ended in '$STATE'"
+pass
 
 # Each condition is already met, so each wait returns on the first poll.
 for CONDITION in --created --updated --exists; do
   echo -e "\n=== [deployment sub wait] $CONDITION ==="
   "$AZ" deployment sub wait "${TARGET[@]}" "$CONDITION" "${POLL[@]}"
+  pass
 done
 
 echo -e "\n=== [deployment sub wait] --deleted ==="
 "$AZ" deployment sub delete "${TARGET[@]}"
 "$AZ" deployment sub wait "${TARGET[@]}" --deleted "${POLL[@]}"
+pass
 
 # Negative case runs inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub wait] a condition is required ==="
 if "$AZ" deployment sub wait "${TARGET[@]}" "${POLL[@]}" > /dev/null 2>&1; then
   fail "wait without a condition succeeded"
 fi
+pass
 
 echo -e "\nAll deployment sub wait smoke checks completed."

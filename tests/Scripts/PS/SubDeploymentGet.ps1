@@ -40,15 +40,17 @@ try {
     $legacy = Get-AzSubscriptionDeployment -SubscriptionId $SubscriptionId -DeploymentName $Name
     Check ($legacy.Name -eq $Name) 'legacy Get-AzSubscriptionDeployment -DeploymentName' $legacy.Name
 
-    # A resource-group-scoped id is rejected locally, before any request.
-    Get-AzDeployment -Id "/subscriptions/$SubscriptionId/resourceGroups/rg/providers/Microsoft.Resources/deployments/$Name" -ErrorVariable err
+    # A resource-group-scoped id is rejected locally, before any request. Cmdlet failures are terminating
+    # and would skip the rest of this block, so expected ones are caught inline.
+    $err = try { Get-AzDeployment -Id "/subscriptions/$SubscriptionId/resourceGroups/rg/providers/Microsoft.Resources/deployments/$Name" -ErrorAction Stop } catch { $_ }
     Check ("$err" -match 'Invalid deployment id') 'rejects a resource-group-scoped -Id' "$err"
 
-    Get-AzDeployment -SubscriptionId $SubscriptionId -Name 'azclips-test-sub-does-not-exist' -ErrorVariable err
+    $err = try { Get-AzDeployment -SubscriptionId $SubscriptionId -Name 'azclips-test-sub-does-not-exist' -ErrorAction Stop } catch { $_ }
     Check ("$err" -match 'DeploymentNotFound') 'missing deployment surfaces DeploymentNotFound' "$err"
 }
+catch { Check $false 'no unexpected error' $_ }
 finally {
-    Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction SilentlyContinue
+    try { Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false } catch { }
 }
 
 if ($failures -gt 0) {

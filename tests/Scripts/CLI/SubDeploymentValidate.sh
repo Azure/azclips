@@ -33,6 +33,7 @@ TEMPLATE_URI=https://raw.githubusercontent.com/Azure/azure-quickstart-templates/
 DEPLOY=(--subscription-id "$SUBSCRIPTION_ID" --name "$NAME" --location "$LOCATION" --template-uri "$TEMPLATE_URI")
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { echo PASS; }
 
 # Disable the interactive agent so errors surface as non-zero exits.
 "$AZ" config set --key agent.enabled --value false
@@ -45,6 +46,7 @@ echo -e "\n=== [deployment sub validate] ==="
 STATE="$("$AZ" deployment sub validate "${DEPLOY[@]}" --parameter "rgName=$NAME" \
   --query properties.provisioningState -o tsv)"
 [[ "$STATE" == Succeeded ]] || fail "validate returned '$STATE'"
+pass
 
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment sub validate] missing required template parameter ==="
@@ -52,11 +54,13 @@ if OUTPUT="$("$AZ" deployment sub validate "${DEPLOY[@]}" 2>&1)"; then
   fail "validate without rgName succeeded"
 fi
 [[ "$OUTPUT" == *rgName* ]] || fail "error does not mention rgName: $OUTPUT"
+pass
 
 echo -e "\n=== [deployment sub validate] --location is required ==="
 if "$AZ" deployment sub validate --subscription-id "$SUBSCRIPTION_ID" --name "$NAME" \
       --template-uri "$TEMPLATE_URI" --parameter "rgName=$NAME" > /dev/null 2>&1; then
   fail "validate without --location succeeded"
 fi
+pass
 
 echo -e "\nAll deployment sub validate smoke checks completed."

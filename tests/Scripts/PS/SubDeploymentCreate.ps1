@@ -34,14 +34,18 @@ try {
         -TemplateUri $TemplateUri -Parameter "rgName=$Name"
     Check ($deployment.Properties.ProvisioningState -eq 'Succeeded') 'creates the deployment' $deployment.Properties.ProvisioningState
 
-    # A missing template source is rejected locally, before any request.
-    New-AzDeployment -SubscriptionId $SubscriptionId -Name "$Name-none" -Location $Location -ErrorVariable err
+    # A missing template source is rejected locally, before any request. Cmdlet failures are terminating
+    # and would skip the rest of this block, so expected ones are caught inline.
+    $err = try { New-AzDeployment -SubscriptionId $SubscriptionId -Name "$Name-none" -Location $Location -ErrorAction Stop } catch { $_ }
     Check ("$err" -match 'Exactly one of TemplateUri') 'rejects a missing template source' "$err"
 }
+catch { Check $false 'no unexpected error' $_ }
 finally {
     # Deleting a deployment does not delete what it created, so remove the resource group explicitly.
-    Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false -ErrorAction SilentlyContinue
-    Remove-AzResourceGroup -SubscriptionId $SubscriptionId -Name $Name -Force -ErrorAction SilentlyContinue
+    # -ErrorAction can't silence terminating errors, so each cleanup call is guarded.
+    try { Remove-AzDeployment -SubscriptionId $SubscriptionId -Name $Name -Confirm:$false } catch { }
+    try { $null = Remove-AzResourceGroup -SubscriptionId $SubscriptionId -Name $Name -Force }
+    catch { Write-Warning "Could not delete resource group $Name; delete it manually if it exists." }
 }
 
 if ($failures -gt 0) {

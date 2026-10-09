@@ -43,7 +43,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.Properties = properties;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncAllowBadRequest();
         }
 
         // Same as the resource-group variant: ARM reports a failed validation as HTTP 400 carrying a
