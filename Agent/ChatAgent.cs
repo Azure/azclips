@@ -51,39 +51,19 @@ public sealed class ChatAgent : IAsyncDisposable
 
     private SessionErrored? _lastError;
 
-    /// <summary>
-    /// The terminal SDK error reported during the current turn, or null if the turn is clean.
-    /// </summary>
+    /// <summary>The terminal SDK error for the current turn, or null.</summary>
     /// <remarks>
-    /// <para>Written on the SDK's event-dispatch thread and read on the host thread, so both sides
-    /// go through <see cref="Volatile"/>: without a barrier the host is not guaranteed to observe
-    /// the handler's write at all, and a session the user watched fail exports
-    /// <c>recovery.outcome=ok</c>.</para>
-    ///
-    /// <para>Visibility is all this closes. The dispatch loop is not synchronised with the host's
-    /// turn boundaries, so an error queued during turn N-1 can still be delivered after turn N
-    /// cleared this field, attributing it to the wrong turn. That is not fixable here: the SDK's
-    /// error payload carries no turn identifier, and a handler stamping the turn it sees at
-    /// dispatch time would record the same wrong turn. Closing it needs turn correlation from the
-    /// SDK.</para>
+    /// Reads and writes use <see cref="Volatile"/> for cross-thread visibility.
+    /// This does not prevent late errors from crossing turn boundaries:
+    /// SDK error events carry no turn ID.
     /// </remarks>
     public SessionErrored? LastError => Volatile.Read(ref _lastError);
 
-    /// <summary>
-    /// A session error that arrived before the first turn could start.
-    /// </summary>
+    /// <summary>A session error received before the first turn.</summary>
     /// <remarks>
-    /// <para>Kept apart from <see cref="LastError"/>, which describes the current turn and is
-    /// cleared at the start of every send. The host always sends a first prompt immediately after
-    /// creation, so an error stored on the per-turn field during creation was wiped every time
-    /// before anything could read it.</para>
-    ///
-    /// <para>Nothing consumes this yet, deliberately. <c>recovery.outcome</c> stays driven by the
-    /// last turn: a session whose turn completed did help the caller, whatever went wrong while it
-    /// was starting — and several of these are recoverable by design, which is what the SDK's
-    /// <c>eligibleForAutoSwitch</c> flag is for. The user already sees the error, since every event
-    /// is rendered. What is still missing is a measure of how often the upstream provider is flaky
-    /// at setup, which is a different question from whether recovery succeeded.</para>
+    /// Kept separate because each send clears <see cref="LastError"/>.
+    /// Diagnostic only; the final outcome depends on the last turn,
+    /// not a recoverable startup error.
     /// </remarks>
     public SessionErrored? StartupError { get; private set; }
 

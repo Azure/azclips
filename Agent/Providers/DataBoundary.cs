@@ -2,18 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace Core.Agent.Providers;
 
-/// <summary>
-/// Why a data boundary lookup has no boundary to report. The closed half of the
-/// <c>recovery.dataBoundary</c> vocabulary.
-/// </summary>
+/// <summary>Closed reasons why the diagnostic boundary lookup has no answer.</summary>
 /// <remarks>
-/// An enum rather than strings at the call sites because this ships as a telemetry dimension:
-/// <c>eng-docs/spec/telemetry.md</c> promises a fixed vocabulary and never a message.
-/// Interpolating a caught exception's type into it would turn that promise into an open set —
-/// every new exception type the runtime throws becoming a new dimension value. Going through an
-/// enum makes that impossible to express rather than merely discouraged. The only no-answer value
-/// carrying a variable is <see cref="DataBoundaryResult.FromArmStatus"/>, whose range is the
-/// bounded set of HTTP status codes.
+/// Do not use runtime messages as telemetry values.
+/// HTTP status outcomes use <see cref="DataBoundaryResult.FromArmStatus"/>.
 /// </remarks>
 internal enum DataBoundaryUnavailable
 {
@@ -87,12 +79,7 @@ internal enum DataBoundaryUnavailable
     LookupFaulted,
 }
 
-/// <summary>Outcome of one data boundary lookup.</summary>
-/// <remarks>
-/// One field, deliberately. A boundary plus a separate failure reason was two tags for one answer,
-/// and every startup path that wrote one without the other was a hole in the data that the type
-/// could not prevent. A single field cannot be half-written, so the holes stop being expressible.
-/// </remarks>
+/// <summary>One diagnostic value: the boundary answer or the reason it is unavailable.</summary>
 internal readonly partial record struct DataBoundaryResult
 {
     private DataBoundaryResult(string value, string? tenantId)
@@ -107,21 +94,11 @@ internal readonly partial record struct DataBoundaryResult
     /// <summary>The tenant the lookup was made for, when one was resolved.</summary>
     public string? TenantId { get; }
 
-    /// <summary>
-    /// ARM answered. Its value passes through — <c>eu</c>, <c>global</c>, or whatever ARM adds
-    /// later — lowercased.
-    /// </summary>
+    /// <summary>Lowercases ARM's answer and validates its telemetry token format.</summary>
     /// <remarks>
-    /// This is the only untrusted string in the vocabulary, so it is the only one that is
-    /// sanitised: <see cref="NoAnswer"/> emits a closed enum's wire form and
-    /// <see cref="FromArmStatus"/> builds its value from an HTTP status code, both trusted by
-    /// construction and neither re-validated here.
-    ///
-    /// <para>What this rejects is shape, not meaning. A remote string landing in a telemetry
-    /// dimension is unbounded cardinality and a content-injection path, so anything outside the
-    /// shape we are willing to export becomes <c>unexpected_value</c>. An unfamiliar but
-    /// well-shaped value is passed through instead: discovering one is the reason this probe
-    /// exists.</para>
+    /// Accept 1-32 lowercase letters, digits, underscores or hyphens.
+    /// Preserve unfamiliar values with a valid shape.
+    /// Map malformed values to <c>unexpected_value</c>.
     /// </remarks>
     public static DataBoundaryResult FromArm(string? raw, string? tenantId)
     {

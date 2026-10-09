@@ -115,11 +115,9 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 | `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
 
-`recovery.dataBoundary` is one field, not a boundary plus a separate reason. Every startup path
-records exactly one value, so it can never be half-written: either ARM's answer, or why there is
-none. Nothing branches on it yet — recording it is what this instrumentation is for. It is written
-once on `Agent.Session` by the startup path, and again on `Agent.DataBoundary` by the lookup itself
-whenever one ran.
+`recovery.dataBoundary` records one diagnostic value: ARM's answer or why it is unavailable.
+Startup writes it on `Agent.Session`; a lookup also writes it on `Agent.DataBoundary`.
+It does not select the model endpoint.
 
 ARM's answer passes through, lowercased: `eu`, `global`, or any value ARM adds later. It is the only
 untrusted string in this dimension, so it is the only one sanitised — it must match
@@ -170,14 +168,9 @@ absent unless `properties.recovery.outcome` is `error`.
 | `host_fault`     | The failure was ours rather than the model provider's               |
 | `unknown`        | The SDK reported a terminal failure carrying no error type          |
 
-The SDK's error-type set is not enumerable — it is a required string passed through from
-the service with no constants behind it — so the first three are simply the values this
-repository has observed. **`sdk_other` is expected to be common, and that is the point:**
-it measures how much of a vocabulary we do not control we have not yet seen, not how rare
-errors are. Promote a value out of `sdk_other` by adding a member when the data shows it
-is worth separating. A host failure exports `host_fault` and nothing finer: the runtime
-class of the failure is unbounded, an implementation detail, and tells an operator nothing
-that `host_fault` plus the printed error does not.
+Only allowlisted SDK error types have dedicated values; other types map to
+`sdk_other`, which may be common. Host failures map to `host_fault`.
+Add a new value only when telemetry shows a useful distinction.
 
 `error` on a session the user watched succeed is possible in one narrow case. The SDK
 delivers events on its own thread, which is not synchronised with the host's turn
