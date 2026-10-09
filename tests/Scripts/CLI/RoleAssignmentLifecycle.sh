@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Role assignment lifecycle smoke test for the azclips CLI surface.
-# Exercises create, list (by scope, by assignee, and by role), and delete (including ARM's dual
-# 200 OK / 204 No Content response for deleting an already-deleted assignment, which must not be
-# treated as an error). A fresh user-assigned identity is created to act as the principal, so the
-# test is self-contained and needs no pre-existing fixture.
+# Exercises create, list (by scope, by assignee, and by role), idempotent re-create (a generated
+# name returns the existing assignment; an explicit different name surfaces the conflict), and
+# delete (including ARM's dual 200 OK / 204 No Content response for deleting an already-deleted
+# assignment, which must not be treated as an error). A fresh user-assigned identity is created to
+# act as the principal, so the test is self-contained and needs no pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -64,8 +65,10 @@ generate_guid() {
 IDENTITY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IDENTITY_NAME"
 SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 # Reused across every create attempt below (see the retry loop) so a retry after a transient
-# client-side failure safely re-affirms the same PUT instead of risking a RoleAssignmentExists
-# conflict against an assignment that may have already succeeded server-side under a different name.
+# client-side failure re-affirms the same PUT (idempotent for the same scope+name) and leaves the
+# cleanup step a known name to delete. An omitted name would instead generate a new one each attempt;
+# the idempotent conflict path would still recover the existing grant, but under a name this script
+# never recorded.
 ROLE_ASSIGNMENT_NAME="$(generate_guid)"
 ROLE_ASSIGNMENT_DELETED=0
 
@@ -166,6 +169,41 @@ echo "=== [role assignment list] across the whole subscription (every nested sco
 
 echo "=== [role assignment list] expanding the principal's group memberships ==="
 "$AZ" role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" --include-groups
+
+echo "=== [role assignment create] idempotent re-create without --name returns the existing assignment ==="
+# The same principal+role+scope already has an assignment (created above, under $ROLE_ASSIGNMENT_NAME).
+# Re-running create WITHOUT --name generates a fresh name, so ARM returns a RoleAssignmentExists
+# conflict; because the name was generated the idempotent path must look up and return the existing
+# assignment instead of failing, and must not create a second grant.
+RETURNED_NAME="$("$AZ" role assignment create \
+  --scope "$SCOPE" \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "$READER_ROLE_DEFINITION_ID" \
+  --query name -o tsv)"
+if [[ "$RETURNED_NAME" != "$ROLE_ASSIGNMENT_NAME" ]]; then
+  echo "Idempotent create returned '$RETURNED_NAME', expected the existing assignment '$ROLE_ASSIGNMENT_NAME'" >&2
+  exit 1
+fi
+echo "Confirmed: generated-name re-create returned the existing assignment '$ROLE_ASSIGNMENT_NAME'."
+
+echo "=== [role assignment create] explicit different --name for an existing grant surfaces the conflict ==="
+# With an explicit --name the caller asked for a specific assignment, so a RoleAssignmentExists conflict
+# must surface as an error rather than silently returning the differently-named existing assignment.
+CONFLICT_NAME="$(generate_guid)"
+if "$AZ" role assignment create \
+      --scope "$SCOPE" \
+      --assignee-object-id "$PRINCIPAL_ID" \
+      --assignee-principal-type ServicePrincipal \
+      --role "$READER_ROLE_DEFINITION_ID" \
+      --name "$CONFLICT_NAME" \
+      > /dev/null 2>&1; then
+  echo "Expected create with explicit --name '$CONFLICT_NAME' to fail with a conflict, but it succeeded" >&2
+  # Clean up the unexpected extra assignment so it does not leak.
+  "$AZ" role assignment delete --scope "$SCOPE" --name "$CONFLICT_NAME" || true
+  exit 1
+fi
+echo "Confirmed: explicit-name create surfaced the existing-assignment conflict."
 
 if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" == "1" ]]; then
   echo "AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place."

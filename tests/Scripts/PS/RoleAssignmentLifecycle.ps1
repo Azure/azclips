@@ -2,10 +2,11 @@
 # Licensed under the MIT License.
 #
 # Role assignment lifecycle smoke test for the Azclips PowerShell surface.
-# Exercises create, list (by scope, by assignee, and by role), and delete (including ARM's
-# dual 200 OK / 204 No Content response for deleting an already-deleted assignment, which must
-# not be treated as an error). A fresh user-assigned identity is created to act as the principal,
-# so the test is self-contained and needs no pre-existing fixture.
+# Exercises create, list (by scope, by assignee, and by role), idempotent re-create (a generated
+# name returns the existing assignment; an explicit different name surfaces the conflict), and
+# delete (including ARM's dual 200 OK / 204 No Content response for deleting an already-deleted
+# assignment, which must not be treated as an error). A fresh user-assigned identity is created to
+# act as the principal, so the test is self-contained and needs no pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -84,12 +85,10 @@ try {
     }
 
     Section 'New-AzRoleAssignment Reader for the identity (retrying for principal propagation)'
-    # Reuse a single stable name (GUID) across every attempt. Create is a PUT, idempotent for the
-    # same scope+name: if a prior attempt actually succeeded server-side but the client reported a
-    # transient failure, retrying with the SAME name safely re-affirms the existing assignment.
-    # Retrying with a fresh (omitted) name instead would hit ARM's RoleAssignmentExists conflict
-    # (same principal+role+scope, a different assignment ID), exhausting retries while silently
-    # leaving the first assignment behind with no recorded name to clean it up.
+    # Reuse a single stable name (GUID) across every attempt so a retry after a transient client-side
+    # failure re-affirms the same PUT (idempotent for the same scope+name) and leaves the cleanup step a
+    # known name to delete. An omitted name would instead generate a new one each attempt; the idempotent
+    # conflict path would still recover the existing grant, but under a name this script never recorded.
     $roleAssignmentName = [Guid]::NewGuid().ToString()
     $roleAssignment = $null
     $maxAttempts = 6
@@ -133,6 +132,46 @@ try {
 
     Section 'Get-AzRoleAssignment across the whole subscription (every nested scope)'
     Get-AzRoleAssignment -IncludeNestedScopes | Out-Host
+
+    Section 'New-AzRoleAssignment idempotent re-create without -Name returns the existing assignment'
+    # The same principal+role+scope already has an assignment (created above, under $roleAssignmentName).
+    # Re-running create WITHOUT -Name generates a fresh name, so ARM returns a RoleAssignmentExists
+    # conflict; because the name was generated the idempotent path must look up and return the existing
+    # assignment instead of failing, and must not create a second grant.
+    $idempotent = New-AzRoleAssignment `
+        -Scope $scope `
+        -ObjectId $principalId `
+        -ObjectType ServicePrincipal `
+        -RoleDefinitionId $readerRoleDefinitionId `
+        -Confirm:$false
+    $idempotent | Out-Host
+    if ($idempotent.Name -ne $roleAssignmentName) {
+        throw "Idempotent create returned '$($idempotent.Name)', expected the existing assignment '$roleAssignmentName'."
+    }
+    Write-Host "Confirmed: generated-name re-create returned the existing assignment '$roleAssignmentName'." -ForegroundColor Green
+
+    Section 'New-AzRoleAssignment explicit different -Name for an existing grant surfaces the conflict'
+    # With an explicit -Name the caller asked for a specific assignment, so a RoleAssignmentExists
+    # conflict must surface as an error rather than silently returning the differently-named existing one.
+    $conflictName = [Guid]::NewGuid().ToString()
+    $conflictSucceeded = $false
+    try {
+        New-AzRoleAssignment `
+            -Scope $scope `
+            -ObjectId $principalId `
+            -ObjectType ServicePrincipal `
+            -RoleDefinitionId $readerRoleDefinitionId `
+            -Name $conflictName `
+            -Confirm:$false | Out-Host
+        $conflictSucceeded = $true
+    } catch {
+        Write-Host 'Confirmed: explicit-name create surfaced the existing-assignment conflict.' -ForegroundColor Green
+    }
+    if ($conflictSucceeded) {
+        # Clean up the unexpected extra assignment so it does not leak, then fail.
+        Remove-AzRoleAssignment -Scope $scope -Name $conflictName -Confirm:$false -ErrorAction SilentlyContinue | Out-Host
+        throw "Expected create with explicit -Name '$conflictName' to fail with a conflict, but it succeeded."
+    }
 
     if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -eq '1') {
         Write-Host ''
