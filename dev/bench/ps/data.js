@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791510180200,
+  "lastUpdate": 1791510240317,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -15032,6 +15032,54 @@ window.BENCHMARK_DATA = {
             "value": 2069845.3122729107,
             "unit": "ns",
             "range": "± 101607.12957573096"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d358c4cd307eee311fade640a76bdb569af14a43",
+          "message": "[Config] Clarify core.output.color only permits color; json/yaml never colorize (#1078)\n\nDocs and tests clarifying that `core.output.color` permits color but\ndoes not choose a format: `json`/`yaml` are never colored,\n`jsonc`/`yamlc` are the colored variants, and `NO_COLOR` makes `jsonc`\nrender as plain `json`.\n\nNo behavior change. Tests run the built `az` with\n`FORCE_COLOR`/`NO_COLOR` and assert what reaches redirected stdout and\nstderr.\n\nRelated: #988, #729. Closes Azure/CLIPS#941.",
+          "timestamp": "2026-10-09T01:18:07Z",
+          "tree_id": "4d5faf4190257949dcf10c859278f073e95bbf9d",
+          "url": "https://github.com/Azure/azclips/commit/d358c4cd307eee311fade640a76bdb569af14a43"
+        },
+        "date": 1791510235735,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2476969.6111817025,
+            "unit": "ns",
+            "range": "± 248262.8160318644"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2262608.22688216,
+            "unit": "ns",
+            "range": "± 149392.35835875152"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2007072.484059179,
+            "unit": "ns",
+            "range": "± 67495.95279822778"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2049469.7375575532,
+            "unit": "ns",
+            "range": "± 102389.71536845645"
           }
         ]
       }
