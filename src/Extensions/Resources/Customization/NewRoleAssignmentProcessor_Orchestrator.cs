@@ -294,8 +294,13 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
     // built-in role rooted at a different scope still compares equal).
     private bool MatchesExisting(RoleAssignment assignment) =>
         string.Equals(assignment.Properties?.PrincipalId, PrincipalId, StringComparison.OrdinalIgnoreCase) &&
-        string.Equals(assignment.Properties?.Scope, Scope, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(assignment.Properties?.Scope, ExpectedScope, StringComparison.OrdinalIgnoreCase) &&
         string.Equals(RoleDefinitionTail(assignment.Properties?.RoleDefinitionId), RoleDefinitionTail(RoleDefinitionId), StringComparison.OrdinalIgnoreCase);
+
+    // The scope ARM reports on the existing assignment. Normalize stores the tenant-root scope as "" (its
+    // request-path form, which builds "/providers/..."), but ARM identifies tenant-root assignments with
+    // "/"; remap so a tenant-root create still matches its existing assignment. Mirrors the list orchestrator.
+    private string ExpectedScope => string.IsNullOrEmpty(Scope) ? "/" : Scope;
 
     // The trailing GUID segment of a (possibly fully-qualified) role definition ID.
     private static string RoleDefinitionTail(string? roleDefinitionId) =>
@@ -463,3 +468,5 @@ public class NewRoleAssignmentProcessor_Orchestrator : NewRoleAssignmentProcesso
         return scope;
     }
 }
+
+

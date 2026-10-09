@@ -742,6 +742,42 @@ public class RoleAssignmentCreateTests
     }
 
     [Fact]
+    public async Task Create_Conflict_GeneratedName_TenantRootScope_FindsExisting()
+    {
+        // Tenant-root (--scope /) normalizes to "" in the request path, but ARM reports the existing
+        // assignment's scope as "/". The match must remap "" to "/" so a tenant-root create still recovers
+        // its existing assignment instead of rethrowing the 409.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+            request.Method == HttpMethod.Put
+                ? ConflictResponse("""{"error":{"code":"RoleAssignmentExists","message":"exists"}}""")
+                : JsonResponse($$"""
+                    {
+                      "value": [
+                        {
+                          "name": "existing-at-root",
+                          "properties": {
+                            "principalId": "{{AssigneeObjectId}}",
+                            "scope": "/",
+                            "roleDefinitionId": "/providers/Microsoft.Authorization/roleDefinitions/{{RoleDefinitionId}}"
+                          }
+                        }
+                      ]
+                    }
+                    """));
+        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Scope = "/";
+        processor.AssigneeObjectId = AssigneeObjectId;
+        processor.RoleDefinitionId = RoleDefinitionId;
+
+        await processor.ProcessAsync();
+
+        var existing = Assert.IsType<RoleAssignment>(Assert.Single(output.WrittenValues));
+        Assert.Equal("existing-at-root", existing.Name);
+    }
+
+    [Fact]
     public async Task Create_Conflict_WrongErrorCode_NotSwallowed_EvenIfMessageMentionsToken()
     {
         // A 409 whose error.code is NOT RoleAssignmentExists must surface, even if its human-readable
