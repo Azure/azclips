@@ -213,28 +213,35 @@ echo "=== [role assignment create] explicit different --name for an existing gra
 # With an explicit --name the caller asked for a specific assignment, so a RoleAssignmentExists conflict
 # must surface as an error rather than silently returning the differently-named existing assignment.
 CONFLICT_NAME="$(generate_guid)"
-if "$AZ" role assignment create \
-      --scope "$SCOPE" \
-      --assignee-object-id "$PRINCIPAL_ID" \
-      --assignee-principal-type ServicePrincipal \
-      --role "$READER_ROLE_DEFINITION_ID" \
-      --name "$CONFLICT_NAME" \
-      > /dev/null 2>&1; then
+set +e
+CONFLICT_OUTPUT="$("$AZ" role assignment create \
+  --scope "$SCOPE" \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "$READER_ROLE_DEFINITION_ID" \
+  --name "$CONFLICT_NAME" 2>&1)"
+CONFLICT_EXIT=$?
+set -e
+if [[ "$CONFLICT_EXIT" -eq 0 ]]; then
   echo "Expected create with explicit --name '$CONFLICT_NAME' to fail with a conflict, but it succeeded" >&2
   # Clean up the unexpected extra assignment so it does not leak.
   "$AZ" role assignment delete --scope "$SCOPE" --name "$CONFLICT_NAME" || true
   exit 1
 fi
+if [[ "$CONFLICT_OUTPUT" != *"409"* || "$CONFLICT_OUTPUT" != *"RoleAssignmentExists"* ]]; then
+  echo "Expected create with explicit --name '$CONFLICT_NAME' to fail with 409 RoleAssignmentExists, but got:" >&2
+  echo "$CONFLICT_OUTPUT" >&2
+  exit 1
+fi
 echo "Confirmed: explicit-name create surfaced the existing-assignment conflict."
 
-echo "=== [role assignment list] default scope is exact (a subset of --include-inherited) ==="
+echo "=== [role assignment list] default scope is exact and also appears in --include-inherited ==="
 # The default list returns assignments at exactly this scope; --include-inherited additionally returns
-# ancestor-scope (inherited) grants, so it must be a superset. Assert count(default) <= count(inherited)
-# and that the default list contains the grant created at this scope.
-DEFAULT_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --query "length(@)" -o tsv)"
-INHERITED_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --include-inherited --query "length(@)" -o tsv)"
-if [[ "$INHERITED_COUNT" -lt "$DEFAULT_COUNT" ]]; then
-  echo "--include-inherited returned fewer assignments ($INHERITED_COUNT) than the default exact-scope list ($DEFAULT_COUNT)" >&2
+# ancestor-scope (inherited) grants. Assert the default list contains only at-scope assignments and
+# that the known at-scope grant appears in both result sets.
+WRONG_SCOPE_COUNT="$("$AZ" role assignment list --scope "$SCOPE" --query "length([?properties.scope!='$SCOPE'])" -o tsv)"
+if [[ "$WRONG_SCOPE_COUNT" != "0" ]]; then
+  echo "Default list included $WRONG_SCOPE_COUNT assignment(s) whose properties.scope was not '$SCOPE'" >&2
   exit 1
 fi
 AT_SCOPE_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
@@ -242,7 +249,12 @@ if [[ "$AT_SCOPE_PRESENT" != "1" ]]; then
   echo "Default exact-scope list did not contain the assignment '$ROLE_ASSIGNMENT_NAME' created at this scope" >&2
   exit 1
 fi
-echo "Confirmed: default list is exact-scope and a subset of --include-inherited."
+INHERITED_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --include-inherited --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
+if [[ "$INHERITED_PRESENT" != "1" ]]; then
+  echo "--include-inherited did not contain the assignment '$ROLE_ASSIGNMENT_NAME' created at this scope" >&2
+  exit 1
+fi
+echo "Confirmed: default list is exact-scope and the known assignment appears in both default and inherited results."
 
 echo "=== [role assignment create] --resource-group scope form with a fully-qualified role ID ==="
 # Exercise the --resource-group scope form (vs an explicit --scope) together with a fully-qualified role

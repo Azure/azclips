@@ -177,6 +177,9 @@ try {
             -Confirm:$false | Out-Host
         $conflictSucceeded = $true
     } catch {
+        if ($_.Exception.Message -notmatch '409' -or $_.Exception.Message -notmatch 'RoleAssignmentExists') {
+            throw
+        }
         Write-Host 'Confirmed: explicit-name create surfaced the existing-assignment conflict.' -ForegroundColor Green
     }
     if ($conflictSucceeded) {
@@ -185,19 +188,28 @@ try {
         throw "Expected create with explicit -Name '$conflictName' to fail with a conflict, but it succeeded."
     }
 
-    Section 'Get-AzRoleAssignment default scope is exact (a subset of -IncludeInherited)'
+    Section 'Get-AzRoleAssignment default scope is exact and also appears in -IncludeInherited'
     # The default list returns assignments at exactly this scope; -IncludeInherited additionally returns
-    # ancestor-scope (inherited) grants, so it must be a superset. Assert count(default) <= count(inherited)
-    # and that the default list contains the grant created at this scope.
+    # ancestor-scope (inherited) grants. Assert the default list contains only at-scope assignments and
+    # that every default assignment also appears in the inherited result set.
     $defaultList = @(Get-AzRoleAssignment -Scope $scope)
     $inheritedList = @(Get-AzRoleAssignment -Scope $scope -IncludeInherited)
-    if ($inheritedList.Count -lt $defaultList.Count) {
-        throw "-IncludeInherited returned fewer assignments ($($inheritedList.Count)) than the default exact-scope list ($($defaultList.Count))."
+    $wrongScope = @($defaultList | Where-Object { $_.Properties.Scope -ne $scope })
+    if ($wrongScope.Count -gt 0) {
+        throw "Default list included $($wrongScope.Count) assignment(s) whose Properties.Scope was not '$scope'."
     }
     if (-not ($defaultList | Where-Object { $_.Name -eq $roleAssignmentName })) {
         throw "Default exact-scope list did not contain the assignment '$roleAssignmentName' created at this scope."
     }
-    Write-Host 'Confirmed: default list is exact-scope and a subset of -IncludeInherited.' -ForegroundColor Green
+    $inheritedNames = @{}
+    foreach ($assignment in $inheritedList) {
+        $inheritedNames[$assignment.Name] = $true
+    }
+    $missingFromInherited = @($defaultList | Where-Object { -not $inheritedNames.ContainsKey($_.Name) })
+    if ($missingFromInherited.Count -gt 0) {
+        throw "-IncludeInherited omitted $($missingFromInherited.Count) default assignment(s): $($missingFromInherited.Name -join ', ')."
+    }
+    Write-Host 'Confirmed: default list is exact-scope and every default assignment appears in -IncludeInherited.' -ForegroundColor Green
 
     Section 'New-AzRoleAssignment -ResourceGroupName scope form with a fully-qualified role ID'
     # Exercise the -ResourceGroupName scope form (vs an explicit -Scope) together with a fully-qualified
