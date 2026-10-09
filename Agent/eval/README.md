@@ -133,6 +133,12 @@ credential-shaped redaction also applies to this diagnostic.
 Project schema `agent-eval-v2` presents this as `Original CLI error` and never
 falls back to a grading failure. Cases supply `config.checkName` for readable
 checks; the original assertion implementation remains available for diagnostics.
+Script-defined checks also export `expectation` alongside their original
+pass/score/reason, so the dashboard can show the concrete rule instead of a file
+name. This presentation metadata does not change the assertion definition,
+grading decision, or suite identity. Older artifacts retain their recorded
+declarative contracts; unrecorded script internals must be labelled as missing,
+not reconstructed from a model response or an unrelated newer script version.
 An unsuccessful troubleshoot process is an execution error, even if it emitted a
 partial plan; it must not be reported as an ordinary assertion failure.
 The original automatic mode remains available for compatible older suites.

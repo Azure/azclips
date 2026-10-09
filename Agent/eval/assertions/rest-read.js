@@ -1,22 +1,29 @@
 const { argumentMap, commandName, commandSetAssertion, shellTokens } = require('./command-set');
 
 function restReadAssertion(output, context) {
+  const expectation = [
+    `Requested URI: ${context.config?.expectedUri || '(not configured)'}`,
+    'Every az rest step requires a nonempty absolute --uri.',
+    'Preserve the ARM origin, subscription path and exact query/API version. No credentials or fragment.',
+    'The final resourcegroups/resourceGroups collection keyword is case-insensitive; other path changes are not allowed.',
+  ].join('\n');
+  const describe = (result) => ({ ...result, expectation });
   let expected;
   try {
     expected = new URL(context.config?.expectedUri);
   } catch {
-    return { pass: false, score: 0, reason: 'A valid expected resource-group URI is required.' };
+    return describe({ pass: false, score: 0, reason: 'A valid expected resource-group URI is required.' });
   }
   if (expected.origin !== 'https://management.azure.com' ||
       !/^\/subscriptions\/[0-9a-f-]+\/resourcegroups$/i.test(expected.pathname) ||
       expected.username || expected.password || expected.hash) {
-    return { pass: false, score: 0, reason: 'The REST baseline requires the ARM resource-group collection URI.' };
+    return describe({ pass: false, score: 0, reason: 'The REST baseline requires the ARM resource-group collection URI.' });
   }
   const required = commandSetAssertion(output, {
     ...context,
     config: { expectedCommandSet: [{ command: 'az rest', match: 'all', requiredArguments: ['--uri'] }] },
   });
-  if (!required.pass) return required;
+  if (!required.pass) return describe(required);
   const failures = [];
   const collectionPath = uri => uri.pathname.replace(/\/resourcegroups$/i, '/resourcegroups');
   for (const [index, step] of context.metadata.plan.steps.entries()) {
@@ -40,6 +47,7 @@ function restReadAssertion(output, context) {
     score: failures.length === 0 ? 1 : 0,
     reason: failures.length ? failures.join('; ') :
       'The requested ARM resource-group URI is preserved; resourcegroups/resourceGroups are equivalent collection spellings.',
+    expectation,
   };
 }
 

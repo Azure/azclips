@@ -9,19 +9,28 @@ const contracts = {
 };
 
 function configurationReadAssertion(output, context) {
+  const expectation = [
+    'Include config info/list discovery, a read with a corrected key, or creation of the missing custom key followed by a read.',
+    ...Object.entries(contracts).map(([name, contract]) =>
+      `${name}: required values ${contract.requiredArguments.join(', ') || '(none)'}; allowed arguments ${contract.allowedArguments.join(', ')}`),
+    'All required values must be nonempty; boolean switches must contain valid boolean values.',
+    'Do not retry the recorded missing key until an earlier config set has supplied --value and enabled --force.',
+    'A write alone is not a usable read path. The LLM separately checks the suggested key and conditional advice.',
+  ].join('\n');
+  const describe = (result) => ({ ...result, expectation });
   const scope = planContractAssertion(output, {
     ...context,
     config: { allowedCommands: Object.keys(contracts) },
   });
-  if (!scope.pass) return scope;
+  if (!scope.pass) return describe(scope);
   let missingKey;
   try {
     missingKey = argumentMap(shellTokens(context.vars?.command || '')).get('--key');
   } catch (error) {
-    return { pass: false, score: 0, reason: `The original config command is invalid: ${error.message}` };
+    return describe({ pass: false, score: 0, reason: `The original config command is invalid: ${error.message}` });
   }
   if (typeof missingKey !== 'string' || !missingKey.trim()) {
-    return { pass: false, score: 0, reason: 'The recorded missing configuration key is required.' };
+    return describe({ pass: false, score: 0, reason: 'The recorded missing configuration key is required.' });
   }
   const failures = [];
   let createsMissingKey = false;
@@ -71,6 +80,7 @@ function configurationReadAssertion(output, context) {
     score: failures.length === 0 ? 1 : 0,
     reason: failures.length ? failures.join('; ') :
       'Includes discovery or a structurally valid configuration read; the LLM checks that any suggested key or conditional creation is relevant.',
+    expectation,
   };
 }
 

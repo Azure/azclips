@@ -236,6 +236,21 @@ test('configuration recovery accepts discovery, a corrected-key example, or a co
   }
 });
 
+test('script-defined checks export their concrete expectations without changing their decisions', () => {
+  const configuration = grade(config, ['az config info --keys-only'])[0];
+  assert.equal(configuration.pass, true);
+  assert.match(configuration.expectation, /az config get: required values --key/);
+  assert.match(configuration.expectation, /earlier config set.*--force/);
+  const prerequisites = grade(identity, [identityCommand])[1];
+  assert.equal(prerequisites.pass, true);
+  assert.match(prerequisites.expectation, /used by a later identity creation/);
+  const uri = grade(rest, [restCommand])[0];
+  assert.equal(uri.pass, true);
+  assert.match(uri.expectation, /resourcegroups\/resourceGroups/);
+  assert.match(uri.expectation, /api-version=2021-04-01/);
+  assert.doesNotMatch(configuration.expectation, /file:\/\//);
+});
+
 test('configuration recovery rejects unchanged failures, incomplete reads, and invalid creation prerequisites', () => {
   for (const commands of [
     ['az config info --keys-only invalid'],

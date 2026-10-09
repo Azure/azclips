@@ -2,8 +2,18 @@ const { argumentMap, commandName, commandSetAssertion, shellTokens } = require('
 const { planContractAssertion } = require('./plan-contract');
 
 function identityPlanAssertion(output, context) {
+  const allowedCommands = Array.isArray(context.config?.allowedCommands)
+    ? context.config.allowedCommands.filter(command => typeof command === 'string').join(', ')
+    : '(not configured)';
+  const expectation = [
+    `Allowed operations: ${allowedCommands}`,
+    'Any created resource group must have a nonempty name and location and be used by a later identity creation step.',
+    'The resource group may use a different location from the identity.',
+    ...(context.config?.validateSubscription ? ['Use the recorded signed-in subscription; explicit subscription arguments must match it.'] : []),
+  ].join('\n');
+  const describe = (result) => ({ ...result, expectation });
   const contract = planContractAssertion(output, context);
-  if (!contract.pass) return contract;
+  if (!contract.pass) return describe(contract);
 
   const steps = context.metadata.plan.steps.map((step) => {
     const tokens = shellTokens(step.cmd);
@@ -22,7 +32,7 @@ function identityPlanAssertion(output, context) {
         }],
       },
     });
-    if (!groups.pass) return groups;
+    if (!groups.pass) return describe(groups);
   }
 
   const failures = [];
@@ -51,6 +61,7 @@ function identityPlanAssertion(output, context) {
     score: failures.length === 0 ? 1 : 0,
     reason: failures.length ? failures.join('; ') :
       'The plan stays within identity creation and its required resource group; creating that group first is allowed.',
+    expectation,
   };
 }
 
