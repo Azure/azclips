@@ -46,17 +46,19 @@ API permission
 `api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/Azclis.Intelligent.All`,
 rather than an Azure Resource Manager (ARM) scope.
 
-The existing Azure PowerShell public client ID,
-`1950a258-227b-4e31-a9cf-717495945fc2`, is unchanged. Users do not need to
-manually configure the scope for the default built-in provider. Normal sign-in,
-tenant access policies, and configuration precedence still apply; an explicitly
-configured `agent.builtin.scope` is not overwritten.
+This setting keeps the public client ID used by the host's existing Azure
+sign-in. It does not select a client ID or change the host's sign-in flow.
+Users do not need to manually configure the scope for the default built-in
+provider. Normal sign-in, tenant access policies, and configuration precedence
+still apply; an explicitly configured `agent.builtin.scope` is not overwritten.
 
 This setting does not change the ARM scopes used by Azure resource commands,
 the `github` provider, or APIM's separate managed identity for backend access.
-It does not provision service-side access or application permissions for managed
-identities. Authentication failures are reported without silently retrying the
-previous ARM scope.
+This delegated permission is for user sign-in. It does not by itself support
+managed-identity or federated service-principal profiles. Those flows require
+a separate application-only token contract and service-side authorization.
+Authentication failures are reported without silently retrying the previous
+ARM scope.
 
 ## CLI Usage
 
