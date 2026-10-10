@@ -150,6 +150,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "List role assignments scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ObjectId"]          = new("AssigneeObjectId", "ObjectId", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IncludeInherited"]  = new("IncludeInherited", "IncludeInherited", typeof(bool), "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ExpandPrincipalGroups"] = new("IncludeGroups", "ExpandPrincipalGroups", typeof(bool), "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IncludeNestedScopes"] = new("All", "IncludeNestedScopes", typeof(bool), "List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -385,6 +388,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["assignee"]           = new("Assignee", "assignee", typeof(string), "Filter to role assignments for this principal. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["assignee-object-id"] = new("AssigneeObjectId", "assignee-object-id", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["role"]               = new("RoleDefinitionId", "role", typeof(string), "Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["include-inherited"]  = new("IncludeInherited", "include-inherited", typeof(bool), "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["all"]                = new("All", "all", typeof(bool), "List role assignments across the whole subscription, including every nested scope. Cannot be combined with --scope or --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["include-groups"]     = new("IncludeGroups", "include-groups", typeof(bool), "When filtering by assignee, also include assignments granted through groups the principal belongs to (transitive).", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

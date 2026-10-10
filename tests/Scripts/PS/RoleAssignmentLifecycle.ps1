@@ -125,6 +125,15 @@ try {
     Section 'Get-AzRoleAssignment filtered by role definition ID'
     Get-AzRoleAssignment -Scope $scope -RoleDefinitionId $readerRoleDefinitionId | Out-Host
 
+    Section 'Get-AzRoleAssignment including inherited (ancestor-scope) assignments'
+    Get-AzRoleAssignment -Scope $scope -IncludeInherited | Out-Host
+
+    Section 'Get-AzRoleAssignment expanding the principal''s group memberships'
+    Get-AzRoleAssignment -Scope $scope -ObjectId $principalId -ExpandPrincipalGroups | Out-Host
+
+    Section 'Get-AzRoleAssignment across the whole subscription (every nested scope)'
+    Get-AzRoleAssignment -IncludeNestedScopes | Out-Host
+
     if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -eq '1') {
         Write-Host ''
         Write-Host 'AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place.'

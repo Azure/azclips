@@ -118,7 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 {
                     throw new ArgumentException(
                         $"Profile '{existing.Name}' signed in as a service principal, so re-authentication requires a " +
-                        $"newly issued token in '{FormatParameterName(nameof(FederatedToken), AzclipsServiceProvider.GetRequiredService<ClientType>())}'.");
+                        $"newly issued token in '{FormatParameterName(nameof(FederatedToken), AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType)}'.");
                 }
 
                 tenantId = existing.TenantId;
@@ -233,7 +233,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             string? reAuthName = string.IsNullOrWhiteSpace(Profile) ? null : Profile.Trim();
             string? outName = string.IsNullOrWhiteSpace(OutProfile) ? null : OutProfile.Trim();
 
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             // Enforce mutual exclusivity and the reserved-name rule before any authentication (fail fast).
@@ -438,7 +438,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             // Render sign-in guidance in the caller's surface: PowerShell users need 'Connect-AzAccount
             // -TenantId', CLI users need 'az login --tenant-id'. Hardcoding one form mis-instructs the other.
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
             string signInCommand = clientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
 
@@ -496,7 +496,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         private async Task<string> ResolveSubscriptionTenantAsync(AuthResult authResult, string subscriptionId)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             try
@@ -534,7 +534,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         private async Task<string> ResolveDefaultSubscriptionAsync(string accessToken)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
             string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             try
