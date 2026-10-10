@@ -130,6 +130,16 @@ The provider records the original CLI diagnostic in
 `response.metadata.originalError` before starting analysis. It is separate from
 the proposed plan, assertion failures, and provider/process errors. Existing
 credential-shaped redaction also applies to this diagnostic.
+The captured response and plaintext diagnostic filter follows the actual
+[spinner renderer](../Hosting/ConsoleAgentRenderer.cs): two spaces, a known
+[spinner frame](../Hosting/SpinnerService.cs), a space and the status text, then
+carriage return, padding of the same UTF-16 length, and another carriage return.
+Only complete frame/erase sequences at line boundaries are removed. Ordinary
+prose (including lines starting with `Running` or `Planning`), literal Braille,
+and unrecognized or incomplete spinner-like text are preserved rather than
+guessed to be progress. The existing trace-path removal and whitespace cleanup
+remain unchanged. This corrects future captures only; stored responses and
+frozen baseline scores are not rewritten or regraded.
 Project schema `agent-eval-v2` presents this as `Original CLI error` and never
 falls back to a grading failure. Cases supply `config.checkName` for readable
 checks; the original assertion implementation remains available for diagnostics.

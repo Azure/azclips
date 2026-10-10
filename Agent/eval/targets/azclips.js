@@ -1,10 +1,8 @@
 // promptfoo custom provider — drives the installed azclips agent (one-shot AI
 // error-recovery) and returns the rendered plan as the provider "output".
 //
-// PoC-level: azclips has no structured plan output yet, so we run the failing
-// command, capture stdout, and strip the spinner noise ("⠋ Analyzing…") lines.
-// Downstream assertions match on the cleaned plan text. When azclips gains a
-// structured (--output json) plan, swap the strip logic for a JSON parse.
+// Capture the rendered response for semantic grading; structured plans and
+// usage are read separately from the diagnostic trace.
 // Process failures are provider errors, not scoreable error-recovery plans.
 //
 // Config: set AZCLIPS_EXE to the az.exe under test (defaults to the dev build).
@@ -20,8 +18,8 @@ const DEFAULT_EXE = path.join(
   'Programs', 'azcli-dev', 'az.exe',
 );
 
-// Braille spinner frames azclips prints while the AI works — pure noise for eval.
-const SPINNER = /[⠀-⣿]/g;
+// SpinnerService frames followed by ConsoleAgentRenderer's CR + padding + CR erase.
+const SPINNER_FRAME = /( {2}[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] [^\r\n]*)\r( +)\r/g;
 const TRACE_PATH = /^\s*trace:\s*(.+?\.jsonl)\s*$/gim;
 const DEFAULT_TRACE_DIR = path.join(os.tmpdir(), 'azclips-evaluation', 'traces');
 const MAX_BUFFER_BYTES = 8 * 1024 * 1024;
@@ -107,16 +105,18 @@ function getProcessFailure(error, timeoutMs, failedToStart = false) {
 }
 
 function stripNoise(raw) {
-  return raw
+  const withoutSpinner = raw.replace(SPINNER_FRAME, (sequence, frame, padding, offset) => {
+    const atLineStart = offset === 0 || raw[offset - 1] === '\r' || raw[offset - 1] === '\n';
+    return atLineStart && padding.length === frame.length ? '' : sequence;
+  });
+  return withoutSpinner
     .split(/\r?\n/)
-    // drop lines that are just spinner + status ("⠋ Analyzing error root cause…")
     .filter((line) => {
-      const t = line.replace(SPINNER, '').trim();
+      const t = line.trim();
       return t.length > 0 &&
-        !/^(Analyzing|running|thinking|querying|planning|wrapping)/i.test(t) &&
         !/^trace:\s*.+\.jsonl$/i.test(t);
     })
-    .map((line) => line.replace(SPINNER, '').replace(/\s+$/g, ''))
+    .map((line) => line.replace(/\s+$/g, ''))
     .join('\n')
     .trim();
 }

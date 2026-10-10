@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const AzclipsAgentProvider = require('./azclips');
+const { judgeInput } = require('../judge/recovery-quality');
 const {
   buildEvaluationEnvironment,
   execFileUnattended,
@@ -22,6 +23,11 @@ const {
   stripNoise,
   toolTraceAvailable,
 } = AzclipsAgentProvider;
+
+function renderSpinnerFrame(frame, verb) {
+  const line = `  ${frame} ${verb}`;
+  return `${line}\r${' '.repeat(line.length)}\r`;
+}
 
 function createProviderFixture(context) {
   const directory = fs.mkdtempSync(path.join(__dirname, 'azclips-provider-test-'));
@@ -434,6 +440,7 @@ test('redacts credential-shaped values from captured original error messages', (
 
 test('manual recovery records the failure then analyzes its exact ID with closed stdin', async (context) => {
   const fixture = createProviderFixture(context);
+  const answer = `${fixture.output}\nRunning this command will display the active profile.`;
   const provider = new AzclipsAgentProvider({
     config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
   });
@@ -452,7 +459,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
             recovery: { id, command: `az troubleshoot --id ${id}` },
           }));
       } else {
-        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+        callback(null, `${renderSpinnerFrame('⠋', 'planning a fix')}${answer}\ntrace: ${fixture.tracePath}`, '');
       }
     });
     return { stdin: { end() { closed += 1; } } };
@@ -464,6 +471,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   ]);
   assert.equal(closed, 2);
   assert.equal(response.error, undefined);
+  assert.equal(response.output, answer);
   assert.equal(response.metadata.failureId, id);
   assert.equal(response.metadata.failureExitCode, 2);
   assert.equal(response.metadata.recoveryMode, 'manual');
@@ -535,6 +543,70 @@ test('removes local trace paths from provider output', () => {
     stripNoise('Plan output\ntrace: C:\\private\\trace.jsonl'),
     'Plan output',
   );
+});
+
+test('preserves ordinary response text and Braille characters instead of guessing status words', () => {
+  const answer = [
+    'AI help',
+    'Analyzing the error shows that --location is missing.',
+    '  Running this command will list the installed extensions.',
+    'Thinking about the requested scope does not require changing subscriptions.',
+    'Querying the group did not confirm that it exists.',
+    'Planning the fix requires choosing the intended resource group.',
+    'Wrapping this value in quotes preserves its spaces.',
+    'Literal Braille characters: ⠋ ⣿ ⠀',
+    '  ⠋ Running is part of this quoted terminal example, not an erased frame.',
+  ].join('\n');
+  assert.equal(stripNoise(answer), answer);
+});
+
+test('removes the renderer frame-and-erase protocol without dropping the following answer', () => {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const answer = 'Planning the fix preserves the requested group.\nRunning this command needs a location.';
+  const progress = frames.map((frame, index) =>
+    renderSpinnerFrame(frame, index % 2 ? 'reading file' : 'Analyzing error root cause using AI')).join('');
+  assert.equal(stripNoise(`${progress}${answer}`), answer);
+  assert.equal(stripNoise(`AI help\r\n${progress}${answer}\r\n${renderSpinnerFrame('⠏', 'querying ARM')}`),
+    `AI help\n${answer}`);
+  assert.equal(stripNoise(`${renderSpinnerFrame('⠋', 'custom tool 🔍')}${answer}`), answer);
+  assert.equal(stripNoise(progress), '');
+});
+
+test('preserves text that does not match the exact renderer frame boundary and erase width', () => {
+  const samples = [
+    `Example: ${renderSpinnerFrame('⠋', 'thinking')}keep this text`,
+    `AI help\n${renderSpinnerFrame('⣿', 'thinking')}keep this text`,
+    'AI help\n  ⠋ thinking\r \rkeep this text',
+    'AI help\n ⠋ thinking\r           \rkeep this text',
+    'AI help\n  ⠋ thinking\nkeep this text',
+  ];
+  for (const sample of samples) assert.equal(stripNoise(sample), sample);
+});
+
+test('preserves plaintext CLI diagnostics that begin with status-like words', () => {
+  const message = 'Running the command failed because the profile is unavailable.';
+  assert.deepEqual(originalCliError('', `${renderSpinnerFrame('⠋', 'thinking')}${message}`, 2), {
+    source: 'azclips',
+    exitCode: 2,
+    message,
+  });
+});
+
+test('passes the complete filtered response through the provider and semantic Judge input', async (context) => {
+  const fixture = createProviderFixture(context);
+  const answer = `${fixture.output}\nPlanning the fix keeps the current profile.\nRunning this command shows it.`;
+  const stdout = [
+    `${renderSpinnerFrame('⠋', 'Analyzing error root cause using AI')}[ERROR] A profile name is required, or use --active.`,
+    `${renderSpinnerFrame('⠙', 'reading file')}${answer}`,
+    `trace: ${fixture.tracePath}`,
+  ].join('\n');
+  mockProcessResult(context, fixture, Object.assign(new Error('CLI failure'), { code: 1 }), stdout);
+  const vars = { command: 'profile show', goal: 'Show the active profile.' };
+  const response = await fixture.provider.callApi(fixture.prompt, { vars });
+  assert.equal(response.error, undefined);
+  assert.equal(response.output, answer);
+  assert.deepEqual(response.metadata.plan, fixture.plan);
+  assert.equal(JSON.parse(judgeInput(response.output, { vars, metadata: response.metadata })).response, answer);
 });
 
 test('separates the real AZCLIPS error from the complete AI plan', () => {
