@@ -75,21 +75,46 @@ public class ResourceGroupDeploymentCmdletTests
     // Runs the real PowerShell binder against each cmdlet's exact parameter metadata, via a stand-in
     // function that returns $PSBoundParameters, so binding is verified without starting the engine.
     private static Hashtable Bind(Type cmdlet, string invocation, object? pipelineInput = null)
+        => BindWithSet(cmdlet, invocation, pipelineInput).Bound;
+
+    private static (string ParameterSet, Hashtable Bound) BindWithSet(Type cmdlet, string invocation, object? pipelineInput = null)
     {
         string paramBlock = ProxyCommand.GetCmdletBindingAttribute(new System.Management.Automation.CommandMetadata(cmdlet))
             + "param(" + ProxyCommand.GetParamBlock(new System.Management.Automation.CommandMetadata(cmdlet)) + ")";
         var iss = System.Management.Automation.Runspaces.InitialSessionState.Create();
         iss.LanguageMode = PSLanguageMode.FullLanguage;
         using var ps = PowerShell.Create(iss);
-        ps.AddScript($"function Target {{ {paramBlock} process {{ $PSBoundParameters }} }}; " + (pipelineInput is null ? invocation : $"$input | {invocation}"));
+        ps.AddScript($"function Target {{ {paramBlock} process {{ $PSCmdlet.ParameterSetName; $PSBoundParameters }} }}; " + (pipelineInput is null ? invocation : $"$input | {invocation}"));
         var result = pipelineInput is null ? ps.Invoke() : ps.Invoke(new[] { pipelineInput });
         Assert.Empty(ps.Streams.Error);
+        Assert.Equal(2, result.Count);
         var bound = new Hashtable(StringComparer.OrdinalIgnoreCase);
-        foreach (DictionaryEntry e in (IDictionary)Assert.Single(result).BaseObject)
+        foreach (DictionaryEntry e in (IDictionary)result[1].BaseObject)
         {
             bound[e.Key] = e.Value is PSObject pso ? pso.BaseObject : e.Value;
         }
-        return bound;
+        return ((string)result[0].BaseObject, bound);
+    }
+
+    [Theory]
+    [InlineData("Target rg", "List")]
+    [InlineData("Target rg dep", "Get")]
+    [InlineData("Target -ResourceGroupName rg -Name dep", "Get")]
+    public void GetCmdlet_SelectsParameterSet(string invocation, string expectedSet)
+    {
+        Assert.Equal(expectedSet, BindWithSet(typeof(GetResourceGroupDeploymentCmdlet), invocation).ParameterSet);
+    }
+
+    [Fact]
+    public void GetCmdlet_PipedDeployment_SelectsGet()
+    {
+        var (set, _) = BindWithSet(typeof(GetResourceGroupDeploymentCmdlet), "Target", new DeploymentExtended
+        {
+            Id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep",
+            Name = "dep",
+        });
+
+        Assert.Equal("Get", set);
     }
 
     [Theory]

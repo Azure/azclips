@@ -8,7 +8,8 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.Get, "AzResourceGroupDeployment", DefaultParameterSetName = "List")]
+// No DefaultParameterSetName: a "List" default would claim piped deployments before Name could select "Get".
+[Cmdlet(VerbsCommon.Get, "AzResourceGroupDeployment")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
 public class GetResourceGroupDeploymentCmdlet : PSCmdlet
 {
@@ -25,7 +26,6 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Position = 1, Mandatory = true, ValueFromPipelineByPropertyName = true)]
-    [Parameter(ParameterSetName = "List", Position = 1, Mandatory = false, ValueFromPipelineByPropertyName = true)]
     [Alias("DeploymentName")]
     public string? Name { get; set; }
 
@@ -69,9 +69,7 @@ public class GetResourceGroupDeploymentCmdlet : PSCmdlet
             parameters.Add("Profile", Profile!);
         }
 
-        // Name may arrive via pipeline after the default "List" set is already chosen.
-        var setName = ParameterSetName == "List" && parameters.ContainsKey("Name") ? "Get" : ParameterSetName;
-        var commandName = $"Get-AzResourceGroupDeployment_{setName}";
+        var commandName = $"Get-AzResourceGroupDeployment_{ParameterSetName}";
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

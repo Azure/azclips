@@ -17,11 +17,11 @@ Get a single resource group deployment by name, or list all deployments in a res
 
 ## SYNTAX
 
-### List (Default)
+### List
 
 ```
-Get-AzResourceGroupDeployment [-ResourceGroupName] <string> [[-Name] <string>]
- [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroupDeployment [-ResourceGroupName] <string> [-SubscriptionId <string>]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
@@ -115,12 +115,6 @@ ParameterSets:
 - Name: Get
   Position: 1
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
-  ValueFromRemainingArguments: false
-- Name: List
-  Position: 1
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
