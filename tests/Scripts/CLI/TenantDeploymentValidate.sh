@@ -77,7 +77,7 @@ OUTPUT="$(az deployment tenant validate --name "tenant-dep-validate-invalid-$RAN
 if [[ $? -eq 0 ]]; then
   fail "expected validate to fail for a constraint-violating template"
 else
-  assert_contains "$OUTPUT" "Tenant deployment validation failed" "invalid template error mentions validation failure"
+  assert_contains "$OUTPUT" "'env'" "invalid template error names the offending parameter"
 fi
 
 echo "== 3. invalid --validation-level is rejected =="

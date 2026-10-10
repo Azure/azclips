@@ -63,17 +63,40 @@ $basicTemplateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant
 
 $DebugPreference = 'Continue'
 
+# Like legacy, -WhatIf writes the formatted what-if text through ShouldProcess (host only, nothing on
+# the pipeline), so capture it with a transcript.
+function Invoke-WhatIfText([scriptblock]$Command) {
+    $transcript = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant-whatif-$([guid]::NewGuid()).txt"
+    Start-Transcript -Path $transcript -Force | Out-Null
+    try {
+        $output = & $Command
+    } finally {
+        Stop-Transcript | Out-Null
+    }
+    if ($null -ne $output) {
+        Add-Failure "-WhatIf unexpectedly wrote to the pipeline: $output"
+    }
+    $text = Get-Content $transcript -Raw
+    Remove-Item $transcript -ErrorAction SilentlyContinue
+    $text
+}
+
 Write-Host '== 1. happy path (empty template): preview with no predicted changes =='
 $whatIfName = "azclips-tenant-whatif-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
-$result = New-AzTenantDeployment -Location eastus -Name $whatIfName -TemplateFile $basicTemplateFile -WhatIf
-Assert-Equal 'empty-template what-if status' 'Succeeded' $result.Status
-Assert-Equal 'empty-template what-if change count' 0 $result.Properties.Changes.Count
+$text = Invoke-WhatIfText { New-AzTenantDeployment -Location eastus -Name $whatIfName -TemplateFile $basicTemplateFile -WhatIf }
+Assert-Equal 'empty-template what-if reports no change' $true ($text -match 'Resource changes: no change')
 try {
     $null = Get-AzTenantDeployment -Name $whatIfName -ErrorAction Stop
     Add-Failure "-WhatIf unexpectedly created a real deployment named '$whatIfName'"
 } catch {
     Write-Host "confirmed -WhatIf did not create '$whatIfName': $($_.Exception.Message)"
 }
+
+Write-Host '== 2. -Confirm -ProceedIfNoChange deploys without prompting when nothing changes =='
+$confirmName = "azclips-tenant-confirm-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+$result = New-AzTenantDeployment -Location eastus -Name $confirmName -TemplateFile $basicTemplateFile -Confirm -ProceedIfNoChange
+Assert-Equal '-Confirm -ProceedIfNoChange provisioning state' 'Succeeded' $result.ProvisioningState
+Remove-AzTenantDeployment -Name $confirmName -Confirm:$false
 
 if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
     Write-Host 'Skipping nested-create what-if cases: AZCLIPS_SUBSCRIPTION_ID not set.'
@@ -125,28 +148,30 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
         }
     }
 
-    Write-Host '== 2. -WhatIfResultFormat ResourceIdOnly: predicted changes carry resource ids only =='
-    $result = New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-idonly -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfResultFormat ResourceIdOnly -WhatIf
-    Assert-Equal 'resource-id-only status' 'Succeeded' $result.Status
-    Assert-Equal 'resource-id-only reported at least one change' $true ($result.Properties.Changes.Count -gt 0)
+    Write-Host '== 3. -WhatIfResultFormat ResourceIdOnly: still reports the predicted create =='
+    $text = Invoke-WhatIfText { New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-idonly -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfResultFormat ResourceIdOnly -WhatIf }
+    Assert-Equal 'resource-id-only reports a create' $true ($text -match 'to create')
 
-    Write-Host '== 3. -WhatIfExcludeChangeType Create: excludes the predicted "Create" change, leaving none =='
-    $result = New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-exclude -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfExcludeChangeType Create -WhatIf
-    Assert-Equal 'exclude-create status' 'Succeeded' $result.Status
-    Assert-Equal 'exclude-create change count' 0 $result.Properties.Changes.Count
+    Write-Host '== 4. -WhatIfExcludeChangeType Create: excludes the predicted "Create" change, leaving none =='
+    $text = Invoke-WhatIfText { New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-exclude -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -WhatIfExcludeChangeType Create -WhatIf }
+    Assert-Equal 'exclude-create reports no change' $true ($text -match 'Resource changes: no change')
 
-    Write-Host '== 4. -ValidationLevel ProviderNoRbac: previews without an RBAC permission check =='
-    $result = New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-norbac -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -ValidationLevel ProviderNoRbac -WhatIf
-    Assert-Equal 'no-rbac status' 'Succeeded' $result.Status
+    Write-Host '== 5. -ValidationLevel ProviderNoRbac: previews without an RBAC permission check =='
+    $text = Invoke-WhatIfText { New-AzTenantDeployment -Location WestUS -Name azclips-tenant-whatif-norbac -TemplateFile $nestedTemplateFile -TemplateParameterObject (New-NestedParameterObject) -ValidationLevel ProviderNoRbac -WhatIf }
+    Assert-Equal 'no-rbac reports a create' $true ($text -match 'to create')
+
+    Remove-Item $nestedTemplateFile -ErrorAction SilentlyContinue
 }
 
-Write-Host '== 5. negative: invalid -WhatIfResultFormat value (Foo) must be rejected =='
+Write-Host '== 6. negative: invalid -WhatIfResultFormat value (Foo) must be rejected =='
 try {
     New-AzTenantDeployment -Location eastus -Name azclips-tenant-whatif-rf-negative -TemplateFile $basicTemplateFile -WhatIfResultFormat Foo -WhatIf -ErrorAction Stop
     Add-Failure 'invalid -WhatIfResultFormat Foo did not throw'
 } catch {
-    Assert-Equal 'invalid -WhatIfResultFormat Foo error has the expected message' $true ($_.Exception.Message -match 'ResultFormat must be one of')
+    Assert-Equal 'invalid -WhatIfResultFormat Foo is rejected by ValidateSet' $true ($_.Exception.Message -match 'WhatIfResultFormat')
 }
+
+Remove-Item $basicTemplateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {
     throw "New-AzTenantDeployment -WhatIf smoke test finished with $($failures.Count) failure(s)."

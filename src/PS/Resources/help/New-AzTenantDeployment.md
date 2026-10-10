@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/08/2026
+ms.date: 10/10/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzTenantDeployment
 ---
@@ -13,43 +13,222 @@ title: New-AzTenantDeployment
 
 ## SYNOPSIS
 
-Create or preview an ARM or Bicep deployment at tenant scope.
+Create a deployment at tenant scope.
 
 ## SYNTAX
 
-### __AllParameterSets
+### ByTemplateFileWithNoParameters (Default)
 
 ```
-New-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateFile <string>]
- [-TemplateUri <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
- [-QueryString <string>] [-TemplateParameterFile <string>] [-TemplateParameterUri <string>]
- [-TemplateParameterObject <hashtable>] [-Parameter <string[]>] [-ValidationLevel <string>]
- [-Tag <hashtable>] [-DeploymentDebugLogLevel <string>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+New-AzTenantDeployment -Location <string> -TemplateFile <string> [-Name <string>]
+ [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
+ [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### ByTemplateObjectAndParameterObject
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
+ -TemplateObject <hashtable> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateFileAndParameterObject
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
+ -TemplateFile <string> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateUriAndParameterObject
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable> -TemplateUri <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateSpecResourceIdAndParamsObject
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterObject <hashtable>
+ -TemplateSpecId <string> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateObjectAndParameterFile
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterFile <string>
+ -TemplateObject <hashtable> [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateFileAndParameterFile
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateFile <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateUriAndParameterFile
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateUri <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateSpecResourceIdAndParams
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterFile <string> -TemplateSpecId <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByParameterFileWithNoTemplate
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterFile <string> [-Name <string>]
+ [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
+ [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### ByTemplateObjectAndParameterUri
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateObject <hashtable>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateFileAndParameterUri
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateFile <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateUriAndParameterUri
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateUri <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateSpecResourceIdAndParamsUri
+
+```
+New-AzTenantDeployment -Location <string> -TemplateParameterUri <string> -TemplateSpecId <string>
+ [-Name <string>] [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>]
+ [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob]
+ [-SkipTemplateParameterPrompt] [-QueryString <string>] [-ValidationLevel <string>] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ByTemplateObjectWithNoParameters
+
+```
+New-AzTenantDeployment -Location <string> -TemplateObject <hashtable> [-Name <string>]
+ [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
+ [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### ByTemplateUriWithNoParameters
+
+```
+New-AzTenantDeployment -Location <string> -TemplateUri <string> [-Name <string>]
+ [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
+ [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### ByTemplateSpecResourceId
+
+```
+New-AzTenantDeployment -Location <string> -TemplateSpecId <string> [-Name <string>]
+ [-DeploymentDebugLogLevel <string>] [-Tag <hashtable>] [-WhatIfResultFormat <string>]
+ [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-AsJob] [-SkipTemplateParameterPrompt]
+ [-QueryString <string>] [-ValidationLevel <string>] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has no aliases.
+
 ## DESCRIPTION
 
-Creates a tenant-scope deployment after validating the template. Supply exactly one template source. The deployment mode is Incremental. Use -WhatIf to run the ARM what-if operation without creating resources.
+Adds an Azure Resource Manager deployment at the current tenant scope, mirroring legacy `New-AzTenantDeployment`.
+Specify exactly one template source (`-TemplateFile` for ARM JSON or Bicep, `-TemplateUri`, `-TemplateSpecId`, or `-TemplateObject`) and optionally template parameters as a parameter file, parameter URI, parameter object, or dynamic template parameters (for example `-environment prod`).
+The template is validated before the deployment starts, the deployment runs in Incremental mode, and failed deployment operations are reported as errors while the final deployment is still returned.
+Use `-WhatIf` to preview the resource changes, or `-Confirm` to preview and confirm before deploying. Use `-AsJob` to run the deployment in the background.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Create a tenant deployment from a template file
 
-Create an empty tenant deployment from a local template.
+Create a deployment at tenant scope from a local template file and parameter file.
 
 ```powershell
-New-AzTenantDeployment -Location eastus -Name tenant-baseline -TemplateFile .\tenant.bicep
+New-AzTenantDeployment -Name tenantBaseline -Location eastus -TemplateFile ./tenant.json -TemplateParameterFile ./tenant.parameters.json
+```
+
+### Example 2: Create a tenant deployment from a Bicep file with a parameter object
+
+Template parameters can be passed as a hashtable.
+
+```powershell
+New-AzTenantDeployment -Location eastus -TemplateFile ./tenant.bicep -TemplateParameterObject @{ environment = 'prod' } -Tag @{ owner = 'platform' }
+```
+
+### Example 3: Preview a tenant deployment with What-If
+
+Show the predicted resource changes without deploying.
+
+```powershell
+New-AzTenantDeployment -Location eastus -TemplateFile ./tenant.json -WhatIf -WhatIfExcludeChangeType NoChange,Ignore
 ```
 
 ## PARAMETERS
 
 ### -AsJob
 
-Run the cmdlet in the background and return a job to track and control it.
+Run cmdlet in the background
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -92,7 +271,7 @@ HelpMessage: ''
 
 ### -DeploymentDebugLogLevel
 
-The deployment request or response debug detail level.
+The deployment debug log level.
 
 ```yaml
 Type: System.String
@@ -113,7 +292,7 @@ HelpMessage: ''
 
 ### -Location
 
-The location used to store tenant deployment metadata.
+The location to store deployment data.
 
 ```yaml
 Type: System.String
@@ -134,7 +313,7 @@ HelpMessage: ''
 
 ### -Name
 
-The tenant deployment name.
+The name of the deployment it's going to create. If not specified, defaults to the template file name when a template file is provided; defaults to the current time when a template object is provided, e.g. "20131223140835".
 
 ```yaml
 Type: System.String
@@ -154,12 +333,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Parameter
+### -Pre
 
-Inline template parameter overrides in KEY=VALUE form.
+When set, indicates that the cmdlet should use pre-release API versions when automatically determining which version to use.
 
 ```yaml
-Type: System.String[]
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -177,7 +356,7 @@ HelpMessage: ''
 
 ### -ProceedIfNoChange
 
-Skip confirmation when what-if reports no effective changes.
+Do not ask for confirmation if there is no changes in the What-If result. Applicable when the -Confirm switch is set.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -198,7 +377,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The saved AzClips profile to use.
+Specifies a saved profile to use instead of the active profile.
 
 ```yaml
 Type: System.String
@@ -219,7 +398,7 @@ HelpMessage: ''
 
 ### -QueryString
 
-The query string for a linked template or parameter URI.
+The query string (for example, a SAS token) to be used with the TemplateUri parameter. Would be used in case of linked templates
 
 ```yaml
 Type: System.String
@@ -238,9 +417,30 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -SkipTemplateParameterPrompt
+
+Skips the PowerShell dynamic parameter processing that checks if the provided template parameter contains all necessary parameters used by the template. This check would prompt the user to provide a value for the missing parameters, but providing the -SkipTemplateParameterPrompt will ignore this prompt and error out immediately if a parameter was found not to be bound in the template. For non-interactive scripts, -SkipTemplateParameterPrompt can be provided to provide a better error message in the case where not all required parameters are satisfied.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Tag
 
-Deployment tags.
+The tags to put on the deployment.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -261,7 +461,7 @@ HelpMessage: ''
 
 ### -TemplateFile
 
-Path to a local ARM JSON or Bicep template.
+Local path to the template file. Supported template file type: json and bicep.
 
 ```yaml
 Type: System.String
@@ -269,11 +469,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateFileAndParameterObject
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileAndParameterFile
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileAndParameterUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileWithNoParameters
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -282,7 +500,7 @@ HelpMessage: ''
 
 ### -TemplateObject
 
-An inline ARM template hashtable.
+A hash table which represents the template.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -290,11 +508,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateObjectAndParameterFile
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateObjectAndParameterObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateObjectAndParameterUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateObjectWithNoParameters
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -303,7 +539,7 @@ HelpMessage: ''
 
 ### -TemplateParameterFile
 
-Path to a local ARM JSON or Bicep parameter file.
+Parameter file to use for the template.
 
 ```yaml
 Type: System.String
@@ -311,11 +547,35 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateObjectAndParameterFile
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileAndParameterFile
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriAndParameterFile
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParams
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByParameterFileWithNoTemplate
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -324,7 +584,7 @@ HelpMessage: ''
 
 ### -TemplateParameterObject
 
-An inline template parameter hashtable.
+A hash table which represents the parameters.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -332,11 +592,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateObjectAndParameterObject
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileAndParameterObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriAndParameterObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParamsObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -345,7 +623,7 @@ HelpMessage: ''
 
 ### -TemplateParameterUri
 
-URI of a template parameter file.
+Uri to the template parameter file.
 
 ```yaml
 Type: System.String
@@ -353,11 +631,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateObjectAndParameterUri
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateFileAndParameterUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriAndParameterUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParamsUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -366,7 +662,7 @@ HelpMessage: ''
 
 ### -TemplateSpecId
 
-Resource ID of a Template Spec version.
+Resource ID of the templateSpec to be deployed.
 
 ```yaml
 Type: System.String
@@ -374,11 +670,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateSpecResourceId
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParamsUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParams
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateSpecResourceIdAndParamsObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -387,7 +701,7 @@ HelpMessage: ''
 
 ### -TemplateUri
 
-URI of an ARM template.
+Uri to the template file.
 
 ```yaml
 Type: System.String
@@ -395,11 +709,29 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ByTemplateUriAndParameterObject
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriAndParameterFile
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriAndParameterUri
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+- Name: ByTemplateUriWithNoParameters
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -408,7 +740,7 @@ HelpMessage: ''
 
 ### -ValidationLevel
 
-Validation level: Template, Provider, or ProviderNoRbac.
+Sets the validation level for validate/what-if. ValidationLevel can be Template(Skips provider validation), Provider(Performs full validation), or ProviderNoRbac(Performs full validation using RBAC read checks instead of RBAC write checks for provider validation).
 
 ```yaml
 Type: System.String
@@ -451,7 +783,7 @@ HelpMessage: ''
 
 ### -WhatIfExcludeChangeType
 
-What-if change types to exclude from output.
+Comma-separated resource change types to be excluded from What-If results. Applicable when the -WhatIf or -Confirm switch is set.
 
 ```yaml
 Type: System.String[]
@@ -472,7 +804,7 @@ HelpMessage: ''
 
 ### -WhatIfResultFormat
 
-What-if result format: FullResourcePayloads or ResourceIdOnly.
+The What-If result format. Applicable when the -WhatIf or -Confirm switch is set.
 
 ```yaml
 Type: System.String
@@ -500,21 +832,24 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### System.Collections.Hashtable
+
+You can pipe a template object or parameter object to this cmdlet by property name.
+
+### System.String
+
+You can pipe template and parameter file paths or URIs to this cmdlet by property name.
+
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
-Returns the tenant-scope deployment created by Azure Resource Manager.
-
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
-
-Returns the predicted resource changes when `-WhatIf` is true.
+Returns the tenant deployment, including its provisioning state, parameters, and outputs.
 
 ## NOTES
 
-Tenant deployments use API version 2025-04-01 and Incremental mode.
+Tenant deployments use API version 2025-04-01 and Incremental mode. Deploying at tenant scope requires permissions at the tenant root (`/`).
 
 ## RELATED LINKS
 
-
-- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
+- [Azure Resource Manager tenant deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-tenant)

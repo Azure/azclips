@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/08/2026
+ms.date: 10/10/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzTenantDeployment
 ---
@@ -13,52 +13,64 @@ title: Remove-AzTenantDeployment
 
 ## SYNOPSIS
 
-Remove a tenant deployment record.
+Removes a deployment at tenant scope and its history.
 
 ## SYNTAX
 
-### RemoveByName (Default)
+### RemoveByDeploymentName (Default)
 
 ```
-Remove-AzTenantDeployment [-Name] <string> [-PassThru] [-AsJob] [-Profile <string>] [-WhatIf]
+Remove-AzTenantDeployment [-Name] <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
-### RemoveById
+### RemoveByDeploymentId
 
 ```
-Remove-AzTenantDeployment -Id <string> [-PassThru] [-AsJob] [-Profile <string>] [-WhatIf] [-Confirm]
+Remove-AzTenantDeployment -Id <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-AsJob] [-Profile <string>]
+Remove-AzTenantDeployment -InputObject <PSDeployment> [-AsJob] [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has no aliases.
+
 ## DESCRIPTION
 
-Deletes the tenant deployment history record and its operations. It does not delete resources created by the deployment.
+Removes a deployment at the current tenant scope and all of its deployment operations, mirroring legacy `Remove-AzTenantDeployment`.
+Resources created by the deployment are not deleted.
+Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`. Use `-AsJob` to run the removal in the background.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Remove a tenant deployment by name
 
-Remove a tenant deployment record.
+Remove a deployment record at tenant scope.
 
 ```powershell
-Remove-AzTenantDeployment -Name tenant-rollout -PassThru
+Remove-AzTenantDeployment -Name tenantBaseline
+```
+
+### Example 2: Remove a tenant deployment from the pipeline
+
+Remove a deployment returned by Get-AzTenantDeployment and return True.
+
+```powershell
+Get-AzTenantDeployment -Name tenantBaseline | Remove-AzTenantDeployment -PassThru
 ```
 
 ## PARAMETERS
 
 ### -AsJob
 
-Run the cmdlet in the background and return a job to track and control it.
+Run cmdlet in the background
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -101,7 +113,7 @@ HelpMessage: ''
 
 ### -Id
 
-The full tenant deployment resource ID.
+The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
 
 ```yaml
 Type: System.String
@@ -111,7 +123,7 @@ Aliases:
 - DeploymentId
 - ResourceId
 ParameterSets:
-- Name: RemoveById
+- Name: RemoveByDeploymentId
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -124,10 +136,10 @@ HelpMessage: ''
 
 ### -InputObject
 
-A tenant deployment object received from the pipeline.
+The deployment object.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -145,7 +157,7 @@ HelpMessage: ''
 
 ### -Name
 
-The tenant deployment name.
+The name of the deployment.
 
 ```yaml
 Type: System.String
@@ -154,7 +166,7 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: RemoveByName
+- Name: RemoveByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
@@ -167,7 +179,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Return True after the operation succeeds.
+Returns `True` when the operation is requested. By default, this cmdlet does not generate any output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -188,7 +200,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The saved AzClips profile to use.
+Specifies a saved profile to use instead of the active profile.
 
 ```yaml
 Type: System.String
@@ -238,21 +250,20 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
-Deletes the tenant deployment history record and its operations. It does not delete resources created by the deployment.
+You can pipe a tenant deployment object to this cmdlet.
 
 ## OUTPUTS
 
 ### System.Boolean
 
-Deletes the tenant deployment history record and its operations. It does not delete resources created by the deployment.
+Returns `True` when `-PassThru` is specified. By default, this cmdlet does not generate any output.
 
 ## NOTES
 
-Tenant deployments use API version 2025-04-01 and Incremental mode.
+The cmdlet fails if the deployment does not exist.
 
 ## RELATED LINKS
 
-
-- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
+- [Azure Resource Manager tenant deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-tenant)

@@ -1,80 +1,111 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
-using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.ExtensionRuntime;
+using System.Text.Json.Nodes;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class WhatIfTenantDeploymentProcessor_Orchestrator
-    : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
+/// <summary>
+/// <c>az deployment tenant what-if</c> (legacy <c>_what_if_deploy_arm_template_at_tenant_scope_core</c>): POST whatIf in
+/// Incremental mode, raise on a template error (returned with HTTP 200), drop <c>--exclude-change-types</c>, then write
+/// the pretty-printed text, or the legacy flattened result with <c>--no-pretty-print</c>.
+/// </summary>
+public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
+    private static readonly string[] s_resultFormats = ["FullResourcePayloads", "ResourceIdOnly"];
+    private static readonly string[] s_changeTypes = ["Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"];
+
     public string? ResultFormat { get; set; }
 
     public string[]? ExcludeChangeTypes { get; set; }
 
+    /// <summary>CLI <c>--no-pretty-print</c>: write the JSON result instead of the formatted text.</summary>
+    public bool NoPrettyPrint { get; set; }
+
+    private string? _rawBody;
+
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        PrepareAndValidate();
-        WhatIfAtTenantScopeDeploymentsProcessor processor =
-            CreateExtendedProcessor<WhatIfAtTenantScopeDeploymentsProcessor>(p =>
-            {
-                p.DeploymentName = Name;
-                p.Body = BuildWhatIf(ResultFormat);
-            });
-        return await processor.SendAsync();
+        CheckExcludeChangeTypes(ExcludeChangeTypes);
+        ResolveName();
+        ScopedDeploymentWhatIf body = CreateWhatIfBody(Location, await BuildPropertiesAsync(), ResultFormat);
+        HttpResponseMessage response = await SendWhatIfAsync(body);
+        _rawBody = response.Content is null ? null : await response.Content.ReadAsStringAsync();
+        return response;
     }
 
-    public override async Task ProcessAsync()
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        try
+        if (body?.Error is { } error)
         {
-            using HttpResponseMessage response = await SendAsync();
-            if (response.Content is null)
-            {
-                return;
-            }
-
-            string rawBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(rawBody))
-            {
-                return;
-            }
-
-            WhatIfOperationResult result = JsonSerializer.Deserialize<WhatIfOperationResult>(rawBody, JsonOptions)
-                ?? throw new InvalidOperationException("Tenant deployment what-if returned an empty result.");
-            NewTenantDeploymentProcessor_Orchestrator.ThrowIfWhatIfFailed(result);
-            FilterChanges(result);
-            await WriteOutput(result);
+            throw new InvalidOperationException(BuildPreflightErrorMessage(error));
         }
-        finally
+        if (body is not null && ToCliResult(_rawBody, ExcludeChangeTypes) is { } result)
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            await WriteOutput(NoPrettyPrint ? result : TenantDeploymentWhatIfFormatter.Format(result, cli: true, TenantDeploymentWhatIfFormatter.CliColor()));
+        }
+        return true;
+    }
+
+    // Legacy argparse choices (get_enum_type, case-insensitive); the CLI parser only checks single string values.
+    internal static void CheckExcludeChangeTypes(string[]? types, string parameterName = "exclude-change-types")
+    {
+        foreach (string type in types ?? [])
+        {
+            if (!s_changeTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"Parameter '{parameterName}' value '{type}' is not allowed. Allowed values: {string.Join(", ", s_changeTypes)}");
+            }
         }
     }
 
-    internal void FilterChanges(WhatIfOperationResult result)
+    // Legacy _prepare_deployment_what_if_properties: always Incremental; result format defaults to FullResourcePayloads.
+    internal static ScopedDeploymentWhatIf CreateWhatIfBody(string location, DeploymentProperties properties, string? resultFormat) => new()
     {
-        if (ExcludeChangeTypes is not { Length: > 0 })
+        Location = location,
+        Properties = new DeploymentWhatIfProperties
         {
-            return;
-        }
+            Mode = DeploymentMode.Incremental,
+            Template = properties.Template,
+            TemplateLink = properties.TemplateLink,
+            Parameters = properties.Parameters,
+            ParametersLink = properties.ParametersLink,
+            ValidationLevel = properties.ValidationLevel,
+            WhatIfSettings = new DeploymentWhatIfSettings
+            {
+                ResultFormat = s_resultFormats.FirstOrDefault(f => f.Equals(resultFormat, StringComparison.OrdinalIgnoreCase)) ?? s_resultFormats[0],
+            },
+        },
+    };
 
-        HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
-        if (result.Properties?.Changes is not null)
+    // Built from the raw body because the generated model drops change fields (identifiers, extension, ...).
+    // Legacy CLI (SDK WhatIfOperationResult) flattens "properties" into the top level.
+    internal static JsonObject? ToCliResult(string? rawBody, string[]? excludeChangeTypes)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody) || JsonNode.Parse(rawBody) is not JsonObject raw)
         {
-            result.Properties.Changes = result.Properties.Changes
-                .Where(change => change.ChangeType is null || !excluded.Contains(change.ChangeType))
-                .ToList();
+            return null;
         }
-        if (result.Properties?.PotentialChanges is not null)
+        JsonNode? properties = raw["properties"];
+        JsonObject result = new()
         {
-            result.Properties.PotentialChanges = result.Properties.PotentialChanges
-                .Where(change => change.ChangeType is null || !excluded.Contains(change.ChangeType))
-                .ToList();
+            ["changes"] = properties?["changes"]?.DeepClone(),
+            ["diagnostics"] = properties?["diagnostics"]?.DeepClone(),
+            ["error"] = raw["error"]?.DeepClone(),
+            ["potentialChanges"] = properties?["potentialChanges"]?.DeepClone(),
+            ["status"] = raw["status"]?.DeepClone(),
+        };
+        if (excludeChangeTypes is { Length: > 0 } && result["changes"] is JsonArray changes)
+        {
+            foreach (JsonNode? change in changes.ToList())
+            {
+                if (excludeChangeTypes.Contains((string?)change?["changeType"], StringComparer.OrdinalIgnoreCase))
+                {
+                    changes.Remove(change);
+                }
+            }
         }
+        return result;
     }
 }

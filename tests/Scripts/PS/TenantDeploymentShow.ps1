@@ -50,14 +50,15 @@ $DebugPreference = 'Continue'
 $name = "azclips-tenant-show-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
-Write-Host '== 1. Get-AzTenantDeployment -Name =='
+Write-Host '== 1. Get-AzTenantDeployment -Name returns PSDeployment =='
 $shown = Get-AzTenantDeployment -Name $name
-Assert-Equal 'get name' $name $shown.Name
-Assert-Equal 'get provisioning state' 'Succeeded' $shown.Properties.ProvisioningState
+Assert-Equal 'get output type' 'PSDeployment' $shown.GetType().Name
+Assert-Equal 'get name' $name $shown.DeploymentName
+Assert-Equal 'get provisioning state' 'Succeeded' $shown.ProvisioningState
 
 Write-Host '== 2. Get-AzTenantDeployment -Id (resource-id addressing) =='
 $shownById = Get-AzTenantDeployment -Id $shown.Id
-Assert-Equal 'get by id name' $name $shownById.Name
+Assert-Equal 'get by id name' $name $shownById.DeploymentName
 
 Write-Host '== 3. negative: show a deployment name that does not exist must be rejected =='
 try {

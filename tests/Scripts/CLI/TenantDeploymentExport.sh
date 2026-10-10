@@ -28,6 +28,14 @@ assert_contains() {
   fi
 }
 
+CREATED=()
+cleanup() {
+  for n in "${CREATED[@]}"; do
+    az deployment tenant delete --name "$n" >/dev/null 2>&1 || echo "WARN: could not delete deployment '$n'"
+  done
+}
+trap cleanup EXIT
+
 LOCATION="${AZCLIPS_LOCATION:-westus}"
 TEMPLATE_FILE="$(mktemp --suffix=.json)"
 cat > "$TEMPLATE_FILE" <<'JSON'
@@ -40,6 +48,7 @@ cat > "$TEMPLATE_FILE" <<'JSON'
 JSON
 
 NAME="tenant-dep-export-$RANDOM"
+CREATED+=("$NAME")
 az deployment tenant create --name "$NAME" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --debug >/dev/null 2>&1
 if [[ $? -ne 0 ]]; then
   fail "setup: could not create deployment '$NAME'"

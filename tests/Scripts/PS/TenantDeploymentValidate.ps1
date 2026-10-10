@@ -4,9 +4,8 @@
 # Tenant scope deployment validate - PowerShell (Test-AzTenantDeployment)
 # Equivalent of: Test-AzTenantDeployment
 #
-# Note: Test-AzTenantDeployment never throws on an ARM validation failure. On success it returns
-# $null (output suppressed); on failure it returns an object whose .Error property holds the ARM
-# error. Assertions below reflect that shape rather than try/catch.
+# Note: like legacy, Test-AzTenantDeployment never throws on an ARM validation failure. On success it
+# returns nothing; on failure it returns a PSResourceManagerError (Code/Message/Target/Details).
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes the
@@ -86,17 +85,15 @@ try {
 } catch {
     Add-Failure "invalid template should not throw, but threw: $($_.Exception.Message)"
 }
-# ARM has been observed to report deployment-validation errors either at the top-level .Error or
-# nested under .Properties.Error, depending on when the error is detected; check both.
-$validationError = $result.Error
-if ($null -eq $validationError) {
-    $validationError = $result.Properties.Error
-}
-Assert-Equal 'invalid template returned a non-null result' $true ($null -ne $result)
-Assert-Equal 'invalid template reported a populated .Error' $true ($null -ne $validationError)
-if ($null -ne $validationError) {
-    Write-Host "invalid template .Error: $($validationError.Code): $($validationError.Message)"
-}
+Assert-Equal 'invalid template returned a PSResourceManagerError' 'PSResourceManagerError' $result.GetType().Name
+Assert-Equal 'invalid template reported an error code' $true (-not [string]::IsNullOrEmpty($result.Code))
+Write-Host "invalid template error: $($result.Code): $($result.Message)"
+
+Write-Host '== 3. -SuppressDiagnostics still validates successfully =='
+$result = Test-AzTenantDeployment -Location WestUS -TemplateFile $templateFile -SuppressDiagnostics
+Assert-Equal 'suppress-diagnostics validate returned $null' $true ($null -eq $result)
+
+Remove-Item $templateFile, $invalidTemplateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {
     throw "Test-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."

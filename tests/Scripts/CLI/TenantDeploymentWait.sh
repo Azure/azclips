@@ -5,7 +5,8 @@
 #   1. --exists returns immediately for an already-succeeded deployment.
 #   2. --updated returns once provisioning has succeeded.
 #   3. --custom evaluates a JMESPath expression against the deployment.
-#   4. Waiting on a nonexistent deployment times out.
+#   4. Waiting on a nonexistent deployment times out and returns {} (exit 0), like legacy.
+#   5. Omitting every wait condition is rejected.
 #
 # Prereqs: build the solution first with dotnet build, then sign in.
 #
@@ -23,6 +24,14 @@ fail() {
   FAILURES=$((FAILURES + 1))
 }
 
+CREATED=()
+cleanup() {
+  for n in "${CREATED[@]}"; do
+    az deployment tenant delete --name "$n" >/dev/null 2>&1 || echo "WARN: could not delete deployment '$n'"
+  done
+}
+trap cleanup EXIT
+
 LOCATION="${AZCLIPS_LOCATION:-westus}"
 TEMPLATE_FILE="$(mktemp --suffix=.json)"
 cat > "$TEMPLATE_FILE" <<'JSON'
@@ -35,6 +44,7 @@ cat > "$TEMPLATE_FILE" <<'JSON'
 JSON
 
 NAME="tenant-dep-wait-$RANDOM"
+CREATED+=("$NAME")
 az deployment tenant create --name "$NAME" --location "$LOCATION" --template-file "$TEMPLATE_FILE" --debug >/dev/null 2>&1
 if [[ $? -ne 0 ]]; then
   fail "setup: could not create deployment '$NAME'"
@@ -58,14 +68,20 @@ if [[ $? -ne 0 ]]; then
   fail "wait --custom failed for a matching JMESPath expression"
 fi
 
-echo "== 4. waiting on a nonexistent deployment times out =="
-OUTPUT="$(az deployment tenant wait --name "tenant-dep-wait-missing-$RANDOM" --exists --interval 2 --timeout 5 --debug 2>&1)"
+echo "== 4. waiting on a nonexistent deployment times out quietly (legacy returns {} with exit 0) =="
+OUTPUT="$(az deployment tenant wait --name "tenant-dep-wait-missing-$RANDOM" --exists --interval 2 --timeout 5 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "expected wait --exists timeout to exit 0 like legacy, got '$OUTPUT'"
+elif [[ "$OUTPUT" != *"{}"* ]]; then
+  fail "expected timeout output to be '{}', got '$OUTPUT'"
+fi
+
+echo "== 5. no wait condition is rejected =="
+OUTPUT="$(az deployment tenant wait --name "$NAME" 2>&1)"
 if [[ $? -eq 0 ]]; then
-  fail "expected wait --exists to time out for a nonexistent deployment"
-else
-  if [[ "$OUTPUT" != *"Timed out"* ]]; then
-    fail "expected timeout error to mention 'Timed out', got '$OUTPUT'"
-  fi
+  fail "expected wait without a condition to fail"
+elif [[ "$OUTPUT" != *"incorrect usage"* ]]; then
+  fail "expected 'incorrect usage' error, got '$OUTPUT'"
 fi
 
 rm -f "$TEMPLATE_FILE"

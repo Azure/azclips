@@ -3,22 +3,28 @@
 
 using System.Net;
 using System.Text.Json;
-using DevLab.JmesPath;
+using System.Text.Json.Nodes;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class WaitTenantDeploymentProcessor_Orchestrator : ResourcesProcessorBase<object, object>
+/// <summary>
+/// <c>az deployment tenant wait</c>: polls GET until the condition is met (legacy CLI generic wait).
+/// A 404 is read directly from the pipeline so an expected "not found" is not reported as a failure.
+/// </summary>
+public class WaitTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploymentsProcessor
 {
-    public string Name { get; set; } = string.Empty;
+    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: false);
 
     public bool Created { get; set; }
+
+    public bool Updated { get; set; }
 
     public bool Deleted { get; set; }
 
     public bool Exists { get; set; }
-
-    public bool Updated { get; set; }
 
     public string? Custom { get; set; }
 
@@ -28,94 +34,89 @@ public class WaitTenantDeploymentProcessor_Orchestrator : ResourcesProcessorBase
 
     public override async Task ProcessAsync()
     {
-        int conditions = (Created ? 1 : 0) + (Deleted ? 1 : 0) + (Exists ? 1 : 0)
-            + (Updated ? 1 : 0) + (string.IsNullOrWhiteSpace(Custom) ? 0 : 1);
-        if (conditions != 1)
+        if (!(Created || Updated || Deleted || Exists || !string.IsNullOrEmpty(Custom)))
         {
-            throw new ArgumentException("Specify exactly one wait condition: Created, Deleted, Exists, Updated, or Custom.");
-        }
-        if (Interval <= 0 || Timeout <= 0)
-        {
-            throw new ArgumentException("Interval and Timeout must be positive.");
+            throw new ArgumentException("incorrect usage: --created | --updated | --deleted | --exists | --custom JMESPATH");
         }
 
-        DateTime deadline = DateTime.UtcNow.AddSeconds(Timeout);
-        while (DateTime.UtcNow < deadline)
+        if (Interval == 0)
         {
-            try
+            throw new ArgumentException("range() arg 3 must not be zero");
+        }
+
+        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        try
+        {
+            // Legacy: for _ in range(0, timeout, interval).
+            for (int elapsed = 0; Interval > 0 && elapsed < Timeout; elapsed += Interval)
             {
-                GetAtTenantScopeDeploymentsProcessor get =
-                    CreateExtendedProcessor<GetAtTenantScopeDeploymentsProcessor>(p => p.DeploymentName = Name);
-                using HttpResponseMessage response = await get.SendAsync();
-                string rawBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
-                DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(rawBody, JsonOptions);
-                if (Matches(deployment, rawBody))
-                {
-                    if (deployment is not null)
-                    {
-                        await WriteOutput(deployment);
-                    }
-                    return;
-                }
-            }
-            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                if (Deleted)
+                if (await IsConditionMetAsync())
                 {
                     return;
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(Interval), Publisher.Token);
             }
 
-            TimeSpan remaining = deadline - DateTime.UtcNow;
-            if (remaining <= TimeSpan.Zero)
-            {
-                break;
-            }
-            await Task.Delay(TimeSpan.FromSeconds(Math.Min(Interval, remaining.TotalSeconds)), Publisher.Token);
+            // Legacy returns (not raises) CLIError on timeout, which serializes to {} with exit code 0.
+            await WriteOutput(new SerializedJson("{}"));
         }
-
-        throw new TimeoutException($"Timed out waiting for tenant deployment '{Name}'.");
+        finally
+        {
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+        }
     }
 
-    private bool Matches(DeploymentExtended? deployment, string rawBody)
+    private async Task<bool> IsConditionMetAsync()
     {
-        if (deployment is null)
+        using HttpRequestMessage request = await CreateRequestMessage();
+        using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
         {
+            if (Deleted)
+            {
+                return true;
+            }
+
+            if (!(Created || Exists || !string.IsNullOrEmpty(Custom)))
+            {
+                await response.EnsureSuccessAsync(Publisher);
+            }
+
             return false;
         }
+
+        await response.EnsureSuccessAsync(Publisher);
         if (Exists)
         {
             return true;
         }
-        if (Created || Updated)
+
+        string json = await response.Content.ReadAsStringAsync();
+        DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(json, JsonOptions);
+        string? state = deployment?.Properties?.ProvisioningState;
+        if (string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
         {
-            return string.Equals(deployment.Properties?.ProvisioningState, "Succeeded", StringComparison.OrdinalIgnoreCase);
+            throw new InvalidOperationException("The operation failed");
         }
-        if (!string.IsNullOrWhiteSpace(Custom))
-        {
-            // Custom conditions are evaluated as real JMESPath expressions against the raw
-            // deployment JSON (e.g. "properties.provisioningState=='Succeeded'"), matching
-            // `az deployment tenant wait --custom` (custom_wait_command), instead of only
-            // recognizing a single hardcoded "properties.provisioningState==<value>" literal.
-            string result;
-            try
-            {
-                result = new JmesPath().Transform(rawBody, Custom);
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Custom must be a valid JMESPath expression: {ex.Message}", ex);
-            }
-            using JsonDocument document = JsonDocument.Parse(result);
-            return document.RootElement.ValueKind switch
-            {
-                JsonValueKind.Null or JsonValueKind.False => false,
-                JsonValueKind.String => document.RootElement.GetString()?.Length > 0,
-                JsonValueKind.Number => document.RootElement.TryGetDouble(out double number) && number != 0,
-                JsonValueKind.Array or JsonValueKind.Object => document.RootElement.GetRawText() is not "[]" and not "{}",
-                _ => true,
-            };
-        }
-        return false;
+
+        return ((Created || Updated) && string.Equals(state, "Succeeded", StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(Custom) && IsTruthy(JsonNode.Parse(s_jmesPath.Transform(json, Custom))));
     }
+
+    private static readonly DevLab.JmesPath.JmesPath s_jmesPath = new();
+
+    // Python bool() semantics used by legacy verify_property.
+    private static bool IsTruthy(JsonNode? node) => node switch
+    {
+        null => false,
+        JsonArray array => array.Count > 0,
+        JsonObject obj => obj.Count > 0,
+        JsonValue value when value.GetValueKind() == JsonValueKind.String => value.GetValue<string>().Length > 0,
+        JsonValue value when value.GetValueKind() == JsonValueKind.Number => value.GetValue<double>() != 0,
+        JsonValue value => value.GetValueKind() == JsonValueKind.True,
+        _ => true,
+    };
 }

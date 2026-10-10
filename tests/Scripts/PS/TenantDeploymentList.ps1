@@ -54,8 +54,10 @@ $name = "azclips-tenant-list-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmm
 New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
 
 $list = Get-AzTenantDeployment
-$match = $list | Where-Object { $_.Name -eq $name }
+$match = $list | Where-Object { $_.DeploymentName -eq $name }
 Assert-Equal 'list contains the created deployment' $true ($null -ne $match)
+Remove-AzTenantDeployment -Name $name -Confirm:$false
+Remove-Item $templateFile -ErrorAction SilentlyContinue
 
 # Note: unlike management-group scope, Get-AzTenantDeployment (list) has no scope-id parameter at
 # all, so there is no "list against a scope that does not exist" negative case to exercise here.

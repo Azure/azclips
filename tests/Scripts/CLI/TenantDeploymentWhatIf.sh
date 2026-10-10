@@ -2,10 +2,10 @@
 # Smoke test for `az deployment tenant what-if` through the built CLI.
 #
 # Steps:
-#   1. Happy path (empty template): preview with no predicted changes.
+#   1. Happy path (empty template): pretty-printed preview reports "no change".
 #   2. Nested create (a nested deployment that creates a resource group under a target
-#      subscription): what-if reports a Create change.
-#   3. --exclude-change-types Create filters that Create change out of the preview.
+#      subscription): what-if reports a Create change (pretty text and --no-pretty-print JSON).
+#   3. --exclude-change-types Create filters that Create change out of the JSON result.
 #   4. Invalid --result-format is rejected.
 #
 # What-if is READ-ONLY: it predicts the changes a template would make and never creates
@@ -94,6 +94,8 @@ echo "== 1. happy path (empty template): preview with no predicted changes =="
 OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --debug 2>&1)"
 if [[ $? -ne 0 ]]; then
   fail "happy path what-if failed: $OUTPUT"
+else
+  assert_contains "$OUTPUT" "Resource changes: no change." "pretty-printed what-if summary"
 fi
 
 echo "== 2. nested create: what-if reports a Create change =="
@@ -101,11 +103,17 @@ OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM"
 if [[ $? -ne 0 ]]; then
   fail "nested create what-if failed: $OUTPUT"
 else
-  assert_contains "$OUTPUT" "\"changeType\": \"Create\"" "nested create what-if reports a Create change"
+  assert_contains "$OUTPUT" "to create" "pretty-printed what-if reports a Create change"
+fi
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --no-pretty-print --debug 2>&1)"
+if [[ $? -ne 0 ]]; then
+  fail "nested create what-if --no-pretty-print failed: $OUTPUT"
+else
+  assert_contains "$OUTPUT" "\"changeType\": \"Create\"" "--no-pretty-print returns the raw Create change"
 fi
 
 echo "== 3. --exclude-change-types Create filters the Create change out =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-exclude-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --exclude-change-types Create --debug 2>&1)"
+OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-exclude-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --exclude-change-types Create --no-pretty-print --debug 2>&1)"
 if [[ $? -ne 0 ]]; then
   fail "exclude-change-types what-if failed: $OUTPUT"
 else

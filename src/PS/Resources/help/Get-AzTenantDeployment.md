@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/08/2026
+ms.date: 10/10/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzTenantDeployment
 ---
@@ -13,23 +13,17 @@ title: Get-AzTenantDeployment
 
 ## SYNOPSIS
 
-Get one or more tenant-scope deployments.
+Get deployments at tenant scope.
 
 ## SYNTAX
 
-### List (Default)
+### GetByDeploymentName (Default)
 
 ```
-Get-AzTenantDeployment [-Profile <string>] [<CommonParameters>]
+Get-AzTenantDeployment [[-Name] <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
-### GetByName
-
-```
-Get-AzTenantDeployment [-Name] <string> [-Profile <string>] [<CommonParameters>]
-```
-
-### GetById
+### GetByDeploymentId
 
 ```
 Get-AzTenantDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
@@ -37,25 +31,44 @@ Get-AzTenantDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
 
 ## ALIASES
 
+This cmdlet has no aliases.
+
 ## DESCRIPTION
 
-Gets a tenant deployment by name or resource ID. Omit both to list all tenant deployments; list output follows ARM pagination.
+Gets a deployment at the current tenant scope by name or resource ID, mirroring legacy `Get-AzTenantDeployment`.
+Omit `-Name` and `-Id` to list all deployments at tenant scope.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Get all tenant deployments
 
-List tenant deployments.
+List every deployment at the current tenant scope.
 
 ```powershell
 Get-AzTenantDeployment
+```
+
+### Example 2: Get a tenant deployment by name
+
+Get a single deployment at tenant scope.
+
+```powershell
+Get-AzTenantDeployment -Name tenantBaseline
+```
+
+### Example 3: Get a tenant deployment by resource ID
+
+Get a deployment by its fully qualified resource ID.
+
+```powershell
+Get-AzTenantDeployment -Id /providers/Microsoft.Resources/deployments/tenantBaseline
 ```
 
 ## PARAMETERS
 
 ### -Id
 
-The full tenant deployment resource ID.
+The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
 
 ```yaml
 Type: System.String
@@ -65,7 +78,7 @@ Aliases:
 - DeploymentId
 - ResourceId
 ParameterSets:
-- Name: GetById
+- Name: GetByDeploymentId
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -78,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-The tenant deployment name.
+The name of deployment.
 
 ```yaml
 Type: System.String
@@ -87,9 +100,9 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: GetByName
+- Name: GetByDeploymentName
   Position: 0
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -100,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The saved AzClips profile to use.
+Specifies a saved profile to use instead of the active profile.
 
 ```yaml
 Type: System.String
@@ -130,15 +143,14 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
 
-Gets a tenant deployment by name or resource ID. Omit both to list all tenant deployments; list output follows ARM pagination.
+Returns the tenant deployment or deployments.
 
 ## NOTES
 
-Tenant deployments use API version 2025-04-01 and Incremental mode.
+Tenant deployments use API version 2025-04-01.
 
 ## RELATED LINKS
 
-
-- [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if)
+- [Azure Resource Manager tenant deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-tenant)

@@ -4,13 +4,9 @@
 # Tenant scope deployment stop - PowerShell (Stop-AzTenantDeployment)
 # Equivalent of: Stop-AzTenantDeployment
 #
-# AzClips has no -AsJob/-NoWait on New-AzTenantDeployment, so a deployment always finishes
-# synchronously and can never be caught mid-flight; the only cases reachable here are the
-# already-succeeded and nonexistent-name rejection guards.
-#
-# Unlike management-group scope, StopTenantDeploymentProcessor_Orchestrator has no local
-# provisioning-state precheck: it forwards directly to ARM's cancel operation. So the exact
-# error text below is ARM's own and is not asserted; only that the call fails is checked.
+# A deployment always finishes in seconds for an empty template, so a mid-flight cancel is too
+# racy to assert; the cases below cover the legacy local prechecks (no running deployment / no
+# deployment), whose messages are asserted.
 #
 # Optional:
 #   AZCLIPS_TENANT_ID - tenant to sign in with before running commands; if unset, assumes
@@ -63,7 +59,7 @@ try {
     Stop-AzTenantDeployment -Name $name -ErrorAction Stop
 } catch {
     $threw = $true
-    Write-Host "stop of an already-succeeded deployment failed as expected: $($_.Exception.Message)"
+    Assert-Equal 'stop of a succeeded deployment has the legacy message' $true ($_.Exception.Message -match 'There is no running deployment called')
 }
 Assert-Equal 'stop of an already-succeeded deployment was rejected' $true $threw
 Remove-AzTenantDeployment -Name $name -Confirm:$false
@@ -74,9 +70,11 @@ try {
     Stop-AzTenantDeployment -Name azclips-tenant-stop-does-not-exist -ErrorAction Stop
 } catch {
     $threw = $true
-    Write-Host "stop of a nonexistent deployment failed as expected: $($_.Exception.Message)"
+    Assert-Equal 'stop of a missing deployment has the legacy message' $true ($_.Exception.Message -match 'There is no deployment called')
 }
 Assert-Equal 'stop of a nonexistent deployment was rejected' $true $threw
+
+Remove-Item $templateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {
     throw "Stop-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."

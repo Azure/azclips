@@ -34,7 +34,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         public static string BuildParams(string bicepParamFilePath) =>
             Run("build-params", bicepParamFilePath);
 
-        private static string Run(string command, string filePath)
+        /// <summary>
+        /// Legacy CLI <c>_build_bicepparam_file</c>: optional <c>--bicep-file</c> and inline overrides passed
+        /// through the <c>BICEP_PARAMETERS_OVERRIDES</c> environment variable.
+        /// </summary>
+        public static string BuildParams(string bicepParamFilePath, string? bicepFilePath, string? overridesJson) =>
+            Run("build-params", bicepParamFilePath, bicepFilePath, overridesJson);
+
+        private static string Run(string command, string filePath, string? bicepFilePath = null, string? overridesJson = null)
         {
             string executable = LocateBicepExecutable();
 
@@ -53,7 +60,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             // paths with spaces are handled safely and there is no shell interpolation / injection.
             startInfo.ArgumentList.Add(command);
             startInfo.ArgumentList.Add(filePath);
+            if (bicepFilePath is not null)
+            {
+                startInfo.ArgumentList.Add("--bicep-file");
+                startInfo.ArgumentList.Add(bicepFilePath);
+            }
             startInfo.ArgumentList.Add("--stdout");
+            if (overridesJson is not null)
+            {
+                startInfo.Environment["BICEP_PARAMETERS_OVERRIDES"] = overridesJson;
+            }
 
             using Process process = new Process { StartInfo = startInfo };
 

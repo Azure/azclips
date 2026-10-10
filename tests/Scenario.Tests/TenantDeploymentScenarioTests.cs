@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
 using Tests.Recording;
 
@@ -81,25 +82,25 @@ public class TenantDeploymentScenarioTests
         {
             File.WriteAllText(template, JsonSerializer.Serialize(s_template));
 
-            Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
+            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "validate",
                 "--location", Location,
                 "--name", DeploymentName,
                 "--template-file", template)));
 
-            host.RunCli(
+            Assert.Contains("Resource changes: no change.", Assert.IsType<string>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "what-if",
                 "--location", Location,
                 "--name", DeploymentName,
-                "--template-file", template);
+                "--template-file", template))));
 
-            Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
+            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
                 "deployment", "tenant", "create",
                 "--location", Location,
                 "--name", DeploymentName,
                 "--template-file", template)));
 
-            Assert.Single(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
+            Assert.Empty(host.RunCli("deployment", "tenant", "wait", "--name", DeploymentName, "--exists"));
             Assert.IsType<DeploymentExtended>(Assert.Single(
                 host.RunCli("deployment", "tenant", "show", "--name", DeploymentName)));
             Assert.NotEmpty(host.RunCli("deployment", "tenant", "list"));
@@ -129,10 +130,10 @@ public class TenantDeploymentScenarioTests
         {
             ["Tag"] = new Dictionary<string, string> { ["scenario"] = "tenant" },
         };
-        Assert.IsType<DeploymentExtended>(Assert.Single(
+        Assert.IsType<PSDeployment>(Assert.Single(
             host.RunPowerShell("New-AzTenantDeployment", createBody)));
 
-        Assert.IsType<DeploymentExtended>(Assert.Single(
+        Assert.IsType<PSDeployment>(Assert.Single(
             host.RunPowerShell(
                 "Get-AzTenantDeployment_Get",
                 new Dictionary<string, object> { ["Name"] = DeploymentName })));
@@ -168,7 +169,7 @@ public class TenantDeploymentScenarioTests
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/whatIf", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult(Json("""{"status":"Succeeded","changes":[]}"""));
+                return Task.FromResult(Json("""{"status":"Succeeded","properties":{"changes":[]}}"""));
             }
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/exportTemplate", StringComparison.OrdinalIgnoreCase))
@@ -179,6 +180,16 @@ public class TenantDeploymentScenarioTests
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+            }
+
+            if (request.Method == HttpMethod.Get && path.EndsWith("/operations", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Json("""{"value":[]}"""));
+            }
+
+            if (request.Method == HttpMethod.Head)
+            {
+                return Task.FromResult(new HttpResponseMessage(_deleted ? HttpStatusCode.NotFound : HttpStatusCode.NoContent));
             }
 
             if (request.Method == HttpMethod.Put)

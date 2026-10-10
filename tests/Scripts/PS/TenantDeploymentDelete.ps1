@@ -47,10 +47,11 @@ $templateFile = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-tenant-temp
 
 $DebugPreference = 'Continue'
 
-Write-Host '== 1. Remove-AzTenantDeployment -Name =='
+Write-Host '== 1. Remove-AzTenantDeployment -Name -PassThru returns $true =='
 $name = "azclips-tenant-delete-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
-Remove-AzTenantDeployment -Name $name -Confirm:$false
+$removed = Remove-AzTenantDeployment -Name $name -PassThru -Confirm:$false
+Assert-Equal 'remove -PassThru output' $true $removed
 try {
     $null = Get-AzTenantDeployment -Name $name -ErrorAction Stop
     Add-Failure "get still finds '$name' after remove"
@@ -58,10 +59,11 @@ try {
     Assert-Equal 'get after remove error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
 }
 
-Write-Host '== 2. Remove-AzTenantDeployment -Id (resource-id addressing) =='
+Write-Host '== 2. Remove-AzTenantDeployment -Id (resource-id addressing) writes nothing without -PassThru =='
 $name = "azclips-tenant-delete-id-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
 $created = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile
-Remove-AzTenantDeployment -Id $created.Id -Confirm:$false
+$removed = Remove-AzTenantDeployment -Id $created.Id -Confirm:$false
+Assert-Equal 'remove without -PassThru writes nothing' $true ($null -eq $removed)
 try {
     $null = Get-AzTenantDeployment -Name $name -ErrorAction Stop
     Add-Failure "get still finds '$name' after remove by id"
@@ -69,17 +71,25 @@ try {
     Assert-Equal 'get after remove by id error mentions NotFound' $true ($_.Exception.Message -match 'NotFound|not found')
 }
 
-Write-Host '== 3. removing a deployment name that does not exist succeeds (ARM DELETE is idempotent) =='
-# Expected result: no error. Remove-AzTenantDeployment maps directly to an ARM DELETE, which
-# returns success whether or not the deployment currently exists.
+Write-Host '== 3. Get-AzTenantDeployment | Remove-AzTenantDeployment -AsJob (pipeline + job) =='
+$name = "azclips-tenant-delete-job-$((Get-Date).ToUniversalTime().ToString('yyMMddHHmmss'))"
+New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile | Out-Null
+$job = Get-AzTenantDeployment -Name $name | Remove-AzTenantDeployment -AsJob -PassThru -Confirm:$false
+$removed = $job | Wait-Job | Receive-Job
+Assert-Equal 'remove job state' 'Completed' $job.State
+Assert-Equal 'remove job -PassThru output' $true $removed
+
+Write-Host '== 4. negative: removing a deployment that does not exist is rejected (legacy precheck) =='
 $threw = $false
 try {
     Remove-AzTenantDeployment -Name azclips-tenant-remove-does-not-exist -Confirm:$false -ErrorAction Stop
 } catch {
     $threw = $true
-    Write-Host "remove of a nonexistent deployment threw: $($_.Exception.Message)"
+    Assert-Equal 'remove of a missing deployment has the legacy message' $true ($_.Exception.Message -match "doesn't exist in the current tenant")
 }
-Assert-Equal 'remove of a nonexistent deployment completed without error' $false $threw
+Assert-Equal 'remove of a nonexistent deployment was rejected' $true $threw
+
+Remove-Item $templateFile -ErrorAction SilentlyContinue
 
 if ($failures.Count -gt 0) {
     throw "Remove-AzTenantDeployment smoke test finished with $($failures.Count) failure(s)."

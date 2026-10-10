@@ -25,17 +25,67 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         // Key/value pairs that represent deployment output.
         public object? Outputs { get; set; }
 
-        // The hash produced for the template.
-        public string? TemplateHash { get; set; }
+        // The list of resource providers needed for the deployment.
+        public object? Providers { get; set; }
+
+        // The list of deployment dependencies.
+        public object? Dependencies { get; set; }
+
+        // The URI referencing the template.
+        public TemplateLink? TemplateLink { get; set; }
+
+        // Deployment parameters.
+        public object? Parameters { get; set; }
+
+        // The URI referencing the parameters.
+        public ParametersLink? ParametersLink { get; set; }
+
+        // The extensions used in this deployment.
+        public object? Extensions { get; set; }
 
         // The deployment mode. Incremental or Complete.
         public DeploymentMode? Mode { get; set; }
 
+        // The debug setting of the deployment.
+        public DebugSetting? DebugSetting { get; set; }
+
+        // The deployment on error behavior.
+        public OnErrorDeploymentExtended? OnErrorDeployment { get; set; }
+
+        // The hash produced for the template.
+        public string? TemplateHash { get; set; }
+
         // Array of provisioned resources.
         public List<ResourceReference>? OutputResources { get; set; }
 
+        // Array of validated resources.
+        public List<ResourceReference>? ValidatedResources { get; set; }
+
         // The deployment error, if any.
         public object? Error { get; set; }
+
+        // Contains diagnostic information collected during validation process.
+        public object? Diagnostics { get; set; }
+
+        // The validation level of the deployment.
+        public string? ValidationLevel { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
+    }
+
+    //
+    // Summary:
+    //     Deployment on error behavior with additional details.
+    public class OnErrorDeploymentExtended
+    {
+        // The state of the provisioning for the on error deployment.
+        public string? ProvisioningState { get; set; }
+
+        // The deployment on error behavior type. LastSuccessful or SpecificDeployment.
+        public string? Type { get; set; }
+
+        // The deployment to be used on error case.
+        public string? DeploymentName { get; set; }
 
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }

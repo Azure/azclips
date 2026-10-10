@@ -2,94 +2,123 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
-using System.Collections;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cmdlets.Tests;
 
 public class TenantDeploymentCmdletTests
 {
-    [Fact]
-    public void NameFromId_AcceptsTenantDeploymentId()
+    [Theory]
+    [InlineData("/providers/Microsoft.Resources/deployments/deployment", "deployment")]
+    [InlineData("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/deployment", "deployment")]
+    [InlineData("/providers/Microsoft.Resources/deployments/parent/child/nested", "parent/nested")]
+    [InlineData("/providers/Microsoft.Resources/deployments", "")]
+    [InlineData("deployment", "")]
+    public void GetDeploymentName_MatchesLegacyResourceIdUtility(string id, string expected)
     {
-        Assert.Equal(
-            "deployment",
-            NameFromId("/providers/Microsoft.Resources/deployments/deployment"));
+        MethodInfo method = typeof(TenantDeploymentCmdletBase).GetMethod("GetDeploymentName", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal(expected, method.Invoke(null, [id]));
     }
 
     [Theory]
-    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Resources/deployments/deployment")]
-    [InlineData("/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Resources/deployments/deployment")]
-    [InlineData("/providers/Microsoft.Authorization/deployments/deployment")]
-    [InlineData("/providers/Microsoft.Resources/deployments")]
-    public void NameFromId_RejectsNonTenantDeploymentIds(string id)
+    [InlineData(typeof(NewTenantDeploymentCmdlet), typeof(PSDeployment))]
+    [InlineData(typeof(TestTenantDeploymentCmdlet), typeof(PSResourceManagerError))]
+    [InlineData(typeof(StopTenantDeploymentCmdlet), typeof(bool))]
+    [InlineData(typeof(RemoveTenantDeploymentCmdlet), typeof(bool))]
+    public void Cmdlets_DeclareLegacyOutputTypes(Type cmdlet, Type expected)
     {
-        TargetInvocationException exception =
-            Assert.Throws<TargetInvocationException>(() => NameFromId(id));
-
-        Assert.IsType<ArgumentException>(exception.InnerException);
+        Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
     }
 
     [Fact]
-    public void NewCmdlet_DeclaresCreateAndWhatIfOutputTypes()
+    public void GetCmdlet_DeclaresPSDeploymentOutputByName()
     {
-        OutputTypeAttribute attribute = Assert.Single(
-            typeof(NewTenantDeploymentCmdlet)
-                .GetCustomAttributes<OutputTypeAttribute>());
+        Assert.Equal(
+            typeof(PSDeployment).FullName,
+            Assert.Single(Assert.Single(typeof(GetTenantDeploymentCmdlet).GetCustomAttributes<OutputTypeAttribute>()).Type).Name);
+    }
 
+    [Theory]
+    [InlineData(typeof(NewTenantDeploymentCmdlet))]
+    [InlineData(typeof(TestTenantDeploymentCmdlet))]
+    public void TemplateCmdlets_UseLegacyParameterSets(Type cmdlet)
+    {
+        Assert.Equal("ByTemplateFileWithNoParameters", cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName);
         Assert.Equal(
             [
-                "Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended",
-                "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult",
+                "ByParameterFileWithNoTemplate",
+                "ByTemplateFileAndParameterFile",
+                "ByTemplateFileAndParameterObject",
+                "ByTemplateFileAndParameterUri",
+                "ByTemplateFileWithNoParameters",
+                "ByTemplateObjectAndParameterFile",
+                "ByTemplateObjectAndParameterObject",
+                "ByTemplateObjectAndParameterUri",
+                "ByTemplateObjectWithNoParameters",
+                "ByTemplateSpecResourceId",
+                "ByTemplateSpecResourceIdAndParams",
+                "ByTemplateSpecResourceIdAndParamsObject",
+                "ByTemplateSpecResourceIdAndParamsUri",
+                "ByTemplateUriAndParameterFile",
+                "ByTemplateUriAndParameterObject",
+                "ByTemplateUriAndParameterUri",
+                "ByTemplateUriWithNoParameters",
             ],
-            attribute.Type.Select(type => type.Name));
+            ParameterSets(cmdlet));
+        Assert.Contains("DeploymentName", Aliases(cmdlet, "Name"));
+    }
+
+    [Theory]
+    [InlineData(typeof(GetTenantDeploymentCmdlet), "GetByDeploymentName", new[] { "GetByDeploymentId", "GetByDeploymentName" })]
+    [InlineData(typeof(StopTenantDeploymentCmdlet), "StopByDeploymentName", new[] { "StopByDeploymentId", "StopByDeploymentName", "StopByInputObject" })]
+    [InlineData(typeof(RemoveTenantDeploymentCmdlet), "RemoveByDeploymentName", new[] { "RemoveByDeploymentId", "RemoveByDeploymentName", "RemoveByInputObject" })]
+    public void NameCmdlets_UseLegacyParameterSetsAndAliases(Type cmdlet, string defaultSet, string[] sets)
+    {
+        Assert.Equal(defaultSet, cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName);
+        Assert.Equal(sets, ParameterSets(cmdlet));
+        Assert.Equal(["DeploymentName"], Aliases(cmdlet, "Name"));
+        Assert.Equal(["DeploymentId", "ResourceId"], Aliases(cmdlet, "Id"));
+    }
+
+    [Theory]
+    [InlineData(typeof(NewTenantDeploymentCmdlet), true)]
+    [InlineData(typeof(RemoveTenantDeploymentCmdlet), true)]
+    [InlineData(typeof(StopTenantDeploymentCmdlet), false)]
+    [InlineData(typeof(TestTenantDeploymentCmdlet), false)]
+    [InlineData(typeof(GetTenantDeploymentCmdlet), false)]
+    public void AsJob_IsExposedOnlyWhereLegacyHasIt(Type cmdlet, bool expected)
+    {
+        Assert.Equal(expected, cmdlet.GetProperty("AsJob") is not null);
     }
 
     [Fact]
-    public void NormalizeJsonInput_ConvertsNestedHashtables()
+    public void NewCmdlet_ExposesLegacyWhatIfAndDeploymentParameters()
     {
-        Hashtable input = new()
-        {
-            ["properties"] = new Hashtable
-            {
-                ["items"] = new object[]
-                {
-                    new Hashtable { ["name"] = "one" },
-                },
-            },
-        };
+        Type cmdlet = typeof(NewTenantDeploymentCmdlet);
 
-        var normalized = Assert.IsType<Dictionary<string, object?>>(
-            NormalizeJsonInput(input));
-        var properties = Assert.IsType<Dictionary<string, object?>>(normalized["properties"]);
-        var items = Assert.IsType<object?[]>(properties["items"]);
-        var item = Assert.IsType<Dictionary<string, object?>>(Assert.Single(items));
-
-        Assert.Equal("one", item["name"]);
+        Assert.Equal(["FullResourcePayloads", "ResourceIdOnly"], cmdlet.GetProperty("WhatIfResultFormat")!.GetCustomAttribute<ValidateSetAttribute>()!.ValidValues);
+        Assert.Equal(
+            ["RequestContent", "ResponseContent", "All", "None"],
+            cmdlet.GetProperty("DeploymentDebugLogLevel")!.GetCustomAttribute<ArgumentCompletionsAttribute>()!.CompleteArgument("New-AzTenantDeployment", "DeploymentDebugLogLevel", "", null!, null!).Select(c => c.CompletionText));
+        Assert.NotNull(cmdlet.GetProperty("Tag"));
+        Assert.NotNull(cmdlet.GetProperty("WhatIfExcludeChangeType"));
+        Assert.NotNull(cmdlet.GetProperty("ProceedIfNoChange"));
+        Assert.True(cmdlet.GetCustomAttribute<CmdletAttribute>()!.SupportsShouldProcess);
+        Assert.NotNull(typeof(TestTenantDeploymentCmdlet).GetProperty("SkipTemplateParameterPrompt"));
     }
 
-    private static string NameFromId(string id)
-    {
-        Type helpers = typeof(GetTenantDeploymentCmdlet).Assembly.GetType(
-            "Microsoft.Azure.Azclips.Cmdlets.Resources.TenantDeploymentCmdletHelpers",
-            throwOnError: true)!;
-        MethodInfo method = helpers.GetMethod(
-            "NameFromId",
-            BindingFlags.Public | BindingFlags.Static)!;
+    private static string[] ParameterSets(Type cmdlet) =>
+        cmdlet.GetProperties()
+            .SelectMany(p => p.GetCustomAttributes<ParameterAttribute>())
+            .Select(p => p.ParameterSetName)
+            .Where(name => name != ParameterAttribute.AllParameterSets)
+            .Distinct()
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
-        return (string)method.Invoke(null, [id])!;
-    }
-
-    private static object? NormalizeJsonInput(object? value)
-    {
-        Type helpers = typeof(GetTenantDeploymentCmdlet).Assembly.GetType(
-            "Microsoft.Azure.Azclips.Cmdlets.Resources.TenantDeploymentCmdletHelpers",
-            throwOnError: true)!;
-        MethodInfo method = helpers.GetMethod(
-            "NormalizeJsonInput",
-            BindingFlags.Public | BindingFlags.Static)!;
-
-        return method.Invoke(null, [value]);
-    }
+    private static IEnumerable<string> Aliases(Type cmdlet, string property) =>
+        cmdlet.GetProperty(property)!.GetCustomAttribute<AliasAttribute>()!.AliasNames;
 }
