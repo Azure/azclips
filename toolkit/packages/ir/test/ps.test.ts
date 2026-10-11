@@ -193,7 +193,6 @@ describe("PsParameterDialect", () => {
 
   it("accepts one all-set fallback alongside named overrides", () => {
     const result = PsParameterDialectSchema.safeParse({
-      removed: false,
       parameterSets: [
         { mandatory: false },
         { set: "ByIdentity", mandatory: true, valueFromPipeline: true },
@@ -201,6 +200,10 @@ describe("PsParameterDialect", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("rejects removed parameter metadata", () => {
+    expect(PsParameterDialectSchema.safeParse({ removed: true }).success).toBe(false);
   });
 
   it("rejects multiple all-set fallbacks", () => {
@@ -320,20 +323,6 @@ describe("PowerShell parameter-set families", () => {
 
   it("rejects a default that no visible parameter membership covers", () => {
     const result = safeParseTransformedIR(familyDocument(["Missing"]));
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "defaultParameterSet"] }),
-      ]));
-    }
-  });
-
-  it("ignores removed parameters when resolving the family default", () => {
-    const input = familyDocument(["ByName"]);
-    input.commands[0]!.parameters[0]!.dialect.ps.removed = true;
-
-    const result = safeParseTransformedIR(input);
 
     expect(result.success).toBe(false);
     if (!result.success) {

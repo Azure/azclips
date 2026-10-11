@@ -215,8 +215,6 @@ export type PsParameterDialect = IRClientDialect & {
    * that only renames a parameter need not restate its membership.
    */
   parameterSets?: PsParameterSetMembership[] | undefined;
-  /** Omit this parameter from the PowerShell surface without deleting its canonical binding. */
-  removed?: boolean | undefined;
   /** Fixed completion values offered for this parameter. */
   completer?: IRLiteralValue[] | undefined;
   /** PowerShell-specific default value. */
@@ -231,7 +229,6 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
   .object({
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
-    removed: z.boolean().optional(),
     completer: z.array(IRLiteralValueSchema).min(1).optional(),
     defaultValue: IRLiteralValueSchema.optional(),
     validateSet: z.array(z.string().min(1)).min(1).optional(),

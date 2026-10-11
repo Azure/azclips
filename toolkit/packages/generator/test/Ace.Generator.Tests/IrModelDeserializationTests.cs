@@ -97,7 +97,6 @@ public sealed class IrModelDeserializationTests
                 { "set": "ByName", "mandatory": true, "position": 0, "valueFromPipeline": true },
                 { "set": "ById", "mandatory": false, "valueFromPipelineByPropertyName": true }
               ],
-              "removed": true,
               "completer": [
                 { "kind": "string", "value": "eastus" },
                 { "kind": "string", "value": "westus" }
@@ -116,7 +115,6 @@ public sealed class IrModelDeserializationTests
         Assert.Equal(2, parameterRoundTrip.ParameterSets!.Count);
         Assert.True(parameterRoundTrip.ParameterSets[0].ValueFromPipeline);
         Assert.True(parameterRoundTrip.ParameterSets[1].ValueFromPipelineByPropertyName);
-        Assert.True(parameterRoundTrip.Removed);
         Assert.Equal(2, parameterRoundTrip.Completer!.Count);
         Assert.Equal("eastus", Assert.IsType<IRLiteralValueString>(parameterRoundTrip.DefaultValue).Value);
         Assert.Equal(new[] { "eastus", "westus" }, parameterRoundTrip.ValidateSet);

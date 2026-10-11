@@ -252,8 +252,6 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
         command.parameters.forEach((parameter) => {
           const dialect = parameter.dialect?.ps;
-          if (dialect?.removed === true) return;
-
           const memberships = dialect?.parameterSets;
           if (memberships === undefined) {
             family.hasAllSetsParameter = true;
