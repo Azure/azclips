@@ -211,6 +211,13 @@ identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
 
+### Target metadata (IR 0.14.0)
+
+`IRTarget` gains `ServiceName`, `Version`, and `Description`, all nullable. The
+generator does not read them yet; writing them into the generated project (for
+example the `.csproj` `Version` and `Description`) is a follow-up. Captures without
+them deserialize and emit exactly as before.
+
 ### Shared servers (IR 0.8.0)
 
 `TransformedIR.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).

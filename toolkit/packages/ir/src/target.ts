@@ -1,5 +1,6 @@
 /**
- * Generation target: where the generated code lands and what it is called.
+ * Generation target: where the generated code lands, what it is called, and — for
+ * now — which extension it is.
  *
  * Resolved once, at transform time, from generation-time configuration — not by the
  * generator. A namespace or a project name is a *decision*, and decisions belong in
@@ -47,6 +48,18 @@ export type IRTarget = {
    */
   projectName: string;
   directories: IRTargetDirectories;
+  /**
+   * The service the extension is generated for (`ElasticSan`).
+   *
+   * Identity facts — this, `version`, and `description` — live on the target only
+   * for now. As more facts the spec cannot provide arrive, they may move to a node
+   * of their own.
+   */
+  serviceName?: string | undefined;
+  /** Version of the generated extension (`0.1.0`). */
+  version?: string | undefined;
+  /** Description of the generated extension. */
+  description?: string | undefined;
 };
 
 export const IRTargetSchema: z.ZodType<IRTarget> = z
@@ -54,5 +67,8 @@ export const IRTargetSchema: z.ZodType<IRTarget> = z
     rootNamespace: z.array(z.string().min(1)).min(1),
     projectName: z.string().min(1),
     directories: IRTargetDirectoriesSchema,
+    serviceName: z.string().min(1).optional(),
+    version: z.string().min(1).optional(),
+    description: z.string().optional(),
   })
   .strict();
