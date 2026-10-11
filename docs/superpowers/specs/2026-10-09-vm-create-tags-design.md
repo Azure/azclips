@@ -120,7 +120,7 @@ public Dictionary<string, string>? Tags { get; set; }
 - `VirtualNetwork.cs` needs `using System.Text.Json.Serialization;`.
 - `NetworkSecurityGroup` already has `Tags`. It is left unchanged, so it still serializes as `"tags":null` when no tags are set.
 - Request bodies do not change when no tags are given.
-- **Output impact.** `VirtualMachine` is also the output model. Tagged VMs now show `tags` in the output of `az vm create`, `az vm show`, `az vm list`, `New-AzVM` and `Get-AzVM`; today these tags are silently dropped. Output for untagged VMs is unchanged. No recorded fixtures contain tags.
+- **Output impact.** `VirtualMachine` is also the output model. Tagged VMs now show `tags` in the output of `az vm create`, `az vm show`, `az vm list`, `New-AzVM` and `Get-AzVM`; today these tags are silently dropped. CLI output for untagged VMs is unchanged. PowerShell VM objects gain a `Tags` property, which is empty for untagged VMs; the Compute module has no format view, so the property appears in the default list output. No recorded fixtures contain tags.
 
 ## Files
 
