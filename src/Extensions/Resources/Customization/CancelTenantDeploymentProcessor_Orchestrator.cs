@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class CancelTenantDeploymentProcessor_Orchestrator : CancelAtTenantScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {

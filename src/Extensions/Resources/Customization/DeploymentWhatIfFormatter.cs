@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>potentialChanges</c>, <c>diagnostics</c>). <c>cli: true</c> follows az CLI <c>_formatters.py</c>;
 /// <c>cli: false</c> follows Azure PowerShell <c>WhatIfOperationResultFormatter</c>.
 /// </summary>
-public static class TenantDeploymentWhatIfFormatter
+public static class DeploymentWhatIfFormatter
 {
     private const string Orange = "\u001b[38;5;208m", Green = "\u001b[38;5;77m", Purple = "\u001b[38;5;141m", Blue = "\u001b[38;5;39m",
         Gray = "\u001b[38;5;246m", Red = "\u001b[38;5;203m", DarkYellow = "\u001b[38;5;136m", Reset = "\u001b[0m";

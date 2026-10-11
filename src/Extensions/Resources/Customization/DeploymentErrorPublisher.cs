@@ -18,7 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// (legacy handle_template_based_exception). PS: the record is dropped and one exception with the legacy
 /// ResourceManagerCloudException text is thrown, so the error shows once.
 /// </summary>
-public class TenantDeploymentErrorPublisher : DispatchProxy
+public class DeploymentErrorPublisher : DispatchProxy
 {
     private IEventPublisher _inner = null!;
     private bool _powerShell;
@@ -32,12 +32,12 @@ public class TenantDeploymentErrorPublisher : DispatchProxy
 
     /// <summary>The last response the runtime traced (the failed polling response after <see cref="IsLroFailure"/>).</summary>
     public static HttpResponseMessage? LastResponse(IEventPublisher publisher) =>
-        publisher is TenantDeploymentErrorPublisher proxy ? proxy._last : null;
+        publisher is DeploymentErrorPublisher proxy ? proxy._last : null;
 
     /// <summary>Legacy PS ExecuteDeploymentWhatIf rethrows HTTP failures as "\n{Code} - {Message}" plus details.</summary>
     public static void UsePowerShellWhatIfText(IEventPublisher publisher)
     {
-        if (publisher is TenantDeploymentErrorPublisher proxy)
+        if (publisher is DeploymentErrorPublisher proxy)
         {
             proxy._powerShellWhatIf = true;
         }
@@ -46,12 +46,12 @@ public class TenantDeploymentErrorPublisher : DispatchProxy
     /// <param name="rawCli">CLI create/what-if/validate: print the raw response body like legacy.</param>
     public static IEventPublisher Wrap(IEventPublisher publisher, bool powerShell, bool rawCli = false)
     {
-        if (publisher is TenantDeploymentErrorPublisher)
+        if (publisher is DeploymentErrorPublisher)
         {
             return publisher;
         }
-        IEventPublisher proxy = Create<IEventPublisher, TenantDeploymentErrorPublisher>();
-        var self = (TenantDeploymentErrorPublisher)(object)proxy;
+        IEventPublisher proxy = Create<IEventPublisher, DeploymentErrorPublisher>();
+        var self = (DeploymentErrorPublisher)(object)proxy;
         self._inner = publisher;
         self._powerShell = powerShell;
         self._rawCli = rawCli;

@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class GetTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExtended? body)
     {

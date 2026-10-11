@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// </summary>
 public class DeleteTenantDeploymentProcessor_Orchestrator : DeleteAtTenantScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {

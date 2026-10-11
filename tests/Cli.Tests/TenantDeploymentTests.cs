@@ -877,7 +877,7 @@ public sealed class TenantDeploymentTests : IDisposable
     [Fact]
     public void WhatIfFormatter_CliMatchesLegacyText()
     {
-        string text = TenantDeploymentWhatIfFormatter.Format(ToCliResult(WhatIfResult, null)!, cli: true, color: false);
+        string text = DeploymentWhatIfFormatter.Format(ToCliResult(WhatIfResult, null)!, cli: true, color: false);
 
         Assert.Equal(
             """
@@ -912,8 +912,8 @@ public sealed class TenantDeploymentTests : IDisposable
             """{ "status": "Succeeded", "properties": { "changes": [ { "changeType": "Create", "extension": { "name": "Kubernetes", "version": "1.0" }, "identifiers": { "name": "pod1" } } ] } }""",
             null)!;
 
-        Assert.Contains("Kubernetes@1.0", TenantDeploymentWhatIfFormatter.Format(result, cli: true, color: false));
-        Assert.Equal("input", Assert.Throws<ArgumentNullException>(() => TenantDeploymentWhatIfFormatter.Format(result, cli: false, color: false)).ParamName);
+        Assert.Contains("Kubernetes@1.0", DeploymentWhatIfFormatter.Format(result, cli: true, color: false));
+        Assert.Equal("input", Assert.Throws<ArgumentNullException>(() => DeploymentWhatIfFormatter.Format(result, cli: false, color: false)).ParamName);
     }
 
     // ── Helpers ──

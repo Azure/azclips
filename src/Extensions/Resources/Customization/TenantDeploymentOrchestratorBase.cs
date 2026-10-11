@@ -79,7 +79,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     /// <summary>CLI rules (validators, prompts, Bicep target-scope check); the PS orchestrators override it.</summary>
     protected virtual bool IsCli => true;
 
-    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: !IsCli, rawCli: IsCli);
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: !IsCli, rawCli: IsCli);
 
     // POST whatIf. ARM polls it through Location; a template error comes back as status "Failed", which legacy
     // clients return as the result, so the failed polling response is used instead of the runtime LRO error.
@@ -93,7 +93,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
                 p.Body = body;
             }).SendAsync();
         }
-        catch (Exception ex) when (TenantDeploymentErrorPublisher.IsLroFailure(ex) && TenantDeploymentErrorPublisher.LastResponse(Publisher) is { } failed)
+        catch (Exception ex) when (DeploymentErrorPublisher.IsLroFailure(ex) && DeploymentErrorPublisher.LastResponse(Publisher) is { } failed)
         {
             return failed;
         }

@@ -33,7 +33,7 @@ public class NewTenantDeploymentProcessor_Orchestrator : CreateTenantDeploymentP
         {
             return false;
         }
-        TenantDeploymentErrorPublisher.UsePowerShellWhatIfText(Publisher);
+        DeploymentErrorPublisher.UsePowerShellWhatIfText(Publisher);
         (JsonObject? preview, _) = await RunWhatIfAsync();
         if (preview is not null)
         {

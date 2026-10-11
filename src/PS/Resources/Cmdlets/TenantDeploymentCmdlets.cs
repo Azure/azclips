@@ -504,7 +504,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
             {
                 return; // the what-if failed and its error is already written; legacy stops here too
             }
-            string formatted = TenantDeploymentWhatIfFormatter.Format((JsonObject)preview, cli: false, color: true);
+            string formatted = DeploymentWhatIfFormatter.Format((JsonObject)preview, cli: false, color: true);
 
             if (confirm && ProceedIfNoChange && !CreateTenantDeploymentProcessor_Orchestrator.HasChanges(preview as JsonObject))
             {

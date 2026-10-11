@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary><c>az deployment tenant export</c>: writes only the exported <c>template</c> (legacy CLI behavior).</summary>
 public class ExportTenantDeploymentProcessor_Orchestrator : ExportTemplateAtTenantScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: false);
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: false);
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExportResult? body)
     {

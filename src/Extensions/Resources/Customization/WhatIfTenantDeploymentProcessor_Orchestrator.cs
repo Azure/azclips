@@ -43,7 +43,7 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         }
         if (body is not null && ToCliResult(_rawBody, ExcludeChangeTypes) is { } result)
         {
-            await WriteOutput(NoPrettyPrint ? result : TenantDeploymentWhatIfFormatter.Format(result, cli: true, TenantDeploymentWhatIfFormatter.CliColor()));
+            await WriteOutput(NoPrettyPrint ? result : DeploymentWhatIfFormatter.Format(result, cli: true, DeploymentWhatIfFormatter.CliColor()));
         }
         return true;
     }

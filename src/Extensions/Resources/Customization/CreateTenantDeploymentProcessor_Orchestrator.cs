@@ -68,7 +68,7 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         }
         if (preview is not null)
         {
-            await WriteOutput(TenantDeploymentWhatIfFormatter.Format(preview, cli: true, TenantDeploymentWhatIfFormatter.CliColor()));
+            await WriteOutput(DeploymentWhatIfFormatter.Format(preview, cli: true, DeploymentWhatIfFormatter.CliColor()));
         }
         if (WhatIf)
         {
@@ -141,9 +141,9 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         }
         // The runtime LRO throws without the body. Legacy CLI prints the failed polling response as-is;
         // PS reads the error from the failed deployment.
-        catch (Exception ex) when (TenantDeploymentErrorPublisher.IsLroFailure(ex))
+        catch (Exception ex) when (DeploymentErrorPublisher.IsLroFailure(ex))
         {
-            if (IsCli && TenantDeploymentErrorPublisher.LastResponse(Publisher)?.Content is { } content)
+            if (IsCli && DeploymentErrorPublisher.LastResponse(Publisher)?.Content is { } content)
             {
                 throw new InvalidOperationException(await content.ReadAsStringAsync());
             }
