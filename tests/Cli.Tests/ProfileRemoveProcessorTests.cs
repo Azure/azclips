@@ -109,7 +109,8 @@ public class ProfileRemoveProcessorTests
     {
         var (auth, _) = InitDi();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => CreateProcessor("missing").ProcessAsync());
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor("missing").ProcessAsync());
+        Assert.Equal("ProfileNotFound", ex.Code);
         Assert.False(auth.LogoutCalled);
     }
 }

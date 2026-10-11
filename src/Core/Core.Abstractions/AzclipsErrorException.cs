@@ -53,6 +53,13 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException ExtensionNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("ExtensionNotFound", 4, message, details);
 
+    /// <summary>
+    /// A named profile does not exist. Uses the generic exit code (1); the symbolic code lets scripts
+    /// and telemetry distinguish it from other failures.
+    /// </summary>
+    public static AzclipsErrorException ProfileNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new("ProfileNotFound", 1, message, details);
+
     public static AzclipsErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("PinViolation", 6, message, details);
 

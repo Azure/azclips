@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
 
             Profile profile = await profileService.GetProfileAsync(Name)
-                ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+                ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
             await profileService.SetActiveProfileNameAsync(profile.Name);
             await WriteOutput(profile);

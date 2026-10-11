@@ -108,7 +108,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // Re-authenticate an existing profile: reproduce the profile's stored connection
                 // state and authentication method rather than deriving auth mode from CLI flags.
                 Profile existing = await profileService.GetProfileAsync(reAuthName)
-                    ?? throw new ArgumentException($"Profile '{reAuthName}' does not exist.");
+                    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{reAuthName}' does not exist.");
                 targetName = existing.Name;
 
                 // The profile contributes the connection state, the caller the credential. The stored
