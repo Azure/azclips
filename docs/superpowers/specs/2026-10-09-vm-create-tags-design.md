@@ -143,7 +143,6 @@ Modified:
 - `tests/Cmdlets.Tests/Cmdlets.Tests.csproj`: add a project reference to `src/PS/Compute/Cmdlets.Compute.csproj`
 - `tests/Cli.Tests/VmCreateTests.cs`
 - `tests/Scenario.Tests/VmCreateOrchestrationTests.cs`
-- `tests/Scenario.Tests/VmLifecycleScenarioTests.cs`, and its recording `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` (re-recorded)
 - `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json`: regenerated
 - `src/CLI/Help/Docs/vm/create.md`
 - `src/PS/Compute/help/New-AzVM.md`
@@ -176,12 +175,7 @@ Not changed: everything under `src/Extensions/ManagedServiceIdentity` and `src/P
   - With no tags, the VM body has no `tags` key.
   - With tags given, an existing NSG and an existing public IP are still not PUT.
   - A malformed tag (`--tags novalue`) fails before any PUT under `/providers/`.
-- **Lifecycle scenario** (`tests/Scenario.Tests/VmLifecycleScenarioTests.cs`, record/playback):
-  - The Network extension joins the systems under test.
-  - Both `vm create` calls pass tags.
-  - After the first create, the test reads back that create's virtual network and default public IP with `network vnet show` / `Get-AzVirtualNetwork` and `network public-ip show` / `Get-AzPublicIpAddress`.
-  - On both surfaces, the VM, the virtual network and the public IP must carry the tags. Other tags are allowed, because the live subscription a recording runs in may add its own through Azure Policy.
-  - The recording is refreshed against live Azure with `devops/scripts/live/refresh_recordings.py --filter VmLifecycleScenarioTests`, and only after the user explicitly approves the live run.
+- **Lifecycle scenario** (`tests/Scenario.Tests/VmLifecycleScenarioTests.cs`): unchanged, and its playback must still pass. Reading the tags back through the Network extension is deferred; see Out of scope.
 - **Help export:** regenerate `cli-export/vm.json` with `pwsh build/Update-CliExportFixtures.ps1`. `CliExportFixturesTests` then has to pass.
 - **PowerShell help gate:** `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute` has to pass.
 - **Live smoke scripts:** add tags to case 1 and check them on the VM and on the resources it creates. The scripts' existing checks that attached resources keep their own tags stay as they are. These scripts need a live subscription, so they are written but not run as part of this change.
@@ -213,3 +207,4 @@ pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute
 - Legacy `az` tag rules (bare keys, `""` to clear tags).
 - Tagging existing resources that are only attached.
 - Tags on any other command, such as `vm update`.
+- Reading the tags back through the Network extension in `VmLifecycleScenarioTests`. That check needs a new live recording, and record mode can't sign in at the moment: since #1054 the scenario host starts with a placeholder app ID, so it can't find the token that `az login` stores under the CLI's app ID. Fixing the scenario infrastructure is out of scope.

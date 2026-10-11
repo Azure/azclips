@@ -53,8 +53,8 @@
 | `tests/Cmdlets.Tests/Cmdlets.Tests.csproj` | Modify | Aliased reference to `Cmdlets.Compute` |
 | `tests/Cli.Tests/VmCreateTests.cs` | Modify | Metadata for both surfaces |
 | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | Modify | Which request bodies carry tags |
-| `tests/Scenario.Tests/VmLifecycleScenarioTests.cs` | Modify | Reads the tags back through the Network extension, on both surfaces |
-| `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` | Re-record | The lifecycle recording, now with tags and the Network reads |
+| `tests/Scenario.Tests/VmLifecycleScenarioTests.cs` | Modify (deferred) | Reads the tags back through the Network extension, on both surfaces |
+| `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` | Re-record (deferred) | The lifecycle recording, now with tags and the Network reads |
 | `src/CLI/Help/Docs/vm/create.md` | Modify | CLI help |
 | `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` | Regenerate | CLI help export fixture |
 | `src/PS/Compute/help/New-AzVM.md` | Modify | PowerShell help |
@@ -1251,6 +1251,8 @@ git commit -m '{Tests} Check `vm create` tags in the live smoke scripts' -m 'Co-
 
 ### Task 5: The VM lifecycle scenario reads the tags back through the Network extension
 
+> **Status: deferred.** Step 3 can't run: since #1054 the scenario host starts with a placeholder app ID, so record mode can't find the token that `az login` stores under the CLI's app ID. The user ruled fixing the scenario infrastructure out of scope, so this task's test change is not part of the branch.
+
 **Files:**
 - Modify: `tests/Scenario.Tests/VmLifecycleScenarioTests.cs`
 - Re-record: `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json`
@@ -1461,4 +1463,4 @@ Expected:
 
 When you report the work, state the following:
 - The live smoke scripts (`tests/Scripts/CLI/VMCreate.sh`, `tests/Scripts/PS/VMCreate.ps1`) were syntax-checked but not run, because they need a live subscription.
-- Whether the lifecycle recording was refreshed in Task 5, or Task 5 was skipped because the user declined the live run. If Task 5 was skipped, leave the `VmLifecycleScenarioTests` command out of the run above.
+- Whether the lifecycle recording was refreshed in Task 5, or Task 5 was deferred. If it was deferred, the `VmLifecycleScenarioTests` command above runs the unchanged lifecycle test, which must still pass.
