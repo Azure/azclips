@@ -43,7 +43,7 @@ Add a `--tags` parameter to `az vm create` and a `-Tag` parameter to `New-AzVM`.
 `VmTagsParser` is a new internal static class in `src/Extensions/Compute/Customization/`, in namespace `Microsoft.Azure.Azclips.Extensions.Compute.Processors`, like the other Customization helpers. It is a straight copy of MSI's `ParseTags` and `ParseDictionary`:
 
 - `null` or an empty array returns `null`, meaning no tags.
-- If the entries, joined with spaces and trimmed, start with `{`, the input is deserialized as a JSON `Dictionary<string, string>`. Any empty or whitespace key throws `InvalidOperationException("Invalid dictionary entry. Keys cannot be empty.")`. A JSON value that is not a string throws `JsonException`, as in MSI.
+- If the entries, joined with spaces and trimmed, start with `{`, the input is deserialized as a JSON `Dictionary<string, string>`. Any empty or whitespace key throws `InvalidOperationException("Invalid dictionary entry. Keys cannot be empty.")`. Only strict JSON is accepted. Malformed JSON, shorthand such as `{env:prod}`, and values that are not strings all throw `JsonException`, as in MSI.
 - Otherwise, every entry must be `KEY=VALUE`. The entry is split at the first `=`. The key is trimmed and must not be empty. The value is kept exactly as given, so it may contain `=` or be empty (`env=`). The resulting dictionary is case-insensitive, and the last value wins.
 - Malformed entries throw `InvalidOperationException` with MSI's messages:
   - `Invalid dictionary entry '{entry}'. Expected KEY=VALUE format.`
@@ -51,6 +51,8 @@ Add a `--tags` parameter to `az vm create` and a `-Tag` parameter to `New-AzVM`.
 - Differences from legacy `az`, kept on purpose to match MSI:
   - A bare `key` is an error, where legacy `az` treats it as `key=""`.
   - `--tags ""` is an error, where legacy `az` treats it as "no tags".
+  - The JSON form comes from MSI. Legacy `az vm create` has no JSON form, so there `--tags '{"env":"prod"}'` becomes a single tag whose key is the literal JSON text.
+- MSI has no tests or help examples for the JSON form. Compute adds tests for it (see Testing).
 
 ## PowerShell conversion
 
@@ -159,6 +161,7 @@ Not changed: everything under `src/Extensions/ManagedServiceIdentity` and `src/P
   - case-insensitive keys, where the last value wins
   - a missing `=` is rejected
   - empty keys are rejected in both the KEY=VALUE and the JSON forms
+  - shorthand such as `{env:prod}` throws `JsonException`
   - `null` or empty input returns `null`
 - **Cmdlet unit tests** (`tests/Cmdlets.Tests/VmCmdletArgumentConverterTests.cs`):
   - `ToTagsInput` returns exactly one JSON string that round-trips to the same dictionary
