@@ -1,7 +1,7 @@
 # `az vm create --tags` / `New-AzVM -Tag` design
 
 - **Date:** 2026-10-09
-- **Status:** Approved in brainstorming. Next step: implementation plan.
+- **Status:** Implemented, except the VM lifecycle scenario check, which is deferred (see Out of scope).
 - **Scope:** Compute extension (`src/Extensions/Compute`), Compute PowerShell module (`src/PS/Compute`), and their tests and docs.
 
 ## Goal
