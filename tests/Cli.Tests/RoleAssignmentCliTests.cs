@@ -264,8 +264,7 @@ public class RoleAssignmentCliTests
         // No subscription and no scope: cannot build a scope.
         ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(new ListRoleAssignmentProcessor_Orchestrator(), pipeline, output);
 
-        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
-        Assert.IsType<MissingRequiredArgumentException>(ex);
+        MissingRequiredArgumentException ex = await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
         Assert.True(ex.HasMissingRequiredParameters);
         Assert.Equal(0, pipeline.SendCount);
     }
