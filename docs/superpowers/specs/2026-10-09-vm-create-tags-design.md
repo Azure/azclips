@@ -180,7 +180,7 @@ Not changed: everything under `src/Extensions/ManagedServiceIdentity` and `src/P
   - The Network extension joins the systems under test.
   - Both `vm create` calls pass tags.
   - After the first create, the test reads back that create's virtual network and default public IP with `network vnet show` / `Get-AzVirtualNetwork` and `network public-ip show` / `Get-AzPublicIpAddress`.
-  - On both surfaces, the VM, the virtual network and the public IP must carry the tags.
+  - On both surfaces, the VM, the virtual network and the public IP must carry the tags. Other tags are allowed, because the live subscription a recording runs in may add its own through Azure Policy.
   - The recording is refreshed against live Azure with `devops/scripts/live/refresh_recordings.py --filter VmLifecycleScenarioTests`, and only after the user explicitly approves the live run.
 - **Help export:** regenerate `cli-export/vm.json` with `pwsh build/Update-CliExportFixtures.ps1`. `CliExportFixturesTests` then has to pass.
 - **PowerShell help gate:** `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute` has to pass.

@@ -1364,11 +1364,13 @@ using NetworkVirtualNetwork = Microsoft.Azure.Azclips.Extensions.Network.Models.
 11. In `AssertVm`, add `AssertTagged(vm.Tags);` directly after `Assert.Equal("Succeeded", vm.Properties.ProvisioningState);`. Then add these methods directly after `AssertVm`:
 
 ```csharp
-    /// <summary>The tags every <c>vm create</c> in this scenario passes.</summary>
+    /// <summary>
+    /// The tags every <c>vm create</c> in this scenario passes. Only these two are checked, not the
+    /// count: the live subscription a recording runs in may add tags of its own through Azure Policy.
+    /// </summary>
     private static void AssertTagged(Dictionary<string, string>? tags)
     {
         Assert.NotNull(tags);
-        Assert.Equal(2, tags.Count);
         Assert.Equal("scenario", tags["env"]);
         Assert.Equal("vm-lifecycle", tags["suite"]);
     }
