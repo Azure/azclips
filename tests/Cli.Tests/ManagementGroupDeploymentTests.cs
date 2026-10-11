@@ -833,7 +833,7 @@ public class ManagementGroupDeploymentTests
         List<Request> requests = [];
         string templateFile = TempFile(EmptyTemplate);
         var output = new FakeOutputHandler();
-        var processor = new ManagementGroupDeploymentWhatIfProcessor_Orchestrator
+        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
             Name = "mg-test",
@@ -869,7 +869,7 @@ public class ManagementGroupDeploymentTests
                 : Json("""{ "status": "Succeeded", "properties": { "changes": [] } }""");
         });
         string templateFile = TempFile(EmptyTemplate);
-        var processor = new ManagementGroupDeploymentWhatIfProcessor_Orchestrator
+        var processor = new WhatIfManagementGroupDeploymentProcessor_Orchestrator
         {
             ManagementGroupId = "contoso",
             Name = "whatif",
@@ -989,6 +989,7 @@ public class ManagementGroupDeploymentTests
     [Fact]
     public async Task Stop_SendsGetPrecheckThenCancelWhenDeploymentIsRunning()
     {
+        UseClient(ClientType.PowerShell);
         List<(HttpMethod Method, Uri Uri)> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
@@ -1000,7 +1001,7 @@ public class ManagementGroupDeploymentTests
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
-        var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
+        var processor = new CancelManagementGroupDeploymentProcessor_Orchestrator
         {
             GroupId = "contoso",
             DeploymentName = "active",
@@ -1018,9 +1019,10 @@ public class ManagementGroupDeploymentTests
     [Fact]
     public async Task Stop_ThrowsWhenDeploymentAlreadyInTerminalState()
     {
+        UseClient(ClientType.PowerShell);
         var pipeline = new FakeHttpPipeline((_, _) =>
             Json("""{ "name": "done", "properties": { "provisioningState": "Succeeded" } }"""));
-        var processor = new StopManagementGroupDeploymentProcessor_Orchestrator
+        var processor = new CancelManagementGroupDeploymentProcessor_Orchestrator
         {
             GroupId = "contoso",
             DeploymentName = "done",
@@ -1033,6 +1035,71 @@ public class ManagementGroupDeploymentTests
         Assert.Equal(1, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task Cancel_Cli_SkipsPowerShellPrecheck()
+    {
+        UseClient(ClientType.CLI);
+        List<HttpMethod> methods = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            methods.Add(request.Method);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new CancelManagementGroupDeploymentProcessor_Orchestrator
+        {
+            GroupId = "contoso",
+            DeploymentName = "done",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Post], methods);
+    }
+
+    [Fact]
+    public async Task Remove_ThrowsWhenHeadReturnsNotFound()
+    {
+        UseClient(ClientType.PowerShell);
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Head, request.Method);
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        var processor = new DeleteManagementGroupDeploymentProcessor_Orchestrator
+        {
+            GroupId = "contoso",
+            DeploymentName = "missing",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Deployment 'missing' doesn't exist at management group 'contoso'.", exception.Message);
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Delete_Cli_SkipsPowerShellHeadCheck()
+    {
+        UseClient(ClientType.CLI);
+        List<HttpMethod> methods = [];
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            methods.Add(request.Method);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var processor = new DeleteManagementGroupDeploymentProcessor_Orchestrator
+        {
+            GroupId = "contoso",
+            DeploymentName = "mg-test",
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Delete], methods);
+    }
 
     [Fact]
     public async Task Delete_WaitsOnLocationWithoutWritingOperationPayload()

@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary><c>az deployment mg what-if</c>.</summary>
-public class ManagementGroupDeploymentWhatIfProcessor_Orchestrator
+public class WhatIfManagementGroupDeploymentProcessor_Orchestrator
     : ManagementGroupDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     private static readonly string[] ChangeTypes = ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"];

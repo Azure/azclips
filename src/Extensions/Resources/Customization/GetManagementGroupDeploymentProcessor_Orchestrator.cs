@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>az deployment mg show</c> / <c>Get-AzManagementGroupDeployment -Name</c>: CLI outputs the deployment like legacy CLI;
 /// PS outputs the legacy <see cref="PSDeployment"/>.
 /// </summary>
-public class GetAtManagementGroupScopeDeploymentsProcessor_Customization : GetAtManagementGroupScopeDeploymentsProcessor
+public class GetManagementGroupDeploymentProcessor_Orchestrator : GetAtManagementGroupScopeDeploymentsProcessor
 {
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExtended? body)
     {

@@ -5,7 +5,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-public class ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization
+public class ExportManagementGroupDeploymentProcessor_Orchestrator
     : ExportTemplateAtManagementGroupScopeDeploymentsProcessor
 {
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExportResult? body)

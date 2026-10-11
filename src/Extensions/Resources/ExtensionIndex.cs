@@ -291,12 +291,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_getManagementGroupDeployment_PS = new(
-            Name: "GetAtManagementGroupScopeDeploymentsProcessor_Customization",
+            Name: "GetManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Get-AzManagementGroupDeployment_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization),
+            ProcessorType: typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -306,12 +306,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_listManagementGroupDeployment_PS = new(
-            Name: "ListAtManagementGroupScopeDeploymentsProcessor_Customization",
+            Name: "ListManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Get-AzManagementGroupDeployment_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization),
+            ProcessorType: typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -320,12 +320,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_stopManagementGroupDeployment_PS = new(
-            Name: "StopManagementGroupDeploymentProcessor_Orchestrator",
+            Name: "CancelManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Stop-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopManagementGroupDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.StopManagementGroupDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -335,12 +335,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = new(
-            Name: "RemoveManagementGroupDeploymentProcessor_Orchestrator",
+            Name: "DeleteManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Remove-AzManagementGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveManagementGroupDeploymentProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveManagementGroupDeploymentProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group ID.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -669,12 +669,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: CreateManagementDeploymentBodyCliAliases()
         );
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = new(
-            Name: "ManagementGroupDeploymentWhatIfProcessor_Orchestrator",
+            Name: "WhatIfManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg what-if",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ManagementGroupDeploymentWhatIfProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ManagementGroupDeploymentWhatIfProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>(CreateManagementDeploymentBodyCliParameters(includeMode: false))
             {
                 ["result-format"] = new("ResultFormat", "result-format", typeof(string), "The what-if result format.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
@@ -687,12 +687,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             }
         );
         private static readonly CommandMetadata s_listManagementGroupDeployment_CLI = new(
-            Name: "ListAtManagementGroupScopeDeploymentsProcessor_Customization",
+            Name: "ListManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ListAtManagementGroupScopeDeploymentsProcessor_Customization),
+            ProcessorType: typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
@@ -701,12 +701,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id" }
         );
         private static readonly CommandMetadata s_getManagementGroupDeployment_CLI = new(
-            Name: "GetAtManagementGroupScopeDeploymentsProcessor_Customization",
+            Name: "GetManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.GetAtManagementGroupScopeDeploymentsProcessor_Customization),
+            ProcessorType: typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
@@ -715,12 +715,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_cancelManagementGroupDeployment_CLI = new(
-            Name: "CancelAtManagementGroupScopeDeploymentsProcessor",
+            Name: "CancelManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg cancel",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.CancelAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
@@ -729,12 +729,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = new(
-            Name: "DeleteAtManagementGroupScopeDeploymentsProcessor",
+            Name: "DeleteManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteAtManagementGroupScopeDeploymentsProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.DeleteAtManagementGroupScopeDeploymentsProcessor),
+            ProcessorType: typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),
@@ -743,12 +743,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string> { ["m"] = "management-group-id", ["n"] = "name" }
         );
         private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = new(
-            Name: "ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization",
+            Name: "ExportManagementGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment mg export",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportManagementGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor_Customization),
+            ProcessorType: typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group ID.", IsRequired: true, Aliases: ["m"], AllowedValues: []),

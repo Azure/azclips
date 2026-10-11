@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>az deployment mg list</c> / <c>Get-AzManagementGroupDeployment</c>: CLI outputs the deployments like legacy CLI;
 /// PS outputs every deployment as a legacy <see cref="PSDeployment"/>.
 /// </summary>
-public class ListAtManagementGroupScopeDeploymentsProcessor_Customization : ListAtManagementGroupScopeDeploymentsProcessor
+public class ListManagementGroupDeploymentProcessor_Orchestrator : ListAtManagementGroupScopeDeploymentsProcessor
 {
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentListResult? body)
     {
