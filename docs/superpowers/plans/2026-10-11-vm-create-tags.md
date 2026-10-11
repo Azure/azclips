@@ -25,6 +25,7 @@
 - **No tags means no change.** With no tags, request bodies are unchanged. The new `Tags` properties are omitted when null. The NSG body keeps sending `"tags":null`, as it does today.
 - **Untouched entries.** Do not change the unregistered `s_newVM_PS` and `s_newVM_CLI` (`vm create-basic`) metadata entries.
 - **No extras.** No new NuGet packages and no ChangeLog entry.
+- **Live Azure only with consent.** Re-recording a scenario (Task 5) signs in to Azure and creates billable resources. Do it only after the user explicitly approves.
 - **Commits.** Follow the repo's subject style (`[Compute] ...`, `{Tests} ...`) and add the trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 
 ## Before you start
@@ -52,6 +53,8 @@
 | `tests/Cmdlets.Tests/Cmdlets.Tests.csproj` | Modify | Aliased reference to `Cmdlets.Compute` |
 | `tests/Cli.Tests/VmCreateTests.cs` | Modify | Metadata for both surfaces |
 | `tests/Scenario.Tests/VmCreateOrchestrationTests.cs` | Modify | Which request bodies carry tags |
+| `tests/Scenario.Tests/VmLifecycleScenarioTests.cs` | Modify | Reads the tags back through the Network extension, on both surfaces |
+| `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` | Re-record | The lifecycle recording, now with tags and the Network reads |
 | `src/CLI/Help/Docs/vm/create.md` | Modify | CLI help |
 | `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json` | Regenerate | CLI help export fixture |
 | `src/PS/Compute/help/New-AzVM.md` | Modify | PowerShell help |
@@ -1246,6 +1249,190 @@ git commit -m '{Tests} Check `vm create` tags in the live smoke scripts' -m 'Co-
 
 ---
 
+### Task 5: The VM lifecycle scenario reads the tags back through the Network extension
+
+**Files:**
+- Modify: `tests/Scenario.Tests/VmLifecycleScenarioTests.cs`
+- Re-record: `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json`
+
+**Interfaces:**
+- Consumes:
+  - `az vm create --tags` and `VirtualMachine.Tags` (Task 2).
+  - `New-AzVM`'s `Tag` engine parameter, which is a one-element JSON `string[]` (Task 3).
+  - The Network extension's existing `network vnet show`, `network public-ip show`, `Get-AzVirtualNetwork_Get` and `Get-AzPublicIpAddress_Get` commands. Each surface uses the same Network processors. They return `Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork` and `PublicIpAddress`, and both have `Dictionary<string, string>? Tags`.
+- Produces: nothing for other tasks.
+
+This test is record/playback.
+- **Record mode** (`AZURE_TEST_MODE=Record`) runs the CLI surface against live Azure and rewrites the committed recording.
+- **Playback** replays that recording on both surfaces without credentials. It matches requests on method and URI only, so both surfaces must make the same requests in the same order.
+- The new Network reads and the tags are not in today's recording, so it has to be re-recorded (Step 3). Commit the test change only together with the new recording, because otherwise playback fails in CI.
+
+- [ ] **Step 1: Update the scenario**
+
+In `tests/Scenario.Tests/VmLifecycleScenarioTests.cs`:
+
+1. Directly after `using Microsoft.Azure.Azclips.Extensions.Compute.Models;`, add these aliases. Compute's models also have a `VirtualNetwork`, so the Network types need aliases:
+
+```csharp
+using NetworkPublicIpAddress = Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIpAddress;
+using NetworkVirtualNetwork = Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork;
+```
+
+2. Replace the class summary with:
+
+```csharp
+/// <summary>
+/// The virtual machine lifecycle: create, list, show, stop, deallocate, start, delete, driven through
+/// the real dispatcher/binder and ARM request pipeline. Two virtual machines are created so both
+/// delete shapes are covered: a plain delete, and one with <c>--force-deletion</c>/<c>-ForceDeletion</c>,
+/// which adds the <c>forceDeletion</c> query parameter. Every create passes tags. After the first one,
+/// the Network extension reads back the virtual network and default public IP that create made, and
+/// they must carry the tags too. Record mode runs the CLI surface against live Azure and rewrites the
+/// recording; playback replays the committed recording on both surfaces without credentials.
+/// </summary>
+```
+
+3. Add the Network extension to the systems under test:
+
+```csharp
+    private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute, ExtensionUnderTest.Network];
+```
+
+4. In the record-mode block, directly after `AssertVm(RunCreate(host, subscriptionId, VmName, "1"), VmName);`, add:
+
+```csharp
+            AssertVirtualNetworkTagged(RunVnetShow(host, subscriptionId, "1"));
+            AssertPublicIpTagged(RunPublicIpShow(host, subscriptionId, VmName));
+```
+
+5. In the CLI playback block, directly after `AssertVm(RunCreate(cli, SubscriptionId, VmName, "1"), VmName, SubscriptionId);`, add:
+
+```csharp
+            AssertVirtualNetworkTagged(RunVnetShow(cli, SubscriptionId, "1"));
+            AssertPublicIpTagged(RunPublicIpShow(cli, SubscriptionId, VmName));
+```
+
+6. In the PowerShell playback block, directly after `AssertVm(ps.RunPowerShell("New-AzVM", PsCreateParameters(SubscriptionId, VmName, "1"), extension: "Compute"), VmName, SubscriptionId);`, add:
+
+```csharp
+            AssertVirtualNetworkTagged(ps.RunPowerShell("Get-AzVirtualNetwork_Get", PsNetworkParameters(SubscriptionId, "scenario-lifecycle-vnet-1"), extension: "Network"));
+            AssertPublicIpTagged(ps.RunPowerShell("Get-AzPublicIpAddress_Get", PsNetworkParameters(SubscriptionId, $"{VmName}PublicIP"), extension: "Network"));
+```
+
+7. In `RunCreate`, end the argument list with the tags. Its last line becomes:
+
+```csharp
+            "--address-prefixes", "10.0.0.0/16",
+            "--tags", "env=scenario", "suite=vm-lifecycle");
+```
+
+8. In `PsCreateParameters`, add this entry after `["AddressPrefixes"]`:
+
+```csharp
+        // New-AzVM sends its -Tag hashtable as one JSON object string.
+        ["Tag"] = new[] { "{\"env\":\"scenario\",\"suite\":\"vm-lifecycle\"}" },
+```
+
+9. Directly after `RunCreate`, add:
+
+```csharp
+    private static IReadOnlyList<object> RunVnetShow(ScenarioHost host, string subscriptionId, string suffix) =>
+        host.RunCli("network", "vnet", "show",
+            "--subscription-id", subscriptionId,
+            "--name", $"scenario-lifecycle-vnet-{suffix}",
+            "--resource-group", ResourceGroupName);
+
+    /// <summary><c>network public-ip show</c> for the default public IP <c>vm create</c> made for <paramref name="vmName"/>.</summary>
+    private static IReadOnlyList<object> RunPublicIpShow(ScenarioHost host, string subscriptionId, string vmName) =>
+        host.RunCli("network", "public-ip", "show",
+            "--subscription-id", subscriptionId,
+            "--name", $"{vmName}PublicIP",
+            "--resource-group", ResourceGroupName);
+```
+
+10. Directly after `PsVmParameters`, add:
+
+```csharp
+    private static Dictionary<string, object> PsNetworkParameters(string subscriptionId, string name) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["Name"] = name,
+        ["ResourceGroupName"] = ResourceGroupName,
+    };
+```
+
+11. In `AssertVm`, add `AssertTagged(vm.Tags);` directly after `Assert.Equal("Succeeded", vm.Properties.ProvisioningState);`. Then add these methods directly after `AssertVm`:
+
+```csharp
+    /// <summary>The tags every <c>vm create</c> in this scenario passes.</summary>
+    private static void AssertTagged(Dictionary<string, string>? tags)
+    {
+        Assert.NotNull(tags);
+        Assert.Equal(2, tags.Count);
+        Assert.Equal("scenario", tags["env"]);
+        Assert.Equal("vm-lifecycle", tags["suite"]);
+    }
+
+    private static void AssertVirtualNetworkTagged(IReadOnlyList<object> outputs) =>
+        AssertTagged(Assert.IsType<NetworkVirtualNetwork>(Assert.Single(outputs)).Tags);
+
+    private static void AssertPublicIpTagged(IReadOnlyList<object> outputs) =>
+        AssertTagged(Assert.IsType<NetworkPublicIpAddress>(Assert.Single(outputs)).Tags);
+```
+
+- [ ] **Step 2: Run playback to verify it fails**
+
+Run: `dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmLifecycleScenarioTests"`
+
+Expected: FAIL with `Assert.NotNull() Failure` in `AssertTagged`, right after the first `vm create`. The committed recording predates tags.
+
+- [ ] **Step 3: Re-record against live Azure (STOP: get the user's explicit go-ahead first)**
+
+Before running anything, tell the user what this step does:
+- It signs in with the built CLI.
+- It creates two `Standard_D2s_v3` VMs and their network resources in resource group `scenario-vm-lifecycle-rg` (`westus2`), which takes roughly 20 minutes.
+- Like today's recording run, it deletes the VMs but leaves the resource group and its network resources.
+
+Run it only if the user approves. If they decline, revert the test with `git checkout -- tests/Scenario.Tests/VmLifecycleScenarioTests.cs` and report Task 5 as not done.
+
+```powershell
+dotnet build azclips.slnx
+./artifacts/Debug/Core.Cli/az login --subscription-id <subscription-id>
+python devops/scripts/live/refresh_recordings.py --filter VmLifecycleScenarioTests
+```
+
+On Windows the CLI binary is `az.exe`. The script runs these stages:
+1. Plays back the class.
+2. Re-records it with `AZURE_TEST_MODE=Record`, because playback fails.
+3. Replays the new recording.
+4. Scans the changed recordings for secrets.
+
+Expected: the summary lists `refreshed: VmLifecycleScenarioTests` and `secret scan: clean`, and the script exits with code 0.
+
+- [ ] **Step 4: Verify the new recording**
+
+Run:
+
+```powershell
+git --no-pager diff --stat -- tests/Scenario.Tests/SessionRecords
+dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmLifecycleScenarioTests"
+Remove-Item refresh-summary.md -ErrorAction SilentlyContinue
+```
+
+Expected:
+- Only the lifecycle recording changed.
+- Playback PASSES on both surfaces. This proves that the VM, the virtual network and the public IP carry the tags in the recorded responses.
+- `refresh-summary.md` is the script's report, not a deliverable, so the last command removes it.
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add tests/Scenario.Tests/VmLifecycleScenarioTests.cs tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json
+git commit -m '{Tests} Read `vm create` tags back through Network in the VM lifecycle scenario' -m 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>'
+```
+
+---
+
 ## Final verification
 
 Run all of these and confirm each result before reporting the work done:
@@ -1256,6 +1443,7 @@ dotnet test tests/Extensions.Compute.Tests/Extensions.Compute.Tests.csproj
 dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj
 dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter "FullyQualifiedName~VmCreateTests"
 dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmCreate"
+dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmLifecycleScenarioTests"
 dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug
 dotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj --no-build --configuration Debug -- --artifacts-root artifacts/Debug --output-root artifacts/help
 pwsh -NoProfile -File build/Test-PSHelpMarkdown.ps1 -Module Compute
@@ -1269,4 +1457,6 @@ Expected:
 - The MSI `git diff --stat` and the `Select-String` check print nothing, which shows MSI is untouched and Compute does not reference it.
 - `git status --short` prints nothing, because all work is committed.
 
-When you report the work, state that the live smoke scripts (`tests/Scripts/CLI/VMCreate.sh`, `tests/Scripts/PS/VMCreate.ps1`) were syntax-checked but not run, because they need a live subscription.
+When you report the work, state the following:
+- The live smoke scripts (`tests/Scripts/CLI/VMCreate.sh`, `tests/Scripts/PS/VMCreate.ps1`) were syntax-checked but not run, because they need a live subscription.
+- Whether the lifecycle recording was refreshed in Task 5, or Task 5 was skipped because the user declined the live run. If Task 5 was skipped, leave the `VmLifecycleScenarioTests` command out of the run above.

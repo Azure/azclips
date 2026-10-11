@@ -143,6 +143,7 @@ Modified:
 - `tests/Cmdlets.Tests/Cmdlets.Tests.csproj`: add a project reference to `src/PS/Compute/Cmdlets.Compute.csproj`
 - `tests/Cli.Tests/VmCreateTests.cs`
 - `tests/Scenario.Tests/VmCreateOrchestrationTests.cs`
+- `tests/Scenario.Tests/VmLifecycleScenarioTests.cs`, and its recording `tests/Scenario.Tests/SessionRecords/VmLifecycleScenarioTests/CreateListShowStopDeallocateStartDeleteVirtualMachine.json` (re-recorded)
 - `tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json`: regenerated
 - `src/CLI/Help/Docs/vm/create.md`
 - `src/PS/Compute/help/New-AzVM.md`
@@ -175,6 +176,12 @@ Not changed: everything under `src/Extensions/ManagedServiceIdentity` and `src/P
   - With no tags, the VM body has no `tags` key.
   - With tags given, an existing NSG and an existing public IP are still not PUT.
   - A malformed tag (`--tags novalue`) fails before any PUT under `/providers/`.
+- **Lifecycle scenario** (`tests/Scenario.Tests/VmLifecycleScenarioTests.cs`, record/playback):
+  - The Network extension joins the systems under test.
+  - Both `vm create` calls pass tags.
+  - After the first create, the test reads back that create's virtual network and default public IP with `network vnet show` / `Get-AzVirtualNetwork` and `network public-ip show` / `Get-AzPublicIpAddress`.
+  - On both surfaces, the VM, the virtual network and the public IP must carry the tags.
+  - The recording is refreshed against live Azure with `devops/scripts/live/refresh_recordings.py --filter VmLifecycleScenarioTests`, and only after the user explicitly approves the live run.
 - **Help export:** regenerate `cli-export/vm.json` with `pwsh build/Update-CliExportFixtures.ps1`. `CliExportFixturesTests` then has to pass.
 - **PowerShell help gate:** `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute` has to pass.
 - **Live smoke scripts:** add tags to case 1 and check them on the VM and on the resources it creates. The scripts' existing checks that attached resources keep their own tags stay as they are. These scripts need a live subscription, so they are written but not run as part of this change.
@@ -193,6 +200,7 @@ dotnet test tests/Extensions.Compute.Tests/Extensions.Compute.Tests.csproj
 dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj
 dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter "FullyQualifiedName~VmCreateTests"
 dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmCreate"
+dotnet test tests/Scenario.Tests/Scenario.Tests.csproj --filter "FullyQualifiedName~VmLifecycleScenarioTests"
 pwsh build/Update-CliExportFixtures.ps1
 dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
 pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Compute
