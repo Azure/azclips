@@ -43,7 +43,7 @@ Add a `--tags` parameter to `az vm create` and a `-Tag` parameter to `New-AzVM`.
 `VmTagsParser` is a new internal static class in `src/Extensions/Compute/Customization/`, in namespace `Microsoft.Azure.Azclips.Extensions.Compute.Processors`, like the other Customization helpers. It is a straight copy of MSI's `ParseTags` and `ParseDictionary`:
 
 - `null` or an empty array returns `null`, meaning no tags.
-- If the entries, joined with spaces and trimmed, start with `{`, the input is deserialized as a JSON `Dictionary<string, string>`. Any empty or whitespace key throws `InvalidOperationException("Invalid dictionary entry. Keys cannot be empty.")`. Only strict JSON is accepted. Malformed JSON, shorthand such as `{env:prod}`, and values that are not strings all throw `JsonException`, as in MSI.
+- If the entries, joined with spaces and trimmed, start with `{`, the input is deserialized as a JSON `Dictionary<string, string>`. Any empty or whitespace key throws `InvalidOperationException("Invalid dictionary entry. Keys cannot be empty.")`. Only strict JSON is accepted. Malformed JSON, shorthand such as `{env:prod}`, and values that are neither strings nor `null` all throw `JsonException`, as in MSI. A JSON `null` value passes through as a null tag value, also as in MSI.
 - Otherwise, every entry must be `KEY=VALUE`. The entry is split at the first `=`. The key is trimmed and must not be empty. The value is kept exactly as given, so it may contain `=` or be empty (`env=`). The resulting dictionary is case-insensitive, and the last value wins.
 - Malformed entries throw `InvalidOperationException` with MSI's messages:
   - `Invalid dictionary entry '{entry}'. Expected KEY=VALUE format.`

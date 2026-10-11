@@ -70,7 +70,7 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `internal static Dictionary<string, string>? VmTagsParser.ParseTags(string[]? tags)` in namespace `Microsoft.Azure.Azclips.Extensions.Compute.Processors`. It returns `null` for null or empty input. It throws `InvalidOperationException` for malformed entries, and `JsonException` for input that starts with `{` but is not a strict JSON object whose values are strings.
+- Produces: `internal static Dictionary<string, string>? VmTagsParser.ParseTags(string[]? tags)` in namespace `Microsoft.Azure.Azclips.Extensions.Compute.Processors`. It returns `null` for null or empty input. It throws `InvalidOperationException` for malformed entries, and `JsonException` for input that starts with `{` but is not strict JSON or has a value that is neither a string nor `null`. A JSON `null` value passes through as a null tag value, as in MSI.
 
 - [ ] **Step 1: Write the failing tests**
 
