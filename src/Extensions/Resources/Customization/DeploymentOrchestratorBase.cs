@@ -33,15 +33,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? TemplateSpecId { get; set; }
 
-        public object? TemplateObject { get; set; }
-
         public string? QueryString { get; set; }
 
         public string? ParametersUri { get; set; }
 
         public string? ParametersFile { get; set; }
-
-        public object? ParametersObject { get; set; }
 
         public string? Mode { get; set; }
 
@@ -54,7 +50,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // orchestrators call this first, then add their own command-specific rules.
         protected void ValidateCommonInputs()
         {
-            ValidateScopeInputs();
+            if (string.IsNullOrWhiteSpace(ResourceGroupName))
+            {
+                throw new ArgumentException("ResourceGroupName must be provided.");
+            }
             if (string.IsNullOrWhiteSpace(Name) || Name.Length > 64 || !DeploymentNamePattern.IsMatch(Name))
             {
                 throw new ArgumentException("Deployment name must be 1-64 characters and match the pattern ^[-\\w\\._\\(\\)]+$.");
@@ -62,21 +61,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             int templateSources = (string.IsNullOrWhiteSpace(TemplateUri) ? 0 : 1)
                                  + (string.IsNullOrWhiteSpace(TemplateFile) ? 0 : 1)
-                                 + (string.IsNullOrWhiteSpace(TemplateSpecId) ? 0 : 1)
-                                 + (TemplateObject is null ? 0 : 1);
+                                 + (string.IsNullOrWhiteSpace(TemplateSpecId) ? 0 : 1);
             if (templateSources != 1)
             {
-                throw new ArgumentException(
-                    "Exactly one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided.");
+                throw new ArgumentException("Exactly one of TemplateUri, TemplateFile, or TemplateSpecId must be provided.");
             }
 
             int parameterSources = (string.IsNullOrWhiteSpace(ParametersUri) ? 0 : 1)
-                                  + (string.IsNullOrWhiteSpace(ParametersFile) ? 0 : 1)
-                                  + (ParametersObject is null ? 0 : 1);
+                                  + (string.IsNullOrWhiteSpace(ParametersFile) ? 0 : 1);
             if (parameterSources > 1)
             {
-                throw new ArgumentException(
-                    "Provide at most one of ParametersUri, ParametersFile, or ParametersObject.");
+                throw new ArgumentException("Provide at most one of ParametersUri or ParametersFile.");
             }
 
             // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
@@ -107,20 +102,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
         }
 
-        protected virtual void ValidateScopeInputs()
-        {
-            if (string.IsNullOrWhiteSpace(ResourceGroupName))
-            {
-                throw new ArgumentException("ResourceGroupName must be provided.");
-            }
-        }
-
-        // The ARM deployment scope this orchestrator targets (resourceGroup/subscription/
-        // managementGroup/tenant). Used only to validate a local .bicep file's target scope
-        // (its "$schema") against the command being run, matching `az deployment <scope>`'s
-        // `validate_bicep_target_scope`. Derived scope orchestrators override this.
-        protected virtual string DeploymentScope => "resourceGroup";
-
         protected static DeploymentMode ParseMode(string? mode) =>
             string.IsNullOrWhiteSpace(mode)
                 ? DeploymentMode.Incremental
@@ -129,11 +110,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected object? BuildTemplate(out TemplateLink? templateLink)
         {
             templateLink = null;
-
-            if (TemplateObject is not null)
-            {
-                return TemplateObject;
-            }
 
             if (!string.IsNullOrWhiteSpace(TemplateUri))
             {
@@ -161,62 +137,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 EnsureFileExists(templatePath);
                 string armJson = BicepCompiler.BuildTemplate(templatePath);
-                JsonElement compiled = JsonSerializer.Deserialize<JsonElement>(armJson);
-                ValidateBicepTargetScope(compiled);
-                return compiled;
+                return JsonSerializer.Deserialize<JsonElement>(armJson);
             }
 
             return ReadJsonFile(templatePath);
-        }
-
-        // Compiled Bicep carries its target scope in "$schema" (e.g. ".../managementGroupDeploymentTemplate.json#").
-        // Reject it up front when it doesn't match this command's deployment scope, instead of
-        // letting ARM fail later with a less specific error. Matches `az deployment <scope>
-        // create`'s validate_bicep_target_scope. Only compiled Bicep is checked: hand-authored ARM
-        // JSON templates don't reliably set "$schema" to a value reflecting intended scope.
-        private void ValidateBicepTargetScope(JsonElement template)
-        {
-            if (template.ValueKind != JsonValueKind.Object
-                || !template.TryGetProperty("$schema", out JsonElement schemaElement)
-                || schemaElement.ValueKind != JsonValueKind.String)
-            {
-                return;
-            }
-
-            string? templateScope = ResolveSchemaTargetScope(schemaElement.GetString());
-            if (templateScope is not null
-                && !string.Equals(templateScope, DeploymentScope, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ArgumentException(
-                    $"The Bicep template's target scope '{templateScope}' does not match the deployment command's scope '{DeploymentScope}'.");
-            }
-        }
-
-        private static string? ResolveSchemaTargetScope(string? schema)
-        {
-            if (string.IsNullOrWhiteSpace(schema))
-            {
-                return null;
-            }
-
-            if (schema.Contains("managementGroupDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
-            {
-                return "managementGroup";
-            }
-            if (schema.Contains("tenantDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
-            {
-                return "tenant";
-            }
-            if (schema.Contains("subscriptionDeploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
-            {
-                return "subscription";
-            }
-            if (schema.Contains("deploymentTemplate.json", StringComparison.OrdinalIgnoreCase))
-            {
-                return "resourceGroup";
-            }
-
-            return null;
         }
 
         protected object? BuildParameters(out ParametersLink? parametersLink)
@@ -234,8 +158,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return null;
             }
 
-            object? fileParameters = NormalizeParametersObject(ParametersObject);
-            if (fileParameters is null && !string.IsNullOrWhiteSpace(ParametersFile))
+            object? fileParameters = null;
+            if (!string.IsNullOrWhiteSpace(ParametersFile))
             {
                 // A .bicepparam source is compiled to an ARM parameters file first.
                 if (IsBicepParamFile(ParametersFile))
@@ -266,11 +190,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 }
                 parameters = JsonObject.Create(element)!;
             }
-            else if (fileParameters is not null)
-            {
-                parameters = JsonSerializer.SerializeToNode(fileParameters, JsonOptions) as JsonObject
-                    ?? throw new ArgumentException("The parameters object must serialize to a JSON object.");
-            }
             else
             {
                 parameters = new JsonObject();
@@ -289,33 +208,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return parameters;
-        }
-
-        // ParametersObject (PowerShell's -TemplateParameterObject) is a flat object such as
-        // { "rgLocation": "WestUS" }, unlike parameters FILES, which already use ARM's
-        // { "name": { "value": ... } } envelope. ARM rejects a flat value here, so wrap any
-        // top-level value that isn't already shaped like { "value": ... } or { "reference": ... },
-        // mirroring azure-powershell's ParameterUtility.AddTemplateObjectParametersToHashtable.
-        protected static JsonObject? NormalizeParametersObject(object? parametersObject)
-        {
-            if (parametersObject is null)
-            {
-                return null;
-            }
-
-            JsonObject source = parametersObject as JsonObject
-                ?? JsonSerializer.SerializeToNode(parametersObject) as JsonObject
-                ?? throw new ArgumentException("ParametersObject must be a JSON object of parameter name/value pairs.");
-
-            JsonObject wrapped = new();
-            foreach ((string key, JsonNode? value) in source)
-            {
-                wrapped[key] = value is JsonObject valueObject && (valueObject.ContainsKey("value") || valueObject.ContainsKey("reference"))
-                    ? value.DeepClone()
-                    : new JsonObject { ["value"] = value?.DeepClone() };
-            }
-
-            return wrapped;
         }
 
         // Returns the canonical-cased validation level when valid, or null when the input is
@@ -465,13 +357,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return root;
         }
 
-        protected static bool IsBicepFile(string path) =>
+        private static bool IsBicepFile(string path) =>
             path.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase);
 
-        protected static bool IsBicepParamFile(string path) =>
+        private static bool IsBicepParamFile(string path) =>
             path.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase);
 
-        protected static void EnsureFileExists(string path)
+        private static void EnsureFileExists(string path)
         {
             if (!File.Exists(path))
             {

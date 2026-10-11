@@ -3,16 +3,21 @@
 
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Core.Abstractions.Runtime;
-using DevLab.JmesPath;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary><c>az deployment mg wait</c>: polls GET until the requested condition holds.</summary>
+/// <summary>
+/// <c>az deployment mg wait</c>: polls GET until the condition is met (legacy CLI generic wait).
+/// A 404 is read directly from the pipeline so an expected "not found" is not reported as a failure.
+/// </summary>
 public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManagementGroupScopeDeploymentsProcessor
 {
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: false);
+
     public bool Created { get; set; }
 
     public bool Updated { get; set; }
@@ -21,7 +26,6 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManageme
 
     public bool Exists { get; set; }
 
-    /// <summary>JMESPath condition evaluated against the GET body; met when the result is truthy.</summary>
     public string? Custom { get; set; }
 
     public int Interval { get; set; } = 30;
@@ -30,30 +34,32 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManageme
 
     public override async Task ProcessAsync()
     {
-        if (!Created && !Updated && !Deleted && !Exists && string.IsNullOrWhiteSpace(Custom))
+        if (!(Created || Updated || Deleted || Exists || !string.IsNullOrEmpty(Custom)))
         {
             throw new ArgumentException("incorrect usage: --created | --updated | --deleted | --exists | --custom JMESPATH");
         }
-        if (Interval <= 0 || Timeout <= 0)
+
+        if (Interval == 0)
         {
-            throw new ArgumentException("Interval and Timeout must be positive.");
+            throw new ArgumentException("range() arg 3 must not be zero");
         }
 
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            for (int elapsed = 0; ; elapsed += Interval)
+            // Legacy: for _ in range(0, timeout, interval).
+            for (int elapsed = 0; Interval > 0 && elapsed < Timeout; elapsed += Interval)
             {
                 if (await IsConditionMetAsync())
                 {
                     return;
                 }
-                if (elapsed + Interval >= Timeout)
-                {
-                    throw new TimeoutException($"Wait operation timed-out after {Timeout} seconds");
-                }
+
                 await Task.Delay(TimeSpan.FromSeconds(Interval), Publisher.Token);
             }
+
+            // Legacy returns (not raises) CLIError on timeout, which serializes to {} with exit code 0.
+            await WriteOutput(new SerializedJson("{}"));
         }
         finally
         {
@@ -61,7 +67,6 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManageme
         }
     }
 
-    // Sent directly (not via SendAsync) so an expected 404 is not published as a failure.
     private async Task<bool> IsConditionMetAsync()
     {
         using HttpRequestMessage request = await CreateRequestMessage();
@@ -74,11 +79,12 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManageme
             {
                 return true;
             }
-            // Matches az's generic wait: 404 keeps polling only for --created/--exists/--custom.
-            if (!Created && !Exists && string.IsNullOrWhiteSpace(Custom))
+
+            if (!(Created || Exists || !string.IsNullOrEmpty(Custom)))
             {
                 await response.EnsureSuccessAsync(Publisher);
             }
+
             return false;
         }
 
@@ -88,30 +94,29 @@ public class WaitManagementGroupDeploymentProcessor_Orchestrator : GetAtManageme
             return true;
         }
 
-        string rawBody = await response.Content.ReadAsStringAsync();
-        DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(rawBody, JsonOptions);
+        string json = await response.Content.ReadAsStringAsync();
+        DeploymentExtended? deployment = JsonSerializer.Deserialize<DeploymentExtended>(json, JsonOptions);
         string? state = deployment?.Properties?.ProvisioningState;
         if (string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("The operation failed.");
+            throw new InvalidOperationException("The operation failed");
         }
+
         return ((Created || Updated) && string.Equals(state, "Succeeded", StringComparison.OrdinalIgnoreCase))
-            || (!string.IsNullOrWhiteSpace(Custom) && IsTruthy(new JmesPath().Transform(rawBody, Custom)));
+            || (!string.IsNullOrEmpty(Custom) && IsTruthy(JsonNode.Parse(s_jmesPath.Transform(json, Custom))));
     }
 
-    // Python bool() semantics, as used by az's verify_property.
-    private static bool IsTruthy(string json)
+    private static readonly DevLab.JmesPath.JmesPath s_jmesPath = new();
+
+    // Python bool() semantics used by legacy verify_property.
+    private static bool IsTruthy(JsonNode? node) => node switch
     {
-        using JsonDocument doc = JsonDocument.Parse(json);
-        JsonElement value = doc.RootElement;
-        return value.ValueKind switch
-        {
-            JsonValueKind.True => true,
-            JsonValueKind.String => value.GetString()!.Length > 0,
-            JsonValueKind.Number => value.GetDouble() != 0,
-            JsonValueKind.Array => value.GetArrayLength() > 0,
-            JsonValueKind.Object => value.EnumerateObject().Any(),
-            _ => false,
-        };
-    }
+        null => false,
+        JsonArray array => array.Count > 0,
+        JsonObject obj => obj.Count > 0,
+        JsonValue value when value.GetValueKind() == JsonValueKind.String => value.GetValue<string>().Length > 0,
+        JsonValue value when value.GetValueKind() == JsonValueKind.Number => value.GetValue<double>() != 0,
+        JsonValue value => value.GetValueKind() == JsonValueKind.True,
+        _ => true,
+    };
 }

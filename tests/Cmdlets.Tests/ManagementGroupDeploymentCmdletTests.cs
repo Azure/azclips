@@ -1,167 +1,150 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cmdlets.Tests;
 
 public class ManagementGroupDeploymentCmdletTests
 {
-    private static readonly Type[] CmdletTypes =
-    [
-        typeof(NewManagementGroupDeploymentCmdlet),
-        typeof(GetManagementGroupDeploymentCmdlet),
-        typeof(StopManagementGroupDeploymentCmdlet),
-        typeof(RemoveManagementGroupDeploymentCmdlet),
-        typeof(TestManagementGroupDeploymentCmdlet),
-    ];
-
-    [Fact]
-    public void ParseId_AcceptsManagementGroupDeploymentId()
+    [Theory]
+    [InlineData("/providers/Microsoft.Resources/deployments/deployment", "deployment")]
+    [InlineData("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/deployment", "deployment")]
+    [InlineData("/providers/Microsoft.Resources/deployments/parent/child/nested", "parent/nested")]
+    [InlineData("/providers/Microsoft.Resources/deployments", "")]
+    [InlineData("deployment", "")]
+    public void GetDeploymentName_MatchesLegacyResourceIdUtility(string id, string expected)
     {
-        const string id =
-            "/providers/Microsoft.Management/managementGroups/myManagementGroup/"
-            + "providers/Microsoft.Resources/deployments/myDeployment";
+        MethodInfo method = typeof(ManagementGroupDeploymentCmdletBase).GetMethod("GetDeploymentName", BindingFlags.NonPublic | BindingFlags.Static)!;
 
-        (string managementGroupId, string name) = ParseId(id);
-
-        Assert.Equal("myManagementGroup", managementGroupId);
-        Assert.Equal("myDeployment", name);
+        Assert.Equal(expected, method.Invoke(null, [id]));
     }
 
     [Theory]
-    [InlineData("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Resources/deployments/deployment")]
-    [InlineData("/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Resources/deployments")]
-    [InlineData("/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Authorization/deployments/deployment")]
-    public void ParseId_RejectsNonManagementGroupDeploymentIds(string id)
+    [InlineData("/providers/Microsoft.Management/managementGroups/mg1/providers/Microsoft.Resources/deployments/deployment", "mg1")]
+    [InlineData("/PROVIDERS/MICROSOFT.MANAGEMENT/MANAGEMENTGROUPS/mg1", "mg1")]
+    [InlineData("/providers/Microsoft.Management/managementGroups/", null)]
+    [InlineData("/providers/Microsoft.Resources/deployments/deployment", null)]
+    [InlineData("/subscriptions/sub/providers/Microsoft.Management/managementGroups/mg1", null)]
+    public void GetManagementGroupId_MatchesLegacyResourceIdUtility(string id, string? expected)
     {
-        TargetInvocationException exception =
-            Assert.Throws<TargetInvocationException>(() => ParseId(id));
+        MethodInfo method = typeof(ManagementGroupDeploymentCmdletBase).GetMethod("GetManagementGroupId", BindingFlags.NonPublic | BindingFlags.Static)!;
 
-        Assert.IsType<ArgumentException>(exception.InnerException);
+        Assert.Equal(expected, method.Invoke(null, [id]));
+    }
+
+    [Theory]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), ParameterAttribute.AllParameterSets, int.MinValue)]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), ParameterAttribute.AllParameterSets, int.MinValue)]
+    [InlineData(typeof(GetManagementGroupDeploymentCmdlet), "GetByDeploymentName", 0)]
+    [InlineData(typeof(StopManagementGroupDeploymentCmdlet), "StopByDeploymentName", 0)]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), "RemoveByDeploymentName", 0)]
+    public void ManagementGroupId_IsMandatoryLikeLegacy(Type cmdlet, string set, int position)
+    {
+        ParameterAttribute parameter = Assert.Single(cmdlet.GetProperty("ManagementGroupId")!.GetCustomAttributes<ParameterAttribute>());
+
+        Assert.Equal((true, set, position), (parameter.Mandatory, parameter.ParameterSetName, parameter.Position));
+    }
+
+    [Theory]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), typeof(PSDeployment))]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(PSResourceManagerError))]
+    [InlineData(typeof(StopManagementGroupDeploymentCmdlet), typeof(bool))]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), typeof(bool))]
+    public void Cmdlets_DeclareLegacyOutputTypes(Type cmdlet, Type expected)
+    {
+        Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
     }
 
     [Fact]
-    public void StopAndRemove_InputObjectParametersAcceptPipelineInput()
+    public void GetCmdlet_DeclaresPSDeploymentOutputByName()
     {
-        foreach (Type cmdletType in new[]
-                 {
-                     typeof(StopManagementGroupDeploymentCmdlet),
-                     typeof(RemoveManagementGroupDeploymentCmdlet),
-                 })
-        {
-            ParameterAttribute parameter = Assert.Single(
-                cmdletType.GetProperty("InputObject")!
-                    .GetCustomAttributes<ParameterAttribute>());
-
-            Assert.True(parameter.Mandatory);
-            Assert.True(parameter.ValueFromPipeline);
-            Assert.EndsWith("ByInputObject", parameter.ParameterSetName);
-        }
+        Assert.Equal(
+            typeof(PSDeployment).FullName,
+            Assert.Single(Assert.Single(typeof(GetManagementGroupDeploymentCmdlet).GetCustomAttributes<OutputTypeAttribute>()).Type).Name);
     }
 
-    [Fact]
-    public void GetStopAndRemove_ExposeNameAndIdParameterSets()
+    [Theory]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet))]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet))]
+    public void TemplateCmdlets_UseLegacyParameterSets(Type cmdlet)
     {
-        AssertParameterSet<GetManagementGroupDeploymentCmdlet>("ManagementGroupId", "GetByName");
-        AssertParameterSet<GetManagementGroupDeploymentCmdlet>("Id", "GetById");
-        AssertParameterSet<StopManagementGroupDeploymentCmdlet>("ManagementGroupId", "StopByName");
-        AssertParameterSet<StopManagementGroupDeploymentCmdlet>("Id", "StopById");
-        AssertParameterSet<RemoveManagementGroupDeploymentCmdlet>("ManagementGroupId", "RemoveByName");
-        AssertParameterSet<RemoveManagementGroupDeploymentCmdlet>("Id", "RemoveById");
-    }
-
-    [Fact]
-    public void OnlyNewAndRemove_ExposeAsJob()
-    {
-        foreach (Type cmdletType in CmdletTypes)
-        {
-            bool expected = cmdletType == typeof(NewManagementGroupDeploymentCmdlet)
-                || cmdletType == typeof(RemoveManagementGroupDeploymentCmdlet);
-            Assert.Equal(expected, cmdletType.GetProperty("AsJob") is not null);
-        }
-    }
-
-    [Fact]
-    public void CreateAndDestructiveCmdlets_SupportShouldProcess()
-    {
-        foreach (Type cmdletType in new[]
-                 {
-                     typeof(NewManagementGroupDeploymentCmdlet),
-                     typeof(StopManagementGroupDeploymentCmdlet),
-                     typeof(RemoveManagementGroupDeploymentCmdlet),
-                 })
-        {
-            CmdletAttribute attribute =
-                Assert.Single(cmdletType.GetCustomAttributes<CmdletAttribute>());
-
-            Assert.True(attribute.SupportsShouldProcess);
-        }
-    }
-
-    [Fact]
-    public void NewCmdlet_DeclaresCreateAndWhatIfOutputTypes()
-    {
-        OutputTypeAttribute attribute = Assert.Single(
-            typeof(NewManagementGroupDeploymentCmdlet)
-                .GetCustomAttributes<OutputTypeAttribute>());
-
+        Assert.Equal("ByTemplateFileWithNoParameters", cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName);
         Assert.Equal(
             [
-                "Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment",
-                "Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult",
+                "ByParameterFileWithNoTemplate",
+                "ByTemplateFileAndParameterFile",
+                "ByTemplateFileAndParameterObject",
+                "ByTemplateFileAndParameterUri",
+                "ByTemplateFileWithNoParameters",
+                "ByTemplateObjectAndParameterFile",
+                "ByTemplateObjectAndParameterObject",
+                "ByTemplateObjectAndParameterUri",
+                "ByTemplateObjectWithNoParameters",
+                "ByTemplateSpecResourceId",
+                "ByTemplateSpecResourceIdAndParams",
+                "ByTemplateSpecResourceIdAndParamsObject",
+                "ByTemplateSpecResourceIdAndParamsUri",
+                "ByTemplateUriAndParameterFile",
+                "ByTemplateUriAndParameterObject",
+                "ByTemplateUriAndParameterUri",
+                "ByTemplateUriWithNoParameters",
             ],
-            attribute.Type.Select(type => type.Name));
+            ParameterSets(cmdlet));
+        Assert.Contains("DeploymentName", Aliases(cmdlet, "Name"));
+    }
+
+    [Theory]
+    [InlineData(typeof(GetManagementGroupDeploymentCmdlet), "GetByDeploymentName", new[] { "GetByDeploymentId", "GetByDeploymentName" })]
+    [InlineData(typeof(StopManagementGroupDeploymentCmdlet), "StopByDeploymentName", new[] { "StopByDeploymentId", "StopByDeploymentName", "StopByInputObject" })]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), "RemoveByDeploymentName", new[] { "RemoveByDeploymentId", "RemoveByDeploymentName", "RemoveByInputObject" })]
+    public void NameCmdlets_UseLegacyParameterSetsAndAliases(Type cmdlet, string defaultSet, string[] sets)
+    {
+        Assert.Equal(defaultSet, cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName);
+        Assert.Equal(sets, ParameterSets(cmdlet));
+        Assert.Equal(["DeploymentName"], Aliases(cmdlet, "Name"));
+        Assert.Equal(["DeploymentId", "ResourceId"], Aliases(cmdlet, "Id"));
+    }
+
+    [Theory]
+    [InlineData(typeof(NewManagementGroupDeploymentCmdlet), true)]
+    [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), true)]
+    [InlineData(typeof(StopManagementGroupDeploymentCmdlet), false)]
+    [InlineData(typeof(TestManagementGroupDeploymentCmdlet), false)]
+    [InlineData(typeof(GetManagementGroupDeploymentCmdlet), false)]
+    public void AsJob_IsExposedOnlyWhereLegacyHasIt(Type cmdlet, bool expected)
+    {
+        Assert.Equal(expected, cmdlet.GetProperty("AsJob") is not null);
     }
 
     [Fact]
-    public void TestCmdlet_DeclaresNoSuccessOutputType()
+    public void NewCmdlet_ExposesLegacyWhatIfAndDeploymentParameters()
     {
-        Assert.Empty(
-            typeof(TestManagementGroupDeploymentCmdlet)
-                .GetCustomAttributes<OutputTypeAttribute>());
+        Type cmdlet = typeof(NewManagementGroupDeploymentCmdlet);
+
+        Assert.Equal(["FullResourcePayloads", "ResourceIdOnly"], cmdlet.GetProperty("WhatIfResultFormat")!.GetCustomAttribute<ValidateSetAttribute>()!.ValidValues);
+        Assert.Equal(
+            ["RequestContent", "ResponseContent", "All", "None"],
+            cmdlet.GetProperty("DeploymentDebugLogLevel")!.GetCustomAttribute<ArgumentCompletionsAttribute>()!.CompleteArgument("New-AzManagementGroupDeployment", "DeploymentDebugLogLevel", "", null!, null!).Select(c => c.CompletionText));
+        Assert.NotNull(cmdlet.GetProperty("Tag"));
+        Assert.NotNull(cmdlet.GetProperty("WhatIfExcludeChangeType"));
+        Assert.NotNull(cmdlet.GetProperty("ProceedIfNoChange"));
+        Assert.True(cmdlet.GetCustomAttribute<CmdletAttribute>()!.SupportsShouldProcess);
+        Assert.NotNull(typeof(TestManagementGroupDeploymentCmdlet).GetProperty("SkipTemplateParameterPrompt"));
     }
 
-    [Fact]
-    public void NormalizeJsonInput_ConvertsNestedHashtables()
-    {
-        Type helpers = typeof(GetManagementGroupDeploymentCmdlet).Assembly.GetType(
-            "Microsoft.Azure.Azclips.Cmdlets.Resources.ManagementGroupDeploymentCmdletHelpers",
-            throwOnError: true)!;
-        MethodInfo method = helpers.GetMethod(
-            "NormalizeJsonInput",
-            BindingFlags.Public | BindingFlags.Static)!;
-        Hashtable value = new()
-        {
-            ["outer"] = new Hashtable { ["inner"] = 42 },
-        };
+    private static string[] ParameterSets(Type cmdlet) =>
+        cmdlet.GetProperties()
+            .SelectMany(p => p.GetCustomAttributes<ParameterAttribute>())
+            .Select(p => p.ParameterSetName)
+            .Where(name => name != ParameterAttribute.AllParameterSets)
+            .Distinct()
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
-        var normalized = Assert.IsType<Dictionary<string, object?>>(method.Invoke(null, [value]));
-        var nested = Assert.IsType<Dictionary<string, object?>>(normalized["outer"]);
-        Assert.Equal(42, nested["inner"]);
-    }
-
-    private static (string ManagementGroupId, string Name) ParseId(string id)
-    {
-        Type helpers = typeof(GetManagementGroupDeploymentCmdlet).Assembly.GetType(
-            "Microsoft.Azure.Azclips.Cmdlets.Resources.ManagementGroupDeploymentCmdletHelpers",
-            throwOnError: true)!;
-        MethodInfo method = helpers.GetMethod(
-            "ParseId",
-            BindingFlags.Public | BindingFlags.Static)!;
-
-        return ((string ManagementGroupId, string Name))method.Invoke(null, [id])!;
-    }
-
-    private static void AssertParameterSet<TCmdlet>(string propertyName, string parameterSetName)
-    {
-        ParameterAttribute parameter = Assert.Single(
-            typeof(TCmdlet).GetProperty(propertyName)!
-                .GetCustomAttributes<ParameterAttribute>());
-
-        Assert.Equal(parameterSetName, parameter.ParameterSetName);
-    }
+    private static IEnumerable<string> Aliases(Type cmdlet, string property) =>
+        cmdlet.GetProperty(property)!.GetCustomAttribute<AliasAttribute>()!.AliasNames;
 }

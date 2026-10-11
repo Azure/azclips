@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions.Runtime;
@@ -11,163 +10,54 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>New-AzManagementGroupDeployment</c>: optional what-if preview, then validate and create like legacy PS.
-/// <see cref="CreateManagementGroupDeploymentProcessor_Orchestrator"/> adds the <c>az deployment mg create</c> behavior.
+/// <c>New-AzManagementGroupDeployment</c> (legacy <c>DeploymentCreateCmdlet.ExecuteDeployment</c>): validate, create with progress,
+/// write the failed operations' errors and output a <see cref="PSDeployment"/>. With <see cref="CreateManagementGroupDeploymentProcessor_Orchestrator.WhatIf"/>
+/// it only outputs the what-if result; the cmdlet owns the ShouldProcess confirmation.
 /// </summary>
-public class NewManagementGroupDeploymentProcessor_Orchestrator
-    : ManagementGroupDeploymentOrchestratorBase<ScopedDeployment, DeploymentExtended>
+public class NewManagementGroupDeploymentProcessor_Orchestrator : CreateManagementGroupDeploymentProcessor_Orchestrator
 {
     private const int MaxErrorsToShow = 3;
 
     private const string DeploymentsApiVersion = "2025-04-01";
 
-    private static readonly string[] NoChangeTypes = ["NoChange", "Ignore"];
-
-    private ScopedDeployment _deployment = null!;
-
     public object? Tags { get; set; }
 
     public string? DeploymentDebugLogLevel { get; set; }
 
-    public bool WhatIf { get; set; }
+    protected override bool IsCli => false;
 
-    public string? WhatIfResultFormat { get; set; }
-
-    public string[]? WhatIfExcludeChangeType { get; set; }
-
-    // The error of a deployment that ended in the Failed state; the CLI shows it like legacy azure-core.
-    protected ErrorResponse? FailureOf(DeploymentExtended? body) =>
-        string.Equals(body?.Properties?.ProvisioningState, "Failed", StringComparison.OrdinalIgnoreCase)
-        && body!.Properties!.Error is JsonElement { ValueKind: JsonValueKind.Object } error
-            ? error.Deserialize<ErrorResponse>(JsonOptions)
-            : null;
-
-    // Used by the PS cmdlet for -Confirm with -ProceedIfNoChange.
-    public static bool HasChanges(WhatIfOperationResult result) =>
-        result.Properties?.Changes?.Any(c => IsChange(c.ChangeType)) == true;
-
-    protected static bool IsChange(string? changeType) => !NoChangeTypes.Contains(changeType, StringComparer.OrdinalIgnoreCase);
-
-    // Legacy PS rule: template URI/file basename without extension, else a new GUID.
-    protected virtual string DefaultDeploymentName()
-    {
-        string? source = string.IsNullOrWhiteSpace(TemplateUri) ? TemplateFile : TemplateUri;
-        return string.IsNullOrWhiteSpace(source) ? Guid.NewGuid().ToString() : Path.GetFileNameWithoutExtension(source);
-    }
-
-    public override async Task ProcessAsync()
-    {
-        WhatIfManagementGroupDeploymentProcessor_Orchestrator.CheckExcludeChangeTypes(WhatIfExcludeChangeType);
-        if (string.IsNullOrWhiteSpace(Name))
-        {
-            Name = DefaultDeploymentName();
-        }
-        DeploymentProperties properties = await BuildPropertiesAsync();
-        properties.Mode = ParseMode(Mode);
-        if (DebugDetailLevel(DeploymentDebugLogLevel) is { } detailLevel)
-        {
-            properties.DebugSetting = new DebugSetting { DetailLevel = detailLevel };
-            Warn("The DeploymentDebug setting has been enabled. This can potentially log secrets like passwords used in resource property or listKeys operations when you retrieve the deployment operations through Get-AzResourceGroupDeploymentOperation");
-        }
-        _deployment = new ScopedDeployment { Location = Location, Properties = properties, Tags = ToTags(Tags) };
-
-        if (!await PreviewAndStopAsync())
-        {
-            await base.ProcessAsync();
-        }
-    }
-
-    protected DeploymentProperties DeploymentProperties => _deployment.Properties;
-
-    // Legacy PS -WhatIf: output the what-if result (errors included, not thrown) and stop.
-    protected virtual async Task<bool> PreviewAndStopAsync()
+    // Legacy -WhatIf/-Confirm preview: the filtered result (template errors included, not thrown).
+    protected override async Task<bool> PreviewAndStopAsync()
     {
         if (!WhatIf)
         {
             return false;
         }
-        (WhatIfOperationResult? result, _) = await RunWhatIfAsync();
-        if (result is not null)
+        DeploymentErrorPublisher.UsePowerShellWhatIfText(Publisher);
+        (JsonObject? preview, _) = await RunWhatIfAsync();
+        if (preview is not null)
         {
-            result.Properties?.Changes?.RemoveAll(c => WhatIfExcludeChangeType?.Contains(c.ChangeType, StringComparer.OrdinalIgnoreCase) == true);
-            await WriteOutput(result);
+            await WriteOutput(preview);
         }
         return true;
     }
 
-    protected async Task<(WhatIfOperationResult? Result, string? RawBody)> RunWhatIfAsync()
+    // Legacy CreateBasicDeployment: no validation level (only the what-if sends it), plus tags and debug setting.
+    protected override async Task<ScopedDeployment> BuildDeploymentAsync()
     {
-        ScopedDeploymentWhatIf body = WhatIfManagementGroupDeploymentProcessor_Orchestrator.CreateBody(Location, _deployment.Properties, WhatIfResultFormat);
-        using HttpResponseMessage response = await CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
+        ScopedDeployment deployment = await base.BuildDeploymentAsync();
+        deployment.Properties.ValidationLevel = null;
+        deployment.Tags = ToTags(Tags);
+        if (DebugDetailLevel(DeploymentDebugLogLevel) is { } detailLevel)
         {
-            p.GroupId = ManagementGroupId;
-            p.DeploymentName = Name;
-            p.Body = body;
-        }).SendAsync();
-        string? raw = response.Content is null ? null : await response.Content.ReadAsStringAsync();
-        return (string.IsNullOrWhiteSpace(raw) ? null : JsonSerializer.Deserialize<WhatIfOperationResult>(raw, JsonOptions), raw);
+            deployment.Properties.DebugSetting = new DebugSetting { DetailLevel = detailLevel };
+            Warn("The DeploymentDebug setting has been enabled. This can potentially log secrets like passwords used in resource property or listKeys operations when you retrieve the deployment operations through Get-AzResourceGroupDeploymentOperation");
+        }
+        return deployment;
     }
 
-    internal override async Task<HttpResponseMessage> SendAsync()
-    {
-        await ValidateAsync();
-        bool progress = PSDeployment.ForPowerShell;
-        if (progress)
-        {
-            Verbose("Template is valid.");
-        }
-        using CancellationTokenSource stopProgress = new();
-        HashSet<(string?, string?)> reported = [];
-        Task progressTask = progress ? WriteProgressAsync(reported, stopProgress.Token) : Task.CompletedTask;
-        HttpResponseMessage response;
-        try
-        {
-            response = await CreateExtendedProcessor<CreateOrUpdateAtManagementGroupScopeDeploymentsProcessor>(p =>
-            {
-                p.GroupId = ManagementGroupId;
-                p.DeploymentName = Name;
-                p.Body = _deployment;
-            }).SendAsync();
-        }
-        // The runtime LRO throws without the ARM error; read it from the failed deployment like legacy.
-        catch (Exception ex) when (ex.Message.StartsWith("Long running operation failed", StringComparison.Ordinal))
-        {
-            response = await CreateExtendedProcessor<GetAtManagementGroupScopeDeploymentsProcessor>(p =>
-            {
-                p.GroupId = ManagementGroupId;
-                p.DeploymentName = Name;
-            }).SendAsync();
-        }
-        finally
-        {
-            stopProgress.Cancel();
-            await progressTask;
-        }
-        if (progress)
-        {
-            await WriteNewOperationsAsync(reported); // legacy lists operations once more before the final status check
-        }
-        return response;
-    }
-
-    // Legacy validates before creating; a validation error stops the deployment.
-    private async Task ValidateAsync()
-    {
-        using HttpResponseMessage response = await CreateExtendedProcessor<ValidateManagementGroupDeploymentProcessor_Orchestrator.ValidationResultProcessor>(p =>
-        {
-            p.GroupId = ManagementGroupId;
-            p.DeploymentName = Name;
-            p.Body = _deployment;
-        }).SendAsync();
-        string? raw = response.Content is null ? null : await response.Content.ReadAsStringAsync();
-        if (!string.IsNullOrWhiteSpace(raw) && JsonSerializer.Deserialize<DeploymentValidateResult>(raw, JsonOptions)?.Error is { } error)
-        {
-            await OnValidationFailedAsync(error, !response.IsSuccessStatusCode);
-        }
-    }
-
-    // Legacy PS RunDeploymentValidation: one error record per error and nested detail, then a terminating error.
-    protected virtual async Task OnValidationFailedAsync(ErrorResponse error, bool httpFailed)
+    // Legacy RunDeploymentValidation: one error record per error and nested detail, then a terminating error.
+    protected override async Task OnValidationFailedAsync(ErrorResponse error, bool httpFailed)
     {
         await WriteValidationErrorAsync(error);
         throw new InvalidOperationException("The deployment validation failed");
@@ -182,7 +72,27 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         }
     }
 
-    // Legacy PS ProvisionDeploymentStatus: write the failed operations' errors (non-terminating), still output the deployment.
+    protected override async Task<HttpResponseMessage> CreateAsync()
+    {
+        Verbose("Template is valid.");
+        using CancellationTokenSource stopProgress = new();
+        HashSet<(string?, string?)> reported = [];
+        Task progress = WriteProgressAsync(reported, stopProgress.Token);
+        HttpResponseMessage response;
+        try
+        {
+            response = await base.CreateAsync();
+        }
+        finally
+        {
+            stopProgress.Cancel();
+            await progress;
+        }
+        await WriteNewOperationsAsync(reported); // legacy lists operations once more before the final status check
+        return response;
+    }
+
+    // Legacy ProvisionDeploymentStatus: write the failed operations' errors (non-terminating), still output the deployment.
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentExtended? body)
     {
         List<ErrorResponse> errors = await GetFailedOperationErrorsAsync();
@@ -201,7 +111,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         return true;
     }
 
-    // Legacy PS WaitDeploymentStatus progress (verbose stream): poll every 5s for 400s, then every 60s,
+    // Legacy WaitDeploymentStatus progress (verbose stream): poll every 5s for 400s, then every 60s,
     // and write each new non-failed operation status. The runtime LRO waits for the result meanwhile.
     private async Task WriteProgressAsync(HashSet<(string?, string?)> reported, CancellationToken token)
     {
@@ -245,17 +155,15 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
     }
 
     private string OperationsUrl() =>
-        $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(ManagementGroupId)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/operations?api-version={DeploymentsApiVersion}";
+        $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(ManagementGroupId)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name!)}/operations?api-version={DeploymentsApiVersion}";
 
-    // Legacy PS WriteDeploymentProgress + GetNewOperations + DeploymentOperationErrorInfo.ProcessError:
-    // list the deployment operations (nested deployments included), keep statusMessage.error of the failed ones.
+    // Legacy GetNewOperations + DeploymentOperationErrorInfo.ProcessError: list the deployment operations
+    // (nested deployments included), keep statusMessage.error of the failed ones.
     // ponytail: codegen has no deployment-operations processor, so the list API is called directly.
     private async Task<List<ErrorResponse>> GetFailedOperationErrorsAsync()
     {
         List<JsonObject> operations = [];
-        HashSet<(string?, string?)> seen = [];
-        await AddOperationsAsync(OperationsUrl(), operations, seen, nested: false);
-
+        await AddOperationsAsync(OperationsUrl(), operations, [], nested: false);
         return operations
             .Where(o => string.Equals((string?)o["properties"]?["provisioningState"], "Failed", StringComparison.Ordinal))
             .Select(o => o["properties"]?["statusMessage"]?["error"]?.Deserialize<ErrorResponse>(JsonOptions))
@@ -296,7 +204,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         }
     }
 
-    // Legacy PS ErrorResponse.ToFormattedString.
+    // Legacy ErrorResponse.ToFormattedString.
     private static string ToFormattedString(ErrorResponse error, int level = 0)
     {
         if (error.Details is null)
@@ -307,7 +215,7 @@ public class NewManagementGroupDeploymentProcessor_Orchestrator
         return $"{error.Message} (Code: {error.Code}){Environment.NewLine}{details}";
     }
 
-    // Legacy PS DeploymentDebugLogLevel mapping.
+    // Legacy GetDeploymentDebugLogLevel; "None" or an unknown value means no debug setting.
     private static string? DebugDetailLevel(string? level) => level?.ToLowerInvariant() switch
     {
         "all" => "RequestContent,ResponseContent",

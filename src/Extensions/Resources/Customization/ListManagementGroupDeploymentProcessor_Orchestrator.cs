@@ -7,20 +7,26 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>az deployment mg list</c> / <c>Get-AzManagementGroupDeployment</c>: CLI outputs the deployments like legacy CLI;
-/// PS outputs every deployment as a legacy <see cref="PSDeployment"/>.
+/// <c>az deployment mg list</c> / <c>Get-AzManagementGroupDeployment</c> (list): sends <c>$filter</c>/<c>$top</c> only when set;
+/// PS writes every deployment as a legacy <see cref="PSDeployment"/>.
 /// </summary>
 public class ListManagementGroupDeploymentProcessor_Orchestrator : ListAtManagementGroupScopeDeploymentsProcessor
 {
+    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
+
+    protected override string CreateRequestUri()
+    {
+        var uri = $"https://management.azure.com/providers/Microsoft.Management/managementGroups/{Uri.EscapeDataString(GroupId)}/providers/Microsoft.Resources/deployments?api-version=2025-04-01";
+        if (!string.IsNullOrEmpty(_filter)) uri += $"&$filter={Uri.EscapeDataString(_filter)}";
+        if (_top is not null) uri += $"&$top={_top}";
+        return uri;
+    }
+
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentListResult? body)
     {
         if (!PSDeployment.ForPowerShell) return await base.BeforeWriteOutputAsyncAndReturn(body);
-        if (body is not null)
-        {
-            List<DeploymentExtended> deployments = await body.CollectWithPaginationAsync(
-                b => b.Value, b => b.NextLink, CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
-            await WriteOutput(deployments.Select(d => PSDeployment.From(d, GroupId)).ToList());
-        }
+        var deployments = await body.CollectWithPaginationAsync(b => b.Value, b => b.NextLink, CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+        await WriteOutput(deployments.Select(d => PSDeployment.From(d, GroupId)).ToList());
         return true;
     }
 }

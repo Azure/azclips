@@ -1,11 +1,10 @@
 using System.Net;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
-using Tests.Common.Utilities;
 using Tests.Recording;
 
 namespace Scenario.Tests;
@@ -76,64 +75,45 @@ public class ManagementGroupDeploymentScenarioTests
 
     private static void RunCli(ScenarioHost host)
     {
-        string template = Path.Combine(
-            RepoLocator.GetRepoRoot(),
-            "tests",
-            "Scripts",
-            "Bicep",
-            "management-group-empty.json");
+        // The CLI only accepts a template from a file/URI/spec, unlike PowerShell's
+        // -TemplateObject, so write the shared s_template out to a temp file instead of
+        // depending on a committed Bicep/JSON fixture.
+        string template = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(template, JsonSerializer.Serialize(s_template));
 
-        Assert.IsType<DeploymentValidateResult>(Assert.Single(host.RunCli(
-            "deployment", "mg", "validate",
-            "--management-group-id", ManagementGroupId,
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg")));
+            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+                "deployment", "mg", "validate",
+                "--location", Location,
+                "--management-group-id", ManagementGroupId, "--name", DeploymentName,
+                "--template-file", template)));
 
-        host.RunCli(
-            "deployment", "mg", "what-if",
-            "--management-group-id", ManagementGroupId,
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg");
+            Assert.Contains("Resource changes: no change.", Assert.IsType<string>(Assert.Single(host.RunCli(
+                "deployment", "mg", "what-if",
+                "--location", Location,
+                "--management-group-id", ManagementGroupId, "--name", DeploymentName,
+                "--template-file", template))));
 
-        Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
-            "deployment", "mg", "create",
-            "--management-group-id", ManagementGroupId,
-            "--location", Location,
-            "--name", DeploymentName,
-            "--template-file", template, "--parameters", "subscriptionId=00000000-0000-0000-0000-000000000000", "resourceGroupName=scenario-rg")));
+            Assert.IsType<JsonElement>(Assert.Single(host.RunCli(
+                "deployment", "mg", "create",
+                "--location", Location,
+                "--management-group-id", ManagementGroupId, "--name", DeploymentName,
+                "--template-file", template)));
 
-        // Wait commands are void on success (matches `az resource wait`'s silent convention).
-        Assert.Empty(host.RunCli(
-            "deployment", "mg", "wait",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName,
-            "--exists"));
-        Assert.IsType<DeploymentExtended>(Assert.Single(host.RunCli(
-            "deployment", "mg", "show",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName)));
-        Assert.NotEmpty(host.RunCli(
-            "deployment", "mg", "list",
-            "--management-group-id", ManagementGroupId));
-        Assert.NotEmpty(host.RunCli(
-            "deployment", "mg", "export",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName));
-        host.RunCli(
-            "deployment", "mg", "cancel",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName);
-        host.RunCli(
-            "deployment", "mg", "delete",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName);
-        host.RunCli(
-            "deployment", "mg", "wait",
-            "--management-group-id", ManagementGroupId,
-            "--name", DeploymentName,
-            "--deleted");
+            Assert.Empty(host.RunCli("deployment", "mg", "wait", "--management-group-id", ManagementGroupId, "--name", DeploymentName, "--exists"));
+            Assert.IsType<DeploymentExtended>(Assert.Single(
+                host.RunCli("deployment", "mg", "show", "--management-group-id", ManagementGroupId, "--name", DeploymentName)));
+            Assert.NotEmpty(host.RunCli("deployment", "mg", "list", "--management-group-id", ManagementGroupId));
+            Assert.NotEmpty(host.RunCli("deployment", "mg", "export", "--management-group-id", ManagementGroupId, "--name", DeploymentName));
+            host.RunCli("deployment", "mg", "cancel", "--management-group-id", ManagementGroupId, "--name", DeploymentName);
+            host.RunCli("deployment", "mg", "delete", "--management-group-id", ManagementGroupId, "--name", DeploymentName);
+            host.RunCli("deployment", "mg", "wait", "--management-group-id", ManagementGroupId, "--name", DeploymentName, "--deleted");
+        }
+        finally
+        {
+            File.Delete(template);
+        }
     }
 
     private static void RunPowerShell(ScenarioHost host)
@@ -147,33 +127,30 @@ public class ManagementGroupDeploymentScenarioTests
         };
 
         Assert.Empty(host.RunPowerShell("Test-AzManagementGroupDeployment", body));
-        body["Tag"] = new Dictionary<string, string> { ["scenario"] = "management-group" };
+
+        var createBody = new Dictionary<string, object>(body)
+        {
+            ["Tag"] = new Dictionary<string, string> { ["scenario"] = "management-group" },
+        };
         Assert.IsType<PSDeployment>(Assert.Single(
-            host.RunPowerShell("New-AzManagementGroupDeployment", body)));
-        Assert.IsType<PSDeployment>(Assert.Single(host.RunPowerShell(
-            "Get-AzManagementGroupDeployment_Get",
-            new Dictionary<string, object>
-            {
-                ["ManagementGroupId"] = ManagementGroupId,
-                ["Name"] = DeploymentName,
-            })));
+            host.RunPowerShell("New-AzManagementGroupDeployment", createBody)));
+
+        Assert.IsType<PSDeployment>(Assert.Single(
+            host.RunPowerShell(
+                "Get-AzManagementGroupDeployment_Get",
+                new Dictionary<string, object> { ["ManagementGroupId"] = ManagementGroupId, ["Name"] = DeploymentName })));
+
         Assert.NotEmpty(host.RunPowerShell(
             "Get-AzManagementGroupDeployment_List",
             new Dictionary<string, object> { ["ManagementGroupId"] = ManagementGroupId }));
+
         host.RunPowerShell(
             "Stop-AzManagementGroupDeployment",
-            new Dictionary<string, object>
-            {
-                ["ManagementGroupId"] = ManagementGroupId,
-                ["Name"] = DeploymentName,
-            });
+            new Dictionary<string, object> { ["ManagementGroupId"] = ManagementGroupId, ["Name"] = DeploymentName });
+
         host.RunPowerShell(
             "Remove-AzManagementGroupDeployment",
-            new Dictionary<string, object>
-            {
-                ["ManagementGroupId"] = ManagementGroupId,
-                ["Name"] = DeploymentName,
-            });
+            new Dictionary<string, object> { ["ManagementGroupId"] = ManagementGroupId, ["Name"] = DeploymentName });
     }
 
     private sealed class ManagementGroupDeploymentBackend : HttpMessageHandler
@@ -191,40 +168,49 @@ public class ManagementGroupDeploymentScenarioTests
             {
                 return Task.FromResult(Json("""{"name":"scenario-management-group-deployment"}"""));
             }
+
             if (request.Method == HttpMethod.Post && path.EndsWith("/whatIf", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(Json("""{"status":"Succeeded","properties":{"changes":[]}}"""));
             }
+
             if (request.Method == HttpMethod.Post && path.EndsWith("/exportTemplate", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(Json("""{"template":{"resources":[]}}"""));
             }
+
             if (request.Method == HttpMethod.Post && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
+
             if (request.Method == HttpMethod.Get && path.EndsWith("/operations", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(Json("""{"value":[]}"""));
             }
+
             if (request.Method == HttpMethod.Head)
             {
                 return Task.FromResult(new HttpResponseMessage(_deleted ? HttpStatusCode.NotFound : HttpStatusCode.NoContent));
             }
+
             if (request.Method == HttpMethod.Put)
             {
                 return Task.FromResult(Json(Deployment("Succeeded")));
             }
+
             if (request.Method == HttpMethod.Delete)
             {
                 _deleted = true;
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             }
-            if (request.Method == HttpMethod.Get
-                && path.EndsWith("/providers/Microsoft.Resources/deployments", StringComparison.OrdinalIgnoreCase))
+
+            if (request.Method == HttpMethod.Get &&
+                path.Equals($"/providers/Microsoft.Management/managementGroups/{ManagementGroupId}/providers/Microsoft.Resources/deployments", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(Json($$"""{"value":[{{Deployment("Succeeded")}}]}"""));
             }
+
             if (request.Method == HttpMethod.Get)
             {
                 if (_deleted)
@@ -235,7 +221,7 @@ public class ManagementGroupDeploymentScenarioTests
                 }
 
                 _deploymentGetCount++;
-                string state = _deploymentGetCount >= 2 ? "Running" : "Succeeded";
+                string state = _deploymentGetCount >= 3 ? "Running" : "Succeeded";
                 return Task.FromResult(Json(Deployment(state)));
             }
 

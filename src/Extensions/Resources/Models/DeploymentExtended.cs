@@ -65,7 +65,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         public object? Error { get; set; }
 
         // Contains diagnostic information collected during validation process.
-        public List<DeploymentDiagnosticsDefinition>? Diagnostics { get; set; }
+        public object? Diagnostics { get; set; }
 
         // The validation level of the deployment.
         public string? ValidationLevel { get; set; }
@@ -86,29 +86,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 
         // The deployment to be used on error case.
         public string? DeploymentName { get; set; }
-
-        public override string ToString() => JsonNode.FromObject(this).ToString();
-    }
-
-    //
-    // Summary:
-    //     A diagnostic collected during deployment validation.
-    public class DeploymentDiagnosticsDefinition
-    {
-        // Denotes the additional response level. Warning, Info or Error.
-        public string? Level { get; set; }
-
-        // The error code.
-        public string? Code { get; set; }
-
-        // The error message.
-        public string? Message { get; set; }
-
-        // The error target.
-        public string? Target { get; set; }
-
-        // The error additional info.
-        public object? AdditionalInfo { get; set; }
 
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }

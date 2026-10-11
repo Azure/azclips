@@ -6,65 +6,62 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary><c>az deployment mg what-if</c>.</summary>
-public class WhatIfManagementGroupDeploymentProcessor_Orchestrator
-    : ManagementGroupDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
+/// <summary>
+/// <c>az deployment mg what-if</c> (legacy <c>_what_if_deploy_arm_template_at_management_group_core</c>): POST whatIf in
+/// Incremental mode, raise on a template error (returned with HTTP 200), drop <c>--exclude-change-types</c>, then write
+/// the pretty-printed text, or the legacy flattened result with <c>--no-pretty-print</c>.
+/// </summary>
+public class WhatIfManagementGroupDeploymentProcessor_Orchestrator : ManagementGroupDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
-    private static readonly string[] ChangeTypes = ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"];
+    private static readonly string[] s_resultFormats = ["FullResourcePayloads", "ResourceIdOnly"];
+    private static readonly string[] s_changeTypes = ["Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"];
 
     public string? ResultFormat { get; set; }
 
     public string[]? ExcludeChangeTypes { get; set; }
 
-    protected override bool PromptsForMissingParameters => true;
+    /// <summary>CLI <c>--no-pretty-print</c>: write the JSON result instead of the formatted text.</summary>
+    public bool NoPrettyPrint { get; set; }
 
     private string? _rawBody;
 
     internal override async Task<HttpResponseMessage> SendAsync()
     {
         CheckExcludeChangeTypes(ExcludeChangeTypes);
-        if (string.IsNullOrWhiteSpace(Name))
-        {
-            Name = CliDefaultDeploymentName();
-        }
-        ScopedDeploymentWhatIf body = CreateBody(Location, await BuildPropertiesAsync(), ResultFormat);
-        HttpResponseMessage response = await CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
-        {
-            p.GroupId = ManagementGroupId;
-            p.DeploymentName = Name;
-            p.Body = body;
-        }).SendAsync();
+        ResolveName();
+        ScopedDeploymentWhatIf body = CreateWhatIfBody(Location, await BuildPropertiesAsync(), ResultFormat);
+        HttpResponseMessage response = await SendWhatIfAsync(body);
         _rawBody = response.Content is null ? null : await response.Content.ReadAsStringAsync();
         return response;
     }
 
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
-        // ARM returns 200 with an "error" payload for template errors (legacy _build_preflight_error_message).
         if (body?.Error is { } error)
         {
             throw new InvalidOperationException(BuildPreflightErrorMessage(error));
         }
         if (body is not null && ToCliResult(_rawBody, ExcludeChangeTypes) is { } result)
         {
-            await WriteOutput(result);
+            await WriteOutput(NoPrettyPrint ? result : DeploymentWhatIfFormatter.Format(result, cli: true, DeploymentWhatIfFormatter.CliColor()));
         }
         return true;
     }
 
-    internal static void CheckExcludeChangeTypes(string[]? types)
+    // Legacy argparse choices (get_enum_type, case-insensitive); the CLI parser only checks single string values.
+    internal static void CheckExcludeChangeTypes(string[]? types, string parameterName = "exclude-change-types")
     {
         foreach (string type in types ?? [])
         {
-            if (!ChangeTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+            if (!s_changeTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
             {
-                throw new ArgumentException($"ExcludeChangeTypes value '{type}' is not allowed. Allowed values: {string.Join(", ", ChangeTypes)}");
+                throw new ArgumentException($"Parameter '{parameterName}' value '{type}' is not allowed. Allowed values: {string.Join(", ", s_changeTypes)}");
             }
         }
     }
 
-    // What-if always runs Incremental (legacy CLI and PS), whatever the deployment mode.
-    internal static ScopedDeploymentWhatIf CreateBody(string location, DeploymentProperties properties, string? resultFormat) => new()
+    // Legacy _prepare_deployment_what_if_properties: always Incremental; result format defaults to FullResourcePayloads.
+    internal static ScopedDeploymentWhatIf CreateWhatIfBody(string location, DeploymentProperties properties, string? resultFormat) => new()
     {
         Location = location,
         Properties = new DeploymentWhatIfProperties
@@ -75,12 +72,14 @@ public class WhatIfManagementGroupDeploymentProcessor_Orchestrator
             Parameters = properties.Parameters,
             ParametersLink = properties.ParametersLink,
             ValidationLevel = properties.ValidationLevel,
-            // ponytail: casing is checked by the CLI AllowedValues; ARM default is FullResourcePayloads.
-            WhatIfSettings = string.IsNullOrWhiteSpace(resultFormat) ? null : new DeploymentWhatIfSettings { ResultFormat = resultFormat },
+            WhatIfSettings = new DeploymentWhatIfSettings
+            {
+                ResultFormat = s_resultFormats.FirstOrDefault(f => f.Equals(resultFormat, StringComparison.OrdinalIgnoreCase)) ?? s_resultFormats[0],
+            },
         },
     };
 
-    // Built from the raw body because the generated model drops change fields (identifiers, extension).
+    // Built from the raw body because the generated model drops change fields (identifiers, extension, ...).
     // Legacy CLI (SDK WhatIfOperationResult) flattens "properties" into the top level.
     internal static JsonObject? ToCliResult(string? rawBody, string[]? excludeChangeTypes)
     {

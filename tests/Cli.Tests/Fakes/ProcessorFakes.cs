@@ -81,6 +81,9 @@ internal sealed class FakeEventPublisher : IEventPublisher
     /// <summary>Event ids published through this publisher, in order, for assertions.</summary>
     public List<string> PublishedIds { get; } = new();
 
+    /// <summary>Text messages published through <c>Publish(id, messageText)</c>, in order.</summary>
+    public List<(string Id, string Text)> Messages { get; } = new();
+
     public Task Publish(string id, CancellationToken token, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
     public Task Publish(string id, CancellationToken token) { PublishedIds.Add(id); return Task.CompletedTask; }
     public Task Publish(string id, CancellationToken token, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
@@ -96,7 +99,7 @@ internal sealed class FakeEventPublisher : IEventPublisher
 
     public Task Publish(string id, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
     public Task Publish(string id) { PublishedIds.Add(id); return Task.CompletedTask; }
-    public Task Publish(string id, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
+    public Task Publish(string id, string messageText) { PublishedIds.Add(id); Messages.Add((id, messageText)); return Task.CompletedTask; }
     public Task Publish(string id, string messageText, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
     public Task Publish(string id, string messageText, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
     public Task Publish(string id, string messageText, double magnitude) { PublishedIds.Add(id); return Task.CompletedTask; }

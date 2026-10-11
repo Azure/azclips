@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
@@ -18,17 +19,19 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-internal static class ManagementGroupDeploymentCmdletHelpers
+/// <summary>Shared engine plumbing for the *-AzManagementGroupDeployment cmdlets: forwards bound parameters to the Resources extension.</summary>
+public abstract class ManagementGroupDeploymentCmdletBase : PSCmdlet
 {
-    // Legacy PS ResourceManager.format.ps1xml PSDeployment list view (the String properties hold the formatted tables).
-    private static readonly string[] s_deploymentView =
-    [
-        "Id", "DeploymentName", "ManagementGroupId", "Location", "ProvisioningState", "Timestamp", "Mode",
-        "TemplateLinkString", "ParametersString", "OutputsString", "DeploymentDebugLogLevel",
-    ];
+    private readonly CancellationTokenSource _cts = new();
+    private OutputStreams streams = null!;
+    private IEngine engine = null!;
 
-    // Same view as format data, so the labels read TemplateLink/Parameters/Outputs like legacy. The module packaging
-    // ships no ps1xml, so it is loaded at run time; s_deploymentView stays as the fallback.
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
+    protected virtual bool EnumerateOutput => false;
+
+    // Legacy ResourceManager.format.ps1xml PSDeployment list view. The module ships no ps1xml, so it is loaded at run time.
     private const string DeploymentFormat = """
         <?xml version="1.0" encoding="utf-8"?>
         <Configuration><ViewDefinitions><View>
@@ -37,6 +40,7 @@ internal static class ManagementGroupDeploymentCmdletHelpers
           <ListControl><ListEntries><ListEntry><ListItems>
             <ListItem><Label>Id</Label><PropertyName>Id</PropertyName></ListItem>
             <ListItem><Label>DeploymentName</Label><PropertyName>DeploymentName</PropertyName></ListItem>
+            <ListItem><ItemSelectionCondition><ScriptBlock>$_.ResourceGroupName -ne $null</ScriptBlock></ItemSelectionCondition><Label>ResourceGroupName</Label><PropertyName>ResourceGroupName</PropertyName></ListItem>
             <ListItem><ItemSelectionCondition><ScriptBlock>$_.ManagementGroupId -ne $null</ScriptBlock></ItemSelectionCondition><Label>ManagementGroupId</Label><PropertyName>ManagementGroupId</PropertyName></ListItem>
             <ListItem><ItemSelectionCondition><ScriptBlock>$_.Location -ne $null</ScriptBlock></ItemSelectionCondition><Label>Location</Label><PropertyName>Location</PropertyName></ListItem>
             <ListItem><Label>ProvisioningState</Label><PropertyName>ProvisioningState</PropertyName></ListItem>
@@ -50,18 +54,27 @@ internal static class ManagementGroupDeploymentCmdletHelpers
         </View></ViewDefinitions></Configuration>
         """;
 
-    private static readonly HashSet<Guid> s_formatRunspaces = [];
+    // Fallback when format data can't be loaded (e.g. blocked by policy): same properties, raw names.
+    private static readonly string[] s_deploymentView =
+    [
+        "Id", "DeploymentName", "ManagementGroupId", "Location", "ProvisioningState", "Timestamp", "Mode",
+        "TemplateLinkString", "ParametersString", "OutputsString", "DeploymentDebugLogLevel",
+    ];
 
-    private static void EnsureDeploymentFormat(PSCmdlet cmdlet)
+    private static readonly ConcurrentDictionary<Guid, bool> s_formatRunspaces = new();
+
+    protected override void BeginProcessing()
     {
-        Guid runspace = Runspace.DefaultRunspace?.InstanceId ?? Guid.Empty;
-        lock (s_formatRunspaces)
+        streams = CmdletOutputStreamsFactory.Create(this, "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, enumerateOutput: EnumerateOutput);
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        EnsureDeploymentFormat();
+    }
+
+    private void EnsureDeploymentFormat()
+    {
+        if (Runspace.DefaultRunspace is not { } runspace || !s_formatRunspaces.TryAdd(runspace.InstanceId, true))
         {
-            // Background (job) threads have no default runspace; the caller thread loaded the format already.
-            if (runspace == Guid.Empty || s_formatRunspaces.Contains(runspace))
-            {
-                return;
-            }
+            return;
         }
         try
         {
@@ -70,78 +83,258 @@ internal static class ManagementGroupDeploymentCmdletHelpers
             {
                 File.WriteAllText(path, DeploymentFormat);
             }
-            cmdlet.InvokeCommand.InvokeScript(false, ScriptBlock.Create("Update-FormatData -PrependPath $args[0]"), null, path);
-            lock (s_formatRunspaces)
-            {
-                s_formatRunspaces.Add(runspace);
-            }
+            InvokeCommand.InvokeScript(false, ScriptBlock.Create("Update-FormatData -PrependPath $args[0]"), null, path);
         }
         catch (Exception)
         {
-            // Not on the pipeline thread, or format files blocked by policy: DefaultDisplayPropertySet is used instead.
+            // DefaultDisplayPropertySet (ToPowerShellOutput) is used instead.
         }
     }
 
-    // Legacy PS GetTemplateContentFromTemplateSpec: properties.mainTemplate of the template spec version.
-    private static JsonNode? ReadTemplateSpec(PSCmdlet cmdlet, string templateSpecId)
+    private static object ToPowerShellOutput(object value)
     {
-        RestResponse? response = null;
-        OutputStreamDelegate ignore = (_, _) => Task.CompletedTask;
-        OutputStreams quiet = new(
-            (value, _) => { response = value as RestResponse; return Task.CompletedTask; },
-            ignore, ignore, ignore, ignore, ignore);
-        Run(cmdlet, AzclipsServiceProvider.GetRequiredService<IEngine>(), quiet, CancellationToken.None, "Invoke-AzRestMethod",
-            new() { ["Method"] = "GET", ["Uri"] = $"{templateSpecId.Trim('"')}?api-version=2022-02-01" });
-        return response is { StatusCode: >= 200 and < 300 }
-            ? JsonNode.Parse(response.Content)?["properties"]?["mainTemplate"]
-            : null;
+        if (value is PSDeployment deployment)
+        {
+            PSObject output = PSObject.AsPSObject(deployment);
+            output.Members.Add(new PSMemberSet("PSStandardMembers", [new PSPropertySet("DefaultDisplayPropertySet", s_deploymentView)]));
+            return output;
+        }
+        return value is IEnumerable<PSDeployment> deployments ? deployments.Select(d => ToPowerShellOutput(d)).ToList() : value;
     }
 
-    public static object? NormalizeJsonInput(object? value) =>
-        value switch
-        {
-            PSObject psObject => NormalizeJsonInput(psObject.BaseObject),
-            SecureString secure => new NetworkCredential(string.Empty, secure).Password,
-            IDictionary dictionary => dictionary.Cast<DictionaryEntry>().ToDictionary(
-                entry => entry.Key.ToString()!,
-                entry => NormalizeJsonInput(entry.Value)),
-            IEnumerable values when value is not string =>
-                values.Cast<object?>().Select(NormalizeJsonInput).ToArray(),
-            _ => value,
-        };
+    protected Dictionary<string, object> GetBoundParameters() =>
+        MyInvocation.BoundParameters
+            .Where(p => !CommonParameters.Contains(p.Key) && !OptionalCommonParameters.Contains(p.Key))
+            .ToDictionary(p => p.Key, p => p.Value is SwitchParameter s ? s.IsPresent : p.Value);
 
-    // Legacy PS dynamic parameters: one per template parameter, "FromTemplate" suffix on a clash with a cmdlet parameter,
-    // HelpMessage keeps the template name. PowerShell prompts for the mandatory ones.
-    public static RuntimeDefinedParameterDictionary CreateTemplateParameters(
-        PSCmdlet cmdlet, Hashtable? templateObject, string? templateFile, string? templateUri, string? templateSpecId,
-        string? queryString, Hashtable? parametersObject, string? parametersFile, string? parametersUri)
+    protected void Invoke(string commandName, Dictionary<string, object> parameters) => Invoke(commandName, parameters, streams);
+
+    // Legacy runs the what-if in process and formats it for ShouldProcess; capture the engine output instead of writing it.
+    // Legacy DeploymentWhatIfCmdlet.ExecuteWhatIf shows a status line and clears it before the result or error is written.
+    protected object? InvokeForOutput(string commandName, Dictionary<string, object> parameters)
     {
-        RuntimeDefinedParameterDictionary result = new();
-        object? template = NormalizeJsonInput(templateObject);
-        if (template is null && string.IsNullOrWhiteSpace(templateFile) && string.IsNullOrWhiteSpace(templateUri)
-            && !string.IsNullOrWhiteSpace(templateSpecId))
+        const string statusMessage = "Getting the latest status of all resources...";
+        object? output = null;
+        List<(object Value, CancellationToken Token)> errors = [];
+        WriteInformation(new HostInformationMessage { Message = statusMessage, NoNewLine = true }, ["PSHOST"]);
+        try
         {
-            try
+            Invoke(commandName, parameters, streams with
             {
-                template = ReadTemplateSpec(cmdlet, templateSpecId);
-            }
-            catch (Exception)
+                WriteOutput = (value, _) =>
+                {
+                    output = value is SerializedJson json ? json.Value : value;
+                    return Task.CompletedTask;
+                },
+                WriteError = (value, token) =>
+                {
+                    errors.Add((value, token));
+                    return Task.CompletedTask;
+                },
+            });
+        }
+        finally
+        {
+            WriteInformation(new HostInformationMessage { Message = $"\r{new string(' ', statusMessage.Length)}\r", NoNewLine = true }, ["PSHOST"]);
+            foreach ((object value, CancellationToken token) in errors)
             {
-                // Like the other sources: no dynamic parameters until the template can be read.
+                streams.WriteError(value, token).GetAwaiter().GetResult();
             }
         }
+        return output;
+    }
+
+    // Legacy -AsJob (AzureLongRunningJob): run the engine in the background and return the job right away.
+    protected void InvokeAsJob(string commandName, Dictionary<string, object> parameters, object? passThru = null)
+    {
+        ManagementGroupDeploymentJob job = new(MyInvocation.Line, $"Long Running Operation for '{MyInvocation.InvocationName}'");
+        JobRepository.Add(job);
+        WriteObject(job);
+        job.Start(token =>
+        {
+            Invoke(commandName, parameters, job.Streams, token);
+            if (passThru is not null)
+            {
+                job.Output.Add(PSObject.AsPSObject(passThru));
+            }
+        });
+    }
+
+    private void Invoke(string commandName, Dictionary<string, object> parameters, OutputStreams outputStreams) =>
+        Invoke(commandName, parameters, outputStreams, _cts.Token);
+
+    private void Invoke(string commandName, Dictionary<string, object> parameters, OutputStreams outputStreams, CancellationToken token)
+    {
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
+        var invocation = new CommandInvocation("Resources", commandName, parameters, false, MyInvocation.MyCommand.ModuleName, MyInvocation.MyCommand.Version?.ToString());
+        telemetryService.TagInvocation(invocation);
+
+        OutputStreams output = outputStreams with { WriteOutput = (value, ct) => outputStreams.WriteOutput(ToPowerShellOutput(value), ct) };
+        using ISession session = engine.OpenExecutionSession(invocation, output, token);
+        session.Run();
+    }
+
+    protected override void EndProcessing() => _cts.Dispose();
+
+    protected override void StopProcessing() => _cts.Cancel();
+
+    // Legacy ResourceIdUtility.GetManagementGroupId: the segment after "managementGroups", only for a management group Id.
+    protected static string? GetManagementGroupId(string id)
+    {
+        if (!id.StartsWith("/providers/Microsoft.Management/managementGroups/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+        var segments = id.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var index = Array.FindLastIndex(segments, s => s.Equals("managementGroups", StringComparison.OrdinalIgnoreCase));
+        return index + 1 < segments.Length ? segments[index + 1] : null;
+    }
+
+    // Legacy ResourceIdUtility.GetDeploymentName: resource names after the last "providers/{namespace}" segment.
+    protected static string GetDeploymentName(string id)
+    {
+        var segments = id.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var last = Array.FindLastIndex(segments, s => s.Equals("providers", StringComparison.OrdinalIgnoreCase));
+        return last < 0 ? "" : string.Join("/", segments.Skip(last + 2).Where((_, i) => i % 2 != 0));
+    }
+}
+
+/// <summary>
+/// Shared New-/Test-AzManagementGroupDeployment input surface: legacy DeploymentCmdletBase parameter sets, .bicepparam checks
+/// and one dynamic parameter per template parameter.
+/// </summary>
+public abstract class ManagementGroupDeploymentTemplateCmdletBase : ManagementGroupDeploymentCmdletBase, IDynamicParameters
+{
+    protected const string TemplateObjectParameterObjectParameterSetName = "ByTemplateObjectAndParameterObject";
+    protected const string TemplateObjectParameterFileParameterSetName = "ByTemplateObjectAndParameterFile";
+    protected const string TemplateObjectParameterUriParameterSetName = "ByTemplateObjectAndParameterUri";
+    protected const string TemplateFileParameterObjectParameterSetName = "ByTemplateFileAndParameterObject";
+    protected const string TemplateFileParameterFileParameterSetName = "ByTemplateFileAndParameterFile";
+    protected const string TemplateFileParameterUriParameterSetName = "ByTemplateFileAndParameterUri";
+    protected const string TemplateUriParameterObjectParameterSetName = "ByTemplateUriAndParameterObject";
+    protected const string TemplateUriParameterFileParameterSetName = "ByTemplateUriAndParameterFile";
+    protected const string TemplateUriParameterUriParameterSetName = "ByTemplateUriAndParameterUri";
+    protected const string ParameterlessTemplateObjectParameterSetName = "ByTemplateObjectWithNoParameters";
+    protected const string ParameterlessTemplateFileParameterSetName = "ByTemplateFileWithNoParameters";
+    protected const string ParameterlessTemplateUriParameterSetName = "ByTemplateUriWithNoParameters";
+    protected const string TemplateSpecResourceIdParameterSetName = "ByTemplateSpecResourceId";
+    protected const string TemplateSpecResourceIdParameterFileParameterSetName = "ByTemplateSpecResourceIdAndParams";
+    protected const string TemplateSpecResourceIdParameterUriParameterSetName = "ByTemplateSpecResourceIdAndParamsUri";
+    protected const string TemplateSpecResourceIdParameterObjectParameterSetName = "ByTemplateSpecResourceIdAndParamsObject";
+    protected const string ByParameterFileWithNoTemplateParameterSetName = "ByParameterFileWithNoTemplate";
+
+    private RuntimeDefinedParameterDictionary _templateParameters = new();
+
+    [Parameter(Mandatory = true, HelpMessage = "The location to store deployment data.")]
+    [ValidateNotNullOrEmpty]
+    public string Location { get; set; } = "";
+
+    [Parameter(ParameterSetName = TemplateObjectParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the parameters.")]
+    [Parameter(ParameterSetName = TemplateFileParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the parameters.")]
+    [Parameter(ParameterSetName = TemplateUriParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the parameters.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the parameters.")]
+    public Hashtable? TemplateParameterObject { get; set; }
+
+    [Parameter(ParameterSetName = TemplateObjectParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Parameter file to use for the template.")]
+    [Parameter(ParameterSetName = TemplateFileParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Parameter file to use for the template.")]
+    [Parameter(ParameterSetName = TemplateUriParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Parameter file to use for the template.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Parameter file to use for the template.")]
+    [Parameter(ParameterSetName = ByParameterFileWithNoTemplateParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Parameter file to use for the template.")]
+    [ValidateNotNullOrEmpty]
+    public string? TemplateParameterFile { get; set; }
+
+    [Parameter(ParameterSetName = TemplateObjectParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Uri to the template parameter file.")]
+    [Parameter(ParameterSetName = TemplateFileParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Uri to the template parameter file.")]
+    [Parameter(ParameterSetName = TemplateUriParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Uri to the template parameter file.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Uri to the template parameter file.")]
+    [ValidateNotNullOrEmpty]
+    public string? TemplateParameterUri { get; set; }
+
+    [Parameter(ParameterSetName = TemplateObjectParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the template.")]
+    [Parameter(ParameterSetName = TemplateObjectParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the template.")]
+    [Parameter(ParameterSetName = TemplateObjectParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the template.")]
+    [Parameter(ParameterSetName = ParameterlessTemplateObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "A hash table which represents the template.")]
+    [ValidateNotNull]
+    public Hashtable? TemplateObject { get; set; }
+
+    [Parameter(ParameterSetName = TemplateFileParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Local path to the template file. Supported template file type: json and bicep.")]
+    [Parameter(ParameterSetName = TemplateFileParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = TemplateFileParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = ParameterlessTemplateFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
+    public string? TemplateFile { get; set; }
+
+    [Parameter(ParameterSetName = TemplateUriParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Uri to the template file.")]
+    [Parameter(ParameterSetName = TemplateUriParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = TemplateUriParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = ParameterlessTemplateUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
+    public string? TemplateUri { get; set; }
+
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Resource ID of the templateSpec to be deployed.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterUriParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Resource ID of the templateSpec to be deployed.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterFileParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Resource ID of the templateSpec to be deployed.")]
+    [Parameter(ParameterSetName = TemplateSpecResourceIdParameterObjectParameterSetName, Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Resource ID of the templateSpec to be deployed.")]
+    [ValidateNotNullOrEmpty]
+    public string? TemplateSpecId { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Skips the PowerShell dynamic parameter processing that checks if the provided template parameter contains all necessary parameters used by the template. " +
+                                                "This check would prompt the user to provide a value for the missing parameters, but providing the -SkipTemplateParameterPrompt will ignore this prompt and " +
+                                                "error out immediately if a parameter was found not to be bound in the template. For non-interactive scripts, -SkipTemplateParameterPrompt can be provided " +
+                                                "to provide a better error message in the case where not all required parameters are satisfied.")]
+    public SwitchParameter SkipTemplateParameterPrompt { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "The query string (for example, a SAS token) to be used with the TemplateUri parameter. Would be used in case of linked templates")]
+    public string? QueryString { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Sets the validation level for validate/what-if. ValidationLevel can be Template(Skips provider validation), Provider(Performs full validation), " +
+                                                "or ProviderNoRbac(Performs full validation using RBAC read checks instead of RBAC write checks for provider validation).")]
+    public string? ValidationLevel { get; set; }
+
+    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
+    [Parameter(Mandatory = false, HelpMessage = "When set, indicates that the cmdlet should use pre-release API versions when automatically determining which version to use.")]
+    public SwitchParameter Pre { get; set; }
+
+    protected abstract string CommandName { get; }
+
+    // Legacy DeploymentCmdletBase.GetDynamicParameters. PowerShell reports a throw here as
+    // "Cannot retrieve the dynamic parameters for the cmdlet. ..." like legacy.
+    public object GetDynamicParameters()
+    {
+        bool isBicepParam = IsExtension(TemplateParameterFile, ".bicepparam");
+        DynamicParameterValidityCheck(isBicepParam);
+        if (isBicepParam)
+        {
+            ResolvePath(TemplateParameterFile);
+        }
+        if (IsExtension(TemplateFile, ".bicep"))
+        {
+            ResolvePath(TemplateFile);
+        }
+
+        _templateParameters = new RuntimeDefinedParameterDictionary();
+        if (SkipTemplateParameterPrompt)
+        {
+            return _templateParameters;
+        }
+
         HashSet<string> staticNames = new(
-            new[] { cmdlet.GetType(), typeof(CommonParameters) }
-                .Concat(cmdlet.GetType().GetCustomAttributes(typeof(CmdletAttribute), true)
+            new[] { GetType(), typeof(CommonParameters) }
+                .Concat(GetType().GetCustomAttributes(typeof(CmdletAttribute), true)
                     .Cast<CmdletAttribute>().Any(a => a.SupportsShouldProcess) ? [typeof(ShouldProcessParameters)] : [])
                 .SelectMany(t => t.GetProperties())
                 .Where(p => p.IsDefined(typeof(ParameterAttribute), true))
                 .Select(p => p.Name),
             StringComparer.OrdinalIgnoreCase);
+        // Legacy reads the template from TemplateUri + "?" + QueryString; New (DeploymentCreateCmdlet) skips the "?" if already present.
+        string? templateUri = string.IsNullOrEmpty(QueryString) ? TemplateUri
+            : this is NewManagementGroupDeploymentCmdlet && QueryString.StartsWith('?') ? TemplateUri + QueryString
+            : TemplateUri + "?" + QueryString;
         foreach ((string name, string? type, bool required, int? minLength, int? maxLength) in
-            NewManagementGroupDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
-                template, ResolvePath(cmdlet, templateFile), templateUri, queryString,
-                NormalizeJsonInput(parametersObject), ResolvePath(cmdlet, parametersFile), parametersUri))
+            TestManagementGroupDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
+                NormalizeJsonInput(TemplateObject), ResolvePath(TemplateFile), templateUri, TemplateSpecId, ReadTemplateSpec,
+                NormalizeJsonInput(TemplateParameterObject), ResolvePath(TemplateParameterFile), TemplateParameterUri))
         {
             RuntimeDefinedParameter parameter = new(
                 staticNames.Contains(name) ? name + "FromTemplate" : name,
@@ -160,657 +353,405 @@ internal static class ManagementGroupDeploymentCmdletHelpers
             {
                 parameter.Attributes.Add(new ValidateLengthAttribute(min, max));
             }
-            result[parameter.Name] = parameter;
+            _templateParameters[parameter.Name] = parameter;
         }
-        return result;
+        return _templateParameters;
     }
 
-    // Legacy PS GetTemplateParameterObject: the template parameters given on the command line override the other sources;
-    // passed as KEY=JSON overlays. Legacy sends only the link when -TemplateParameterUri is used.
-    public static void AddTemplateParameterValues(
-        Dictionary<string, object> parameters, RuntimeDefinedParameterDictionary? templateParameters, string[]? parameter, bool usesParametersUri)
+    protected override void ProcessRecord() => Invoke(CommandName, BuildEngineParameters());
+
+    protected Dictionary<string, object> BuildEngineParameters()
     {
-        string[] values = (templateParameters?.Values ?? Enumerable.Empty<RuntimeDefinedParameter>())
-            .Where(p => p.IsSet)
-            .Select(p => $"{((ParameterAttribute)p.Attributes[0]).HelpMessage}={JsonSerializer.Serialize(NormalizeJsonInput(p.Value))}")
-            .ToArray();
-        if (values.Length > 0 && !usesParametersUri)
+        var parameters = GetBoundParameters();
+        foreach (string name in _templateParameters.Keys)
         {
-            parameters["Parameter"] = (parameter ?? []).Concat(values).ToArray();
+            parameters.Remove(name);
         }
-    }
+        parameters.Remove(nameof(SkipTemplateParameterPrompt));
+        parameters.Remove(nameof(Pre));
 
-    private static string? ResolvePath(PSCmdlet cmdlet, string? path) =>
-        string.IsNullOrWhiteSpace(path) ? path : cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(path);
-
-    // Legacy PS output type: PSDeployment shown with the legacy list view properties.
-    private static object ToPowerShellOutput(object value)
-    {
-        if (value is PSDeployment deployment)
+        // Legacy OnBeginProcessing ResolvePath: a missing file fails with "Cannot find path '...' because it does not exist."
+        if (TemplateFile is not null)
         {
-            PSObject output = PSObject.AsPSObject(deployment);
-            output.Members.Add(new PSMemberSet(
-                "PSStandardMembers",
-                [new PSPropertySet("DefaultDisplayPropertySet", s_deploymentView)]));
-            return output;
+            parameters[nameof(TemplateFile)] = ResolvePath(TemplateFile)!;
         }
-        return value is IEnumerable<PSDeployment> deployments ? deployments.Select(d => ToPowerShellOutput(d)).ToList() : value;
-    }
-
-    // Legacy PS -AsJob: run the command in the background and return the job right away.
-    public static void RunAsJob(
-        PSCmdlet cmdlet,
-        IEngine engine,
-        string command,
-        Dictionary<string, object> parameters,
-        object? passThru = null)
-    {
-        ManagementGroupDeploymentJob job = new(cmdlet.MyInvocation.Line, $"Long Running Operation for '{cmdlet.MyInvocation.InvocationName}'");
-        cmdlet.JobRepository.Add(job);
-        EnsureDeploymentFormat(cmdlet);
-        cmdlet.WriteObject(job);
-        job.Start(token =>
+        if (TemplateParameterFile is not null)
         {
-            Run(cmdlet, engine, job.Streams, token, command, parameters);
-            if (passThru is not null)
-            {
-                job.Output.Add(PSObject.AsPSObject(passThru));
-            }
-        });
-    }
-
-    public static (string ManagementGroupId, string Name) ParseId(string id)
-    {
-        string[] segments = id.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length != 8
-            || !string.Equals(segments[0], "providers", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(segments[1], "Microsoft.Management", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(segments[2], "managementGroups", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(segments[4], "providers", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(segments[5], "Microsoft.Resources", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(segments[6], "deployments", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException(
-                "Management group deployment Id must match /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{name}.",
-                nameof(id));
-        }
-
-        return (segments[3], segments[7]);
-    }
-
-    public static void Run(
-        PSCmdlet cmdlet,
-        IEngine engine,
-        OutputStreams streams,
-        CancellationToken token,
-        string command,
-        Dictionary<string, object> parameters)
-    {
-        ITelemetryService telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
-        using var activity = telemetry.StartRootActivity();
-        CommandInvocation invocation = new(
-            "Resources",
-            command,
-            parameters,
-            false,
-            cmdlet.MyInvocation.MyCommand.ModuleName,
-            cmdlet.MyInvocation.MyCommand.Version?.ToString());
-        telemetry.TagInvocation(invocation);
-        EnsureDeploymentFormat(cmdlet);
-        OutputStreams output = streams with { WriteOutput = (value, ct) => streams.WriteOutput(ToPowerShellOutput(value), ct) };
-        using ISession session = engine.OpenExecutionSession(invocation, output, token);
-        session.Run();
-    }
-
-    public static object? RunForOutput(
-        PSCmdlet cmdlet,
-        IEngine engine,
-        OutputStreams streams,
-        CancellationToken token,
-        string command,
-        Dictionary<string, object> parameters)
-    {
-        object? output = null;
-        OutputStreams capturingStreams = streams with
-        {
-            WriteOutput = (value, _) =>
-            {
-                output = value is SerializedJson json ? json.Value : value;
-                return Task.CompletedTask;
-            },
-        };
-        Run(cmdlet, engine, capturingStreams, token, command, parameters);
-        return output;
-    }
-}
-
-[Cmdlet(VerbsCommon.New, "AzManagementGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(
-    typeof(PSDeployment),
-    typeof(WhatIfOperationResult))]
-public class NewManagementGroupDeploymentCmdlet : PSCmdlet, IDynamicParameters
-{
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-    private RuntimeDefinedParameterDictionary? _templateParameters;
-
-    [Parameter(Mandatory = true)]
-    public string ManagementGroupId { get; set; } = string.Empty;
-
-    [Alias("DeploymentName")]
-    [Parameter(Mandatory = false)]
-    public string? Name { get; set; }
-
-    [Parameter(Mandatory = true)]
-    public string Location { get; set; } = string.Empty;
-
-    [Parameter(Mandatory = false)] public string? TemplateFile { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateUri { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateSpecId { get; set; }
-    [Parameter(Mandatory = false)] public Hashtable? TemplateObject { get; set; }
-    [Parameter(Mandatory = false)] public string? QueryString { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateParameterFile { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateParameterUri { get; set; }
-    [Parameter(Mandatory = false)] public Hashtable? TemplateParameterObject { get; set; }
-    [Parameter(Mandatory = false)] public string[]? Parameter { get; set; }
-    [Parameter(Mandatory = false)] public string? ValidationLevel { get; set; }
-    [Parameter(Mandatory = false)] public Hashtable? Tag { get; set; }
-    [Parameter(Mandatory = false)] public string? DeploymentDebugLogLevel { get; set; }
-    [Parameter(Mandatory = false)]
-    [ValidateSet("FullResourcePayloads", "ResourceIdOnly", IgnoreCase = true)]
-    public string? WhatIfResultFormat { get; set; }
-    [Parameter(Mandatory = false)] public string[]? WhatIfExcludeChangeType { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter ProceedIfNoChange { get; set; }
-    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")] public SwitchParameter AsJob { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter SkipTemplateParameterPrompt { get; set; }
-    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
-    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
-    [Parameter(Mandatory = false)] public string? Profile { get; set; }
-
-    public object GetDynamicParameters() =>
-        _templateParameters = SkipTemplateParameterPrompt
-            ? new RuntimeDefinedParameterDictionary()
-            : ManagementGroupDeploymentCmdletHelpers.CreateTemplateParameters(
-                this, TemplateObject, TemplateFile, TemplateUri, TemplateSpecId, QueryString,
-                TemplateParameterObject, TemplateParameterFile, TemplateParameterUri);
-
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(
-            this,
-            "ManagementGroupDeploymentError",
-            ErrorCategory.NotSpecified);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
-
-    protected override void ProcessRecord()
-    {
-        bool armWhatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? whatIf)
-            ? LanguagePrimitives.IsTrue(whatIf)
-            : LanguagePrimitives.IsTrue(SessionState.PSVariable.GetValue("WhatIfPreference"));
-        Dictionary<string, object> parameters = new()
-        {
-            [nameof(ManagementGroupId)] = ManagementGroupId,
-            [nameof(Location)] = Location,
-        };
-        AddBound(parameters, nameof(Name), Name);
-        AddBound(parameters, nameof(TemplateFile), TemplateFile);
-        AddBound(parameters, nameof(TemplateUri), TemplateUri);
-        AddBound(parameters, nameof(TemplateSpecId), TemplateSpecId);
-        AddBound(
-            parameters,
-            nameof(TemplateObject),
-            ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject));
-        AddBound(parameters, nameof(QueryString), QueryString);
-        AddBound(parameters, nameof(TemplateParameterFile), TemplateParameterFile);
-        AddBound(parameters, nameof(TemplateParameterUri), TemplateParameterUri);
-        AddBound(
-            parameters,
-            nameof(TemplateParameterObject),
-            ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject));
-        AddBound(parameters, nameof(Parameter), Parameter);
-        ManagementGroupDeploymentCmdletHelpers.AddTemplateParameterValues(
-            parameters, _templateParameters, Parameter, MyInvocation.BoundParameters.ContainsKey(nameof(TemplateParameterUri)));
-        AddBound(parameters, nameof(ValidationLevel), ValidationLevel);
-        AddBound(parameters, nameof(DeploymentDebugLogLevel), DeploymentDebugLogLevel);
-        AddBound(parameters, nameof(WhatIfResultFormat), WhatIfResultFormat);
-        AddBound(parameters, nameof(WhatIfExcludeChangeType), WhatIfExcludeChangeType);
-        AddBound(parameters, nameof(Profile), Profile);
-        if (Tag is not null)
-        {
-            parameters[nameof(Tag)] = Tag.Cast<DictionaryEntry>()
-                .ToDictionary(
-                    entry => entry.Key.ToString()!,
-                    entry => entry.Value?.ToString() ?? string.Empty);
-        }
-        if (armWhatIf)
-        {
-            parameters["WhatIf"] = true;
-            ManagementGroupDeploymentCmdletHelpers.Run(
-                this,
-                engine,
-                streams,
-                _cts.Token,
-                "New-AzManagementGroupDeployment",
-                parameters);
-            return;
-        }
-
-        bool confirm = MyInvocation.BoundParameters.TryGetValue("Confirm", out object? confirmValue)
-            ? LanguagePrimitives.IsTrue(confirmValue)
-            : SessionState.PSVariable.GetValue("ConfirmPreference") is ConfirmImpact preference
-                && preference <= ConfirmImpact.Medium;
-        bool skipConfirmation = false;
-        if (confirm)
-        {
-            parameters["WhatIf"] = true;
-            object? preview = ManagementGroupDeploymentCmdletHelpers.RunForOutput(
-                this,
-                engine,
-                streams,
-                _cts.Token,
-                "New-AzManagementGroupDeployment",
-                parameters);
-            WriteInformation(preview, ["PSHOST"]);
-            parameters.Remove("WhatIf");
-            skipConfirmation = ProceedIfNoChange.IsPresent
-                && preview is WhatIfOperationResult result
-                && !Microsoft.Azure.Azclips.Extensions.Resources.Processors
-                    .NewManagementGroupDeploymentProcessor_Orchestrator.HasChanges(result);
-        }
-
-        string target =
-            $"management group '{ManagementGroupId}' deployment '{Name ?? "(generated name)"}'";
-        if (!skipConfirmation && !ShouldProcess(target, "Create"))
-        {
-            return;
-        }
-
-        if (AsJob)
-        {
-            ManagementGroupDeploymentCmdletHelpers.RunAsJob(this, engine, "New-AzManagementGroupDeployment", parameters);
-            return;
-        }
-
-        ManagementGroupDeploymentCmdletHelpers.Run(
-            this,
-            engine,
-            streams,
-            _cts.Token,
-            "New-AzManagementGroupDeployment",
-            parameters);
-    }
-
-    private void AddBound(Dictionary<string, object> parameters, string name, object? value)
-    {
-        if (MyInvocation.BoundParameters.ContainsKey(name) && value is not null)
-        {
-            parameters[name] = value;
-        }
-    }
-
-    protected override void EndProcessing() => _cts.Dispose();
-
-    protected override void StopProcessing() => _cts.Cancel();
-}
-
-[Cmdlet(VerbsDiagnostic.Test, "AzManagementGroupDeployment")]
-public class TestManagementGroupDeploymentCmdlet : PSCmdlet, IDynamicParameters
-{
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-    private RuntimeDefinedParameterDictionary? _templateParameters;
-
-    [Parameter(Mandatory = true)] public string ManagementGroupId { get; set; } = string.Empty;
-    [Alias("DeploymentName")]
-    [Parameter(Mandatory = false)] public string? Name { get; set; }
-    [Parameter(Mandatory = true)] public string Location { get; set; } = string.Empty;
-    [Parameter(Mandatory = false)] public string? TemplateFile { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateUri { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateSpecId { get; set; }
-    [Parameter(Mandatory = false)] public Hashtable? TemplateObject { get; set; }
-    [Parameter(Mandatory = false)] public string? QueryString { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateParameterFile { get; set; }
-    [Parameter(Mandatory = false)] public string? TemplateParameterUri { get; set; }
-    [Parameter(Mandatory = false)] public Hashtable? TemplateParameterObject { get; set; }
-    [Parameter(Mandatory = false)] public string[]? Parameter { get; set; }
-    [Parameter(Mandatory = false)] public string? ValidationLevel { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter SuppressDiagnostics { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter SkipTemplateParameterPrompt { get; set; }
-    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
-    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
-    [Parameter(Mandatory = false)] public string? Profile { get; set; }
-
-    public object GetDynamicParameters() =>
-        _templateParameters = SkipTemplateParameterPrompt
-            ? new RuntimeDefinedParameterDictionary()
-            : ManagementGroupDeploymentCmdletHelpers.CreateTemplateParameters(
-                this, TemplateObject, TemplateFile, TemplateUri, TemplateSpecId, QueryString,
-                TemplateParameterObject, TemplateParameterFile, TemplateParameterUri);
-
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(
-            this,
-            "ManagementGroupDeploymentValidationError",
-            ErrorCategory.InvalidData);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
-
-    protected override void ProcessRecord()
-    {
-        Dictionary<string, object> parameters = new()
-        {
-            [nameof(ManagementGroupId)] = ManagementGroupId,
-            [nameof(Location)] = Location,
-        };
-        foreach (string name in new[]
-        {
-            nameof(Name), nameof(TemplateFile), nameof(TemplateUri), nameof(TemplateSpecId),
-            nameof(QueryString), nameof(TemplateParameterFile),
-            nameof(TemplateParameterUri), nameof(Parameter),
-            nameof(ValidationLevel), nameof(Profile),
-        })
-        {
-            if (MyInvocation.BoundParameters.TryGetValue(name, out object? value) && value is not null)
-            {
-                parameters[name] = value;
-            }
-        }
-        if (SuppressDiagnostics)
-        {
-            parameters[nameof(SuppressDiagnostics)] = true;
+            parameters[nameof(TemplateParameterFile)] = ResolvePath(TemplateParameterFile)!;
         }
         if (TemplateObject is not null)
         {
-            parameters[nameof(TemplateObject)] =
-                ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateObject)!;
+            parameters[nameof(TemplateObject)] = NormalizeJsonInput(TemplateObject)!;
         }
         if (TemplateParameterObject is not null)
         {
-            parameters[nameof(TemplateParameterObject)] =
-                ManagementGroupDeploymentCmdletHelpers.NormalizeJsonInput(TemplateParameterObject)!;
+            parameters[nameof(TemplateParameterObject)] = NormalizeJsonInput(TemplateParameterObject)!;
         }
-        ManagementGroupDeploymentCmdletHelpers.AddTemplateParameterValues(
-            parameters, _templateParameters, Parameter, MyInvocation.BoundParameters.ContainsKey(nameof(TemplateParameterUri)));
 
-        ManagementGroupDeploymentCmdletHelpers.Run(
-            this,
-            engine,
-            streams,
-            _cts.Token,
-            "Test-AzManagementGroupDeployment",
-            parameters);
+        // Legacy GetUsedDynamicParametersAsDictionary: the bound dynamic parameters, keyed by the template name (HelpMessage).
+        string[] values = _templateParameters.Values
+            .Where(p => MyInvocation.BoundParameters.ContainsKey(p.Name))
+            .Select(p => $"{((ParameterAttribute)p.Attributes[0]).HelpMessage}={JsonSerializer.Serialize(NormalizeJsonInput(MyInvocation.BoundParameters[p.Name]))}")
+            .ToArray();
+        if (values.Length > 0)
+        {
+            parameters["TemplateParameterValues"] = values;
+        }
+
+        return parameters;
     }
 
-    protected override void EndProcessing() => _cts.Dispose();
+    private void DynamicParameterValidityCheck(bool isBicepParam)
+    {
+        if (IsExtension(TemplateUri, ".bicep"))
+        {
+            throw new PSInvalidOperationException($"The -{nameof(TemplateUri)} parameter is not supported with .bicep files. Please download the file and pass it using -{nameof(TemplateFile)}.");
+        }
+        if (!isBicepParam && string.IsNullOrEmpty(TemplateFile) && string.IsNullOrEmpty(TemplateUri) && string.IsNullOrEmpty(TemplateSpecId) && TemplateObject == null)
+        {
+            throw new PSInvalidOperationException($"One of the -{nameof(TemplateFile)}, -{nameof(TemplateUri)}, -{nameof(TemplateSpecId)} or -{nameof(TemplateObject)} parameters must be supplied unless a .bicepparam file is supplied with parameter -{nameof(TemplateParameterFile)}.");
+        }
+        if (isBicepParam && !string.IsNullOrEmpty(TemplateFile) && !IsExtension(TemplateFile, ".bicep"))
+        {
+            throw new PSInvalidOperationException($"Parameter -{nameof(TemplateFile)} only permits .bicep files if a .bicepparam file is supplied with parameter -{nameof(TemplateParameterFile)}.");
+        }
+        if (isBicepParam && (!string.IsNullOrEmpty(TemplateUri) || !string.IsNullOrEmpty(TemplateSpecId) || TemplateObject != null))
+        {
+            throw new PSInvalidOperationException($"Parameters -{nameof(TemplateUri)}, -{nameof(TemplateSpecId)} or -{nameof(TemplateObject)} cannot be used if a .bicepparam file is supplied with parameter -{nameof(TemplateParameterFile)}.");
+        }
+    }
 
-    protected override void StopProcessing() => _cts.Cancel();
+    // Legacy CmdletExtensions.ResolvePath.
+    private string? ResolvePath(string? path) =>
+        path is null ? null
+            : SessionState.Path.GetResolvedPSPathFromPSPath(path.Trim('"', '\'', ' ')) is { Count: > 0 } result ? result[0].ProviderPath : "";
+
+    private static bool IsExtension(string? path, string extension) =>
+        !string.IsNullOrEmpty(path) && Path.GetExtension(path).Equals(extension, StringComparison.OrdinalIgnoreCase);
+
+    private static object? NormalizeJsonInput(object? value) =>
+        value switch
+        {
+            PSObject psObject => NormalizeJsonInput(psObject.BaseObject),
+            SecureString secure => new NetworkCredential(string.Empty, secure).Password,
+            IDictionary dictionary => dictionary.Cast<DictionaryEntry>().ToDictionary(
+                entry => entry.Key.ToString()!,
+                entry => NormalizeJsonInput(entry.Value)),
+            IEnumerable items when value is not string => items.Cast<object?>().Select(NormalizeJsonInput).ToArray(),
+            _ => value,
+        };
+
+    // Legacy GetTemplateContentFromTemplateSpec: properties.mainTemplate of the template spec version.
+    private object? ReadTemplateSpec(string templateSpecId)
+    {
+        RestResponse? response = null;
+        OutputStreamDelegate ignore = (_, _) => Task.CompletedTask;
+        OutputStreams quiet = new((value, _) => { response = value as RestResponse; return Task.CompletedTask; }, ignore, ignore, ignore, ignore, ignore);
+        Dictionary<string, object> parameters = new() { ["Method"] = "GET", ["Uri"] = $"{templateSpecId.Trim('"')}?api-version=2022-02-01" };
+        if (!string.IsNullOrEmpty(Profile))
+        {
+            parameters[nameof(Profile)] = Profile;
+        }
+        var invocation = new CommandInvocation("Resources", "Invoke-AzRestMethod", parameters, false, MyInvocation.MyCommand.ModuleName, MyInvocation.MyCommand.Version?.ToString());
+        using ISession session = AzclipsServiceProvider.GetRequiredService<IEngine>().OpenExecutionSession(invocation, quiet, CancellationToken.None);
+        session.Run();
+        return response is { StatusCode: >= 200 and < 300 } ? JsonNode.Parse(response.Content)?["properties"]?["mainTemplate"] : null;
+    }
 }
 
-[Cmdlet(VerbsCommon.Get, "AzManagementGroupDeployment", DefaultParameterSetName = NameSet)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment")]
-public class GetManagementGroupDeploymentCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.New, "AzManagementGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = ParameterlessTemplateFileParameterSetName)]
+[OutputType(typeof(PSDeployment))]
+public class NewManagementGroupDeploymentCmdlet : ManagementGroupDeploymentTemplateCmdletBase
 {
-    private const string NameSet = "GetByName";
-    private const string IdSet = "GetById";
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-
-    [Parameter(Position = 0, Mandatory = true, ParameterSetName = NameSet)]
-    public string? ManagementGroupId { get; set; }
+    private static readonly string[] s_changeTypes = ["Create", "Delete", "Ignore", "Deploy", "NoChange", "Modify", "Unsupported"];
 
     [Alias("DeploymentName")]
-    [Parameter(Position = 1, Mandatory = false, ParameterSetName = NameSet)]
+    [Parameter(Mandatory = false, HelpMessage = "The name of the deployment it's going to create. If not specified, defaults to the template file name when a template file is provided; defaults to the current time when a template object is provided, e.g. \"20131223140835\".")]
+    [ValidateNotNullOrEmpty]
     public string? Name { get; set; }
 
-    [Alias("DeploymentId", "ResourceId")]
-    [Parameter(Mandatory = true, ParameterSetName = IdSet)]
-    public string? Id { get; set; }
+    [Parameter(Mandatory = true, HelpMessage = "The management group ID.")]
+    [ValidateNotNullOrEmpty]
+    public string ManagementGroupId { get; set; } = "";
 
-    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
-    [Parameter(Mandatory = false)]
-    public SwitchParameter Pre { get; set; }
+    [Parameter(Mandatory = false, HelpMessage = "The deployment debug log level.")]
+    [ArgumentCompletions("RequestContent", "ResponseContent", "All", "None")]
+    public string? DeploymentDebugLogLevel { get; set; }
 
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
+    [Parameter(Mandatory = false, HelpMessage = "The tags to put on the deployment.")]
+    [ValidateNotNullOrEmpty]
+    public Hashtable? Tag { get; set; }
 
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(
-            this,
-            "ManagementGroupDeploymentError",
-            ErrorCategory.NotSpecified,
-            enumerateOutput: true);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
+    [Parameter(Mandatory = false, HelpMessage = "The What-If result format. Applicable when the -WhatIf or -Confirm switch is set.")]
+    [ValidateSet("FullResourcePayloads", "ResourceIdOnly", IgnoreCase = true)]
+    public string WhatIfResultFormat { get; set; } = "FullResourcePayloads";
 
+    [Parameter(Mandatory = false, HelpMessage = "Comma-separated resource change types to be excluded from What-If results. Applicable when the -WhatIf or -Confirm switch is set.")]
+    [ValidateChangeTypes]
+    public string[]? WhatIfExcludeChangeType { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Do not ask for confirmation if there is no changes in the What-If result. Applicable when the -Confirm switch is set.")]
+    public SwitchParameter ProceedIfNoChange { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
+    public SwitchParameter AsJob { get; set; }
+
+    protected override string CommandName => "New-AzManagementGroupDeployment";
+
+    // Legacy DeploymentCreateCmdlet.OnProcessRecord: -WhatIf/-Confirm show the what-if result through ShouldProcess.
     protected override void ProcessRecord()
     {
-        string managementGroupId;
-        string? name;
-        if (ParameterSetName == IdSet)
+        Dictionary<string, object> parameters = BuildEngineParameters();
+        parameters.Remove(nameof(ProceedIfNoChange));
+        parameters.Remove(nameof(AsJob));
+        if (Tag is not null)
         {
-            (managementGroupId, string parsedName) =
-                ManagementGroupDeploymentCmdletHelpers.ParseId(Id!);
-            name = parsedName;
+            parameters[nameof(Tag)] = Tag.Cast<DictionaryEntry>().ToDictionary(e => e.Key.ToString()!, e => e.Value?.ToString() ?? string.Empty);
+        }
+
+        string? whatIfMessage = null;
+        string? warningMessage = null;
+        string? captionMessage = null;
+        bool confirm = IsConfirmRequested();
+        if (IsWhatIfRequested() || confirm)
+        {
+            object? preview = InvokeForOutput(CommandName, new(parameters) { ["WhatIf"] = true });
+            if (preview is null)
+            {
+                return; // the what-if failed and its error is already written; legacy stops here too
+            }
+            string formatted = DeploymentWhatIfFormatter.Format((JsonObject)preview, cli: false, color: true);
+
+            if (confirm && ProceedIfNoChange && !CreateManagementGroupDeploymentProcessor_Orchestrator.HasChanges(preview as JsonObject))
+            {
+                WriteInformation(new HostInformationMessage { Message = formatted }, ["PSHOST"]);
+                Deploy(parameters);
+                return;
+            }
+
+            // Legacy: \r overrides the built-in "What if:" prefix.
+            whatIfMessage = $"\r        \r{Environment.NewLine}{formatted}{Environment.NewLine}";
+            warningMessage = $"{Environment.NewLine}Are you sure you want to execute the deployment?";
+            captionMessage = $"\u001b[1A\u001b[0m{whatIfMessage}";
+        }
+
+        if (ShouldProcess(whatIfMessage, warningMessage, captionMessage))
+        {
+            Deploy(parameters);
+        }
+    }
+
+    private void Deploy(Dictionary<string, object> parameters)
+    {
+        if (AsJob)
+        {
+            InvokeAsJob(CommandName, parameters);
         }
         else
         {
-            managementGroupId = ManagementGroupId!;
-            name = Name;
+            Invoke(CommandName, parameters);
         }
-
-        Dictionary<string, object> parameters = new()
-        {
-            [nameof(ManagementGroupId)] = managementGroupId,
-        };
-        string command = "Get-AzManagementGroupDeployment_List";
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            parameters[nameof(Name)] = name;
-            command = "Get-AzManagementGroupDeployment_Get";
-        }
-        if (Profile is not null)
-        {
-            parameters[nameof(Profile)] = Profile;
-        }
-
-        ManagementGroupDeploymentCmdletHelpers.Run(
-            this,
-            engine,
-            streams,
-            _cts.Token,
-            command,
-            parameters);
     }
 
-    protected override void EndProcessing() => _cts.Dispose();
+    private bool IsWhatIfRequested() =>
+        MyInvocation.BoundParameters.TryGetValue("WhatIf", out object? flag)
+            ? ((SwitchParameter)flag).IsPresent
+            : SessionState?.PSVariable.GetValue("WhatIfPreference") switch
+            {
+                SwitchParameter preference => preference.IsPresent,
+                bool preference => preference,
+                _ => false,
+            };
 
-    protected override void StopProcessing() => _cts.Cancel();
+    private bool IsConfirmRequested() =>
+        MyInvocation.BoundParameters.TryGetValue("Confirm", out object? flag)
+            ? ((SwitchParameter)flag).IsPresent
+            : SessionState?.PSVariable.GetValue("ConfirmPreference") is ConfirmImpact preference && ConfirmImpact.Medium >= preference;
+
+    // Legacy ValidateChangeTypesAttribute.
+    private sealed class ValidateChangeTypesAttribute : ValidateArgumentsAttribute
+    {
+        protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics)
+        {
+            List<string> invalid = ((IEnumerable)arguments).Cast<object>().Select(a => a.ToString()!).Distinct()
+                .Where(name => !s_changeTypes.Contains(name, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (invalid.Count > 0)
+            {
+                string word = invalid.Count > 1 ? "types" : "type";
+                throw new ParameterBindingException(
+                    $"Unrecognized resource change {word}: {string.Join(", ", invalid)}. Specify one ore more values in the following list and try again: {string.Join(", ", s_changeTypes)}.");
+            }
+        }
+    }
 }
 
-[Cmdlet(VerbsLifecycle.Stop, "AzManagementGroupDeployment", DefaultParameterSetName = NameSet, SupportsShouldProcess = true)]
-[OutputType(typeof(bool))]
-public class StopManagementGroupDeploymentCmdlet : PSCmdlet
+[Cmdlet(VerbsDiagnostic.Test, "AzManagementGroupDeployment", DefaultParameterSetName = ParameterlessTemplateFileParameterSetName)]
+[OutputType(typeof(PSResourceManagerError))]
+public class TestManagementGroupDeploymentCmdlet : ManagementGroupDeploymentTemplateCmdletBase
 {
-    private const string NameSet = "StopByName";
-    private const string IdSet = "StopById";
-    private const string ObjectSet = "StopByInputObject";
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-
-    [Parameter(Position = 0, Mandatory = true, ParameterSetName = NameSet)]
-    public string? ManagementGroupId { get; set; }
     [Alias("DeploymentName")]
-    [Parameter(Position = 1, Mandatory = true, ParameterSetName = NameSet)]
+    [Parameter(Mandatory = false, HelpMessage = "The name of the deployment it's going to test. If not specified, defaults to the template file name when a template file is provided")]
+    [ValidateNotNullOrEmpty]
     public string? Name { get; set; }
-    [Alias("DeploymentId", "ResourceId")]
-    [Parameter(Mandatory = true, ParameterSetName = IdSet)]
-    public string? Id { get; set; }
-    [Parameter(Mandatory = true, ValueFromPipeline = true, ParameterSetName = ObjectSet)]
-    public PSDeployment? InputObject { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter PassThru { get; set; }
-    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
-    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
-    [Parameter(Mandatory = false)] public string? Profile { get; set; }
 
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(
-            this,
-            "ManagementGroupDeploymentError",
-            ErrorCategory.NotSpecified);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
+    [Parameter(Mandatory = true, HelpMessage = "The management group id.")]
+    [ValidateNotNullOrEmpty]
+    public string ManagementGroupId { get; set; } = "";
+
+    [Parameter(Mandatory = false, HelpMessage = "When set, validation diagnostics will not be shown for valid deployments.")]
+    public SwitchParameter SuppressDiagnostics { get; set; }
+
+    protected override string CommandName => "Test-AzManagementGroupDeployment";
+}
+
+[Cmdlet(VerbsCommon.Get, "AzManagementGroupDeployment", DefaultParameterSetName = "GetByDeploymentName")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment")]
+public class GetManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
+{
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "GetByDeploymentName", HelpMessage = "The management group id.")]
+    [ValidateNotNullOrEmpty]
+    public string? ManagementGroupId { get; set; }
+
+    [Parameter(Mandatory = false, Position = 1, ParameterSetName = "GetByDeploymentName", HelpMessage = "The name of deployment.")]
+    [Alias("DeploymentName")]
+    [ValidateNotNullOrEmpty]
+    public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "GetByDeploymentId", HelpMessage = "The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}")]
+    [Alias("DeploymentId", "ResourceId")]
+    [ValidateNotNullOrEmpty]
+    public string? Id { get; set; }
+
+    protected override bool EnumerateOutput => true;
 
     protected override void ProcessRecord()
     {
-        (string managementGroupId, string name) = ResolveTarget();
-        if (!ShouldProcess(
-            $"management group '{managementGroupId}' deployment '{name}'",
-            "Cancel"))
+        var parameters = GetBoundParameters();
+        if (parameters.Remove(nameof(Id)))
         {
-            return;
+            Name = GetDeploymentName(Id!);
+            if (!string.IsNullOrEmpty(Name)) parameters[nameof(Name)] = Name;
+            if (GetManagementGroupId(Id!) is { } managementGroupId) parameters[nameof(ManagementGroupId)] = managementGroupId;
+        }
+        Invoke(string.IsNullOrEmpty(Name) ? "Get-AzManagementGroupDeployment_List" : "Get-AzManagementGroupDeployment_Get", parameters);
+    }
+}
+
+[Cmdlet(VerbsLifecycle.Stop, "AzManagementGroupDeployment", SupportsShouldProcess = true, DefaultParameterSetName = "StopByDeploymentName")]
+[OutputType(typeof(bool))]
+public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
+{
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "StopByDeploymentName", HelpMessage = "The management group id.")]
+    [ValidateNotNullOrEmpty]
+    public string? ManagementGroupId { get; set; }
+
+    [Parameter(Mandatory = true, Position = 1, ParameterSetName = "StopByDeploymentName", HelpMessage = "The name of the deployment.")]
+    [Alias("DeploymentName")]
+    [ValidateNotNullOrEmpty]
+    public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "StopByDeploymentId", HelpMessage = "The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}")]
+    [Alias("DeploymentId", "ResourceId")]
+    [ValidateNotNullOrEmpty]
+    public string? Id { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    public PSDeployment? InputObject { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter PassThru { get; set; }
+
+    protected override void ProcessRecord()
+    {
+        var parameters = GetBoundParameters();
+        parameters.Remove(nameof(Id));
+        parameters.Remove(nameof(InputObject));
+        parameters.Remove(nameof(PassThru));
+        parameters[nameof(Name)] = !string.IsNullOrEmpty(Name) ? Name
+            : !string.IsNullOrEmpty(Id) ? GetDeploymentName(Id)
+            : InputObject?.DeploymentName ?? "";
+        if ((!string.IsNullOrEmpty(ManagementGroupId) ? ManagementGroupId
+            : !string.IsNullOrEmpty(Id) ? GetManagementGroupId(Id)
+            : InputObject?.ManagementGroupId) is { } managementGroupId)
+        {
+            parameters[nameof(ManagementGroupId)] = managementGroupId;
         }
 
-        Dictionary<string, object> parameters = new()
+        // Legacy ConfirmAction targets -Name only, and -PassThru writes true even when declined.
+        if (ShouldProcess(Name, "Cancelling active deployment ..."))
         {
-            [nameof(ManagementGroupId)] = managementGroupId,
-            [nameof(Name)] = name,
-        };
-        if (Profile is not null)
-        {
-            parameters[nameof(Profile)] = Profile;
+            Invoke("Stop-AzManagementGroupDeployment", parameters);
         }
-        ManagementGroupDeploymentCmdletHelpers.Run(
-            this,
-            engine,
-            streams,
-            _cts.Token,
-            "Stop-AzManagementGroupDeployment",
-            parameters);
-        if (PassThru)
+
+        if (PassThru.IsPresent)
         {
             WriteObject(true);
         }
     }
-
-    private (string ManagementGroupId, string Name) ResolveTarget()
-    {
-        if (Id is not null)
-        {
-            return ManagementGroupDeploymentCmdletHelpers.ParseId(Id);
-        }
-        if (InputObject?.Id is not null)
-        {
-            return ManagementGroupDeploymentCmdletHelpers.ParseId(InputObject.Id);
-        }
-        return (ManagementGroupId!, Name!);
-    }
-
-    protected override void EndProcessing() => _cts.Dispose();
-
-    protected override void StopProcessing() => _cts.Cancel();
 }
 
-[Cmdlet(VerbsCommon.Remove, "AzManagementGroupDeployment", DefaultParameterSetName = NameSet, SupportsShouldProcess = true)]
+[Cmdlet(VerbsCommon.Remove, "AzManagementGroupDeployment", SupportsShouldProcess = true, DefaultParameterSetName = "RemoveByDeploymentName")]
 [OutputType(typeof(bool))]
-public class RemoveManagementGroupDeploymentCmdlet : PSCmdlet
+public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
 {
-    private const string NameSet = "RemoveByName";
-    private const string IdSet = "RemoveById";
-    private const string ObjectSet = "RemoveByInputObject";
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-
-    [Parameter(Position = 0, Mandatory = true, ParameterSetName = NameSet)]
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "RemoveByDeploymentName", HelpMessage = "The management group id.")]
+    [ValidateNotNullOrEmpty]
     public string? ManagementGroupId { get; set; }
-    [Alias("DeploymentName")]
-    [Parameter(Position = 1, Mandatory = true, ParameterSetName = NameSet)]
-    public string? Name { get; set; }
-    [Alias("DeploymentId", "ResourceId")]
-    [Parameter(Mandatory = true, ParameterSetName = IdSet)]
-    public string? Id { get; set; }
-    [Parameter(Mandatory = true, ValueFromPipeline = true, ParameterSetName = ObjectSet)]
-    public PSDeployment? InputObject { get; set; }
-    [Parameter(Mandatory = false)] public SwitchParameter PassThru { get; set; }
-    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")] public SwitchParameter AsJob { get; set; }
-    // Legacy ResourceManagerCmdletBase switch; it only affects API version lookup, which deployments do not use.
-    [Parameter(Mandatory = false)] public SwitchParameter Pre { get; set; }
-    [Parameter(Mandatory = false)] public string? Profile { get; set; }
 
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(
-            this,
-            "ManagementGroupDeploymentError",
-            ErrorCategory.NotSpecified);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
+    [Parameter(Mandatory = true, Position = 1, ParameterSetName = "RemoveByDeploymentName", HelpMessage = "The name of the deployment.")]
+    [Alias("DeploymentName")]
+    [ValidateNotNullOrEmpty]
+    public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "RemoveByDeploymentId", HelpMessage = "The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}")]
+    [Alias("DeploymentId", "ResourceId")]
+    [ValidateNotNullOrEmpty]
+    public string? Id { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "RemoveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    public PSDeployment? InputObject { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
+    public SwitchParameter AsJob { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter PassThru { get; set; }
 
     protected override void ProcessRecord()
     {
-        (string managementGroupId, string name) = ResolveTarget();
-        if (!ShouldProcess(
-            $"management group '{managementGroupId}' deployment '{name}'",
-            "Remove"))
+        var parameters = GetBoundParameters();
+        parameters.Remove(nameof(Id));
+        parameters.Remove(nameof(InputObject));
+        parameters.Remove(nameof(PassThru));
+        parameters.Remove(nameof(AsJob));
+        parameters[nameof(Name)] = !string.IsNullOrEmpty(Name) ? Name
+            : !string.IsNullOrEmpty(Id) ? GetDeploymentName(Id)
+            : InputObject?.DeploymentName ?? "";
+        if ((!string.IsNullOrEmpty(ManagementGroupId) ? ManagementGroupId
+            : !string.IsNullOrEmpty(Id) ? GetManagementGroupId(Id)
+            : InputObject?.ManagementGroupId) is { } managementGroupId)
         {
-            return;
+            parameters[nameof(ManagementGroupId)] = managementGroupId;
         }
 
-        Dictionary<string, object> parameters = new()
+        // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the delete ran.
+        if (ShouldProcess(Name, "Deleting the deployment ..."))
         {
-            [nameof(ManagementGroupId)] = managementGroupId,
-            [nameof(Name)] = name,
-        };
-        if (Profile is not null)
-        {
-            parameters[nameof(Profile)] = Profile;
-        }
-        if (AsJob)
-        {
-            ManagementGroupDeploymentCmdletHelpers.RunAsJob(
-                this, engine, "Remove-AzManagementGroupDeployment", parameters, PassThru ? true : null);
-            return;
-        }
-        ManagementGroupDeploymentCmdletHelpers.Run(
-            this,
-            engine,
-            streams,
-            _cts.Token,
-            "Remove-AzManagementGroupDeployment",
-            parameters);
-        if (PassThru)
-        {
-            WriteObject(true);
+            if (AsJob)
+            {
+                InvokeAsJob("Remove-AzManagementGroupDeployment", parameters, PassThru.IsPresent ? true : null);
+                return;
+            }
+            Invoke("Remove-AzManagementGroupDeployment", parameters);
+            if (PassThru.IsPresent)
+            {
+                WriteObject(true);
+            }
         }
     }
-
-    private (string ManagementGroupId, string Name) ResolveTarget()
-    {
-        if (Id is not null)
-        {
-            return ManagementGroupDeploymentCmdletHelpers.ParseId(Id);
-        }
-        if (InputObject?.Id is not null)
-        {
-            return ManagementGroupDeploymentCmdletHelpers.ParseId(InputObject.Id);
-        }
-        return (ManagementGroupId!, Name!);
-    }
-
-    protected override void EndProcessing() => _cts.Dispose();
-
-    protected override void StopProcessing() => _cts.Cancel();
 }
 
-/// <summary>Legacy PS AzureLongRunningJob: the engine run on a background thread, its streams kept in the job.</summary>
+/// <summary>Legacy AzureLongRunningJob: the engine runs on a background thread and its streams are kept in the job.</summary>
 internal sealed class ManagementGroupDeploymentJob : Job
 {
     private readonly CancellationTokenSource _cts = new();
@@ -823,23 +764,16 @@ internal sealed class ManagementGroupDeploymentJob : Job
             WriteOutput: (value, _) =>
             {
                 value = value is SerializedJson json ? json.Value : value;
-                foreach (object? item in value is IEnumerable items and not string ? items.Cast<object?>() : [value])
+                if (value is not null)
                 {
-                    if (item is not null)
-                    {
-                        Output.Add(PSObject.AsPSObject(item));
-                    }
+                    Output.Add(PSObject.AsPSObject(value));
                 }
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, _) => { Verbose.Add(new VerboseRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
             WriteDebug: (value, _) => { Debug.Add(new DebugRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
             WriteWarning: (value, _) => { Warning.Add(new WarningRecord(value?.ToString() ?? string.Empty)); return Task.CompletedTask; },
-            WriteError: (value, _) =>
-            {
-                Error.Add(new ErrorRecord(new Exception(value?.ToString() ?? string.Empty), "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null));
-                return Task.CompletedTask;
-            },
+            WriteError: (value, _) => { Error.Add(ToErrorRecord(new Exception(value?.ToString() ?? string.Empty))); return Task.CompletedTask; },
             WriteInformation: (value, _) => { Information.Add(new InformationRecord(value, null)); return Task.CompletedTask; });
     }
 
@@ -864,7 +798,7 @@ internal sealed class ManagementGroupDeploymentJob : Job
             }
             catch (Exception ex)
             {
-                Error.Add(new ErrorRecord(ex, "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null));
+                Error.Add(ToErrorRecord(ex));
                 SetJobState(_cts.IsCancellationRequested ? JobState.Stopped : JobState.Failed);
             }
         });
@@ -880,4 +814,6 @@ internal sealed class ManagementGroupDeploymentJob : Job
         }
         base.Dispose(disposing);
     }
+
+    private static ErrorRecord ToErrorRecord(Exception ex) => new(ex, "ManagementGroupDeploymentError", ErrorCategory.NotSpecified, null);
 }
