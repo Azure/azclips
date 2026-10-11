@@ -7,7 +7,9 @@
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields New-AzVM returns:
 #   1. New-AzVM -SecurityType TrustedLaunch        -> creates <vm>PublicIP; PublicIps is set;
-#                                                     creates <vm>NSG with only the rdp rule
+#               -Tag @{'azclips-smoke'='vm-tags'}     creates <vm>NSG with only the rdp rule;
+#                                                     the VM, NIC, VNet, NSG and public IP
+#                                                     all carry the azclips-smoke tag
 #   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
 #                                                    -> creates that public IP; PublicIps is set
 #   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
@@ -101,6 +103,9 @@ $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGro
 # Rules as name/protocol/source address/source port/destination address/destination port/access/direction/priority; see Format-NsgRule.
 $defaultNsgRule    = 'rdp/Tcp/*/*/*/3389/Allow/Inbound/1000'
 $existingNsgRule   = 'smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100'
+
+# Case 1 passes this as -Tag @{ 'azclips-smoke' = <value> } and checks it on every resource it creates.
+$vmTag             = 'vm-tags'
 
 # Fail fast with an actionable message. Checking existence is not enough: the official
 # Az modules (Az.Resources, Az.Compute) export the same cmdlet names and PowerShell
@@ -324,6 +329,28 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
     Write-Host "OK: ${Label}: NIC '$VmName-nic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
 }
 
+# The network resource $Type/$Name must carry the azclips-smoke tag $ExpectedSmokeTag.
+function Test-NetworkTag([string]$Label, [string]$Type, [string]$Name, [string]$ExpectedSmokeTag)
+{
+    try
+    {
+        $resource = Get-NetworkResource -Type $Type -Name $Name
+    }
+    catch
+    {
+        Add-Failure "${Label}: could not read $Type '$Name': $($_.Exception.Message)"
+        return
+    }
+
+    if ($resource.tags.'azclips-smoke' -ne $ExpectedSmokeTag)
+    {
+        Add-Failure "${Label}: $Type '$Name' azclips-smoke tag '$($resource.tags.'azclips-smoke')' did not match '$ExpectedSmokeTag'"
+        return
+    }
+
+    Write-Host "OK: ${Label}: $Type '$Name' has azclips-smoke tag '$ExpectedSmokeTag'"
+}
+
 # Guard the cleanup block: each resource is only deleted once it exists.
 $groupCreated = $false
 $createdVms   = [System.Collections.Generic.List[string]]::new()
@@ -337,7 +364,7 @@ try
     New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroup -Location $location
     $groupCreated = $true
 
-    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch (default public IP ${defaultVm}PublicIP) =="
+    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch -Tag azclips-smoke=$vmTag (default public IP ${defaultVm}PublicIP) =="
     Write-Host "== pre-create NSG $existingNsg (attached by cases 3 and 4) =="
     $nsgBody = @{
         location = $location
@@ -374,9 +401,20 @@ try
     Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch' }
-    Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
-    Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch'; Tag = @{ 'azclips-smoke' = $vmTag } }
+    Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP" -ExpectedSmokeTag $vmTag
+    Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule -ExpectedSmokeTag $vmTag
+    $defaultVmTag = if ($defaultResult.Tags) { $defaultResult.Tags['azclips-smoke'] } else { $null }
+    if ($defaultVmTag -eq $vmTag)
+    {
+        Write-Host "OK: default: VM '$defaultVm' has azclips-smoke tag '$vmTag'"
+    }
+    else
+    {
+        Add-Failure "default: VM '$defaultVm' azclips-smoke tag '$defaultVmTag' did not match '$vmTag'"
+    }
+    Test-NetworkTag -Label 'default' -Type 'networkInterfaces' -Name "$defaultVm-nic" -ExpectedSmokeTag $vmTag
+    Test-NetworkTag -Label 'default' -Type 'virtualNetworks' -Name "$defaultVm-vnet" -ExpectedSmokeTag $vmTag
 
     Write-Host "== 2. New-AzVM -SecurityType Standard -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)

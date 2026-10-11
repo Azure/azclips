@@ -5,7 +5,9 @@
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
 #   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
-#                                                    creates <vm>NSG with only the rdp rule
+#                --tags azclips-smoke=vm-tags        creates <vm>NSG with only the rdp rule;
+#                                                    the VM, NIC, VNet, NSG and public IP
+#                                                    all carry the azclips-smoke tag
 #   2. vm create --security-type Standard --public-ip-address <new name>
 #                --nsg <existing resource id>        creates that public IP; publicIps is set;
 #                                                    attaches the pre-created NSG untouched
@@ -113,6 +115,8 @@ NSG_RULE_QUERY="json.properties.securityRules[0] | join('/', [name, properties.p
 RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
 SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
 EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
+# Case 1 passes this as --tags azclips-smoke=<value> and checks it on every resource it creates.
+VM_TAG="vm-tags"
 KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
 SSH_PUBLIC_KEY=""
 CVM_ENABLED="${AZCLIPS_ENABLE_CVM:-0}"
@@ -381,6 +385,26 @@ check_nsg()
     echo "OK: $label: NIC '$vm-nic' uses NSG '$nsg_name', whose only rule is '$expected_rule'"
 }
 
+# The network resource <type>/<name> must carry the azclips-smoke tag expected_tag.
+check_network_tag()
+{
+    local label="$1" type="$2" name="$3" expected_tag="$4"
+    local actual_tag
+
+    if ! actual_tag=$("$AZ" rest --method GET --uri "$(network_url "$type" "$name")" --query 'json.tags."azclips-smoke"' --output tsv 2>&1)
+    then
+        fail "$label: could not read $type '$name': $actual_tag"
+        return
+    fi
+    if [[ "$actual_tag" != "$expected_tag" ]]
+    then
+        fail "$label: $type '$name' azclips-smoke tag '$actual_tag' did not match '$expected_tag'"
+        return
+    fi
+
+    echo "OK: $label: $type '$name' has azclips-smoke tag '$expected_tag'"
+}
+
 "$AZ" group create \
     --subscription-id "$SUBSCRIPTION_ID" \
     --name "$RESOURCE_GROUP" \
@@ -395,7 +419,7 @@ rm -f "$KEY_FILE" "$KEY_FILE.pub"
 ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
 SSH_PUBLIC_KEY="$(tr -d '\r\n' < "$KEY_FILE.pub")"
 
-echo "== 1. vm create --security-type TrustedLaunch (default public IP ${DEFAULT_VM}PublicIP) =="
+echo "== 1. vm create --security-type TrustedLaunch --tags azclips-smoke=$VM_TAG (default public IP ${DEFAULT_VM}PublicIP) =="
 echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
 existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
 existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
@@ -415,10 +439,19 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch)
+if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch --tags "azclips-smoke=$VM_TAG")
 then
-    check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
-    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
+    check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP" "$VM_TAG"
+    check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE" "$VM_TAG"
+    vm_tag=$(json_field azclips-smoke "$output")
+    if [[ "$vm_tag" == "$VM_TAG" ]]
+    then
+        echo "OK: default: VM '$DEFAULT_VM' has azclips-smoke tag '$VM_TAG'"
+    else
+        fail "default: VM '$DEFAULT_VM' azclips-smoke tag '$vm_tag' did not match '$VM_TAG'"
+    fi
+    check_network_tag "default" networkInterfaces "$DEFAULT_VM-nic" "$VM_TAG"
+    check_network_tag "default" virtualNetworks "$DEFAULT_VM-vnet" "$VM_TAG"
 else
     fail "default: vm create failed"
 fi
