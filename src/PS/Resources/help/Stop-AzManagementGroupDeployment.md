@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/12/2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzManagementGroupDeployment
 ---
@@ -20,27 +20,42 @@ Cancels a running management-group deployment.
 ### StopByName (Default)
 
 ```
-Stop-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
- [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Stop-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru] [-Pre]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### StopById
 
 ```
-Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Pre] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ### StopByInputObject
 
 ```
-Stop-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-Pre] [-Profile <string>]
+Stop-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### StopByDeploymentName (Default)
+
+```
+Stop-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### StopByDeploymentId
+
+```
+Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -93,6 +108,7 @@ HelpMessage: ''
 ### -Id
 
 The full management-group deployment resource ID.
+The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
 
 ```yaml
 Type: System.String
@@ -102,7 +118,7 @@ Aliases:
 - DeploymentId
 - ResourceId
 ParameterSets:
-- Name: StopById
+- Name: StopByDeploymentId
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -116,6 +132,7 @@ HelpMessage: ''
 ### -InputObject
 
 A deployment object returned by `Get-AzManagementGroupDeployment`.
+The deployment object.
 
 ```yaml
 Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
@@ -144,7 +161,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: StopByName
+- Name: StopByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
@@ -158,6 +175,7 @@ HelpMessage: ''
 ### -Name
 
 The deployment name.
+The name of the deployment.
 
 ```yaml
 Type: System.String
@@ -166,7 +184,7 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: StopByName
+- Name: StopByDeploymentName
   Position: 1
   IsRequired: true
   ValueFromPipeline: false
@@ -286,5 +304,6 @@ Returns `true` when `-PassThru` is specified and cancellation succeeds.
 Completed, failed, or canceled deployments cannot be canceled.
 
 ## RELATED LINKS
+
 
 - [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-management-group)

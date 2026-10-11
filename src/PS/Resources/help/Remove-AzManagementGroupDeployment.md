@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/12/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzManagementGroupDeployment
 ---
@@ -20,27 +20,42 @@ Removes a management-group deployment from deployment history.
 ### RemoveByName (Default)
 
 ```
-Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru] [-AsJob]
- [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-PassThru]
+ [-AsJob] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveById
 
 ```
-Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-AsJob] [-Pre] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-AsJob] [-Pre] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-AsJob] [-Pre] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzManagementGroupDeployment -InputObject <PSDeployment> [-AsJob] [-PassThru]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### RemoveByDeploymentName (Default)
+
+```
+Remove-AzManagementGroupDeployment [-ManagementGroupId] <string> [-Name] <string> [-AsJob]
+ [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### RemoveByDeploymentId
+
+```
+Remove-AzManagementGroupDeployment -Id <string> [-AsJob] [-PassThru] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -71,6 +86,7 @@ Get-AzManagementGroupDeployment -ManagementGroupId myManagementGroup -Name myDep
 ### -AsJob
 
 Runs the cmdlet in the background and returns a job object.
+Run cmdlet in the background
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -114,6 +130,7 @@ HelpMessage: ''
 ### -Id
 
 The full management-group deployment resource ID.
+The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
 
 ```yaml
 Type: System.String
@@ -123,7 +140,7 @@ Aliases:
 - DeploymentId
 - ResourceId
 ParameterSets:
-- Name: RemoveById
+- Name: RemoveByDeploymentId
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -137,6 +154,7 @@ HelpMessage: ''
 ### -InputObject
 
 A deployment object returned by `Get-AzManagementGroupDeployment`.
+The deployment object.
 
 ```yaml
 Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
@@ -165,7 +183,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: RemoveByName
+- Name: RemoveByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
@@ -179,6 +197,7 @@ HelpMessage: ''
 ### -Name
 
 The deployment name.
+The name of the deployment.
 
 ```yaml
 Type: System.String
@@ -187,7 +206,7 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: RemoveByName
+- Name: RemoveByDeploymentName
   Position: 1
   IsRequired: true
   ValueFromPipeline: false
@@ -307,5 +326,6 @@ Returns `true` when `-PassThru` is specified and deletion succeeds.
 Removing deployment history does not delete resources created by the deployment.
 
 ## RELATED LINKS
+
 
 - [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-management-group)

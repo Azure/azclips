@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 09/23/2026
+ms.date: 10/12/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzManagementGroupDeployment
 ---
@@ -20,8 +20,8 @@ Gets management-group deployments.
 ### GetByName (Default)
 
 ```
-Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Pre] [-Profile <string>]
- [<CommonParameters>]
+Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Pre]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### GetById
@@ -30,9 +30,23 @@ Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>]
 Get-AzManagementGroupDeployment -Id <string> [-Pre] [-Profile <string>] [<CommonParameters>]
 ```
 
+### GetByDeploymentName (Default)
+
+```
+Get-AzManagementGroupDeployment [-ManagementGroupId] <string> [[-Name] <string>] [-Profile <string>]
+ [<CommonParameters>]
+```
+
+### GetByDeploymentId
+
+```
+Get-AzManagementGroupDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
+```
+
 ## ALIASES
 
 This cmdlet has no aliases.
+
 
 ## DESCRIPTION
 
@@ -63,6 +77,7 @@ Get-AzManagementGroupDeployment -Id $id
 ### -Id
 
 The full management-group deployment resource ID.
+The fully qualified resource Id of the deployment. example: /providers/Microsoft.Management/managementGroups/{managementGroupId}/providers/Microsoft.Resources/deployments/{deploymentName}
 
 ```yaml
 Type: System.String
@@ -72,7 +87,7 @@ Aliases:
 - DeploymentId
 - ResourceId
 ParameterSets:
-- Name: GetById
+- Name: GetByDeploymentId
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -93,7 +108,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: GetByName
+- Name: GetByDeploymentName
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
@@ -107,6 +122,7 @@ HelpMessage: ''
 ### -Name
 
 The deployment name. Omit it to list deployments.
+The name of deployment.
 
 ```yaml
 Type: System.String
@@ -115,7 +131,7 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: GetByName
+- Name: GetByDeploymentName
   Position: 1
   IsRequired: false
   ValueFromPipeline: false
@@ -189,5 +205,6 @@ The full ID form must identify a `Microsoft.Resources/deployments` resource bene
 `Microsoft.Management/managementGroups` scope.
 
 ## RELATED LINKS
+
 
 - [Azure Resource Manager deployments](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-to-management-group)
