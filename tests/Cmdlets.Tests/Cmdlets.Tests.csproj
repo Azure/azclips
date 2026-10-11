@@ -8,12 +8,16 @@
 
   <ItemGroup>
     <!--
-      Common/CmdletOutputStreamsFactory.cs compiles into both Cmdlets.Config and Cmdlets.Accounts,
-      so its internal types reach this project twice (CS0433). The alias hides Config's copy;
-      a test needing a Config type must add `extern alias CmdletsConfig;`.
+      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Config, Cmdlets.Accounts and Cmdlets.Compute,
+      so its internal types reach this project more than once (CS0433). The aliases hide the Config and
+      Compute copies; a test needing one of their types must add `extern alias CmdletsConfig;` or
+      `extern alias CmdletsCompute;`.
     -->
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
       <Aliases>CmdletsConfig</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj">
+      <Aliases>CmdletsCompute</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />

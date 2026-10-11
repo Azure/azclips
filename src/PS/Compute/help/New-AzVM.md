@@ -26,8 +26,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
  [-OSDiskSecureVMDiskEncryptionSet <string>] [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Tag <hashtable>] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -83,6 +83,15 @@ The virtual machine is then reachable only from inside its virtual network.
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName ''
+```
+
+### Create a VM with tags
+
+Provision the same stack and tag the virtual machine, network interface, virtual network, network security group, and public IP address with `env=prod` and `owner=team-a`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tag @{ env = 'prod'; owner = 'team-a' }
 ```
 
 ## PARAMETERS
@@ -492,6 +501,28 @@ Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tag
+
+Tags to apply to the virtual machine, its network interface and virtual network, and the network security group and public IP address when the command creates them.
+An existing network security group or public IP address that the command attaches keeps its own tags.
+
+```yaml
+Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []

@@ -859,6 +859,18 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void Tags_PowerShell_TagsTheVm()
+    {
+        var parameters = PsParameters();
+        // New-AzVM sends its -Tag hashtable as one JSON object string; see VmCmdletArgumentConverter.
+        parameters["Tag"] = new[] { "{\"env\":\"test\",\"owner\":\"me\"}" };
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        AssertTestTags(PutBody(record, "/virtualMachines/"));
+    }
+
+    [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {
         var record = new SessionRecord();

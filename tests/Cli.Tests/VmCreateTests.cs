@@ -107,4 +107,15 @@ public class VmCreateTests
         Assert.Equal(typeof(string), encryptionSet.ParameterType);
         Assert.False(encryptionSet.IsRequired);
     }
+
+    [Fact]
+    public void NewAzVM_ExposesTagParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("Tag", out var parameter));
+        Assert.Equal("TagsInput", parameter.Name);
+        Assert.Equal(typeof(string[]), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+    }
 }
