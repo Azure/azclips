@@ -102,6 +102,25 @@ public class EventRendererSnapshotTests
     }
 
     [Fact]
+    public void Usage_PreservesUnreportedOptionalTokensAsMissing()
+    {
+        AgentEvent? emitted = null;
+        var renderer = new EventRenderer { OnEvent = ev => emitted = ev };
+        renderer.Forward(new AssistantTurnStartEvent { Data = new AssistantTurnStartData { TurnId = "t1" } });
+        renderer.Forward(new AssistantUsageEvent
+        {
+            Data = new AssistantUsageData { Model = "test-model", InputTokens = 10, OutputTokens = 2 }
+        });
+
+        var usage = Assert.IsType<LlmTurnCompleted>(emitted);
+        Assert.Equal("test-model", usage.Model);
+        Assert.Equal(10, usage.InputTokens);
+        Assert.Equal(2, usage.OutputTokens);
+        Assert.Null(usage.ReasoningTokens);
+        Assert.Null(usage.CacheWriteTokens);
+    }
+
+    [Fact]
     public void DedupOnAggregate_StreamingFollowedByAssistantMessage_OnlyEmitsStreamingText()
     {
         var (renderer, capture) = MakeRig();

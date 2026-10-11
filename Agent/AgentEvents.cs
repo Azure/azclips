@@ -28,8 +28,8 @@ public sealed record LlmTurnCompleted(
     int InputTokens,
     int OutputTokens,
     int CachedTokens,
-    int ReasoningTokens,
-    int CacheWriteTokens,
+    int? ReasoningTokens,
+    int? CacheWriteTokens,
     TimeSpan Elapsed,
     DateTimeOffset At)
     : AgentEvent(At);

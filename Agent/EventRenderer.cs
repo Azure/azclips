@@ -120,8 +120,8 @@ public sealed class EventRenderer
                     InputTokens: (int)(usage.Data?.InputTokens ?? 0),
                     OutputTokens: (int)(usage.Data?.OutputTokens ?? 0),
                     CachedTokens: (int)(usage.Data?.CacheReadTokens ?? 0),
-                    ReasoningTokens: (int)(usage.Data?.ReasoningTokens ?? 0),
-                    CacheWriteTokens: (int)(usage.Data?.CacheWriteTokens ?? 0),
+                    ReasoningTokens: (int?)usage.Data?.ReasoningTokens,
+                    CacheWriteTokens: (int?)usage.Data?.CacheWriteTokens,
                     Elapsed: turnElapsed,
                     At: DateTimeOffset.UtcNow));
                 break;
