@@ -65,6 +65,17 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void VmCreate_ExposesTagsParameter()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.TryGetValue("tags", out var parameter));
+        Assert.Equal("TagsInput", parameter.Name);
+        Assert.Equal(typeof(string[]), parameter.ParameterType);
+        Assert.False(parameter.IsRequired);
+    }
+
+    [Fact]
     public void NewAzVM_ExposesSecurityTypeParameter()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);

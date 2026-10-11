@@ -20,6 +20,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string? Image { get; set; }
 
+        public string[]? TagsInput { get; set; }
+
         [ParameterGroup("Security Arguments")]
         public string? SecurityType { get; set; }
 
@@ -64,6 +66,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            // Parsed first, so malformed tags fail before the image lookup or any create.
+            Dictionary<string, string>? tags = VmTagsParser.ParseTags(TagsInput);
+
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
             {
                 throw AzclipsErrorException.UsageError("Specify an administrator password or SSH public key values.");
@@ -113,6 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PublicIpAddress = PublicIpAddress;
                 p.DefaultPublicIpAddressName = $"{Name}PublicIP";
                 p.OsType = operatingSystemType;
+                p.Tags = tags;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
@@ -149,6 +155,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
                 }
                 p.NetworkInterfaceId = nic.Id;
+                p.Tags = tags;
              });
             return await vmProcessor.SendAsync();
         }
