@@ -135,6 +135,12 @@ import {
   PsParameterSetMembershipSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
+  CliParameterSetMembershipSchema,
+  CliExampleSchema,
+  CliPreviewSchema,
+  CliDeprecatedSchema,
+  CliDeprecatedAliasSchema,
+  ApiReferenceSchema,
   // Resolved placement for the generated project.
   IRTargetSchema,
 } from "../dist/src/index.js";
@@ -248,6 +254,12 @@ const definitions = {
   PsParameterSetMembership: PsParameterSetMembershipSchema,
   CliCommandDialect: CliCommandDialectSchema,
   CliParameterDialect: CliParameterDialectSchema,
+  CliParameterSetMembership: CliParameterSetMembershipSchema,
+  CliExample: CliExampleSchema,
+  CliPreview: CliPreviewSchema,
+  CliDeprecated: CliDeprecatedSchema,
+  CliDeprecatedAlias: CliDeprecatedAliasSchema,
+  ApiReference: ApiReferenceSchema,
   // Placement.
   IRTarget: IRTargetSchema,
   // PowerShell metadata shared by dialects.

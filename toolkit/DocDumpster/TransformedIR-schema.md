@@ -347,8 +347,12 @@ it knows nothing about clients.
 additional output, HTTP-path, and parameter-family metadata. `PsParameterDialect`
 carries `parameterSets[]`, literal completion values, one literal default value,
 closed-enum `validateSet[]`, and structured deprecation/preview lifecycle.
-`CliCommandDialect` carries `path[]`;
-`CliParameterDialect` carries `flag`, `shorthand`, `group`.
+`CliCommandDialect` carries the command `name` (`elastic-san list`), a default
+parameter set, structured examples, preview/deprecation lifecycle, and the source
+`api` references. `CliParameterDialect` carries a one-entry `parameterSets[]` (the
+command's own variant), a help `group`, closed-enum `validateSet[]` or open-enum
+`completer[]`, lifecycle, and deprecated old spellings. See
+[CLI-dialect-schema.md](CLI-dialect-schema.md).
 
 **Migration from 0.17.0:** PowerShell command dialects now require `subject`
 instead of `noun`. Regenerate captures containing PowerShell dialects, or rename
@@ -407,7 +411,10 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - `commandKey(id)` is unique;
 - PowerShell sibling commands agree on one default parameter set, and that default
   is covered by a public parameter's named or all-set membership; parameters with
-  `access: "internal"` never contribute coverage.
+  `access: "internal"` never contribute coverage;
+- CLI commands (`checkCliCommands`): every non-internal parameter of an offered
+  command is accounted for, same-name siblings form one command with one set per
+  variant, a spelling means one argument everywhere, and every set is selectable.
 
 ## Consuming it
 
