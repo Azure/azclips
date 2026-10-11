@@ -2223,9 +2223,6 @@ public partial class PsParameterDialect
     [JsonPropertyName("parameterSets")]
     public IReadOnlyList<PsParameterSetMembership>? ParameterSets { get; set; }
 
-    [JsonPropertyName("removed")]
-    public bool? Removed { get; set; }
-
     [JsonPropertyName("completer")]
     public IReadOnlyList<IRLiteralValue>? Completer { get; set; }
 
