@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-10-04)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-10-07)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -24,7 +24,8 @@ Two roots rather than one optional field, because the boundaries genuinely diffe
 the emitter *cannot* produce commands and must not reference them; the generator
 *cannot run* without them. Making both required turns "the command stage never ran"
 into a validation failure at the generator boundary instead of a null dereference
-inside it.
+inside it. `target` may already sit on an `IR`, where it is optional (see
+[Target](#target)).
 
 ```
 IR ──flatten-model──▶ IR ──create-command──▶ TransformedIR ──ps/cli transforms──▶ TransformedIR ──▶ C#
@@ -39,8 +40,8 @@ IR ──flatten-model──▶ IR ──create-command──▶ TransformedIR �
 | **Enforced by** | the catalog: `csharp` declares `requires: ["create-command"]`, so disabling the projection is a plan-time config error |
 
 Both roots are `.strict()`, so they reject each other's documents — `parseIR` on a
-transformed document fails with *"Unrecognized key(s): 'commands', 'target'"*. That
-is deliberate: it makes the phase detectable rather than assumed.
+transformed document fails with *"Unrecognized key(s): 'commands'"*. That is
+deliberate: it makes the phase detectable rather than assumed.
 
 ## Why commands exist
 
@@ -343,6 +344,9 @@ IRTarget = {
   rootNamespace: string[]
   projectName:   string
   directories:   { models: string, processors: string }
+  serviceName?:  string    // identity facts: temporary home, see below
+  version?:      string
+  description?:  string
 }
 ```
 
@@ -353,6 +357,16 @@ IR where a captured document can show them.
 Document-level rather than per-command because models, the processor base, and the
 project file all need placement. Anything that genuinely varies per command stays on
 the command.
+
+**Optional on `IR`, required here.** A field is required on `IR` only if the emitter
+produces it, and the emitter cannot produce a target. A transform writes it —
+`create-command` today, `seed-ir` once it lands — so it may already appear on an
+`IR`.
+
+**Identity lives here for now.** `serviceName`, `version`, and `description` are
+facts the spec cannot provide. Keeping them on the target is a temporary choice; a
+separate node may replace it as more such facts arrive. Nothing writes them yet, and
+the C# generator does not read them.
 
 ## Validation
 
@@ -397,21 +411,17 @@ stays review discipline, like the additive-after-generate rule.
 
 ## Codegen
 
-> **Pending, and the one thing still blocking a C# consumer.**
-> `emit-json-schema.mjs` currently roots the JSON Schema at `IRSchema`, so
-> `Ir.Generated.cs` contains **no `IRCommand`, dialect, or `IRTarget` POCOs** — the
-> C# generator cannot yet read anything in this document.
->
-> The fix is to emit from `TransformedIRSchema` and register the new types as
-> definitions. `Ir.Generated.cs` then roots at the transformed document with `IR`'s
-> types as shared definitions; because the generator only ever reads a transformed
-> document, it needs no second root and `AceIrModelGen` stays single-rooted.
+`emit-json-schema.mjs` roots the JSON Schema at `TransformedIRSchema` and registers
+the command, dialect, and target types as definitions, so `Ir.Generated.cs` roots at
+the transformed document with `IR`'s types as shared definitions. The generator only
+ever reads a transformed document, so it needs no second root and `AceIrModelGen`
+stays single-rooted.
 
 ```
 packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ──AceIrModelGen──▶  Ir.Generated.cs
 ```
 
-Two things to remember when that lands:
+Two things to remember:
 
 - **`.superRefine` rules do not cross into JSON Schema**, and therefore not into C#.
   Everything under [Validation](#validation) is Zod-side only; the C# generator must

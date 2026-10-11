@@ -428,6 +428,21 @@ Body parameters need no equivalent rule: `projectBodyParameters` already filters
 by lifecycle phase, so a read-only member never reaches an operation's parameter
 surface.
 
+## Generation target
+
+IR 0.14.0 lets `target` (`IRTarget`) sit on `IR` as an optional field, while
+`TransformedIR` still requires it. A root field is required on `IR` only if the
+emitter produces it, and a target is resolved from generation-time configuration
+by a transform — today `create-command`.
+
+`IRTarget` also gains optional `serviceName`, `version`, and `description`: facts
+about the generated extension that the spec cannot provide. They live on the
+target only for now; a dedicated node may replace that as more such facts arrive.
+Nothing writes them yet, and the C# generator does not read them.
+
+Both additions are optional, so existing captures remain valid. Regenerate the IR
+JSON Schema and the C# POCOs to pick up the new fields.
+
 ## IR JSON Schema (cross-language contract)
 
 The IR is defined once, in TypeScript, as [Zod](https://zod.dev) schemas under

@@ -1984,6 +1984,15 @@ public partial class IRTarget
 
     [JsonPropertyName("directories")]
     public IRTargetDirectories Directories { get; set; } = default !;
+
+    [JsonPropertyName("serviceName")]
+    public string? ServiceName { get; set; }
+
+    [JsonPropertyName("version")]
+    public string? Version { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }
 
 public partial class IRTargetDirectories
@@ -2201,11 +2210,11 @@ public partial class TransformedIR
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
 
-    [JsonPropertyName("commands")]
-    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
-
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<IRCommand> Commands { get; set; } = [];
 }
 
 public partial class ValuePropertyHints

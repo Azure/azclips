@@ -47,8 +47,8 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
 - **The target is built inside `create-command`.** `buildTarget`
   (`packages/transformers/src/create-command-step.ts:312`) turns the
   `rootNamespace`, `projectName` and `directories` options into `IRTarget`, in the
-  same stage that projects operations into commands. `IRTarget` exists only on
-  `TransformedIR`.
+  same stage that projects operations into commands. Until IR 0.14.0, `IRTarget`
+  existed only on `TransformedIR`.
 - **`transformers` depended on `compiler`** for the transform contract
   (`TransformStep`, `TransformContext`), and hosts registered every transform
   (`STAGE_IMPLEMENTATIONS` in `packages/cli/src/compile-command.ts`). Reversed on
@@ -268,6 +268,13 @@ The catalog becomes:
     kebab-case keys until the aceconfig loader routes the top-level facts;
   - follow the [phasing](#phasing-non-binding): aceconfig loading, staging and
     routing first, then `seed-ir`.
+- **Progress (2026-10-07):** the work started with `IRTarget`, which landed as IR
+  0.14.0. `target` is optional on `IR`, `IRTarget` has optional `serviceName`,
+  `version` and `description`, the JSON Schema and C# classes are regenerated, and
+  the `elasticsan.ir.json` fixture is stamped 0.14.0 (the additions are optional, so
+  its content needed no change). `create-command` still resolves the target, and
+  nothing writes the new fields yet. Remaining in this cut: `seed-ir` itself,
+  taking over `buildTarget`'s defaults, which needs the order above settled.
 
 ## Source acquisition
 
@@ -419,12 +426,6 @@ toolkit root.
     specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
   - `packages/transformers/src/create-command-step.ts:194,312`: `buildTarget`
     builds and writes the target; it moves to `seed-ir`.
-  - `packages/ir/src/ir.ts:45,163,176` and `packages/ir/src/target.ts`: `IR`
-    rejects unknown keys and has no `target`, which only `TransformedIR` adds.
-    `IRTarget` has no service name, version or description. Adding them and
-    putting `target` on `IR` changes the IR schema: bump `IR_SCHEMA_VERSION`,
-    regenerate `ir.schema.json` and `Ir.Generated.cs`, and migrate
-    `packages/generator/test/Ace.Generator.Tests/TestData/elasticsan.ir.json`.
   - Docs: `README.md` (the `{ "pipeline": … }` example and
     `config.stageOptions`, lines 79, 148, 198) and
     `packages/generator/README.md` (`ace compile` usage with `--generator`, and
@@ -524,11 +525,11 @@ toolkit root.
 3. **Compiler:** drop `"off"`, route each stage's entry into its context by id
    (including `seed-ir`'s top-level entry), remove the whole-config contexts, and
    retire `--generator`.
-4. **`seed-ir`:** add it to `transformers` and to the compiler's id map, move
-   `buildTarget`'s defaults out of `create-command`, and put `IRTarget` on `IR`
-   with the new fields. That means an IR schema change, regenerated C# IR classes
-   and a migrated fixture. Whether this step moves ahead of steps 1–3 is open
-   (see [First implementation cut](#first-implementation-cut-agreed-2026-10-07)).
+4. **`seed-ir`:** add it to `transformers` and to the compiler's id map, and move
+   `buildTarget`'s defaults out of `create-command`. The IR part, `IRTarget` on
+   `IR` with the new fields (IR 0.14.0), landed on 2026-10-07. Whether the rest
+   moves ahead of steps 1–3 is open (see
+   [First implementation cut](#first-implementation-cut-agreed-2026-10-07)).
 5. **Multiple entrypoints:** one compile per entrypoint, merged in the emit stage.
 
 The package-layering refactor

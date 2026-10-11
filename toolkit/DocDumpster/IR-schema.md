@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.13.0"`. _(2026-10-04)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.14.0"`. _(2026-10-07)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -39,6 +39,7 @@ IR = {
   enums:         IREnum[]
   discriminatedUnions?: IRDiscriminatedUnion[]
   operations:    IROperation[]
+  target?:       IRTarget                // written by a transform, never by the emitter
 }
 ```
 
@@ -46,6 +47,11 @@ Everything is a **flat collection at the root**, cross-referenced by `IRId`. The
 is no nesting of models inside operations or operations inside groups: containment
 is expressed by *fields*, never by structure. That keeps lookup uniform (see
 [Identity](#identity)) and captured-IR diffs local.
+
+**A root field is required only if the emitter produces it.** `target` is resolved
+from generation-time configuration by a transform, so it is optional here and
+required on `TransformedIR` (see
+[`TransformedIR-schema.md`](./TransformedIR-schema.md#target)).
 
 ## Identity
 
@@ -218,12 +224,9 @@ packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ─�
 `ir.schema.json` is a **build artifact, not committed**. The C# POCOs are generated,
 never hand-edited. See `toolkit/README.md` for the commands.
 
-> **Pending.** The emit script currently roots the JSON Schema at `IRSchema`, so
-> `Ir.Generated.cs` has no command, dialect, or target POCOs yet. Because the
-> generator only ever reads a *transformed* document, the root should move to
-> `TransformedIRSchema` — leaving `IR`'s types as shared definitions and keeping
-> `AceIrModelGen` single-rooted. `IR` remains the TypeScript-side contract for the
-> emitter and the early transforms either way.
+The emit script roots the JSON Schema at `TransformedIRSchema`, with `IR`'s types as
+shared definitions, because the generator only ever reads a transformed document.
+`IR` remains the TypeScript-side contract for the emitter and the early transforms.
 
 ## Versioning
 
@@ -232,6 +235,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.14.0 | optional `target` on `IR`; `IRTarget` gains optional `serviceName`, `version`, `description` |
 | 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |
