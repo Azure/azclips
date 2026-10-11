@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Output;
+using Core.Cli.Parser;
 using Core.Runtime;
 
 namespace Cli.Tests.Configuration;
@@ -91,6 +93,31 @@ public class ColorPolicyTests
         using var __ = new ModeScope(ColorMode.Auto);
 
         Assert.True(ColorPolicy.ShouldEmitColor(targetIsRedirected: false));
+    }
+
+    [Fact]
+    public void ModeAlways_ColorsJsonc_ButNeverJson()
+    {
+        using var _ = new EnvScope(("NO_COLOR", null), ("FORCE_COLOR", null), ("TERM", null));
+        using var __ = new ModeScope(ColorMode.Always);
+        var allowsColor = ColorPolicy.ShouldEmitColor(targetIsRedirected: false);
+        var value = new { Name = "rg1" };
+
+        Assert.Contains('\u001b', CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc, allowsColor));
+        Assert.DoesNotContain('\u001b', CliOutputFormatter.FormatValue(value, OutputFormat.Json, allowsColor));
+    }
+
+    [Fact]
+    public void NoColorEnv_RendersJsoncAsPlainJson_EvenWhenModeAlways()
+    {
+        using var _ = new EnvScope(("NO_COLOR", "1"), ("FORCE_COLOR", null), ("TERM", null));
+        using var __ = new ModeScope(ColorMode.Always);
+        var allowsColor = ColorPolicy.ShouldEmitColor(targetIsRedirected: false);
+        var value = new { Name = "rg1" };
+
+        Assert.Equal(
+            CliOutputFormatter.FormatValue(value, OutputFormat.Json, allowsColor),
+            CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc, allowsColor));
     }
 
     // Saves and restores env vars around a test. Restoring on Dispose keeps process-wide state clean

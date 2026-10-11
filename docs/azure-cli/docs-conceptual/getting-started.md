@@ -128,6 +128,8 @@ During the private preview, you should expect some limitations:
 - Some AI-generated responses may be incomplete or inaccurate.
 - Authentication support is currently limited to interactive user sign-in.
 - Feature availability may change between preview releases.
+- In Zsh, the `-?` and `--?` help aliases fail with `zsh: no matches found` unless you quote them
+  (`'-?'`, `'--?'`), because Zsh treats an unquoted `?` as a wildcard. Use `-h` or `--help` instead.
 
 <!-- link references -->
 

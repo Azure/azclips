@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Role assignment lifecycle smoke test for the azclips CLI surface.
-# Exercises create and list (by scope, by assignee, and by role). A fresh user-assigned identity
-# is created to act as the principal, so the test is self-contained and needs no pre-existing
-# fixture. Delete is not yet available on this branch (feature/853-role-assignment-create);
-# cleanup falls back to a raw REST DELETE via `az rest`, the same pattern this script family
-# already uses for resource group cleanup. Swap to `az role assignment delete` once it merges.
+# Exercises create, list (by scope, by assignee, and by role), and delete (including ARM's dual
+# 200 OK / 204 No Content response for deleting an already-deleted assignment, which must not be
+# treated as an error). A fresh user-assigned identity is created to act as the principal, so the
+# test is self-contained and needs no pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -19,7 +18,8 @@
 #   AZCLIPS_IDENTITY_NAME        - principal identity name; defaults to timestamped test identity
 #   AZCLIPS_LOCATION             - Azure region; defaults to westus2
 #   AZCLIPS_KEEP_IDENTITY        - set to 1 to skip identity cleanup
-#   AZCLIPS_KEEP_ROLE_ASSIGNMENT - set to 1 to skip role assignment cleanup
+#   AZCLIPS_KEEP_ROLE_ASSIGNMENT - set to 1 to skip delete verification and leave the role
+#                                  assignment in place (e.g. to inspect it manually)
 #   AZCLIPS_CLEANUP_RG           - set to 1 to delete the resource group at the end
 #
 # Usage:
@@ -67,15 +67,18 @@ SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 # client-side failure safely re-affirms the same PUT instead of risking a RoleAssignmentExists
 # conflict against an assignment that may have already succeeded server-side under a different name.
 ROLE_ASSIGNMENT_NAME="$(generate_guid)"
+ROLE_ASSIGNMENT_DELETED=0
 
 cleanup() {
   local exit_code=$?
 
-  if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" != "1" && -n "$ROLE_ASSIGNMENT_NAME" ]]; then
-    echo "=== [rest delete] cleanup role assignment ==="
-    "$AZ" rest \
-      --method DELETE \
-      --uri "$SCOPE/providers/Microsoft.Authorization/roleAssignments/$ROLE_ASSIGNMENT_NAME?api-version=2022-04-01" || true
+  if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" != "1" && "$ROLE_ASSIGNMENT_DELETED" != "1" ]]; then
+    # Safety net only: the main flow below already deletes (and verifies) the role assignment
+    # when AZCLIPS_KEEP_ROLE_ASSIGNMENT isn't set. This only runs if something earlier in the
+    # script failed before reaching that point. Delete is safe to call even if the assignment was
+    # never created (204 No Content, not an error), so no existence check is needed here.
+    echo "=== [role assignment delete] cleanup (safety net) ==="
+    "$AZ" role assignment delete --scope "$SCOPE" --name "$ROLE_ASSIGNMENT_NAME" || true
   fi
 
   if [[ "${AZCLIPS_KEEP_IDENTITY:-0}" != "1" ]]; then
@@ -154,5 +157,35 @@ echo "=== [role assignment list] filtered by assignee object ID ==="
 
 echo "=== [role assignment list] filtered by role definition ID ==="
 "$AZ" role assignment list --scope "$SCOPE" --role "$READER_ROLE_DEFINITION_ID"
+
+echo "=== [role assignment list] including inherited (ancestor-scope) assignments ==="
+"$AZ" role assignment list --scope "$SCOPE" --include-inherited
+
+echo "=== [role assignment list] across the whole subscription (every nested scope) ==="
+"$AZ" role assignment list --all
+
+echo "=== [role assignment list] expanding the principal's group memberships ==="
+"$AZ" role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" --include-groups
+
+if [[ "${AZCLIPS_KEEP_ROLE_ASSIGNMENT:-0}" == "1" ]]; then
+  echo "AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place."
+else
+  echo "=== [role assignment delete] ==="
+  "$AZ" role assignment delete --scope "$SCOPE" --name "$ROLE_ASSIGNMENT_NAME"
+  ROLE_ASSIGNMENT_DELETED=1
+
+  echo "=== [role assignment list] verify deleted assignment is gone ==="
+  STILL_PRESENT="$("$AZ" role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL_ID" \
+    --query "length([?name=='$ROLE_ASSIGNMENT_NAME'])" -o tsv)"
+  if [[ "$STILL_PRESENT" != "0" ]]; then
+    echo "Deleted role assignment '$ROLE_ASSIGNMENT_NAME' still appears in the list after delete" >&2
+    exit 1
+  fi
+  echo "Confirmed: '$ROLE_ASSIGNMENT_NAME' no longer appears in the list."
+
+  echo "=== [role assignment delete] again (ARM returns 204 No Content for an already-deleted assignment; must not be treated as an error) ==="
+  "$AZ" role assignment delete --scope "$SCOPE" --name "$ROLE_ASSIGNMENT_NAME"
+  echo "Confirmed: deleting an already-deleted assignment did not throw."
+fi
 
 echo "All role assignment lifecycle smoke checks completed."

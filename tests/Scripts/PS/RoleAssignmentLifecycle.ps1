@@ -2,11 +2,10 @@
 # Licensed under the MIT License.
 #
 # Role assignment lifecycle smoke test for the Azclips PowerShell surface.
-# Exercises create and list (by scope, by assignee, and by role). A fresh user-assigned identity
-# is created to act as the principal, so the test is self-contained and needs no pre-existing
-# fixture. Delete is not yet available on this branch (feature/853-role-assignment-create); cleanup
-# falls back to a raw REST DELETE via Invoke-AzRestMethod, the same pattern this script family
-# already uses for resource group cleanup. Swap to Remove-AzRoleAssignment once it merges.
+# Exercises create, list (by scope, by assignee, and by role), and delete (including ARM's
+# dual 200 OK / 204 No Content response for deleting an already-deleted assignment, which must
+# not be treated as an error). A fresh user-assigned identity is created to act as the principal,
+# so the test is self-contained and needs no pre-existing fixture.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -21,7 +20,8 @@
 #   AZCLIPS_IDENTITY_NAME          - principal identity name; defaults to timestamped test identity
 #   AZCLIPS_LOCATION               - Azure region; defaults to westus2
 #   AZCLIPS_KEEP_IDENTITY          - set to 1 to skip identity cleanup
-#   AZCLIPS_KEEP_ROLE_ASSIGNMENT   - set to 1 to skip role assignment cleanup
+#   AZCLIPS_KEEP_ROLE_ASSIGNMENT   - set to 1 to skip delete verification and leave the role
+#                                    assignment in place (e.g. to inspect it manually)
 #   AZCLIPS_CLEANUP_RG             - set to 1 to delete the resource group at the end
 #
 # Usage:
@@ -55,7 +55,8 @@ function Section($title) {
 }
 
 $scope = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup"
-$roleAssignmentId = $null
+$roleAssignmentName = $null
+$roleAssignmentDeleted = $false
 
 try {
     if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
@@ -90,7 +91,6 @@ try {
     # (same principal+role+scope, a different assignment ID), exhausting retries while silently
     # leaving the first assignment behind with no recorded name to clean it up.
     $roleAssignmentName = [Guid]::NewGuid().ToString()
-    $roleAssignmentId = "$scope/providers/Microsoft.Authorization/roleAssignments/$roleAssignmentName"
     $roleAssignment = $null
     $maxAttempts = 6
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -125,17 +125,48 @@ try {
     Section 'Get-AzRoleAssignment filtered by role definition ID'
     Get-AzRoleAssignment -Scope $scope -RoleDefinitionId $readerRoleDefinitionId | Out-Host
 
+    Section 'Get-AzRoleAssignment including inherited (ancestor-scope) assignments'
+    Get-AzRoleAssignment -Scope $scope -IncludeInherited | Out-Host
+
+    Section 'Get-AzRoleAssignment expanding the principal''s group memberships'
+    Get-AzRoleAssignment -Scope $scope -ObjectId $principalId -ExpandPrincipalGroups | Out-Host
+
+    Section 'Get-AzRoleAssignment across the whole subscription (every nested scope)'
+    Get-AzRoleAssignment -IncludeNestedScopes | Out-Host
+
+    if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -eq '1') {
+        Write-Host ''
+        Write-Host 'AZCLIPS_KEEP_ROLE_ASSIGNMENT=1: skipping delete verification; role assignment left in place.'
+    } else {
+        Section 'Remove-AzRoleAssignment'
+        Remove-AzRoleAssignment -Scope $scope -Name $roleAssignmentName -Confirm:$false | Out-Host
+        $roleAssignmentDeleted = $true
+
+        Section 'Get-AzRoleAssignment after delete (must not include the deleted assignment)'
+        $remaining = @(Get-AzRoleAssignment -Scope $scope -ObjectId $principalId)
+        if ($remaining | Where-Object { $_.Name -eq $roleAssignmentName }) {
+            throw "Deleted role assignment '$roleAssignmentName' still appears in the list after delete."
+        }
+        Write-Host "Confirmed: '$roleAssignmentName' no longer appears in the list." -ForegroundColor Green
+
+        Section 'Remove-AzRoleAssignment again (ARM returns 204 No Content for an already-deleted assignment; must not be treated as an error)'
+        Remove-AzRoleAssignment -Scope $scope -Name $roleAssignmentName -Confirm:$false | Out-Host
+        Write-Host 'Confirmed: deleting an already-deleted assignment did not throw.' -ForegroundColor Green
+    }
+
     Write-Host ''
     Write-Host 'All role assignment lifecycle smoke checks completed.' -ForegroundColor Green
 }
 finally {
-    if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -ne '1' -and $roleAssignmentId) {
-        Section 'Invoke-AzRestMethod cleanup role assignment'
+    if ($env:AZCLIPS_KEEP_ROLE_ASSIGNMENT -ne '1' -and -not $roleAssignmentDeleted -and $roleAssignmentName) {
+        # Safety net only: the main flow above already deletes (and verifies) the role assignment
+        # when AZCLIPS_KEEP_ROLE_ASSIGNMENT isn't set. This only runs if something earlier in the
+        # script threw before reaching that point. Remove-AzRoleAssignment is safe to call even if
+        # the assignment was never created (204 No Content, not an error), so no existence check
+        # is needed here.
+        Section 'Remove-AzRoleAssignment cleanup (safety net)'
         try {
-            Invoke-AzRestMethod `
-                -Method DELETE `
-                -Uri "$($roleAssignmentId)?api-version=2022-04-01" `
-                -ErrorAction Stop | Out-Host
+            Remove-AzRoleAssignment -Scope $scope -Name $roleAssignmentName -Confirm:$false -ErrorAction Stop | Out-Host
         } catch {
             Write-Warning "Role assignment cleanup failed: $($_.Exception.Message)"
         }
