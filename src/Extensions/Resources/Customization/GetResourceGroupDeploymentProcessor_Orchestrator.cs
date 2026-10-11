@@ -20,6 +20,11 @@ public class GetResourceGroupDeploymentProcessor_Orchestrator : GetResourceGroup
 
     private static (string SubscriptionId, string ResourceGroupName, string Name) ParseDeploymentId(string id)
     {
+        // Example id (before trim):
+        //   " /subscriptions/0000-1111/resourceGroups/myRg/providers/Microsoft.Resources/deployments/myDeployment/ "
+        // After trim + split, segments is:
+        //   [0] subscriptions  [1] 0000-1111  [2] resourceGroups  [3] myRg
+        //   [4] providers      [5] Microsoft.Resources  [6] deployments  [7] myDeployment
         string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (segments.Length != 8
             || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
