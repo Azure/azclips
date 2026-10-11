@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>az deployment tenant delete</c> / <c>Remove-AzTenantDeployment</c>: generated delete with the legacy error text.
 /// PS keeps the legacy existence check (HEAD) before deleting.
 /// </summary>
-public class DeleteAtTenantScopeDeploymentsProcessor_Customization : DeleteAtTenantScopeDeploymentsProcessor
+public class DeleteTenantDeploymentProcessor_Orchestrator : DeleteAtTenantScopeDeploymentsProcessor
 {
     protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
 

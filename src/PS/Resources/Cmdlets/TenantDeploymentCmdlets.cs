@@ -320,7 +320,7 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
             : this is NewTenantDeploymentCmdlet && QueryString.StartsWith('?') ? TemplateUri + QueryString
             : TemplateUri + "?" + QueryString;
         foreach ((string name, string? type, bool required, int? minLength, int? maxLength) in
-            ValidateTenantDeploymentProcessor_PSOrchestrator.GetPowerShellTemplateParameters(
+            TestTenantDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
                 NormalizeJsonInput(TemplateObject), ResolvePath(TemplateFile), templateUri, TemplateSpecId, ReadTemplateSpec,
                 NormalizeJsonInput(TemplateParameterObject), ResolvePath(TemplateParameterFile), TemplateParameterUri))
         {
@@ -506,7 +506,7 @@ public class NewTenantDeploymentCmdlet : TenantDeploymentTemplateCmdletBase
             }
             string formatted = TenantDeploymentWhatIfFormatter.Format((JsonObject)preview, cli: false, color: true);
 
-            if (confirm && ProceedIfNoChange && !NewTenantDeploymentProcessor_Orchestrator.HasChanges(preview as JsonObject))
+            if (confirm && ProceedIfNoChange && !CreateTenantDeploymentProcessor_Orchestrator.HasChanges(preview as JsonObject))
             {
                 WriteInformation(new HostInformationMessage { Message = formatted }, ["PSHOST"]);
                 Deploy(parameters);

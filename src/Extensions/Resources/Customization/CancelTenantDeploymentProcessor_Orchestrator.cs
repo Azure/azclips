@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <c>az deployment tenant cancel</c> / <c>Stop-AzTenantDeployment</c>: generated cancel with the legacy error text.
 /// PS keeps the legacy pre-check and cancels only a deployment that is not Succeeded/Failed.
 /// </summary>
-public class CancelAtTenantScopeDeploymentsProcessor_Customization : CancelAtTenantScopeDeploymentsProcessor
+public class CancelTenantDeploymentProcessor_Orchestrator : CancelAtTenantScopeDeploymentsProcessor
 {
     protected override void AfterInit() => Publisher = TenantDeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
 

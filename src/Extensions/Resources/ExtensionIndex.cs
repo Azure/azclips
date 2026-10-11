@@ -545,7 +545,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
 
         private static readonly Dictionary<string, string> s_tenantNameAlias_CLI = new() { ["n"] = "name" };
 
-        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantCommand("New-AzTenantDeployment", typeof(Processors.NewTenantDeploymentProcessor_PSOrchestrator),
+        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantCommand("New-AzTenantDeployment", typeof(Processors.NewTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_PS())
             {
                 ["Tag"]                     = new("Tags", "Tag", typeof(object), "The tags to put on the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -554,19 +554,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["WhatIfResultFormat"]      = new("WhatIfResultFormat", "WhatIfResultFormat", typeof(string), "The What-If result format. Applicable when the -WhatIf or -Confirm switch is set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["WhatIfExcludeChangeType"] = new("WhatIfExcludeChangeTypes", "WhatIfExcludeChangeType", typeof(string[]), "Comma-separated resource change types to be excluded from What-If results. Applicable when the -WhatIf or -Confirm switch is set.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantCommand("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_PSOrchestrator),
+        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantCommand("Test-AzTenantDeployment", typeof(Processors.TestTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_PS())
             {
                 ["SuppressDiagnostics"] = new("SuppressDiagnostics", "SuppressDiagnostics", typeof(bool), "When set, validation diagnostics will not be shown for valid deployments.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_PS());
-        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor_Customization), new Dictionary<string, ParameterMetadata>());
-        private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_PS());
-        private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_getTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantCommand("Get-AzTenantDeployment_List", typeof(Processors.ListTenantDeploymentProcessor_Orchestrator), new Dictionary<string, ParameterMetadata>());
+        private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantCommand("Stop-AzTenantDeployment", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_PS());
 
         private static readonly ParameterMetadata s_tenantNoPrompt_CLI = new("NoPrompt", "no-prompt", typeof(bool), "The option to disable the prompt of missing parameters for ARM template. When the value is true, the prompt requiring users to provide missing parameter will be ignored. The default value is false.", IsRequired: false, Aliases: [], AllowedValues: []);
 
-        private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.NewTenantDeploymentProcessor_Orchestrator),
+        private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentParameters_CLI())
             {
                 ["no-prompt"]                    = s_tenantNoPrompt_CLI,
@@ -594,14 +594,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["exclude-change-types"] = new("ExcludeChangeTypes", "exclude-change-types", typeof(string[]), "Space-separated list of resource change types to be excluded from What-If results.", IsRequired: false, Aliases: [], AllowedValues: ["Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"]),
             },
             new(s_tenantDeploymentAliases_CLI) { ["r"] = "result-format", ["x"] = "exclude-change-types" });
-        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor_Customization), new()
+        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantCommand("deployment tenant list", typeof(Processors.ListTenantDeploymentProcessor_Orchestrator), new()
         {
             ["filter"] = new("_filter", "filter", typeof(string), "[Preview] Filter expression using OData notation. You can use --filter \"provisioningState eq '{state}'\" to filter provisioningState. To get more information, please visit https://learn.microsoft.com/rest/api/resources/deployments/listatsubscriptionscope#uri-parameters", IsRequired: false, Aliases: [], AllowedValues: []),
         });
-        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
-        private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTemplateAtTenantScopeDeploymentsProcessor_Customization), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
+        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantCommand("deployment tenant show",         typeof(Processors.GetTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
+        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantCommand("deployment tenant cancel", typeof(Processors.CancelTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
+        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantCommand("deployment tenant delete", typeof(Processors.DeleteTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
+        private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI(), new(s_tenantNameAlias_CLI));
         private static readonly CommandMetadata s_waitTenantDeployment_CLI = TenantCommand("deployment tenant wait", typeof(Processors.WaitTenantDeploymentProcessor_Orchestrator),
             new(TenantDeploymentName_CLI())
             {

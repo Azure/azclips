@@ -66,10 +66,10 @@ public sealed class TenantDeploymentTests : IDisposable
     [Fact]
     public void List_SendsFilterOnlyWhenSet()
     {
-        Assert.Equal(Arm + ApiVersion, RequestUri(new ListAtTenantScopeDeploymentsProcessor_Customization()));
+        Assert.Equal(Arm + ApiVersion, RequestUri(new ListTenantDeploymentProcessor_Orchestrator()));
         Assert.Equal(
             Arm + ApiVersion + "&$filter=provisioningState%20eq%20%27Succeeded%27%20%26%20name%20eq%20%27a%2Fb%27",
-            RequestUri(new ListAtTenantScopeDeploymentsProcessor_Customization { _filter = "provisioningState eq 'Succeeded' & name eq 'a/b'" }));
+            RequestUri(new ListTenantDeploymentProcessor_Orchestrator { _filter = "provisioningState eq 'Succeeded' & name eq 'a/b'" }));
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline(requests), output);
 
         await processor.ProcessAsync();
@@ -152,7 +152,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_DefaultsNameToTemplateFileName()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Location = "eastus", TemplateFile = TemplateFile("azuredeploy.json") };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Location = "eastus", TemplateFile = TemplateFile("azuredeploy.json") };
         Init(processor, Pipeline(requests), new FakeOutputHandler());
 
         await processor.ProcessAsync();
@@ -168,7 +168,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_RejectsInvalidTemplateSourcesBeforeSending(bool fileAndUri, bool queryString, string expected)
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator
         {
             Location = "eastus",
             TemplateFile = fileAndUri || queryString ? TemplateFile() : null,
@@ -187,7 +187,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_MergesParametersInOrderAndTypesKeyValueByTemplate()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -212,7 +212,7 @@ public sealed class TenantDeploymentTests : IDisposable
     [Fact]
     public async Task CliCreate_RejectsKeyValueForUnknownTemplateParameter()
     {
-        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -230,7 +230,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_NoPromptWarnsAboutMissingParametersAndDeprecatedJsonFlag()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -257,7 +257,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_ValidationErrorStopsDeploymentWithLegacyMessage(HttpStatusCode status, string expected)
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline(requests, r => r.RequestUri!.AbsolutePath.EndsWith("/validate") ? Json(ValidationError, status) : null), new FakeOutputHandler());
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
@@ -269,7 +269,7 @@ public sealed class TenantDeploymentTests : IDisposable
     [Fact]
     public async Task CliCreate_FailedDeploymentRaisesRawResponseBody()
     {
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline([], r => r.Method != HttpMethod.Post ? Json(Deployment("Failed")) : null), new FakeOutputHandler());
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
@@ -281,7 +281,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliCreate_PollingFailureRaisesRawPollingBody()
     {
         const string failedStatus = """{ "status": "Failed", "error": { "code": "DeploymentFailed", "message": "At least one resource deployment operation failed." } }""";
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline([], r =>
             r.Method == HttpMethod.Put ? WithHeaders(Json("""{ "status": "Accepted" }""", HttpStatusCode.Created), ("Azure-AsyncOperation", "https://management.azure.com/providers/Microsoft.Resources/operations/create-async"))
             : r.RequestUri!.AbsolutePath.EndsWith("/create-async") ? Json(failedStatus)
@@ -297,7 +297,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         const string conflict = """{ "error": { "code": "Conflict", "message": "The resource is busy." } }""";
         var publisher = new FakeEventPublisher();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, Pipeline([], r => r.Method == HttpMethod.Put ? Json(conflict, HttpStatusCode.Conflict) : null), new FakeOutputHandler(), publisher);
 
         await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
@@ -324,7 +324,7 @@ public sealed class TenantDeploymentTests : IDisposable
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
         });
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile() };
         Init(processor, pipeline, new FakeOutputHandler());
 
         await processor.ProcessAsync();
@@ -344,7 +344,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new NewTenantDeploymentProcessor_Orchestrator
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -369,8 +369,8 @@ public sealed class TenantDeploymentTests : IDisposable
     [InlineData("""{ "status": "Succeeded", "properties": { "changes": [ { "resourceId": "/providers/Microsoft.Management/managementGroups/mg1", "changeType": "Create" } ] } }""", true)]
     public void HasChanges_IgnoresNoChangeAndIgnore(string rawResult, bool expected)
     {
-        Assert.Equal(expected, NewTenantDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(rawResult, null)));
-        Assert.False(NewTenantDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(WhatIfResult, ["Create"])));
+        Assert.Equal(expected, CreateTenantDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(rawResult, null)));
+        Assert.False(CreateTenantDeploymentProcessor_Orchestrator.HasChanges(ToCliResult(WhatIfResult, ["Create"])));
     }
 
     // ── New-AzTenantDeployment ──
@@ -383,7 +383,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -411,7 +411,7 @@ public sealed class TenantDeploymentTests : IDisposable
     [Fact]
     public async Task PsCreate_DefaultsNameToGuidForTemplateObject()
     {
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator { Location = "eastus", TemplateObject = Template() };
+        var processor = new NewTenantDeploymentProcessor_Orchestrator { Location = "eastus", TemplateObject = Template() };
         Init(processor, Pipeline([]), new FakeOutputHandler());
 
         await processor.ProcessAsync();
@@ -424,7 +424,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var publisher = new FakeEventPublisher();
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
+        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
         Init(processor, Pipeline(requests, r => r.RequestUri!.AbsolutePath.EndsWith("/validate") ? Json(ValidationError, HttpStatusCode.BadRequest) : null), new FakeOutputHandler(), publisher);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
@@ -444,7 +444,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var publisher = new FakeEventPublisher();
         var output = new FakeOutputHandler();
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
+        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
         Init(processor, Pipeline([], r => r.RequestUri!.AbsolutePath.EndsWith("/operations")
             ? Json("""
                 {
@@ -469,7 +469,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task PsCreate_WhatIfWritesFilteredResultIncludingTemplateError()
     {
         var output = new FakeOutputHandler();
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator
+        var processor = new NewTenantDeploymentProcessor_Orchestrator
         {
             Name = "tenant-test",
             Location = "eastus",
@@ -583,7 +583,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task PsTest_WritesValidationErrorsInsteadOfThrowing(HttpStatusCode status)
     {
         var output = new FakeOutputHandler();
-        var processor = new ValidateTenantDeploymentProcessor_PSOrchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
+        var processor = new TestTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template() };
         Init(processor, Pipeline([], _ => Json(ValidationError, status)), output);
 
         await processor.ProcessAsync();
@@ -599,7 +599,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task PsTest_SuccessWritesNothingAndWarnsDiagnosticsUnlessSuppressed(bool suppress, int warnings)
     {
         var output = new FakeOutputHandler();
-        var processor = new ValidateTenantDeploymentProcessor_PSOrchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template(), SuppressDiagnostics = suppress };
+        var processor = new TestTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateObject = Template(), SuppressDiagnostics = suppress };
         Init(processor, Pipeline([], _ => Json("""{ "properties": { "diagnostics": [ { "level": "Warning", "code": "W1", "message": "Watch out.", "target": "r1" } ] } }""")), output);
 
         await processor.ProcessAsync();
@@ -616,7 +616,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new CancelAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "tenant-test" };
+        var processor = new CancelTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
         Init(processor, Pipeline(requests, _ => new HttpResponseMessage(HttpStatusCode.NoContent)), output);
 
         await processor.ProcessAsync();
@@ -633,7 +633,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         UseClient(ClientType.PowerShell);
-        var processor = new CancelAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "tenant-test" };
+        var processor = new CancelTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
         Init(processor, Pipeline(requests, r => r.Method == HttpMethod.Get ? Json(Deployment(state)) : new HttpResponseMessage(HttpStatusCode.NoContent)), new FakeOutputHandler());
 
         if (cancels)
@@ -664,7 +664,7 @@ public sealed class TenantDeploymentTests : IDisposable
                 : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
         var output = new FakeOutputHandler();
-        var processor = new DeleteAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "tenant-test" };
+        var processor = new DeleteTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
         Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
@@ -681,7 +681,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         UseClient(ClientType.PowerShell);
-        var processor = new DeleteAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "tenant-test" };
+        var processor = new DeleteTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
         Init(processor, Pipeline(requests, r => new HttpResponseMessage(r.Method == HttpMethod.Head ? headStatus : HttpStatusCode.NoContent)), new FakeOutputHandler());
 
         if (deletes)
@@ -704,7 +704,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var output = new FakeOutputHandler();
         UseClient(ClientType.PowerShell);
-        var processor = new ListAtTenantScopeDeploymentsProcessor_Customization();
+        var processor = new ListTenantDeploymentProcessor_Orchestrator();
         Init(processor, Pipeline([], r => r.RequestUri!.Query.Contains("page=2")
             ? Json($$"""{ "value": [ {{Deployment("Failed").Replace("tenant-test", "two")}} ] }""")
             : Json($$"""{ "value": [ {{Deployment("Succeeded")}} ], "nextLink": "{{Arm}}{{ApiVersion}}&page=2" }""")), output);
@@ -741,7 +741,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliExport_WritesOnlyTemplate(string body, string expected)
     {
         var output = new FakeOutputHandler();
-        var processor = new ExportTemplateAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "tenant-test" };
+        var processor = new ExportTenantDeploymentProcessor_Orchestrator { DeploymentName = "tenant-test" };
         Init(processor, Pipeline([], _ => Json(body)), output);
 
         await processor.ProcessAsync();
@@ -806,7 +806,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         string path = Path.Combine(_dir, "broken.json");
         File.WriteAllText(path, """{ "resources": [ """);
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = path };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = path };
         Init(processor, Pipeline([]), new FakeOutputHandler());
 
         ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
@@ -820,7 +820,7 @@ public sealed class TenantDeploymentTests : IDisposable
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         string path = Path.Combine(_dir, "multiline.json");
         File.WriteAllText(path, "{\n  // comment\n  \"contentVersion\": \"1.0.0.0\",\n  \"resources\": [],\n  \"outputs\": { \"o\": { \"type\": \"string\", \"value\": \"line1\nline2\" } }\n}");
-        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = path };
+        var processor = new CreateTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = path };
         Init(processor, Pipeline(requests), new FakeOutputHandler());
 
         await processor.ProcessAsync();
@@ -833,7 +833,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task PsNewWhatIf_ThrowsLegacyCloudErrorText()
     {
         var publisher = new FakeEventPublisher();
-        var processor = new NewTenantDeploymentProcessor_PSOrchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile(), WhatIf = true };
+        var processor = new NewTenantDeploymentProcessor_Orchestrator { Name = "tenant-test", Location = "eastus", TemplateFile = TemplateFile(), WhatIf = true };
         Init(processor, Pipeline([], r => r.RequestUri!.AbsolutePath.EndsWith("/whatIf", StringComparison.Ordinal) ? Json(ValidationError, HttpStatusCode.BadRequest) : null), new FakeOutputHandler(), publisher);
 
         HttpRequestException error = await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
@@ -847,7 +847,7 @@ public sealed class TenantDeploymentTests : IDisposable
     public async Task CliShow_RewritesHttpFailureToODataV4Text()
     {
         var publisher = new FakeEventPublisher();
-        var processor = new GetAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "missing" };
+        var processor = new GetTenantDeploymentProcessor_Orchestrator { DeploymentName = "missing" };
         Init(processor, Pipeline([], _ => Json(NotFound, HttpStatusCode.NotFound)), new FakeOutputHandler(), publisher);
 
         await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
@@ -862,7 +862,7 @@ public sealed class TenantDeploymentTests : IDisposable
     {
         var publisher = new FakeEventPublisher();
         UseClient(ClientType.PowerShell);
-        var processor = new GetAtTenantScopeDeploymentsProcessor_Customization { DeploymentName = "missing" };
+        var processor = new GetTenantDeploymentProcessor_Orchestrator { DeploymentName = "missing" };
         Init(processor, Pipeline([], _ => WithHeaders(Json(NotFound, HttpStatusCode.NotFound), ("x-ms-request-id", "req-1"))), new FakeOutputHandler(), publisher);
 
         HttpRequestException error = await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
