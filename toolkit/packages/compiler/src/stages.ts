@@ -68,6 +68,7 @@ export const TSP_EMIT_STAGE = "tsp-emit";
 export const TWEAK_IR_STAGE = "tweak-ir";
 export const FLATTEN_MODEL_STAGE = "flatten-model";
 export const CREATE_COMMAND_STAGE = "create-command";
+export const PS_DERIVE_STAGE = "ps.derive";
 export const CSHARP_STAGE = "csharp";
 
 /**
@@ -86,6 +87,7 @@ export const STAGE_CATALOG: readonly StageDescriptor[] = [
   // generator consumes. The document phase changes here: stages before this one
   // see `IR`, stages after it see commands and a resolved target.
   { id: CREATE_COMMAND_STAGE, kind: "transform", default: "on" },
+  { id: PS_DERIVE_STAGE, kind: "transform", default: "off", requires: [CREATE_COMMAND_STAGE] },
   // Declared rather than assumed: without commands the generator has nothing to
   // emit, so disabling the projection is a config error instead of a crash.
   { id: CSHARP_STAGE, kind: "generate", default: "on", requires: [CREATE_COMMAND_STAGE] },

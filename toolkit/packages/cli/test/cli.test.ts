@@ -188,6 +188,49 @@ describe("ace compile: --config loading", () => {
   });
 });
 
+describe("ace compile: configured pipeline", () => {
+  it("documents ps.derive in help so config authors can discover it", async () => {
+    const { out } = await captureRun(["help"]);
+    expect(out).toContain("ps.derive");
+  });
+
+  it.runIf(generatorHostBuilt)(
+    "runs ps.derive when enabled by config and lands its output on the IR",
+    async () => {
+      const outDir = join(dir, "ps-derive");
+      writeFileSync(
+        join(dir, "ps-derive.json"),
+        JSON.stringify({
+          pipeline: { "ps.derive": true },
+          stageOptions: { "ps.derive": { modulePrefix: "Az" } },
+        }),
+      );
+
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "ps-derive.json"),
+        "--out-dir",
+        outDir,
+        "--capture-ir",
+      ]);
+      expect(code, err).toBe(0);
+
+      const capture = walkFiles(join(outDir, "ir")).find((file) => file.endsWith("-ps.derive.json"));
+      expect(capture).toBeDefined();
+      const withPs = parseTransformedIR(JSON.parse(readFileSync(capture!, "utf8")));
+
+      expect(withPs.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      expect(withPs.target.dialect?.ps).toMatchObject({ name: "PetStore", prefix: "Az" });
+      const dialects = withPs.commands.map((command) => command.dialect?.ps);
+      expect(dialects.length).toBeGreaterThan(0);
+      expect(dialects.every((ps) => ps!.subject.startsWith("Az"))).toBe(true);
+    },
+  );
+});
+
 describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
   it("compiles pets.tsp and exits 0", async () => {
     const { code, err } = await captureRun([
