@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/08/2026
+ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzResourceGroup
 ---
@@ -163,7 +163,6 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
-Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
