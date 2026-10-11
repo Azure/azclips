@@ -334,8 +334,12 @@ it knows nothing about clients.
 additional output, HTTP-path, and parameter-family metadata. `PsParameterDialect`
 carries `parameterSets[]`, literal completion values, one literal default value,
 closed-enum `validateSet[]`, structured deprecation/preview lifecycle, and removal
-metadata. `CliCommandDialect` carries `path[]`;
-`CliParameterDialect` carries `flag`, `shorthand`, `group`.
+metadata. `CliCommandDialect` carries the command `name` (`elastic-san list`), a
+default parameter set, structured examples, preview/deprecation lifecycle, and the
+source `api` references. `CliParameterDialect` carries a one-entry `parameterSets[]`
+(the command's own variant), a help `group`, closed-enum `validateSet[]` or open-enum
+`completer[]`, lifecycle, and deprecated old spellings. See
+[CLI-dialect-schema.md](CLI-dialect-schema.md).
 
 ## Target
 
@@ -374,7 +378,10 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
 - PowerShell sibling commands agree on one default parameter set, and that default
-  is covered by a visible parameter's named or all-set membership.
+  is covered by a visible parameter's named or all-set membership;
+- CLI commands (`checkCliCommands`): every non-internal parameter of an offered
+  command is accounted for, same-name siblings form one command with one set per
+  variant, a spelling means one argument everywhere, and every set is selectable.
 
 ## Consuming it
 
