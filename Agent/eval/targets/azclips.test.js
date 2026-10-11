@@ -65,7 +65,7 @@ function createProviderFixture(context) {
     {
       kind: 'agent_event',
       event: 'LlmTurnCompleted',
-      payload: { Model: 'gpt-test', InputTokens: 12, OutputTokens: 3 },
+      payload: { Model: 'gpt-test', InputTokens: 12, OutputTokens: 3, ReasoningTokens: 0, CacheWriteTokens: 0 },
     },
   ].map((entry) => JSON.stringify(entry)).join('\n'));
   const output = 'AI help\nNext action:\n1. az profile show --active';
@@ -725,6 +725,39 @@ test('does not fabricate zero token usage when a trace has no usage event', (con
   fs.writeFileSync(tracePath, JSON.stringify({ kind: 'trace_start' }));
 
   assert.equal(readTokenUsage(tracePath), undefined);
+});
+
+test('distinguishes unreported optional token totals from reported zero', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-usage-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  const base = { Model: 'gpt-test', InputTokens: 10, OutputTokens: 2, CachedTokens: 0 };
+  const writeUsage = (payloads) => fs.writeFileSync(tracePath, payloads.map(payload =>
+    JSON.stringify({ kind: 'agent_event', event: 'LlmTurnCompleted', payload })).join('\n'));
+  for (const missing of [undefined, null]) {
+    writeUsage([
+      { ...base, ReasoningTokens: 5, CacheWriteTokens: 10 },
+      { ...base, ReasoningTokens: missing, CacheWriteTokens: missing },
+    ]);
+    const usage = readTokenUsage(tracePath);
+    assert.equal(usage.total, 24);
+    assert.equal(usage.numRequests, 2);
+    assert.equal(Object.hasOwn(usage.completionDetails, 'reasoning'), false);
+    assert.equal(Object.hasOwn(usage.completionDetails, 'cacheCreationInputTokens'), false);
+  }
+  writeUsage([{ ...base, ReasoningTokens: 0, CacheWriteTokens: 0 }]);
+  assert.equal(readTokenUsage(tracePath).completionDetails.reasoning, 0);
+  assert.equal(readTokenUsage(tracePath).completionDetails.cacheCreationInputTokens, 0);
+});
+
+test('model identity comes only from observed usage events, not unknown placeholders', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-model-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  const rows = [undefined, null, '', 'unknown', ' UNKNOWN ', ' gpt-test ', 'gpt-test'];
+  fs.writeFileSync(tracePath, rows.map(Model =>
+    JSON.stringify({ kind: 'agent_event', event: 'LlmTurnCompleted', payload: { Model } })).join('\n'));
+  assert.deepEqual(readModels(tracePath), ['gpt-test']);
 });
 
 test('pairs tool arguments with complete results and failures', (context) => {

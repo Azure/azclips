@@ -149,6 +149,12 @@ name. This presentation metadata does not change the assertion definition,
 grading decision, or suite identity. Older artifacts retain their recorded
 declarative contracts; unrecorded script internals must be labelled as missing,
 not reconstructed from a model response or an unrelated newer script version.
+The target Model field is read only from `LlmTurnCompleted.Model` reported by the
+running Agent. A configured model name is not a substitute for observed usage.
+Older target packages that omit that field remain explicitly unrecorded; use a
+versioned target with the metadata instrumentation for a model-complete baseline.
+Reasoning and cache-write totals are present only when every captured usage event
+reports them. An absent field is not converted into a reported zero.
 An unsuccessful troubleshoot process is an execution error, even if it emitted a
 partial plan; it must not be reported as an ordinary assertion failure.
 The original automatic mode remains available for compatible older suites.

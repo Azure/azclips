@@ -339,11 +339,14 @@ function readTokenUsage(tracePath) {
     const value = Number(usage[field] ?? 0);
     return total + (Number.isFinite(value) ? value : 0);
   }, 0);
+  const optionalSum = (field) => usageEvents.every((usage) => usage[field] !== undefined && usage[field] !== null)
+    ? sum(field)
+    : undefined;
   const prompt = sum('InputTokens');
   const completion = sum('OutputTokens');
   const cached = sum('CachedTokens');
-  const reasoning = sum('ReasoningTokens');
-  const cacheWrite = sum('CacheWriteTokens');
+  const reasoning = optionalSum('ReasoningTokens');
+  const cacheWrite = optionalSum('CacheWriteTokens');
 
   return {
     prompt,
@@ -352,9 +355,9 @@ function readTokenUsage(tracePath) {
     total: prompt + completion,
     numRequests: usageEvents.length,
     completionDetails: {
-      reasoning,
+      ...(reasoning !== undefined && { reasoning }),
       cacheReadInputTokens: cached,
-      cacheCreationInputTokens: cacheWrite,
+      ...(cacheWrite !== undefined && { cacheCreationInputTokens: cacheWrite }),
     },
   };
 }
@@ -374,7 +377,7 @@ function readModels(tracePath) {
       entry.event === 'LlmTurnCompleted' &&
       typeof entry.payload?.Model === 'string' &&
       entry.payload.Model.trim() &&
-      entry.payload.Model !== 'unknown'
+      entry.payload.Model.trim().toLowerCase() !== 'unknown'
     ) {
       models.add(entry.payload.Model.trim());
     }
