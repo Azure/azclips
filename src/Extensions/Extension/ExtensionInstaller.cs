@@ -233,6 +233,7 @@ public class ExtensionInstaller
         var logger = NullLogger.Instance;
 
         // Download from repository
+        var notFoundInEveryFeed = true;
         foreach (var repository in repositories)
         {
             var downloadResource = await repository.GetResourceAsync<DownloadResource>(cancellationToken);
@@ -250,6 +251,13 @@ public class ExtensionInstaller
                 await ExtractLibItemsAsync(reader, outputDir, cancellationToken);
                 return;
             }
+
+            notFoundInEveryFeed &= downloadResult.Status == DownloadResourceResultStatus.NotFound;
+        }
+
+        if (notFoundInEveryFeed)
+        {
+            throw AzclipsErrorException.ExtensionNotFound($"Could not find package {package.Id}@{package.Version} in any configured NuGet feed.");
         }
 
         throw new InvalidOperationException($"Could not download package {package.Id}@{package.Version} from any configured repository.");

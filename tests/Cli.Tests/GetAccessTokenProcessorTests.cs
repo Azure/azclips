@@ -205,10 +205,11 @@ public class GetAccessTokenProcessorTests
     [Fact]
     public async Task ProcessAsync_SilentAcquisitionFails_ThrowsActionableSignInError()
     {
+        var cause = new Exception("AADSTS50076: interaction required.");
         var auth = new Mock<IAuthService>();
         auth.Setup(a => a.AcquireTokenSilentlyAsync(
                 It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
-            .ThrowsAsync(new Exception("AADSTS50076: interaction required."));
+            .ThrowsAsync(cause);
         InitDi(ClientType.CLI, auth.Object);
 
         var processor = InitProcessor(
@@ -219,8 +220,9 @@ public class GetAccessTokenProcessorTests
         Assert.Equal("NotSignedIn", ex.Code);
         Assert.Contains("other-tenant", ex.Message, StringComparison.Ordinal);
         Assert.Contains("az login --tenant-id other-tenant", ex.Message, StringComparison.Ordinal);
-        // The underlying cause is preserved for diagnosis.
+        // The underlying cause is preserved in the message and as the inner exception for diagnosis.
         Assert.Contains("AADSTS50076", ex.Message, StringComparison.Ordinal);
+        Assert.Same(cause, ex.InnerException);
     }
 
     [Fact]

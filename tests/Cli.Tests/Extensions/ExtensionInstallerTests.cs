@@ -46,4 +46,29 @@ public sealed class ExtensionInstallerTests : IDisposable
         Assert.Equal(4, ex.ExitCode);
         Assert.StartsWith("Could not find package Azclips.Missing.Package", ex.Message);
     }
+
+    [Fact]
+    public async Task InstallExtensionAsync_ShouldThrowExtensionNotFound_WhenExplicitVersionIsNotInFeed()
+    {
+        // An explicit --version skips the latest-version lookup and goes straight to download. When every
+        // feed reports the package as not found, the installer must still return ExtensionNotFound.
+        var emptyFeed = Path.Combine(_root, "feed");
+        Directory.CreateDirectory(emptyFeed);
+
+        var config = new Mock<IConfigurationService>();
+        config.Setup(c => c.GetConfiguration<AssemblyLoadingOptions>())
+            .Returns(new AssemblyLoadingOptions { InstalledExtensionsRoot = Path.Combine(_root, "installed") });
+        AzclipsServiceProvider.Dispose();
+        AzclipsServiceProvider.OverrideRegistration(services => services.AddSingleton(config.Object));
+        AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+
+        var installer = new ExtensionInstaller(new NullLoggingService(), feedUrl: emptyFeed);
+
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() =>
+            installer.InstallExtensionAsync("Azclips.Missing.Package", version: "1.0.0"));
+
+        Assert.Equal("ExtensionNotFound", ex.Code);
+        Assert.Equal(4, ex.ExitCode);
+        Assert.StartsWith("Could not find package Azclips.Missing.Package@1.0.0", ex.Message);
+    }
 }

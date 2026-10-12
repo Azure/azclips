@@ -71,8 +71,8 @@ public class AzclipsErrorException : Exception
     /// profile, no federated token, or no subscription in the profile. The fix is to sign in.
     /// This is not caused by the user's input, so the agent is not offered the error.
     /// </summary>
-    public static AzclipsErrorException NotSignedIn(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new("NotSignedIn", 1, message, details);
+    public static AzclipsErrorException NotSignedIn(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        => new("NotSignedIn", 1, message, details, innerException);
 
     public static AzclipsErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("PinViolation", 6, message, details);
