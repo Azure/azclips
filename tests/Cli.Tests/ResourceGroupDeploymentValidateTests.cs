@@ -74,6 +74,44 @@ public class ResourceGroupDeploymentValidateTests
     }
 
     [Fact]
+    public async Task Validate_BadRequestWithoutError_ThrowsHttpError_AndWritesNothing()
+    {
+        var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.BadRequest, "{}"));
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Validate(pipeline, output).ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("null")]
+    public async Task Validate_BadRequestWithoutVerdict_ThrowsHttpError_AndWritesNothing(string body)
+    {
+        var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.BadRequest, body));
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Validate(pipeline, output).ProcessAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task Validate_InvalidJsonBody_ThrowsWithRawBody_AndWritesNothing()
+    {
+        var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.OK, "not-json"));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Validate(pipeline, output).ProcessAsync());
+
+        Assert.Contains("Failed to deserialize", error.Message);
+        Assert.Contains("not-json", error.Message);
+        Assert.IsAssignableFrom<JsonException>(error.InnerException);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
     public async Task Validate_AcceptedWithoutLocation_Throws()
     {
         var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.Accepted));

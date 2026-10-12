@@ -81,6 +81,24 @@ public class ResourceGroupDeploymentExportTests
     }
 
     [Fact]
+    public async Task Export_MissingParentDirectory_IsCreated()
+    {
+        string directory = TempDirectory();
+        try
+        {
+            var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.OK, ExportBody));
+
+            await Save(pipeline, output, Path.Combine(directory, "a", "b", "out")).ProcessAsync();
+
+            Assert.True(File.Exists(Path.Combine(directory, "a", "b", "out.json")));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Export_ExistingFileWithoutForce_ThrowsAndKeepsFile_ForceOverwrites()
     {
         string directory = TempDirectory();

@@ -324,19 +324,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_removeResourceGroupDeployment_PS = new(
-            Name: "RemoveResourceGroupDeploymentProcessor",
+            Name: "RemoveResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "Remove-AzResourceGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group that contains the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Id"]                = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment. Provide either -Id or -ResourceGroupName and -Name.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
@@ -660,12 +661,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_removeResourceGroupDeployment_CLI = new(
-            Name: "RemoveResourceGroupDeploymentProcessor",
+            Name: "RemoveResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
-            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.RemoveResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),

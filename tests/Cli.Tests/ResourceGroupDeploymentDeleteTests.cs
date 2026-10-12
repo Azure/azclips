@@ -79,4 +79,32 @@ public class ResourceGroupDeploymentDeleteTests
         Assert.Equal(HttpStatusCode.Conflict, error.StatusCode);
         Assert.Contains("DeploymentActive", error.Message);
     }
+
+    [Fact]
+    public async Task DeleteById_SendsDeleteForParsedDeployment_IdSubscriptionWins()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.NoContent));
+
+        await Configure(new RemoveResourceGroupDeploymentProcessor_Orchestrator(), pipeline, output, p =>
+        {
+            p.SubscriptionId = "other-sub";
+            p.Id = $"/subscriptions/{SubscriptionId}/resourceGroups/test-rg/providers/Microsoft.Resources/deployments/dep/";
+        }).ProcessAsync();
+
+        Assert.Equal(HttpMethod.Delete, sent[0].Method);
+        Assert.Equal(DeploymentUri + "?api-version=2025-04-01", sent[0].Uri);
+    }
+
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("not-a-resource-id")]
+    [InlineData("/subscriptions/sub/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/vm1")]
+    public async Task DeleteById_MalformedId_ThrowsWithoutRequest(string id)
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.NoContent));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Configure(new RemoveResourceGroupDeploymentProcessor_Orchestrator(), pipeline, output, p => p.Id = id).ProcessAsync());
+        Assert.Empty(sent);
+    }
 }

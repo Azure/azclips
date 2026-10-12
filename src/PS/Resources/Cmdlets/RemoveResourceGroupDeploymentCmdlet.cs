@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
-using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
@@ -11,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Remove, "AzResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = ByNameParameterSet)]
 [OutputType(typeof(void))]
-public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
+public class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
 {
     private const string ByNameParameterSet = "RemoveByResourceGroupName";
     private const string ByIdParameterSet = "RemoveByResourceGroupDeploymentId";
@@ -19,11 +18,6 @@ public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-
-    [GeneratedRegex(
-        @"^/subscriptions/(?<subscriptionId>[^/]+)/resourcegroups/(?<resourceGroupName>[^/]+)/providers/Microsoft\.Resources/deployments/(?<name>[^/]+)/?$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex DeploymentIdPattern();
 
     [Parameter(ParameterSetName = ByNameParameterSet, Mandatory = false)]
     [Parameter(ParameterSetName = ByIdParameterSet, Mandatory = false)]
@@ -51,39 +45,10 @@ public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var resourceGroupName = ResourceGroupName;
-        var deploymentName = Name;
-        var subscriptionId = SubscriptionId;
-        var hasSubscriptionId = MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId));
+        bool byId = ParameterSetName == ByIdParameterSet;
+        string target = byId ? $"deployment '{Id}'" : $"deployment '{Name}' in resource group '{ResourceGroupName}'";
 
-        if (ParameterSetName == ByIdParameterSet)
-        {
-            var match = DeploymentIdPattern().Match(Id);
-            if (!match.Success)
-            {
-                ThrowTerminatingError(new ErrorRecord(
-                    new ArgumentException(
-                        $"'{Id}' is not a valid resource group deployment id. Expected '/subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Resources/deployments/{{deploymentName}}'.",
-                        nameof(Id)),
-                    "InvalidDeploymentId",
-                    ErrorCategory.InvalidArgument,
-                    Id));
-                return;
-            }
-
-            resourceGroupName = match.Groups["resourceGroupName"].Value;
-            deploymentName = match.Groups["name"].Value;
-
-            // An explicit -SubscriptionId still wins, so the two parameters never contradict each other
-            // silently; otherwise the id's own subscription is used rather than the active profile's.
-            if (!hasSubscriptionId)
-            {
-                subscriptionId = match.Groups["subscriptionId"].Value;
-                hasSubscriptionId = true;
-            }
-        }
-
-        if (!ShouldProcess($"deployment '{deploymentName}' in resource group '{resourceGroupName}'", "Delete"))
+        if (!ShouldProcess(target, "Delete"))
         {
             return;
         }
@@ -91,15 +56,17 @@ public partial class RemoveResourceGroupDeploymentCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
 
-        var parameters = new Dictionary<string, object>
-        {
-            { "ResourceGroupName", resourceGroupName },
-            { "Name", deploymentName },
-        };
+        var parameters = byId
+            ? new Dictionary<string, object> { { nameof(Id), Id } }
+            : new Dictionary<string, object>
+            {
+                { nameof(ResourceGroupName), ResourceGroupName },
+                { nameof(Name), Name },
+            };
 
-        if (hasSubscriptionId)
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
-            parameters.Add("SubscriptionId", subscriptionId);
+            parameters.Add(nameof(SubscriptionId), SubscriptionId);
         }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))

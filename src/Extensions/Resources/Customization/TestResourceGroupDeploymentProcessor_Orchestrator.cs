@@ -76,6 +76,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 if (response.Content is null)
                 {
                     await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                    await EnsureSuccessIfNoVerdict(response);
                     return;
                 }
 
@@ -83,6 +84,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 if (string.IsNullOrWhiteSpace(rawBody))
                 {
                     await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                    await EnsureSuccessIfNoVerdict(response);
                     return;
                 }
 
@@ -99,6 +101,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 if (result is null)
                 {
+                    await EnsureSuccessIfNoVerdict(response);
                     return;
                 }
 
@@ -107,18 +110,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     throw new InvalidOperationException(BuildErrorMessage(result.Error));
                 }
 
-                // A non-success status whose body carried no error is not a validation verdict we can
-                // report — fall back to the standard transport failure rather than claiming success.
-                if (!response.IsSuccessStatusCode)
-                {
-                    await response.EnsureSuccessAsync(Publisher);
-                }
-
+                await EnsureSuccessIfNoVerdict(response);
                 await WriteOutput(result);
             }
             finally
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            }
+        }
+
+        // A non-success status (the 400 passed through by the atomic processor) without an error in
+        // its body is not a validation verdict we can report — fall back to the standard transport
+        // failure rather than claiming success.
+        private async Task EnsureSuccessIfNoVerdict(HttpResponseMessage response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                await response.EnsureSuccessAsync(Publisher);
             }
         }
 

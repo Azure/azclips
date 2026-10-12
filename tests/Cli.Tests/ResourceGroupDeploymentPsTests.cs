@@ -159,6 +159,7 @@ public class ResourceGroupDeploymentPsTests
     }
 
     [Theory]
+    [InlineData("   ")]
     [InlineData("/subscriptions/sub/resourceGroups/test-rg")]
     [InlineData("/subscriptions/sub/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/vm1")]
     public async Task GetById_MalformedId_ThrowsWithoutRequest(string id)

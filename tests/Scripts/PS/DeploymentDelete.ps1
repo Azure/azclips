@@ -141,10 +141,10 @@ Remove-AzResourceGroupDeployment `
     -ErrorVariable err
 Assert-Equal 0 $err.Count '-Id: resolved resource group, name and subscription from the id'
 
-# Negative case: a malformed -Id must fail argument validation in the cmdlet BEFORE any HTTP call is
-# made, rather than building a nonsense request URI.
+# Negative case: a malformed -Id must be rejected by the orchestrator's id resolver BEFORE any HTTP
+# call is made, rather than building a nonsense request URI.
 Remove-AzResourceGroupDeployment -Id 'not-a-resource-id' -Confirm:$false -ErrorVariable err
-Assert-Match 'InvalidDeploymentId' $err.ErrorRecord.FullyQualifiedErrorId 'malformed -Id is rejected locally'
+Assert-Match 'Invalid deployment id' $err.Message 'malformed -Id is rejected locally'
 
 # Negative case: a resource group that does not exist must surface an ARM 404
 # (ResourceGroupNotFound). The resource group is a real path segment, so unlike the deployment name
