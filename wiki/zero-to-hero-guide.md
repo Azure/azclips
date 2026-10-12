@@ -930,7 +930,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 13. **`CancellationToken`** — .NET's cooperative cancellation primitive threaded through async calls.
 14. **`ClientType`** — enum seeded into the container identifying the surface (CLI/TUI/PowerShell).
 15. **`CommandInvocation`** — the parsed command (extension, verb, params) produced by `ExtensionDispatcher`.
-16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, never triggers the agent.
+16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, except `InvalidInputException` (malformed user input), which is offered to the agent first.
 17. **Composition root** — the single place services are registered/resolved (`AzclipsServiceProvider`).
 18. **`Core.Abstractions`** — the interface-only project with no concrete deps; the seam hub.
 19. **DI (Dependency Injection)** — supplying dependencies via constructors from a container.

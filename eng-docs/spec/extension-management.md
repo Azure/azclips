@@ -118,7 +118,7 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 | ---- | ---------------------------------------------------- |
 | 0    | success                                              |
 | 1    | generic error                                        |
-| 2    | usage error (bad args, unknown flag)                 |
+| 2    | usage error or invalid input (`InvalidInput`)        |
 | 3    | leaf conflict on install                             |
 | 4    | extension not found (in feed or registry)            |
 | 5    | feed / network error                                 |

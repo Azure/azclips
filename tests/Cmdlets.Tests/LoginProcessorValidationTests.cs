@@ -204,7 +204,7 @@ public class LoginProcessorValidationTests
         var expectedFlag = FlagFor(surface, nameof(LoginProcessor.TenantId));
         var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
-        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
             new LoginProcessor(),
             "EnsureCrossTenantAccessible",
             new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" }));
@@ -257,7 +257,7 @@ public class LoginProcessorValidationTests
         var expected = FlagFor(surface, nameof(LoginProcessor.TenantId));
         var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
-        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
             new LoginProcessor(),
             "ResolveSubscriptionTenantAsync",
             new object?[] { FakeAuthResult(), "sub-1" }));

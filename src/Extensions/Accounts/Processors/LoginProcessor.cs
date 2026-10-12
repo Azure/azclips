@@ -453,11 +453,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // The probe itself failed, so we cannot confirm access to the cross tenant. Fail closed: do
                 // not save a profile we could not verify.
                 logger.Debug($"Tenant access probe for '{profile.TenantId}' did not complete: {ex.Message}");
-                throw AzclipsErrorException.InvalidInput(
+                throw new InvalidOperationException(
                     $"Signed in, but could not verify access to tenant '{profile.TenantId}' that owns subscription "
                     + $"'{subscriptionId}': {ex.Message} The profile was not saved. "
                     + $"Run '{signInCommand} {Flag(nameof(TenantId))} {profile.TenantId}' to authenticate to that tenant, then retry.",
-                    innerException: ex);
+                    ex);
             }
 
             if (!canAcquire)
@@ -522,11 +522,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // would produce a broken profile whose subsequent commands fail against the subscription.
                 logger.Debug(
                     $"Could not resolve the owning tenant for subscription '{subscriptionId}': {ex.Message}");
-                throw AzclipsErrorException.InvalidInput(
+                throw new InvalidOperationException(
                     $"Could not determine the tenant that owns subscription '{subscriptionId}': {ex.Message} "
                     + "The profile was not saved to avoid persisting an unverified tenant. "
                     + $"Retry, or specify the tenant explicitly with '{Flag(nameof(TenantId))} <tenantId>'.",
-                    innerException: ex);
+                    ex);
             }
         }
 
