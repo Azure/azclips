@@ -48,11 +48,26 @@ function readRuntimePrompt(exe) {
   };
 }
 
+// Evaluations are often launched from an AI agent host. Its variables configure the same Copilot runtime
+// that the target embeds (extra tools, MCP servers, credentials) and are absent from a user's terminal.
+const HOST_AGENT_VARIABLE = /^(COPILOT_|GITHUB_COPILOT_|CLAUDE_|ANTHROPIC_|OPENAI_|AZCLIPS_EVALUATION_|VSCODE_|ELECTRON_)/i;
+const HOST_AGENT_VARIABLES = new Set(['AI_AGENT', 'RUBBER_DUCK_AGENT', 'NODE_OPTIONS']);
+
+function isHostAgentVariable(name) {
+  return HOST_AGENT_VARIABLE.test(name) || HOST_AGENT_VARIABLES.has(name.toUpperCase());
+}
+
+function removedHostVariables(baseEnvironment) {
+  return Object.keys(baseEnvironment).filter(isHostAgentVariable).sort();
+}
+
 function buildEvaluationEnvironment(baseEnvironment, flavor = baseEnvironment.AZURECLI_FLAVOR || 'azure cli') {
-  return {
-    ...baseEnvironment,
-    AZURECLI_FLAVOR: flavor,
-  };
+  const environment = {};
+  for (const [name, value] of Object.entries(baseEnvironment)) {
+    if (!isHostAgentVariable(name)) environment[name] = value;
+  }
+  environment.AZURECLI_FLAVOR = flavor;
+  return environment;
 }
 
 function execFileUnattended(file, args, options, callback) {
@@ -559,6 +574,7 @@ class AzclipsAgentProvider {
           ...(this.resourceCache && { resourceCache: this.resourceCache }),
           ...(this.agentSettings && { agentSettings: this.agentSettings }),
           ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
+          removedHostVariables: removedHostVariables(process.env),
         };
         const raw = `${stdout || ''}\n${stderr || ''}`;
         const numericExitCode = Number(err?.code ?? 1);
@@ -733,6 +749,7 @@ class AzclipsAgentProvider {
 
 module.exports = AzclipsAgentProvider;
 module.exports.buildEvaluationEnvironment = buildEvaluationEnvironment;
+module.exports.removedHostVariables = removedHostVariables;
 module.exports.execFileUnattended = execFileUnattended;
 module.exports.findTracePath = findTracePath;
 module.exports.findFailureId = findFailureId;

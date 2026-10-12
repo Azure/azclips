@@ -9,6 +9,7 @@ const AzclipsAgentProvider = require('./azclips');
 const { judgeInput } = require('../judge/recovery-quality');
 const {
   buildEvaluationEnvironment,
+  removedHostVariables,
   execFileUnattended,
   findTracePath,
   findFailureId,
@@ -153,15 +154,35 @@ test('resolves packaged and debug runtime prompt layouts', (context) => {
 test('builds an isolated flavor environment without mutating the parent', () => {
   const parent = {
     KEEP_ME: 'value',
+    Path: 'C:\\tools',
+    AZCLIPS_HOME: 'C:\\private-home',
+    AZURE_TENANT_ID: 'tenant',
+    COPILOT_SDK_AUTH_TOKEN: 'host-token',
+    COPILOT_ENABLE_BUILTIN_GITHUB_MCP: 'true',
+    copilot_home: 'C:\\host\\.copilot',
+    RUBBER_DUCK_AGENT: 'true',
+    AI_AGENT: 'host-agent',
+    CLAUDE_AGENT_SDK_VERSION: '1',
+    AZCLIPS_EVALUATION_TARGET: '{}',
+    NODE_OPTIONS: '--require hook.js',
+    VSCODE_GIT_IPC_HANDLE: 'pipe',
   };
+  const snapshot = { ...parent };
 
   const result = buildEvaluationEnvironment(parent);
 
-  assert.deepEqual(parent, {
+  assert.deepEqual(parent, snapshot);
+  assert.deepEqual(result, {
     KEEP_ME: 'value',
+    Path: 'C:\\tools',
+    AZCLIPS_HOME: 'C:\\private-home',
+    AZURE_TENANT_ID: 'tenant',
+    AZURECLI_FLAVOR: 'azure cli',
   });
-  assert.equal(result.KEEP_ME, 'value');
-  assert.equal(result.AZURECLI_FLAVOR, 'azure cli');
+  assert.deepEqual(removedHostVariables(parent), [
+    'AI_AGENT', 'AZCLIPS_EVALUATION_TARGET', 'CLAUDE_AGENT_SDK_VERSION', 'COPILOT_ENABLE_BUILTIN_GITHUB_MCP',
+    'COPILOT_SDK_AUTH_TOKEN', 'NODE_OPTIONS', 'RUBBER_DUCK_AGENT', 'VSCODE_GIT_IPC_HANDLE', 'copilot_home',
+  ]);
 });
 
 test('closes child stdin so unattended permission prompts cannot block', async () => {

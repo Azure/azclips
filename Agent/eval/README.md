@@ -188,6 +188,15 @@ path, so they never mix with measured results. If an observation times out, the
 provider ends the whole process tree; ending only `az.exe` leaves the Agent child
 process running into later observations.
 
+The target runs without the evaluation host's AI-agent variables (`COPILOT_*`,
+`GITHUB_COPILOT_*`, `CLAUDE_*`, `ANTHROPIC_*`, `OPENAI_*`, `VSCODE_*`, `ELECTRON_*`,
+`AI_AGENT`, `RUBBER_DUCK_AGENT`, `NODE_OPTIONS`) and without the harness's own
+`AZCLIPS_EVALUATION_*` variables. The target embeds the same Copilot runtime, so
+these variables can change its tools and credentials: launched from an agent host,
+every first model turn grew by 1,229 input tokens, and the host's runtime token
+reached the target. A user's terminal has none of them. Every result lists the
+removed variable names in `response.metadata.removedHostVariables`, without values.
+
 Model turns dominate end-to-end latency. Host time varies less than model time
 within one run, but whole runs shift together: in the recorded 2026-10 runs most
 of the variance of host time and of total latency came from run-to-run shifts.
