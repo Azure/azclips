@@ -234,6 +234,12 @@ function Enable-LifecycleFakes
             throw "Injected import failure for $Name."
         }
         $package = $global:Lifecycle.Packages["$Name|$RequiredVersion"]
+        if ($package -and $Scenario -eq 'version-mismatch' -and $Name -eq 'Az.Compute')
+        {
+            $mismatched = $package.PSObject.Copy()
+            $mismatched.Version = [version]'9.9.9'
+            return $mismatched
+        }
         if ($package) { return $package }
         Write-Error -Message "The exact version is not importable: $Name $RequiredVersion" -ErrorId Modules_ModuleNotFound
     }
@@ -256,34 +262,10 @@ function Enable-LifecycleFakes
         Microsoft.PowerShell.Management\Remove-Item @PSBoundParameters
     }
 
-    function global:Get-Command
-    {
-        [CmdletBinding()]
-        param([string]$Name, [string]$Module, [string]$CommandType)
-        if ($Module)
-        {
-            $global:Lifecycle.Definitions[$Module].CmdletsToExport |
-                ForEach-Object { [pscustomobject]@{ Name = $_ } }
-        }
-        else
-        {
-            Microsoft.PowerShell.Core\Get-Command -Name $Name -ErrorAction Stop
-        }
-    }
-
-    function global:Get-Help
-    {
-        [CmdletBinding()]
-        param([string]$Name)
-        Add-LifecycleEvent Help $Name
-        $code = if ($Scenario -eq 'help-failure' -and $Name -eq 'Get-ComputeFixture') { '' } else { "$Name -Example" }
-        [pscustomobject]@{ Examples = @{ Example = @(@{ code = $code }) } }
-    }
-
     function global:Invoke-FakePwsh
     {
         param([switch]$NoProfile, [scriptblock]$Command, [Alias('Args')][object[]]$ArgumentList)
-        # Execute the real child validation body against fakes, including version/help assertions.
+        # Execute the real child validation body against fakes, including exact-version assertions.
         try
         {
             & $Command @ArgumentList
@@ -513,10 +495,14 @@ function Invoke-LifecycleScenario
                     }
                 }
             }
-            { $_ -in 'import-failure', 'help-failure', 'install-failure', 'cleanup-primary' } {
+            { $_ -in 'import-failure', 'version-mismatch', 'install-failure', 'cleanup-primary' } {
                 Assert-Fixture (($installed.Name -join ',') -eq 'Az.Login,Az.Compute') 'Only attempted modules may be installed.'
                 Assert-Fixture (($removed.Name -join ',') -eq 'Az.Compute,Az.Login') 'Failure must reverse only attempted modules.'
                 Assert-Fixture ($global:Lifecycle.Packages.Count -eq 0) 'Failure must remove attempted package versions.'
+                if ($_ -eq 'version-mismatch')
+                {
+                    Assert-Fixture ($joined -match 'Az\.Compute imported version 9\.9\.9 but expected 1\.2\.3') 'A module loaded under the wrong version must fail import validation.'
+                }
             }
             'first-import-failure' {
                 Assert-Fixture (($installed.Name -join ',') -eq 'Az.Login') 'A first-module import failure must stop subsequent installations.'
@@ -633,7 +619,7 @@ function Get-ExpectedFailure
     $Name = Get-LifecycleScenarioName $Name
     switch ($Name)
     {
-        { $_ -in 'first-import-failure', 'import-failure', 'help-failure', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions' } { 'local gallery import validation failed \(exit 51\)' }
+        { $_ -in 'first-import-failure', 'import-failure', 'version-mismatch', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions' } { 'local gallery import validation failed \(exit 51\)' }
         'install-failure' { 'Injected installation failure after adding' }
         'install-absent-failure' { 'Injected installation failure before adding' }
         { $_ -in 'preexisting-exact', 'preexisting-available' } { 'already exists.*disposable environment' }
@@ -793,7 +779,7 @@ if ($Scenario)
 }
 
 $scenarios = @(
-    'success', 'first-import-failure', 'import-failure', 'help-failure', 'install-failure', 'install-absent-failure',
+    'success', 'first-import-failure', 'import-failure', 'version-mismatch', 'install-failure', 'install-absent-failure',
     'removal-failures', 'cleanup-query-failure', 'preexisting-exact', 'preexisting-available',
     'newer-versions', 'repository-conflict', 'registration-failure', 'unregistration-failure',
     'cleanup-primary', 'preflight-query-failure', 'empty-install', 'empty-uninstall',

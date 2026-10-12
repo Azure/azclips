@@ -30,24 +30,15 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/` | ESRP input prep, repack, and verification of signed outputs. |
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`). |
 
-PowerShell validation's `run_ps_validation_phase.ps1` runs both dependency suites
-before returning the first failing exit code. The isolated PowerShell 7.5 runtime
-probe installs both .NET 9 core and Windows Desktop runtimes on Windows; Unix
-requires only the core runtime. Neither installation modifies the primary SDK.
+PowerShell validation's `run_ps_validation_phase.ps1` dispatches the Install and
+Uninstall module phases. Install imports every packaged module with
+`-RequiredVersion` and fails when the loaded version differs.
 `invoke_ps_validation_step.ps1`
-publishes successful bootstrap/installation prerequisites so independent phases
+publishes successful bootstrap/installation prerequisites so later phases
 can continue after failures without clearing their recorded outcomes.
 The shared `module_definitions.ps1` reader normalizes known bare source names and
-manifest-path dependencies to package identities for lifecycle, dependency and
-smoke validation; already-prefixed and unknown names are preserved.
-`prepare_ps_upgrade_baseline.ps1` freezes a checksum-verified stable GitHub bundle
-for all matrix legs, selecting the previous distinct version when latest equals
-the target. `test_ps_upgrade.ps1` runs the bundled installer against a unique local
-gallery, replaces its packages with pipeline inputs, verifies installed payloads
-and imports, and cleans its own baseline/target state before fresh installation.
-`shared/upgrade_worker.ps1` isolates package-manager operations and module imports
-in bounded child processes. Offline upgrade fixtures must never install real Az
-modules into the developer's profile.
+manifest-path dependencies to package identities for lifecycle validation;
+already-prefixed and unknown names are preserved.
 Remove owned intermediate dotfiles with `-Force`; PowerShell treats them as hidden
 on Unix even when the current user created them.
 The matrix generator reads `packaging/powershell/ps_validation_matrix.json`

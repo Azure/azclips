@@ -4,7 +4,7 @@ Validates Az PowerShell modules uninstall cleanly through the phase dispatcher.
 
 .DESCRIPTION
 This shared, platform-agnostic uninstall validation is called by the phase
-dispatcher after installation and the upgrade/validate placeholder phases.
+dispatcher after installation.
 It verifies Uninstall-Module cleanly
 removes every Az module installed by the installation validation on the same
 agent, and confirms those exact package versions are no longer visible or

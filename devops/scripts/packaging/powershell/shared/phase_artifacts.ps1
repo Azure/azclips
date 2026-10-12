@@ -33,7 +33,7 @@ function Initialize-PSValidationReport
     $resultsPath = Join-Path $ReportRoot 'results.json'
     if (-not (Test-Path -LiteralPath $resultsPath))
     {
-        $phases = @(foreach ($phase in 'Bootstrap', 'Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')
+        $phases = @(foreach ($phase in 'Bootstrap', 'Install', 'Uninstall')
         {
             [ordered]@{
                 phase = $phase
@@ -89,7 +89,7 @@ function Read-PSValidationReport
     param([Parameter(Mandatory)][string]$Path)
 
     $report = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
-    $expectedPhases = 'Bootstrap,Dependencies,Upgrade,Install,Validate,Uninstall'
+    $expectedPhases = 'Bootstrap,Install,Uninstall'
     $allowedStatuses = @('NotRun', 'Running', 'Succeeded', 'SucceededWithIssues', 'Failed', 'Skipped', 'Interrupted')
     if ($report.schemaVersion -ne 3 -or
         (($report.phases | ForEach-Object { $_.phase }) -join ',') -ne $expectedPhases -or

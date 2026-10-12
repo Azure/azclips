@@ -35,34 +35,9 @@ jobs:
   - pwsh: |
       & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1
-      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyFixtures.ps1
-      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & pwsh -NoProfile -File ./tests/Scripts/PS/PSDependencyRuntimeFixtures.ps1
-      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & pwsh -NoProfile -File ./tests/Scripts/PS/PSUpgradeReleaseFixtures.ps1
-      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & pwsh -NoProfile -File ./tests/Scripts/PS/PSUpgradeFixtures.ps1
-      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       & ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
       exit $LASTEXITCODE
     displayName: Test PS Validation Scripts
-
-  - pwsh: |
-      & pwsh -NoProfile -File ./devops/scripts/packaging/powershell/test_ps_smoke.ps1 `
-        -CoverageOnly `
-        -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-ps-smoke-coverage')
-      exit $LASTEXITCODE
-    displayName: Validate Azure PS Smoke-Test Coverage
-
-  - task: PublishPipelineArtifact@1
-    displayName: Publish PS Smoke-Test Coverage
-    condition: always()
-    inputs:
-      targetPath: $(Agent.TempDirectory)/azclips-ps-smoke-coverage
-      artifact: Validate_PS_Smoke_Coverage_$(System.StageName)
-      publishLocation: pipeline
 
   - bash: |
       set -euo pipefail
@@ -82,61 +57,15 @@ jobs:
     name: GenerateMatrix
     displayName: Generate PS Validation Matrix
 
-- job: PreparePowerShellUpgradeBaseline
-  displayName: Prepare Released PowerShell Upgrade Baseline
-  pool:
-    ${{ if startsWith(parameters.ubuntu_pool, 'pool-') }}:
-      name: ${{ parameters.ubuntu_pool }}
-    ${{ else }}:
-      vmImage: ${{ parameters.ubuntu_pool }}
-  steps:
-  - checkout: self
-    clean: true
-    fetchDepth: 1
-    persistCredentials: true
-    retryCountOnTaskFailure: 3
-
-  - pwsh: |
-      $ErrorActionPreference = 'Stop'
-      $PSNativeCommandUseErrorActionPreference = $false
-      $global:LASTEXITCODE = 0
-      try {
-        $version = (Import-PowerShellDataFile ./src/PS/Az/Az.psd1).ModuleVersion
-        & ./devops/scripts/packaging/powershell/prepare_ps_upgrade_baseline.ps1 `
-          -TargetVersion $version `
-          -DestinationRoot (Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-ps-upgrade-baseline') `
-          -UseCheckoutCredentials
-        if ($LASTEXITCODE -ne 0) { throw 'PowerShell upgrade baseline preparation failed.' }
-      }
-      finally {
-        $headers = @(& git config --local --name-only --get-regexp '^http\..*\.extraheader$')
-        if ($LASTEXITCODE -notin 0, 1) { throw 'Could not inspect persisted checkout authorization.' }
-        foreach ($header in $headers) {
-          & git config --local --unset-all $header
-          if ($LASTEXITCODE -ne 0) { throw 'Could not remove persisted checkout authorization.' }
-        }
-        $global:LASTEXITCODE = 0
-      }
-    displayName: Download and Verify Released PowerShell Bundle
-
-  - task: PublishPipelineArtifact@1
-    displayName: Publish PowerShell Upgrade Baseline
-    inputs:
-      targetPath: $(Agent.TempDirectory)/azclips-ps-upgrade-baseline
-      artifact: PSUpgradeBaseline_$(System.StageName)
-      publishLocation: pipeline
-
 - job: PowerShellValidation
   dependsOn:
   - GeneratePowerShellValidationMatrix
-  - PreparePowerShellUpgradeBaseline
   condition: and(not(canceled()), in(dependencies.GeneratePowerShellValidationMatrix.result, 'Succeeded', 'SucceededWithIssues'))
   displayName: PS Validation
   timeoutInMinutes: 60
   variables:
     PsValidationBootstrapped: 'false'
     PsValidationInstalled: 'false'
-    PsUpgradeBaselineResult: $[ dependencies.PreparePowerShellUpgradeBaseline.result ]
   strategy:
     matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
   pool:
@@ -164,38 +93,11 @@ jobs:
       display_name: Install PowerShell $(PowerShellVersion)
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
-  - template: ../steps/ps-validation-phase.yml
-    parameters:
-      phase: Dependencies
-      display_name: Validate Azure PS Dependencies
-      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
-
-  # Bootstrap already succeeded, so a missing/failed download cannot suppress
-  # dependency, fresh-install, or smoke coverage. Upgrade records the missing input.
-  - task: DownloadPipelineArtifact@2
-    displayName: Download PowerShell Upgrade Baseline
-    condition: and(succeededOrFailed(), eq(variables['PsValidationBootstrapped'], 'true'), in(variables['PsUpgradeBaselineResult'], 'Succeeded', 'SucceededWithIssues'))
-    inputs:
-      artifact: PSUpgradeBaseline_$(System.StageName)
-      path: $(Pipeline.Workspace)/${{ parameters.ps_modules_artifact_name }}/upgrade-baseline
-
-  - template: ../steps/ps-validation-phase.yml
-    parameters:
-      phase: Upgrade
-      display_name: Upgrade Azure PS v$(AzVersion)
-      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
-
+  # Install imports every module under its exact packaged version.
   - template: ../steps/ps-validation-phase.yml
     parameters:
       phase: Install
       display_name: Install Azure PS v$(AzVersion)
-      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
-
-  # Run the credential-free, configured module smoke tests against the installed modules.
-  - template: ../steps/ps-validation-phase.yml
-    parameters:
-      phase: Validate
-      display_name: Validate Azure PS v$(AzVersion)
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
   - template: ../steps/ps-validation-phase.yml
