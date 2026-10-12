@@ -516,12 +516,12 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     $removedCommandOutput = & $azExe group list 2>&1
     $removedCommandText = $removedCommandOutput | Out-String
     $removedCommandText.Trim() | Out-Host
-    if ($packageProfile -eq 'lean' -and $removedCommandText -match '"code"\s*:\s*"ExtensionNotFound"') {
+    if ($packageProfile -eq 'lean' -and $removedCommandText -match '\[ExtensionNotFound\]') {
         Write-Host 'PASS: Removed Resources command reports the extension installation path'
     }
     elseif ($packageProfile -eq 'full' -and
         $removedCommandText -match "\[BundledExtensionLoader\] Loaded 'Resources'" -and
-        $removedCommandText -notmatch '"code"\s*:\s*"ExtensionNotFound"') {
+        $removedCommandText -notmatch '\[ExtensionNotFound\]') {
         Write-Host 'PASS: Resources command fell back to the bundled full-package extension'
     }
     else {

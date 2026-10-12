@@ -22,7 +22,7 @@ namespace Core.Engine
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
     public partial class Engine(
-        ClientType clientType,
+        ClientMetadata clientMetadata,
         ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
@@ -42,7 +42,8 @@ namespace Core.Engine
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Create a per-invocation channel for worker-to-caller communication
-            var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
+            var session = new ExecutionSession(
+                clientMetadata.ClientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
 
             session.EventBus.Publish(Events.SessionCreated,
@@ -67,7 +68,13 @@ namespace Core.Engine
         public ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient = false, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
+            var session = new DiscoverySession(
+                clientMetadata.ClientType,
+                extensionNames,
+                commandName,
+                outputStreams,
+                isTransient,
+                cancellationToken);
             SubscribeAll(session.EventBus);
             session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created" }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
@@ -166,7 +173,7 @@ namespace Core.Engine
             Profile? profile = await profileService.GetProfileAsync(name);
             if (profile is null && explicitOverride)
             {
-                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
             return profile;
         }

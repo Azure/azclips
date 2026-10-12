@@ -4,18 +4,21 @@
 # Smoke test for New-AzVM's public IP and network security group workflows through
 # the built Compute module.
 #
-# Creates four VMs in one resource group, one per public IP mode, and checks the
+# Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields New-AzVM returns:
-#   1. New-AzVM                                    -> creates <vm>PublicIP; PublicIps is set;
+#   1. New-AzVM -SecurityType TrustedLaunch        -> creates <vm>PublicIP; PublicIps is set;
 #                                                     creates <vm>NSG with only the rdp rule
-#   2. New-AzVM -PublicIpAddressName <new name>    -> creates that public IP; PublicIps is set
-#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set;
-#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
+#   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
+#                                                    -> creates that public IP; PublicIps is set
+#   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
+#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
+#               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
 #                                                     anything is created
 #   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
+#   7. optional AZCLIPS_ENABLE_CVM=1               -> creates a ConfidentialVM with OS disk security encryption
 #
 # PrivateIps is checked alongside PublicIps to prove the output was enriched: an
 # empty PublicIps with an empty PrivateIps means the detail lookup never ran.
@@ -36,6 +39,20 @@
 #     Import-Module ./src/PS/Compute/Compute.psd1
 #     Connect-AzAccount
 # The subscription needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+#
+# Standard run:
+#   $env:AZCLIPS_SUBSCRIPTION_ID = '<subscription-id>'
+#   $env:AZCLIPS_VM_ADMIN_PASSWORD = '<test-password>'
+#   ./tests/Scripts/PS/VMCreate.ps1
+#
+# The standard run covers TrustedLaunch, Standard, public IP create/reuse/none,
+# missing public IP validation, and remove/show validation.
+#
+# To also test ConfidentialVM, set:
+#   $env:AZCLIPS_ENABLE_CVM = '1'
+#   $env:AZCLIPS_CVM_IMAGE = 'Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:latest'
+#   $env:AZCLIPS_CVM_SIZE = 'Standard_DC2as_v5'
+#   $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE = 'VMGuestStateOnly'
 #
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
 # created is deleted with Remove-AzResourceGroup, which removes the VMs, public IPs,
@@ -69,9 +86,14 @@ $namedVm           = "vmc-nam-$suffix"
 $reuseVm           = "vmc-reu-$suffix"
 $noneVm            = "vmc-non-$suffix"
 $missingVm         = "vmc-mis-$suffix"
+$cvmVm             = "vmc-cvm-$suffix"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
 $reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
 $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$suffix"
+$cvmEnabled        = $env:AZCLIPS_ENABLE_CVM -eq '1'
+$cvmImage          = $env:AZCLIPS_CVM_IMAGE
+$cvmSize           = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_SIZE)) { 'Standard_DC2as_v5' } else { $env:AZCLIPS_CVM_SIZE }
+$cvmEncryptionType = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE)) { 'VMGuestStateOnly' } else { $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE }
 $existingNsg       = "azclips-vmcreate-existing-nsg-$suffix"
 $existingNsgId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/$existingNsg"
 $defaultNsgId      = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/${defaultVm}NSG"
@@ -184,7 +206,22 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
         SubnetNames           = "$Name-subnet"
         SubnetAddressPrefixes = '10.0.2.0/24'
     }
-    New-AzVM @parameters @Extra
+    foreach ($key in $Extra.Keys)
+    {
+        $parameters[$key] = $Extra[$key]
+    }
+    New-AzVM @parameters
+}
+
+function New-ConfidentialSmokeVM([string]$Name)
+{
+    New-SmokeVM -Name $Name -Extra @{
+        Image = $cvmImage
+        VmSize = $cvmSize
+        SecurityType = 'ConfidentialVM'
+        OSDiskSecurityEncryptionType = $cvmEncryptionType
+        PublicIpAddressName = ''
+    }
 }
 
 function Test-PublicIpResource([string]$Label, [string]$ExpectedName, [string]$ExpectedAddress, [string]$ExpectedSmokeTag = '')
@@ -300,6 +337,7 @@ try
     New-AzResourceGroup -SubscriptionId $subscriptionId -Name $resourceGroup -Location $location
     $groupCreated = $true
 
+    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch (default public IP ${defaultVm}PublicIP) =="
     Write-Host "== pre-create NSG $existingNsg (attached by cases 3 and 4) =="
     $nsgBody = @{
         location = $location
@@ -333,16 +371,16 @@ try
     {
         Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
     }
-
+    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch' }
     Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
     Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
 
-    Write-Host "== 2. New-AzVM -PublicIpAddressName $namedPublicIp (new name) =="
+    Write-Host "== 2. New-AzVM -SecurityType Standard -PublicIpAddressName $namedPublicIp (new name) =="
     $createdVms.Add($namedVm)
-    $namedResult = New-SmokeVM -Name $namedVm -Extra @{ PublicIpAddressName = $namedPublicIp }
+    $namedResult = New-SmokeVM -Name $namedVm -Extra @{ SecurityType = 'Standard'; PublicIpAddressName = $namedPublicIp }
     Test-PublicIp -Label 'named' -Vm $namedResult -ExpectPublicIp $true -ExpectedPublicIpName $namedPublicIp
 
     Write-Host "== 3. New-AzVM -PublicIpAddressName $reusePublicIp -SecurityGroupName $existingNsg (existing names) =="
@@ -425,6 +463,24 @@ try
     catch
     {
         Write-Host "OK: $defaultVm no longer exists"
+    }
+
+    if ($cvmEnabled)
+    {
+        Write-Host "== 7. New-AzVM -SecurityType ConfidentialVM -OSDiskSecurityEncryptionType $cvmEncryptionType =="
+        if ([string]::IsNullOrWhiteSpace($cvmImage))
+        {
+            Add-Failure 'cvm: AZCLIPS_CVM_IMAGE must be set when AZCLIPS_ENABLE_CVM=1'
+        }
+        else
+        {
+            $createdVms.Add($cvmVm)
+            Test-PublicIp -Label 'cvm' -Vm (New-ConfidentialSmokeVM -Name $cvmVm) -ExpectPublicIp $false
+        }
+    }
+    else
+    {
+        Write-Host '== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =='
     }
 
     if ($failures.Count -gt 0)

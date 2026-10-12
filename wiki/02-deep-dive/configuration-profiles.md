@@ -328,14 +328,14 @@ the pointer, never re-authenticating (`src/Extensions/Accounts/Processors/Profil
 
 ```csharp
 Profile profile = await profileService.GetProfileAsync(Name)
-    ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 await profileService.SetActiveProfileNameAsync(profile.Name);
 ```
 
 `profile create` is intentionally **not** offered — profiles are created only as a side effect
 of `login` (design Non-Goals). User-facing creation would go through
 `ProfileNameValidator.ValidateForCreation`, which additionally rejects the reserved name
-`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
+`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:48`).
 
 ### Login semantics
 
@@ -383,7 +383,7 @@ private async Task<Profile?> ResolveProfileAsync(string? profileNameOverride)
 
     Profile? profile = await profileService.GetProfileAsync(name);
     if (profile is null && explicitOverride)
-        throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+        throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
     return profile;
 }
 ```

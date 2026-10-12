@@ -51,7 +51,7 @@ public class CliArgumentValidationTests
             ["long-flag"] = new List<List<string>>(),
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
 
         Assert.Contains("'long-flag'", ex.Message);
         Assert.DoesNotContain("LongFlagProperty", ex.Message);
@@ -72,7 +72,7 @@ public class CliArgumentValidationTests
             ["numeric-flag"] = new List<List<string>> { new() { "not-an-int" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
 
         Assert.Contains("'numeric-flag'", ex.Message);
         Assert.DoesNotContain("NumericFlagProperty", ex.Message);
@@ -147,7 +147,7 @@ public class CliArgumentValidationTests
             [string.Empty] = new List<List<string>> { new() { "core.output.color" }, new() { "always" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("Unrecognized positional argument", ex.Message);
     }
@@ -173,7 +173,7 @@ public class CliArgumentValidationTests
             [string.Empty] = new List<List<string>> { new() { "core.output.color" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("positionally and by flag", ex.Message);
     }
@@ -198,7 +198,7 @@ public class CliArgumentValidationTests
             ["1"] = new List<List<string>> { new() { "always" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("Unable to find parameter: 1", ex.Message);
     }
@@ -220,7 +220,7 @@ public class CliArgumentValidationTests
             ["l"] = new List<List<string>>(),
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("'l'", ex.Message);
         Assert.DoesNotContain("'long-flag'", ex.Message);

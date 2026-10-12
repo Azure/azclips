@@ -296,7 +296,7 @@ public class RoleAssignmentDeleteTests
         DeleteRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
         configure(processor);
 
-        UsageErrorException ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+        UsageErrorException ex = await Assert.ThrowsAnyAsync<UsageErrorException>(() => processor.ProcessAsync());
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
