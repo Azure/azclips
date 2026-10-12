@@ -68,6 +68,9 @@ public sealed class ChatAgent : IAsyncDisposable
     /// </remarks>
     public SessionErrored? StartupError { get; private set; }
 
+    // The gateway this session calls and why; null for the github provider.
+    internal BuiltinEndpoint? Endpoint { get; private set; }
+
     // True when the most recent SendAsync called a turn-closing tool (propose_plan
     // or submit_response). A turn that ends without one — even if it called
     // get_command/bash — replied in prose and broke the act-through-tools contract.
@@ -137,7 +140,9 @@ public sealed class ChatAgent : IAsyncDisposable
         // Appended after ct rather than placed with the other optional parameters: inserting it
         // ahead of ct would rebind the final positional argument of any existing call site from
         // CancellationToken to AuthResult.
-        AuthResult? preAcquiredAuth = null)
+        AuthResult? preAcquiredAuth = null,
+        // The data boundary the host resolved with preAcquiredAuth; null when it is not known.
+        string? dataBoundary = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         using var create = AgentTracing.Source.StartActivity("Agent.Create");
@@ -161,7 +166,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, profileService, azExePath, approvalSink,
-                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -188,6 +193,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string? failedCommand,
         AgentModelTelemetry modelTelemetry,
         AuthResult? preAcquiredAuth,
+        string? dataBoundary,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -246,9 +252,20 @@ public sealed class ChatAgent : IAsyncDisposable
         // error payload, including not_found) FailedCommandHelp skips injection
         // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
+        // A host that already acquired the Azure token (AgentModeEntry does) passes the boundary it
+        // resolved with it; otherwise resolve the boundary here.
+        BuiltinEndpoint? builtinEndpoint = null;
+        if (options.IsBuiltinProvider)
+        {
+            builtinEndpoint = preAcquiredAuth is not null
+                ? BuiltinEndpointResolver.Choose(options.Builtin, dataBoundary)
+                : await BuiltinEndpointResolver.ResolveAsync(options.Builtin, profileService, auth, ct).ConfigureAwait(false);
+        }
+
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth).ConfigureAwait(false);
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct, preAcquiredAuth,
+            builtinEndpoint?.Url).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -258,7 +275,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
-        var agent = new ChatAgent(client, session, modelTelemetry, state);
+        var agent = new ChatAgent(client, session, modelTelemetry, state) { Endpoint = builtinEndpoint };
         self = agent;
         if (earlyError is not null) agent.StartupError = earlyError;
         await modelTelemetry.InitializeAsync(session, ct).ConfigureAwait(false);
@@ -293,7 +310,9 @@ public sealed class ChatAgent : IAsyncDisposable
         string? failedHelp,
         string entrypoint,
         CancellationToken ct,
-        AuthResult? preAcquiredAuth = null)
+        AuthResult? preAcquiredAuth = null,
+        // The resolved gateway URL; null uses agent.builtin.endpoint as configured.
+        string? builtinBaseUrl = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
         if (reasoningEffort is not ("low" or "medium" or "high"))
@@ -398,9 +417,10 @@ public sealed class ChatAgent : IAsyncDisposable
                 sessionConfig.Model = options.Builtin.ModelId;
                 // A host that already acquired the Azure token (AgentModeEntry does, so the same one
                 // covers the ARM data boundary lookup) passes it in; otherwise acquire it here.
+                var baseUrl = builtinBaseUrl ?? options.Builtin.Endpoint;
                 sessionConfig.Provider = preAcquiredAuth is not null
-                    ? BuiltinProviderConfig.Build(options.Builtin, preAcquiredAuth.AccessToken)
-                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                    ? BuiltinProviderConfig.Build(options.Builtin, baseUrl, preAcquiredAuth.AccessToken)
+                    : await BuiltinProviderConfig.BuildAsync(options.Builtin, baseUrl, auth, ct).ConfigureAwait(false);
                 break;
 
             case "github":
