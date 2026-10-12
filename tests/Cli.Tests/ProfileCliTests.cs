@@ -229,7 +229,8 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        var ex = Assert.ThrowsAny<AzclipsErrorException>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        Assert.Equal("ProfileNotFound", ex.Code);
     }
 
     [Fact]
@@ -361,7 +362,7 @@ public sealed class ProfileCliTests
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Equal("alice@contoso.com", fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
         // The profile definition itself is retained; only the active pointer is cleared.
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("prod"));
@@ -376,7 +377,7 @@ public sealed class ProfileCliTests
         fixture.ExecuteCli(["logout"]);
 
         Assert.True(fixture.Auth.LogoutCalled);
-        Assert.Null(fixture.Auth.LastLoggedOutUserPrincipalName);
+        Assert.Equal("prod", fixture.Auth.LastLoggedOutProfileName);
         Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
     }
 
@@ -419,7 +420,8 @@ public sealed class ProfileCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
         public void SeedProfile(string name, string subscriptionId) =>

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Net.Http;
@@ -57,7 +57,8 @@ public class LoginProcessorValidationTests
             if (auth is not null) services.AddSingleton(auth);
             if (subs is not null) services.AddSingleton(subs);
         });
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
         return warns;
     }
 
@@ -148,7 +149,7 @@ public class LoginProcessorValidationTests
         const string invalidSubscriptionId = "Steven Ma [stema] subscription";
         var processor = new LoginProcessor { SubscriptionId = invalidSubscriptionId };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -174,7 +175,7 @@ public class LoginProcessorValidationTests
             SubscriptionId = invalidSubscriptionId,
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -362,6 +363,48 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_NonGuidClientId_NamesSurfaceCorrectFlags(ClientType surface)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor
+        {
+            Identity = true,
+            ClientId = "not-a-guid",
+        };
+        var expected = FlagFor(surface, nameof(LoginProcessor.ClientId));
+        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ClientId));
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_NonGuidObjectId_NamesSurfaceCorrectFlags(ClientType surface)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor
+        {
+            Identity = true,
+            ObjectId = "not-a-guid",
+        };
+        var expected = FlagFor(surface, nameof(LoginProcessor.ObjectId));
+        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ObjectId));
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
     public void ValidateArguments_IdentityWithTenantId_NamesSurfaceCorrectFlags(ClientType surface)
     {
         InitDi(surface);
@@ -491,9 +534,9 @@ public class LoginProcessorValidationTests
         yield return new object[] { "managed-identity-system-assigned",
             new LoginProcessor { Identity = true } };
         yield return new object[] { "managed-identity-with-client-id",
-            new LoginProcessor { Identity = true, ClientId = "c" } };
+            new LoginProcessor { Identity = true, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-object-id",
-            new LoginProcessor { Identity = true, ObjectId = "o" } };
+            new LoginProcessor { Identity = true, ObjectId = "44444444-4444-4444-4444-444444444444" } };
         yield return new object[] { "managed-identity-with-resource-id",
             new LoginProcessor { Identity = true, ResourceId = "r" } };
         yield return new object[] { "re-auth-existing-profile",
@@ -519,7 +562,7 @@ public class LoginProcessorValidationTests
             OutProfile = ProfileNameValidator.ReservedDefaultName,
         };
 
-        Assert.ThrowsAny<ArgumentException>(() => InvokePrivate(
+        Assert.ThrowsAny<UsageErrorException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
     }
 

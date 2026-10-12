@@ -52,11 +52,14 @@ single surface: the recording is shared by both the CLI and PowerShell runs on p
 any real resources the scenario created.
 
 The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
-orchestration: vnet, nsg, nic, and the vm with its polling, thirteen-odd entries in one file.
-Before recording it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network`
-providers registered and quota for one small vm. The subscription comes from the signed-in
-profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which removes
-the vm and all its network resources with it.
+orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
+(`scenario-vmNSG`, with its `rdp` rule), the default public
+IP, nic, and the vm with its polling, then the detail reads behind its output (the vm with
+`$expand=instanceView`, the nic, the public IP), twenty-odd entries in one file. Before recording
+it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network` providers
+registered and quota for one small vm and one Standard public IP. The subscription comes from the
+signed-in profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which
+removes the vm, its public IP, its nsg and all its other network resources with it.
 
 The storage account lifecycle scenario
 (`--filter FullyQualifiedName~StorageAccountLifecycleScenarioTests`) creates a resource group and

@@ -102,7 +102,8 @@ internal sealed class IrIndex
 
     /// <summary>
     /// Property by id, across every model. Properties are not a top-level collection, so this
-    /// is the only way to resolve one — which flattening paths need, since they are property ids.
+    /// is the only way to resolve one — which flattening and pagination references need, since they
+    /// name properties by id.
     /// </summary>
     public IRProperty? Property(IRId? id) => Get(_properties, id);
 

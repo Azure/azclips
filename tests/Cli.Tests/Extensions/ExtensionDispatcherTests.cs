@@ -33,12 +33,12 @@ public class ExtensionDispatcherTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\t")]
-    public void Parse_ShouldThrowArgumentException_WhenFirstTokenIsEmptyOrWhitespace(string token)
+    public void Parse_ShouldThrowUsageError_WhenFirstTokenIsEmptyOrWhitespace(string token)
     {
         // Guards against IndexOutOfRangeException from `args[0][0]` on an empty/whitespace token.
         var dispatcher = new ExtensionDispatcher();
 
-        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse([token]));
+        var exception = Assert.Throws<UsageErrorException>(() => dispatcher.Parse([token]));
         Assert.Contains("Command-group token cannot be empty", exception.Message);
     }
 

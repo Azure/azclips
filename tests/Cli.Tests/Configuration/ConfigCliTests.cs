@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Configuration.Abstractions;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
@@ -50,11 +51,11 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
         var getOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = debug [global config]", getOutput.Single());
+        AssertConfigEntry(getOutput, "core.logging.level", "debug", "global config");
 
         var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
-        Assert.Contains("core.logging.level = debug [global config]", listOutput.Single());
-        Assert.Contains("core.engine.extensionIndexCacheSize = 512 [default]", listOutput.Single());
+        AssertConfigEntry(listOutput, "core.logging.level", "debug", "global config");
+        AssertConfigEntry(listOutput, "core.engine.extensionIndexCacheSize", 512, "default");
 
         var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
         Assert.Contains("core.logging.level", infoOutput.Single());
@@ -62,7 +63,7 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
 
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = warn [default]", getAfterDeleteOutput.Single());
+        AssertConfigEntry(getAfterDeleteOutput, "core.logging.level", "warn", "default");
 
     }
 
@@ -76,7 +77,7 @@ public class ConfigCliTests
         Assert.Contains("Set core.output.color = always", setOutput.Single());
 
         var getOutput = fixture.ExecuteCli(["config", "get", "core.output.color"]);
-        Assert.Contains("core.output.color = always [global config]", getOutput.Single());
+        AssertConfigEntry(getOutput, "core.output.color", "always", "global config");
 
         var deleteOutput = fixture.ExecuteCli(["config", "delete", "core.output.color", "--force"]);
         Assert.Contains("Deleted core.output.color", deleteOutput.Single());
@@ -91,45 +92,80 @@ public class ConfigCliTests
         Assert.Contains("Set core.logging.level = debug", setOutput.Single());
 
         var getOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = debug [global config]", getOutput.Single());
+        AssertConfigEntry(getOutput, "core.logging.level", "debug", "global config");
 
         var setIntegerOutput = fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
         Assert.Contains("Set core.http.maxRetries = 9", setIntegerOutput.Single());
 
         var getIntegerOutput = fixture.ExecuteCli(["config", "get", "--key", "core.http.maxRetries"]);
-        Assert.Contains("core.http.maxRetries = 9 [global config]", getIntegerOutput.Single());
+        AssertConfigEntry(getIntegerOutput, "core.http.maxRetries", 9, "global config");
 
         var listOutput = fixture.ExecuteCli(["config", "list"]);
-        Assert.Contains("core.logging.level = debug [global config]", listOutput.Single());
-        Assert.Contains("core.http.maxRetries = 9 [global config]", listOutput.Single());
+        AssertConfigEntry(listOutput, "core.logging.level", "debug", "global config");
+        AssertConfigEntry(listOutput, "core.http.maxRetries", 9, "global config");
 
         var deleteOutput = fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
         Assert.Contains("Deleted core.logging.level", deleteOutput.Single());
 
         var getDeletedOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = warn [default]", getDeletedOutput.Single());
+        AssertConfigEntry(getDeletedOutput, "core.logging.level", "warn", "default");
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnJsonForListAndSchemaInfo()
+    public void CliInvocation_ShouldReturnStructuredListAndSchemaInfo()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
-        var listJsonOutput = fixture.ExecuteCli(["config", "list", "--all", "--json"]);
+        var listJsonOutput = fixture.ExecuteCli(["config", "list", "--all", "--output", "json"]);
         var listEntries = JsonNode.Parse(listJsonOutput.Single())!.AsArray();
-        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Value"]?.GetValue<string>(), "debug", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Source"]?.GetValue<string>(), "global config", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.engine.extensionIndexCacheSize", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry?["Source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(listEntries, entry => string.Equals(entry?["key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["value"]?.GetValue<string>(), "debug", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["source"]?.GetValue<string>(), "global config", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(listEntries, entry => string.Equals(entry?["key"]?.GetValue<string>(), "core.engine.extensionIndexCacheSize", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
 
         var infoOutput = fixture.ExecuteCli(["config", "info"]);
         Assert.DoesNotContain("\\u0027", infoOutput.Single(), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("'auto'", infoOutput.Single(), StringComparison.Ordinal);
         var infoEntries = JsonNode.Parse(infoOutput.Single())!.AsArray();
-        Assert.Contains(infoEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(infoEntries, entry => string.Equals(entry?["key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldFormatConfigCommandsAsTables()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        var getOutput = fixture.ExecuteCli(["config", "get", "core.logging.level", "--output", "table"]).Single();
+        Assert.Contains("key", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("value", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source", getOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core.logging.level", getOutput);
+        Assert.Contains("debug", getOutput);
+
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all", "--output", "table"]).Single();
+        Assert.Contains("core.logging.level", listOutput);
+        Assert.Contains("core.engine.extensionIndexCacheSize", listOutput);
+
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--output", "table"]).Single();
+        Assert.Contains("description", infoOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core.logging.level", infoOutput);
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldConstrainConfigTableToTerminalWidth()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: 60).Single();
+
+        Assert.All(
+            output.Split('\n'),
+            line => Assert.True(line.Length <= 60, $"Expected line at most 60 characters, but got {line.Length}: {line}"));
     }
 
     [Fact]
@@ -142,7 +178,7 @@ public class ConfigCliTests
 
         // Verify global config is set
         var globalOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = debug [global config]", globalOutput.Single());
+        AssertConfigEntry(globalOutput, "core.logging.level", "debug", "global config");
 
         // Set environment variable (this persists for subsequent CLI invocations within the fixture)
         Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
@@ -151,7 +187,7 @@ public class ConfigCliTests
         {
             // Get value with environment override
             var envOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-            Assert.Contains("core.logging.level = error [environment]", envOutput.Single());
+            AssertConfigEntry(envOutput, "core.logging.level", "error", "environment");
         }
         finally
         {
@@ -168,45 +204,38 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
-        var text = output.Single();
-
-        Assert.Contains("logging.level = debug", text);
-        Assert.Contains("http.maxRetries = 9", text);
-        Assert.DoesNotContain("[global config]", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("[default]", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("[environment]", text, StringComparison.OrdinalIgnoreCase);
+        AssertConfigEntry(output, "logging.level", "debug", "global config");
+        AssertConfigEntry(output, "http.maxRetries", 9, "global config");
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSubsection()
+    public void CliInvocation_ShouldReturnRelativeEntries_WhenGettingSubsection()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
-        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging", "--json"]);
-        var json = JsonNode.Parse(output.Single())!.AsObject();
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging", "--output", "json"]);
 
-        Assert.Equal("debug", json["level"]?.GetValue<string>());
+        AssertConfigEntry(output, "level", "debug", "global config");
     }
 
     [Fact]
-    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSection()
+    public void CliInvocation_ShouldReturnRelativeEntries_WhenGettingSection()
     {
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
         fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
 
-        var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
-        var json = JsonNode.Parse(output.Single())!.AsObject();
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--output", "json"]);
 
-        Assert.Equal("debug", json["logging"]?["level"]?.GetValue<string>());
-        Assert.Equal(9, json["http"]?["maxRetries"]?.GetValue<int>());
+        AssertConfigEntry(output, "logging.level", "debug", "global config");
+        AssertConfigEntry(output, "http.maxRetries", 9, "global config");
     }
 
     [Fact]
-    public void CliInvocation_ShouldPreserveLeafOutputFormat_WhenGettingSingleKey()
+    public void CliInvocation_ShouldReturnStructuredOutput_WhenGettingSingleKey()
     {
         using var fixture = new ConfigCommandFixture();
 
@@ -214,7 +243,8 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
 
-        Assert.Equal("core.logging.level = debug [global config]", output.Single());
+        Assert.IsType<JsonObject>(JsonNode.Parse(output.Single()));
+        AssertConfigEntry(output, "core.logging.level", "debug", "global config");
     }
 
     [Fact]
@@ -239,7 +269,7 @@ public class ConfigCliTests
         try
         {
             var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
-            Assert.Contains("logging.level = error", output.Single());
+            AssertConfigEntry(output, "logging.level", "error", "environment");
         }
         finally
         {
@@ -256,7 +286,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
 
-        Assert.Contains("logging.level = warn", output.Single());
+        AssertConfigEntry(output, "logging.level", "warn", "default");
     }
 
     [Fact]
@@ -268,11 +298,14 @@ public class ConfigCliTests
 
         try
         {
-            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
-            var json = JsonNode.Parse(output.Single())!.AsObject();
+            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--output", "json"]);
+            var entries = JsonNode.Parse(output.Single())!.AsArray();
+            var loggingEntry = Assert.Single(
+                entries,
+                entry => entry?["key"]?.GetValue<string>() == "logging.level");
 
-            Assert.Equal("structured", json["logging"]?["level"]?["kind"]?.GetValue<string>());
-            Assert.True(json["logging"]?["level"]?["enabled"]?.GetValue<bool>());
+            Assert.Equal("structured", loggingEntry?["value"]?["kind"]?.GetValue<string>());
+            Assert.True(loggingEntry?["value"]?["enabled"]?.GetValue<bool>());
         }
         finally
         {
@@ -291,11 +324,11 @@ public class ConfigCliTests
 
         // Retrieve the defaults parameter
         var getOutput = fixture.ExecuteCli(["config", "get", "--key", "defaults.group"]);
-        Assert.Contains("defaults.group = my-rg [global config]", getOutput.Single());
+        AssertConfigEntry(getOutput, "defaults.group", "my-rg", "global config");
 
         // Verify it appears in list
         var listOutput = fixture.ExecuteCli(["config", "list"]);
-        Assert.Contains("defaults.group = my-rg [global config]", listOutput.Single());
+        AssertConfigEntry(listOutput, "defaults.group", "my-rg", "global config");
     }
 
     [Fact]
@@ -323,7 +356,39 @@ public class ConfigCliTests
 
         // Retrieve it
         var getOutput = fixture.ExecuteCli(["config", "get", "--key", "made.up.key"]);
-        Assert.Contains("made.up.key = value [global config]", getOutput.Single());
+        AssertConfigEntry(getOutput, "made.up.key", "value", "global config");
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldRejectRemovedJsonParameter()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var exception = Assert.Throws<UsageErrorException>(() =>
+            fixture.ExecuteCli(["config", "get", "core.logging.level", "--json"]));
+
+        Assert.Contains("Unable to find parameter: json", exception.Message);
+    }
+
+    private static void AssertConfigEntry(
+        IReadOnlyList<string> output,
+        string key,
+        object expectedValue,
+        string expectedSource)
+    {
+        var result = JsonNode.Parse(output.Single());
+        var entry = result switch
+        {
+            JsonObject configEntry when configEntry["key"]?.GetValue<string>() == key => configEntry,
+            JsonArray entries => Assert.Single(entries, item => item?["key"]?.GetValue<string>() == key),
+            _ => null
+        };
+
+        Assert.NotNull(entry);
+        Assert.True(
+            JsonNode.DeepEquals(JsonValue.Create(expectedValue), entry?["value"]),
+            $"Expected value '{expectedValue}', but got '{entry?["value"]}'.");
+        Assert.Equal(expectedSource, entry?["source"]?.GetValue<string>());
     }
 
     private sealed class ConfigCommandFixture : IDisposable
@@ -365,21 +430,31 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            AzclipsServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(
+                new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
 
-        public IReadOnlyList<string> ExecuteCli(string[] args)
+        public IReadOnlyList<string> ExecuteCli(string[] args, int? terminalWidth = null)
         {
             _outputs.Clear();
 
+            var globalArgs = GlobalArgParser.Parse(args);
             var dispatcher = BuildDispatcher();
-            var invocation = dispatcher.Parse(args);
+            var invocation = dispatcher.Parse(globalArgs.Positional.ToArray());
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+            var format = globalArgs.Output ?? OutputFormat.Json;
+            var simpleFormat = globalArgs.Output ?? OutputFormat.Tsv;
 
             var streams = new OutputStreams(
                 WriteOutput: (value, _) =>
                 {
-                    _outputs.Add(Convert.ToString(value) ?? string.Empty);
+                    _outputs.Add(CliOutputFormatter.FormatValue(
+                        value,
+                        format,
+                        simpleFormat,
+                        colorPolicyAllowsColor: false,
+                        globalArgs.Query,
+                        terminalWidth));
                     return Task.CompletedTask;
                 },
                 WriteVerbose: (_, _) => Task.CompletedTask,
@@ -521,11 +596,11 @@ public class ConfigCliTests
         var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
-        Assert.Contains("Json", getMetadata.Parameters.Keys);
+        Assert.DoesNotContain("Json", getMetadata.Parameters.Keys);
 
         var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
         Assert.Contains("All", listMetadata.Parameters.Keys);
-        Assert.Contains("Json", listMetadata.Parameters.Keys);
+        Assert.DoesNotContain("Json", listMetadata.Parameters.Keys);
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider
@@ -555,4 +630,3 @@ public class ConfigCliTests
         }
     }
 }
-
