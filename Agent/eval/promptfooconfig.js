@@ -13,10 +13,13 @@ const { loadJudgeConfiguration } = require('./judge/judge-azure');
 
 const runtimePrompt = readRuntimePrompt();
 
+// Case inputs are part of the suite identity, so they must not change with run provenance. Run
+// provenance is uploaded as run metadata instead; these historical constants keep recorded
+// baselines comparable.
 const runContext = {
-  commit: process.env.EVAL_COMMIT || 'local',
-  branch: process.env.EVAL_BRANCH || 'local',
-  run_at: process.env.EVAL_RUN_AT || 'local',
+  commit: 'local',
+  branch: 'local',
+  run_at: 'local',
   flavor: process.env.AZURECLI_FLAVOR || 'azure cli',
   signed_in: process.env.AZCLIPS_EVALUATION_SIGNED_IN === 'true',
   subscription_id: process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || '',
