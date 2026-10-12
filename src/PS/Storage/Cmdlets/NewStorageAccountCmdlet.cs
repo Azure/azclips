@@ -9,6 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
 [Cmdlet(VerbsCommon.New, "AzStorageAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount")]
 public class NewStorageAccountCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

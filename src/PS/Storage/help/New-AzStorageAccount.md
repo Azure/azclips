@@ -1711,7 +1711,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount
 
 The newly-created `StorageAccount` object, including its assigned ARM resource ID, provisioning state, SKU, kind, and service endpoints.
 

@@ -208,6 +208,18 @@ public class StorageAccountCmdletTests
         Assert.All(property.GetCustomAttributes<ParameterAttribute>(), a => Assert.False(a.Mandatory));
     }
 
+    [Theory]
+    [InlineData(typeof(NewStorageAccountCmdlet))]
+    [InlineData(typeof(GetStorageAccountCmdlet))]
+    public void AccountReturningCmdlets_DeclareTheStorageAccountOutputType(Type cmdletType)
+    {
+        // Generated help and pipeline tooling read the type from here; without it New- advertised System.Object.
+        var outputType = cmdletType.GetCustomAttribute<OutputTypeAttribute>();
+
+        Assert.NotNull(outputType);
+        Assert.Equal(["Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount"], outputType.Type.Select(type => type.Name));
+    }
+
     // ── Closed value sets ──
 
     [Fact]
