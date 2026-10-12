@@ -250,6 +250,18 @@ export {
   PSPreviewSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
+  CliParameterSetMembershipSchema,
+  CliExampleSchema,
+  CliPreviewSchema,
+  CliDeprecatedSchema,
+  CliDeprecatedAliasSchema,
+  ApiReferenceSchema,
+  CLI_TOKEN_PATTERN,
+  CLI_SHORT_OPTION_PATTERN,
+  CLI_COMMAND_NAME_PATTERN,
+  cliCommandTokens,
+  cliSpellings,
+  cliMandatory,
   type IRClientDialect,
   type PsModuleDialect,
   type PsCommandDialect,
@@ -260,7 +272,15 @@ export {
   type PSPreview,
   type CliCommandDialect,
   type CliParameterDialect,
+  type CliParameterSetMembership,
+  type CliExample,
+  type CliPreview,
+  type CliDeprecated,
+  type CliDeprecatedAlias,
+  type ApiReference,
 } from "./dialect.js";
+
+export { checkCliCommands } from "./cli.js";
 
 export {
   IRTargetSchema,

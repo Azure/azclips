@@ -123,6 +123,64 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
+    public void CliDialects_RoundTripCommandAndParameterMetadata()
+    {
+        CliCommandDialect command = Parse<CliCommandDialect>(
+            """
+            {
+              "name": "elastic-san list",
+              "hidden": false,
+              "defaultParameterSet": "BySubscription",
+              "examples": [{ "title": "List in a group", "command": "az elastic-san list -g rg | jq length" }],
+              "preview": { "estimatedGaDate": "2027-01-01" },
+              "deprecated": { "replacement": "elastic-san show", "removalVersion": "3.0.0" },
+              "api": [{ "method": "GET", "path": "/subscriptions/{subscriptionId}/providers/Microsoft.ElasticSan/elasticSans", "apiVersion": "2024-05-01" }]
+            }
+            """);
+
+        CliCommandDialect commandRoundTrip = Parse<CliCommandDialect>(
+            JsonSerializer.Serialize(command, IrJson.Options));
+
+        Assert.Equal("elastic-san list", commandRoundTrip.Name);
+        Assert.Equal("BySubscription", commandRoundTrip.DefaultParameterSet);
+        Assert.Equal("az elastic-san list -g rg | jq length", Assert.Single(commandRoundTrip.Examples!).Command);
+        Assert.Equal("2027-01-01", commandRoundTrip.Preview!.EstimatedGaDate);
+        Assert.Equal("elastic-san show", commandRoundTrip.Deprecated!.Replacement);
+        Assert.Equal(ApiReferenceMethod.GET, Assert.Single(commandRoundTrip.Api!).Method);
+
+        CliParameterDialect parameter = Parse<CliParameterDialect>(
+            """
+            {
+              "name": "resource-group",
+              "aliases": ["g"],
+              "parameterSets": [{ "set": "ByResourceGroup", "mandatory": true }],
+              "group": "Resource Id",
+              "validateSet": ["Premium", "PayAsYouGo"],
+              "deprecatedAliases": [{ "name": "resource-group-name", "hidden": true, "removalVersion": "3.0.0" }]
+            }
+            """);
+
+        CliParameterDialect suggested = Parse<CliParameterDialect>(
+            """{ "name": "access-tier", "completer": [{ "kind": "string", "value": "Hot" }, { "kind": "string", "value": "Cool" }] }""");
+        Assert.Equal("Hot", Assert.IsType<IRLiteralValueString>(
+            Parse<CliParameterDialect>(JsonSerializer.Serialize(suggested, IrJson.Options)).Completer![0]).Value);
+
+        CliParameterDialect parameterRoundTrip = Parse<CliParameterDialect>(
+            JsonSerializer.Serialize(parameter, IrJson.Options));
+
+        Assert.Equal("g", Assert.Single(parameterRoundTrip.Aliases!));
+        CliParameterSetMembership membership = Assert.Single(parameterRoundTrip.ParameterSets!);
+        Assert.Equal("ByResourceGroup", membership.Set);
+        Assert.True(membership.Mandatory);
+        Assert.Equal("Resource Id", parameterRoundTrip.Group);
+        Assert.Equal(new[] { "Premium", "PayAsYouGo" }, parameterRoundTrip.ValidateSet);
+        CliDeprecatedAlias deprecatedAlias = Assert.Single(parameterRoundTrip.DeprecatedAliases!);
+        Assert.Equal("resource-group-name", deprecatedAlias.Name);
+        Assert.True(deprecatedAlias.Hidden);
+        Assert.Equal("3.0.0", deprecatedAlias.RemovalVersion);
+    }
+
+    [Fact]
     public void PowerShellModuleDialect_RoundTripsOnTarget()
     {
         IRTarget target = Parse<IRTarget>(

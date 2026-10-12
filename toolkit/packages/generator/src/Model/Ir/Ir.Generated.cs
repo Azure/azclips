@@ -9,6 +9,25 @@ using System.Text.Json.Serialization;
 
 namespace Ace.Generator.Model.Ir;
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ApiReferenceMethod
+{
+    [JsonStringEnumMemberName("GET")]
+    GET,
+    [JsonStringEnumMemberName("PUT")]
+    PUT,
+    [JsonStringEnumMemberName("POST")]
+    POST,
+    [JsonStringEnumMemberName("DELETE")]
+    DELETE,
+    [JsonStringEnumMemberName("PATCH")]
+    PATCH,
+    [JsonStringEnumMemberName("HEAD")]
+    HEAD,
+    [JsonStringEnumMemberName("OPTIONS")]
+    OPTIONS
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ClientApiHintVisibility
 {
     [JsonStringEnumMemberName("public")]
@@ -573,10 +592,22 @@ public enum SerializationHintOmitWhen
     Default
 }
 
+public partial class ApiReference
+{
+    [JsonPropertyName("method")]
+    public ApiReferenceMethod Method { get; set; }
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = default !;
+
+    [JsonPropertyName("apiVersion")]
+    public string ApiVersion { get; set; } = default !;
+}
+
 public partial class CliCommandDialect
 {
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = default !;
 
     [JsonPropertyName("aliases")]
     public IReadOnlyList<string>? Aliases { get; set; }
@@ -587,8 +618,62 @@ public partial class CliCommandDialect
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [JsonPropertyName("path")]
-    public IReadOnlyList<string> Path { get; set; } = [];
+    [JsonPropertyName("defaultParameterSet")]
+    public string? DefaultParameterSet { get; set; }
+
+    [JsonPropertyName("examples")]
+    public IReadOnlyList<CliExample>? Examples { get; set; }
+
+    [JsonPropertyName("preview")]
+    public CliPreview? Preview { get; set; }
+
+    [JsonPropertyName("deprecated")]
+    public CliDeprecated? Deprecated { get; set; }
+
+    [JsonPropertyName("api")]
+    public IReadOnlyList<ApiReference>? Api { get; set; }
+}
+
+public partial class CliDeprecated
+{
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("replacement")]
+    public string? Replacement { get; set; }
+
+    [JsonPropertyName("removalDate")]
+    public string? RemovalDate { get; set; }
+
+    [JsonPropertyName("removalVersion")]
+    public string? RemovalVersion { get; set; }
+}
+
+public partial class CliDeprecatedAlias
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("removalDate")]
+    public string? RemovalDate { get; set; }
+
+    [JsonPropertyName("removalVersion")]
+    public string? RemovalVersion { get; set; }
+}
+
+public partial class CliExample
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = default !;
 }
 
 public partial class CliParameterDialect
@@ -605,14 +690,44 @@ public partial class CliParameterDialect
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [JsonPropertyName("flag")]
-    public string Flag { get; set; } = default !;
-
-    [JsonPropertyName("shorthand")]
-    public string? Shorthand { get; set; }
+    [JsonPropertyName("parameterSets")]
+    public IReadOnlyList<CliParameterSetMembership>? ParameterSets { get; set; }
 
     [JsonPropertyName("group")]
     public string? Group { get; set; }
+
+    [JsonPropertyName("validateSet")]
+    public IReadOnlyList<string>? ValidateSet { get; set; }
+
+    [JsonPropertyName("completer")]
+    public IReadOnlyList<IRLiteralValue>? Completer { get; set; }
+
+    [JsonPropertyName("preview")]
+    public CliPreview? Preview { get; set; }
+
+    [JsonPropertyName("deprecated")]
+    public CliDeprecated? Deprecated { get; set; }
+
+    [JsonPropertyName("deprecatedAliases")]
+    public IReadOnlyList<CliDeprecatedAlias>? DeprecatedAliases { get; set; }
+}
+
+public partial class CliParameterSetMembership
+{
+    [JsonPropertyName("set")]
+    public string? Set { get; set; }
+
+    [JsonPropertyName("mandatory")]
+    public bool Mandatory { get; set; }
+}
+
+public partial class CliPreview
+{
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("estimatedGaDate")]
+    public string? EstimatedGaDate { get; set; }
 }
 
 public partial class ClientApiHint

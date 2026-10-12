@@ -17,6 +17,7 @@ import { IRSourceSchema, type IRSource } from "./source.js";
 import { IRServerDefinitionSchema, type IRServerDefinition } from "./server.js";
 import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discriminated-union.js";
 import { IRCommandSchema, commandActionKey, commandKey, type IRCommand } from "./command.js";
+import { checkCliCommands } from "./cli.js";
 import { IRTargetSchema, type IRTarget } from "./target.js";
 import { idKey, serializeId, type IRId } from "./id.js";
 
@@ -299,6 +300,9 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         });
       }
     });
+
+    // CLI families span commands, so they are checked here rather than per dialect.
+    checkCliCommands(ir, ctx);
   });
 
 /** Parse-and-validate a transformed IR document. Throws a ZodError on failure. */

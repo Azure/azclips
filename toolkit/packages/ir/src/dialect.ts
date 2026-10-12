@@ -39,6 +39,7 @@
 import { z } from "zod";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
+import { HttpMethods, type HttpMethod } from "./operation.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
 
@@ -299,39 +300,379 @@ export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
 // ─── CLI ────────────────────────────────────────────────────────────────
 
 /**
- * A command as a CLI verb.
+ * Stored CLI spellings are bare: no leading dashes, matching the runtime's parameter
+ * and alias dictionaries. A command-name token or long option is lowercase kebab-case;
+ * a short option is a single ASCII letter or digit.
+ */
+export const CLI_TOKEN_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const CLI_SHORT_OPTION_PATTERN = /^[A-Za-z0-9]$/;
+/** A command name: tokens separated by single spaces, without the executable. */
+export const CLI_COMMAND_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?: [a-z0-9]+(?:-[a-z0-9]+)*)*$/;
+
+/**
+ * Preview marker. Field names follow `PSPreview` so the two can later move into a
+ * shared parent; `message` is optional here because the CLI runtime can print a
+ * standard notice. GA is the default when neither `preview` nor `deprecated` is set.
+ */
+export type CliPreview = {
+  message?: string | undefined;
+  /** Expected GA date, ISO 8601 (`2027-03-31`). */
+  estimatedGaDate?: string | undefined;
+};
+
+export const CliPreviewSchema: z.ZodType<CliPreview> = z
+  .object({
+    message: z.string().min(1).optional(),
+    estimatedGaDate: z.string().date().optional(),
+  })
+  .strict();
+
+/**
+ * Deprecation marker. A superset of `PSDeprecated`: Azure CLI deprecations also
+ * name a replacement and when the item goes away. Hiding a deprecated item is the
+ * existing `hidden` field.
+ */
+export type CliDeprecated = {
+  message?: string | undefined;
+  /** Replacement command name or long option, bare. */
+  replacement?: string | undefined;
+  /** ISO 8601 date after which the item may be removed. */
+  removalDate?: string | undefined;
+  /** Release in which the item is removed. */
+  removalVersion?: string | undefined;
+};
+
+export const CliDeprecatedSchema: z.ZodType<CliDeprecated> = z
+  .object({
+    message: z.string().min(1).optional(),
+    replacement: z.string().min(1).optional(),
+    removalDate: z.string().date().optional(),
+    removalVersion: z.string().min(1).optional(),
+  })
+  .strict();
+
+/**
+ * An old spelling that keeps working while users move to the parameter's `name`, as
+ * Azure CLI's `c.deprecate(target='--old-name', redirect='--name')` inside an
+ * `options_list`. The replacement is always the parameter's `name`; the other fields
+ * follow `CliDeprecated`.
+ */
+export type CliDeprecatedAlias = {
+  /** The old spelling, bare, under the same rules as `aliases`. */
+  name: string;
+  /** Keep the old spelling out of help and completion; it still parses. */
+  hidden?: boolean | undefined;
+  message?: string | undefined;
+  /** ISO 8601 date after which the spelling may be removed. */
+  removalDate?: string | undefined;
+  /** Release in which the spelling is removed. */
+  removalVersion?: string | undefined;
+};
+
+export const CliDeprecatedAliasSchema: z.ZodType<CliDeprecatedAlias> = z
+  .object({
+    name: z.string().min(1),
+    hidden: z.boolean().optional(),
+    message: z.string().min(1).optional(),
+    removalDate: z.string().date().optional(),
+    removalVersion: z.string().min(1).optional(),
+  })
+  .strict();
+
+/**
+ * One source API a command calls. Split into the same parts `IROperation` stores, so
+ * the transformer can copy them from `steps[].operation`; a handwritten customization
+ * writes them itself. A `getPut` command or an orchestrator lists several. Same concept
+ * as PowerShell's `httpPath` (AutoRest's `[HttpPath]`); proposed as one shared field.
+ */
+export type ApiReference = {
+  method: HttpMethod;
+  path: string;
+  apiVersion: string;
+};
+
+export const ApiReferenceSchema: z.ZodType<ApiReference> = z
+  .object({
+    method: z.enum(HttpMethods),
+    path: z.string().min(1),
+    apiVersion: z.string().min(1),
+  })
+  .strict();
+
+/**
+ * One command-line example. Structured because the help consumer receives
+ * `"title | command"` strings and splits them at the first pipe, so a shell pipe in an
+ * untitled raw string would be misread as a title separator. Regular code generation
+ * leaves examples empty; a build-time step fills them.
+ */
+export type CliExample = {
+  /** Short description of what the example does. Must not contain `|`. */
+  title?: string | undefined;
+  /** The full command line. May contain shell pipes. */
+  command: string;
+};
+
+export const CliExampleSchema: z.ZodType<CliExample> = z
+  .object({
+    title: z
+      .string()
+      .min(1)
+      .refine((title) => !title.includes("|"), {
+        message: "An example title cannot contain `|`; help splits title and command at the first pipe.",
+      })
+      .optional(),
+    command: z.string().min(1),
+  })
+  .strict();
+
+/**
+ * A command as a CLI command.
  *
- * Where PowerShell folds sibling variants into one cmdlet with several parameter
- * sets, the CLI generally surfaces them as one command whose flags differ — so
- * `path` is normally shared across siblings too.
+ * Every command is one atomic processor, and its `id.variant` is its parameter set.
+ * Sibling commands (same `commandActionKey`) with the same `name` form one public
+ * command, one set per sibling. Siblings may also take different names, as
+ * scope-specific deployment commands do.
+ *
+ * Two ways not to be offered:
+ *   - no `dialect.cli` at all: the CLI has nothing to do with the command;
+ *   - `hidden: true`: the CLI metadata exists and stays usable internally, for example
+ *     by a customization wrapping the processor, but users cannot invoke it.
  */
 export type CliCommandDialect = IRClientDialect & {
-  /** Invocation path, outermost first (`["elastic-san", "create"]`). */
-  path: string[];
+  /** Identifier and invocation: `elastic-san list`, without the executable. */
+  name: string;
+  /**
+   * Set chosen when selection cannot decide between candidate sets. A family-level
+   * fact: same-name siblings must agree on it, and it must name one sibling's
+   * `id.variant`. Checked across commands, in `checkCliCommands`.
+   */
+  defaultParameterSet?: string | undefined;
+  /** CLI command-line examples, not API request samples. */
+  examples?: CliExample[] | undefined;
+  preview?: CliPreview | undefined;
+  deprecated?: CliDeprecated | undefined;
+  /** The source API(s) behind this command: API → IR operation → IR command → dialect. */
+  api?: ApiReference[] | undefined;
 };
 
 export const CliCommandDialectSchema: z.ZodType<CliCommandDialect> = z
   .object({
     ...clientDialectFields,
-    path: z.array(z.string().min(1)).min(1),
+    name: z
+      .string()
+      .regex(CLI_COMMAND_NAME_PATTERN, "A CLI command name is lowercase kebab-case tokens separated by single spaces."),
+    defaultParameterSet: z.string().min(1).optional(),
+    examples: z.array(CliExampleSchema).min(1).optional(),
+    preview: CliPreviewSchema.optional(),
+    deprecated: CliDeprecatedSchema.optional(),
+    api: z.array(ApiReferenceSchema).min(1).optional(),
+  })
+  .strict()
+  .superRefine((dialect, ctx) => {
+    // Aliases are alternate complete names, space-joined like `CommandMetadata.Aliases`.
+    const seen = new Set<string>([dialect.name]);
+    dialect.aliases?.forEach((alias, index) => {
+      if (!CLI_COMMAND_NAME_PATTERN.test(alias)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CLI command alias '${alias}' must be lowercase kebab-case tokens separated by single spaces.`,
+          path: ["aliases", index],
+        });
+      }
+      if (seen.has(alias)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CLI command alias '${alias}' repeats the name or another alias.`,
+          path: ["aliases", index],
+        });
+      }
+      seen.add(alias);
+    });
+  });
+
+/** Command name tokens, outermost first. */
+export function cliCommandTokens(dialect: CliCommandDialect): string[] {
+  return dialect.name.split(" ");
+}
+
+/**
+ * A parameter's membership in its command's parameter set — the CLI subset of
+ * `PsParameterSetMembership`. PowerShell's `position`, `valueFromPipeline` and
+ * `valueFromPipelineByPropertyName` have no CLI meaning: generated commands take no
+ * positionals and the CLI has no object pipeline.
+ */
+export type CliParameterSetMembership = {
+  /** The command's `id.variant`. Absent means the command's own (only) set. */
+  set?: string | undefined;
+  /** Whether this set requires a value. Overrides `IRCommandParameter.required`. */
+  mandatory: boolean;
+};
+
+export const CliParameterSetMembershipSchema: z.ZodType<CliParameterSetMembership> = z
+  .object({
+    set: z.string().min(1).optional(),
+    mandatory: z.boolean(),
   })
   .strict();
 
-/** A command parameter as a CLI flag. */
+/**
+ * A command parameter as a CLI argument.
+ *
+ * Every non-internal parameter of an exposed command carries one: either presented
+ * through `name`, or kept out of the syntax with `hidden`. Omitting it is a validation
+ * error, because silently dropping a parameter changes what the command does.
+ */
 export type CliParameterDialect = IRClientDialect & {
-  /** Long flag, without leading dashes (`base-size-tib`). */
-  flag: string;
-  /** Single-character short flag, without its dash (`n`). */
-  shorthand?: string | undefined;
-  /** Help grouping, for commands with a large flag surface. */
+  /**
+   * Membership in the command's set. A generated command is one processor, so at most
+   * one entry, naming the command's own variant. Absent means a member, with shared
+   * `IRCommandParameter.required` as its requiredness. Extra sets declared by
+   * customizations live on their C# attributes and are merged at build time.
+   */
+  parameterSets?: CliParameterSetMembership[] | undefined;
+  /**
+   * Help section only, never parameter-set membership: arguments from different groups
+   * are combined in one invocation. Transformer default, as in AAZ: the name of the body
+   * object that was flattened into this flag (`source.via`), e.g. `Properties`, `Sku`.
+   * Stored bare, as legacy `arg_group` is; the generator appends ` Arguments` for
+   * `[ParameterGroup]`. `Global` is reserved for the global arguments.
+   */
   group?: string | undefined;
+  /**
+   * Values the CLI accepts, nothing else: a closed enum, projected by the transformer
+   * from the shared enum as PowerShell's is. Never an open enum's members, which the
+   * service may extend; those go in `completer`.
+   */
+  validateSet?: string[] | undefined;
+  /**
+   * Values offered for completion without restricting input: an open enum's known
+   * members. Same shape as PowerShell's `completer`. The alternative to `validateSet`.
+   */
+  completer?: IRLiteralValue[] | undefined;
+  preview?: CliPreview | undefined;
+  deprecated?: CliDeprecated | undefined;
+  /** Old spellings that still parse but are deprecated in favour of `name`. */
+  deprecatedAliases?: CliDeprecatedAlias[] | undefined;
 };
+// Inherited: `name` is the canonical long option, required unless `hidden`; `aliases`
+// are extra spellings, one character meaning a short option; `hidden` keeps the
+// parameter out of the CLI syntax while its shared binding stays; `description`.
 
 export const CliParameterDialectSchema: z.ZodType<CliParameterDialect> = z
   .object({
     ...clientDialectFields,
-    flag: z.string().min(1),
-    shorthand: z.string().length(1).optional(),
-    group: z.string().min(1).optional(),
+    parameterSets: z.array(CliParameterSetMembershipSchema).min(1).max(1).optional(),
+    group: z
+      .string()
+      .min(1)
+      .refine((group) => group === group.trim(), { message: "A CLI group has no leading or trailing spaces." })
+      .refine((group) => !/(^|\s)arguments$/i.test(group), {
+        message: "A CLI group is stored bare (`Properties`); the generator appends ` Arguments`.",
+      })
+      .refine((group) => group.toLowerCase() !== "global", {
+        message: "The CLI group `Global` is reserved for the global arguments.",
+      })
+      .optional(),
+    validateSet: z.array(z.string().min(1)).min(1).optional(),
+    completer: z.array(IRLiteralValueSchema).min(1).optional(),
+    preview: CliPreviewSchema.optional(),
+    deprecated: CliDeprecatedSchema.optional(),
+    deprecatedAliases: z.array(CliDeprecatedAliasSchema).min(1).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((dialect, ctx) => {
+    if (dialect.validateSet !== undefined && dialect.completer !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "A CLI parameter has either a ValidateSet (closed values) or a completer (suggestions), not both; " +
+          "a ValidateSet already completes.",
+        path: ["completer"],
+      });
+    }
+
+    if (dialect.hidden === true) {
+      dialect.parameterSets?.forEach((membership, index) => {
+        if (membership.mandatory) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "A hidden CLI parameter cannot be mandatory: the CLI offers no way to supply it.",
+            path: ["parameterSets", index, "mandatory"],
+          });
+        }
+      });
+    } else if (dialect.name === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "An exposed CLI parameter needs a `name`; use `hidden: true` to keep it out of the syntax.",
+        path: ["name"],
+      });
+    }
+
+    if (dialect.deprecatedAliases !== undefined && (dialect.hidden === true || dialect.name === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Deprecated aliases redirect to the parameter's `name`, so a hidden or unnamed CLI parameter cannot have them.",
+        path: ["deprecatedAliases"],
+      });
+    }
+
+    const values = new Set<string>();
+    dialect.validateSet?.forEach((value, index) => {
+      if (values.has(value.toLowerCase())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `ValidateSet value '${value}' is declared more than once; the CLI compares values case-insensitively.`,
+          path: ["validateSet", index],
+        });
+      }
+      values.add(value.toLowerCase());
+    });
+
+    if (dialect.name === undefined) return;
+    if (!CLI_TOKEN_PATTERN.test(dialect.name) || dialect.name.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `CLI parameter name '${dialect.name}' must be bare lowercase kebab-case, at least two characters.`,
+        path: ["name"],
+      });
+    }
+
+    // One character means a short option; anything longer is a long option.
+    const seen = new Set<string>([dialect.name.toLowerCase()]);
+    const checkAlias = (alias: string, path: (string | number)[]): void => {
+      const valid = alias.length === 1 ? CLI_SHORT_OPTION_PATTERN.test(alias) : CLI_TOKEN_PATTERN.test(alias);
+      if (!valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CLI alias '${alias}' must be bare: one letter or digit, or lowercase kebab-case.`,
+          path,
+        });
+      }
+      // Case-insensitive on purpose: conservatively forbids pairs such as `g` and `G`.
+      if (seen.has(alias.toLowerCase())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CLI alias '${alias}' repeats another spelling of the same parameter.`,
+          path,
+        });
+      }
+      seen.add(alias.toLowerCase());
+    };
+    dialect.aliases?.forEach((alias, index) => checkAlias(alias, ["aliases", index]));
+    dialect.deprecatedAliases?.forEach((alias, index) => checkAlias(alias.name, ["deprecatedAliases", index, "name"]));
+  });
+
+/**
+ * Every spelling an exposed CLI parameter answers to, bare, deprecated ones included.
+ * Empty when hidden.
+ */
+export function cliSpellings(dialect: CliParameterDialect): string[] {
+  if (dialect.hidden === true || dialect.name === undefined) return [];
+  return [dialect.name, ...(dialect.aliases ?? []), ...(dialect.deprecatedAliases ?? []).map((alias) => alias.name)];
+}
+
+/** Whether the CLI requires this parameter in its command's set. */
+export function cliMandatory(dialect: CliParameterDialect, sharedRequired: boolean): boolean {
+  return dialect.parameterSets?.[0]?.mandatory ?? sharedRequired;
+}
