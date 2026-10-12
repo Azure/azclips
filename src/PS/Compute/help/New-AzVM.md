@@ -24,8 +24,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> [-SubscriptionId <string>] [-Image <string>]
  [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
- [-OSDiskSecureVMDiskEncryptionSet <string>] [-SecurityGroupName <string>]
- [-EnableSecureBoot] [-EnableVtpm]
+ [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot] [-EnableVtpm]
+ [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
