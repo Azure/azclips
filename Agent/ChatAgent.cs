@@ -50,12 +50,13 @@ public sealed class ChatAgent : IAsyncDisposable
     internal void RecordModel(Activity? activity) => _modelTelemetry.RecordTo(activity);
 
     private SessionErrored? _lastError;
+    private readonly object _turnGate = new();
 
     /// <summary>The terminal SDK error for the current turn, or null.</summary>
     /// <remarks>
-    /// Reads and writes use <see cref="Volatile"/> for cross-thread visibility.
-    /// This does not prevent late errors from crossing turn boundaries:
-    /// SDK error events carry no turn ID.
+    /// Only errors received while a send is active are kept.
+    /// SDK error events carry no turn ID, so an earlier turn's error can still
+    /// land during a later send.
     /// </remarks>
     public SessionErrored? LastError => Volatile.Read(ref _lastError);
 
@@ -209,9 +210,8 @@ public sealed class ChatAgent : IAsyncDisposable
             {
                 if (ev is SessionErrored err)
                 {
-                    if (self is not null) Volatile.Write(ref self._lastError, err);
+                    if (self is not null) self.RecordTurnError(err);
                     else                  earlyError = err;
-                    try { self?._activeTurnCts?.Cancel(); } catch { }
                 }
                 if (ev is ToolStarted ts && self is not null)
                 {
@@ -393,11 +393,15 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
-        Volatile.Write(ref _lastError, null);
         Volatile.Write(ref _sendCalledClosingTool, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
+        CancellationTokenSource? oldCts;
+        lock (_turnGate)
+        {
+            Volatile.Write(ref _lastError, null);
+            oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
+        }
         oldCts?.Dispose();
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
         _modelTelemetry.RecordTo(send);
@@ -443,8 +447,20 @@ public sealed class ChatAgent : IAsyncDisposable
                 RecoveryTelemetry.RecordModel(send, model.Model, model.Source);
             else
                 _modelTelemetry.RecordTo(send);
-            var done = Interlocked.Exchange(ref _activeTurnCts, null);
+            CancellationTokenSource? done;
+            lock (_turnGate) done = Interlocked.Exchange(ref _activeTurnCts, null);
             done?.Dispose();
+        }
+    }
+
+    // Drops errors that arrive after the send finished.
+    internal void RecordTurnError(SessionErrored error)
+    {
+        lock (_turnGate)
+        {
+            if (_activeTurnCts is not { } active) return;
+            Volatile.Write(ref _lastError, error);
+            try { active.Cancel(); } catch { }
         }
     }
 
