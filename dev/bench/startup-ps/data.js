@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791775570134,
+  "lastUpdate": 1791843356120,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4392,6 +4392,42 @@ window.BENCHMARK_DATA = {
             "value": 279430928.2,
             "unit": "ns",
             "range": "± 7167158.9426160455"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+x-engineering-agent[bot]@users.noreply.github.com",
+            "name": "x-engineering-agent[bot]",
+            "username": "x-engineering-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c74647a38ce3d79c659d2736c0cb21c56aaf389e",
+          "message": "{DevOps} Trigger stable release 0.1.5 (#1095)\n\n**Description**\n\nPrepare stable release 0.1.5.\n\n- Updates src/CLI/Core.Cli.csproj\n- Patch-bumps each changed existing extension independently and\npreserves new extensions declared initial versions\n- Aligns corresponding PowerShell child modules and Az dependency\nversions\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.5.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-10-13T08:49:55+11:00",
+          "tree_id": "9fd1f9e14564b73b4969357d59ad76b149996aa6",
+          "url": "https://github.com/Azure/azclips/commit/c74647a38ce3d79c659d2736c0cb21c56aaf389e"
+        },
+        "date": 1791843355865,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 318003817.93,
+            "unit": "ns",
+            "range": "± 7739432.8095285"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 309865987.35,
+            "unit": "ns",
+            "range": "± 7467495.265768302"
           }
         ]
       }
