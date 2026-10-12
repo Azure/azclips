@@ -248,6 +248,17 @@ describe("flatten-model: models", () => {
 });
 
 describe("flatten-model: opt-outs and limits", () => {
+  it("warns about an option it does not know, and still honours the ones it does", () => {
+    const { ir, diagnostics } = run(irOf(armModels()), { inliningThreshold: 1, noInlined: ["Sku"] });
+
+    expect(
+      diagnostics.filter((d) => d.code.endsWith("/unknown-option")).map((d) => d.message),
+    ).toEqual([
+      "'noInlined' is not a known option and is ignored. Known: inliningThreshold, noInline.",
+    ]);
+    expect(flattenedOf(ir, "ThingProperties")).toEqual([]);
+  });
+
   it("honours the inlining threshold but always flattens a properties envelope", () => {
     const { ir } = run(irOf(armModels()), { inliningThreshold: 1 });
     // ThingProperties has 3 members > threshold, but it is the ARM envelope.

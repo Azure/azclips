@@ -83,6 +83,17 @@ function run(ir: IR): { out: IR; diagnostics: Diagnostic[] } {
 const codes = (diagnostics: Diagnostic[]): string[] =>
   diagnostics.map((d) => d.code.split("/").pop()!);
 
+describe("tweak-ir: options", () => {
+  it("takes none, so it warns about any it is given", () => {
+    const diagnostics: Diagnostic[] = [];
+    tweakIrStep({ renameAll: true }).run(document([model("Widget", [MODULE])]), {
+      reportDiagnostic: (d) => diagnostics.push(d as Diagnostic),
+    });
+
+    expect(codes(diagnostics)).toEqual(["unknown-option"]);
+  });
+});
+
 describe("tweak-ir: type names", () => {
   it("leaves a document whose names are already unique alone", () => {
     const { out, diagnostics } = run(document([model("Widget", [MODULE]), model("Gadget", [MODULE])]));

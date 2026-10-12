@@ -669,6 +669,19 @@ describe("target", () => {
   });
 });
 
+describe("options", () => {
+  it("takes none, so it warns about any it is given, such as the retired rootNamespace", () => {
+    const diagnostics: { code: string; message: string }[] = [];
+    createCommandStep({ rootNamespace: "Fabrikam" }).run(document([operation()]), {
+      reportDiagnostic: (d) => diagnostics.push(d),
+    });
+
+    expect(
+      diagnostics.filter((d) => d.code.endsWith("/unknown-option")).map((d) => d.message),
+    ).toEqual(["'rootNamespace' is not a known option and is ignored. This stage takes no options."]);
+  });
+});
+
 describe("degradation", () => {
   it("skips an unnamed operation instead of emitting an unusable command", () => {
     // `IROperationSchema` requires a name, so the document is built unvalidated —

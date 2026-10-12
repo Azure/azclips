@@ -178,6 +178,11 @@ compiler passes its own reporter in, and the compiler stops building if the two
 shapes drift apart. A run carries one IR, so returning it mutated in place is the
 expected shape; returning a replacement works too.
 
+Every step checks its own entry when it runs, through one shared function,
+`warnUnknownKeys` (`src/entry.ts`): a key it does not know is a warning
+(`unknown-fact` for `seed-ir`, `unknown-option` for the others) and is ignored.
+A step that takes no options warns about any key it is given.
+
 `seedIrStep()` fulfils the mandatory `seed-ir` stage, the first transform. It
 turns the document facts, the gen-time config the spec cannot provide, into the
 IR's `target` (see [Generation target](#generation-target)). It writes only

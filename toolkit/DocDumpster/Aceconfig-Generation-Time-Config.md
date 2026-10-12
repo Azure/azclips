@@ -325,7 +325,13 @@ The catalog becomes:
     stops the run at `seed-ir` instead of falling back to a default. One other
     behavior changes with it: `create-command`'s `duplicate-command-identity`
     error now stops the run before generation.
-  - The other stages do not warn about unknown keys yet.
+  - Every transform warns about unknown keys in its own entry through one shared
+    function, `warnUnknownKeys` (`packages/transformers/src/entry.ts`):
+    `unknown-fact` for `seed-ir`, `unknown-option` for the others. A stage that
+    takes no options, such as `create-command`, warns about any key it is given.
+  - Still open against decision 10: the `csharp` generator does not check its
+    entry, and `flatten-model` falls back to its defaults for an invalid
+    `inliningThreshold` or `noInline` instead of failing.
 
 ## Source acquisition
 
@@ -436,9 +442,9 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
 - **New stages run everywhere.** A stage added to the catalog runs in every
   existing file on its next regeneration.
 - **Lazy validation lets typos through, for now.** The compiler never validates.
-  Every stage is to warn about keys it does not know (decision 10), but so far
-  only `seed-ir` does; the other stages' option readers still ignore unknown
-  keys, so a misspelled option is silently ignored.
+  Every transform warns about keys it does not know (decision 10), but the
+  `csharp` generator does not check its entry yet, so a misspelled generator
+  option is silently ignored.
 - **Mixed casing in one file:** kebab-case structure, camelCase options.
 - **`IR` gains a field the emitter never writes.** `target` is optional on `IR`,
   so only `commands` now marks that `create-command` ran.
@@ -474,7 +480,7 @@ toolkit root.
   - `packages/cli/src/staging.ts`: a flat copy of one directory, with no
     specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
   - Docs: `README.md` (the `{ "pipeline": … }` example and
-    `config.stageOptions`, lines 80, 149, 207) and
+    `config.stageOptions`, lines 80, 149, 212) and
     `packages/generator/README.md` (`ace compile` usage with `--generator`, and
     the temporary `--entrypoint` note).
 - **Tests (early-stage; reconcile, don't let them shape the design):**
@@ -532,9 +538,10 @@ toolkit root.
   checkout, sparse-checkout the same directories, then check out the commit. This
   produces the same mirrored tree. Provenance would be recorded with `/`
   separators.
-- **Schema polish.** The other stages adopting the unknown-key warning (the
-  mechanism is decided in decision 10, and `seed-ir` has it), and a JSON Schema
-  for editor completion. The compiler stays validation-free.
+- **Schema polish.** The `csharp` generator checking its entry as the transforms
+  do (decision 10), `flatten-model` failing on invalid option values instead of
+  defaulting, and a JSON Schema for editor completion. The compiler stays
+  validation-free.
 - **Flag review.** Whether to retire the remaining run-input flags, and
   `--out-dir` vs. `output-dir` naming.
 - **Generator use of the new `IRTarget` fields.** The C# generator writing
