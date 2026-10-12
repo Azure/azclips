@@ -55,9 +55,9 @@ public sealed class ChatAgent : IAsyncDisposable
 
     /// <summary>The terminal SDK error for the current turn, or null.</summary>
     /// <remarks>
-    /// Reads and writes use <see cref="Volatile"/> for cross-thread visibility.
-    /// This does not prevent late errors from crossing turn boundaries:
-    /// SDK error events carry no turn ID.
+    /// Only errors received while a send is active are kept.
+    /// SDK error events carry no turn ID, so an earlier turn's error can still
+    /// land during a later send.
     /// </remarks>
     public SessionErrored? LastError => Volatile.Read(ref _lastError);
 
@@ -422,6 +422,8 @@ public sealed class ChatAgent : IAsyncDisposable
             Volatile.Write(ref _startupError, error);
             return;
         }
+        // Drops errors that arrive after the send finished.
+        if (_invocationContext.CurrentTurnCts is null) return;
         Volatile.Write(ref _lastError, error);
         _invocationContext.CancelCurrentOperation();
     }
