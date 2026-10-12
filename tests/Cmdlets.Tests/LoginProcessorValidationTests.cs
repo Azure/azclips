@@ -231,11 +231,12 @@ public class LoginProcessorValidationTests
         var expectedFlag = FlagFor(surface, nameof(LoginProcessor.TenantId));
         var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
-        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+        var ex = Assert.Throws<AzclipsErrorException>(() => InvokePrivate(
             new LoginProcessor(),
             "EnsureCrossTenantAccessible",
             new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" }));
 
+        Assert.Equal("NotSignedIn", ex.Code);
         Assert.Contains(expectedCommand, ex.Message, StringComparison.Ordinal);
         Assert.Contains(expectedFlag, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbiddenCommand, ex.Message, StringComparison.Ordinal);

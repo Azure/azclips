@@ -462,7 +462,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             if (!canAcquire)
             {
-                throw AzclipsErrorException.InvalidInput(
+                throw AzclipsErrorException.NotSignedIn(
                     $"Signed in, but subscription '{subscriptionId}' is homed in tenant '{profile.TenantId}', which "
                     + "requires additional sign-in (for example, multifactor authentication or a conditional access policy). "
                     + "The profile was not saved. "
