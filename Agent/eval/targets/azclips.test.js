@@ -100,7 +100,7 @@ function createProviderFixture(context) {
   };
 }
 
-function mockProcessResult(context, fixture, error, stdout = fixture.stdout) {
+function mockProcessResult(context, fixture, error, stdout = fixture.stdout, stderr = '') {
   let stdinClosed = false;
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
@@ -108,7 +108,7 @@ function mockProcessResult(context, fixture, error, stdout = fixture.stdout) {
     assert.equal(options.timeout, 2000);
     assert.equal(options.maxBuffer, 8 * 1024 * 1024);
     assert.equal(options.env.AZURECLI_FLAVOR, 'azure cli');
-    queueMicrotask(() => callback(error, stdout, ''));
+    queueMicrotask(() => callback(error, stdout, stderr));
     return { stdin: { end() { stdinClosed = true; } } };
   });
   context.after(() => assert.equal(stdinClosed, true));
@@ -386,6 +386,30 @@ test('finds the final trace path from mixed output', () => {
   assert.equal(findTracePath(output), 'C:\\traces\\final.jsonl');
 });
 
+test('keeps stderr diagnostics out of the response while preserving stderr CLI errors', async (context) => {
+  const fixture = createProviderFixture(context);
+  const stderr = [
+    '[ERROR] A profile name is required, or use --active.',
+    'VERBOSE: [ProfileService] Loading profiles from: C:\\private\\profiles.json',
+    `trace: ${fixture.tracePath}`,
+  ].join('\n');
+  const answer = `${fixture.output}\nVERBOSE is a logging level mentioned in this response.`;
+  mockProcessResult(context, fixture, Object.assign(new Error('CLI failure'), { code: 1 }), answer, stderr);
+  const response = await fixture.provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.equal(response.output, answer);
+  assert.equal(response.metadata.originalError.message, 'A profile name is required, or use --active.');
+  assert.deepEqual(response.metadata.models, ['gpt-test']);
+  assert.doesNotMatch(response.output, /C:\\private|Loading profiles from/);
+});
+
+test('does not substitute stderr diagnostics for an absent rendered response', async (context) => {
+  const fixture = createProviderFixture(context);
+  mockProcessResult(context, fixture, null, '', `VERBOSE: startup diagnostic\ntrace: ${fixture.tracePath}`);
+  const response = await fixture.provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+  assert.equal(response.output, '');
+  assert.deepEqual(response.metadata.plan, fixture.plan);
+});
+
 test('manual recovery extracts one exact failure ID from structured or human hints', () => {
   const id = '1234-2026-1008-0000-0001';
   const structured = JSON.stringify({ recovery: { id, command: `az troubleshoot --id ${id}` } });
@@ -459,7 +483,8 @@ test('manual recovery records the failure then analyzes its exact ID with closed
             recovery: { id, command: `az troubleshoot --id ${id}` },
           }));
       } else {
-        callback(null, `${renderSpinnerFrame('⠋', 'planning a fix')}${answer}\ntrace: ${fixture.tracePath}`, '');
+        callback(null, `${renderSpinnerFrame('⠋', 'planning a fix')}${answer}\ntrace: ${fixture.tracePath}`,
+          'VERBOSE: [ProfileService] Loading profiles from: C:\\private\\profiles.json');
       }
     });
     return { stdin: { end() { closed += 1; } } };

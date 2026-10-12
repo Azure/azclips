@@ -465,7 +465,11 @@ class AzclipsAgentProvider {
           return;
         }
 
-        const { output, executionError } = splitAgentOutput(raw, exitCode);
+        // Rendered answers use stdout; stderr remains available for trace paths and CLI errors.
+        const rendered = splitAgentOutput(stdout || '', exitCode);
+        const output = rendered.output;
+        const executionError = rendered.executionError ||
+          (exitCode ? splitAgentOutput(raw, exitCode).executionError : undefined);
         const metadata = {
           ...recoveryMetadata,
           exitCode,

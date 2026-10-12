@@ -140,6 +140,11 @@ and unrecognized or incomplete spinner-like text are preserved rather than
 guessed to be progress. The existing trace-path removal and whitespace cleanup
 remain unchanged. This corrects future captures only; stored responses and
 frozen baseline scores are not rewritten or regraded.
+The displayed and graded response comes from the renderer's stdout channel.
+ConsoleSink diagnostics on stderr (including profile-loading messages and local
+paths) are not appended to the answer. Both streams remain available to locate
+the trace and capture the original CLI error. No prose-prefix filter is used to
+guess which stdout lines are diagnostics.
 Project schema `agent-eval-v2` presents this as `Original CLI error` and never
 falls back to a grading failure. Cases supply `config.checkName` for readable
 checks; the original assertion implementation remains available for diagnostics.
