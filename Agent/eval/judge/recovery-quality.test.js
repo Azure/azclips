@@ -64,6 +64,16 @@ test('rubrics distinguish optional relevant advice from mandatory unrelated chan
   assert.throws(() => recoveryQualityAssertion('unsupported'), /Unknown recovery-quality rubric/);
 });
 
+test('VM grading honors the accepted cache policy without asserting live resource absence', () => {
+  const rubric = recoveryQualityAssertion('vm').value;
+  assert.match(rubric, /cached lookup reporting no match is an acceptable basis/);
+  assert.match(rubric, /Do not require a live refresh/);
+  assert.match(rubric, /not proof of actual resource absence or successful execution/);
+  assert.match(rubric, /same group used by the later VM creation/);
+  assert.doesNotMatch(rubric, /supplied existing resource group/);
+  assert.match(require('../cases/vm-create-short-flags').vars.goal, /cached lookup reports no match/);
+});
+
 test('the pinned Promptfoo runner calls the judge with evidence and preserves its pass/fail decision and rubric', async (t) => {
   const keys = ['PROMPTFOO_DISABLE_TELEMETRY', 'PROMPTFOO_DISABLE_UPDATE'];
   const before = Object.fromEntries(keys.map((key) => [key, process.env[key]]));

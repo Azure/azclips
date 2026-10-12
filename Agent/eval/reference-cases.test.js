@@ -25,12 +25,14 @@ const baseline = [
 const { commandSetAssertion } = require('./assertions/command-set');
 const { planContractAssertion } = require('./assertions/plan-contract');
 const { identityPlanAssertion } = require('./assertions/identity-plan');
+const { resourceGroupPlanAssertion } = require('./assertions/resource-group-plan');
 const { configurationReadAssertion } = require('./assertions/configuration-read');
 const { restReadAssertion } = require('./assertions/rest-read');
 const assertionRunners = {
   'file://assertions/command-set.js:commandSetAssertion': commandSetAssertion,
   'file://assertions/plan-contract.js:planContractAssertion': planContractAssertion,
   'file://assertions/identity-plan.js:identityPlanAssertion': identityPlanAssertion,
+  'file://assertions/resource-group-plan.js:resourceGroupPlanAssertion': resourceGroupPlanAssertion,
   'file://assertions/configuration-read.js:configurationReadAssertion': configurationReadAssertion,
   'file://assertions/rest-read.js:restReadAssertion': restReadAssertion,
 };
@@ -102,6 +104,39 @@ test('profile reference rejects invalid flags, named selection, and unrelated ch
 
 test('VM reference accepts complete long flags and a declared secret placeholder', () => {
   assert.ok(grade(vm, [vmCommand], { placeholders: vmNeeds }).every((result) => result.pass));
+});
+
+test('VM reference accepts the supplied resource group as an optional creation prerequisite', () => {
+  const prerequisite = `az group create --name ${groupFor(vm)} --location westus`;
+  for (const command of [prerequisite, `${prerequisite} --force`]) {
+    const results = grade(vm, [command, vmCommand], { placeholders: vmNeeds });
+    assert.ok(results.every((result) => result.pass), results.map(result => result.reason).join('; '));
+    assert.match(results[1].expectation, /used by a later VM creation/);
+  }
+});
+
+test('VM prerequisites must be complete, precede the VM, and preserve its group and subscription', () => {
+  const prerequisite = `az group create --name ${groupFor(vm)} --location eastus`;
+  for (const commands of [
+    [prerequisite.replace('--location eastus', ''), vmCommand],
+    [prerequisite.replace('--location eastus', '--location'), vmCommand],
+    [prerequisite.replace(`--name ${groupFor(vm)}`, '--name unrelated-rg'), vmCommand],
+    [prerequisite.replace(`--name ${groupFor(vm)}`, '--name'), vmCommand],
+    [vmCommand, prerequisite],
+    [`${prerequisite} --subscription-id another-subscription`, vmCommand],
+    [prerequisite, vmCommand, 'az group delete --name another-rg'],
+    [prerequisite, vmCommand.replace('<admin-password>', 'invented-value')],
+  ]) {
+    assert.ok(grade(vm, commands, { placeholders: vmNeeds }).some((result) => !result.pass), commands.join('; '));
+  }
+});
+
+test('resource-group prerequisites reject unsupported consumer configuration explicitly', () => {
+  const result = resourceGroupPlanAssertion('', {
+    config: { allowedCommands: ['az vm create'], resourceCommand: 'az vm delete' },
+  });
+  assert.equal(result.pass, false);
+  assert.match(result.reason, /supported resourceCommand/);
 });
 
 test('VM reference rejects missing values, changed user input, short flags, and invented secrets', () => {

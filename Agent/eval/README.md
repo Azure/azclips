@@ -104,10 +104,22 @@ platforms, set `AZCLIPS_EVALUATION_AZURE_CLI` to the explicit classic CLI execut
 ## Run and upload
 
 The reference suite requires a signed-in active profile. Its VM, deployment, and
-VNet fixtures use the existing `azclips-test-rg` group by default. Set
-`AZCLIPS_EVALUATION_RESOURCE_GROUP` to another existing group in the active
-subscription when needed, and verify it exists before running. The harness does
-not create fixture groups or execute proposed resource-creation commands.
+VNet fixtures use `azclips-test-rg` by default. Set
+`AZCLIPS_EVALUATION_RESOURCE_GROUP` to another group in the active subscription
+when needed. Deployment and VNet scenarios retain their existing-group
+precondition; verify that prerequisite before running. The harness does not
+create fixture groups or execute proposed resource-creation commands.
+
+The VM scenario accepts the cached-lookup policy confirmed on 2026-10-12:
+a cached lookup with no match may lead to proposing `az group create` before
+`az vm create`, without a synchronous live refresh. Both the deterministic scope
+check and the VM Judge rubric allow this prerequisite. The group must have a
+name and location, match the later VM's supplied group, and stay in the recorded
+subscription; password placeholders and unrelated-operation restrictions remain.
+The VM and identity scenarios share the prerequisite checks without changing the
+identity scenario's policy. This rule correction changes the configured test
+identity; keep older artifacts intact and create a new `-Repeat 3` baseline
+before comparing optimized builds under the corrected rules.
 
 Use a target package that exposes every configured command, including Network
 and managed-identity creation. Verify the target catalog before running models;

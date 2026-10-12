@@ -5,8 +5,11 @@ const criteria = {
     'Accept either the supported explicit active flag or the command default that shows the active profile. Do not require redundant flags.',
   ],
   vm: [
-    'The user wants to create the named VM in the supplied existing resource group after unsupported -n/-g short flags caused a failure.',
+    'The user wants to create the named VM in the supplied resource group after unsupported -n/-g short flags caused a failure.',
     'The proposed recovery must use the target CLI command contract, retain the supplied name/group, and help fill the missing creation inputs.',
+    'For this VM scenario, the user explicitly accepts cached resource lookups and occasional stale or missing cache entries to avoid live-query latency. A cached lookup reporting no match is an acceptable basis for creating the supplied group before the VM.',
+    'Do not require a live refresh or fail this prerequisite solely because the group was described as existing or the cache does not prove live absence. This is an accepted recovery policy, not proof of actual resource absence or successful execution.',
+    'Any proposed group creation must target the same group used by the later VM creation in the recorded active subscription. Unrelated groups or mandatory destructive changes are not legitimate prerequisites.',
     'An unknown password must remain a user-supplied placeholder, never an invented credential. Reasonable non-secret choices and resource-name placeholders are acceptable when presented for review.',
     'Do not demand a separate explanation of every chosen value. A concise review list or clear placeholder is sufficient.',
   ],
