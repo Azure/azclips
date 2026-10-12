@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791775481631,
+  "lastUpdate": 1791775536765,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -12940,6 +12940,48 @@ window.BENCHMARK_DATA = {
             "value": 1893530.4066912215,
             "unit": "ns",
             "range": "± 57842.35238072917"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05204c49f30f67a680bcfdbd33ef4ae5b78e90b8",
+          "message": "[CLI] Standardize errors as stderr text (#1081)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`--output` on any CLI command\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nFixes #1064.\n\nMake `--output` format successful command results on stdout only. Known\nfailures now remain human-readable text on stderr for every output\nformat, while preserving empty stdout, symbolic exit codes, telemetry\nclassification, and the no-agent-fallback path.\n\nThis also introduces `MissingRequiredArgumentException` as the first\nfocused known-error subtype. The existing compatibility property remains\navailable for already-compiled callers.\n\nThis is a private-preview breaking correction for scripts that parsed\nthe previous JSON error envelope from stderr.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\n\"FullyQualifiedName~StreamRoutingIntegrationTests|FullyQualifiedName~ErrorHelpPolicyTests|FullyQualifiedName~RoleAssignmentCliTests.ListRoleAssignmentProcessor_Orchestrator\"\n--no-restore --nologo` — passed, 36 tests\n- `git diff --check` — passed\n- Local manual runbook: `scratch\\azclips-1064-test-runbook.md`\n(intentionally untracked)\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or spaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[CLI] BREAKING CHANGE: `--output` formats successful stdout results\nonly; errors remain human-readable text on stderr\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-12T13:57:50+11:00",
+          "tree_id": "b015281570fdb9b2d4a4fb1325ef04a4f5cdc0ea",
+          "url": "https://github.com/Azure/azclips/commit/05204c49f30f67a680bcfdbd33ef4ae5b78e90b8"
+        },
+        "date": 1791775533246,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1974114.066619347,
+            "unit": "ns",
+            "range": "± 61388.59413848774"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2031382.225826319,
+            "unit": "ns",
+            "range": "± 55398.49925332135"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1939888.6510237178,
+            "unit": "ns",
+            "range": "± 58397.563733701485"
           }
         ]
       }
