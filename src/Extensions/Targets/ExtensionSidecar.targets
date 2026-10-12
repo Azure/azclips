@@ -166,7 +166,7 @@
       CoreAssemblyDir="$(RepoArtifacts)$(Configuration)/Core/"
       ExtensionRuntimeAssemblyDir="$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/"
       PackageId="$(PackageId)"
-      PackageVersion="$(Version)"
+      PackageVersion="$(PackageVersion)"
       OutputFile="$(OutputPath)$(PackageId).commands.json" />
   </Target>
 
