@@ -282,7 +282,7 @@ internal class ExecutionSession : ISession
         }
         catch (Exception ex)
         {
-            throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
+            throw AzclipsErrorException.UsageError($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", innerException: ex);
         }
         return processor;
     }

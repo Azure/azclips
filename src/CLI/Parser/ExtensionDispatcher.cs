@@ -40,7 +40,7 @@ public class ExtensionDispatcher //: IParser
             throw new ArgumentException("Command args cannot be empty; help / version dispatch happens in Program.Main.", nameof(args));
         }
 
-        if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
+        if (string.IsNullOrWhiteSpace(args[0])) throw AzclipsErrorException.UsageError("Command-group token cannot be empty or whitespace.");
 
         var verb = args[0];
 

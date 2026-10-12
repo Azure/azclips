@@ -31,8 +31,8 @@ public class AzclipsErrorException : Exception
     public int ExitCode { get; }
     public IReadOnlyDictionary<string, object?> Details { get; }
 
-    public AzclipsErrorException(string code, int exitCode, string message, IReadOnlyDictionary<string, object?>? details = null)
-        : base(message)
+    public AzclipsErrorException(string code, int exitCode, string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        : base(message, innerException)
     {
         Code = code;
         ExitCode = exitCode;
@@ -67,8 +67,8 @@ public class AzclipsErrorException : Exception
         => new("FeedUnavailable", 5, message, details);
 
     // Declared return type is the base so already-compiled callers keep binding; the runtime type is the subtype.
-    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new UsageErrorException(message, details);
+    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        => new UsageErrorException(message, details, innerException: innerException);
 
     public static UsageErrorException MissingRequiredParameters(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new MissingRequiredArgumentException(message, details);
@@ -105,8 +105,8 @@ public class UsageErrorException : AzclipsErrorException
     // Retained for compatibility with callers compiled before missing arguments had a dedicated subtype.
     public bool HasMissingRequiredParameters { get; }
 
-    public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null, bool hasMissingRequiredParameters = false)
-        : base("UsageError", 2, message, details)
+    public UsageErrorException(string message, IReadOnlyDictionary<string, object?>? details = null, bool hasMissingRequiredParameters = false, Exception? innerException = null)
+        : base("UsageError", 2, message, details, innerException)
     {
         HasMissingRequiredParameters = hasMissingRequiredParameters;
     }
