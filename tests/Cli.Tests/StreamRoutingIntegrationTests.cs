@@ -130,14 +130,15 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task InvalidQuery_UsesRequestedJsonErrorFormat()
+    public async Task InvalidQuery_RemainsText_WhenJsonOutputIsRequested()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "logout", "--query", "[[[");
 
         Assert.Equal(2, exit);
         Assert.Empty(stdout);
-        using var document = System.Text.Json.JsonDocument.Parse(stderr);
-        Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("ERROR: [UsageError]", stderr);
+        Assert.Contains("--query expression", stderr);
+        Assert.DoesNotContain("\"error\"", stderr);
     }
 
     [Fact]
@@ -203,20 +204,16 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task MissingRequiredParameters_EmitsParseableError_WhenStderrIsRedirected()
+    public async Task MissingRequiredParameters_EmitsTextError_WhenJsonOutputIsRequested()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "vm", "create");
 
         Assert.Equal(2, exit);
         Assert.Empty(stdout);
-        // stderr is redirected here, so the help page is suppressed and the error stays machine-readable.
-        using var document = System.Text.Json.JsonDocument.Parse(stderr);
-        var error = document.RootElement.GetProperty("error");
-        Assert.Equal("UsageError", error.GetProperty("code").GetString());
-        var message = error.GetProperty("message").GetString();
-        Assert.Contains("'--name'", message);
-        Assert.Contains("az vm create --help", message);
-        Assert.DoesNotContain("\\u0027", stderr, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ERROR: [UsageError]", stderr);
+        Assert.Contains("'--name'", stderr);
+        Assert.Contains("az vm create --help", stderr);
+        Assert.DoesNotContain("\"error\"", stderr);
     }
 
     [Fact]
@@ -266,7 +263,7 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task ForceColor_KeepsStructuredJsonErrorAnsiFree_OnRedirectedStderr()
+    public async Task ForceColor_KeepsTextErrorAnsiFree_OnRedirectedStderr()
     {
         var (exit, stdout, stderr) = await RunCliWithEnvAsync(
             new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
@@ -275,8 +272,7 @@ public class StreamRoutingIntegrationTests
         Assert.Equal(2, exit);
         Assert.Empty(stdout);
         Assert.DoesNotContain('\u001b', stderr);
-        using var document = System.Text.Json.JsonDocument.Parse(stderr);
-        Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("ERROR: [UsageError]", stderr);
     }
 
     [Fact]

@@ -364,7 +364,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<UsageErrorException>(() =>
             fixture.ExecuteCli(["config", "get", "core.logging.level", "--json"]));
 
         Assert.Contains("Unable to find parameter: json", exception.Message);

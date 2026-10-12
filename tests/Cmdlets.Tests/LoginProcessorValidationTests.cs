@@ -149,7 +149,7 @@ public class LoginProcessorValidationTests
         const string invalidSubscriptionId = "Steven Ma [stema] subscription";
         var processor = new LoginProcessor { SubscriptionId = invalidSubscriptionId };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -175,7 +175,7 @@ public class LoginProcessorValidationTests
             SubscriptionId = invalidSubscriptionId,
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -562,7 +562,7 @@ public class LoginProcessorValidationTests
             OutProfile = ProfileNameValidator.ReservedDefaultName,
         };
 
-        Assert.ThrowsAny<ArgumentException>(() => InvokePrivate(
+        Assert.ThrowsAny<UsageErrorException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
     }
 
