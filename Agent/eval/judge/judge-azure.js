@@ -119,19 +119,21 @@ function tokenUsageFromResponse(usage) {
   if (!usage || typeof usage !== 'object') return undefined;
   const prompt = Number(usage.prompt_tokens || 0);
   const completion = Number(usage.completion_tokens || 0);
-  const cached = Number(usage.prompt_tokens_details?.cached_tokens || 0);
-  const reasoning = Number(usage.completion_tokens_details?.reasoning_tokens || 0);
+  // Keep unreported optional counts absent instead of recording a measured zero.
+  const reported = (value) => (value === undefined || value === null ? undefined : Number(value));
+  const cached = reported(usage.prompt_tokens_details?.cached_tokens);
+  const reasoning = reported(usage.completion_tokens_details?.reasoning_tokens);
+  const completionDetails = {
+    ...(reasoning !== undefined && { reasoning }),
+    ...(cached !== undefined && { cacheReadInputTokens: cached }),
+  };
   return {
     prompt,
     completion,
-    cached,
+    ...(cached !== undefined && { cached }),
     total: prompt + completion,
     numRequests: 1,
-    completionDetails: {
-      reasoning,
-      cacheReadInputTokens: cached,
-      cacheCreationInputTokens: 0,
-    },
+    ...(Object.keys(completionDetails).length && { completionDetails }),
   };
 }
 
@@ -181,6 +183,7 @@ class JudgeAzureProvider {
       return { error: `Azure judge authentication failed: ${error.message}` };
     }
     const url = `${this.endpoint}/openai/deployments/${encodeURIComponent(this.deployment)}/chat/completions?api-version=${encodeURIComponent(this.apiVersion)}`;
+    const requestStartedAt = Date.now();
     let res;
     try {
       res = await fetch(url, {
@@ -208,9 +211,16 @@ class JudgeAzureProvider {
       return { error: 'Azure judge returned no grading content; the semantic check was not completed.' };
     }
     const tokenUsage = tokenUsageFromResponse(data.usage);
+    // Promptfoo keeps grader response metadata on the grading result. The deployment name alone does
+    // not show which model version answered.
     return {
       output,
       ...(tokenUsage && { tokenUsage }),
+      metadata: {
+        judgeDeployment: this.deployment,
+        ...(typeof data.model === 'string' && data.model.trim() && { judgeModel: data.model.trim() }),
+        judgeLatencyMs: Date.now() - requestStartedAt,
+      },
     };
   }
 }

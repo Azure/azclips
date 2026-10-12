@@ -144,9 +144,23 @@ test('maps Azure OpenAI usage to Promptfoo token semantics', () => {
     completionDetails: {
       reasoning: 12,
       cacheReadInputTokens: 80,
-      cacheCreationInputTokens: 0,
     },
   });
+});
+
+test('keeps unreported judge token details absent and preserves reported zeros', () => {
+  assert.deepEqual(tokenUsageFromResponse({ prompt_tokens: 40, completion_tokens: 12 }), {
+    prompt: 40,
+    completion: 12,
+    total: 52,
+    numRequests: 1,
+  });
+  assert.deepEqual(tokenUsageFromResponse({
+    prompt_tokens: 40,
+    completion_tokens: 12,
+    prompt_tokens_details: { cached_tokens: 0 },
+    completion_tokens_details: { reasoning_tokens: 0 },
+  }).completionDetails, { reasoning: 0, cacheReadInputTokens: 0 });
 });
 
 test('requires an explicit judge endpoint and deployment rather than silently selecting a model', () => {
@@ -174,6 +188,7 @@ test('calls the configured Azure judge and returns real usage without changing i
     assert.deepEqual(JSON.parse(options.body).messages, [{ role: 'user', content: 'Review this response' }]);
     assert.ok(options.signal instanceof AbortSignal);
     return new Response(JSON.stringify({
+      model: 'review-model-2026-01-01',
       choices: [{ message: { content: output } }],
       usage: { prompt_tokens: 40, completion_tokens: 12 },
     }), { status: 200 });
@@ -183,6 +198,20 @@ test('calls the configured Azure judge and returns real usage without changing i
   assert.equal(result.tokenUsage.total, 52);
   assert.equal(result.tokenUsage.numRequests, 1);
   assert.equal(result.error, undefined);
+  assert.equal(result.metadata.judgeDeployment, 'review-model');
+  assert.equal(result.metadata.judgeModel, 'review-model-2026-01-01');
+  assert.ok(result.metadata.judgeLatencyMs >= 0);
+});
+
+test('does not invent the answering judge model when the response omits it', async (context) => {
+  const provider = new JudgeAzureProvider({ config: configuration });
+  context.mock.method(provider, '_bearer', async () => 'test-credential');
+  context.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
+    choices: [{ message: { content: '{"pass":true,"score":1,"reason":"ok"}' } }],
+  }), { status: 200 }));
+  const result = await provider.callApi('Review this response');
+  assert.equal(result.metadata.judgeModel, undefined);
+  assert.equal(result.metadata.judgeDeployment, 'review-model');
 });
 
 test('judge authentication, transport, and malformed-response failures are explicit errors, not successful grades', async (context) => {
