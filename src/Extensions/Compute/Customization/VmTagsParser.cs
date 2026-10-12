@@ -5,10 +5,6 @@ using System.Text.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-/// <summary>
-/// Parses <c>vm create</c> tags from KEY=VALUE entries or from one JSON object. A copy of the
-/// ManagedServiceIdentity extension's tag parsing, so Compute does not depend on that extension.
-/// </summary>
 internal static class VmTagsParser
 {
     internal static Dictionary<string, string>? ParseTags(string[]? tags) => ParseDictionary(tags);

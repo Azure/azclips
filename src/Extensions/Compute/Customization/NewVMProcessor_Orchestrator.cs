@@ -66,7 +66,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            // Parsed first, so malformed tags fail before the image lookup or any create.
             Dictionary<string, string>? tags = VmTagsParser.ParseTags(TagsInput);
 
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)

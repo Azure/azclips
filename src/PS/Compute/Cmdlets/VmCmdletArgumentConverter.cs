@@ -6,10 +6,6 @@ using System.Text.Json;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-/// <summary>
-/// Converts New-AzVM arguments into the shapes the engine binds. A copy of the
-/// ManagedServiceIdentity module's converter, so Compute does not depend on that module.
-/// </summary>
 internal static class VmCmdletArgumentConverter
 {
     public static Dictionary<string, string> ToStringDictionary(Hashtable table)
