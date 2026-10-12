@@ -65,6 +65,7 @@ export interface StageDescriptor {
 }
 
 export const TSP_EMIT_STAGE = "tsp-emit";
+export const SEED_IR_STAGE = "seed-ir";
 export const TWEAK_IR_STAGE = "tweak-ir";
 export const FLATTEN_MODEL_STAGE = "flatten-model";
 export const CREATE_COMMAND_STAGE = "create-command";
@@ -76,16 +77,20 @@ export const CSHARP_STAGE = "csharp";
  */
 export const STAGE_CATALOG: readonly StageDescriptor[] = [
   { id: TSP_EMIT_STAGE, kind: "emit", default: "mandatory" },
-  // The one place IR-level renaming happens, and therefore first among the
-  // transforms: both stages below copy names into structures of their own
-  // (`ModelHints.flattened`, `IRCommand`), so a rename after either would leave a
-  // stale copy behind.
+  // Turns the document facts, the gen-time config the spec cannot provide, into IR
+  // (today the target). Mandatory: every later stage reads them from the document,
+  // and the generator rejects a document without a target.
+  { id: SEED_IR_STAGE, kind: "transform", default: "mandatory" },
+  // The one place IR-level renaming happens, and therefore ahead of the stages that
+  // copy names into structures of their own (`ModelHints.flattened`, `IRCommand`):
+  // a rename after either would leave a stale copy behind.
   { id: TWEAK_IR_STAGE, kind: "transform", default: "on" },
   { id: FLATTEN_MODEL_STAGE, kind: "transform", default: "on" },
   // Projects operations into commands, producing the `TransformedIR` every
   // generator consumes. The document phase changes here: stages before this one
-  // see `IR`, stages after it see commands and a resolved target.
-  { id: CREATE_COMMAND_STAGE, kind: "transform", default: "on" },
+  // see `IR`, stages after it see commands. It carries the target `seed-ir` wrote,
+  // which `TransformedIR` requires.
+  { id: CREATE_COMMAND_STAGE, kind: "transform", default: "on", requires: [SEED_IR_STAGE] },
   // Declared rather than assumed: without commands the generator has nothing to
   // emit, so disabling the projection is a config error instead of a crash.
   { id: CSHARP_STAGE, kind: "generate", default: "on", requires: [CREATE_COMMAND_STAGE] },

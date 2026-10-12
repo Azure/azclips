@@ -32,6 +32,13 @@ const id = (name: string, iface?: string): Record<string, unknown> => ({
 
 const API_VERSION = { value: "2026-01-01", location: "query", parameterName: "api-version" };
 
+/** The target `seed-ir` resolves before this step runs. */
+const TARGET = {
+  rootNamespace: ["Contoso", "Widgets"],
+  projectName: "Contoso.Widgets",
+  directories: { models: "Models", processors: "Processors" },
+};
+
 const param = (name: string, over: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: id(`p.${name}`),
   name,
@@ -73,24 +80,25 @@ function document(operations: Record<string, unknown>[], models: unknown[] = [])
     models,
     enums: [],
     operations,
+    target: TARGET,
   });
 }
 
 /** Run the step, asserting it produced a valid transformed document. */
-function run(
-  ir: IR,
-  options: Record<string, unknown> = {},
-): { out: TransformedIR; diagnostics: { severity: string; code: string; message: string }[] } {
+function run(ir: IR): {
+  out: TransformedIR;
+  diagnostics: { severity: string; code: string; message: string }[];
+} {
   const diagnostics: { severity: string; code: string; message: string }[] = [];
-  const result = createCommandStep(options).run(ir, {
+  const result = createCommandStep().run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d),
   }) as TransformedIR;
   parseTransformedIR(result);
   return { out: result, diagnostics };
 }
 
-const only = (ir: IR, options: Record<string, unknown> = {}): IRCommand => {
-  const { out } = run(ir, options);
+const only = (ir: IR): IRCommand => {
+  const { out } = run(ir);
   return out.commands[0]!;
 };
 
@@ -647,27 +655,17 @@ describe("pagination", () => {
 });
 
 describe("target", () => {
-  it("defaults placement to the source's own namespace", () => {
+  it("carries the target seed-ir resolved", () => {
     const { out } = run(document([operation()]));
 
-    expect(out.target).toEqual({
-      rootNamespace: ["Contoso", "Widgets"],
-      projectName: "Contoso.Widgets",
-      directories: { models: "Models", processors: "Processors" },
-    });
+    expect(out.target).toEqual(TARGET);
   });
 
-  it("takes placement from configuration, dotted or segmented", () => {
-    const { out } = run(document([operation()]), {
-      rootNamespace: "Fabrikam.Gadgets",
-      projectName: "Fabrikam.Gadgets.Client",
-      directories: { models: "Types" },
-    });
+  it("fails on a document no stage resolved a target for", () => {
+    const ir = document([operation()]);
+    delete ir.target;
 
-    expect(out.target.rootNamespace).toEqual(["Fabrikam", "Gadgets"]);
-    expect(out.target.projectName).toBe("Fabrikam.Gadgets.Client");
-    // Unspecified directories keep their defaults.
-    expect(out.target.directories).toEqual({ models: "Types", processors: "Processors" });
+    expect(() => createCommandStep().run(ir, { reportDiagnostic: () => {} })).toThrow(/seed-ir/);
   });
 });
 

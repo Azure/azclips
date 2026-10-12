@@ -22,6 +22,7 @@ import {
   CSHARP_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
+  SEED_IR_STAGE,
   TWEAK_IR_STAGE,
   TSP_EMIT_STAGE,
   compile,
@@ -94,9 +95,10 @@ describe("orchestration: the stage sequence", () => {
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => [s.index, s.step])).toEqual([
       [0, TSP_EMIT_STAGE],
-      [1, TWEAK_IR_STAGE],
-      [2, FLATTEN_MODEL_STAGE],
-      [3, CREATE_COMMAND_STAGE],
+      [1, SEED_IR_STAGE],
+      [2, TWEAK_IR_STAGE],
+      [3, FLATTEN_MODEL_STAGE],
+      [4, CREATE_COMMAND_STAGE],
     ]);
     // A run with no generate stage still succeeds; it is only warned about.
     expect(result.diagnostics.map((d) => d.code)).toContain(
@@ -116,6 +118,7 @@ describe("orchestration: the stage sequence", () => {
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => s.step)).toEqual([
       TSP_EMIT_STAGE,
+      SEED_IR_STAGE,
       TWEAK_IR_STAGE,
       CREATE_COMMAND_STAGE,
     ]);
@@ -155,23 +158,43 @@ describe("orchestration: the stage sequence", () => {
 });
 
 describe("orchestration: stage resolution", () => {
-  it("hands each stage its own options from config.stageOptions", async () => {
+  it("hands seed-ir every config key that is not a compiler setting", async () => {
     const result = await compile(
       {
         entrypoint: ENTRYPOINT,
         config: {
           ...NO_GENERATOR,
-          stageOptions: { [CREATE_COMMAND_STAGE]: { rootNamespace: "Contoso.Pets" } },
+          stageOptions: { [FLATTEN_MODEL_STAGE]: { inliningThreshold: 10 } },
+          "root-namespace": "Contoso.Pets",
+          version: "0.1.0",
         },
       },
       { emit: petsEmit },
     );
 
     expect(result.success).toBe(true);
-    expect((result.ir as TransformedIR | undefined)?.target.rootNamespace).toEqual([
-      "Contoso",
-      "Pets",
-    ]);
+    expect((result.ir as TransformedIR | undefined)?.target).toEqual({
+      rootNamespace: ["Contoso", "Pets"],
+      projectName: "Contoso.Pets",
+      directories: { models: "Models", processors: "Processors" },
+      version: "0.1.0",
+    });
+    // The compiler's own settings never reach seed-ir, so none is reported as unknown.
+    expect(result.diagnostics.map((d) => d.code)).not.toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
+  });
+
+  it("leaves a top-level key nobody takes to seed-ir, which warns about it", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, "root-namspace": "Contoso.Pets" } },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.diagnostics.map((d) => d.code)).toContain(
+      "@azure-client-engine/transformers/seed-ir/unknown-fact",
+    );
   });
 
   it("fails when an enabled stage has no implementation", async () => {

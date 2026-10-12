@@ -364,6 +364,28 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     }
   });
 
+  it("passes --root-namespace as a document fact that seed-ir writes to the target", async () => {
+    const outDir = join(dir, "capture-root-namespace");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--root-namespace",
+      "Contoso.Pets",
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code, err).toBe(0);
+    // Nothing else the CLI passes on reaches seed-ir as an unknown fact.
+    expect(err).not.toMatch(/unknown-fact/);
+
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
+    const target = parseSnapshot(captures.at(-1)!).target;
+    expect(target?.rootNamespace).toEqual(["Contoso", "Pets"]);
+    expect(target?.projectName).toBe("Contoso.Pets");
+  });
+
   it("does not create the ir/ directory when --capture-ir is absent", async () => {
     const outDir = join(dir, "no-capture");
     const { code } = await captureRun([
@@ -499,9 +521,10 @@ describe("ace compile: stage toggles", () => {
     ]);
     expect(code).toBe(0);
 
-    // Emit, tweak-ir, and the command projection still snapshot; only flattening is gone.
+    // Emit, seed-ir, tweak-ir, and the command projection still snapshot; only
+    // flattening is gone.
     const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json")).sort();
-    expect(captures).toHaveLength(3);
+    expect(captures).toHaveLength(4);
     for (const capture of captures) {
       const ir = parseSnapshot(capture);
       expect(ir.operations.every((o) => o.requestBody?.rendering?.parameters === undefined)).toBe(

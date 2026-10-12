@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CSHARP_STAGE,
+  SEED_IR_STAGE,
   TWEAK_IR_STAGE,
   CREATE_COMMAND_STAGE,
   FLATTEN_MODEL_STAGE,
@@ -44,22 +45,22 @@ describe("stage planner: the shipped catalog", () => {
   it("plans the whole shipped sequence with nothing configured", () => {
     const { sequence, diagnostics } = plan({});
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, SEED_IR_STAGE, TWEAK_IR_STAGE, FLATTEN_MODEL_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
     expect(sequence!.emit.descriptor.id).toBe(TSP_EMIT_STAGE);
   });
 
   it("closes the sequence when a middle stage is disabled", () => {
     const { sequence, diagnostics } = plan({ [FLATTEN_MODEL_STAGE]: false });
     expect(diagnostics).toEqual([]);
-    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, TWEAK_IR_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
+    expect(order(sequence)).toEqual([TSP_EMIT_STAGE, SEED_IR_STAGE, TWEAK_IR_STAGE, CREATE_COMMAND_STAGE, CSHARP_STAGE]);
   });
 
   it("numbers stages by their position in the enabled sequence", () => {
     const { sequence } = plan({});
-    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4]);
+    expect(sequence!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4, 5]);
     // Disabling a stage renumbers what is left; it leaves no hole behind.
     const { sequence: trimmed } = plan({ [FLATTEN_MODEL_STAGE]: false });
-    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3]);
+    expect(trimmed!.stages.map((s) => s.index)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("warns when no generate stage is enabled, since the run writes nothing", () => {
@@ -79,10 +80,13 @@ describe("stage planner: the shipped catalog", () => {
     const { sequence, diagnostics } = plan({ [TSP_EMIT_STAGE]: false });
     expect(sequence).toBeUndefined();
     expect(codes(diagnostics)).toEqual(["stage-not-optional"]);
+    // seed-ir writes the target every later stage reads, so it cannot be skipped either.
+    expect(codes(plan({ [SEED_IR_STAGE]: false }).diagnostics)).toEqual(["stage-not-optional"]);
   });
 
   it("applies defaults per stage, and a toggle overrides them", () => {
-    const [emit, flatten] = [STAGE_CATALOG[0]!, STAGE_CATALOG[1]!];
+    const emit = STAGE_CATALOG[0]!;
+    const flatten = STAGE_CATALOG.find((stage) => stage.id === FLATTEN_MODEL_STAGE)!;
     expect(isStageEnabled(emit, {})).toBe(true);
     expect(isStageEnabled(emit, { [emit.id]: false })).toBe(true); // mandatory wins
     expect(isStageEnabled(flatten, {})).toBe(true); // default: on
@@ -97,6 +101,7 @@ describe("stage planner: the shipped catalog", () => {
     expect(order(plan({}, catalog).sequence)).not.toContain("extra");
     expect(order(plan({ extra: true }, catalog).sequence)).toEqual([
       TSP_EMIT_STAGE,
+      SEED_IR_STAGE,
       TWEAK_IR_STAGE,
       FLATTEN_MODEL_STAGE,
       CREATE_COMMAND_STAGE,

@@ -59,6 +59,7 @@ run, and whether each runs by default:
 
 ```ts
 { id: "tsp-emit",       kind: "emit",      default: "mandatory" }
+{ id: "seed-ir",        kind: "transform", default: "mandatory" }
 { id: "tweak-ir",       kind: "transform", default: "on" }
 { id: "flatten-model",  kind: "transform", default: "on" }
 { id: "create-command", kind: "transform", default: "on" }
@@ -146,7 +147,9 @@ transform id to its step in `@azure-client-engine/transformers`
 (`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
 external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
 all a host provides. Per-stage settings live in `config.stageOptions`, keyed by
-stage id, because options are not orchestration.
+stage id, because options are not orchestration. Every other config key that is
+not a compiler setting is a document fact, and the compiler hands those to
+`seed-ir` (see [Generation target](#generation-target)).
 
 Packages layer as `cli` → `compiler` → `transformers`, and every package depends
 on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
@@ -155,7 +158,7 @@ on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
 Stages run to the first failure — in a sequence, every later stage would just
 consume the broken IR.
 
-Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-tweak-ir.json`).
+Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-seed-ir.json`).
 Generate stages take a sequence position but produce no IR, so index gaps are
 expected. Because a run mutates one IR from end to end, a sink that *retains* a
 snapshot **must** copy it: the in-memory collector does, and the CLI's filesystem
@@ -174,11 +177,16 @@ compiler passes its own reporter in, and the compiler stops building if the two
 shapes drift apart. A run carries one IR, so returning it mutated in place is the
 expected shape; returning a replacement works too.
 
+`seedIrStep()` fulfils the mandatory `seed-ir` stage, the first transform. It
+turns the document facts, the gen-time config the spec cannot provide, into the
+IR's `target` (see [Generation target](#generation-target)). It writes only
+top-level IR nodes and never renames anything.
+
 `tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
 across the type universe, so two same-named declarations from different
-namespaces cannot collapse onto one generated type. It runs first among the
-transforms because the two below it denormalize names — `flatten-model` composes
+namespaces cannot collapse onto one generated type. It runs before the two
+stages below it because they denormalize names — `flatten-model` composes
 member names from property and model names, and `create-command` copies names
 into commands — so a rename after either would leave a stale copy behind. (An
 `IRCommand` is different: commands are created downstream and nothing
@@ -193,9 +201,9 @@ it writes only rendering hints and leaves `IRModel.properties` exactly as
 emitted.
 
 The compiler maps each of these steps to its stage id; hosts register nothing.
-Whether a stage *runs* is the catalog's default (`on`) plus any `config.pipeline`
-toggle; per-service settings such as `inliningThreshold` and `noInline` arrive
-through `config.stageOptions`. The package participates in the root workspace
+Whether a stage *runs* is the catalog's default (`on`, or `mandatory` for
+`seed-ir`) plus any `config.pipeline` toggle; per-service settings such as
+`inliningThreshold` and `noInline` arrive through `config.stageOptions`. The package participates in the root workspace
 build and test commands.
 
 ## Source identity
@@ -433,15 +441,44 @@ surface.
 IR 0.14.0 lets `target` (`IRTarget`) sit on `IR` as an optional field, while
 `TransformedIR` still requires it. A root field is required on `IR` only if the
 emitter produces it, and a target is resolved from generation-time configuration
-by a transform — today `create-command`.
+by the `seed-ir` stage.
 
 `IRTarget` also gains optional `serviceName`, `version`, and `description`: facts
 about the generated extension that the spec cannot provide. They live on the
 target only for now; a dedicated node may replace that as more such facts arrive.
-Nothing writes them yet, and the C# generator does not read them.
+The C# generator does not read them yet.
 
 Both additions are optional, so existing captures remain valid. Regenerate the IR
 JSON Schema and the C# POCOs to pick up the new fields.
+
+### Document facts and `seed-ir`
+
+The facts are config keys, written as in the config file (kebab-case). The CLI
+and the compiler each take their own keys; every other top-level key is a fact,
+and the compiler hands those to `seed-ir` untouched:
+
+```jsonc
+// --config: compiler settings beside document facts
+{
+  "pipeline": { "flatten-model": false },
+  "root-namespace": "Contoso.Widgets",
+  "project-name": "Contoso.Widgets.Client",
+  "version": "0.1.0"
+}
+```
+
+| Fact | Target field | Default when absent |
+|---|---|---|
+| `root-namespace` (dotted) | `rootNamespace` | the first source's namespace, else `Generated` |
+| `project-name` | `projectName` | the root namespace |
+| `directories.models`, `directories.processors` | `directories` | `Models`, `Processors` |
+| `service-name`, `version`, `description` | `serviceName`, `version`, `description` | unset |
+
+`--root-namespace` overrides the `root-namespace` fact. A fact with the wrong
+type or an empty value is an `invalid-fact` error and falls back to its default.
+A key `seed-ir` does not know is an `unknown-fact` warning, which is how a
+misspelled key surfaces. `create-command` carries the target into the
+`TransformedIR`, and fails on a document without one.
 
 ## IR JSON Schema (cross-language contract)
 

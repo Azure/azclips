@@ -20,9 +20,10 @@ import { compile, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK
 import { createHostRuntime } from "../dist/src/runtime.js";
 
 /**
- * Emit-only runs: turn off every stage after emit so these tests exercise the real
- * out-of-process `tsp-emit` stage and nothing else. `create-command` can be turned
- * off only together with the generate stage that `requires` it.
+ * Emit-only runs: turn off every optional stage after emit so these tests exercise
+ * the real out-of-process `tsp-emit` stage. Only the mandatory `seed-ir` still runs,
+ * and it just adds the target. `create-command` can be turned off only together
+ * with the generate stage that `requires` it.
  */
 const EMIT_ONLY: Record<string, boolean> = {
   [TWEAK_IR_STAGE]: false,
@@ -42,7 +43,7 @@ const PETS_TSP = resolve(
 
 describe("built-in emit (host runtime tsp-emit)", () => {
   it("produces schema-valid IR out of process and threads it through compile()", async () => {
-    // Emit-only check: every stage after emit is off, so nothing is generated.
+    // Emit-only check: every optional stage after emit is off, so nothing is generated.
     const result = await compile(
       { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
       { runtime: createHostRuntime() },
