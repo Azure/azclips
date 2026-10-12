@@ -7,7 +7,7 @@
     CompanyName = 'Microsoft Corporation'
     Description = 'Key Vault secret lifecycle commands for Azclips'
     PowerShellVersion = '7.6'
-    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.1' })
+    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.2' })
     RequiredAssemblies = @(
         '../../../artifacts/Debug/Core/Core.Abstractions.dll'
         '../../../artifacts/Debug/Core/Core.Telemetry.dll'
