@@ -4,6 +4,7 @@
 using System.Net.Http;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
@@ -104,6 +105,11 @@ public class LoginProcessorValidationTests
         TenantId = tenantId,
         CorrelationId = Guid.Empty,
     };
+
+    private static void SetBaseField(LoginProcessor processor, string fieldName, object value) =>
+        typeof(LoginProcessorBase)
+            .GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(processor, value);
 
     private static string FlagFor(ClientType surface, string propertyName)
     {
@@ -581,6 +587,60 @@ public class LoginProcessorValidationTests
             new LoginProcessor(),
             "EnsureCrossTenantAccessible",
             new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" });
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PublishesEnrichedRuntimeProfile_AfterLoginTokenAcquisition()
+    {
+        const string objectId = "99999999-9999-9999-9999-999999999999";
+        var authResult = FakeAuthResult("22222222-2222-2222-2222-222222222222") with
+        {
+            EntraObjectId = objectId,
+            UserPrincipalName = "user@microsoft.com",
+        };
+
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(authResult);
+
+        Profile? savedProfile = null;
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>()))
+            .Callback<Profile, CancellationToken>((profile, _) => savedProfile = profile)
+            .Returns(Task.CompletedTask);
+
+        AzclipsServiceProvider.Dispose();
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton(new Mock<ILoggingService>().Object);
+            services.AddSingleton(auth.Object);
+            services.AddSingleton(profiles.Object);
+        });
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+
+        Profile? publishedProfile = null;
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        publisher
+            .Setup(p => p.Publish(Events.AuthAfterTokenAcquisition, It.IsAny<EventData>()))
+            .Callback<string, EventData>((_, data) => publishedProfile = data.Payload as Profile)
+            .Returns(Task.CompletedTask);
+
+        var processor = new LoginProcessor
+        {
+            TenantId = "22222222-2222-2222-2222-222222222222",
+            SubscriptionId = ValidSubscriptionId,
+        };
+        SetBaseField(processor, "Publisher", publisher.Object);
+        SetBaseField(processor, "WriteOutput", (OutputStreamDelegate)((_, _) => Task.CompletedTask));
+
+        await processor.ProcessAsync();
+
+        Assert.NotNull(savedProfile);
+        Assert.Equal(objectId, savedProfile!.Metadata.EntraObjectId);
+        Assert.NotNull(publishedProfile);
+        Assert.Equal(objectId, publishedProfile!.Metadata.EntraObjectId);
     }
 
     // ── Section 7: ResolveSubscriptionTenantAsync branches ─────────────────────────────────
