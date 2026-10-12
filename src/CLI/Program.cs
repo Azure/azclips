@@ -211,7 +211,7 @@ public class Program
             return await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName)) ?? 1;
         }
         // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
@@ -232,6 +232,23 @@ public class Program
         }
         catch (AzclipsErrorException ex)
         {
+            // Parser and validation usage errors reached agent fallback when they were plain
+            // exceptions, so they keep doing so. Missing-required errors stay known: they show help.
+            if (ex is UsageErrorException { HasMissingRequiredParameters: false })
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                var agentExit = await StopRootThenFallbackAsync(
+                    activity,
+                    (traceId, spanId, commandName) =>
+                        TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                if (agentExit is { } exitCode)
+                {
+                    return exitCode;
+                }
+            }
+
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
                 EmitKnownError(ex, invocation);
@@ -255,7 +272,7 @@ public class Program
             return await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName)) ?? 1;
         }
         finally
         {
@@ -423,9 +440,9 @@ public class Program
     /// long as the model takes, and anything still inside the root span counts as command
     /// execution time.
     /// </remarks>
-    internal static async Task<int> StopRootThenFallbackAsync(
+    internal static async Task<T> StopRootThenFallbackAsync<T>(
         Activity? root,
-        Func<string?, string?, string?, Task<int>> fallback)
+        Func<string?, string?, string?, Task<T>> fallback)
     {
         // Read before disposing, so this does not depend on Activity's post-stop behaviour.
         var traceId = root?.TraceId.ToString();
@@ -492,7 +509,11 @@ public class Program
         return psi;
     }
 
-    private static async Task<int> TryAgentFallbackAsync(
+    /// <returns>
+    /// <c>null</c> when the agent was not launched, so the caller reports the original error;
+    /// otherwise the agent's exit code.
+    /// </returns>
+    private static async Task<int?> TryAgentFallbackAsync(
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
@@ -506,13 +527,13 @@ public class Program
             agentOptions = config.GetConfiguration<AgentOptions>();
             if (!agentOptions.Enabled)
             {
-                return 1;
+                return null;
             }
         }
         catch (Exception ex)
         {
             _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
-            return 1;
+            return null;
         }
 
         // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
@@ -525,21 +546,21 @@ public class Program
         if (agentOptions.IsInteractive &&
             (Console.IsInputRedirected || Console.IsOutputRedirected))
         {
-            return 1;
+            return null;
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent process must NOT spawn another agent.
         if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
-            return 1;
+            return null;
         }
 
         var agentExe = FindAgentExe();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
-            return 1;
+            return null;
         }
 
         // Opened only once a spawn is certain. The command root is already stopped, so
@@ -596,7 +617,7 @@ public class Program
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             recovery?.SetStatus(ActivityStatusCode.Error);
-            return 1;
+            return null;
         }
     }
 

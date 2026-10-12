@@ -467,7 +467,7 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 | `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Known errors, including usage errors such as an unknown flag, a missing value, or an unknown command, are printed and exit without reaching the agent. Even for unclassified failures, `TryAgentFallbackAsync` (`:495`) only proceeds if three gates pass:
+The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Parser and validation usage errors (an unknown flag, a missing value, an invalid profile or subscription ID) are the one exception and still get an agent attempt, because they used to reach it as plain exceptions. Missing required arguments and unknown commands are known errors and skip the agent. Even when the agent is attempted, `TryAgentFallbackAsync` (`:495`) only launches if three gates pass; otherwise the original error is printed with its exit code:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -929,7 +929,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 13. **`CancellationToken`** — .NET's cooperative cancellation primitive threaded through async calls.
 14. **`ClientType`** — enum seeded into the container identifying the surface (CLI/TUI/PowerShell).
 15. **`CommandInvocation`** — the parsed command (extension, verb, params) produced by `ExtensionDispatcher`.
-16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, never triggers the agent.
+16. **`AzclipsErrorException`** — structured, well-known error; rendered directly and not sent to the agent. Parser and validation usage errors are the exception and still get an agent attempt (see §9.1).
 17. **Composition root** — the single place services are registered/resolved (`AzclipsServiceProvider`).
 18. **`Core.Abstractions`** — the interface-only project with no concrete deps; the seam hub.
 19. **DI (Dependency Injection)** — supplying dependencies via constructors from a container.
