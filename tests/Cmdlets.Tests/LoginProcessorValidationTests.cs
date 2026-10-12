@@ -57,7 +57,8 @@ public class LoginProcessorValidationTests
             if (auth is not null) services.AddSingleton(auth);
             if (subs is not null) services.AddSingleton(subs);
         });
-        AzclipsServiceProvider.Initialize(clientType);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(clientType, "00000000-0000-0000-0000-000000000000"));
         return warns;
     }
 
@@ -148,7 +149,7 @@ public class LoginProcessorValidationTests
         const string invalidSubscriptionId = "Steven Ma [stema] subscription";
         var processor = new LoginProcessor { SubscriptionId = invalidSubscriptionId };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -174,7 +175,7 @@ public class LoginProcessorValidationTests
             SubscriptionId = invalidSubscriptionId,
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<UsageErrorException>(() => InvokePrivate(
             processor,
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -561,7 +562,7 @@ public class LoginProcessorValidationTests
             OutProfile = ProfileNameValidator.ReservedDefaultName,
         };
 
-        Assert.ThrowsAny<ArgumentException>(() => InvokePrivate(
+        Assert.ThrowsAny<UsageErrorException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
     }
 

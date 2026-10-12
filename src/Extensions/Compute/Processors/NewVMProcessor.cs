@@ -33,6 +33,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string? SecurityType { get; set; } = "trustedlaunch";
         public bool? SecureBootEnabled { get; set; } = true;
         public bool? VTpmEnabled { get; set; } = true;
+        public string? OsDiskSecurityEncryptionType { get; set; }
+        public string? OsDiskSecureVMDiskEncryptionSetId { get; set; }
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
         protected override HttpMethod Method => HttpMethod.Put;
@@ -58,6 +60,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     HardwareProfile = new HardwareProfile(VmSize),
                     StorageProfile = new StorageProfile
                     {
+                        OSDisk = string.IsNullOrEmpty(OsDiskSecurityEncryptionType) && string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                            ? null
+                            : new OSDisk
+                            {
+                                CreateOption = OsDiskCreateOption,
+                                ManagedDisk = new ManagedDiskParameters
+                                {
+                                    SecurityProfile = new VMDiskSecurityProfile
+                                    {
+                                        SecurityEncryptionType = OsDiskSecurityEncryptionType,
+                                        DiskEncryptionSet = string.IsNullOrEmpty(OsDiskSecureVMDiskEncryptionSetId)
+                                            ? null
+                                            : new DiskEncryptionSetParameters
+                                            {
+                                                Id = OsDiskSecureVMDiskEncryptionSetId
+                                            }
+                                    }
+                                }
+                            },
                         ImageReference = new ImageReference
                         {
                             Publisher = ImagePublisher,

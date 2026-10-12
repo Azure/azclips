@@ -36,6 +36,12 @@ public class ListRoleAssignmentProcessor : ResourcesProcessorBase<object, RoleAs
         $"https://management.azure.com{Scope}/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01"
         + (string.IsNullOrWhiteSpace(Filter) ? string.Empty : $"&$filter={Uri.EscapeDataString(Filter)}");
 
+    /// <summary>
+    /// Exposes the spec-shaped first-page request so a caller that must drive its own transport and
+    /// pagination — e.g. the create orchestrator's best-effort idempotency lookup — can reuse this URI.
+    /// </summary>
+    internal Task<HttpRequestMessage> BuildRequestAsync() => CreateRequestMessage();
+
     private string? nextLink(RoleAssignmentListResult body) => body.NextLink;
     private IEnumerable<RoleAssignment>? pageItems(RoleAssignmentListResult body) =>
         body.Value is null ? null : FilterPageItems(body.Value);

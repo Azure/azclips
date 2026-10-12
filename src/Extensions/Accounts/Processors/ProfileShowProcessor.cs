@@ -33,7 +33,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 ? await profileService.GetActiveProfileAsync()
                     ?? throw new InvalidOperationException("No active profile is set.")
                 : await profileService.GetProfileAsync(Name)
-                    ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+                    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
             await WriteOutput(profile);
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);

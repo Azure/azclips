@@ -149,6 +149,7 @@ public class ServicePrincipalSecretStoreTests : IDisposable
             logger,
             telemetry,
             profiles ?? Mock.Of<IProfileService>(),
+            new ClientMetadata(ClientType.CLI, ClientA),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), logger, telemetry),
             new FederatedTokenAuthenticator(logger, telemetry, options),
             options);

@@ -46,7 +46,8 @@ public class ProfileRemoveProcessorTests
             services.AddSingleton<IAuthService>(auth);
             services.AddSingleton<IProfileService>(profiles);
         });
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         return (auth, profiles);
     }
 
@@ -108,7 +109,8 @@ public class ProfileRemoveProcessorTests
     {
         var (auth, _) = InitDi();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => CreateProcessor("missing").ProcessAsync());
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor("missing").ProcessAsync());
+        Assert.Equal("ProfileNotFound", ex.Code);
         Assert.False(auth.LogoutCalled);
     }
 }
