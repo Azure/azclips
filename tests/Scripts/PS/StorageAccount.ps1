@@ -258,11 +258,12 @@ try
     # The results enumerate, so the pipeline should see individual accounts rather than one array.
     Get-AzStorageAccount -ResourceGroupName $Rg | Select-Object -ExpandProperty Name
 
-    # -WhatIf must not delete anything.
+    # -WhatIf must not delete anything, even alongside -Force.
     Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -WhatIf
+    Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -WhatIf -Force
 
-    # High confirm impact means this prompts unless -Confirm:$false is passed.
-    Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -Confirm:$false
+    # High confirm impact means this prompts unless -Force or -Confirm:$false is passed.
+    Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -Force
 
     # Negative case: get an account that does not exist.
     Get-AzStorageAccount -ResourceGroupName $Rg -Name 'azclipsdoesnotexist'

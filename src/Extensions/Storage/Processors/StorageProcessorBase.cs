@@ -301,9 +301,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                             // Capture the message before disposing the response, then dispose the
                             // current response (handle/socket) exactly once on this throw path.
                             // The method exits here, so the surrounding finally only disposes _request.
+                            // Name the resource, not the poll URL: after the first poll _request
+                            // targets the signed async-operation URL, whose c/s/h query values must
+                            // not reach error output or logs.
                             string message = string.IsNullOrWhiteSpace(failureDetail)
-                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}."
-                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}. {failureDetail}";
+                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_originalUri}."
+                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_originalUri}. {failureDetail}";
                             _response.Dispose();
                             throw new InvalidOperationException(message);
                         }

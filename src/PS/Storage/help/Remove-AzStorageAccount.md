@@ -21,7 +21,7 @@ Remove an Azure Storage account.
 
 ```
 Remove-AzStorageAccount -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Force] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -29,7 +29,7 @@ Remove-AzStorageAccount -ResourceGroupName <string> -Name <string> [-Subscriptio
 ## DESCRIPTION
 
 Removes an Azure Storage account and all of the data it contains.
-This cannot be undone, so the cmdlet prompts for confirmation by default; pass -Confirm:$false to suppress the prompt, or -WhatIf to see what would be removed without removing it.
+This cannot be undone, so the cmdlet prompts for confirmation by default; pass -Force or -Confirm:$false to suppress the prompt, or -WhatIf to see what would be removed without removing it.
 
 ## EXAMPLES
 
@@ -42,7 +42,7 @@ Remove-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccoun
 ### Example 2: Remove a storage account without prompting
 
 ```powershell
-Remove-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Confirm:$false
+Remove-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Force
 ```
 
 ## PARAMETERS
@@ -57,6 +57,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Force
+
+Removes the storage account without prompting for confirmation. -WhatIf still takes precedence.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named

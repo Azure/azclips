@@ -197,6 +197,17 @@ public class StorageAccountCmdletTests
         Assert.False(attribute.SupportsShouldProcess);
     }
 
+    [Fact]
+    public void RemoveCmdlet_DeclaresAnOptionalForceSwitch()
+    {
+        // Az.Storage scripts delete unattended with -Force; without the parameter they fail at binding.
+        var property = typeof(RemoveStorageAccountCmdlet).GetProperty("Force");
+
+        Assert.NotNull(property);
+        Assert.Equal(typeof(SwitchParameter), property!.PropertyType);
+        Assert.All(property.GetCustomAttributes<ParameterAttribute>(), a => Assert.False(a.Mandatory));
+    }
+
     // ── Closed value sets ──
 
     [Fact]

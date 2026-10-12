@@ -656,6 +656,40 @@ public class NewStorageAccountProcessorTests
         Assert.Contains("storageAccounts/mystorageaccount", error.Message);
     }
 
+    [Fact]
+    public async Task ProcessAsync_TerminalFailureAfterPolling_DoesNotLeakTheSignedPollUrl()
+    {
+        // Once polling starts the request targets ARM's signed async-operation URL. Its c, s and h
+        // values must not reach the error message, so the message names the resource instead.
+        const string pollUrl = "https://management.azure.com/subscriptions/s/providers/Microsoft.Storage/locations/eastus/asyncoperations/op?monitor=true&api-version=2026-04-01&c=CERTIFICATE&s=SIGNATURE&h=HASH";
+        const string failed = """
+            {
+              "properties": { "provisioningState": "Failed" },
+              "error": { "code": "InternalError", "message": "The operation failed." }
+            }
+            """;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            if (request.Method != HttpMethod.Put)
+            {
+                return Json(failed);
+            }
+
+            var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
+            accepted.Headers.Location = new Uri(pollUrl);
+            return accepted;
+        });
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
+
+        Assert.Equal(2, pipeline.SendCount);
+        Assert.DoesNotContain("asyncoperations", error.Message);
+        Assert.DoesNotContain("SIGNATURE", error.Message);
+        Assert.Contains("storageAccounts/mystorageaccount", error.Message);
+        Assert.Contains("InternalError", error.Message);
+    }
+
     // ── Validation ──
 
     [Fact]

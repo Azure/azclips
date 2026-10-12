@@ -26,6 +26,9 @@ public class RemoveStorageAccountCmdlet : PSCmdlet
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = false)]
+    public SwitchParameter Force { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -37,8 +40,12 @@ public class RemoveStorageAccountCmdlet : PSCmdlet
     protected override void ProcessRecord()
     {
         // Deleting an account destroys its data, hence the high confirm impact: this prompts by
-        // default rather than only under -Confirm.
-        if (!ShouldProcess($"Storage account '{Name}' in resource group '{ResourceGroupName}'", "Remove"))
+        // default rather than only under -Confirm. -Force skips the prompt, but -WhatIf must still
+        // short-circuit.
+        var whatIf = MyInvocation.BoundParameters.TryGetValue("WhatIf", out var value)
+                     && value is SwitchParameter { IsPresent: true };
+        if ((whatIf || !Force.IsPresent)
+            && !ShouldProcess($"Storage account '{Name}' in resource group '{ResourceGroupName}'", "Remove"))
         {
             return;
         }
