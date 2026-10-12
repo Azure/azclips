@@ -20,8 +20,8 @@ import {
   TWEAK_IR_STAGE,
 } from "./stages.js";
 
-/** Builds a transform step from the stage's entry. */
-export type TransformStepFactory = (entry: Record<string, unknown>) => TransformStep;
+/** Builds a transform step from its stage config. */
+export type TransformStepFactory = (config: Record<string, unknown>) => TransformStep;
 
 export const TRANSFORMS: ReadonlyMap<string, TransformStepFactory> = new Map<
   string,

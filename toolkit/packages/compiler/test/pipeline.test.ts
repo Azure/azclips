@@ -49,7 +49,7 @@ const petsEmit: EmitProducer = {
 
 const ENTRYPOINT = "pets.tsp";
 
-const NO_GENERATOR: CompileConfig = { pipeline: { [CSHARP_STAGE]: false } };
+const NO_GENERATOR: CompileConfig = { stages: { [CSHARP_STAGE]: { disabled: true } } };
 
 const errorsOf = (result: Awaited<ReturnType<typeof compile>>) =>
   result.diagnostics.filter((d) => d.severity === "error");
@@ -110,7 +110,9 @@ describe("orchestration: the stage sequence", () => {
     const result = await compile(
       {
         entrypoint: ENTRYPOINT,
-        config: { pipeline: { [FLATTEN_MODEL_STAGE]: false, [CSHARP_STAGE]: false } },
+        config: {
+          stages: { [FLATTEN_MODEL_STAGE]: { disabled: true }, [CSHARP_STAGE]: { disabled: true } },
+        },
       },
       { emit: petsEmit, captureIR: true },
     );
@@ -180,8 +182,10 @@ describe("orchestration: stage resolution", () => {
       {
         entrypoint: ENTRYPOINT,
         config: {
-          ...NO_GENERATOR,
-          stageOptions: { [FLATTEN_MODEL_STAGE]: { inliningThreshold: 10 } },
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { inliningThreshold: 10 } },
+          },
           "root-namespace": "Contoso.Pets",
           version: "0.1.0",
         },
@@ -196,10 +200,46 @@ describe("orchestration: stage resolution", () => {
       directories: { models: "Models", processors: "Processors" },
       version: "0.1.0",
     });
-    // The compiler's own settings never reach seed-ir, so none is reported as unknown.
+    // The compiler's own setting never reaches seed-ir, so nothing is reported as unknown.
     expect(result.diagnostics.map((d) => d.code)).not.toContain(
       "@azure-client-engine/transformers/seed-ir/unknown-fact",
     );
+  });
+
+  it("hands each stage its section's options, and ignores those of a disabled stage", async () => {
+    const result = await compile(
+      {
+        entrypoint: ENTRYPOINT,
+        config: {
+          stages: {
+            [CSHARP_STAGE]: { disabled: true },
+            [FLATTEN_MODEL_STAGE]: { options: { noInlined: ["Pet"] } },
+            [TWEAK_IR_STAGE]: { disabled: true, options: { anything: true } },
+          },
+        },
+      },
+      { emit: petsEmit },
+    );
+
+    expect(result.success).toBe(true);
+    const unknownOptions = result.diagnostics
+      .map((d) => d.code)
+      .filter((code) => code.endsWith("/unknown-option"));
+    // flatten-model ran and saw its own config; tweak-ir never ran, so its options went unread.
+    expect(unknownOptions).toEqual(["@azure-client-engine/transformers/flatten-model/unknown-option"]);
+  });
+
+  it("rejects a malformed stages setting before any stage runs", async () => {
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { stages: { [FLATTEN_MODEL_STAGE]: { disabled: "yes" } } } },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(false);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/compiler/invalid-setting",
+    ]);
+    expect(result.snapshots).toEqual([]);
   });
 
   it("leaves a top-level key nobody takes to seed-ir, which warns about it", async () => {

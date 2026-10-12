@@ -13,14 +13,14 @@
  * named after the root namespace, and the directories are `Models` and
  * `Processors`. The service name, version and description stay unset.
  *
- * ## Checking the entry
+ * ## Checking its config
  *
  * The facts arrive as written in config, with kebab-case keys, and unchecked. A
  * fact with the wrong type or an empty value is an error, and the stage fails: every
  * fact is still checked, so all such errors surface together, but no target is
  * written and the compiler stops the run. A default stands in only for a missing
- * fact, never for an invalid one. A key this step does not know is a warning: the
- * entry is everything nobody else took at the top level, so that is how a
+ * fact, never for an invalid one. A key this step does not know is a warning: its
+ * config is everything nobody else took at the top level, so that is how a
  * misspelled top-level key surfaces. A key with no value (`null`) counts as absent.
  *
  * ## What it must not do
@@ -30,7 +30,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
-import { warnUnknownKeys } from "./entry.js";
+import { describeValue, isMap, warnUnknownKeys } from "./stage-config.js";
 import type { IR, IRTarget, IRTargetDirectories } from "@azure-client-engine/ir";
 
 const STEP_NAME = "seed-ir";
@@ -135,7 +135,7 @@ function resolveDirectories(facts: Record<string, unknown>, report: Report): IRT
     report(
       "error",
       "invalid-fact",
-      `'directories' must be a map of 'models' and 'processors', not ${describe(value)}.`,
+      `'directories' must be a map of 'models' and 'processors', not ${describeValue(value)}.`,
     );
     return { ...DEFAULT_DIRECTORIES };
   }
@@ -154,16 +154,16 @@ const NON_EMPTY_STRING = "a non-empty string";
 const DOTTED_NAMESPACE = "a dotted namespace such as 'Contoso.Widgets'";
 
 /**
- * Reads one fact of `entry`. A missing or `null` value is absent. An invalid one is
+ * Reads one fact of `facts`. A missing or `null` value is absent. An invalid one is
  * reported, which fails the stage, and is then read as absent so that the remaining
  * facts are still checked.
  */
 type ReadFact = <T>(key: string, parse: (value: unknown) => T | undefined, expected: string) => T | undefined;
 
-/** `prefix` places the entry in the config (`directories.`), so messages name the full key. */
-function factReader(entry: Record<string, unknown>, prefix: string, report: Report): ReadFact {
+/** `prefix` places a nested map in the config (`directories.`), so messages name the full key. */
+function factReader(facts: Record<string, unknown>, prefix: string, report: Report): ReadFact {
   return (key, parse, expected) => {
-    const value = entry[key];
+    const value = facts[key];
     if (value === undefined || value === null) return undefined;
 
     const parsed = parse(value);
@@ -171,7 +171,7 @@ function factReader(entry: Record<string, unknown>, prefix: string, report: Repo
       report(
         "error",
         "invalid-fact",
-        `'${prefix}${key}' must be ${expected}, not ${describe(value)}.`,
+        `'${prefix}${key}' must be ${expected}, not ${describeValue(value)}.`,
       );
     }
     return parsed;
@@ -186,16 +186,4 @@ function namespaceSegments(value: unknown): string[] | undefined {
   if (typeof value !== "string") return undefined;
   const segments = value.split(".");
   return segments.every((segment) => segment.length > 0) ? segments : undefined;
-}
-
-function isMap(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** A value as a reader would recognize it in a message. */
-function describe(value: unknown): string {
-  if (typeof value === "string") return value.length === 0 ? "an empty string" : `'${value}'`;
-  if (Array.isArray(value)) return "a list";
-  if (typeof value === "object") return "a map";
-  return `the ${typeof value} ${String(value)}`;
 }

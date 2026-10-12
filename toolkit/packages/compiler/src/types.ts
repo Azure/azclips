@@ -32,57 +32,40 @@ export interface CompilerDiagnostic {
 }
 
 /**
- * Resolved compile configuration, delivered by the app.
+ * One stage's section under `stages`. Read by the compiler, which checks its shape:
+ * the values arrive from a file, so the types below are what a valid section
+ * holds, not a guarantee. `disabled` is the compiler's switch; `options` is the
+ * stage config.
+ */
+export interface StageSection {
+  /**
+   * Skip the stage. The only switch: every catalog stage runs unless disabled, and
+   * a mandatory one cannot be.
+   */
+  disabled?: boolean;
+  /** The stage config, handed to the stage untouched; ignored while it is disabled. */
+  options?: Record<string, unknown>;
+}
+
+/**
+ * Resolved gen-time configuration, delivered by the app once it has taken its own
+ * keys (the run inputs) out of the file.
  *
- * The backbone NEVER reads `tspconfig.yaml` from disk — resolving and merging
- * config (potentially from several tspconfig sources) is the app's job. An
- * Azure ARM tspconfig mostly targets other emitters and linting, none of
- * which Azure Client Engine consumes; the fields here are the small subset that actually
- * affects an Azure Client Engine compile.
+ * The compiler takes `stages`, its only setting, and passes every other key on
+ * without interpreting it. The backbone NEVER reads `tspconfig.yaml` or any other
+ * file from disk.
  */
 export interface CompileConfig {
   /**
-   * API version to compile the spec at. A specific version string
-   * (e.g. `"2025-09-01"`), `"latest"` (default), or `"all"`. Threaded to the
-   * emitter as the `api-version` option, which TCGC uses to project the
-   * `@versioned` program to that version before the IR is built.
-   */
-  apiVersion?: string;
-  /** Extra files/libraries to import, on top of what the entrypoint imports. */
-  additionalImports?: string[];
-  /** Promote warning-severity TypeSpec diagnostics to errors. Default false. */
-  warnAsError?: boolean;
-  /** TypeSpec trace areas to enable. */
-  trace?: string[];
-  /** Skip loading the TypeSpec standard library. */
-  nostdlib?: boolean;
-  /**
-   * Options forwarded verbatim to the Azure Client Engine emitter
-   * (`@azure-client-engine/typespec-emitter`) — e.g. `{ sourceId: "..." }`. Keys must be
-   * valid emitter options (validated at emit time), so the emitter can grow
-   * new options without a backbone change. The serialization keys `format` /
-   * `outputFile` / `pretty` are owned by the backbone (it captures IR in
-   * memory) and are ignored if supplied here.
-   */
-  emitter?: Record<string, unknown>;
-  /**
-   * Stage enablement toggles, keyed by the compiler's stage id. Orchestration —
-   * which stages exist, in what order they run, and what runs by default — is
-   * owned by the compiler's catalog; a config's only verb is to flip an optional
-   * stage on or off. It cannot append, insert, or reorder.
+   * Per-stage sections, keyed by the compiler's stage id. Orchestration — which
+   * stages exist, in what order they run — is owned by the compiler's catalog, so a
+   * section can only disable its stage or configure it; it cannot append, insert, or
+   * reorder.
    *
-   * Omitted ids keep their catalog default. Naming an unknown stage, disabling a
-   * mandatory one, or disabling a stage that an enabled stage `requires` is an
-   * error rather than a silent no-op.
+   * Naming an unknown stage, disabling a mandatory one, or disabling a stage that an
+   * enabled stage `requires` is an error rather than a silent no-op.
    */
-  pipeline?: Record<string, boolean>;
-  /**
-   * Per-stage options, keyed by stage id (e.g.
-   * `{ "flatten-model": { inliningThreshold: 24 } }`). Separate from `pipeline`
-   * because options are not orchestration: they configure a stage that the
-   * catalog already placed.
-   */
-  stageOptions?: Record<string, Record<string, unknown>>;
+  stages?: Record<string, StageSection>;
   /**
    * Every other key is gen-time config the compiler does not interpret: the
    * document facts, which the compiler hands untouched to the `seed-ir` stage, keyed
@@ -101,11 +84,17 @@ export interface CompileInput {
   /** Local path to the TypeSpec project directory or an entry `.tsp` file. */
   entrypoint: string;
   /**
-   * Resolved compile configuration (see `CompileConfig`). The emit stage reads
-   * compiler/emitter fields, each transform receives its own `stageOptions` entry,
-   * `seed-ir` receives every key that is not one of the compiler's own settings,
-   * and generate steps read their fields off the same `config` (exposed read-only
-   * on their context).
+   * API version to compile the entrypoint at: a specific version (e.g.
+   * `"2025-09-01"`), `"latest"` (default), or `"all"`. Threaded to the emitter as
+   * the `api-version` option, which TCGC uses to project the `@versioned` program
+   * to that version before the IR is built. A run input, not a setting: it travels
+   * with its entrypoint.
+   */
+  apiVersion?: string;
+  /**
+   * Resolved gen-time config (see `CompileConfig`). Each stage receives only its
+   * own stage config: `stages.<id>.options`, or for `seed-ir` every key that is not
+   * `stages`.
    */
   config?: CompileConfig;
 }

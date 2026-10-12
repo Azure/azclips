@@ -17,7 +17,6 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
-  CSHARP_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
@@ -36,7 +35,7 @@ export function usage(): string {
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--capture-ir] [--capture-source]",
+    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--capture-ir] [--capture-source]",
     "",
     "Options:",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
@@ -47,17 +46,16 @@ export function usage(): string {
     "                         compiler config will replace parameterized entrypoints.",
     "  --config <path>        Path to a JSON file of generation-time settings,",
     "                         loaded as CompileInput.config (CompileConfig) (optional).",
-    "                         Its 'pipeline' flips compiler-declared stages on or off,",
-    "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
-    "                         'stageOptions' configures them by stage id. Any other",
-    "                         key is a document fact, e.g. \"root-namespace\" or",
-    "                         \"version\"; no flag sets one.",
+    "                         Its 'stages' section disables a stage or sets its options,",
+    "                         by stage id, e.g.",
+    "                         { \"stages\": { \"flatten-model\": { \"disabled\": true } } }.",
+    "                         Any other key is a document fact, e.g. \"root-namespace\"",
+    "                         or \"version\"; no flag sets one.",
     "  --api-version <v>      API version to compile at: a specific version,",
-    "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
+    "                         'latest' (default), or 'all'.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
     "                         The spec is staged under <out-dir>/source before compiling,",
     "                         which must not overlap the copied --tsp-location directory.",
-    "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -79,7 +77,6 @@ export async function runCompile(args: string[]): Promise<number> {
   let configPath: string | undefined;
   let apiVersionArg: string | undefined;
   let outDirArg: string | undefined;
-  let generatorArg: string | undefined;
   let captureIr = false;
   let captureSource = false;
   try {
@@ -91,7 +88,6 @@ export async function runCompile(args: string[]): Promise<number> {
         config: { type: "string" },
         "api-version": { type: "string" },
         "out-dir": { type: "string" },
-        generator: { type: "string" },
         "capture-ir": { type: "boolean" },
         "capture-source": { type: "boolean" },
       },
@@ -102,7 +98,6 @@ export async function runCompile(args: string[]): Promise<number> {
     configPath = values.config;
     apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
-    generatorArg = values.generator;
     captureIr = values["capture-ir"] === true;
     captureSource = values["capture-source"] === true;
   } catch (err) {
@@ -117,23 +112,14 @@ export async function runCompile(args: string[]): Promise<number> {
 
   // --config points at a JSON file of app-resolved, generation-time settings.
   // The backbone is host-agnostic and never reads from disk, so the CLI loads
-  // the file here as CompileInput.config (a CompileConfig). --api-version is
-  // sugar for config.apiVersion and takes precedence when both are given.
+  // the file here as CompileInput.config (a CompileConfig) and passes it on
+  // untouched: the compiler takes `stages`, and every other key is a document
+  // fact. No flag sets a stage or a fact.
   let config: CompileConfig = {};
   if (configPath !== undefined) {
     const loaded = await loadConfig(configPath);
     if (loaded === undefined) return 2; // diagnostic already written
     config = loaded as CompileConfig;
-  }
-  if (apiVersionArg !== undefined) {
-    config = { ...config, apiVersion: apiVersionArg };
-  }
-  // Orchestration stays compiler-owned, so --generator does not assemble a
-  // pipeline: it turns a generator *stage* on. No flag sets a document fact;
-  // facts come only from the config.
-  const generatorStage = generatorArg ?? CSHARP_STAGE;
-  if (generatorArg !== undefined) {
-    config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
   }
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
@@ -157,6 +143,8 @@ export async function runCompile(args: string[]): Promise<number> {
   const result = await compile(
     {
       entrypoint: staged.entrypoint,
+      // A run input: the API version travels with its entrypoint.
+      ...(apiVersionArg !== undefined ? { apiVersion: apiVersionArg } : {}),
       config,
     },
     {

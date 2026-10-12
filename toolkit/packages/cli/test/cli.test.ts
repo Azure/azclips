@@ -141,6 +141,12 @@ describe("ace compile: argument parsing", () => {
     expect(code).toBe(2);
     expect(err).toContain("Unknown option '--root-namespace'");
   });
+
+  it("has no --generator: every stage runs unless the config disables it", async () => {
+    const { code, err } = await captureRun(["compile", "--generator", "csharp"]);
+    expect(code).toBe(2);
+    expect(err).toContain("Unknown option '--generator'");
+  });
 });
 
 describe("ace compile: --config loading", () => {
@@ -450,7 +456,7 @@ describe("ace compile: --entrypoint", () => {
     writeFileSync(join(root, "service", "main.tsp"), 'import "../shared/pets.tsp";\n', "utf8");
     // Emit and transforms only, so this runs without the .NET generator host.
     const configPath = join(dir, "no-generator.json");
-    writeFileSync(configPath, JSON.stringify({ pipeline: { csharp: false } }), "utf8");
+    writeFileSync(configPath, JSON.stringify({ stages: { csharp: { disabled: true } } }), "utf8");
 
     const outDir = join(dir, "ep-out");
     const { code, err } = await captureRun([
@@ -521,7 +527,11 @@ describe("ace compile: stage toggles", () => {
   it("skips a stage the config turns off", async () => {
     const outDir = join(dir, "stages-off");
     const configPath = join(dir, "no-flatten.json");
-    writeFileSync(configPath, JSON.stringify({ pipeline: { "flatten-model": false } }), "utf8");
+    writeFileSync(
+      configPath,
+      JSON.stringify({ stages: { "flatten-model": { disabled: true } } }),
+      "utf8",
+    );
 
     const { code } = await captureRun([
       "compile",
@@ -549,7 +559,7 @@ describe("ace compile: stage toggles", () => {
 
   it("rejects a config that names a stage the compiler does not declare", async () => {
     const configPath = join(dir, "bogus-stage.json");
-    writeFileSync(configPath, JSON.stringify({ pipeline: { "no-such-stage": true } }), "utf8");
+    writeFileSync(configPath, JSON.stringify({ stages: { "no-such-stage": {} } }), "utf8");
 
     const { code, err } = await captureRun([
       "compile",
@@ -589,15 +599,13 @@ describe("ace compile: csharp generation", () => {
   );
 
   it.runIf(generatorHostBuilt)(
-    "generates C# files under out-dir with --generator csharp",
+    "generates C# files under out-dir, since every stage runs unless disabled",
     async () => {
       const outDir = join(dir, "gen-csharp");
       const { code, err } = await captureRun([
         "compile",
         "--tsp-location",
         PETS_TSP,
-        "--generator",
-        "csharp",
         "--out-dir",
         outDir,
       ]);
@@ -620,8 +628,6 @@ describe("ace compile: csharp generation", () => {
         "compile",
         "--tsp-location",
         PETS_TSP,
-        "--generator",
-        "csharp",
         "--out-dir",
         outDir,
       ]);
@@ -637,8 +643,6 @@ describe("ace compile: csharp generation", () => {
         "compile",
         "--tsp-location",
         PETS_TSP,
-        "--generator",
-        "csharp",
         "--out-dir",
         outDir,
       ]);

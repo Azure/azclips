@@ -72,18 +72,27 @@ renders the IR as it stands when its turn comes. There are no branches, so a run
 has exactly one IR and the compiler never copies it. Array position *is* the
 order.
 
-A host has exactly one orchestration verb: **flip an optional stage**. It cannot
-append, insert, or reorder.
+A host has exactly one orchestration verb: **disable an optional stage**. It cannot
+append, insert, or reorder. A stage's section under `stages` can also carry its
+options:
 
 ```jsonc
 // generation-time config
-{ "pipeline": { "flatten-model": false } }
+{
+  "stages": {
+    "flatten-model": { "disabled": true },
+    "tsp-emit": { "options": { "warnAsError": true } }
+  }
+}
 ```
 
 Disabling a stage simply removes it from the sequence — there is no tree to
 reattach, so position stays intrinsic for free. Naming an unknown stage, or
 disabling a `mandatory` one, is an error rather than a silent no-op. A run with
 no generate stage is reported as a warning: it runs, but writes no files.
+`stages` is the compiler's own setting, so it checks the shape: a non-boolean
+`disabled` or non-map `options` is an error before any stage runs, and an unknown
+key in a section is a warning. A disabled stage's options are ignored.
 
 ### `requires` — dependency, not order
 
@@ -146,10 +155,13 @@ richer input than it actually established. That pairs with the catalog's
 transform id to its step in `@azure-client-engine/transformers`
 (`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
 external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
-all a host provides. Per-stage settings live in `config.stageOptions`, keyed by
-stage id, because options are not orchestration. Every other config key that is
-not a compiler setting is a document fact, and the compiler hands those to
-`seed-ir` (see [Generation target](#generation-target)).
+all a host provides. Each stage gets only its own stage config: the `options` of
+its section under `stages`. `tsp-emit` reads `warnAsError`, `trace`, `nostdlib`,
+`additionalImports` and `emitter` (the emitter's own options) from its config; the
+API version travels with the entrypoint in `CompileInput`. `stages` is the
+compiler's only setting, so every other config key is a document fact, and the
+compiler hands those to `seed-ir` as its stage config (see
+[Generation target](#generation-target)).
 
 Packages layer as `cli` → `compiler` → `transformers`, and every package depends
 on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
@@ -178,8 +190,8 @@ compiler passes its own reporter in, and the compiler stops building if the two
 shapes drift apart. A run carries one IR, so returning it mutated in place is the
 expected shape; returning a replacement works too.
 
-Every step checks its own entry when it runs, through one shared function,
-`warnUnknownKeys` (`src/entry.ts`): a key it does not know is a warning
+Every step checks its own stage config when it runs, through one shared function,
+`warnUnknownKeys` (`src/stage-config.ts`): a key it does not know is a warning
 (`unknown-fact` for `seed-ir`, `unknown-option` for the others) and is ignored.
 A step that takes no options warns about any key it is given.
 
@@ -207,10 +219,10 @@ it writes only rendering hints and leaves `IRModel.properties` exactly as
 emitted.
 
 The compiler maps each of these steps to its stage id; hosts register nothing.
-Whether a stage *runs* is the catalog's default (`on`, or `mandatory` for
-`seed-ir`) plus any `config.pipeline` toggle; per-service settings such as
-`inliningThreshold` and `noInline` arrive through `config.stageOptions`. The package participates in the root workspace
-build and test commands.
+Every stage *runs* unless its section sets `disabled: true` (`seed-ir` is
+mandatory and cannot be disabled); per-service settings such as
+`inliningThreshold` and `noInline` arrive through `stages.<id>.options`. The
+package participates in the root workspace build and test commands.
 
 ## Source identity
 
@@ -464,9 +476,9 @@ and the compiler each take their own keys; every other top-level key is a fact,
 and the compiler hands those to `seed-ir` untouched:
 
 ```jsonc
-// --config: compiler settings beside document facts
+// --config: the compiler's `stages` beside document facts
 {
-  "pipeline": { "flatten-model": false },
+  "stages": { "flatten-model": { "disabled": true } },
   "root-namespace": "Contoso.Widgets",
   "project-name": "Contoso.Widgets.Client",
   "version": "0.1.0"

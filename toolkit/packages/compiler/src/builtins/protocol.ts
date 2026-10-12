@@ -50,7 +50,7 @@ export interface EmitToolResponse {
  * project name, folders) is not among them: it travels in the document's `target`.
  */
 export interface GenerateToolOptions {
-  /** The raw resolved `CompileConfig`, opaque to the generator for now. */
+  /** The `csharp` stage's own options (`stages.csharp.options`), opaque to the generator for now. */
   config?: unknown;
 }
 

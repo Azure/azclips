@@ -7,8 +7,8 @@
  * exist, in what order they run, and what runs by default. The resolved plan is
  * a single **linear sequence** — one IR flows from emit through every enabled
  * transform, and each generate stage renders it as it stands at that point. A
- * host's only orchestration verb is flipping an optional stage on or off through
- * `CompileConfig.pipeline`. The implementations behind the stage ids are
+ * host's only orchestration verb is disabling an optional stage through
+ * `CompileConfig.stages`. The implementations behind the stage ids are
  * compiler-owned too: transforms come from `@azure-client-engine/transformers`,
  * and the external stages run through the host `Runtime`.
  *
@@ -46,6 +46,7 @@ export type {
   CompileInput,
   CompileOptions,
   CompileResult,
+  StageSection,
 } from "./types.js";
 
 export type {

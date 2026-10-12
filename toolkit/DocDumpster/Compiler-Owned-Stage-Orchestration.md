@@ -146,7 +146,7 @@ compiler free of `child_process` and `fs`.
   (`config.pipeline`). With nothing off by default, a host can only disable a
   non-mandatory stage (see
   [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md)).
-  Not implemented yet.
+  Implemented 2026-10-12: the switch is `stages.<id>.disabled`.
 - **A no-output run disables the generate stage**, and the planner reports it as
   a warning (`no-generator`). `noopGenerator` had no remaining injection path and
   is removed.
@@ -198,7 +198,7 @@ compiler free of `child_process` and `fs`.
 - **`TransformContext` carries no config, but `GeneratorContext` still exposes
   all of `CompileConfig`.** The transform contract cannot name a compiler type,
   so its `config` field was removed (no step read it); options still arrive
-  through each step's factory. Routing each stage's own entry into its context
+  through each step's factory. Routing each stage config into its stage's context
   is the aceconfig work.
 - **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
   to map `--generator` and `--root-namespace` onto config. They are compiler
