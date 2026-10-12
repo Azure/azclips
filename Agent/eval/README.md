@@ -157,17 +157,45 @@ Every result records the facts needed to compare builds:
   host, so the executable hash alone does not identify a build.
 - `response.metadata.resourceCache`: the cache mode, refresh start time and
   duration, cached resource count, and fixture-group check.
+- `response.metadata.agentSettings`: the effective `agent.provider`,
+  `agent.builtin.*` and recovery settings with their source (`default` or the
+  configuration file that set them). The wrapper does not change these settings,
+  so an inherited override applies to every observation. A pinned
+  `agent.builtin.modelId` also hides a candidate build that only changes the
+  default model; keep these settings identical in both arms or remove the override
+  in both.
 - `response.metadata.timing`: `processMs` is the Agent process duration (the
   troubleshoot process in manual mode). `llmMs` and `llmTurns` cover model turns,
   `toolMs` is the union of tool executions, and `hostMs` is process time spent
   neither waiting for the model nor running tools. `sessionStartMs`,
-  `firstLlmRequestMs` and `traceMs` locate startup work. A phase that the trace
-  does not report is omitted rather than recorded as zero.
+  `firstLlmRequestMs`, `planProposedMs` (trace start to the accepted plan) and
+  `traceMs` locate startup and answer work. A phase that the trace does not report
+  is omitted rather than recorded as zero.
+- `response.metadata.planActivity`: plan attempts, plans rejected by the host
+  (for example a `preToolUse` hook) and their reasons. Rejected plans add model
+  turns that the tool-call list does not show.
+- `response.metadata.observationStartedAt` and `warmupObservations` place each
+  observation in time and record the discarded warm-up count. The Judge's grading
+  metadata records its deployment, the model name returned by the service, and its
+  request latency.
 
-Model turns dominate end-to-end latency and vary between runs of the same build,
-while host time is much more stable. Compare `hostMs` and `llmMs` separately as
-well as the total, and do not treat an end-to-end difference that is smaller than
-the run-to-run spread of the same build as a speedup.
+By default the wrapper first runs one discarded warm-up observation
+(`-WarmupObservations 1`) through the same provider and Judge path. In every
+recorded 2026-10 run, the first Agent process of a run spent 0.6–4.4 s more host
+time than the run's median. The warm-up artifact is written beside the output as
+`<name>.warmup.json`, and its traces move to a `warmup-<id>` folder under the trace
+path, so they never mix with measured results. If an observation times out, the
+provider ends the whole process tree; ending only `az.exe` leaves the Agent child
+process running into later observations.
+
+Model turns dominate end-to-end latency. Host time varies less than model time
+within one run, but whole runs shift together: in the recorded 2026-10 runs most
+of the variance of host time and of total latency came from run-to-run shifts.
+One baseline run against one candidate run therefore detects only large changes.
+Run the baseline and candidate builds close together (for example baseline,
+candidate, candidate, baseline), compare `hostMs` and `llmMs` separately as well as
+the total, and do not treat a difference within the spread of repeated runs of
+the same build as a speedup.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
@@ -242,8 +270,10 @@ observations per case are not sufficient to claim stable p95 latency.
 Freeze the case inputs, rubric version/content, judge deployment, runtime settings,
 fixture subscription/group, concurrency, repetition count and cache policy across
 baseline and candidate runs. The wrapper records the target version, package
-fingerprint, cache state and runtime-prompt hash in every result; check that they
-identify the intended builds before comparing. Do not present a replay/regrade as
+fingerprint, cache state, Agent model settings and runtime-prompt hash in every
+result; check that they identify the intended builds and settings before
+comparing. Case inputs do not include run provenance, so the suite identity does
+not change with the commit, branch or time of a run. Do not present a replay/regrade as
 a fresh speed measurement. A provider, judge, or
 authentication error invalidates that measurement rather than producing a passing
 grade. Never retry until green and discard the failed attempts.

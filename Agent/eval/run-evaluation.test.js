@@ -65,14 +65,18 @@ $json = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $state
 $state = if ([string]::IsNullOrWhiteSpace($json)) { @{} } else { $json | ConvertFrom-Json -AsHashtable }
 $operation = $args[1]
 $key = $args[3]
-Add-Content (Join-Path $root 'configuration-calls.txt') ($args -join ' ')
 if ($operation -eq 'get') {
-    $value = if ($state.ContainsKey($key)) { $state[$key] } else { 'false' }
-    $source = if ($state.ContainsKey($key)) { 'config' } else { 'Default' }
-    @{ Value = $value; Source = $source } | ConvertTo-Json -Compress
+    Add-Content (Join-Path $root 'setting-reads.txt') $key
+    if (@($scenario.unsupportedSettings) -contains $key) {
+        "Unknown configuration key: $key"
+        $global:LASTEXITCODE = 1
+        return
+    }
+    if ($state.ContainsKey($key)) { "$key = $($state[$key]) [global config]" } else { "$key = default-$key [default]" }
     $global:LASTEXITCODE = 0
     return
 }
+Add-Content (Join-Path $root 'configuration-calls.txt') ($args -join ' ')
 if ($operation -eq 'set') {
     if ($scenario.failSetKey -eq $key -and -not (Test-Path (Join-Path $root 'set-failed'))) {
         New-Item (Join-Path $root 'set-failed') -ItemType File | Out-Null
@@ -111,6 +115,22 @@ $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = 'original-resource-cache'
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
+    $firstIndex = [array]::IndexOf([object[]]$args, '--filter-first-n')
+    if ($firstIndex -ge 0) {
+        $warmupRepeat = [array]::IndexOf([object[]]$args, '--repeat')
+        if ($warmupRepeat -lt 0 -or [int]$args[$warmupRepeat + 1] -ne 1) { throw 'The warm-up must run each selected case once' }
+        $warmupOutput = $args[[array]::IndexOf([object[]]$args, '--output') + 1]
+        $warmupConfiguration = Get-Content -LiteralPath (Join-Path $env:AZCLIPS_HOME 'config.json') -Raw | ConvertFrom-Json -AsHashtable
+        $warmupTraces = $warmupConfiguration['agent.trace.path']
+        New-Item -ItemType Directory -Path $warmupTraces -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $warmupTraces 'warmup-trace.jsonl') -Value '{}'
+        Add-Content (Join-Path $root 'warmup-calls.txt') "warmup|$($args[$firstIndex + 1])|$warmupOutput|$env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS"
+        if (-not $scenario.failWarmup) {
+            '{"results":{"results":[{"success":true}]}}' | Set-Content -LiteralPath $warmupOutput -Encoding utf8
+        }
+        $global:LASTEXITCODE = if ($null -ne $scenario.warmupExitCode) { [int]$scenario.warmupExitCode } else { 0 }
+        return
+    }
     $repeatIndex = [array]::IndexOf([object[]]$args, '--repeat')
     $expectedRepeat = if ($null -ne $scenario.repeat) { [int]$scenario.repeat } else { 1 }
     if ($repeatIndex -lt 0 -or [int]$args[$repeatIndex + 1] -ne $expectedRepeat) {
@@ -126,12 +146,15 @@ function global:npx {
     $outputIndex = [array]::IndexOf([object[]]$args, '--output') + 1
     $output = $args[$outputIndex]
     Add-Content (Join-Path $root 'calls.txt') "evaluate|$output"
+    $configPath = Join-Path $env:AZCLIPS_HOME 'config.json'
+    $configuration = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
     @{
         target = $env:AZCLIPS_EVALUATION_TARGET
         resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
+        agentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+        warmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
+        tracesBeforeEvaluation = @(Get-ChildItem -LiteralPath $configuration['agent.trace.path'] -Filter '*.jsonl' -File -ErrorAction SilentlyContinue).Count
     } | ConvertTo-Json | Set-Content (Join-Path $root 'run-facts.json')
-    $configPath = Join-Path $env:AZCLIPS_HOME 'config.json'
-    $configuration = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
     $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
     if ($env:AZCLIPS_EVALUATION_RECOVERY_MODE -ne $expectedMode) { throw 'Wrong provider recovery mode' }
     if ($expectedMode -eq 'manual') {
@@ -181,6 +204,7 @@ if (-not $scenario.defaultOutput) { $parameters.OutputPath = Join-Path $root 're
 if ($scenario.upload) { $parameters.Upload = $true }
 if ($scenario.recoveryMode) { $parameters.RecoveryMode = $scenario.recoveryMode }
 if ($scenario.resourceCache) { $parameters.ResourceCache = $scenario.resourceCache }
+if ($null -ne $scenario.warmupObservations) { $parameters.WarmupObservations = $scenario.warmupObservations }
 if ($null -ne $scenario.repeat) { $parameters.Repeat = $scenario.repeat }
 $exitCode = 0
 $failure = $null
@@ -233,6 +257,9 @@ function runWrapper(context, options = {}) {
   if (scenario.existingArtifact) {
     fs.writeFileSync(path.join(directory, 'result.json'), 'previous-result');
   }
+  if (scenario.existingWarmupArtifact) {
+    fs.writeFileSync(path.join(directory, 'result.warmup.json'), 'previous-warmup');
+  }
   const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', path.join(directory, 'driver.ps1')], {
     encoding: 'utf8',
     timeout: 20_000,
@@ -259,6 +286,7 @@ function runWrapper(context, options = {}) {
   const backupDuringEvaluationPath = path.join(directory, 'backup-during-evaluation.bin');
   const resourceCallsPath = path.join(directory, 'resource-calls.txt');
   const runFactsPath = path.join(directory, 'run-facts.json');
+  const readLines = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split(/\r?\n/) : []);
   return {
     ...result,
     directory,
@@ -266,6 +294,8 @@ function runWrapper(context, options = {}) {
     summary: JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')),
     configuration: configurationText ? JSON.parse(configurationText) : null,
     configurationBytes,
+    warmupCalls: readLines(path.join(directory, 'warmup-calls.txt')),
+    settingReads: readLines(path.join(directory, 'setting-reads.txt')),
     resourceCalls: fs.existsSync(resourceCallsPath)
       ? fs.readFileSync(resourceCallsPath, 'utf8').trim().split(/\r?\n/)
       : [],
@@ -360,6 +390,64 @@ test('wrapper refuses an unidentified target before any side effect', (context) 
   assert.deepEqual(result.resourceCalls, []);
   assert.deepEqual(result.configurationCalls, []);
   assert.deepEqual(result.calls, []);
+});
+
+test('wrapper discards one warm-up observation and moves its traces before measuring', (context) => {
+  const result = runWrapper(context, { repeat: 3 });
+  assert.equal(result.status, 0, result.summary.error);
+  const warmupOutput = path.join(result.directory, 'result.warmup.json');
+  assert.deepEqual(result.warmupCalls, [`warmup|1|${warmupOutput}|1`]);
+  assert.ok(fs.existsSync(warmupOutput));
+  const warmupFolders = fs.readdirSync(path.join(result.directory, 'traces')).filter((name) => /^warmup-[0-9a-f]{32}$/.test(name));
+  assert.equal(warmupFolders.length, 1);
+  assert.ok(fs.existsSync(path.join(result.directory, 'traces', warmupFolders[0], 'warmup-trace.jsonl')));
+  assert.equal(result.runFacts.tracesBeforeEvaluation, 0);
+  assert.equal(result.runFacts.warmupObservations, '1');
+  assert.deepEqual(result.calls, [`evaluate|${path.join(result.directory, 'result.json')}`]);
+});
+
+test('warm-up can be disabled explicitly and the choice is recorded', (context) => {
+  const result = runWrapper(context, { warmupObservations: 0 });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(result.warmupCalls, []);
+  assert.equal(result.runFacts.warmupObservations, '0');
+});
+
+test('a failed warm-up stops before the measured evaluation and restores configuration', async (context) => {
+  for (const [name, options] of [
+    ['no warm-up artifact', { failWarmup: true }],
+    ['warm-up process error', { warmupExitCode: 2 }],
+  ]) {
+    await context.test(name, (context) => {
+      const result = runWrapper(context, { ...options, upload: true });
+      assert.equal(result.status, 1);
+      assert.match(result.summary.error, /discarded warm-up evaluation failed/);
+      assert.deepEqual(result.calls, []);
+      assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+      assert.deepEqual(result.backups, []);
+      assert.equal(result.summary.target, 'original-target');
+    });
+  }
+});
+
+test('wrapper refuses an existing warm-up artifact before any side effect', (context) => {
+  const result = runWrapper(context, { existingWarmupArtifact: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /Warm-up output already exists/);
+  assert.deepEqual(result.resourceCalls, []);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
+});
+
+test('wrapper records the effective model provider settings and skips keys the target does not define', (context) => {
+  const result = runWrapper(context, { recoveryMode: 'manual', unsupportedSettings: ['agent.recovery.style'] });
+  assert.equal(result.status, 0, result.summary.error);
+  const settings = JSON.parse(result.runFacts.agentSettings);
+  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
+  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
+  assert.equal(settings['agent.recovery.style'], undefined);
+  assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
+  assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
 });
 
 test('wrapper uses a distinct default artifact path for each run', (context) => {

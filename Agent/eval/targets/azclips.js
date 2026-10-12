@@ -61,6 +61,18 @@ function execFileUnattended(file, args, options, callback) {
   return child;
 }
 
+// The Agent runs in a child process of az.exe; ending only az.exe leaves it running into later cases.
+const PROCESS_TREE_GRACE_MS = 5000;
+
+function terminateProcessTree(child, platform = process.platform) {
+  if (!child?.pid) return;
+  if (platform === 'win32') {
+    childProcess.spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  } else {
+    child.kill('SIGKILL');
+  }
+}
+
 function getProcessFailure(error, timeoutMs, failedToStart = false) {
   if (!error) return undefined;
   const spawnFailure = failedToStart ||
@@ -417,6 +429,7 @@ function readTiming(tracePath, processMs) {
   let traceStart;
   let traceEnd;
   let sessionStart;
+  let planProposedAt;
   const llm = [];
   const tools = [];
   for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
@@ -436,6 +449,10 @@ function readTiming(tracePath, processMs) {
     if (end === undefined || elapsed === undefined) continue;
     if (entry.event === 'LlmTurnCompleted') llm.push([end - elapsed, end]);
     else if (entry.event === 'ToolCompleted' || entry.event === 'ToolFailed') tools.push([end - elapsed, end]);
+    if (entry.event === 'ToolCompleted' && entry.payload?.Name === 'propose_plan' && !entry.payload.IsError &&
+      planProposedAt === undefined) {
+      planProposedAt = end;
+    }
   }
   const timing = {};
   const record = (name, value) => {
@@ -444,6 +461,7 @@ function readTiming(tracePath, processMs) {
   record('processMs', processMs);
   if (traceStart !== undefined && traceEnd !== undefined) record('traceMs', traceEnd - traceStart);
   if (traceStart !== undefined && sessionStart !== undefined) record('sessionStartMs', sessionStart - traceStart);
+  if (traceStart !== undefined && planProposedAt !== undefined) record('planProposedMs', planProposedAt - traceStart);
   if (llm.length) {
     if (sessionStart !== undefined) {
       record('firstLlmRequestMs', Math.min(...llm.map(([start]) => start)) - sessionStart);
@@ -454,6 +472,28 @@ function readTiming(tracePath, processMs) {
     record('hostMs', processMs - intervalUnionMilliseconds([...llm, ...tools]));
   }
   return Object.keys(timing).length > (timing.processMs === undefined ? 0 : 1) ? timing : undefined;
+}
+
+// Plans rejected by the host (for example by a preToolUse hook) cost extra model turns but are not
+// part of the exported tool calls, which exclude the internal plan tools.
+function readPlanActivity(tracePath) {
+  if (!tracePath || !fs.existsSync(tracePath)) return undefined;
+  const activity = { attempts: 0, rejections: 0, rejectionReasons: [] };
+  for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry.kind !== 'agent_event' || entry.payload?.Name !== 'propose_plan') continue;
+    if (entry.event === 'ToolStarted') activity.attempts += 1;
+    if (entry.event === 'ToolFailed' || (entry.event === 'ToolCompleted' && entry.payload.IsError)) {
+      activity.rejections += 1;
+      activity.rejectionReasons.push(redactTraceValue(String(entry.payload.Error || entry.payload.FullResult || 'Plan rejected')));
+    }
+  }
+  return activity;
 }
 
 function readJsonEnvironment(name, env = process.env) {
@@ -479,6 +519,12 @@ class AzclipsAgentProvider {
     // Run-level facts recorded by run-evaluation.ps1 before any case starts.
     this.target = readJsonEnvironment('AZCLIPS_EVALUATION_TARGET');
     this.resourceCache = readJsonEnvironment('AZCLIPS_EVALUATION_RESOURCE_CACHE');
+    this.agentSettings = readJsonEnvironment('AZCLIPS_EVALUATION_AGENT_SETTINGS');
+    const warmupObservations = Number(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS);
+    this.warmupObservations = Number.isInteger(warmupObservations) && warmupObservations >= 0
+      && /^\d+$/.test(String(process.env.AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS).trim())
+      ? warmupObservations
+      : undefined;
   }
 
   id() { return 'azclips-agent'; }
@@ -499,7 +545,7 @@ class AzclipsAgentProvider {
     return new Promise((resolve) => {
       const env = buildEvaluationEnvironment(process.env, flavor);
       const startedAt = Date.now();
-      const recoveryMetadata = {};
+      const recoveryMetadata = { observationStartedAt: new Date(startedAt).toISOString() };
       let troubleshootStartedAt;
       const complete = (err, stdout, stderr, failedToStart = false) => {
         if (troubleshootStartedAt !== undefined) {
@@ -511,6 +557,8 @@ class AzclipsAgentProvider {
         const runFacts = {
           ...(this.target && { target: this.target }),
           ...(this.resourceCache && { resourceCache: this.resourceCache }),
+          ...(this.agentSettings && { agentSettings: this.agentSettings }),
+          ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
         };
         const raw = `${stdout || ''}\n${stderr || ''}`;
         const numericExitCode = Number(err?.code ?? 1);
@@ -544,6 +592,8 @@ class AzclipsAgentProvider {
             tokenUsage = readTokenUsage(tracePath);
             const timing = readTiming(tracePath, processMs);
             if (timing) metadata.timing = timing;
+            const planActivity = readPlanActivity(tracePath);
+            if (planActivity) metadata.planActivity = planActivity;
           } catch {
             metadata.traceExtractionError = 'Unable to read diagnostic trace after process failure';
           }
@@ -585,6 +635,8 @@ class AzclipsAgentProvider {
         try {
           const timing = readTiming(tracePath, processMs);
           if (timing) metadata.timing = timing;
+          const planActivity = readPlanActivity(tracePath);
+          if (planActivity) metadata.planActivity = planActivity;
         } catch (traceError) {
           metadata.timingExtractionError = traceError instanceof Error ? traceError.message : String(traceError);
         }
@@ -603,13 +655,30 @@ class AzclipsAgentProvider {
         });
       };
       const runProcess = (processArgs, callback, timeout = this.timeoutMs) => {
+        let child;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          terminateProcessTree(child);
+        }, timeout);
         try {
-          execFileUnattended(this.exe, processArgs, {
-            timeout,
+          // execFile's own timeout is only a backstop if the tree could not be ended.
+          child = execFileUnattended(this.exe, processArgs, {
+            timeout: timeout + PROCESS_TREE_GRACE_MS,
             maxBuffer: MAX_BUFFER_BYTES,
             env,
-          }, callback);
+          }, (error, stdout, stderr) => {
+            clearTimeout(timer);
+            const outcome = timedOut
+              ? Object.assign(error || new Error('Azclips process timed out'), {
+                killed: true,
+                signal: error?.signal || 'SIGTERM',
+              })
+              : error;
+            callback(outcome, stdout, stderr);
+          });
         } catch (error) {
+          clearTimeout(timer);
           complete(error || new Error('Unknown process startup failure'), '', '', true);
         }
       };
@@ -650,6 +719,8 @@ class AzclipsAgentProvider {
               runtimePromptSha256: runtimePrompt.sha256,
               ...(this.target && { target: this.target }),
               ...(this.resourceCache && { resourceCache: this.resourceCache }),
+              ...(this.agentSettings && { agentSettings: this.agentSettings }),
+              ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
               recoveryMode: 'manual',
               processFailure: { type: 'infrastructure', reason: 'failure-capture', message },
             },
@@ -670,7 +741,10 @@ module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;
 module.exports.readJsonEnvironment = readJsonEnvironment;
+module.exports.readPlanActivity = readPlanActivity;
 module.exports.readTiming = readTiming;
+module.exports.terminateProcessTree = terminateProcessTree;
+module.exports.PROCESS_TREE_GRACE_MS = PROCESS_TREE_GRACE_MS;
 module.exports.splitAgentOutput = splitAgentOutput;
 module.exports.stripNoise = stripNoise;
 module.exports.readStructuredPlan = readStructuredPlan;

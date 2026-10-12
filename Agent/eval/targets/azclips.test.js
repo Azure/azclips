@@ -17,13 +17,16 @@ const {
   readRuntimePrompt,
   readModels,
   readJsonEnvironment,
+  readPlanActivity,
   readStructuredPlan,
   readTiming,
   readToolCalls,
   readTokenUsage,
   splitAgentOutput,
   stripNoise,
+  terminateProcessTree,
   toolTraceAvailable,
+  PROCESS_TREE_GRACE_MS,
 } = AzclipsAgentProvider;
 
 function renderSpinnerFrame(frame, verb) {
@@ -107,7 +110,7 @@ function mockProcessResult(context, fixture, error, stdout = fixture.stdout, std
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
     assert.deepEqual(args, ['profile', 'show']);
-    assert.equal(options.timeout, 2000);
+    assert.equal(options.timeout, 2000 + PROCESS_TREE_GRACE_MS);
     assert.equal(options.maxBuffer, 8 * 1024 * 1024);
     assert.equal(options.env.AZURECLI_FLAVOR, 'azure cli');
     queueMicrotask(() => callback(error, stdout, stderr));
@@ -475,7 +478,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   let closed = 0;
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
-    assert.ok(options.timeout > 0 && options.timeout <= 2000);
+    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
     calls.push(args);
     queueMicrotask(() => {
       if (calls.length === 1) {
@@ -510,6 +513,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   });
   assert.ok(response.metadata.failureCaptureDurationMs >= 0);
   assert.ok(response.metadata.troubleshootDurationMs >= 0);
+  assert.ok(!Number.isNaN(Date.parse(response.metadata.observationStartedAt)));
   assert.deepEqual(response.metadata.plan, fixture.plan);
   assert.deepEqual(response.tokenUsage, fixture.tokenUsage);
 });
@@ -900,6 +904,7 @@ function timedTrace() {
     { kind: 'agent_event', event: 'ToolStarted', ts: at(20), payload: { Name: 'get_command', CallId: 'b', At: at(20) } },
     { kind: 'agent_event', event: 'ToolCompleted', ts: at(23), payload: { CallId: 'a', Elapsed: '00:00:03', At: at(23) } },
     { kind: 'agent_event', event: 'ToolCompleted', ts: at(24), payload: { CallId: 'b', Elapsed: '00:00:04.0000000', At: at(24) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(33), payload: { Name: 'propose_plan', CallId: 'p', Elapsed: '00:00:01', At: at(33), IsError: false } },
     { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(34), payload: { Elapsed: '00:00:10', At: at(34) } },
     { kind: 'agent_event', event: 'ToolFailed', ts: at(35.5), payload: { CallId: 'c', Elapsed: '00:00:01.5', At: at(35.5) } },
     { kind: 'trace_end', ts: at(36) },
@@ -916,10 +921,11 @@ test('splits Agent process time into model, tool and remaining host phases from 
     processMs: 38000,
     traceMs: 36000,
     sessionStartMs: 3000,
+    planProposedMs: 33000,
     firstLlmRequestMs: 5000,
     llmMs: 22000,
     llmTurns: 2,
-    toolMs: 5500,
+    toolMs: 6500,
     hostMs: 10500,
   });
 });
@@ -971,6 +977,8 @@ test('records the run target, cache state and phase timing on every manual obser
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: JSON.stringify(target),
     AZCLIPS_EVALUATION_RESOURCE_CACHE: JSON.stringify(resourceCache),
+    AZCLIPS_EVALUATION_AGENT_SETTINGS: JSON.stringify({ 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } }),
+    AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
   });
   const provider = new AzclipsAgentProvider({
     config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
@@ -997,8 +1005,11 @@ test('records the run target, cache state and phase timing on every manual obser
   assert.equal(response.metadata.timing.processMs, response.metadata.troubleshootDurationMs);
   assert.equal(response.metadata.timing.llmMs, 22000);
   assert.equal(response.metadata.timing.llmTurns, 2);
-  assert.equal(response.metadata.timing.toolMs, 5500);
+  assert.equal(response.metadata.timing.toolMs, 6500);
   assert.equal(response.metadata.timingExtractionError, undefined);
+  assert.deepEqual(response.metadata.agentSettings, { 'agent.builtin.modelId': { value: 'gpt-test', source: 'default' } });
+  assert.equal(response.metadata.warmupObservations, 1);
+  assert.deepEqual(response.metadata.planActivity, { attempts: 1, rejections: 0, rejectionReasons: [] });
 });
 
 test('does not invent run facts when the wrapper did not record them', async (context) => {
@@ -1006,6 +1017,8 @@ test('does not invent run facts when the wrapper did not record them', async (co
   withEnvironment(context, {
     AZCLIPS_EVALUATION_TARGET: undefined,
     AZCLIPS_EVALUATION_RESOURCE_CACHE: 'not json',
+    AZCLIPS_EVALUATION_AGENT_SETTINGS: undefined,
+    AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1.5',
   });
   const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
   mockProcessResult(context, fixture, null, `${fixture.output}\ntrace: ${fixture.tracePath}`);
@@ -1014,5 +1027,72 @@ test('does not invent run facts when the wrapper did not record them', async (co
 
   assert.equal(response.metadata.target, undefined);
   assert.equal(response.metadata.resourceCache, undefined);
+  assert.equal(response.metadata.agentSettings, undefined);
+  assert.equal(response.metadata.warmupObservations, undefined);
   assert.equal(response.metadata.timing, undefined);
+});
+
+test('counts plans rejected by the host and keeps their reasons', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const reason = 'Denied by preToolUse hook: Invalid propose_plan arguments: steps must have at least one entry';
+  fs.writeFileSync(tracePath, [
+    { kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', CallId: 'p1' } },
+    { kind: 'agent_event', event: 'ToolFailed', payload: { Name: 'propose_plan', CallId: 'p1', Error: reason } },
+    { kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', CallId: 'p2' } },
+    { kind: 'agent_event', event: 'ToolCompleted', payload: { Name: 'propose_plan', CallId: 'p2', IsError: false } },
+    { kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'get_command', CallId: 'c1' } },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  assert.deepEqual(readPlanActivity(tracePath), { attempts: 2, rejections: 1, rejectionReasons: [reason] });
+  assert.equal(readPlanActivity(path.join(directory, 'missing.jsonl')), undefined);
+});
+
+test('ends the whole Agent process tree, not only az.exe', (context) => {
+  const calls = [];
+  context.mock.method(childProcess, 'spawnSync', (file, args, options) => {
+    calls.push([file, args, options.windowsHide]);
+    return { status: 0 };
+  });
+  let killed;
+  terminateProcessTree({ pid: 4321, kill(signal) { killed = signal; } }, 'win32');
+  assert.deepEqual(calls, [['taskkill', ['/PID', '4321', '/T', '/F'], true]]);
+  assert.equal(killed, undefined);
+
+  terminateProcessTree({ pid: 4321, kill(signal) { killed = signal; } }, 'linux');
+  assert.equal(killed, 'SIGKILL');
+  assert.equal(calls.length, 1);
+  terminateProcessTree(undefined, 'win32');
+  assert.equal(calls.length, 1);
+});
+
+test('a timed-out observation ends its process tree and is reported as a termination', async (context) => {
+  const fixture = createProviderFixture(context);
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 20 } });
+  let finish;
+  let treeEnded = false;
+  context.mock.method(childProcess, 'spawnSync', () => {
+    treeEnded = true;
+    queueMicrotask(() => finish(Object.assign(new Error('Command failed'), { code: 1 }), '', ''));
+    return { status: 0 };
+  });
+  context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
+    assert.equal(options.timeout, 20 + PROCESS_TREE_GRACE_MS);
+    finish = callback;
+    return {
+      pid: 4321,
+      stdin: { end() {} },
+      kill() {
+        treeEnded = true;
+        queueMicrotask(() => finish(Object.assign(new Error('Command failed'), { code: null, signal: 'SIGKILL' }), '', ''));
+      },
+    };
+  });
+
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show', flavor: 'azure cli' } });
+
+  assert.equal(treeEnded, true);
+  assert.equal(response.metadata.processFailure.reason, 'terminated');
+  assert.match(response.error, /terminated/);
 });

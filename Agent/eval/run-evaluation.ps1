@@ -10,6 +10,8 @@ param(
     [int] $Repeat = 1,
     [ValidateSet('refresh', 'existing')]
     [string] $ResourceCache = 'refresh',
+    [ValidateRange(0, 10)]
+    [int] $WarmupObservations = 1,
     [switch] $Upload,
     [string] $ServiceUrl = 'https://azclis-evaluation-web-6b085460.azurewebsites.net'
 )
@@ -26,6 +28,10 @@ $OutputPath = [IO.Path]::GetFullPath($OutputPath)
 $TracePath = [IO.Path]::GetFullPath($TracePath)
 if (Test-Path -LiteralPath $OutputPath) {
     throw "Output already exists: $OutputPath. Choose a new path so a previous artifact cannot be uploaded as this run."
+}
+$warmupOutputPath = [IO.Path]::ChangeExtension($OutputPath, '.warmup.json')
+if ($WarmupObservations -gt 0 -and (Test-Path -LiteralPath $warmupOutputPath)) {
+    throw "Warm-up output already exists: $warmupOutputPath. Choose a new output path."
 }
 & node (Join-Path $PSScriptRoot 'judge\judge-azure.js') --check-config
 if ($LASTEXITCODE -ne 0) {
@@ -164,11 +170,26 @@ $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $previousRecoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
 $previousTarget = $env:AZCLIPS_EVALUATION_TARGET
 $previousResourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
+$previousAgentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+$previousWarmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
 $runFailure = $null
 $restoreFailure = $null
 try {
     foreach ($entry in $configuration.GetEnumerator()) {
         Invoke-Azclips config set --key $entry.Key --value $entry.Value | Out-Null
+    }
+
+    # Record the model provider settings in effect, including inherited overrides such as a pinned
+    # modelId; older packages that do not define a key are skipped.
+    $agentSettings = [ordered]@{}
+    foreach ($key in @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
+            'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')) {
+        $settingText = & $AzclipsExe config get --key $key 2>$null | Out-String
+        if ($LASTEXITCODE -ne 0) { continue }
+        $settingLine = @($settingText -split "\r?\n" | Where-Object { $_.StartsWith("$key = ") }) | Select-Object -Last 1
+        if ($settingLine -match '^\S+ = (?<value>.*?)(?: \[(?<source>[^\]]+)\])?\s*$') {
+            $agentSettings[$key] = [ordered]@{ value = $Matches.value; source = $Matches.source }
+        }
     }
 
     New-Item -ItemType Directory -Path (Split-Path $OutputPath) -Force | Out-Null
@@ -181,9 +202,28 @@ try {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $RecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $target | ConvertTo-Json -Compress
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $resourceCacheState | ConvertTo-Json -Compress
+    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $agentSettings | ConvertTo-Json -Compress -Depth 4
+    $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = [string]$WarmupObservations
 
     Push-Location $PSScriptRoot
     try {
+        if ($WarmupObservations -gt 0) {
+            # The first Agent process of a run is consistently slower; absorb it outside the measurement.
+            & npx --no-install promptfoo eval `
+                --config promptfooconfig.js `
+                --no-cache `
+                --repeat 1 `
+                --filter-first-n $WarmupObservations `
+                --output $warmupOutputPath
+            $warmupExitCode = $LASTEXITCODE
+            if (($warmupExitCode -notin @(0, 100)) -or -not (Test-Path -LiteralPath $warmupOutputPath -PathType Leaf)) {
+                throw "The discarded warm-up evaluation failed with exit code $warmupExitCode; no measured evaluation was started."
+            }
+            $warmupTracePath = Join-Path $TracePath ('warmup-' + [guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Path $warmupTracePath -Force | Out-Null
+            Get-ChildItem -LiteralPath $TracePath -Filter '*.jsonl' -File | Move-Item -Destination $warmupTracePath
+            Write-Host "Discarded warm-up artifact: $warmupOutputPath"
+        }
         & npx --no-install promptfoo eval `
             --config promptfooconfig.js `
             --no-cache `
@@ -224,6 +264,8 @@ finally {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $previousRecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $previousTarget
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $previousResourceCache
+    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $previousAgentSettings
+    $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = $previousWarmupObservations
 }
 
 if ($runFailure -or $restoreFailure) {
