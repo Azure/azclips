@@ -484,6 +484,7 @@ Now the interesting path: what happens when §5 throws.
 | Exception               | Handling                                                                   | Fallback?                      |
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
 | `AzclipsErrorException` | Known error → `EmitKnownError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `InvalidInputException` | Malformed user input → agent first, then `EmitKnownError` if the agent doesn't run | **Yes**, then known error |
 | `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
 | `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
@@ -692,6 +693,7 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Unknown command / typo           | `ExtensionDispatcher.Parse` throws           | If agent enabled + TTY → agent-mode reinterprets; else exit 1 with error  | The intended "typo correction" UX                            |
 | Known domain error               | `AzclipsErrorException` at `Program.cs:128`  | `EmitKnownError` (`ERROR: [code] msg`), return `ex.ExitCode`             | **No** agent fallback — intent was clear                     |
 | Network / ARM failure            | `HttpRequestException` at `:121`             | `TryAgentFallbackAsync`                                                   | Agent can suggest fixes / retries                            |
+| Malformed user input             | `InvalidInputException`                      | Agent first; if it doesn't run, print `ERROR: [InvalidInput]`, exit 2     | Only known error that is agent-eligible                      |
 | Agent disabled                   | `agent.enabled=false`                        | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |
 | Recursive agent spawn            | `AZCLIPS_IN_AGENT_MODE=1`                    | No second agent-mode                                                      | Guards agent's own `az` tool calls (`:315`)                  |

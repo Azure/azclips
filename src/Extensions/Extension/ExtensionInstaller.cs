@@ -61,7 +61,7 @@ public class ExtensionInstaller
         // Resolve latest version if not specified
         if (string.IsNullOrWhiteSpace(version))
         {
-            version = await GetLatestVersionAsync(packageId, repositories, includePrerelease, includeUnlisted, cancellationToken) ?? throw new InvalidOperationException($"Could not find package {packageId} in any configured NuGet feed.");
+            version = await GetLatestVersionAsync(packageId, repositories, includePrerelease, includeUnlisted, cancellationToken) ?? throw AzclipsErrorException.InvalidInput($"Could not find package {packageId} in any configured NuGet feed.");
         }
         var outputDir = InitializeExtensionFolder(packageId, version);
 

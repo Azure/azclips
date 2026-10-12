@@ -118,7 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            ResolvedProfile = context.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
+            ResolvedProfile = context.Profile ?? throw AzclipsErrorException.InvalidInput("No profile is available. Please sign in.");
             return this;
         }
 
@@ -239,7 +239,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 "DELETE" => HttpMethod.Delete,
                 "HEAD" => HttpMethod.Head,
                 "OPTIONS" => HttpMethod.Options,
-                _ => throw new InvalidOperationException($"Unsupported HTTP method '{method}'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.")
+                _ => throw AzclipsErrorException.InvalidInput($"Unsupported HTTP method '{method}'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.")
             };
         }
 
@@ -255,7 +255,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (hasUri && hasByParameters)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     "Specify the endpoint either as a full URL (Uri) OR as the piece-wise parameters " +
                     "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion), not both.");
             }
@@ -270,7 +270,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return ResolveUrl(BuildByParametersPath());
             }
 
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 "An endpoint is required: supply either a full URL (Uri) or the piece-wise ByParameters inputs " +
                 "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion) to build an ARM URL.");
         }
@@ -305,18 +305,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (string.IsNullOrWhiteSpace(subscriptionId))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.");
             }
 
             if (string.IsNullOrWhiteSpace(ApiVersion))
             {
-                throw new InvalidOperationException("ApiVersion is required when building an ARM URL from piece-wise parameters.");
+                throw AzclipsErrorException.InvalidInput("ApiVersion is required when building an ARM URL from piece-wise parameters.");
             }
 
             if (Name.Count > ResourceType.Count || ResourceType.Count - Name.Count > 1)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"Name ({Name.Count}) must equal ResourceType ({ResourceType.Count}) or be exactly one fewer " +
                     "(one trailing type without a name performs a collection GET on the last type).");
             }
@@ -347,7 +347,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 string resourceTypeSegment = ResourceType[i].Trim().Trim('/');
                 if (resourceTypeSegment.Length == 0)
                 {
-                    throw new InvalidOperationException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"ResourceType segments must be non-empty; ResourceType element {i} was empty or whitespace.");
                 }
 
@@ -357,7 +357,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                     string nameSegment = Name[i].Trim().Trim('/');
                     if (nameSegment.Length == 0)
                     {
-                        throw new InvalidOperationException(
+                        throw AzclipsErrorException.InvalidInput(
                             $"Name segments must be non-empty; Name element {i} was empty or whitespace.");
                     }
 
@@ -388,13 +388,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 if (string.IsNullOrWhiteSpace(parameter))
                 {
-                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
                 }
 
                 int separator = parameter.IndexOf('=');
                 if (separator <= 0)
                 {
-                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
                 }
 
                 string key = parameter[..separator].Trim();
@@ -402,7 +402,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 if (string.IsNullOrWhiteSpace(key))
                 {
-                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}': parameter name cannot be empty.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid uri parameter '{parameter}': parameter name cannot be empty.");
                 }
 
                 builder.Append(hasQuery ? '&' : '?');
@@ -425,7 +425,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
                 {
-                    throw new InvalidOperationException($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
+                    throw AzclipsErrorException.InvalidInput($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
                 }
 
                 url = url.Replace(SubscriptionToken, ResolvedProfile.SubscriptionId, StringComparison.Ordinal);
@@ -458,12 +458,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // token to an arbitrary destination (token-exfiltration / SSRF).
             if (!parsed.Scheme.Equals(System.Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Absolute URL '{url}' must use https. The rest command only targets ARM over https in this release.");
+                throw AzclipsErrorException.InvalidInput($"Absolute URL '{url}' must use https. The rest command only targets ARM over https in this release.");
             }
 
             if (!AllowedArmHosts.Contains(parsed.Host))
             {
-                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. Allowed hosts: {string.Join(", ", AllowedArmHosts.OrderBy(h => h, StringComparer.OrdinalIgnoreCase))}.");
+                throw AzclipsErrorException.InvalidInput($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. Allowed hosts: {string.Join(", ", AllowedArmHosts.OrderBy(h => h, StringComparer.OrdinalIgnoreCase))}.");
             }
 
             return url;
@@ -481,7 +481,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 int separator = header.IndexOf('=');
                 if (separator <= 0)
                 {
-                    throw new InvalidOperationException($"Invalid header '{header}'. Expected KEY=VALUE format.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid header '{header}'. Expected KEY=VALUE format.");
                 }
 
                 string name = header[..separator].Trim();
@@ -489,7 +489,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    throw new InvalidOperationException($"Invalid header '{header}': header name cannot be empty.");
+                    throw AzclipsErrorException.InvalidInput($"Invalid header '{header}': header name cannot be empty.");
                 }
 
                 if (name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))

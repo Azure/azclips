@@ -34,7 +34,7 @@ public class FederatedTokenAuthenticator(
 
         if (string.IsNullOrWhiteSpace(assertion))
         {
-            throw new InvalidOperationException("No federated token was provided.");
+            throw AzclipsErrorException.InvalidInput("No federated token was provided.");
         }
 
         // Forced past the cache: the app cache is keyed by client and scope, not by assertion, so a
@@ -63,7 +63,7 @@ public class FederatedTokenAuthenticator(
 
         if (assertion is null)
         {
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 $"Profile '{profile.Name}' signed in as a service principal, but no federated token is stored " +
                 "for it. Sign in again with a newly issued token.");
         }
@@ -119,6 +119,6 @@ public class FederatedTokenAuthenticator(
 
     private static string Require(string? value, string description) =>
         string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"A {description} is required for service principal login.")
+            ? throw AzclipsErrorException.InvalidInput($"A {description} is required for service principal login.")
             : value;
 }

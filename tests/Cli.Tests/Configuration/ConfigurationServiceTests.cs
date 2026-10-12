@@ -109,7 +109,7 @@ public class ConfigurationServiceTests
 
         await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), "{ invalid json }");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => service.GetConfiguration<CoreOptions>());
+        var exception = Assert.Throws<InvalidInputException>(() => service.GetConfiguration<CoreOptions>());
 
         Assert.Contains(fixture.Provider.GetConfigFilePath(), exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("invalid json", exception.Message, StringComparison.OrdinalIgnoreCase);

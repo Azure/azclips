@@ -93,7 +93,7 @@ public class AddExtensionProcessor : IProcessor
                     CancellationToken.None
                 ).GetAwaiter().GetResult();
             }
-            catch (InvalidOperationException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
+            catch (InvalidInputException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
             {
                 // Feed miss: normalize to typed ExtensionNotFound and append a local-artifact
                 // suggestion if a fresh nupkg exists in artifacts/Debug/.

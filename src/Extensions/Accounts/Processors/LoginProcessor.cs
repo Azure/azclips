@@ -116,7 +116,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 bool servicePrincipalReAuth = existing.AuthMethod == AuthMethod.Federated;
                 if (servicePrincipalReAuth && string.IsNullOrWhiteSpace(FederatedToken))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"Profile '{existing.Name}' signed in as a service principal, so re-authentication requires a " +
                         $"newly issued token in '{FormatParameterName(nameof(FederatedToken), AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType)}'.");
                 }
@@ -239,7 +239,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // Enforce mutual exclusivity and the reserved-name rule before any authentication (fail fast).
             if (reAuthName is not null && outName is not null)
             {
-                throw new ArgumentException($"'{Flag(nameof(Profile))}' and '{Flag(nameof(OutProfile))}' cannot be used together. '{Flag(nameof(Profile))}' re-authenticates an existing profile; '{Flag(nameof(OutProfile))}' creates a new one.");
+                throw AzclipsErrorException.InvalidInput($"'{Flag(nameof(Profile))}' and '{Flag(nameof(OutProfile))}' cannot be used together. '{Flag(nameof(Profile))}' re-authenticates an existing profile; '{Flag(nameof(OutProfile))}' creates a new one.");
             }
             if (outName is not null)
             {
@@ -254,7 +254,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                  || !string.IsNullOrEmpty(ObjectId)
                  || !string.IsNullOrEmpty(ResourceId)))
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     $"Authentication flags ('{Flag(nameof(Identity))}', '{Flag(nameof(UseDeviceCode))}', '{Flag(nameof(ServicePrincipal))}', '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}', '{Flag(nameof(ResourceId))}') cannot be combined with '{Flag(nameof(Profile))}'. "
                     + $"Re-authentication reuses the profile's stored authentication method; only '{Flag(nameof(FederatedToken))}' may be supplied, to re-authenticate a service principal profile.");
             }
@@ -265,13 +265,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // needed for managed identity (token carries it) or profile re-auth (sourced from the profile).
             if (!Identity && reAuthName is null && string.IsNullOrWhiteSpace(SubscriptionId))
             {
-                throw new ArgumentException($"A subscription id is required. Provide it with {Flag(nameof(SubscriptionId))}.");
+                throw AzclipsErrorException.InvalidInput($"A subscription id is required. Provide it with {Flag(nameof(SubscriptionId))}.");
             }
 
             // The tenant flag doesn't apply to a managed-identity login.
             if (Identity && !string.IsNullOrEmpty(TenantId))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(Identity))}' is not applicable with '{Flag(nameof(TenantId))}'. " +
                     "Managed identity tokens already contain tenant information.");
             }
@@ -282,21 +282,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             var identityIdCount = miSelectors.Count(id => !string.IsNullOrEmpty(id));
             if (identityIdCount > 1)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: Provide only one of '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}', '{Flag(nameof(ResourceId))}'.");
             }
 
             // The managed-identity and device-code flags are mutually exclusive.
             if (Identity && UseDeviceCode)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(Identity))}' cannot be combined with '{Flag(nameof(UseDeviceCode))}'.");
             }
 
             // MI selectors require the managed-identity flag.
             if (!Identity && identityIdCount > 0)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}' and '{Flag(nameof(ResourceId))}' require '{Flag(nameof(Identity))}'.");
             }
 
@@ -316,7 +316,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         {
             if (!string.IsNullOrEmpty(value) && !Guid.TryParse(value, out _))
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(propertyName)}' must be a GUID. '{value}' is not.");
             }
         }
@@ -334,7 +334,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // Re-auth carries the token without the mode flag; there the profile decides.
                 if (hasToken && string.IsNullOrWhiteSpace(Profile))
                 {
-                    throw new InvalidOperationException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"usage error: '{Flag(nameof(FederatedToken))}' requires '{Flag(nameof(ServicePrincipal))}'.");
                 }
 
@@ -343,38 +343,38 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             if (Identity)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ServicePrincipal))}' cannot be combined with '{Flag(nameof(Identity))}'.");
             }
 
             if (UseDeviceCode)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ServicePrincipal))}' cannot be combined with '{Flag(nameof(UseDeviceCode))}'.");
             }
 
             if (!hasToken)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ServicePrincipal))}' requires the federated token in '{Flag(nameof(FederatedToken))}'.");
             }
 
             if (!string.IsNullOrEmpty(ObjectId) || !string.IsNullOrEmpty(ResourceId))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ObjectId))}' and '{Flag(nameof(ResourceId))}' are not applicable with '{Flag(nameof(ServicePrincipal))}'. " +
                     $"Identify the application with '{Flag(nameof(ClientId))}'.");
             }
 
             if (string.IsNullOrWhiteSpace(ClientId))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ServicePrincipal))}' requires the application ID in '{Flag(nameof(ClientId))}'.");
             }
 
             if (string.IsNullOrWhiteSpace(TenantId))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"usage error: '{Flag(nameof(ServicePrincipal))}' requires '{Flag(nameof(TenantId))}'.");
             }
         }
@@ -453,16 +453,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // The probe itself failed, so we cannot confirm access to the cross tenant. Fail closed: do
                 // not save a profile we could not verify.
                 logger.Debug($"Tenant access probe for '{profile.TenantId}' did not complete: {ex.Message}");
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"Signed in, but could not verify access to tenant '{profile.TenantId}' that owns subscription "
                     + $"'{subscriptionId}': {ex.Message} The profile was not saved. "
                     + $"Run '{signInCommand} {Flag(nameof(TenantId))} {profile.TenantId}' to authenticate to that tenant, then retry.",
-                    ex);
+                    innerException: ex);
             }
 
             if (!canAcquire)
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"Signed in, but subscription '{subscriptionId}' is homed in tenant '{profile.TenantId}', which "
                     + "requires additional sign-in (for example, multifactor authentication or a conditional access policy). "
                     + "The profile was not saved. "
@@ -522,11 +522,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 // would produce a broken profile whose subsequent commands fail against the subscription.
                 logger.Debug(
                     $"Could not resolve the owning tenant for subscription '{subscriptionId}': {ex.Message}");
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     $"Could not determine the tenant that owns subscription '{subscriptionId}': {ex.Message} "
                     + "The profile was not saved to avoid persisting an unverified tenant. "
                     + $"Retry, or specify the tenant explicitly with '{Flag(nameof(TenantId))} <tenantId>'.",
-                    ex);
+                    innerException: ex);
             }
         }
 

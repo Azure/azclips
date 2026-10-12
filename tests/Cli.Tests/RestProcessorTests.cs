@@ -47,7 +47,7 @@ public class RestProcessorTests
         var processor = CreateProcessor(pipeline, output);
         processor.Uri = "http://management.azure.com/subscriptions/x/resourcegroups?api-version=2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("must use https", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -62,7 +62,7 @@ public class RestProcessorTests
         var processor = CreateProcessor(pipeline, output);
         processor.Uri = "https://example.com/subscriptions/x/resourcegroups?api-version=2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("not an allowed Azure Resource Manager endpoint", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -196,7 +196,7 @@ public class RestProcessorTests
         processor.ResourceType = ["resourceGroups"];
         // ApiVersion omitted.
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("ApiVersion is required", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -214,7 +214,7 @@ public class RestProcessorTests
         processor.Name = ["a", "b"];
         processor.ApiVersion = "2023-01-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("must equal ResourceType", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -231,7 +231,7 @@ public class RestProcessorTests
         // Name omitted → a gap of two types with no interleaved name (malformed /a/b path).
         processor.ApiVersion = "2023-01-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("must equal ResourceType", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -251,7 +251,7 @@ public class RestProcessorTests
         processor.Name = ["myaccount"];
         processor.ApiVersion = "2023-01-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("ResourceType segments must be non-empty", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -272,7 +272,7 @@ public class RestProcessorTests
         processor.Name = [name];
         processor.ApiVersion = "2023-01-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("Name segments must be non-empty", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -289,7 +289,7 @@ public class RestProcessorTests
         processor.ResourceProviderName = "Microsoft.Resources";
         processor.ApiVersion = "2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("not both", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -303,7 +303,7 @@ public class RestProcessorTests
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("endpoint is required", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -319,7 +319,7 @@ public class RestProcessorTests
         processor.ResourceType = ["resourceGroups"];
         processor.ApiVersion = "2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("No subscription is available", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
@@ -407,7 +407,7 @@ public class RestProcessorTests
         var processor = CreateProcessor(pipeline, output);
         processor.Uri = "https://example.com/subscriptions/x/resourcegroups?api-version=2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains(
             "Allowed hosts: management.azure.com, management.chinacloudapi.cn, management.microsoftazure.de, management.usgovcloudapi.net.",
@@ -478,7 +478,7 @@ public class RestProcessorTests
         processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
         processor.UriParameters = ["notakeyvalue"];
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
         Assert.Contains("Expected KEY=VALUE", ex.Message);
         Assert.Equal(0, pipeline.SendCount);

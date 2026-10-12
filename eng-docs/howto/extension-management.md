@@ -263,7 +263,7 @@ $env:AZCLIPS_NO_EXTENSION_CACHE = "true"
 | ---- | ---------------------------------------- |
 | 0    | Success                                  |
 | 1    | Generic error                            |
-| 2    | Usage error (bad args, unknown flag)     |
+| 2    | Usage error (bad args, unknown flag) or `InvalidInput` (malformed value) |
 | 3    | `LeafConflict`                           |
 | 4    | `ExtensionNotFound` or `CommandNotFound` |
 | 5    | `FeedUnavailable`                        |
