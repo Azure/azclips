@@ -180,7 +180,10 @@ Every result records the facts needed to compare builds:
   successful `submit_response`, when the renderer shows the plan) and `traceMs`
   locate startup and answer work. The plan is not on screen at `planProposedMs`;
   in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
-  `traceMs - answerRenderedMs` longer, including one more model turn. A phase that
+  `traceMs - answerRenderedMs` longer, including one more model turn. Both values
+  count from trace start: in Baseline V8 the troubleshoot process started
+  1.04–1.33 s before its trace and exited about 0.09 s after it. That startup time
+  is part of `hostMs`, not of `answerRenderedMs`. A phase that
   the trace does not report is omitted rather than recorded as zero.
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
@@ -222,7 +225,9 @@ One baseline run against one candidate run therefore detects only large changes.
 Run the baseline and candidate builds close together (for example baseline,
 candidate, candidate, baseline), compare `hostMs` and `llmMs` separately as well as
 the total, and do not treat a difference within the spread of repeated runs of
-the same build as a speedup.
+the same build as a speedup. Agent behavior also drifts: in four runs of the same
+build, host-rejected plans rose from 0 to 5 per run and model turns from 3.30 to
+3.57 per observation, so compare plan activity and turns only within one block.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
@@ -259,6 +264,10 @@ declarative contracts; unrecorded script internals must be labelled as missing,
 not reconstructed from a model response or an unrelated newer script version.
 The target Model field is read only from `LlmTurnCompleted.Model` reported by the
 running Agent. A configured model name is not a substitute for observed usage.
+The reported value is the deployment name (for example `gpt-5.4`), not the dated
+model version that answered; the Judge records its service model. To detect a
+model update between runs, record the deployment's service model separately, for
+example with one request through the Judge provider.
 Older target packages that omit that field remain explicitly unrecorded; use a
 versioned target with the metadata instrumentation for a model-complete baseline.
 Reasoning and cache-write totals are present only when every captured usage event
