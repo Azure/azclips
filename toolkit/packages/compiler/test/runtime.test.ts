@@ -204,7 +204,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     expect(seen).toEqual(["remove:Models", "remove:Processors", "file:out/one.cs"]);
   });
 
-  it("forwards the rootNamespace option and the IR to the generate request", async () => {
+  it("forwards the IR, with the target seed-ir resolved, and the config to the generate request", async () => {
     let seen: GenerateToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: emitOk,
@@ -214,15 +214,12 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
       },
     });
 
-    await compile(
-      {
-        entrypoint: "x.tsp",
-        config: { stageOptions: { csharp: { rootNamespace: "Contoso.Clients" } } },
-      },
-      { runtime },
-    );
+    const config = { "root-namespace": "Contoso.Clients" };
+    await compile({ entrypoint: "x.tsp", config }, { runtime });
 
-    expect(seen?.options.rootNamespace).toBe("Contoso.Clients");
+    // Placement travels in the document; the request has no namespace of its own.
+    expect(seen?.ir.target?.rootNamespace).toEqual(["Contoso", "Clients"]);
+    expect(seen?.options).toEqual({ config });
     expect(seen?.ir.sources[0]?.id).toBe("S");
   });
 

@@ -36,7 +36,7 @@ export function usage(): string {
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--root-namespace <ns>] [--capture-ir] [--capture-source]",
+    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--capture-ir] [--capture-source]",
     "",
     "Options:",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
@@ -50,14 +50,14 @@ export function usage(): string {
     "                         Its 'pipeline' flips compiler-declared stages on or off,",
     "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
     "                         'stageOptions' configures them by stage id. Any other",
-    "                         key is a document fact, e.g. \"project-name\" or \"version\".",
+    "                         key is a document fact, e.g. \"root-namespace\" or",
+    "                         \"version\"; no flag sets one.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
     "                         The spec is staged under <out-dir>/source before compiling,",
     "                         which must not overlap the copied --tsp-location directory.",
     "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
-    "  --root-namespace <ns>  Root C# namespace and project name for the generated extension.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -80,7 +80,6 @@ export async function runCompile(args: string[]): Promise<number> {
   let apiVersionArg: string | undefined;
   let outDirArg: string | undefined;
   let generatorArg: string | undefined;
-  let rootNamespaceArg: string | undefined;
   let captureIr = false;
   let captureSource = false;
   try {
@@ -93,7 +92,6 @@ export async function runCompile(args: string[]): Promise<number> {
         "api-version": { type: "string" },
         "out-dir": { type: "string" },
         generator: { type: "string" },
-        "root-namespace": { type: "string" },
         "capture-ir": { type: "boolean" },
         "capture-source": { type: "boolean" },
       },
@@ -105,7 +103,6 @@ export async function runCompile(args: string[]): Promise<number> {
     apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
     generatorArg = values.generator;
-    rootNamespaceArg = values["root-namespace"];
     captureIr = values["capture-ir"] === true;
     captureSource = values["capture-source"] === true;
   } catch (err) {
@@ -131,17 +128,12 @@ export async function runCompile(args: string[]): Promise<number> {
   if (apiVersionArg !== undefined) {
     config = { ...config, apiVersion: apiVersionArg };
   }
-  // Orchestration stays compiler-owned, so these flags do not assemble a
-  // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // overrides a document fact.
+  // Orchestration stays compiler-owned, so --generator does not assemble a
+  // pipeline: it turns a generator *stage* on. No flag sets a document fact;
+  // facts come only from the config.
   const generatorStage = generatorArg ?? CSHARP_STAGE;
   if (generatorArg !== undefined) {
     config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
-  }
-  if (rootNamespaceArg !== undefined) {
-    // A fact sits at the config's top level, as it does in the file. The compiler,
-    // not the CLI, decides which stage reads it.
-    config = { ...config, "root-namespace": rootNamespaceArg };
   }
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the

@@ -26,7 +26,7 @@ internal sealed class GenerationContext
         _diagnostics = diagnostics;
         CancellationToken = cancellationToken;
         _index = new Lazy<Generators.IrIndex>(() => new Generators.IrIndex(ir));
-        _placement = new Lazy<Generators.Placement>(() => new Generators.Placement(ir, options));
+        _placement = new Lazy<Generators.Placement>(() => new Generators.Placement(ir));
     }
 
     /// <summary>The IR document being generated from.</summary>

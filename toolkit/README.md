@@ -156,7 +156,8 @@ on `ir`. The transform contract (`TransformStep`, `TransformContext`) lives in
 `transformers`, so that package needs nothing from the compiler.
 
 Stages run to the first failure — in a sequence, every later stage would just
-consume the broken IR.
+consume the broken IR. An emit or transform stage fails when it throws or reports
+an error, so a stage reports every problem it finds and the run stops after it.
 
 Captured IR is labeled by stage id (`ir/0-tsp-emit.json`, `ir/1-seed-ir.json`).
 Generate stages take a sequence position but produce no IR, so index gaps are
@@ -474,11 +475,14 @@ and the compiler hands those to `seed-ir` untouched:
 | `directories.models`, `directories.processors` | `directories` | `Models`, `Processors` |
 | `service-name`, `version`, `description` | `serviceName`, `version`, `description` | unset |
 
-`--root-namespace` overrides the `root-namespace` fact. A fact with the wrong
-type or an empty value is an `invalid-fact` error and falls back to its default.
-A key `seed-ir` does not know is an `unknown-fact` warning, which is how a
-misspelled key surfaces. `create-command` carries the target into the
-`TransformedIR`, and fails on a document without one.
+Facts come only from config: no CLI flag sets one. A missing fact gets its
+default. A fact with the wrong type or an empty value is an `invalid-fact` error
+that fails `seed-ir`: every such error is reported, no default stands in, and the
+run stops. A key `seed-ir` does not know is an `unknown-fact` warning, which is
+how a misspelled key surfaces. `create-command` carries the target into the `TransformedIR`, and
+fails on a document without one; so does the C# generator
+(`ace-generator/missing-target`), which has no namespace of its own to fall back
+on.
 
 ## IR JSON Schema (cross-language contract)
 

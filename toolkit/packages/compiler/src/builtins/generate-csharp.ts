@@ -25,7 +25,7 @@ export const CSHARP_GENERATOR_ID = "csharp";
 /** Build the C# generator backed by the host runtime's `csharp-generate` tool. */
 export function createCsharpGenerator(
   runtime: Runtime,
-  options: Record<string, unknown> = {},
+  _options: Record<string, unknown> = {},
 ): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
@@ -36,14 +36,11 @@ export function createCsharpGenerator(
     // out-of-process host it is about to be serialized to.
     accepts: safeParseTransformedIR,
     async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
-      const rootNamespace =
-        typeof options.rootNamespace === "string" ? options.rootNamespace : undefined;
+      // Placement travels in the document (`ir.target`), so the request carries no
+      // namespace of its own.
       const request: GenerateToolRequest = {
         ir,
-        options: {
-          ...(rootNamespace !== undefined ? { rootNamespace } : {}),
-          config: context.config,
-        },
+        options: { config: context.config },
       };
 
       // Stream the tool's NDJSON stdout line by line, forwarding each artifact to

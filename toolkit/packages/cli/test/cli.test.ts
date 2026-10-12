@@ -135,6 +135,12 @@ describe("ace compile: argument parsing", () => {
     expect(code).toBe(2);
     expect(err).toContain("Unknown option '--nope'");
   });
+
+  it("has no --root-namespace: document facts come only from the config", async () => {
+    const { code, err } = await captureRun(["compile", "--root-namespace", "Contoso.Pets"]);
+    expect(code).toBe(2);
+    expect(err).toContain("Unknown option '--root-namespace'");
+  });
 });
 
 describe("ace compile: --config loading", () => {
@@ -364,14 +370,21 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     }
   });
 
-  it("passes --root-namespace as a document fact that seed-ir writes to the target", async () => {
-    const outDir = join(dir, "capture-root-namespace");
+  it("passes the config's document facts to seed-ir, which writes them to the target", async () => {
+    const outDir = join(dir, "capture-facts");
+    const configPath = join(dir, "facts.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({ "root-namespace": "Contoso.Pets", version: "0.1.0" }),
+      "utf8",
+    );
+
     const { code, err } = await captureRun([
       "compile",
       "--tsp-location",
       PETS_TSP,
-      "--root-namespace",
-      "Contoso.Pets",
+      "--config",
+      configPath,
       "--out-dir",
       outDir,
       "--capture-ir",
@@ -384,6 +397,7 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const target = parseSnapshot(captures.at(-1)!).target;
     expect(target?.rootNamespace).toEqual(["Contoso", "Pets"]);
     expect(target?.projectName).toBe("Contoso.Pets");
+    expect(target?.version).toBe("0.1.0");
   });
 
   it("does not create the ir/ directory when --capture-ir is absent", async () => {
@@ -560,8 +574,6 @@ describe("ace compile: csharp generation", () => {
         "compile",
         "--tsp-location",
         PETS_TSP,
-        "--root-namespace",
-        "Contoso.Pets",
         "--out-dir",
         outDir,
       ]);
@@ -586,8 +598,6 @@ describe("ace compile: csharp generation", () => {
         PETS_TSP,
         "--generator",
         "csharp",
-        "--root-namespace",
-        "Contoso.Pets",
         "--out-dir",
         outDir,
       ]);

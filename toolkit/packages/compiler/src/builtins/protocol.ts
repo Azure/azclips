@@ -45,10 +45,11 @@ export interface EmitToolResponse {
   diagnostics: CompilerDiagnostic[];
 }
 
-/** Host-resolved options for the `csharp-generate` tool. */
+/**
+ * Host-resolved options for the `csharp-generate` tool. Placement (root namespace,
+ * project name, folders) is not among them: it travels in the document's `target`.
+ */
 export interface GenerateToolOptions {
-  /** Root C# namespace for generated types. */
-  rootNamespace?: string;
   /** The raw resolved `CompileConfig`, opaque to the generator for now. */
   config?: unknown;
 }

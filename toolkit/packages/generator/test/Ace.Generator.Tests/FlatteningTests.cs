@@ -97,6 +97,7 @@ public sealed class FlatteningTests
             Servers = [new IRServerDefinition { Id = ServerId(), Endpoint = new IRServerLiteral { Url = "https://example.com" } }],
             Models = [thing, thingProperties, Model("Sku", Prim("Sku", "Name", optional: false))],
             Operations = [],
+            Target = Targets.For("Contoso.Clients"),
         };
 
         if (withOperation)
@@ -161,7 +162,7 @@ public sealed class FlatteningTests
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions { RootNamespace = "Contoso.Clients" }, files.WriteAsync);
+            ir, new GeneratorOptions(), files.WriteAsync);
         return (result, files);
     }
 

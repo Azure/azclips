@@ -117,13 +117,14 @@ describe("seed-ir: facts", () => {
 });
 
 describe("seed-ir: checking the entry", () => {
-  it("reports a fact of the wrong type, and falls back to its default", () => {
+  it("reports every fact of the wrong type, and writes no target", () => {
     const { out, diagnostics } = run({
       "root-namespace": ["Fabrikam", "Gadgets"],
       version: 1,
       directories: "Types",
     });
 
+    // Every bad fact is reported, not just the first, so one run shows them all.
     expect(codes(diagnostics)).toEqual([
       "error:invalid-fact",
       "error:invalid-fact",
@@ -131,13 +132,10 @@ describe("seed-ir: checking the entry", () => {
     ]);
     // An unquoted YAML `version: 1.0` arrives as a number; the message says so.
     expect(diagnostics.map((d) => d.message)).toContain(
-      "'version' must be a non-empty string, not the number 1; it is ignored.",
+      "'version' must be a non-empty string, not the number 1.",
     );
-    expect(out.target).toEqual({
-      rootNamespace: ["Contoso", "Widgets"],
-      projectName: "Contoso.Widgets",
-      directories: DEFAULT_DIRECTORIES,
-    });
+    // No default stands in for a value the config got wrong: the stage fails.
+    expect(out.target).toBeUndefined();
   });
 
   it("reports an empty value, including an empty namespace segment", () => {
@@ -153,11 +151,7 @@ describe("seed-ir: checking the entry", () => {
       "error:invalid-fact",
     ]);
     expect(diagnostics[2]!.message).toContain("'directories.processors'");
-    expect(out.target).toEqual({
-      rootNamespace: ["Contoso", "Widgets"],
-      projectName: "Contoso.Widgets",
-      directories: DEFAULT_DIRECTORIES,
-    });
+    expect(out.target).toBeUndefined();
   });
 
   it("warns about keys it does not know, at the top level and under directories", () => {

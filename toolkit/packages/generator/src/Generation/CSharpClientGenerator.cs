@@ -41,6 +41,19 @@ public sealed class CSharpClientGenerator : IClientGenerator
         ArgumentNullException.ThrowIfNull(writeFile);
 
         var diagnostics = new List<GeneratorDiagnostic>();
+
+        // Placement comes only from the document. One from the pipeline always has a
+        // target (seed-ir writes it); without one there is nowhere to generate into, so
+        // stop before the cleanup pass wipes anything.
+        if (ir.Target is not { RootNamespace.Count: > 0 })
+        {
+            diagnostics.Add(new GeneratorDiagnostic(
+                DiagnosticSeverity.Error,
+                "ace-generator/missing-target",
+                "The document has no target to generate into. The seed-ir stage resolves it from the document facts."));
+            return new GenerationResult(diagnostics, new Dictionary<string, string>());
+        }
+
         var context = new GenerationContext(ir, options, diagnostics, cancellationToken);
 
         // Cleanup pass (before any produce): each stage names the output scopes it

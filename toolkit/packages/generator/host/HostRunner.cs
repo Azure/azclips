@@ -35,13 +35,7 @@ public static class HostRunner
                 JsonSerializer.Deserialize<HostRequest>(requestJson, IrJson.Options)
                 ?? throw new JsonException("GenerateToolRequest deserialized to null.");
 
-            var options = new GeneratorOptions
-            {
-                RootNamespace = string.IsNullOrEmpty(request.Options.RootNamespace)
-                    ? "Generated"
-                    : request.Options.RootNamespace,
-                Config = request.Options.Config,
-            };
+            var options = new GeneratorOptions { Config = request.Options.Config };
 
             // Stream each generated file to stdout the moment it is produced.
             async ValueTask WriteFileAsync(string relativePath, string contents, CancellationToken ct)
@@ -123,9 +117,6 @@ internal sealed record HostRequest
 /// <summary>Host-resolved generation options carried in the request.</summary>
 internal sealed record HostOptions
 {
-    [JsonPropertyName("rootNamespace")]
-    public string? RootNamespace { get; init; }
-
     [JsonPropertyName("config")]
     public JsonElement? Config { get; init; }
 }

@@ -176,7 +176,8 @@ there is no convention-free rule to keep.
 
 > **Remaining gap.** Two operations that share a subject, an action *and* a variant
 > still collide — `create-command` reports `duplicate-command-identity` (error) and
-> skips rather than emitting an invalid document.
+> skips rather than emitting an invalid document. The error fails the stage, so the
+> run stops before generation.
 
 ## The command
 

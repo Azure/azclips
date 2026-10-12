@@ -16,11 +16,12 @@
  * ## Checking the entry
  *
  * The facts arrive as written in config, with kebab-case keys, and unchecked. A
- * fact with the wrong type or an empty value is an error, and the fact falls back
- * to its default so the target stays valid. A key this step does not know is a
- * warning: the entry is everything nobody else took at the top level, so that is
- * how a misspelled top-level key surfaces. A key with no value (`null`) counts as
- * absent.
+ * fact with the wrong type or an empty value is an error, and the stage fails: every
+ * fact is still checked, so all such errors surface together, but no target is
+ * written and the compiler stops the run. A default stands in only for a missing
+ * fact, never for an invalid one. A key this step does not know is a warning: the
+ * entry is everything nobody else took at the top level, so that is how a
+ * misspelled top-level key surfaces. A key with no value (`null`) counts as absent.
  *
  * ## What it must not do
  *
@@ -80,10 +81,16 @@ export function seedIrStep(facts: Record<string, unknown> = {}): TransformStep {
   return {
     name: STEP_NAME,
     run(ir: IR, context: TransformContext): IR {
-      const report: Report = (severity, code, message) =>
+      let failed = false;
+      const report: Report = (severity, code, message) => {
+        if (severity === "error") failed = true;
         context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+      };
 
-      ir.target = resolveTarget(ir, facts, report);
+      const target = resolveTarget(ir, facts, report);
+      // An invalid fact fails the stage. No default stands in for a value the config
+      // got wrong, so nothing is written, and the compiler stops the run.
+      if (!failed) ir.target = target;
       return ir;
     },
   };
@@ -127,7 +134,7 @@ function resolveDirectories(facts: Record<string, unknown>, report: Report): IRT
     report(
       "error",
       "invalid-fact",
-      `'directories' must be a map of 'models' and 'processors', not ${describe(value)}; it is ignored.`,
+      `'directories' must be a map of 'models' and 'processors', not ${describe(value)}.`,
     );
     return { ...DEFAULT_DIRECTORIES };
   }
@@ -146,8 +153,9 @@ const NON_EMPTY_STRING = "a non-empty string";
 const DOTTED_NAMESPACE = "a dotted namespace such as 'Contoso.Widgets'";
 
 /**
- * Reads one fact of `entry`. A missing or `null` value is absent; an invalid one is
- * reported and then treated as absent, so the caller's default applies.
+ * Reads one fact of `entry`. A missing or `null` value is absent. An invalid one is
+ * reported, which fails the stage, and is then read as absent so that the remaining
+ * facts are still checked.
  */
 type ReadFact = <T>(key: string, parse: (value: unknown) => T | undefined, expected: string) => T | undefined;
 
@@ -162,7 +170,7 @@ function factReader(entry: Record<string, unknown>, prefix: string, report: Repo
       report(
         "error",
         "invalid-fact",
-        `'${prefix}${key}' must be ${expected}, not ${describe(value)}; it is ignored.`,
+        `'${prefix}${key}' must be ${expected}, not ${describe(value)}.`,
       );
     }
     return parsed;
