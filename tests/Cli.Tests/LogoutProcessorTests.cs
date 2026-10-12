@@ -44,7 +44,8 @@ public class LogoutProcessorTests
             services.AddSingleton<IAuthService>(auth);
             services.AddSingleton<IProfileService>(profiles);
         });
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         return (auth, profiles);
     }
 

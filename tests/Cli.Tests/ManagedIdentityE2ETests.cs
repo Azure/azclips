@@ -260,6 +260,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
             Logger,
             Telemetry,
             profileService,
+            new ClientMetadata(ClientType.CLI, MockClientId),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry),
             new FederatedTokenAuthenticator(Logger, Telemetry, msalOptions),
             msalOptions);

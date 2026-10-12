@@ -18,6 +18,8 @@ namespace Core.Agent.AgentMode;
 /// </summary>
 public static class AgentModeEntry
 {
+    private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
+
     // Session-level interaction brake (MVP constants, not configurable yet):
     // counts user<->agent messages (each new user message +1, internal
     // self-correction re-sends excluded), does NOT reset, soft reminder at
@@ -43,7 +45,8 @@ public static class AgentModeEntry
             services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
             services.AddSingleton<ITelemetryProvider, AgentTelemetryProvider>();
         });
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.CLI, FirstPartyApplicationId));
 
         TraceAgentRenderer? trace = null;
         return await RunSessionAsync(

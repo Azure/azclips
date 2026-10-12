@@ -33,6 +33,7 @@ public class VmCreateOrchestrationTests
     // A well-formed NSG id the fake has never heard of, and a public IP id passed where an NSG id belongs.
     private const string MissingNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg";
     private const string NotAnNsgId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-an-nsg";
+    private const string NotADiskEncryptionSetId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/not-a-des";
 
     private static readonly string[] s_groupArgs =
     [
@@ -156,7 +157,7 @@ public class VmCreateOrchestrationTests
         using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
 
         host.RunCli(s_groupArgs);
-        var error = Assert.Throws<ArgumentException>(() => host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).ToArray()));
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli(s_cliArgs.Where(arg => arg != "--admin-password" && arg != Password).ToArray()));
 
         Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
@@ -175,7 +176,7 @@ public class VmCreateOrchestrationTests
         host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
         var parameters = PsParameters();
         parameters["AdminPassword"] = "";
-        var error = Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+        var error = Assert.Throws<UsageErrorException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
 
         Assert.Contains("Specify an administrator password or SSH public key values.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
@@ -192,7 +193,7 @@ public class VmCreateOrchestrationTests
         using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
 
         host.RunCli(s_groupArgs);
-        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
 
         Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
@@ -209,7 +210,7 @@ public class VmCreateOrchestrationTests
         using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
 
         host.RunCli(s_groupArgs);
-        var error = Assert.Throws<ArgumentException>(() => host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "  "]));
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. ArgsWithImage(LinuxImage), "--ssh-key-values", "  "]));
 
         Assert.Contains("SSH public key value cannot be empty.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
@@ -251,9 +252,153 @@ public class VmCreateOrchestrationTests
     {
         var vmBody = RecordVmBody(ArgsWithImage("TrustedLaunchTest:offer:sku:1.0.0"));
 
-        Assert.Contains("\"securityType\":\"trustedlaunch\"", vmBody);
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
         Assert.Contains("\"secureBootEnabled\":true", vmBody);
         Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_Standard_OverridesTrustedLaunchDefaults()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "Standard"]);
+
+        Assert.Contains("\"securityType\":\"Standard\"", vmBody);
+        Assert.DoesNotContain("uefiSettings", vmBody);
+        Assert.DoesNotContain("secureBootEnabled", vmBody);
+        Assert.DoesNotContain("vTpmEnabled", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_TrustedLaunch_DefaultsUefiSettings()
+    {
+        var vmBody = RecordVmBody([.. ArgsWithImage("Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"), "--security-type", "TrustedLaunch"]);
+
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_ConfidentialVM_RequiresOsDiskSecurityEncryptionType()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--security-type", "ConfidentialVM"]));
+
+        Assert.Contains("OS disk security encryption type is required", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SecurityType_ConfidentialVM_BindsOsDiskSecurityEncryptionType()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly"]);
+
+        Assert.Contains("\"securityType\":\"ConfidentialVM\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":true", vmBody);
+        Assert.Contains("\"vTpmEnabled\":true", vmBody);
+        Assert.Contains("\"osDisk\":{\"createOption\":\"FromImage\"", vmBody);
+        Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_ConfidentialVM_BindsDiskEncryptionSet()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "DiskWithVMGuestState", "--os-disk-secure-vm-disk-encryption-set", "mydes"]);
+
+        Assert.Contains("\"securityEncryptionType\":\"DiskWithVMGuestState\"", vmBody);
+        Assert.Contains("\"diskEncryptionSet\":{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/diskEncryptionSets/mydes\"}", vmBody);
+    }
+
+    [Fact]
+    public void OsDiskSecurityEncryptionType_RequiresConfidentialVM()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--os-disk-security-encryption-type", "VMGuestStateOnly"]));
+
+        Assert.Contains("can only be specified when security type is ConfidentialVM", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void OsDiskSecureVMDiskEncryptionSet_RequiresDiskWithVMGuestState()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly", "--os-disk-secure-vm-disk-encryption-set", "mydes"]));
+
+        Assert.Contains("can only be specified when OS disk security encryption type is DiskWithVMGuestState", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void OsDiskSecureVMDiskEncryptionSet_InvalidResourceId_FailsBeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli(
+            [.. s_cliArgs,
+                "--security-type", "ConfidentialVM",
+                "--os-disk-security-encryption-type", "DiskWithVMGuestState",
+                "--os-disk-secure-vm-disk-encryption-set", NotADiskEncryptionSetId]));
+
+        Assert.Contains("Invalid disk encryption set resource id", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SecurityType_PowerShell_BindsStandard()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SecurityType"] = "Standard";
+        AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"securityType\":\"Standard\"", vmBody);
+        Assert.DoesNotContain("uefiSettings", vmBody);
+    }
+
+    [Fact]
+    public void SecurityType_PowerShell_BindsConfidentialVMOsDiskSecurityEncryptionType()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SecurityType"] = "ConfidentialVM";
+        parameters["OSDiskSecurityEncryptionType"] = "VMGuestStateOnly";
+        AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"securityType\":\"ConfidentialVM\"", vmBody);
+        Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
     }
 
     [Theory]
@@ -271,7 +416,9 @@ public class VmCreateOrchestrationTests
         using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
 
         host.RunCli(s_groupArgs);
-        Assert.Throws<NotImplementedException>(() => host.RunCli(ArgsWithImage(image)));
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli(ArgsWithImage(image)));
+
+        Assert.Contains("Only marketplace image URNs", error.Message);
 
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
@@ -289,7 +436,7 @@ public class VmCreateOrchestrationTests
         using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
 
         host.RunCli(s_groupArgs);
-        Assert.Throws<ArgumentException>(() => host.RunCli(ArgsWithImage(image)));
+        Assert.Throws<UsageErrorException>(() => host.RunCli(ArgsWithImage(image)));
 
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
@@ -309,7 +456,7 @@ public class VmCreateOrchestrationTests
         host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
         var parameters = PsParameters();
         parameters["Image"] = image;
-        Assert.Throws<ArgumentException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+        Assert.Throws<UsageErrorException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
 
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
@@ -504,6 +651,7 @@ public class VmCreateOrchestrationTests
     {
         var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--public-ip-address", MissingPublicIpId]);
 
+        Assert.IsType<UsageErrorException>(error);
         Assert.Equal($"Public IP address '{MissingPublicIpId}' was not found.", error.Message);
         Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/publicIPAddresses/missing-ip?"));
 
@@ -584,6 +732,7 @@ public class VmCreateOrchestrationTests
     {
         var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId]);
 
+        Assert.IsType<UsageErrorException>(error);
         Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
         Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/resourceGroups/shared-rg/providers/Microsoft.Network/networkSecurityGroups/missing-nsg?"));
         Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
@@ -620,6 +769,7 @@ public class VmCreateOrchestrationTests
             [.. s_cliArgsWithoutNsg, "--nsg", MissingNsgId, "--public-ip-address", MissingPublicIpId]);
 
         // Legacy CLI validates the NSG first, so its error wins and the public IP is never looked up.
+        Assert.IsType<UsageErrorException>(error);
         Assert.Equal($"Network security group '{MissingNsgId}' was not found.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Uri.Contains("/publicIPAddresses/"));
     }
@@ -682,12 +832,12 @@ public class VmCreateOrchestrationTests
     }
 
     /// <summary>Like <see cref="RecordCli"/>, for a vm create that must fail; returns what it sent and the error.</summary>
-    private static (SessionRecord Record, InvalidOperationException Error) RecordCliFailure(FakeVmArmBackend backend, string[] vmCreateArgs)
+    private static (SessionRecord Record, Exception Error) RecordCliFailure(FakeVmArmBackend backend, string[] vmCreateArgs)
     {
         var record = new SessionRecord();
         using var host = new ScenarioHost(ClientType.CLI, new RecordPlaybackInterceptor(RecorderMode.Record, record), backend, extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
         host.RunCli(s_groupArgs);
-        var error = Assert.Throws<InvalidOperationException>(() => host.RunCli(vmCreateArgs));
+        var error = Assert.ThrowsAny<Exception>(() => host.RunCli(vmCreateArgs));
         return (record, error);
     }
 

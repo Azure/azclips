@@ -51,7 +51,7 @@ public class ProfileNameValidatorTests
     [Fact]
     public void Validate_ShouldThrow_OnMalformedName()
     {
-        Assert.Throws<ArgumentException>(() => ProfileNameValidator.Validate("bad name!"));
+        Assert.Throws<UsageErrorException>(() => ProfileNameValidator.Validate("bad name!"));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class ProfileNameValidatorTests
     [Fact]
     public void ValidateForCreation_ShouldThrow_OnReservedDefaultName()
     {
-        Assert.Throws<ArgumentException>(() => ProfileNameValidator.ValidateForCreation("default"));
+        Assert.Throws<UsageErrorException>(() => ProfileNameValidator.ValidateForCreation("default"));
     }
 
     [Fact]

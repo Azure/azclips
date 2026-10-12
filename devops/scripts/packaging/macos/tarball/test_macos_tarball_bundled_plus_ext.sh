@@ -416,11 +416,11 @@ echo "[14/15] Verify Resources command no longer resolves"
 removed_command_output=$(HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" "$AZ" group list 2>&1 || true)
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
-   grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+   grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Removed Resources command reports the extension installation path"
 elif [[ "$PACKAGE_PROFILE" == "full" ]] &&
      grep -Fq "[BundledExtensionLoader] Loaded 'Resources'" <<<"$removed_command_output" &&
-     ! grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+     ! grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Resources command fell back to the bundled full-package extension"
 else
   echo "  FAIL: az group list did not match the expected $PACKAGE_PROFILE profile behavior after removal"

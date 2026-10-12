@@ -23,7 +23,8 @@ Create a virtual machine together with its network interface, public IP address,
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> [-SubscriptionId <string>] [-Image <string>]
- [-SecurityGroupName <string>]
+ [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-OSDiskSecureVMDiskEncryptionSet <string>] [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -278,6 +279,51 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -OSDiskSecureVMDiskEncryptionSet
+
+Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -OSDiskSecurityEncryptionType
+
+Security encryption type for the OS managed disk. Required for ConfidentialVM.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- VMGuestStateOnly
+- DiskWithVMGuestState
+- NonPersistedTPM
+HelpMessage: ''
+```
+
 ### -Profile
 
 Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
@@ -371,6 +417,30 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SecurityType
+
+Security type for the virtual machine.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- TrustedLaunch
+- ConfidentialVM
+- Standard
 HelpMessage: ''
 ```
 

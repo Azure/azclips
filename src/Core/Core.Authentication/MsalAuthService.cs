@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
@@ -11,12 +10,12 @@ public class MsalAuthService(
     ILoggingService Logger,
     ITelemetryService TelemetryService,
     IProfileService ProfileService,
+    ClientMetadata ClientMetadata,
     ManagedIdentityAuthenticator ManagedIdentityAuthenticator,
     FederatedTokenAuthenticator FederatedTokenAuthenticator,
     MsalClientOptions Options) : IAuthService
 {
     private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
-    private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
@@ -199,7 +198,7 @@ public class MsalAuthService(
     // todo: reuse app instance but allow reinitialization when tenantId changes
     private IPublicClientApplication BuildApp(string? tenantId)
     {
-        var builder = PublicClientApplicationBuilder.Create(ClientId)
+        var builder = PublicClientApplicationBuilder.Create(ClientMetadata.FirstPartyApplicationId)
             .WithRedirectUri("http://localhost");
 
         // No tenant supplied: use the multi-tenant "organizations" authority
