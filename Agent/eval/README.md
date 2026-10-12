@@ -176,8 +176,9 @@ Every result records the facts needed to compare builds:
   neither waiting for the model nor running tools. `planToolMs` is the part of
   `toolMs` spent in the internal plan tools (`propose_plan` and `submit_response`),
   not in Azure lookups. `sessionStartMs`, `firstLlmRequestMs`, `planProposedMs`
-  (trace start to the accepted plan), `answerRenderedMs` (trace start to the first
-  successful `submit_response`, when the renderer shows the plan) and `traceMs`
+  (trace start to the accepted plan), `answerRenderedMs` (trace start to the start
+  of the first successful `submit_response`; the renderer shows the plan in that
+  call's preToolUse hook, so the plan appears at or shortly after this time) and `traceMs`
   locate startup and answer work. The plan is not on screen at `planProposedMs`;
   in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
   `traceMs - answerRenderedMs` longer, including one more model turn. Both values
@@ -228,6 +229,9 @@ the total, and do not treat a difference within the spread of repeated runs of
 the same build as a speedup. Agent behavior also drifts: in four runs of the same
 build, host-rejected plans rose from 0 to 5 per run and model turns from 3.30 to
 3.57 per observation, so compare plan activity and turns only within one block.
+The trace does not record model-call retries or HTTP status, so a slow model turn
+cannot be explained from it: one 110 s turn in Baseline V8 raised the run's mean
+latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
