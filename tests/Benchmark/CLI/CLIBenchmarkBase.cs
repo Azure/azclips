@@ -25,6 +25,10 @@ namespace Benchmark.CLI;
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
+    private static readonly ClientMetadata s_clientMetadata = new(
+        ClientType.CLI,
+        "04b07795-8ddb-461a-bbee-02f9e1bf7b46");
+
     private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
 
     /// <summary>
@@ -46,7 +50,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalSetup]
     public void GlobalSetup()
     {
-        InitializeCommon();
+        InitializeCommon(s_clientMetadata);
 
         // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
         // resolver, reconciler, and InstalledExtensionLoader all agree on.

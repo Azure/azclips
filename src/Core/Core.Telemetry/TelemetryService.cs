@@ -21,8 +21,8 @@ public class TelemetryService : ITelemetryService
     public TelemetryService(
         ITelemetryProvider telemetryProvider,
         IConfigurationService configurationService,
-        ClientType clientType)
-        : this(telemetryProvider, configurationService, clientType, null)
+        ClientMetadata clientMetadata)
+        : this(telemetryProvider, configurationService, clientMetadata.ClientType, null)
     {
     }
 

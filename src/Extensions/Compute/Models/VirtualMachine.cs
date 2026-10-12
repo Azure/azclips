@@ -263,6 +263,35 @@ public class OSDisk
 {
     public string CreateOption { get; set; } = null!;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ManagedDiskParameters? ManagedDisk { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ManagedDiskParameters
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VMDiskSecurityProfile? SecurityProfile { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VMDiskSecurityProfile
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SecurityEncryptionType { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DiskEncryptionSetParameters? DiskEncryptionSet { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class DiskEncryptionSetParameters
+{
+    public string Id { get; set; } = null!;
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

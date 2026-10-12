@@ -27,6 +27,7 @@ public class Program
     // the install dir for probing). Read by EnvironmentProber on the agent side by
     // the same literal name — rename both together.
     private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
+    private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
@@ -73,7 +74,7 @@ public class Program
                 services.AddSingleton<ICommandTelemetryContext, CommandTelemetryContext>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            AzclipsServiceProvider.Initialize(_clientType);
+            AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
         }
 
         // Post-DI utility modes: completion generation needs the container to resolve
@@ -98,10 +99,7 @@ public class Program
         string? uploadReservationId = null;
         IDisposable? startupLoggingScope = null;
 
-        // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-        var errorFormat = OutputFormat.Table;
-        var errorColorAllowed = false;
-        var errorHelpAllowed = false;
+        var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
         var positional = args;
         CommandInvocation? invocation = null;
 
@@ -167,12 +165,6 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
-                    errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
-                    configuredFormat: sessionSettings.Format,
-                    explicitFormat: globalArgs.Output);
-                errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -221,7 +213,7 @@ public class Program
                 context => TryAgentFallbackAsync(positional, ex.Message, context),
                 uploadReservationId);
         }
-        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
             try
@@ -233,7 +225,7 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
@@ -242,15 +234,14 @@ public class Program
         {
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
 
-            // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+            EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -415,42 +406,20 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Render extension help; structured errors are handled by Main.
+            // Render extension help; known errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
+    private static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
             : ex.Message;
 
-        if (format is OutputFormat.Json or OutputFormat.Jsonc)
-        {
-            var payload = new
-            {
-                error = new
-                {
-                    code = ex.Code,
-                    message,
-                    details = ex.Details,
-                },
-            };
-            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            });
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
-        }
-        else
-        {
-            ConsoleSink.Error($"[{ex.Code}] {message}");
-        }
+        ConsoleSink.Error($"[{ex.Code}] {message}");
     }
 
     /// <summary>

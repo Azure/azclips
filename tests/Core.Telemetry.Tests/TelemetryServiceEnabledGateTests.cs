@@ -37,7 +37,10 @@ public class TelemetryServiceEnabledGateTests : IDisposable
 
         _provider = new StubTelemetryProvider(_source);
         _config = new ToggleableConfigurationService(enabled: true);
-        _telemetryService = new TelemetryService(_provider, _config, ClientType.PowerShell);
+        _telemetryService = new TelemetryService(
+            _provider,
+            _config,
+            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
     }
 
     public void Dispose()

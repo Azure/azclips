@@ -64,8 +64,10 @@ public static class AzclipsServiceProvider
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
     /// </summary>
-    public static void Initialize(ClientType clientType)
+    public static void Initialize(ClientMetadata clientMetadata)
     {
+        ArgumentNullException.ThrowIfNull(clientMetadata);
+
         if (_serviceProvider is not null)
             return;
 
@@ -75,8 +77,7 @@ public static class AzclipsServiceProvider
                 return;
 
             IServiceCollection services = new ServiceCollection();
-            //client type should be immutable and be initialized with composition root
-            services.AddSingleton(typeof(ClientType), clientType);
+            services.AddSingleton(clientMetadata);
             while (_prependRegistrations.TryDequeue(out var prependRegistration))
             {
                 prependRegistration?.Invoke(services);

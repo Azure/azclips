@@ -2,13 +2,14 @@
 # Smoke test for vm create's public IP and network security group workflows through
 # the built CLI.
 #
-# Creates four VMs in one resource group, one per public IP mode, and checks the
+# Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
-#   1. vm create                                  -> creates <vm>PublicIP; publicIps is set;
+#   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
 #                                                    creates <vm>NSG with only the rdp rule
-#   2. vm create --public-ip-address <new name>   -> creates that public IP; publicIps is set;
-#                --nsg <existing resource id>        attaches the pre-created NSG untouched
-#   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set;
+#   2. vm create --security-type Standard --public-ip-address <new name>
+#                --nsg <existing resource id>        creates that public IP; publicIps is set;
+#                                                    attaches the pre-created NSG untouched
+#   3. vm create --public-ip-address <existing>   -> reuses that public IP; publicIps is set
 #                --nsg <existing name>               attaches the pre-created NSG untouched
 #   4. vm create --ssh-key-values <file>          -> Linux VM with no public IP; publicIps is
 #                --public-ip-address ""              empty; creates <vm>NSG with only the
@@ -16,6 +17,7 @@
 #   5. vm create --public-ip-address <missing id> -> fails with "was not found" before
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
+#   7. optional AZCLIPS_ENABLE_CVM=1              -> creates a ConfidentialVM with OS disk security encryption
 #
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
@@ -26,6 +28,28 @@
 # Case 3 pre-creates its public IP through az rest, then verifies vm create
 # attaches that resource without replacing its tags.
 #
+# Prereqs: build the solution first with dotnet build, then sign in. The subscription
+# needs quota for four Standard_D2s_v3 VMs and three Standard public IPs.
+#
+# Standard run:
+#   export AZCLIPS_SUBSCRIPTION_ID=<subscription-id>
+#   export AZCLIPS_VM_ADMIN_PASSWORD='<test-password>'
+#   ./tests/Scripts/CLI/VMCreate.sh
+#
+# The standard run covers TrustedLaunch, Standard, public IP create/reuse/none,
+# missing public IP validation, and a Linux SSH VM. The SSH VM uses a generated
+# temporary key pair and no public IP by default.
+#
+# To preserve resources for portal/SSH inspection, temporarily comment out the
+# cleanup trap/block below.
+#
+# Optional ConfidentialVM run:
+#   export AZCLIPS_ENABLE_CVM=1
+#   export AZCLIPS_CVM_IMAGE=Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:latest
+#   export AZCLIPS_CVM_SIZE=Standard_DC2as_v5
+#   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
+#   ./tests/Scripts/CLI/VMCreate.sh
+#
 # Case 4 deploys an Ubuntu image with a temporary key pair from ssh-keygen, deleted on exit.
 #
 # Before case 1 the script pre-creates an NSG through az rest, with its own tag and
@@ -34,9 +58,7 @@
 # exactly one rule: rdp for case 1's default <vm>NSG, default-allow-ssh for case 4's,
 # and smoke-allow-https, with the tag intact, for the NSG that cases 2 and 3 attach.
 #
-# Prereqs: build the solution first with dotnet build, then sign in. ssh-keygen must
-# be on PATH. The subscription needs quota for four Standard_D2s_v3 VMs and three
-# Standard public IPs.
+# ssh-keygen must be on PATH.
 #
 # Cleanup: on exit the resource group this script created is deleted, which removes
 # the VMs, public IPs, NICs, VNets and NSGs with it, including the pre-created
@@ -76,8 +98,10 @@ NAMED_VM="vmc-nam-$SUFFIX"
 REUSE_VM="vmc-reu-$SUFFIX"
 NONE_VM="vmc-non-$SUFFIX"
 MISSING_VM="vmc-mis-$SUFFIX"
+CVM_VM="vmc-cvm-$SUFFIX"
 NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
+SSH_PUBLIC_IP="azclips-vmcreate-ssh-pip-$SUFFIX"
 MISSING_PUBLIC_IP_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$SUFFIX"
 EXISTING_NSG="azclips-vmcreate-existing-nsg-$SUFFIX"
 EXISTING_NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkSecurityGroups/$EXISTING_NSG"
@@ -90,6 +114,11 @@ RDP_NSG_RULE="rdp/Tcp/*/*/*/3389/Allow/Inbound/1000"
 SSH_NSG_RULE="default-allow-ssh/Tcp/*/*/*/22/Allow/Inbound/1000"
 EXISTING_NSG_RULE="smoke-allow-https/Tcp/*/*/*/443/Allow/Inbound/1100"
 KEY_FILE="${TMPDIR:-/tmp}/azclips-vmcreate-key-$SUFFIX"
+SSH_PUBLIC_KEY=""
+CVM_ENABLED="${AZCLIPS_ENABLE_CVM:-0}"
+CVM_IMAGE="${AZCLIPS_CVM_IMAGE:-}"
+CVM_SIZE="${AZCLIPS_CVM_SIZE:-Standard_DC2as_v5}"
+CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE="${AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE:-VMGuestStateOnly}"
 
 FAILURES=0
 
@@ -97,6 +126,12 @@ fail()
 {
     echo "FAIL: $1"
     FAILURES=$((FAILURES + 1))
+}
+
+warn_public_ssh_cleanup()
+{
+    echo "WARNING: Public SSH may still be exposed for VM '$NONE_VM' in resource group '$RESOURCE_GROUP'." >&2
+    echo "WARNING: Remove VM '$NONE_VM' and its public IP/network resources in resource group '$RESOURCE_GROUP' as soon as possible." >&2
 }
 
 # Prints the value of a string field from a JSON document; empty when the field is absent.
@@ -129,12 +164,12 @@ cleanup()
     if [[ "$OWNS_RESOURCE_GROUP" == "1" ]]
     then
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
-        "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || true
+        "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || warn_public_ssh_cleanup
     else
-        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM"
+        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM"
         do
             echo "== cleanup: deleting VM $vm =="
-            "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || true
+            "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || [[ "$vm" != "$NONE_VM" ]] || warn_public_ssh_cleanup
         done
         echo "== cleanup: kept resource group $RESOURCE_GROUP because AZCLIPS_RESOURCE_GROUP supplied it; remove its public IPs and network resources yourself =="
     fi
@@ -165,7 +200,7 @@ create_vm()
         "$@"
 }
 
-# Linux vm create variant that exercises --ssh-key-values with a public key file.
+# Linux vm create variant that exercises --ssh-key-values with a generated public key.
 create_ssh_vm()
 {
     local name="$1"
@@ -178,7 +213,7 @@ create_ssh_vm()
         --size Standard_D2s_v3 \
         --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
         --admin-username azadmin \
-        --ssh-key-values "$KEY_FILE.pub" \
+        --ssh-key-values "$SSH_PUBLIC_KEY" \
         --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
@@ -186,6 +221,30 @@ create_ssh_vm()
         --subnet-address-prefixes 10.0.2.0/24 \
         --output json \
         "$@"
+}
+
+create_cvm()
+{
+    local name="$1"
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" \
+        --location "$LOCATION" \
+        --size "$CVM_SIZE" \
+        --image "$CVM_IMAGE" \
+        --security-type ConfidentialVM \
+        --os-disk-security-encryption-type "$CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE" \
+        --admin-username Artemis \
+        --admin-password "$ADMIN_PASSWORD" \
+        --network-interface-name "$name-nic" \
+        --virtual-network-name "$name-vnet" \
+        --address-prefixes 10.0.0.0/16 \
+        --subnet-names "$name-subnet" \
+        --subnet-address-prefixes 10.0.2.0/24 \
+        --nsg "$name-nsg" \
+        --public-ip-address "" \
+        --output json
 }
 
 # Polls url until the resource's provisioningState is Succeeded; what names it in messages.
@@ -332,8 +391,11 @@ if ! command -v ssh-keygen >/dev/null 2>&1; then
     exit 1
 fi
 
+rm -f "$KEY_FILE" "$KEY_FILE.pub"
 ssh-keygen -q -t ed25519 -N "" -C "azclips-vmcreate-$SUFFIX" -f "$KEY_FILE" || exit 1
+SSH_PUBLIC_KEY="$(tr -d '\r\n' < "$KEY_FILE.pub")"
 
+echo "== 1. vm create --security-type TrustedLaunch (default public IP ${DEFAULT_VM}PublicIP) =="
 echo "== pre-create NSG $EXISTING_NSG (attached by cases 2 and 3) =="
 existing_nsg_url=$(network_url networkSecurityGroups "$EXISTING_NSG")
 existing_nsg_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"reuse-nsg"},"properties":{"securityRules":[{"name":"smoke-allow-https","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"443","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Allow","priority":1100,"direction":"Inbound"}}]}}' "$LOCATION")
@@ -353,8 +415,7 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-echo "== 1. vm create (default public IP ${DEFAULT_VM}PublicIP, default NSG ${DEFAULT_VM}NSG) =="
-if output=$(create_vm "$DEFAULT_VM")
+if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch)
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
     check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"
@@ -362,9 +423,9 @@ else
     fail "default: vm create failed"
 fi
 
-echo "== 2. vm create --public-ip-address $NAMED_PUBLIC_IP --nsg <existing NSG id> (new public IP name, existing NSG) =="
+echo "== 2. vm create --security-type Standard --public-ip-address $NAMED_PUBLIC_IP (new name) =="
 # ${args[@]+"${args[@]}"} expands an empty array safely under set -u on older bash.
-if output=$(create_vm "$NAMED_VM" --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
+if output=$(create_vm "$NAMED_VM" --security-type Standard --public-ip-address "$NAMED_PUBLIC_IP" ${named_nsg_args[@]+"${named_nsg_args[@]}"})
 then
     check_public_ip "named" "$output" yes "$NAMED_PUBLIC_IP"
     if [[ "$EXISTING_NSG_READY" == "1" ]]
@@ -405,7 +466,7 @@ then
     check_public_ip "none" "$output" no
     check_nsg "none" "$NONE_VM" "$LINUX_NSG_ID" "$SSH_NSG_RULE"
 else
-    fail "none: vm create failed"
+    fail "ssh: vm create failed"
 fi
 
 echo "== 5. vm create --public-ip-address <missing resource id> (expect 'was not found') =="
@@ -431,6 +492,22 @@ then
     fail "vm show still finds $DEFAULT_VM after vm delete"
 else
     echo "OK: $DEFAULT_VM no longer exists"
+fi
+
+if [[ "$CVM_ENABLED" == "1" ]]
+then
+    echo "== 7. vm create --security-type ConfidentialVM --os-disk-security-encryption-type $CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE =="
+    if [[ -z "$CVM_IMAGE" ]]
+    then
+        fail "cvm: AZCLIPS_CVM_IMAGE must be set when AZCLIPS_ENABLE_CVM=1"
+    elif output=$(create_cvm "$CVM_VM")
+    then
+        check_public_ip "cvm" "$output" no
+    else
+        fail "cvm: vm create failed"
+    fi
+else
+    echo "== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =="
 fi
 
 if (( FAILURES > 0 ))

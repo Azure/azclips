@@ -121,7 +121,7 @@ public sealed class NativeTelemetryCreationTests
                 SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
             };
             ActivitySource.AddActivityListener(_listener);
-            Service = new TelemetryService(new Provider(Source), new Configuration(enabled), ClientType.CLI);
+            Service = new TelemetryService(new Provider(Source), new Configuration(enabled), new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
         }
         internal ActivitySource Source { get; }
         internal TelemetryService Service { get; }
