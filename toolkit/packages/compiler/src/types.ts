@@ -78,7 +78,7 @@ export interface CompileConfig {
   pipeline?: Record<string, boolean>;
   /**
    * Per-stage options, keyed by stage id (e.g.
-   * `{ csharp: { rootNamespace: "Contoso" } }`). Separate from `pipeline`
+   * `{ "flatten-model": { inliningThreshold: 24 } }`). Separate from `pipeline`
    * because options are not orchestration: they configure a stage that the
    * catalog already placed.
    */

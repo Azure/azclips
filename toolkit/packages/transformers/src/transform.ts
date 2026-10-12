@@ -13,7 +13,8 @@ import type { IR } from "@azure-client-engine/ir";
 export interface TransformContext {
   /**
    * Record a diagnostic without throwing; the compiler collects it into the run's
-   * result.
+   * result. An error fails the step: once the step returns, the compiler stops the
+   * sequence, so a step reports every problem it finds before returning.
    *
    * A function-typed property rather than a method, so the reporter the compiler
    * passes in is checked contravariantly against this shape: the compiler stops

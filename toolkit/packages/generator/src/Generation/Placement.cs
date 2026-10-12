@@ -7,14 +7,12 @@ namespace Ace.Generator.Generators;
 /// Where generated code lands and what it is called.
 /// </summary>
 /// <remarks>
-/// Read from <see cref="TransformedIR.Target"/>, which a transform resolved from
-/// generation-time configuration. Placement is a *decision*, and decisions belong in
-/// the document where a captured IR can show them — the generator only spells them.
+/// Read from <see cref="TransformedIR.Target"/>, which the <c>seed-ir</c> stage resolved
+/// from the document facts. Placement is a *decision*, and decisions belong in the
+/// document where a captured IR can show them — the generator only spells them.
 /// <para>
-/// Falls back to <see cref="GeneratorOptions.RootNamespace"/> and the conventional
-/// folder names when a document carries no target. That keeps hand-built documents
-/// (tests, embedders) working; a document from the real pipeline always has one,
-/// because <c>parseTransformedIR</c> requires it.
+/// There is no fallback: <see cref="CSharpClientGenerator"/> rejects a document without
+/// a target (<c>ace-generator/missing-target</c>) before anything is placed.
 /// </para>
 /// </remarks>
 internal sealed class Placement
@@ -22,18 +20,21 @@ internal sealed class Placement
     private const string DefaultModelsDirectory = "Models";
     private const string DefaultProcessorsDirectory = "Processors";
 
-    public Placement(TransformedIR ir, GeneratorOptions options)
+    public Placement(TransformedIR ir)
     {
         IRTarget? target = ir.Target;
+        if (target is not { RootNamespace.Count: > 0 })
+        {
+            throw new InvalidOperationException(
+                "The document has no target. The seed-ir stage resolves it from the document facts.");
+        }
 
-        RootNamespace = target is { RootNamespace.Count: > 0 }
-            ? string.Join(".", target.RootNamespace)
-            : options.RootNamespace;
+        RootNamespace = string.Join(".", target.RootNamespace);
 
-        ProjectName = !string.IsNullOrWhiteSpace(target?.ProjectName) ? target.ProjectName : RootNamespace;
+        ProjectName = !string.IsNullOrWhiteSpace(target.ProjectName) ? target.ProjectName : RootNamespace;
 
-        ModelsDirectory = Directory(target?.Directories?.Models, DefaultModelsDirectory);
-        ProcessorsDirectory = Directory(target?.Directories?.Processors, DefaultProcessorsDirectory);
+        ModelsDirectory = Directory(target.Directories?.Models, DefaultModelsDirectory);
+        ProcessorsDirectory = Directory(target.Directories?.Processors, DefaultProcessorsDirectory);
     }
 
     /// <summary>Root namespace of the generated code, dotted.</summary>

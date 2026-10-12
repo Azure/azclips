@@ -12,8 +12,10 @@
  * concurrently, so a stage's view of the IR is precisely "everything enabled
  * before me, and nothing after".
  *
- * Stages run to the first failure. In a sequence every later stage would consume
- * the broken IR, so continuing could only produce more noise.
+ * Stages run to the first failure. An emit or transform stage fails when it throws
+ * or reports an error: an error is the stage's own verdict that its output cannot be
+ * trusted. In a sequence every later stage would consume the broken IR, so
+ * continuing could only produce more noise.
  *
  * Host-agnostic and free of direct runtime coupling (no disk writes, no
  * `console.*`, no `process.exit`). Artifacts leave through an injected output
@@ -129,13 +131,21 @@ export async function compile(
     ...(signal !== undefined ? { signal } : {}),
   };
 
-  /** Run one transform stage. Returns the IR to carry on with, or `undefined` on failure. */
+  /**
+   * Run one transform stage. Returns the IR to carry on with, or `undefined` when the
+   * stage failed: it threw, or it reported an error.
+   */
   const runTransform = async (stage: PlannedStage, current: IR): Promise<IR | undefined> => {
     const id = stage.descriptor.id;
     const step = resolveTransform(stage.descriptor, config, reportDiagnostic);
     if (step === undefined) return undefined;
+    const reportedBefore = diagnostics.length;
     try {
-      return await step.run(current, transformContext);
+      const next = await step.run(current, transformContext);
+      // The step reports every problem it finds and returns; one error among them
+      // fails the stage, as a failed emit does.
+      const failed = diagnostics.slice(reportedBefore).some((d) => d.severity === "error");
+      return failed ? undefined : next;
     } catch (error) {
       if (isAbortError(error)) throw error;
       reportDiagnostic(stageError("transform", id, error));

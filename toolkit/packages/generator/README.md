@@ -96,14 +96,17 @@ provides that adapter — `Ace.Generator.Host`, a small `dotnet` executable that
 implements the compiler's **`csharp-generate`** tool contract:
 
 ```
-stdin  : one JSON GenerateToolRequest  { ir, options: { rootNamespace?, config? } }
+stdin  : one JSON GenerateToolRequest  { ir, options: { config? } }
 stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
          (streamed as produced), then a terminal
          {"kind":"result","success","diagnostics":[{severity,code,message}]}
 ```
 
 The IR is read with `IrJson.Options` (the polymorphic unions place their
-discriminator out of order). `HostRunner` holds all the framing and is unit-tested
+discriminator out of order). Placement comes only from the document's `target`,
+which the `seed-ir` stage writes: the request carries no namespace, and a document
+without a target is rejected with `ace-generator/missing-target` before anything
+is written or removed. `HostRunner` holds all the framing and is unit-tested
 in `HostRunnerTests`; `Program.cs` just wires it to the process std streams.
 
 The `ace` CLI spawns the host via `dotnet`, resolving it at a **fixed location
@@ -121,7 +124,7 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> [--entrypoint <path>] --generator csharp --root-namespace <ns> --out-dir <dir>
+ace compile --tsp-location <spec> [--entrypoint <path>] [--config <file>] --generator csharp --out-dir <dir>
 ```
 
 `--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
@@ -129,7 +132,9 @@ its containing directory). `--entrypoint` selects the `.tsp` file or directory t
 compile inside that copy — absolute, or relative to the copied directory — and
 defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
 import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
-the copied directory.
+the copied directory. The root namespace and the other document facts come from
+the config file (`{ "root-namespace": "Contoso.Widgets" }`); without one, the
+namespace is the spec's own.
 
 > **Temporary:** `--entrypoint` is a stopgap. A compiler configuration, now being
 > designed, will replace parameterized entrypoints.

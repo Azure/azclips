@@ -31,8 +31,7 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
   `emitter`, …) without validation (`packages/cli/src/compile-command.ts`).
 - **The host maps flags onto stages by hand.** `--root-namespace` is written into
   `stageOptions["create-command"]`, and `--generator` sets a `pipeline` toggle.
-  Since 2026-10-12, `--root-namespace` sets the top-level `root-namespace` fact
-  instead.
+  `--root-namespace` was removed on 2026-10-12: facts come only from config.
 - **Every stage can read the whole config.** `TransformContext.config` and
   `GeneratorContext.config` expose all of `CompileConfig`. The `csharp` adapter
   forwards it whole to the C# host (`GenerateToolOptions.config`), which never
@@ -126,7 +125,9 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
     entry. An entry is a plain dictionary, resolved lazily by the stage when it
     runs, as options are today. Every stage checks its own entry the same way: a
     key it does not know is a warning, and an invalid value, or a missing key the
-    stage requires, is an error. Directives, once designed, live inside a stage's
+    stage requires, is an error that fails the stage. No default stands in for an
+    invalid value, and the compiler stops the run after a stage that reports an
+    error (2026-10-12). Directives, once designed, live inside a stage's
     `options`.
 
 11. **Casing.** Structural keys are kebab-case, and stage ids are the catalog ids.
@@ -135,9 +136,11 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
     `CompileConfig`'s `warnAsError`, `trace`, `nostdlib` and `additionalImports`
     for `tsp-emit`.
 
-12. **CLI flags stay as overrides, for now.** `--generator` is removed and
-    `--config` takes an `aceconfig.yaml`. Whether to retire the remaining
-    generation flags is decided later. See [CLI](#cli).
+12. **No flag sets a document fact; the other flags stay as overrides, for now.**
+    Facts live only in the file, so the file alone reproduces an extension's
+    identity: `--root-namespace` is removed (2026-10-12). `--generator` is
+    removed and `--config` takes an `aceconfig.yaml`. Whether to retire the
+    remaining run-input flags is decided later. See [CLI](#cli).
 
 ## The file
 
@@ -221,9 +224,9 @@ The catalog becomes:
 - **Mandatory, and first among the transforms.** Without it there would be no
   target, and the generator would reject the document.
 - **Input:** its entry, every top-level key that neither the CLI (the run inputs
-  and `schema-version`) nor the compiler (`stages`) takes, after flag overrides
-  such as `--root-namespace`. Keys arrive as written (kebab-case). It has no
-  `options:` section of its own.
+  and `schema-version`) nor the compiler (`stages`) takes. No flag overrides a
+  fact. Keys arrive as written (kebab-case). It has no `options:` section of its
+  own.
 - **Output:** the IR's top-level `target`. Missing facts get defaults, which are
   today's `buildTarget` rules moved into this stage:
 
@@ -236,17 +239,17 @@ The catalog becomes:
 
 - **Checking the entry (agreed 2026-10-12).** `seed-ir` owns the facts' schema
   and checks its entry when it runs, as every stage does (decision 10):
-  - A fact with the wrong type, or an empty value, is an error (`invalid-fact`),
-    and the fact falls back to its default. For example, YAML reads
-    `version: 1.0` as the number 1, so it must be quoted.
+  - A fact with the wrong type, or an empty value, is an error (`invalid-fact`)
+    that fails the stage: no default stands in for it, no target is written,
+    and the run stops. Every fact is still checked first, so one run reports
+    them all. For example, YAML reads `version: 1.0` as the number 1, so it must
+    be quoted.
   - `root-namespace` is a dotted string with no empty segments. A list of
     segments is not accepted.
   - A key it does not know, at the top level or under `directories`, is a
     warning (`unknown-fact`). Its entry is whatever the CLI and the compiler
     leave at the top level, so this catches misspelled top-level keys.
-  - A key with no value (YAML `null`) counts as absent.
-  - A reported error does not stop later stages: as for any transform, the run
-    continues and fails at the end.
+  - A key with no value (YAML `null`) counts as absent, and gets its default.
 
 - **Boundaries.** It writes only top-level IR nodes. It never renames anything and
   never touches ids or spec-derived content (models, operations). `tweak-ir`
@@ -289,8 +292,8 @@ The catalog becomes:
   `CompileConfig` fields (`apiVersion`, `additionalImports`, `warnAsError`,
   `trace`, `nostdlib`, `emitter`, `pipeline` and `stageOptions`) rather than
   `stages`. A JSON `--config` therefore carries facts as flat kebab-case keys
-  beside them, and every other key goes to `seed-ir`. `--root-namespace`
-  overrides the top-level `root-namespace` and names no stage. Rejected: an
+  beside them, and every other key goes to `seed-ir`. `--root-namespace` is
+  removed: no flag sets a fact (decision 12). Rejected: an
   interim `stageOptions["seed-ir"]` entry written by the CLI, which made the CLI
   choose the stage.
 - **Progress (2026-10-07):** the work started with `IRTarget`, which landed as IR
@@ -310,6 +313,18 @@ The catalog becomes:
     `stageEntry()` hands `seed-ir` every key that is not one of its own
     settings, kept in step with `CompileConfig` by a type check.
   - Captured IR gains `ir/1-seed-ir.json`, and later indices shift by one.
+  - `--root-namespace` is removed; the root namespace, like every fact, comes
+    only from config.
+  - The C# generator's own `rootNamespace` option is removed. It dated from
+    phase 1, before the IR had a target, and was by now only a fallback for
+    documents without one. The tool request carries no namespace, and the
+    generator rejects a document without a target
+    (`ace-generator/missing-target`) before its cleanup pass.
+  - A transform that reports an error now fails, and the compiler stops the
+    run after it, as it already did after emit. An invalid fact therefore
+    stops the run at `seed-ir` instead of falling back to a default. One other
+    behavior changes with it: `create-command`'s `duplicate-command-identity`
+    error now stops the run before generation.
   - The other stages do not warn about unknown keys yet.
 
 ## Source acquisition
@@ -381,7 +396,7 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
 | `--entrypoint <path>` | overrides `entrypoints` with a single entry (still temporary) |
 | `--api-version <v>` | overrides the API version; allowed only with a single entrypoint |
 | `--out-dir <path>` | overrides `output-dir` |
-| `--root-namespace <ns>` | overrides `root-namespace` |
+| `--root-namespace` | removed: no flag sets a document fact |
 | `--capture-ir`, `--capture-source` | run switches, unchanged |
 | `--generator` | removed: with nothing off by default, there is nothing for it to switch on |
 
@@ -431,7 +446,7 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
   escape hatch.
 - **Merges can fail on shared types,** with no automatic resolution.
 - **Two input paths until the flag review.** Both flags and the file configure a
-  run.
+  run's inputs. Facts come only from the file.
 
 ## Conflicts with current code/tests (reconcile when implementing)
 
@@ -459,7 +474,7 @@ toolkit root.
   - `packages/cli/src/staging.ts`: a flat copy of one directory, with no
     specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
   - Docs: `README.md` (the `{ "pipeline": … }` example and
-    `config.stageOptions`, lines 80, 149, 206) and
+    `config.stageOptions`, lines 80, 149, 207) and
     `packages/generator/README.md` (`ace compile` usage with `--generator`, and
     the temporary `--entrypoint` note).
 - **Tests (early-stage; reconcile, don't let them shape the design):**
@@ -474,7 +489,7 @@ toolkit root.
     `config.pipeline` (`EMIT_ONLY`, line 28).
   - `packages/compiler/test/stages.test.ts:99`: a catalog stage with
     `default: "off"`.
-  - `packages/compiler/test/runtime.test.ts:97,220` and
+  - `packages/compiler/test/runtime.test.ts:97` and
     `packages/compiler/test/pipeline.test.ts:52,113,167`: build `CompileConfig`
     with `pipeline`, `stageOptions`, `apiVersion` and `emitter`.
 
@@ -520,7 +535,7 @@ toolkit root.
 - **Schema polish.** The other stages adopting the unknown-key warning (the
   mechanism is decided in decision 10, and `seed-ir` has it), and a JSON Schema
   for editor completion. The compiler stays validation-free.
-- **Flag review.** Whether to retire the remaining generation flags, and
+- **Flag review.** Whether to retire the remaining run-input flags, and
   `--out-dir` vs. `output-dir` naming.
 - **Generator use of the new `IRTarget` fields.** The C# generator writing
   service name, version and description into the generated project (for example

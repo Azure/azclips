@@ -47,6 +47,7 @@ public sealed class CSharpClientGeneratorTests
             Commands = names
                 .Select(name => Commands.Atomic(Pascal(name), ServerId(), OperationId(name)))
                 .ToList(),
+            Target = Targets.For("Contoso.Clients"),
         };
     }
 
@@ -63,7 +64,7 @@ public sealed class CSharpClientGeneratorTests
         var writer = new ArtifactWriter(scenario);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
-            options ?? new GeneratorOptions { RootNamespace = "Contoso.Clients" },
+            options ?? new GeneratorOptions(),
             writer.WriteAsync);
         return (result, writer);
     }

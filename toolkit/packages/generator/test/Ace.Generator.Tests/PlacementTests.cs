@@ -7,10 +7,10 @@ namespace Ace.Generator.Tests;
 /// <summary>
 /// Placement comes from the document.
 ///
-/// A namespace, a project name, and an output folder are *decisions*, resolved by a
-/// transform from generation-time configuration. The generator spells them; it does
-/// not invent them. These pin that the document wins, and that a document without a
-/// target still generates.
+/// A namespace, a project name, and an output folder are *decisions*, resolved by the
+/// <c>seed-ir</c> stage from the document facts. The generator spells them; it does not
+/// invent them. These pin that the document's target decides, and that a document
+/// without one is rejected rather than placed somewhere by default.
 /// </summary>
 public sealed class PlacementTests
 {
@@ -41,13 +41,11 @@ public sealed class PlacementTests
         return document;
     }
 
-    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(
-        TransformedIR ir,
-        string optionsNamespace = "Fallback.Namespace")
+    private static async Task<(GenerationResult Result, GeneratedFileCollector Files)> RunAsync(TransformedIR ir)
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions { RootNamespace = optionsNamespace }, files.WriteAsync);
+            ir, new GeneratorOptions(), files.WriteAsync);
         return (result, files);
     }
 
@@ -78,15 +76,15 @@ public sealed class PlacementTests
     }
 
     [Fact]
-    public async Task A_document_without_a_target_falls_back_to_the_options()
+    public async Task A_document_without_a_target_is_rejected()
     {
-        // Hand-built documents (tests, embedders) carry no target; a document from the
-        // real pipeline always does, because parseTransformedIR requires it.
+        // A document from the pipeline always has one: seed-ir writes it. There is no
+        // fallback namespace, so nothing is generated.
         (GenerationResult result, GeneratedFileCollector files) = await RunAsync(Document(target: null));
 
-        Assert.True(result.Success);
-        Assert.Contains(files.Files.Keys, path => path == "Models/Widget.cs");
-        Assert.Contains("namespace Fallback.Namespace.Models;", files.Files["Models/Widget.cs"]);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/missing-target");
+        Assert.Empty(files.Files);
     }
 
     [Fact]

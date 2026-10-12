@@ -127,6 +127,23 @@ describe("orchestration: the stage sequence", () => {
     ).toBe(true);
   });
 
+  it("stops at a transform that reports an error, as it does after a failed emit", async () => {
+    // An invalid fact fails seed-ir: it reports the error and writes no target, and no
+    // later stage runs on the document it leaves behind.
+    const result = await compile(
+      { entrypoint: ENTRYPOINT, config: { ...NO_GENERATOR, version: 1 } },
+      { emit: petsEmit, captureIR: true },
+    );
+
+    expect(result.success).toBe(false);
+    expect(errorsOf(result).map((d) => d.code)).toEqual([
+      "@azure-client-engine/transformers/seed-ir/invalid-fact",
+    ]);
+    expect(result.snapshots?.map((s) => s.step)).toEqual([TSP_EMIT_STAGE]);
+    expect(result.ir?.target).toBeUndefined();
+    expect((result.ir as TransformedIR | undefined)?.commands).toBeUndefined();
+  });
+
   it("returns the IR in its final state, including a stage's replacement document", async () => {
     // create-command returns a new object rather than mutating, so its commands
     // reaching the result proves the orchestrator carries on with what a stage returns.
