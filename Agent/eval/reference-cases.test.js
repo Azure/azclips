@@ -108,7 +108,7 @@ test('VM reference accepts complete long flags and a declared secret placeholder
 
 test('VM reference accepts the supplied resource group as an optional creation prerequisite', () => {
   const prerequisite = `az group create --name ${groupFor(vm)} --location westus`;
-  for (const command of [prerequisite, `${prerequisite} --force`]) {
+  for (const command of [prerequisite, `${prerequisite} --subscription-id ${subscription}`]) {
     const results = grade(vm, [command, vmCommand], { placeholders: vmNeeds });
     assert.ok(results.every((result) => result.pass), results.map(result => result.reason).join('; '));
     assert.match(results[1].expectation, /used by a later VM creation/);

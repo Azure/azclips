@@ -34,7 +34,9 @@ as described in [README.md](./README.md#semantic-judge-configuration).
 
 Run the wrapper against a full package built from the declared revision. The CLI
 must have a signed-in active profile and the fixture group must already exist in
-that subscription.
+that subscription. By default the wrapper synchronously refreshes the target's
+ARM resource cache and stops before any configuration change or model call when
+the refreshed cache does not contain the fixture group.
 
 The default group is `azclips-test-rg`. Override it before starting the wrapper:
 
@@ -58,7 +60,7 @@ Do not replace it with a similarly named classic Azure CLI command.
 | Stable ID | Goal and stimulus | Deterministic acceptance |
 | --- | --- | --- |
 | `profile-show-active` | Show the active profile after an `--actve` typo. | Use the CLI's default-active behavior or a valid explicit active switch, without named selection, unknown flags, or profile/authentication changes. |
-| `vm-create-long-flags` | Correct the unsupported short flags while preserving the requested VM name and existing group. | Correct create command, required values present, user values retained, no unsupported short flags, and unknown password represented by a declared placeholder. |
+| `vm-create-long-flags` | Correct the unsupported short flags while preserving the requested VM name and supplied group. | Correct create command, required values present, user values retained, no unsupported short flags, and unknown password represented by a declared placeholder. Creating the same group first is allowed when a cached lookup reports no match; the prerequisite must have a name/location, precede the VM that uses it, and stay in the recorded subscription. A VM-only repair is equally valid. |
 | `deployment-template-recovery` | Correct the `deploment group create` command-group typo while preserving the supplied operation name, local template, and existing group. | Correct group deployment command, original operation name/group/template retained, valid scope, and no added resource operation or destructive Complete mode. |
 
 Verify the failing inputs against the target version's live catalog before a
@@ -125,7 +127,13 @@ flag typo and accepts the supported implicit or explicit active selection.
 `plan-contract` limits the reference plan to its intended operation, validates
 the recorded subscription context, and rejects a fabricated or undeclared secret.
 It does not grade explanatory prose or a conservative risk label on an otherwise
-allowed operation.
+allowed operation. VM and identity plans use `resource-group-plan`, which applies
+the same contract and additionally allows a complete `az group create` for the
+group used by a later VM or identity step.
+
+Deterministic checks verify required, forbidden, and exact argument values. They
+do not validate the complete argument set of every step, so an extra unsupported
+flag on an allowed command is left to the semantic Judge's CLI-contract criterion.
 
 VM and deployment plans may omit the subscription flag in this signed-in
 reference context. An explicit value must match that context. Missing context is
@@ -137,9 +145,11 @@ The offline tests exercise the same assertion functions used by Promptfoo.
 
 - Profile: accept default-active and valid explicit selection; reject invalid
   flags/boolean values, named selection, help-only output, and added removal.
-- VM: accept complete long flags and a declared password placeholder; reject
-  missing values, changed user input, short flags, invented passwords, and wrong
-  explicit subscriptions.
+- VM: accept complete long flags and a declared password placeholder, with or
+  without a complete prerequisite that creates the same group first; reject
+  missing values, changed user input, short flags, invented passwords, wrong
+  explicit subscriptions, unused or incomplete group prerequisites, and a group
+  created after the VM.
 - Deployment: accept the current-profile default and equivalent relative path
   separators; reject a different subscription/template, missing parameters,
   unrelated resource creation, and Complete mode.
@@ -189,7 +199,9 @@ the generated response, measured duration or actual LLM verdict.
 A baseline of the current default suite must contain all ten configured cases in
 one real run, using `-Repeat 3` for thirty independent results, with zero execution
 or judge errors and a real LLM verdict for every result. Record source revision, target package,
-runtime prompt hash, model, suite identity, outputs, assertions, and usage.
+runtime prompt hash, model, suite identity, outputs, assertions, and usage. The
+wrapper records the target version and package fingerprint, the refreshed
+resource-cache state and the phase timing in every result.
 Earlier three-reference runs remain historical evidence for that smaller suite,
 not a baseline for the expanded set.
 
