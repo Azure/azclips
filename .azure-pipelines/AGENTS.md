@@ -28,7 +28,7 @@ guide in the same PR so it stays accurate.
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `component-governance.yml`, `init-resolve-version.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.
 - `templates/dist/jobs/` — per-platform build/validate/sign jobs (linux, windows, macos, ps-modules, nuget), plus `test-suite.yml`, `benchmark-suite.yml`, `finalize-build-summary.yml`.
 - Security validations (modeled on azure-cli and azure-powershell): `component-governance.yml` runs Component Detection, Credential Scanner (`CredScan@3`, suppressions in `devops/scripts/compliance/CredScanSuppressions.json`) and PoliCheck, and `PostAnalysis@2` breaks the build on CredScan/PoliCheck errors. `build-windows.yml` runs BinSkim on the built `.dll`/`.exe` files (excluding `msalruntime*.dll`) for `win-x64` matrix entries only, publishes `CodeAnalysisLogs_<artifact>`, and breaks on BinSkim errors. ARM64 outputs are not scanned, matching azure-powershell, which scans a single x64 build.
-- `templates/dist/steps/` — small reusable
+- `templates/dist/steps/` — small reusable steps (`get-github-pat-token.yml`, `validate-release-project.yml`).
 
 ## Build Graph (unsigned distribution)
 `build-unsigned-distribution.yml` fans out from an `Init` stage that resolves the version:

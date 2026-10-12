@@ -20,7 +20,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | Path | Purpose |
 | --- | --- |
 | `ci/` | PR/CI checks (`check_pull_request.py`, `check_pull_request_changes.py`, `scan_recordings.py`). Recording scans flag unredacted secret-bearing query values such as ARM operation URL `c`, `s`, and `h` parameters. |
-| `compliance/` | NOTICE generation (`generate_notice.ps1`, `NOTICE.template`, `notice-overrides.json`). |
+| `compliance/` | NOTICE generation (`generate_notice.ps1`, `NOTICE.template`, `notice-overrides.json`) and Credential Scanner suppression configuration (`CredScanSuppressions.json`, consumed by `CredScan@3` in `.azure-pipelines/templates/dist/stages/component-governance.yml`; each suppression needs a `_justification`). |
 | `packaging/common/` | Shared build steps (`build_common.sh`, `stage_agent.*`, `inject_builtin_extensions.*`, `create_component_archives.sh`, `rename_extension_packages.sh`). |
 | `packaging/config/` | Package profiles (`full_package.config`, `lean_package.config`) and `artifact_naming.config`. |
 | `packaging/linux/` | Linux tarball build + test, including offline installation of each runtime-compatible pipeline archive. |
