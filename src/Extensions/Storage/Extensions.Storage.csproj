@@ -10,7 +10,7 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.Storage</PackageId>
-        <Version>1.0.0-alpha</Version>
+        <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

@@ -25,9 +25,11 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string Location { get; set; } = "";
 
     [Parameter(Mandatory = true)]
+    [ValidateSet("Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS", "Premium_ZRS", "Standard_GZRS", "Standard_RAGZRS", "StandardV2_LRS", "StandardV2_GRS", "StandardV2_ZRS", "StandardV2_GZRS", "PremiumV2_LRS", "PremiumV2_ZRS", IgnoreCase = true)]
     public string SkuName { get; set; } = "";
 
     [Parameter(Mandatory = true)]
+    [ValidateSet("Storage", "StorageV2", "BlobStorage", "FileStorage", "BlockBlobStorage", IgnoreCase = true)]
     public string Kind { get; set; } = "";
 
     [Parameter(Mandatory = false)]
@@ -40,21 +42,27 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string[]? Tags { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Hot", "Cool", "Premium", "Cold", "Smart", IgnoreCase = true)]
     public string? AccessTier { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("TLS1_0", "TLS1_1", "TLS1_2", "TLS1_3", IgnoreCase = true)]
     public string? MinimumTlsVersion { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Enabled", "Disabled", "SecuredByPerimeter", IgnoreCase = true)]
     public string? PublicNetworkAccess { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("PrivateLink", "AAD", "All", IgnoreCase = true)]
     public string? AllowedCopyScope { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Disabled", "Enabled", IgnoreCase = true)]
     public string? LargeFileSharesState { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Standard", "AzureDnsZone", IgnoreCase = true)]
     public string? DnsEndpointType { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -91,6 +99,7 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string? EdgeZone { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("None", "SystemAssigned", "UserAssigned", "SystemAssigned,UserAssigned", IgnoreCase = true)]
     public string? IdentityType { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -100,9 +109,11 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string[]? Zones { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Any", "None", IgnoreCase = true)]
     public string? ZonePlacementPolicy { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("MicrosoftRouting", "InternetRouting", IgnoreCase = true)]
     public string? RoutingChoice { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -124,6 +135,7 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string? SasExpirationPeriod { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Log", "Block", IgnoreCase = true)]
     public string? SasExpirationAction { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -133,6 +145,7 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public int? ImmutabilityPeriodSinceCreationInDays { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Unlocked", "Locked", "Disabled", IgnoreCase = true)]
     public string? ImmutabilityPolicyState { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -142,6 +155,7 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string[]? Bypass { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Allow", "Deny", IgnoreCase = true)]
     public string? DefaultAction { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -151,6 +165,7 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string? VnetName { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Allow", IgnoreCase = true)]
     public string? Action { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -190,15 +205,18 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string? SamAccountName { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("User", "Computer", IgnoreCase = true)]
     public string? AccountType { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("None", "StorageFileDataSmbShareReader", "StorageFileDataSmbShareContributor", "StorageFileDataSmbShareElevatedContributor", IgnoreCase = true)]
     public string? DefaultSharePermission { get; set; }
 
     [Parameter(Mandatory = false)]
     public bool? EnableSmbOauth { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Microsoft.Storage", "Microsoft.Keyvault", IgnoreCase = true)]
     public string? EncryptionKeySource { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -220,9 +238,11 @@ public class NewStorageAccountCmdlet : PSCmdlet
     public string? KeyVaultFederatedClientId { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Account", "Service", IgnoreCase = true)]
     public string? EncryptionKeyTypeForTable { get; set; }
 
     [Parameter(Mandatory = false)]
+    [ValidateSet("Account", "Service", IgnoreCase = true)]
     public string? EncryptionKeyTypeForQueue { get; set; }
 
     [Parameter(Mandatory = false)]

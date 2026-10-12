@@ -116,7 +116,12 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Hot
+- Cool
+- Premium
+- Cold
+- Smart
 HelpMessage: ''
 ```
 
@@ -158,7 +163,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- User
+- Computer
 HelpMessage: ''
 ```
 
@@ -179,7 +186,8 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Allow
 HelpMessage: ''
 ```
 
@@ -242,7 +250,10 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- PrivateLink
+- AAD
+- All
 HelpMessage: ''
 ```
 
@@ -390,7 +401,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Allow
+- Deny
 HelpMessage: ''
 ```
 
@@ -411,7 +424,11 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- None
+- StorageFileDataSmbShareReader
+- StorageFileDataSmbShareContributor
+- StorageFileDataSmbShareElevatedContributor
 HelpMessage: ''
 ```
 
@@ -453,7 +470,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Standard
+- AzureDnsZone
 HelpMessage: ''
 ```
 
@@ -726,7 +745,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Microsoft.Storage
+- Microsoft.Keyvault
 HelpMessage: ''
 ```
 
@@ -747,7 +768,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Account
+- Service
 HelpMessage: ''
 ```
 
@@ -768,7 +791,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Account
+- Service
 HelpMessage: ''
 ```
 
@@ -852,7 +877,11 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- None
+- SystemAssigned
+- UserAssigned
+- SystemAssigned,UserAssigned
 HelpMessage: ''
 ```
 
@@ -894,7 +923,10 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Unlocked
+- Locked
+- Disabled
 HelpMessage: ''
 ```
 
@@ -1104,7 +1136,12 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Storage
+- StorageV2
+- BlobStorage
+- FileStorage
+- BlockBlobStorage
 HelpMessage: ''
 ```
 
@@ -1125,7 +1162,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Disabled
+- Enabled
 HelpMessage: ''
 ```
 
@@ -1167,7 +1206,11 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- TLS1_0
+- TLS1_1
+- TLS1_2
+- TLS1_3
 HelpMessage: ''
 ```
 
@@ -1230,7 +1273,10 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Enabled
+- Disabled
+- SecuredByPerimeter
 HelpMessage: ''
 ```
 
@@ -1356,7 +1402,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- MicrosoftRouting
+- InternetRouting
 HelpMessage: ''
 ```
 
@@ -1398,7 +1446,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Log
+- Block
 HelpMessage: ''
 ```
 
@@ -1440,7 +1490,21 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Standard_LRS
+- Standard_GRS
+- Standard_RAGRS
+- Standard_ZRS
+- Premium_LRS
+- Premium_ZRS
+- Standard_GZRS
+- Standard_RAGZRS
+- StandardV2_LRS
+- StandardV2_GRS
+- StandardV2_ZRS
+- StandardV2_GZRS
+- PremiumV2_LRS
+- PremiumV2_ZRS
 HelpMessage: ''
 ```
 
@@ -1609,7 +1673,9 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Any
+- None
 HelpMessage: ''
 ```
 

@@ -196,4 +196,33 @@ public class StorageAccountCmdletTests
 
         Assert.False(attribute.SupportsShouldProcess);
     }
+
+    // ── Closed value sets ──
+
+    [Fact]
+    public void NewCmdlet_ValidateSets_MatchTheValuesTheCliEnforces()
+    {
+        // The PowerShell binder never reads AllowedValues, so [ValidateSet] is what rejects a bad
+        // value before a request is sent. Holding it to the index keeps both surfaces accepting the
+        // same values. Tri-state flags are bool? on the cmdlet, so only string properties count.
+        var stringProperties = typeof(NewStorageAccountCmdlet).GetProperties()
+            .Where(p => p.PropertyType == typeof(string))
+            .ToDictionary(p => p.Name);
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzStorageAccount", ClientType.PowerShell)!;
+        var closed = metadata.Parameters.Values
+            .Where(p => p.AllowedValues.Length > 0 && stringProperties.ContainsKey(p.Name))
+            .ToDictionary(p => p.Name, p => p.AllowedValues);
+        var declared = stringProperties.Values
+            .Select(p => (p.Name, Set: p.GetCustomAttribute<ValidateSetAttribute>()))
+            .Where(p => p.Set is not null)
+            .ToDictionary(p => p.Name, p => p.Set!);
+
+        Assert.NotEmpty(closed);
+        Assert.Equal(closed.Keys.Order(), declared.Keys.Order());
+        foreach (var (name, values) in closed)
+        {
+            Assert.Equal(values, declared[name].ValidValues);
+            Assert.True(declared[name].IgnoreCase, $"-{name} must match case-insensitively, as the CLI does.");
+        }
+    }
 }

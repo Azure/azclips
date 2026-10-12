@@ -3,7 +3,8 @@
 #
 # Shared test context:
 #   subscription: resolved from the active profile (no --subscription-id needed)
-#   resource group: storage-account-create-test-rg (region: australiaeast)
+#   resource group: a per-run azclips-storage-account-* group (region: australiaeast), deleted
+#                   with every account in it when the script exits, even after a failure or Ctrl+C
 #
 # Account names must be 3-24 lowercase alphanumerics and are GLOBALLY unique, so each
 # case below appends $RANDOM. Note the zone cases need a region with availability
@@ -31,16 +32,23 @@ restore_agent_config() {
             ;;
     esac
 }
-trap restore_agent_config EXIT
+
+# The group name is unique per run, so deleting it on exit can only remove what this run
+# created. Delete before restoring the agent config, so a failed delete exits with an error
+# instead of handing off to the interactive agent.
+RG="azclips-storage-account-$(date +%Y%m%d%H%M%S)-$$-$RANDOM"
+LOC=australiaeast
+cleanup() {
+    az group delete --name "$RG" >/dev/null 2>&1 || true
+    restore_agent_config
+}
+trap cleanup EXIT
 az config set --key agent.enabled --value false
 
 # No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
 # continue past them. Each command's exit code surfaces its own error on stderr.
 
-RG=storage-account-create-test-rg
-LOC=australiaeast
-
-az group create --name $RG --location $LOC
+az group create --name "$RG" --location $LOC
 
 # Happy path: the minimum required set. The request body must carry only sku, kind and
 # location so every unspecified option keeps its service default.
@@ -298,6 +306,3 @@ az storage account delete \
 az storage account show \
     --resource-group $RG \
     --name azclipsdoesnotexist
-
-# Cleanup: the create cases above each made an account with a random name. Delete them with
-# `az storage account delete --resource-group $RG --name <name>`, or remove the whole group.

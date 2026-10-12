@@ -15,7 +15,8 @@ RequiredModules = @(
     @{ ModuleName = '../Resources/Resources.psd1'; ModuleVersion = '0.1.2' },
     @{ ModuleName = '../ManagedServiceIdentity/ManagedServiceIdentity.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Config/Config.psd1'; ModuleVersion = '0.1.2' },
-    @{ ModuleName = '../MsGraph/MsGraph.psd1'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = '../MsGraph/MsGraph.psd1'; ModuleVersion = '0.1.2' },
+    @{ ModuleName = '../Storage/Storage.psd1'; ModuleVersion = '0.1.0' }
 )
 FunctionsToExport = @()
 CmdletsToExport = @()
