@@ -302,7 +302,8 @@ foreach ($extDir in $bundledExtensionDirs) {
     if ($sidecarJson.packageId -ne $extDir.Name) {
         throw "FAIL: sidecar for $($extDir.Name) is malformed: $sidecarPath."
     }
-    # ExtensionRuntime ships no CLI commands; every other bundled extension must declare at
+    # ExtensionRuntime ships no CLI commands (empty verbs/leaves); KeyVault declares a verb but
+    # has no commands yet (empty leaves only). Every other bundled extension must declare at
     # least one verb/leaf, otherwise a generator regression (e.g. an unrecognized leaf-table
     # convention) could silently emit empty arrays and still pass the check above.
     $verbCount = @($sidecarJson.verbs).Count
@@ -310,6 +311,11 @@ foreach ($extDir in $bundledExtensionDirs) {
     if ($extDir.Name -eq 'Microsoft.Azure.Azclips.ExtensionRuntime') {
         if ($verbCount -ne 0 -or $leafCount -ne 0) {
             throw "FAIL: expected empty verbs/leaves for $($extDir.Name) (no CLI commands): $sidecarPath."
+        }
+    }
+    elseif ($extDir.Name -eq 'Microsoft.Azure.Azclips.Extensions.KeyVault') {
+        if ($verbCount -eq 0) {
+            throw "FAIL: sidecar for $($extDir.Name) has no declared verbs: $sidecarPath."
         }
     }
     elseif ($verbCount -eq 0 -or $leafCount -eq 0) {

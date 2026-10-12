@@ -244,7 +244,8 @@ for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
     echo "  FAIL: sidecar for $ext_name is malformed: $sidecar"
     exit 1
   fi
-  # ExtensionRuntime ships no CLI commands; every other bundled extension must declare at
+  # ExtensionRuntime ships no CLI commands (empty verbs/leaves); KeyVault declares a verb but
+  # has no commands yet (empty leaves only). Every other bundled extension must declare at
   # least one verb/leaf, otherwise a generator regression (e.g. an unrecognized leaf-table
   # convention) could silently emit empty arrays and still pass the checks above.
   verbs_block=$(awk '/"verbs": \[/{flag=1; next} /\]/{flag=0} flag' "$sidecar")
@@ -252,6 +253,11 @@ for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
   if [[ "$ext_name" == "Microsoft.Azure.Azclips.ExtensionRuntime" ]]; then
     if [[ -n "$verbs_block" || -n "$leaves_block" ]]; then
       echo "  FAIL: expected empty verbs/leaves for $ext_name (no CLI commands): $sidecar"
+      exit 1
+    fi
+  elif [[ "$ext_name" == "Microsoft.Azure.Azclips.Extensions.KeyVault" ]]; then
+    if [[ -z "$verbs_block" ]]; then
+      echo "  FAIL: sidecar for $ext_name has no declared verbs: $sidecar"
       exit 1
     fi
   elif [[ -z "$verbs_block" || -z "$leaves_block" ]]; then
