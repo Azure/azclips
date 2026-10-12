@@ -24,7 +24,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
-import { warnUnknownKeys } from "./entry.js";
+import { warnUnknownKeys } from "./stage-config.js";
 import {
   idKey,
   indexIR,

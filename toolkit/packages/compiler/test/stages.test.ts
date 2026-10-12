@@ -23,6 +23,7 @@ import {
   type CompilerDiagnostic,
   type StageDescriptor,
 } from "../src/index.js";
+import { readStages } from "../src/stages.js";
 
 /** Plan against a catalog, returning the sequence plus whatever was reported. */
 function plan(
@@ -92,22 +93,49 @@ describe("stage planner: the shipped catalog", () => {
     expect(isStageEnabled(flatten, {})).toBe(true); // default: on
     expect(isStageEnabled(flatten, { [flatten.id]: false })).toBe(false);
   });
+});
 
-  it("keeps an optional stage out until the config turns it on", () => {
-    const catalog: readonly StageDescriptor[] = [
-      ...STAGE_CATALOG,
-      { id: "extra", kind: "transform", default: "off" },
-    ];
-    expect(order(plan({}, catalog).sequence)).not.toContain("extra");
-    expect(order(plan({ extra: true }, catalog).sequence)).toEqual([
-      TSP_EMIT_STAGE,
-      SEED_IR_STAGE,
-      TWEAK_IR_STAGE,
-      FLATTEN_MODEL_STAGE,
-      CREATE_COMMAND_STAGE,
-      CSHARP_STAGE,
-      "extra",
+describe("stage planner: reading the stages setting", () => {
+  const read = (value: unknown) => {
+    const diagnostics: CompilerDiagnostic[] = [];
+    const sections = readStages(value, (d) => diagnostics.push(d));
+    return { sections, diagnostics };
+  };
+
+  it("turns sections into toggles and stage configs; an empty section changes nothing", () => {
+    const { sections, diagnostics } = read({
+      [FLATTEN_MODEL_STAGE]: { disabled: true, options: { inliningThreshold: 1 } },
+      [TWEAK_IR_STAGE]: { disabled: false },
+      [CREATE_COMMAND_STAGE]: null,
+    });
+
+    expect(diagnostics).toEqual([]);
+    expect(sections?.toggles).toEqual({
+      [FLATTEN_MODEL_STAGE]: false,
+      [TWEAK_IR_STAGE]: true,
+      [CREATE_COMMAND_STAGE]: true,
+    });
+    expect([...sections!.options]).toEqual([[FLATTEN_MODEL_STAGE, { inliningThreshold: 1 }]]);
+  });
+
+  it("rejects a section of the wrong shape, reporting every problem, and warns about unknown keys", () => {
+    const { sections, diagnostics } = read({
+      [FLATTEN_MODEL_STAGE]: { disabled: "yes", option: {} },
+      [TWEAK_IR_STAGE]: { options: [] },
+      [CSHARP_STAGE]: true,
+    });
+
+    expect(sections).toBeUndefined();
+    expect(diagnostics.map((d) => `${d.severity}:${codes([d])[0]}`)).toEqual([
+      "warning:unknown-setting",
+      "error:invalid-setting",
+      "error:invalid-setting",
+      "error:invalid-setting",
     ]);
+    expect(diagnostics[1]!.message).toBe(
+      "'stages.flatten-model.disabled' must be a boolean, not 'yes'.",
+    );
+    expect(read(["csharp"]).sections).toBeUndefined();
   });
 });
 

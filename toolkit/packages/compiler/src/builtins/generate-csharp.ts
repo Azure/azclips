@@ -14,18 +14,25 @@
 
 import type { TransformedIR } from "@azure-client-engine/ir";
 import { safeParseTransformedIR } from "@azure-client-engine/ir";
+import { NO_KEYS, warnUnknownKeys } from "@azure-client-engine/transformers";
 import type { Generator, GeneratorContext } from "../generate.js";
 import type { CompilerDiagnostic } from "../types.js";
 import { CSHARP_GENERATE_TOOL, type Runtime } from "../runtime.js";
 import type { GenerateToolFrame, GenerateToolRequest } from "./protocol.js";
 
-/** Registered id of the compiler's built-in C# generator (see `CompileConfig.generator`). */
+/** Registered id of the compiler's built-in C# generator, the `csharp` stage. */
 export const CSHARP_GENERATOR_ID = "csharp";
 
-/** Build the C# generator backed by the host runtime's `csharp-generate` tool. */
+const DIAGNOSTIC_PREFIX = `@azure-client-engine/compiler/${CSHARP_GENERATOR_ID}`;
+
+/**
+ * Build the C# generator backed by the host runtime's `csharp-generate` tool.
+ * `options` is its stage config. It takes none yet, so any key is warned about, and
+ * the config is forwarded to the tool as it is.
+ */
 export function createCsharpGenerator(
   runtime: Runtime,
-  _options: Record<string, unknown> = {},
+  options: Record<string, unknown> = {},
 ): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
@@ -36,11 +43,15 @@ export function createCsharpGenerator(
     // out-of-process host it is about to be serialized to.
     accepts: safeParseTransformedIR,
     async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
+      warnUnknownKeys(options, NO_KEYS, "option", (severity, code, message) =>
+        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
+      );
+
       // Placement travels in the document (`ir.target`), so the request carries no
-      // namespace of its own.
+      // namespace of its own, and no config beyond this stage's options.
       const request: GenerateToolRequest = {
         ir,
-        options: { config: context.config },
+        options: { config: options },
       };
 
       // Stream the tool's NDJSON stdout line by line, forwarding each artifact to

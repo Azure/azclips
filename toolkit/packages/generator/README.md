@@ -124,7 +124,7 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> [--entrypoint <path>] [--config <file>] --generator csharp --out-dir <dir>
+ace compile --tsp-location <spec> [--entrypoint <path>] [--config <file>] --out-dir <dir>
 ```
 
 `--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies

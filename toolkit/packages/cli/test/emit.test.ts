@@ -12,7 +12,15 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { compile, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK_IR_STAGE, TSP_EMIT_STAGE } from "@azure-client-engine/compiler";
+import {
+  compile,
+  CSHARP_STAGE,
+  CREATE_COMMAND_STAGE,
+  FLATTEN_MODEL_STAGE,
+  TWEAK_IR_STAGE,
+  TSP_EMIT_STAGE,
+  type StageSection,
+} from "@azure-client-engine/compiler";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
 // built artifacts under dist — Node cannot execute the .ts worker directly, and
@@ -20,16 +28,16 @@ import { compile, CSHARP_STAGE, CREATE_COMMAND_STAGE, FLATTEN_MODEL_STAGE, TWEAK
 import { createHostRuntime } from "../dist/src/runtime.js";
 
 /**
- * Emit-only runs: turn off every optional stage after emit so these tests exercise
+ * Emit-only runs: disable every optional stage after emit so these tests exercise
  * the real out-of-process `tsp-emit` stage. Only the mandatory `seed-ir` still runs,
- * and it just adds the target. `create-command` can be turned off only together
- * with the generate stage that `requires` it.
+ * and it just adds the target. `create-command` can be disabled only together with
+ * the generate stage that `requires` it.
  */
-const EMIT_ONLY: Record<string, boolean> = {
-  [TWEAK_IR_STAGE]: false,
-  [FLATTEN_MODEL_STAGE]: false,
-  [CREATE_COMMAND_STAGE]: false,
-  [CSHARP_STAGE]: false,
+const EMIT_ONLY: Record<string, StageSection> = {
+  [TWEAK_IR_STAGE]: { disabled: true },
+  [FLATTEN_MODEL_STAGE]: { disabled: true },
+  [CREATE_COMMAND_STAGE]: { disabled: true },
+  [CSHARP_STAGE]: { disabled: true },
 };
 
 const PETS_TSP = resolve(
@@ -45,7 +53,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
   it("produces schema-valid IR out of process and threads it through compile()", async () => {
     // Emit-only check: every optional stage after emit is off, so nothing is generated.
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -58,9 +66,17 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(result.files.size).toBe(0);
   });
 
-  it("forwards config.emitter options to the emitter (sourceId overrides the module)", async () => {
+  it("forwards tsp-emit's emitter option to the emitter (sourceId overrides the module)", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY, emitter: { sourceId: "CustomSource" } } },
+      {
+        entrypoint: PETS_TSP,
+        config: {
+          stages: {
+            ...EMIT_ONLY,
+            [TSP_EMIT_STAGE]: { options: { emitter: { sourceId: "CustomSource" } } },
+          },
+        },
+      },
       { runtime: createHostRuntime() },
     );
 
@@ -70,11 +86,11 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(pet?.id.module).toBe("CustomSource");
   });
 
-  it("forwards config.apiVersion through to TCGC's version selector", async () => {
+  it("forwards the input's API version through to TCGC's version selector", async () => {
     // pets.tsp only declares "2025-01-01"; a version outside that list proves the
     // selector *received* the value (TCGC warns + falls back).
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY, apiVersion: "1999-01-01" } },
+      { entrypoint: PETS_TSP, apiVersion: "1999-01-01", config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -86,7 +102,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
 
   it("surfaces emitter diagnostics across the process boundary", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 
@@ -102,7 +118,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
 
   it("captures the subprocess IR when --capture-ir style snapshots are on", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: EMIT_ONLY } },
+      { entrypoint: PETS_TSP, config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime(), captureIR: true },
     );
 
@@ -113,7 +129,7 @@ describe("built-in emit (host runtime tsp-emit)", () => {
 
   it("reports a structured error when the entrypoint does not exist", async () => {
     const result = await compile(
-      { entrypoint: resolve(dirname(PETS_TSP), "no-such-file.tsp"), config: { pipeline: EMIT_ONLY } },
+      { entrypoint: resolve(dirname(PETS_TSP), "no-such-file.tsp"), config: { stages: EMIT_ONLY } },
       { runtime: createHostRuntime() },
     );
 

@@ -46,7 +46,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
-import { NO_KEYS, warnUnknownKeys } from "./entry.js";
+import { NO_KEYS, warnUnknownKeys } from "./stage-config.js";
 import {
   commandKey,
   indexIR,

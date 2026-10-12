@@ -10,7 +10,7 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { CompileConfig, CompilerDiagnostic } from "./types.js";
+import type { CompilerDiagnostic } from "./types.js";
 
 /** One artifact a generator streams to the host: a file to write, or a scope to wipe. */
 export type GeneratedArtifact =
@@ -23,11 +23,6 @@ export interface GeneratorContext {
   reportDiagnostic(diagnostic: CompilerDiagnostic): void;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
-  /**
-   * App-resolved compile configuration (`CompileInput.config`); `{}` if none.
-   * The generator reads its own named fields off it (there is no free-form bag).
-   */
-  readonly config: CompileConfig;
   /**
    * Stream one artifact to the host the moment it is produced — a generated file
    * or a scope removal (cleanup). Awaited before producing the next, so a slow

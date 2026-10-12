@@ -3,7 +3,7 @@
  *
  * These pin how the stage turns gen-time facts into the IR's target: the defaults
  * that let an unconfigured document generate, the facts that override them, and how
- * a bad entry is reported without leaving an invalid target behind.
+ * a bad fact is reported without leaving an invalid target behind.
  */
 
 import { describe, expect, it } from "vitest";
@@ -76,7 +76,7 @@ describe("seed-ir: defaults", () => {
 });
 
 describe("seed-ir: facts", () => {
-  it("takes every fact from its entry", () => {
+  it("takes every fact from its config", () => {
     const { out, diagnostics } = run({
       "service-name": "Gadgets",
       "root-namespace": "Fabrikam.Gadgets",
@@ -116,7 +116,7 @@ describe("seed-ir: facts", () => {
   });
 });
 
-describe("seed-ir: checking the entry", () => {
+describe("seed-ir: checking its config", () => {
   it("reports every fact of the wrong type, and writes no target", () => {
     const { out, diagnostics } = run({
       "root-namespace": ["Fabrikam", "Gadgets"],

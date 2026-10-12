@@ -1,14 +1,14 @@
 /**
- * The shared entry check.
+ * The shared stage-config check.
  *
- * Every transform warns about keys it does not know through this one function, so
- * these pin its wording once: the full key, what is known, and what a stage that
- * takes nothing says.
+ * Every stage warns about keys it does not know through this one function, so these
+ * pin its wording once: the full key, what is known, and what a stage that takes
+ * nothing says.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { NO_KEYS, warnUnknownKeys, type EntryKind } from "../src/entry.js";
+import { NO_KEYS, warnUnknownKeys, type ConfigKeyKind } from "../src/stage-config.js";
 
 interface Reported {
   severity: string;
@@ -17,14 +17,14 @@ interface Reported {
 }
 
 function warnings(
-  entry: Record<string, unknown>,
+  config: Record<string, unknown>,
   known: ReadonlySet<string>,
-  kind: EntryKind,
+  kind: ConfigKeyKind,
   prefix?: string,
 ): Reported[] {
   const reported: Reported[] = [];
   warnUnknownKeys(
-    entry,
+    config,
     known,
     kind,
     (severity, code, message) => reported.push({ severity, code, message }),
@@ -47,7 +47,7 @@ describe("warnUnknownKeys", () => {
     ]);
   });
 
-  it("names the full key of a nested entry", () => {
+  it("names the full key in a nested map", () => {
     const known = new Set(["models", "processors"]);
 
     expect(warnings({ model: "Types" }, known, "fact", "directories.")).toEqual([

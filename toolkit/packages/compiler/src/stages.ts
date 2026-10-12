@@ -3,8 +3,8 @@
  *
  * Orchestration lives here, not in a host. The compiler declares *what* stages
  * exist, *in what order they run*, and *whether each is on by default*. A host's
- * only verb is to flip a stage's enablement — it never appends, inserts,
- * reorders, or names a pipeline.
+ * only verb is to disable a stage — it never appends, inserts, reorders, or
+ * names a pipeline.
  *
  * The workflow is a **single linear sequence**. One IR leaves the emit stage and
  * flows through every enabled transform in catalog order; each generate stage
@@ -36,16 +36,19 @@
  * single place ordering is decided, and no host can insert into it.
  */
 
-import type { CompilerDiagnostic } from "./types.js";
+import { describeValue, isMap, warnUnknownKeys } from "@azure-client-engine/transformers";
+
+import type { CompilerDiagnostic, StageSection } from "./types.js";
 
 export type StageKind = "emit" | "transform" | "generate";
 
 /**
  * Whether a stage runs when the config says nothing.
  *   - `mandatory` — always runs; a config cannot disable it.
- *   - `on` / `off` — runs unless/until the config flips it.
+ *   - `on` — runs unless the config disables it. There is no opt-in default:
+ *     behavior a stage does not always want becomes an option of that stage.
  */
-export type StageDefault = "mandatory" | "on" | "off";
+export type StageDefault = "mandatory" | "on";
 
 export interface StageDescriptor {
   readonly id: string;
@@ -123,13 +126,78 @@ function warning(code: string, message: string): CompilerDiagnostic {
   return { severity: "warning", code: `${DIAGNOSTIC_PREFIX}/${code}`, message };
 }
 
+/** What the config says about the stages it names, once read. */
+export interface StageSections {
+  /** `false` for each stage the config disables, `true` for each other stage it names. */
+  readonly toggles: Readonly<Record<string, boolean>>;
+  /** Each named stage's config: its section's `options`. */
+  readonly options: ReadonlyMap<string, Record<string, unknown>>;
+}
+
+const SECTION_KEYS: ReadonlySet<string> = new Set<keyof StageSection>(["disabled", "options"]);
+
+/**
+ * Read `stages`, the compiler's own setting. Its value arrives from a file, so the
+ * shape is checked here: a section of the wrong shape is an error that fails the run
+ * before any stage runs, and a key a section does not know is a warning. An empty
+ * section (`<id>:` with no value) names its stage without changing anything. Unknown
+ * stage ids are left to the planner, which reports them against the catalog.
+ */
+export function readStages(
+  value: unknown,
+  reportDiagnostic: (diagnostic: CompilerDiagnostic) => void,
+): StageSections | undefined {
+  const report = (severity: "error" | "warning", code: string, message: string): void =>
+    reportDiagnostic(severity === "error" ? error(code, message) : warning(code, message));
+
+  const toggles: Record<string, boolean> = {};
+  const options = new Map<string, Record<string, unknown>>();
+  if (value === undefined || value === null) return { toggles, options };
+  if (!isMap(value)) {
+    report(
+      "error",
+      "invalid-setting",
+      `'stages' must be a map from stage id to its section, not ${describeValue(value)}.`,
+    );
+    return undefined;
+  }
+
+  let valid = true;
+  const reject = (path: string, expected: string, found: unknown): void => {
+    report("error", "invalid-setting", `'${path}' must be ${expected}, not ${describeValue(found)}.`);
+    valid = false;
+  };
+
+  for (const [id, section] of Object.entries(value)) {
+    toggles[id] = true;
+    if (section === undefined || section === null) continue;
+    if (!isMap(section)) {
+      reject(`stages.${id}`, "a map of 'disabled' and 'options'", section);
+      continue;
+    }
+    warnUnknownKeys(section, SECTION_KEYS, "setting", report, `stages.${id}.`);
+
+    const disabled = section["disabled"];
+    if (typeof disabled === "boolean") toggles[id] = !disabled;
+    else if (disabled !== undefined && disabled !== null) reject(`stages.${id}.disabled`, "a boolean", disabled);
+
+    const stageConfig = section["options"];
+    if (isMap(stageConfig)) options.set(id, stageConfig);
+    else if (stageConfig !== undefined && stageConfig !== null) {
+      reject(`stages.${id}.options`, "a map", stageConfig);
+    }
+  }
+
+  return valid ? { toggles, options } : undefined;
+}
+
 /** True when a stage runs, given the catalog default and the config's toggles. */
 export function isStageEnabled(
   descriptor: StageDescriptor,
   toggles: Readonly<Record<string, boolean>>,
 ): boolean {
   if (descriptor.default === "mandatory") return true;
-  return toggles[descriptor.id] ?? descriptor.default === "on";
+  return toggles[descriptor.id] ?? true;
 }
 
 /**

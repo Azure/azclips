@@ -1,6 +1,6 @@
 # aceconfig.yaml: the Generation-Time Configuration File
 
-> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and entry checks)_
+> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks)_
 >
 > **Scope:** how a run of the Azure Client Engine (ACE) is configured: the file a
 > user writes for each generated extension, how the `ace` CLI reads it, and what
@@ -17,7 +17,7 @@ extension: where the TypeSpec comes from, which entrypoints to compile and at
 which API version, where output goes, the facts about the extension that the spec
 cannot provide, and per-stage settings. The **CLI deserializes the file; the
 CLI and the compiler each take their own keys, and the compiler hands each stage
-only its own entry, never interpreted**. A new mandatory first transform,
+only its own stage config, never interpreted**. A new mandatory first transform,
 `seed-ir`, turns the non-spec facts (identity and placement today) into the IR's
 top-level `target`. The stage catalog still owns order, and every stage runs
 unless the file disables it. The CLI keeps today's flags as overrides for now.
@@ -31,15 +31,17 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
   `emitter`, …) without validation (`packages/cli/src/compile-command.ts`).
 - **The host maps flags onto stages by hand.** `--root-namespace` is written into
   `stageOptions["create-command"]`, and `--generator` sets a `pipeline` toggle.
-  `--root-namespace` was removed on 2026-10-12: facts come only from config.
+  Both flags were removed on 2026-10-12: facts come only from config, and with
+  every stage on unless disabled, there is nothing for `--generator` to switch on.
 - **Every stage can read the whole config.** `TransformContext.config` and
   `GeneratorContext.config` expose all of `CompileConfig`. The `csharp` adapter
   forwards it whole to the C# host (`GenerateToolOptions.config`), which never
-  reads it.
+  reads it. Since 2026-10-12 no context exposes it, and the `csharp` adapter
+  forwards only its own options.
 - **Stage options are already routed by id.** `stageOptions` is keyed by stage id
-  and handed untouched to each stage's factory (`stageEntry()` in
+  and handed untouched to each stage's factory (`configOf()` in
   `packages/compiler/src/compile.ts`), and each step checks its own options when
-  it runs.
+  it runs. Since 2026-10-12 they are `stages.<id>.options`.
 - **One entrypoint, one flat copy.** Staging copies the `--tsp-location` directory
   flat into `<out-dir>/source`. Imports that reach outside that directory break;
   `--entrypoint` only partly works around this.
@@ -103,14 +105,14 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
    Each party takes the keys it knows, and what is left is gen-time config. The
    CLI reads and deserializes the file, takes its own keys (the run inputs and
    `schema-version`), applies flag overrides, and passes the rest to the
-   compiler. The compiler takes its own settings (`stages`) and builds one entry
-   per stage: `stages.<id>.options` for each stage, and the top-level keys left
-   over for `seed-ir`. It creates each stage's context, passes every entry
-   untouched and validates nothing beyond routing; an unknown stage id is still
-   an error. Neither the CLI nor the compiler knows the facts, and the CLI never
-   names a stage. Each transformer owns the knowledge of its entry and resolves
-   it at transform time. The compiler maps every stage id to its implementation
-   itself, so hosts register nothing.
+   compiler. The compiler takes its own settings (`stages`) and builds each
+   stage's config: `stages.<id>.options` for each stage, and the top-level keys
+   left over for `seed-ir`. It creates each stage's context, passes every stage
+   config untouched and validates nothing beyond routing; an unknown stage id is
+   still an error. Neither the CLI nor the compiler knows the facts, and the CLI
+   never names a stage. Each transformer owns the knowledge of its stage config
+   and resolves it at transform time. The compiler maps every stage id to its
+   implementation itself, so hosts register nothing.
 
 9. **Stages run unless disabled.** `stages` is a map keyed by catalog stage id.
    The catalog still owns order and `requires`. `"off"` is removed from
@@ -118,23 +120,23 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
    only switch. Opt-in behavior becomes an option of a stage that always runs.
    See [Stage enablement](#stage-enablement).
 
-10. **Each stage receives only its own entry.** The compiler picks it out by the
-    stage's id and puts it in that stage's context: `TransformContext`, or
+10. **Each stage receives only its own stage config.** The compiler picks it out by
+    the stage's id and puts it in that stage's context: `TransformContext`, or
     `GeneratorContext` for a generator. No stage sees the whole config, so the
     contexts stop exposing it, and the `csharp` adapter forwards only its own
-    entry. An entry is a plain dictionary, resolved lazily by the stage when it
-    runs, as options are today. Every stage checks its own entry the same way: a
-    key it does not know is a warning, and an invalid value, or a missing key the
-    stage requires, is an error that fails the stage. No default stands in for an
-    invalid value, and the compiler stops the run after a stage that reports an
-    error (2026-10-12). Directives, once designed, live inside a stage's
-    `options`.
+    stage config. A stage config is a plain dictionary, resolved lazily by the
+    stage when it runs, as options are today. Every stage checks its own config
+    the same way: a key it does not know is a warning, and an invalid value, or a
+    missing key the stage requires, is an error that fails the stage. No default
+    stands in for an invalid value, and the compiler stops the run after a stage
+    that reports an error (2026-10-12). Directives, once designed, live inside a
+    stage's `options`.
 
 11. **Casing.** Structural keys are kebab-case, and stage ids are the catalog ids.
     Everything under `options:` is camelCase, so today's option names pass through
     without mapping: `inliningThreshold` and `noInline` for `flatten-model`, and
-    `CompileConfig`'s `warnAsError`, `trace`, `nostdlib` and `additionalImports`
-    for `tsp-emit`.
+    `warnAsError`, `trace`, `nostdlib`, `additionalImports` and `emitter` (the
+    emitter's own options) for `tsp-emit`.
 
 12. **No flag sets a document fact; the other flags stay as overrides, for now.**
     Facts live only in the file, so the file alone reproduces an extension's
@@ -223,10 +225,10 @@ The catalog becomes:
 
 - **Mandatory, and first among the transforms.** Without it there would be no
   target, and the generator would reject the document.
-- **Input:** its entry, every top-level key that neither the CLI (the run inputs
-  and `schema-version`) nor the compiler (`stages`) takes. No flag overrides a
-  fact. Keys arrive as written (kebab-case). It has no `options:` section of its
-  own.
+- **Input:** its stage config, every top-level key that neither the CLI (the run
+  inputs and `schema-version`) nor the compiler (`stages`) takes. No flag
+  overrides a fact. Keys arrive as written (kebab-case). It has no `options:`
+  section of its own.
 - **Output:** the IR's top-level `target`. Missing facts get defaults, which are
   today's `buildTarget` rules moved into this stage:
 
@@ -237,8 +239,8 @@ The catalog becomes:
   | `directories` | `models: Models`, `processors: Processors` |
   | `service-name`, `version`, `description` | unset |
 
-- **Checking the entry (agreed 2026-10-12).** `seed-ir` owns the facts' schema
-  and checks its entry when it runs, as every stage does (decision 10):
+- **Checking its config (agreed 2026-10-12).** `seed-ir` owns the facts' schema
+  and checks its stage config when it runs, as every stage does (decision 10):
   - A fact with the wrong type, or an empty value, is an error (`invalid-fact`)
     that fails the stage: no default stands in for it, no target is written,
     and the run stops. Every fact is still checked first, so one run reports
@@ -247,8 +249,8 @@ The catalog becomes:
   - `root-namespace` is a dotted string with no empty segments. A list of
     segments is not accepted.
   - A key it does not know, at the top level or under `directories`, is a
-    warning (`unknown-fact`). Its entry is whatever the CLI and the compiler
-    leave at the top level, so this catches misspelled top-level keys.
+    warning (`unknown-fact`). Its stage config is whatever the CLI and the
+    compiler leave at the top level, so this catches misspelled top-level keys.
   - A key with no value (YAML `null`) counts as absent, and gets its default.
 
 - **Boundaries.** It writes only top-level IR nodes. It never renames anything and
@@ -295,7 +297,8 @@ The catalog becomes:
   beside them, and every other key goes to `seed-ir`. `--root-namespace` is
   removed: no flag sets a fact (decision 12). Rejected: an
   interim `stageOptions["seed-ir"]` entry written by the CLI, which made the CLI
-  choose the stage.
+  choose the stage. Superseded later the same day: the compiler takes `stages`
+  instead of those fields (see [Loading the file](#loading-the-file-agreed-2026-10-12)).
 - **Progress (2026-10-07):** the work started with `IRTarget`, which landed as IR
   0.14.0. `target` is optional on `IR`, `IRTarget` has optional `serviceName`,
   `version` and `description`, the JSON Schema and C# classes are regenerated, and
@@ -306,11 +309,11 @@ The catalog becomes:
 - **Progress (2026-10-12):** `seed-ir` landed, completing this cut.
   - It is the mandatory first transform: `seedIrStep` in `transformers`, mapped
     in the compiler's `TRANSFORMS`. It writes every fact, the identity facts
-    included, and checks its entry as described above.
+    included, and checks its stage config as described above.
   - `create-command` no longer builds a target, and the catalog declares its
     `requires: ["seed-ir"]`.
   - `CompileConfig` admits facts as extra top-level keys. The compiler's
-    `stageEntry()` hands `seed-ir` every key that is not one of its own
+    `documentFacts()` hands `seed-ir` every key that is not one of its own
     settings, kept in step with `CompileConfig` by a type check.
   - Captured IR gains `ir/1-seed-ir.json`, and later indices shift by one.
   - `--root-namespace` is removed; the root namespace, like every fact, comes
@@ -325,13 +328,14 @@ The catalog becomes:
     stops the run at `seed-ir` instead of falling back to a default. One other
     behavior changes with it: `create-command`'s `duplicate-command-identity`
     error now stops the run before generation.
-  - Every transform warns about unknown keys in its own entry through one shared
-    function, `warnUnknownKeys` (`packages/transformers/src/entry.ts`):
+  - Every transform warns about unknown keys in its own stage config through one
+    shared function, `warnUnknownKeys` (`packages/transformers/src/stage-config.ts`):
     `unknown-fact` for `seed-ir`, `unknown-option` for the others. A stage that
     takes no options, such as `create-command`, warns about any key it is given.
-  - Still open against decision 10: the `csharp` generator does not check its
-    entry, and `flatten-model` falls back to its defaults for an invalid
-    `inliningThreshold` or `noInline` instead of failing.
+  - Still open against decision 10: `flatten-model` falls back to its defaults
+    for an invalid `inliningThreshold` or `noInline` instead of failing. (The
+    `csharp` generator's check landed with the compiler half of loading the
+    file.)
 
 ## Source acquisition
 
@@ -411,9 +415,47 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
   directory; relative paths in the file resolve against the file's folder.
   `--entrypoint` stays relative to `tsp-location`.
 - **No file:** without `--config` or `./aceconfig.yaml`, flags alone work as
-  today.
+  today, except that `--out-dir` is required (2026-10-12). The CLI wipes
+  generated folders in the output directory, so it never defaults to the
+  current one.
 - **The old JSON format is retired:** `--config` no longer accepts the JSON
   `CompileConfig` shape (`pipeline`, `stageOptions`).
+
+### Loading the file (agreed 2026-10-12)
+
+Each party takes the keys it knows (decision 8).
+
+- **The CLI** finds the file (`--config`, else `./aceconfig.yaml`), parses it with
+  the `yaml` package, and takes its own keys:
+  - `schema-version`, required and `1`. A file without it, such as an old JSON
+    `CompileConfig`, is rejected.
+  - `tsp-location` and `output-dir`, resolved against the file's folder.
+  - `entrypoints`: one entry until multiple entrypoints land (phase 5); more is
+    an error. A key it does not know inside an entrypoint is a warning.
+
+  Flags override these keys only. Every other key goes to the compiler
+  untouched, and an invalid value stops the run before compiling.
+- **The compiler** receives the entrypoint and its API version as compile input,
+  and the rest as `CompileConfig`: `stages` plus the facts. `stages` is its only
+  setting, and it checks the shape: a `disabled` that is not a boolean, or
+  `options` that are not a map, is an error; a key it does not know in a stage's
+  section is a warning; an unknown stage id is an error, as today. `options` on a
+  disabled stage are ignored.
+- **Each stage** gets only its own `options`, the two external stages included.
+  `tsp-emit` reads `warnAsError`, `trace`, `nostdlib`, `additionalImports` and
+  `emitter` from them, and the `csharp` generator no longer sees the whole config.
+  Both check their keys with the shared `warnUnknownKeys`.
+- **Order:** the compiler half goes first, while the JSON `--config` carries the
+  same `stages` shape; the YAML loader follows.
+- **Progress (2026-10-12):** the compiler half landed.
+  - `CompileConfig` is `stages` plus the facts; `pipeline`, `stageOptions` and the
+    top-level emit settings are gone. `CompileInput` carries the API version.
+  - `readStages()` (`packages/compiler/src/stages.ts`) checks the shape, and the
+    planner is disable-only: `StageDefault` is `mandatory` or `on`.
+  - `tsp-emit` and `csharp` read and check their own options. `tsp-emit` fails on
+    an invalid value before starting its tool.
+  - The CLI passes the JSON `--config` on untouched and `--api-version` as compile
+    input; `--generator` is removed. Remaining: the YAML loader.
 
 ## Why — benefits
 
@@ -423,12 +465,12 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
   same file works from any checkout or working directory, and output no longer
   defaults to the current directory.
 - **Orchestration stays compiler-owned, and stage contracts shrink.** A stage
-  sees only its own entry. The generator sees the IR plus its own entry, so a
-  captured IR explains the output's identity.
+  sees only its own stage config. The generator sees the IR plus its own stage
+  config, so a captured IR explains the output's identity.
 - **One place turns non-spec facts into IR.** `create-command` only projects
   commands, and later stages, including future client transforms, read identity
   from the IR.
-- **The compiler stays schema-free.** It routes entries by id, so it never
+- **The compiler stays schema-free.** It routes stage configs by id, so it never
   changes when a stage gains an option or the facts grow.
 - **Multi-spec extensions without copying a common root.** Only `tsp-location`
   and the declared `additionalDirectories` are copied.
@@ -441,10 +483,9 @@ folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
   every file that names it. Keep ids stable, or accept the old id after a split.
 - **New stages run everywhere.** A stage added to the catalog runs in every
   existing file on its next regeneration.
-- **Lazy validation lets typos through, for now.** The compiler never validates.
-  Every transform warns about keys it does not know (decision 10), but the
-  `csharp` generator does not check its entry yet, so a misspelled generator
-  option is silently ignored.
+- **Lazy validation lets typos through, for now.** The compiler never validates
+  facts or options. Every stage warns about keys it does not know (decision 10),
+  but `flatten-model` still falls back to its defaults for an invalid value.
 - **Mixed casing in one file:** kebab-case structure, camelCase options.
 - **`IR` gains a field the emitter never writes.** `target` is optional on `IR`,
   so only `commands` now marks that `create-command` ran.
@@ -461,50 +502,31 @@ here, not used to justify keeping the old model. Paths are relative to the
 toolkit root.
 
 - **Source:**
-  - `packages/compiler/src/stages.ts:48`: `StageDefault` includes `"off"`.
-  - `packages/compiler/src/types.ts`: `CompileInput.entrypoint` is a single path.
-    `CompileConfig` carries one `apiVersion`; top-level `additionalImports`,
-    `warnAsError`, `trace`, `nostdlib` and `emitter`; the `pipeline` and
-    `stageOptions` maps; and the facts as any other key.
-  - `packages/compiler/src/generate.ts:30`: `GeneratorContext` exposes the whole
-    `CompileConfig`. `TransformContext` (now `packages/transformers/src/transform.ts`)
-    carries none; a transform's options still arrive through its factory.
-  - `packages/compiler/src/compile.ts:334` (`stageEntry()`): delivers each
-    entry through the stage's factory; entries move into the stage's context.
-    Its list of the compiler's own settings shrinks to `stages`.
-  - `packages/compiler/src/builtins/generate-csharp.ts`: forwards
-    `context.config` whole to the C# host.
+  - `packages/compiler/src/types.ts`: `CompileInput` carries a single
+    entrypoint and its API version.
+  - Transforms still receive their stage config through their factory rather
+    than their context (`configOf()` in `packages/compiler/src/compile.ts`).
   - `packages/compiler/src/builtins/emit.ts`: sends one `EmitToolRequest` per run.
-  - `packages/cli/src/compile-command.ts`: the JSON `--config` loader,
-    `--generator`, `usage()`, and `--out-dir` defaulting to `process.cwd()`.
+  - `packages/cli/src/compile-command.ts`: the JSON `--config` loader, `usage()`,
+    and `--out-dir` defaulting to `process.cwd()`.
   - `packages/cli/src/staging.ts`: a flat copy of one directory, with no
     specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
-  - Docs: `README.md` (the `{ "pipeline": … }` example and
-    `config.stageOptions`, lines 80, 149, 212) and
-    `packages/generator/README.md` (`ace compile` usage with `--generator`, and
-    the temporary `--entrypoint` note).
+  - Docs: `packages/generator/README.md` (the temporary `--entrypoint` note).
 - **Tests (early-stage; reconcile, don't let them shape the design):**
   - `packages/cli/test/cli.test.ts`: compiles `packages/ir/examples/pets.tsp`
     and `packages/typespec-emitter/test/fixtures/multipart-service.tsp`, neither
     inside a specs repo, so they need the escape hatch. It also writes JSON
-    `--config` files with `pipeline` toggles and uses `--generator csharp`.
+    `--config` files, which become YAML.
   - `packages/cli/test/staging.test.ts`: builds spec trees in temp folders and
     asserts the flat layout.
-  - `packages/cli/test/emit.test.ts`: passes `config.emitter.sourceId` and
-    `config.apiVersion` to `compile()`, and turns stages off through
-    `config.pipeline` (`EMIT_ONLY`, line 28).
-  - `packages/compiler/test/stages.test.ts:99`: a catalog stage with
-    `default: "off"`.
-  - `packages/compiler/test/runtime.test.ts:97` and
-    `packages/compiler/test/pipeline.test.ts:52,113,167`: build `CompileConfig`
-    with `pipeline`, `stageOptions`, `apiVersion` and `emitter`.
 
 ## Relationship to other records
 
 - [`Compiler-Owned-Stage-Orchestration.md`](./Compiler-Owned-Stage-Orchestration.md):
   its point 3 ("turn-on only") shipped as a two-way toggle (`config.pipeline`).
   This record narrows it to **disable-only** and moves the switch into
-  `stages.<id>.disabled`. Catalog ownership of order and `requires` is unchanged.
+  `stages.<id>.disabled` (implemented 2026-10-12). Catalog ownership of order and
+  `requires` is unchanged.
   Its 2026-10-07 revision records the package layering this design relies on:
   the compiler owns stage implementations, and hosts register nothing.
 - [`TransformedIR-schema.md`](./TransformedIR-schema.md): `IRTarget` stays
@@ -538,10 +560,9 @@ toolkit root.
   checkout, sparse-checkout the same directories, then check out the commit. This
   produces the same mirrored tree. Provenance would be recorded with `/`
   separators.
-- **Schema polish.** The `csharp` generator checking its entry as the transforms
-  do (decision 10), `flatten-model` failing on invalid option values instead of
-  defaulting, and a JSON Schema for editor completion. The compiler stays
-  validation-free.
+- **Schema polish.** `flatten-model` failing on invalid option values instead of
+  defaulting (decision 10), and a JSON Schema for editor completion. The compiler
+  stays validation-free.
 - **Flag review.** Whether to retire the remaining run-input flags, and
   `--out-dir` vs. `output-dir` naming.
 - **Generator use of the new `IRTarget` fields.** The C# generator writing
@@ -556,25 +577,27 @@ toolkit root.
 - **Required keys:** `schema-version`, and `tsp-location` unless
   `--tsp-location` is given.
 - **`tspconfig.yaml` lookup:** stops at the specs repo root.
-- **`options` on a disabled stage:** ignored, or a warning.
-- **Emitter options such as `sourceId`:** no place yet. A single `sourceId` would
-  collide across entrypoints.
-- **YAML parser:** the CLI, which owns deserialization, should use a YAML 1.2
-  parser (the `yaml` package, already installed through TypeSpec but not yet a
-  CLI dependency), so that `api-version: 2024-05-01` stays a string. js-yaml 3.13
+- **`options` on a disabled stage:** ignored (decided 2026-10-12).
+- **Emitter options such as `sourceId`:** `stages.tsp-emit.options.emitter`
+  (decided 2026-10-12). A single `sourceId` would still collide across
+  entrypoints once there are several (phase 5).
+- **YAML parser (decided 2026-10-12):** the CLI, which owns deserialization, uses
+  the `yaml` package (YAML 1.2), already installed through TypeSpec and added as a
+  CLI dependency, so that `api-version: 2024-05-01` stays a string. js-yaml 3.13
   reads it as a date.
 
 ## Phasing (non-binding)
 
 1. **Load the file:** the CLI reads and deserializes it, takes its own keys,
-   resolves paths, applies flag overrides and passes the rest to the compiler.
-   Map `stages` onto today's `pipeline` and `stageOptions`, with a single
-   entrypoint; facts already pass through as top-level keys.
+   resolves paths, applies flag overrides and passes the rest to the compiler
+   untouched; by then the compiler takes `stages` itself (see step 3).
 2. **Staging:** specs-repo detection, the mirrored layout, `additionalDirectories`,
    the `tsp-output` exclusion, and the escape hatch.
-3. **Compiler:** drop `"off"`, move each stage's entry from its factory into its
-   context (`seed-ir`'s included), shrink the compiler's own settings to
-   `stages`, remove the whole-config contexts, and retire `--generator`.
+3. **Compiler:** drop `"off"`, move each stage config from its factory into its
+   stage's context (`seed-ir`'s included), shrink the compiler's own settings to
+   `stages`, remove the whole-config contexts, and retire `--generator`. Done on
+   2026-10-12, ahead of step 1, except moving stage configs into contexts (see
+   [Loading the file](#loading-the-file-agreed-2026-10-12)).
 4. **`seed-ir`:** done, ahead of steps 1–3. The IR part, `IRTarget` on `IR` with
    the new fields (IR 0.14.0), landed on 2026-10-07; the stage itself, taking
    over `buildTarget`'s defaults from `create-command`, landed on 2026-10-12 (see
