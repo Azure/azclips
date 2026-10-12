@@ -50,8 +50,9 @@ function readRuntimePrompt(exe) {
 
 // Evaluations are often launched from an AI agent host. Its variables configure the same Copilot runtime
 // that the target embeds (extra tools, MCP servers, credentials) and are absent from a user's terminal.
+// AZCLIPS_IN_AGENT_MODE comes from an azclips Agent host and would turn off the recovery under test.
 const HOST_AGENT_VARIABLE = /^(COPILOT_|GITHUB_COPILOT_|CLAUDE_|ANTHROPIC_|OPENAI_|AZCLIPS_EVALUATION_|VSCODE_|ELECTRON_)/i;
-const HOST_AGENT_VARIABLES = new Set(['AI_AGENT', 'RUBBER_DUCK_AGENT', 'NODE_OPTIONS']);
+const HOST_AGENT_VARIABLES = new Set(['AI_AGENT', 'RUBBER_DUCK_AGENT', 'NODE_OPTIONS', 'AZCLIPS_IN_AGENT_MODE']);
 
 function isHostAgentVariable(name) {
   return HOST_AGENT_VARIABLE.test(name) || HOST_AGENT_VARIABLES.has(name.toUpperCase());
@@ -559,6 +560,13 @@ class AzclipsAgentProvider {
 
     return new Promise((resolve) => {
       const env = buildEvaluationEnvironment(process.env, flavor);
+      const runFacts = {
+        ...(this.target && { target: this.target }),
+        ...(this.resourceCache && { resourceCache: this.resourceCache }),
+        ...(this.agentSettings && { agentSettings: this.agentSettings }),
+        ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
+        removedHostVariables: removedHostVariables(process.env),
+      };
       const startedAt = Date.now();
       const recoveryMetadata = { observationStartedAt: new Date(startedAt).toISOString() };
       let troubleshootStartedAt;
@@ -569,13 +577,6 @@ class AzclipsAgentProvider {
         const processMs = troubleshootStartedAt !== undefined
           ? recoveryMetadata.troubleshootDurationMs
           : Date.now() - startedAt;
-        const runFacts = {
-          ...(this.target && { target: this.target }),
-          ...(this.resourceCache && { resourceCache: this.resourceCache }),
-          ...(this.agentSettings && { agentSettings: this.agentSettings }),
-          ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
-          removedHostVariables: removedHostVariables(process.env),
-        };
         const raw = `${stdout || ''}\n${stderr || ''}`;
         const numericExitCode = Number(err?.code ?? 1);
         const exitCode = err
@@ -733,10 +734,7 @@ class AzclipsAgentProvider {
               ...recoveryMetadata,
               resultType: 'azclips.plan.v1',
               runtimePromptSha256: runtimePrompt.sha256,
-              ...(this.target && { target: this.target }),
-              ...(this.resourceCache && { resourceCache: this.resourceCache }),
-              ...(this.agentSettings && { agentSettings: this.agentSettings }),
-              ...(this.warmupObservations !== undefined && { warmupObservations: this.warmupObservations }),
+              ...runFacts,
               recoveryMode: 'manual',
               processFailure: { type: 'infrastructure', reason: 'failure-capture', message },
             },

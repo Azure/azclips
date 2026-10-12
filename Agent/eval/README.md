@@ -163,7 +163,9 @@ Every result records the facts needed to compare builds:
   `telemetry.enabled`. This covers `agent.provider`, `agent.builtin.*`, recovery,
   and any agent setting that a newer build adds, such as a reasoning effort. A
   target that cannot list its keys falls back to the provider and recovery keys.
-  The wrapper does not change these settings,
+  Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
+  manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
+  `agent.trace.*`), the wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
   default model; keep these settings identical in both arms or remove the override
@@ -180,8 +182,11 @@ Every result records the facts needed to compare builds:
   turns that the tool-call list does not show.
 - `response.metadata.observationStartedAt` and `warmupObservations` place each
   observation in time and record the discarded warm-up count. The Judge's grading
-  metadata records its deployment, the model name returned by the service, and its
-  request latency.
+  metadata records its deployment, the model name returned by the service, the
+  latency of the attempt that answered, and the number of attempts. Promptfoo
+  stores the Judge's token usage in its own form and fills unreported cached and
+  reasoning counts with zero, so a zero in those two Judge counts can mean "not
+  reported".
 
 By default the wrapper first runs one discarded warm-up observation
 (`-WarmupObservations 1`) through the same provider and Judge path. In every
@@ -194,12 +199,16 @@ process running into later observations.
 
 The target runs without the evaluation host's AI-agent variables (`COPILOT_*`,
 `GITHUB_COPILOT_*`, `CLAUDE_*`, `ANTHROPIC_*`, `OPENAI_*`, `VSCODE_*`, `ELECTRON_*`,
-`AI_AGENT`, `RUBBER_DUCK_AGENT`, `NODE_OPTIONS`) and without the harness's own
-`AZCLIPS_EVALUATION_*` variables. The target embeds the same Copilot runtime, so
+`AI_AGENT`, `RUBBER_DUCK_AGENT`, `NODE_OPTIONS`, `AZCLIPS_IN_AGENT_MODE`) and without
+the harness's own `AZCLIPS_EVALUATION_*` variables. The target embeds the same Copilot runtime, so
 these variables can change its tools and credentials: launched from an agent host,
 every first model turn grew by 1,229 input tokens, and the host's runtime token
-reached the target. A user's terminal has none of them. Every result lists the
+reached the target. `AZCLIPS_IN_AGENT_MODE` from an azclips Agent host would turn
+off the recovery under test. A user's terminal has none of them. Every result lists the
 removed variable names in `response.metadata.removedHostVariables`, without values.
+The wrapper's own setup commands (environment check, cache refresh, configuration
+reads and writes) run with `AZCLIPS_IN_AGENT_MODE=1`, the product's recursion guard,
+so a failed setup command cannot start an unmeasured AI recovery session.
 
 Model turns dominate end-to-end latency. Host time varies less than model time
 within one run, but whole runs shift together: in the recorded 2026-10 runs most
@@ -289,8 +298,9 @@ comparing. Case inputs do not include run provenance, so the suite identity does
 not change with the commit, branch or time of a run. Do not present a replay/regrade as
 a fresh speed measurement. A provider, judge, or
 authentication error invalidates that measurement rather than producing a passing
-grade. The Judge retries transient service errors (HTTP 408, 429 and 5xx, and
-timeouts) up to three attempts without re-running the target, and records the
+grade. The Judge retries transient service errors (HTTP 408, 429, 500, 502, 503
+and 504, and network errors such as timeouts or connection resets) up to three
+attempts without re-running the target, and records the
 attempt count. A Judge call that still fails would otherwise read as a failed
 quality check, so the wrapper keeps that artifact but refuses to upload it.
 Never retry until green and discard the failed attempts.

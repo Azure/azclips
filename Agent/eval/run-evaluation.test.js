@@ -19,6 +19,7 @@ const fakeAzclips = String.raw`
 $ErrorActionPreference = 'Stop'
 $root = $env:AZCLIPS_EVAL_TEST_ROOT
 $scenario = Get-Content (Join-Path $root 'scenario.json') -Raw | ConvertFrom-Json
+Add-Content (Join-Path $root 'agent-mode-guard.txt') "$($args -join ' ')|$env:AZCLIPS_IN_AGENT_MODE"
 if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
     if ($scenario.environmentWarning) { Write-Error 'Environment diagnostic on stderr' -ErrorAction Continue }
     $signedIn = $scenario.signedOut -ne $true
@@ -129,6 +130,7 @@ $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = 'original-subscription'
 $env:AZCLIPS_EVALUATION_RECOVERY_MODE = 'original-recovery-mode'
 $env:AZCLIPS_EVALUATION_TARGET = 'original-target'
 $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = 'original-resource-cache'
+$env:AZCLIPS_IN_AGENT_MODE = $scenario.hostAgentMode
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
@@ -170,6 +172,7 @@ function global:npx {
         resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
         agentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
         warmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
+        agentModeGuard = $env:AZCLIPS_IN_AGENT_MODE
         tracesBeforeEvaluation = @(Get-ChildItem -LiteralPath $configuration['agent.trace.path'] -Filter '*.jsonl' -File -ErrorAction SilentlyContinue).Count
     } | ConvertTo-Json | Set-Content (Join-Path $root 'run-facts.json')
     $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
@@ -249,6 +252,7 @@ catch {
     recoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
     target = $env:AZCLIPS_EVALUATION_TARGET
     resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
+    agentModeGuard = $env:AZCLIPS_IN_AGENT_MODE
 } |
     ConvertTo-Json | Set-Content (Join-Path $root 'summary.json')
 exit $exitCode
@@ -316,6 +320,7 @@ function runWrapper(context, options = {}) {
     configurationBytes,
     warmupCalls: readLines(path.join(directory, 'warmup-calls.txt')),
     settingReads: readLines(path.join(directory, 'setting-reads.txt')),
+    agentModeGuards: readLines(path.join(directory, 'agent-mode-guard.txt')),
     resourceCalls: fs.existsSync(resourceCallsPath)
       ? fs.readFileSync(resourceCallsPath, 'utf8').trim().split(/\r?\n/)
       : [],
@@ -492,6 +497,27 @@ test('wrapper falls back to the default setting list when the target cannot list
     'agent.builtin.apiVersion', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.builtin.scope',
     'agent.provider', 'agent.recovery', 'agent.recovery.style',
   ]);
+});
+
+test('wrapper setup commands cannot start AI recovery and leave the guard unset for Promptfoo', (context) => {
+  const result = runWrapper(context, { unsupportedSettings: ['agent.recovery.style'] });
+  assert.equal(result.status, 0, result.summary.error);
+  const commands = result.agentModeGuards.map((line) => line.slice(0, line.lastIndexOf('|')));
+  for (const expected of ['agent tool env', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
+    assert.ok(commands.some((command) => command.startsWith(expected)), `${expected} was not guarded`);
+  }
+  assert.ok(result.agentModeGuards.every((line) => line.endsWith('|1')), result.agentModeGuards.join('\n'));
+  assert.equal(result.runFacts.agentModeGuard, null);
+  assert.equal(result.summary.agentModeGuard, null);
+});
+
+test('wrapper restores an inherited agent-mode value after each setup command', (context) => {
+  const result = runWrapper(context, { hostAgentMode: 'host-value' });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.ok(result.agentModeGuards.length > 0);
+  assert.ok(result.agentModeGuards.every((line) => line.endsWith('|1')), result.agentModeGuards.join('\n'));
+  assert.equal(result.runFacts.agentModeGuard, 'host-value');
+  assert.equal(result.summary.agentModeGuard, 'host-value');
 });
 
 test('wrapper uses a distinct default artifact path for each run', (context) => {

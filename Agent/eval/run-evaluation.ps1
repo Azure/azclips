@@ -49,11 +49,27 @@ else {
 $configuration['agent.trace.enabled'] = 'true'
 $configuration['agent.trace.path'] = $TracePath
 
+function Invoke-AzclipsCommand {
+    param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
+
+    # A failed command starts AI recovery when the configuration enables it. The product's recursion
+    # guard keeps the wrapper's own setup commands from starting a model session; measured cases run
+    # through the provider, which removes the guard.
+    $previousAgentMode = $env:AZCLIPS_IN_AGENT_MODE
+    $env:AZCLIPS_IN_AGENT_MODE = '1'
+    try {
+        & $AzclipsExe @Arguments
+    }
+    finally {
+        $env:AZCLIPS_IN_AGENT_MODE = $previousAgentMode
+    }
+}
+
 function Invoke-Azclips {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
     # Keep stderr diagnostics out of structured stdout such as agent tool env.
-    $output = & $AzclipsExe @Arguments | Out-String
+    $output = Invoke-AzclipsCommand @Arguments | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "azclips exited with $LASTEXITCODE while running: $($Arguments -join ' ')`n$output"
     }
@@ -184,7 +200,7 @@ try {
     # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
     $settingKeys = @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
         'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')
-    $keyListing = & $AzclipsExe config info --keys-only 2>$null | Out-String
+    $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
     if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {
         try {
             $listedKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
@@ -200,7 +216,7 @@ try {
     }
     $agentSettings = [ordered]@{}
     foreach ($key in $settingKeys) {
-        $settingText = & $AzclipsExe config get --key $key 2>$null | Out-String
+        $settingText = Invoke-AzclipsCommand config get --key $key 2>$null | Out-String
         if ($LASTEXITCODE -ne 0) { continue }
         $settingLine = @($settingText -split "\r?\n" | Where-Object { $_.StartsWith("$key = ") }) | Select-Object -Last 1
         if ($settingLine -match '^\S+ = (?<value>.*?)(?: \[(?<source>[^\]]+)\])?\s*$') {

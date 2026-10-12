@@ -164,6 +164,7 @@ test('builds an isolated flavor environment without mutating the parent', () => 
     AI_AGENT: 'host-agent',
     CLAUDE_AGENT_SDK_VERSION: '1',
     AZCLIPS_EVALUATION_TARGET: '{}',
+    AZCLIPS_IN_AGENT_MODE: '1',
     NODE_OPTIONS: '--require hook.js',
     VSCODE_GIT_IPC_HANDLE: 'pipe',
   };
@@ -180,8 +181,9 @@ test('builds an isolated flavor environment without mutating the parent', () => 
     AZURECLI_FLAVOR: 'azure cli',
   });
   assert.deepEqual(removedHostVariables(parent), [
-    'AI_AGENT', 'AZCLIPS_EVALUATION_TARGET', 'CLAUDE_AGENT_SDK_VERSION', 'COPILOT_ENABLE_BUILTIN_GITHUB_MCP',
-    'COPILOT_SDK_AUTH_TOKEN', 'NODE_OPTIONS', 'RUBBER_DUCK_AGENT', 'VSCODE_GIT_IPC_HANDLE', 'copilot_home',
+    'AI_AGENT', 'AZCLIPS_EVALUATION_TARGET', 'AZCLIPS_IN_AGENT_MODE', 'CLAUDE_AGENT_SDK_VERSION',
+    'COPILOT_ENABLE_BUILTIN_GITHUB_MCP', 'COPILOT_SDK_AUTH_TOKEN', 'NODE_OPTIONS', 'RUBBER_DUCK_AGENT',
+    'VSCODE_GIT_IPC_HANDLE', 'copilot_home',
   ]);
 });
 
@@ -543,6 +545,11 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
   for (const error of [null, Object.assign(new Error('Command failed'), { code: 2 })]) {
     await context.test(error ? 'missing ID' : 'successful stimulus', async (context) => {
       const fixture = createProviderFixture(context);
+      const target = { version: '0.1.3+abc', packageSha256: 'a'.repeat(64), packageFiles: 3 };
+      withEnvironment(context, {
+        AZCLIPS_EVALUATION_TARGET: JSON.stringify(target),
+        AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
+      });
       const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, recoveryMode: 'manual' } });
       let calls = 0;
       context.mock.method(childProcess, 'execFile', (_file, _args, _options, callback) => {
@@ -553,6 +560,9 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
       const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
       assert.equal(calls, 1);
       assert.equal(response.metadata.processFailure.reason, 'failure-capture');
+      assert.deepEqual(response.metadata.target, target);
+      assert.equal(response.metadata.warmupObservations, 1);
+      assert.ok(response.metadata.removedHostVariables.includes('AZCLIPS_EVALUATION_TARGET'));
       assert.ok(response.error);
       assert.equal(response.output, undefined);
     });
