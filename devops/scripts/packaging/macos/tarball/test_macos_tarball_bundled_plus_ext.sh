@@ -244,6 +244,20 @@ for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
     echo "  FAIL: sidecar for $ext_name is malformed: $sidecar"
     exit 1
   fi
+  # ExtensionRuntime ships no CLI commands; every other bundled extension must declare at
+  # least one verb/leaf, otherwise a generator regression (e.g. an unrecognized leaf-table
+  # convention) could silently emit empty arrays and still pass the checks above.
+  verbs_block=$(awk '/"verbs": \[/{flag=1; next} /\]/{flag=0} flag' "$sidecar")
+  leaves_block=$(awk '/"leaves": \[/{flag=1; next} /\]/{flag=0} flag' "$sidecar")
+  if [[ "$ext_name" == "Microsoft.Azure.Azclips.ExtensionRuntime" ]]; then
+    if [[ -n "$verbs_block" || -n "$leaves_block" ]]; then
+      echo "  FAIL: expected empty verbs/leaves for $ext_name (no CLI commands): $sidecar"
+      exit 1
+    fi
+  elif [[ -z "$verbs_block" || -z "$leaves_block" ]]; then
+    echo "  FAIL: sidecar for $ext_name has empty verbs or leaves: $sidecar"
+    exit 1
+  fi
   sidecar_count=$((sidecar_count + 1))
 done
 if [[ "$sidecar_count" -eq 0 ]]; then
@@ -251,6 +265,7 @@ if [[ "$sidecar_count" -eq 0 ]]; then
   exit 1
 fi
 echo "  PASS: $sidecar_count bundled extension sidecar(s) present and well-formed"
+echo "  PASS: command-bearing sidecars declare non-empty verbs/leaves; ExtensionRuntime declares none"
 
 echo ""
 echo "[3/17] CLI version (bundled install)"

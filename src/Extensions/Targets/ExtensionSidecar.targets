@@ -7,6 +7,10 @@
     <ProjectReference Include="$(RepoSrc)Core/Core.Extensions/Core.Extensions.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <Private>false</Private>
+      <!-- ReferenceOutputAssembly/Private only control compile-time reference and copy-local;
+           PrivateAssets is what keeps this build-order-only reference out of the packed
+           extension's .nuspec dependency list. -->
+      <PrivateAssets>all</PrivateAssets>
     </ProjectReference>
   </ItemGroup>
 
@@ -57,6 +61,28 @@
         foreach (string v in verbSource) { verbs.Add(v); }
         var leaves = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string l in leafSource) { leaves.Add(l); }
+
+        // Every leaf must be owned by a declared verb; a mismatch means the extension's own
+        // GetCommandKeys()/[ExtensionVerb] declarations are internally inconsistent (e.g. a typo),
+        // which metadata-first routing/help could not interpret reliably.
+        var orphanLeaves = new List<string>();
+        foreach (var leaf in leaves)
+        {
+          var sp = leaf.IndexOf(' ');
+          var firstToken = sp < 0 ? leaf : leaf.Substring(0, sp);
+          if (!verbs.Contains(firstToken))
+          {
+            orphanLeaves.Add($"  '{leaf}' (first token '{firstToken}' is not declared via [ExtensionVerb]; declared verbs: [{string.Join(", ", verbs)}])");
+          }
+        }
+        if (orphanLeaves.Count > 0)
+        {
+          Log.LogError(
+            $"'{PackageId}' declares leaves whose first token is not a declared verb:\n" +
+            string.Join("\n", orphanLeaves) +
+            "\nEvery leaf's first token must match one of the extension's [ExtensionVerb] declarations.");
+          return false;
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine("{");

@@ -302,12 +302,26 @@ foreach ($extDir in $bundledExtensionDirs) {
     if ($sidecarJson.packageId -ne $extDir.Name) {
         throw "FAIL: sidecar for $($extDir.Name) is malformed: $sidecarPath."
     }
+    # ExtensionRuntime ships no CLI commands; every other bundled extension must declare at
+    # least one verb/leaf, otherwise a generator regression (e.g. an unrecognized leaf-table
+    # convention) could silently emit empty arrays and still pass the check above.
+    $verbCount = @($sidecarJson.verbs).Count
+    $leafCount = @($sidecarJson.leaves).Count
+    if ($extDir.Name -eq 'Microsoft.Azure.Azclips.ExtensionRuntime') {
+        if ($verbCount -ne 0 -or $leafCount -ne 0) {
+            throw "FAIL: expected empty verbs/leaves for $($extDir.Name) (no CLI commands): $sidecarPath."
+        }
+    }
+    elseif ($verbCount -eq 0 -or $leafCount -eq 0) {
+        throw "FAIL: sidecar for $($extDir.Name) has empty verbs or leaves: $sidecarPath."
+    }
     $sidecarCount++
 }
 if ($sidecarCount -eq 0) {
     throw "FAIL: no bundled extensions found under $installRoot/Extensions."
 }
 Write-Host "PASS: $sidecarCount bundled extension sidecar(s) present and well-formed"
+Write-Host "PASS: command-bearing sidecars declare non-empty verbs/leaves; ExtensionRuntime declares none"
 
 $resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'azcli.extensions.resources*.nupkg' | Select-Object -First 1
 
