@@ -180,10 +180,26 @@ try {
     }
 
     # Record the model provider settings in effect, including inherited overrides such as a pinned
-    # modelId; older packages that do not define a key are skipped.
+    # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
+    # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
+    $settingKeys = @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
+        'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')
+    $keyListing = & $AzclipsExe config info --keys-only 2>$null | Out-String
+    if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {
+        try {
+            $listedKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
+                    $_ -is [string] -and $_ -notmatch '(?i)secret|token|password|apikey' -and (
+                        ($_ -like 'agent.*' -and $_ -notlike 'agent.trace.*') -or
+                        $_ -like 'core.http.*' -or $_ -eq 'telemetry.enabled')
+                } | Sort-Object -Unique)
+            if ($listedKeys.Count -gt 0) { $settingKeys = $listedKeys }
+        }
+        catch {
+            Write-Verbose 'The target did not list its configuration keys as JSON; using the default setting list.'
+        }
+    }
     $agentSettings = [ordered]@{}
-    foreach ($key in @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
-            'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')) {
+    foreach ($key in $settingKeys) {
         $settingText = & $AzclipsExe config get --key $key 2>$null | Out-String
         if ($LASTEXITCODE -ne 0) { continue }
         $settingLine = @($settingText -split "\r?\n" | Where-Object { $_.StartsWith("$key = ") }) | Select-Object -Last 1

@@ -65,6 +65,23 @@ $json = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $state
 $state = if ([string]::IsNullOrWhiteSpace($json)) { @{} } else { $json | ConvertFrom-Json -AsHashtable }
 $operation = $args[1]
 $key = $args[3]
+if ($operation -eq 'info') {
+    Add-Content (Join-Path $root 'setting-reads.txt') 'config info --keys-only'
+    if ($scenario.noKeyListing) {
+        'Unknown command: config info'
+        $global:LASTEXITCODE = 1
+        return
+    }
+    $listed = if ($scenario.listedKeys) { @($scenario.listedKeys) } else {
+        @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
+    }
+    ConvertTo-Json -InputObject $listed
+    if ($scenario.keyListingWarning) {
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+    }
+    $global:LASTEXITCODE = 0
+    return
+}
 if ($operation -eq 'get') {
     Add-Content (Join-Path $root 'setting-reads.txt') $key
     if (@($scenario.unsupportedSettings) -contains $key) {
@@ -449,8 +466,32 @@ test('wrapper records the effective model provider settings and skips keys the t
   assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
   assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
   assert.equal(settings['agent.recovery.style'], undefined);
+  assert.equal(settings['agent.trace.enabled'], undefined);
   assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
+});
+
+test('wrapper records every agent, HTTP-retry and telemetry setting the target lists', (context) => {
+  const result = runWrapper(context, {
+    keyListingWarning: true,
+    listedKeys: [
+      'agent.provider', 'agent.reasoningEffort', 'agent.trace.enabled', 'agent.builtin.apiKey',
+      'core.http.maxRetries', 'telemetry.enabled', 'clients.cli.output.format',
+    ],
+  });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
+    'agent.provider', 'agent.reasoningEffort', 'core.http.maxRetries', 'telemetry.enabled',
+  ]);
+});
+
+test('wrapper falls back to the default setting list when the target cannot list its keys', (context) => {
+  const result = runWrapper(context, { noKeyListing: true });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
+    'agent.builtin.apiVersion', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.builtin.scope',
+    'agent.provider', 'agent.recovery', 'agent.recovery.style',
+  ]);
 });
 
 test('wrapper uses a distinct default artifact path for each run', (context) => {

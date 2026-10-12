@@ -157,9 +157,13 @@ Every result records the facts needed to compare builds:
   host, so the executable hash alone does not identify a build.
 - `response.metadata.resourceCache`: the cache mode, refresh start time and
   duration, cached resource count, and fixture-group check.
-- `response.metadata.agentSettings`: the effective `agent.provider`,
-  `agent.builtin.*` and recovery settings with their source (`default` or the
-  configuration file that set them). The wrapper does not change these settings,
+- `response.metadata.agentSettings`: the effective value and source (`default` or
+  the configuration file that set it) of every setting that `config info
+  --keys-only` lists under `agent.*` (except `agent.trace.*`), `core.http.*` and
+  `telemetry.enabled`. This covers `agent.provider`, `agent.builtin.*`, recovery,
+  and any agent setting that a newer build adds, such as a reasoning effort. A
+  target that cannot list its keys falls back to the provider and recovery keys.
+  The wrapper does not change these settings,
   so an inherited override applies to every observation. A pinned
   `agent.builtin.modelId` also hides a candidate build that only changes the
   default model; keep these settings identical in both arms or remove the override
