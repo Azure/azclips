@@ -15,7 +15,7 @@ snapshots through a separate writable bind mount; sources and packages stay read
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Bootstrap', 'Install', 'Uninstall')]
+    [ValidateSet('Bootstrap', 'Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')]
     [string]$Phase,
 
     [Parameter(Mandatory)]
@@ -147,6 +147,7 @@ function Invoke-ValidationPhase
         if ($ValidationMode -eq 'container')
         {
             $reportArguments = if ($ReportRoot) { @('-ReportRoot', '/reports') } else { @() }
+            if ($Phase -eq 'Upgrade') { $reportArguments += @('-BaselineRoot', '/artifacts/upgrade-baseline') }
             # Each exec starts with the container's environment, not the bootstrap's PATH.
             # The PowerShell global-tool shim needs to find dotnet by name.
             Invoke-ValidationCommand -FilePath 'docker' -Arguments (@(
@@ -160,6 +161,7 @@ function Invoke-ValidationPhase
         else
         {
             $reportArguments = if ($ReportRoot) { @('-ReportRoot', $ReportRoot) } else { @() }
+            if ($Phase -eq 'Upgrade') { $reportArguments += @('-BaselineRoot', (Join-Path $ArtifactsRoot 'upgrade-baseline')) }
             $env:DOTNET_ROOT = $DotnetRootPath
             $env:PATH = $DotnetRootPath + [System.IO.Path]::PathSeparator + $env:PATH
             Invoke-ValidationCommand -FilePath $PwshPath -Arguments (@(

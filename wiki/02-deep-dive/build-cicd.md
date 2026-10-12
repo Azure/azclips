@@ -127,10 +127,10 @@ There is no single `scripts/deploy.sh`; distribution is a layered set of shell/P
 
 ## Continuous integration
 
-PowerShell package validation runs shared install and uninstall phases across a
-generated distribution matrix. Install checks that every packaged module imports at
-its exact packaged version; unsupported canary combinations remain nonblocking.
-See the [PowerShell package validation guide](https://github.com/Azure/azclips/blob/main/devops/scripts/packaging/powershell/README.md)
+PowerShell package validation runs shared dependency, install, smoke, and uninstall
+phases across a generated distribution matrix. The dependency phase checks isolated
+package resolution and runtime rejection before normal installation; unsupported
+canary combinations remain nonblocking. See the [PowerShell package validation guide](https://github.com/Azure/azclips/blob/main/devops/scripts/packaging/powershell/README.md)
 for phase contracts, limited alpha coverage, local invocation, cleanup behavior,
 and offline regression fixtures.
 

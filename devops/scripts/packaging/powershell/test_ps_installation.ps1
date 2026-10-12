@@ -4,9 +4,10 @@ Shared, platform-agnostic Az PowerShell module installation validation invoked b
 
 .DESCRIPTION
 Registers a local package gallery, installs each packaged Az PowerShell module from the local repository with
-Install-Module into the given -Scope, and validates that each module imports under its exact packaged version.
+Install-Module into the given -Scope, and validates module import, exported cmdlets, and external help examples.
 Installed modules are intentionally left in place after successful validation; test_ps_uninstall.ps1 is expected to run
-afterwards to remove them and verify removal.
+after smoke validation to remove them and verify removal. Upgrade runs and cleans its
+own installations before this fresh-install phase.
 Use a disposable environment: preexisting exact target versions or a conflicting RepositoryName are rejected before
 any mutation. Other installed versions and existing repository registrations are preserved. On failure, only packages
 attempted by this run are removed in reverse order; cleanup continues after individual errors without hiding the
@@ -108,20 +109,51 @@ function Assert-InstalledModuleImport
     )
 
     & $PwshPath -NoProfile -Command {
-        param($ModuleName, $ModuleVersion)
+        param($ModuleName, $ModuleVersion, $ExpectedJson)
         $ErrorActionPreference = 'Stop'
 
+        $expectedCmdlets = @($ExpectedJson | ConvertFrom-Json)
         $requiredVersion = [version]$ModuleVersion
         # Agents can ship unrelated Az releases, so pin the version under test.
         $loadedModule = Import-Module -Name $ModuleName -RequiredVersion $requiredVersion -Force -PassThru -Verbose -ErrorAction Stop
+        $exportedCmdlets = @($loadedModule.ExportedCommands.Keys)
+        $commands = @(Get-Command -Module $ModuleName -CommandType Cmdlet | Select-Object -ExpandProperty Name)
 
         if ($loadedModule.Version -ne $requiredVersion)
         {
             throw "$ModuleName imported version $($loadedModule.Version) but expected $requiredVersion from $($loadedModule.Path)."
         }
 
-        Write-Host "Imported $ModuleName $($loadedModule.Version) from installed module path: $($loadedModule.Path)"
-    } -Args $Definition.PackageName, $Definition.Version
+        $unexpectedCmdlets = @($exportedCmdlets | Where-Object { $expectedCmdlets -notcontains $_ })
+        if ($unexpectedCmdlets.Count -gt 0)
+        {
+            throw "$ModuleName exported unexpected cmdlets: $($unexpectedCmdlets -join ', ')"
+        }
+
+        foreach ($cmdlet in $expectedCmdlets)
+        {
+            if ($exportedCmdlets -notcontains $cmdlet)
+            {
+                throw "$ModuleName did not export expected cmdlet '$cmdlet'. Exported: $($exportedCmdlets -join ', ')"
+            }
+
+            if ($commands -notcontains $cmdlet)
+            {
+                throw "Get-Command -Module $ModuleName did not return expected cmdlet '$cmdlet'. Returned: $($commands -join ', ')"
+            }
+
+            $help = Get-Help -Name $cmdlet -ErrorAction Stop
+            $examples = @($help.Examples.Example)
+            $examplesWithCode = @($examples | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.code) })
+            if ($examplesWithCode.Count -eq 0)
+            {
+                throw "Get-Help did not return external help examples with code for '$cmdlet' in module '$ModuleName'."
+            }
+        }
+
+        Write-Host "Imported $ModuleName from installed module path: $($loadedModule.Path)"
+        Write-Host "Validated $ModuleName cmdlets: $($expectedCmdlets -join ', ')"
+    } -Args $Definition.PackageName, $Definition.Version, (ConvertTo-Json -InputObject @($Definition.CmdletsToExport) -Compress)
 
     if ($LASTEXITCODE -ne 0)
     {

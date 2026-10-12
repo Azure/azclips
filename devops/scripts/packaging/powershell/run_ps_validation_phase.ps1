@@ -3,9 +3,15 @@
 Runs one shared Azure PowerShell module validation phase.
 
 .DESCRIPTION
-Run Install and Uninstall in that order using the same PowerShell executable.
-Install requires a local gallery path in RepositoryRoot and checks that every
-module imports under its exact packaged version.
+Run Dependencies, Upgrade, Install, Validate, and Uninstall in that order using the same
+PowerShell executable. Dependencies and Install require a local gallery path in
+RepositoryRoot. Dependencies uses private module directories and the bootstrapped
+DOTNET_ROOT; it does not install user modules. Upgrade uses a prepared GitHub baseline,
+verifies replacement by pipeline packages, and cleans its own installed modules.
+Both dependency suites run before the phase returns the first failing exit code.
+Validate runs the configured module smoke tests after Install checks imports,
+exported cmdlets, and external help. Smoke coverage is checked once before the
+distribution matrix, not as a module phase.
 
 The distribution bootstrap must run separately first. For a PowerShell global-tool
 installation, put its dotnet directory on PATH and set DOTNET_ROOT in each process.
@@ -15,10 +21,12 @@ partial-install cleanup. See README.md in this directory for local and CI usage.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Install', 'Uninstall')]
+    [ValidateSet('Dependencies', 'Upgrade', 'Install', 'Validate', 'Uninstall')]
     [string] $Phase,
 
     [string] $RepositoryRoot,
+
+    [string] $BaselineRoot,
 
     [Parameter(Mandatory)]
     [string] $SourceRoot,
@@ -55,6 +63,31 @@ function Invoke-ValidationScript {
 }
 
 switch ($Phase) {
+    'Dependencies' {
+        if ([string]::IsNullOrWhiteSpace($RepositoryRoot) -or
+            -not (Test-Path -LiteralPath $RepositoryRoot -PathType Container)) {
+            throw "The 'Dependencies' phase requires an existing -RepositoryRoot."
+        }
+        if ([string]::IsNullOrWhiteSpace($env:DOTNET_ROOT)) {
+            throw "The 'Dependencies' phase requires the bootstrapped DOTNET_ROOT."
+        }
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_dependencies.ps1') `
+            -Arguments @(
+                '-RepositoryRoot', $RepositoryRoot,
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath
+            )
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_dependency_runtime.ps1') `
+            -Arguments @(
+                '-RepositoryRoot', $RepositoryRoot,
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath,
+                '-DotnetRootPath', $env:DOTNET_ROOT
+            )
+    }
+
     'Install' {
         if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
             throw "The 'Install' phase requires -RepositoryRoot."
@@ -79,6 +112,31 @@ switch ($Phase) {
             -Arguments @(
                 '-SourcePsRoot', $sourcePsRoot,
                 '-PwshPath', $PwshPath
+            )
+    }
+
+    'Upgrade' {
+        if ([string]::IsNullOrWhiteSpace($RepositoryRoot) -or
+            [string]::IsNullOrWhiteSpace($BaselineRoot)) {
+            throw "The 'Upgrade' phase requires -RepositoryRoot and -BaselineRoot."
+        }
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_upgrade.ps1') `
+            -Arguments @(
+                '-BaselineRoot', $BaselineRoot,
+                '-RepositoryRoot', $RepositoryRoot,
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath
+            )
+    }
+
+    'Validate' {
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_smoke.ps1') `
+            -Arguments @(
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath,
+                '-SkipCoverageWarnings'
             )
     }
 }

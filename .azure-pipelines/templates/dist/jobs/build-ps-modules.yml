@@ -114,7 +114,7 @@ jobs:
     displayName: Resolve Azure PS Version
 
   # Split into one step per phase so a failure points straight at the phase that broke.
-  # Cross-distribution install validation runs in the ValidatePS modes after this job publishes packages.
+  # Upgrade and smoke validation run in the ValidatePS modes after this job publishes packages.
   - bash: |
       set -euo pipefail
 
