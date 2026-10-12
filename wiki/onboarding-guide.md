@@ -487,7 +487,7 @@ Now the interesting path: what happens when §5 throws.
 | `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
 | `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
-The key judgment call: **structured errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:128`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. The agent is reserved for the cases where parsing or execution failed in a way that suggests the user's _intent_ itself needs reinterpreting (a typo, a natural-language phrasing, a "how do I…" question).
+The key judgment call: **known errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:233`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. Usage errors (unknown flags, missing values, unknown commands) are known errors too, so they skip the agent. The agent is reserved for unclassified failures: `HttpRequestException` and other exceptions that aren't `AzclipsErrorException`.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%

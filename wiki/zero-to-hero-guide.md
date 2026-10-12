@@ -467,7 +467,7 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 | `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
+The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Known errors, including usage errors such as an unknown flag, a missing value, or an unknown command, are printed and exit without reaching the agent. Even for unclassified failures, `TryAgentFallbackAsync` (`:495`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?

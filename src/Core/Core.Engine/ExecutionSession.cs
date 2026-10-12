@@ -276,7 +276,7 @@ internal class ExecutionSession : ISession
         }
         catch (AzclipsErrorException)
         {
-            // Structured error (e.g. a missing required argument): let it propagate as-is so the
+            // Known error (e.g. a missing required argument): let it propagate as-is so the
             // host renders it directly instead of falling through to AI-fallback recovery.
             throw;
         }
