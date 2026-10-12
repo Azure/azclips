@@ -70,6 +70,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Keep active Windows process redirection files outside published artifact directories, wait for asynchronous stream handling to finish, and dispose process handles before copying diagnostics into artifacts.
 - Run CLI package lifecycle validators only on matching native operating systems and architectures; layout-only success paths are not supported.
 - Validate structured CLI results with `--query` and compare stdout rather than parsing presentation-oriented output; keep diagnostics on stderr separate from asserted values.
+- Failure assertions match the text error contract: `ERROR: [Code] message` on stderr plus the process exit code, usually captured with `2>&1`. Do not parse a JSON error envelope; `--output` applies only to successful stdout.
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).

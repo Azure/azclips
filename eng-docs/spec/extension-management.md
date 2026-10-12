@@ -1,6 +1,6 @@
 # Design Spec: Extension Management
 
-> **Compat posture.** Source-compat with az-cli. Verbs, primary flags, and `--output json` shapes carry over; secondary flags, error structure, and internals are free to improve. A migration tool is acknowledged as necessary.
+> **Compat posture.** Source-compat with az-cli. Verbs, primary flags, and successful `--output json` result shapes carry over; secondary flags, error structure, and internals are free to improve. A migration tool is acknowledged as necessary.
 >
 > **Related.** [extension-framework.md](./extension-framework.md) covers extension loading, ALC isolation, and the processor contract. This doc covers the layer _above_ that: how extensions are registered, discovered, routed to, and managed over their lifecycle.
 
@@ -127,33 +127,14 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 | 8    | registry concurrency (concurrent write detected)     |
 | 9    | registry invalid (on-disk invariant violation)       |
 
-**Structured output.** `extension` commands respect the host's existing `--output json` flag. On failure:
+**Error output.** The host writes human-readable errors to stderr regardless of `--output`; that
+option formats successful command results on stdout only. Programmatic callers detect failure using
+the process exit code.
 
-```jsonc
-{
-    "error": {
-        "code": "LeafConflict",
-        "message": "Extension 'Contoso.Foo' has 1 leaf conflict with already-installed extensions.",
-        "details": {
-            "packageId": "Contoso.Foo",
-            "conflictCount": 1,
-            "conflicts": [
-                {
-                    "leafKey": "vm contoso-magic",
-                    "verb": "vm",
-                    "path": "contoso-magic",
-                    "existingPackageId": "Microsoft.Azure.Azclips.Extensions.Compute",
-                },
-            ],
-        },
-    },
-}
-```
-
-- `code` is the **contract** for programmatic callers (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`). Tests and downstream tooling MUST assert on `code`, never on `message` — the latter is free to evolve.
+- Known errors retain internal symbolic categories (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`) for host behavior and telemetry.
 - `ExtensionNotFound` (exit 4) fires only when the owning package is genuinely absent from discovery. `CommandNotFound` (exit 4) fires when the top-level verb IS owned by a discovered extension but the specific `(verb, path)` leaf doesn't exist — e.g. `az vm --list` or `az group foobar` when Compute/Resources are installed. Splitting these prevents the misleading "install the extension you already have" hint.
-- `message` is human-readable and not contractual.
-- `details` carries operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on. Field names within `details` are not contractual.
+- Error messages are human-readable and not contractual.
+- Internal details can carry operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on.
 
 ### 3.5 `extension list` output
 
@@ -253,7 +234,7 @@ A single JSON file at `~/.azclips/extensions/registry.json`:
 **Future-proofing commitments.** These are cheap to honor now and keep the vNext explicit-override path additive rather than a schema break:
 
 1. **Per-leaf ownership is a stack of contributors, top-wins.** Each `(verb, path)` resolves to an ordered list; dispatch routes to the top. v1 enforces depth ≤ 1 via install-time rejection (§3.2), so callers always observe stacks of length 1. vNext `--override` pushes; `extension remove` pops, which naturally restores the contributor underneath. Built-ins are seeded as the bottom entry of their leaves' stacks at process start (§4.6); the seed is not persisted to `registry.json`. Collision-detection and dispatch code never branch on builtin-ness, only on "is the stack non-empty."
-2. **Error responses enumerate per-leaf conflicts as an array.** `LeafConflict` `details` carries every colliding `(verb, path)` from a single `add`. The `code` field is the contract (§3.4); `message` and field names inside `details` are free to evolve. Tests MUST assert on `code`, never on `message`.
+2. **Error details enumerate per-leaf conflicts as an array.** `LeafConflict` `details` carries every colliding `(verb, path)` from a single `add`. Stderr is human-readable text (§3.4), so `message`, the symbolic category, and field names inside `details` are internal and free to evolve. Automation keys on the process exit code. Tests MUST assert on the exception type or symbolic category, never on `message`.
 3. **PowerShell parity is cmdlet-shaped, not leaf-shaped.** The Azure PS modules expose flat cmdlet mappings (e.g. `Get-AzResourceGroup`) rather than `(verb, path)` leaves. The CLI ↔ PS bridge runs at the cmdlet-to-command-metadata layer, so PS does not consume `Contributions` directly and is unaffected by stack-vs-pointer changes to the registry shape.
 
 ### 4.2 Where contributions are declared

@@ -229,7 +229,8 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        var ex = Assert.ThrowsAny<AzclipsErrorException>(() => fixture.ExecuteCli(["profile", "show", "nope"]));
+        Assert.Equal("ProfileNotFound", ex.Code);
     }
 
     [Fact]
