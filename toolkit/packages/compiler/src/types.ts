@@ -83,6 +83,13 @@ export interface CompileConfig {
    * catalog already placed.
    */
   stageOptions?: Record<string, Record<string, unknown>>;
+  /**
+   * Every other key is gen-time config the compiler does not interpret: the
+   * document facts, which the compiler hands untouched to the `seed-ir` stage, keyed
+   * as written in config (kebab-case, e.g. `"root-namespace"`). `seed-ir` checks
+   * them and warns about any key it does not know.
+   */
+  [fact: string]: unknown;
 }
 
 /**
@@ -94,11 +101,11 @@ export interface CompileInput {
   /** Local path to the TypeSpec project directory or an entry `.tsp` file. */
   entrypoint: string;
   /**
-   * Resolved compile configuration (see `CompileConfig`). All app-resolved
-   * settings are named fields here — the emit stage reads compiler/emitter
-   * fields, each transform receives its own `stageOptions` entry, and generate
-   * steps read their fields off the same `config` (exposed read-only on their
-   * context). There is no separate free-form `extensions` bag.
+   * Resolved compile configuration (see `CompileConfig`). The emit stage reads
+   * compiler/emitter fields, each transform receives its own `stageOptions` entry,
+   * `seed-ir` receives every key that is not one of the compiler's own settings,
+   * and generate steps read their fields off the same `config` (exposed read-only
+   * on their context).
    */
   config?: CompileConfig;
 }

@@ -32,6 +32,7 @@ import { createCollectorSink, type OutputDelegate } from "./output.js";
 import { isAbortError, throwIfAborted } from "./abort.js";
 import {
   CSHARP_STAGE,
+  SEED_IR_STAGE,
   TSP_EMIT_STAGE,
   planStages,
   type PlannedStage,
@@ -274,7 +275,7 @@ function resolveTransform(
     reportDiagnostic(unimplemented(descriptor.id, "transform"));
     return undefined;
   }
-  return factory(stageOptions(config, descriptor.id));
+  return factory(stageEntry(config, descriptor.id));
 }
 
 /** Resolve a generate stage: the compiler's built-in `csharp`. */
@@ -295,14 +296,47 @@ function resolveGenerator(
       });
       return undefined;
     }
-    return createCsharpGenerator(options.runtime, stageOptions(config, descriptor.id));
+    return createCsharpGenerator(options.runtime, stageEntry(config, descriptor.id));
   }
 
   reportDiagnostic(unimplemented(descriptor.id, "generate"));
   return undefined;
 }
 
-function stageOptions(config: CompileConfig, id: string): Record<string, unknown> {
+/** The keys a type declares, without the ones its index signature admits. */
+type DeclaredKeys<T> = keyof {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+
+/**
+ * The compiler's own settings: the `CompileConfig` keys it reads itself. Every other
+ * key is gen-time config for the stages. `satisfies` keeps this in step with
+ * `CompileConfig`, so a setting declared there but not listed here fails the build.
+ */
+const COMPILER_SETTINGS = new Set(
+  Object.keys({
+    apiVersion: true,
+    additionalImports: true,
+    warnAsError: true,
+    trace: true,
+    nostdlib: true,
+    emitter: true,
+    pipeline: true,
+    stageOptions: true,
+  } satisfies Record<DeclaredKeys<CompileConfig>, true>),
+);
+
+/**
+ * Pick a stage's own entry out of the config, untouched. `seed-ir` gets the document
+ * facts, every key that is not one of the compiler's settings; every other stage
+ * gets its `stageOptions` entry.
+ */
+function stageEntry(config: CompileConfig, id: string): Record<string, unknown> {
+  if (id === SEED_IR_STAGE) {
+    return Object.fromEntries(
+      Object.entries(config).filter(([key]) => !COMPILER_SETTINGS.has(key)),
+    );
+  }
   return config.stageOptions?.[id] ?? {};
 }
 

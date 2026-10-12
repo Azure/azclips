@@ -18,7 +18,6 @@ import { parseArgs } from "node:util";
 import {
   compile,
   CSHARP_STAGE,
-  CREATE_COMMAND_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
@@ -50,7 +49,8 @@ export function usage(): string {
     "                         loaded as CompileInput.config (CompileConfig) (optional).",
     "                         Its 'pipeline' flips compiler-declared stages on or off,",
     "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
-    "                         'stageOptions' configures them by stage id.",
+    "                         'stageOptions' configures them by stage id. Any other",
+    "                         key is a document fact, e.g. \"project-name\" or \"version\".",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
@@ -133,26 +133,15 @@ export async function runCompile(args: string[]): Promise<number> {
   }
   // Orchestration stays compiler-owned, so these flags do not assemble a
   // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // configures the stage that resolves placement.
+  // overrides a document fact.
   const generatorStage = generatorArg ?? CSHARP_STAGE;
   if (generatorArg !== undefined) {
     config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
   }
   if (rootNamespaceArg !== undefined) {
-    // Placement is resolved at transform time, into `IRTarget` — so the flag feeds
-    // the command projection, not the generator. Routing it to the generator would
-    // be silently ignored: the generator reads the document's target and falls back
-    // to its own option only when a document carries none.
-    config = {
-      ...config,
-      stageOptions: {
-        ...config.stageOptions,
-        [CREATE_COMMAND_STAGE]: {
-          ...config.stageOptions?.[CREATE_COMMAND_STAGE],
-          rootNamespace: rootNamespaceArg,
-        },
-      },
-    };
+    // A fact sits at the config's top level, as it does in the file. The compiler,
+    // not the CLI, decides which stage reads it.
+    config = { ...config, "root-namespace": rootNamespaceArg };
   }
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the

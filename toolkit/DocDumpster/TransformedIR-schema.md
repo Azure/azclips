@@ -359,14 +359,14 @@ project file all need placement. Anything that genuinely varies per command stay
 the command.
 
 **Optional on `IR`, required here.** A field is required on `IR` only if the emitter
-produces it, and the emitter cannot produce a target. A transform writes it —
-`create-command` today, `seed-ir` once it lands — so it may already appear on an
-`IR`.
+produces it, and the emitter cannot produce a target. A transform writes it:
+`seed-ir`, the first stage after emit, so it appears on every `IR` from that stage
+on.
 
 **Identity lives here for now.** `serviceName`, `version`, and `description` are
 facts the spec cannot provide. Keeping them on the target is a temporary choice; a
-separate node may replace it as more such facts arrive. Nothing writes them yet, and
-the C# generator does not read them.
+separate node may replace it as more such facts arrive. `seed-ir` writes them from
+the facts of the same names, and the C# generator does not read them yet.
 
 ## Validation
 

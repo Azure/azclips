@@ -161,9 +161,9 @@ not hand-edit).
 
 The root type is **`TransformedIR`**, not a neutral "document": the schema's root
 is `TransformedIRSchema`, so everything the generator sees already carries
-`Commands` and a resolved `Target`. Those two only exist once `create-command` has
-run, and the name says so rather than leaving them looking like optional fields on
-a bare IR.
+`Commands` and a resolved `Target`. `seed-ir` writes the target and
+`create-command` the commands, and the name says both have run: on a bare IR the
+target is optional and there are no commands.
 
 ### Discriminated unions
 
@@ -213,10 +213,11 @@ Both fields are consumed — see [Flattening](#flattening).
 
 ### Target metadata (IR 0.14.0)
 
-`IRTarget` gains `ServiceName`, `Version`, and `Description`, all nullable. The
-generator does not read them yet; writing them into the generated project (for
-example the `.csproj` `Version` and `Description`) is a follow-up. Captures without
-them deserialize and emit exactly as before.
+`IRTarget` gains `ServiceName`, `Version`, and `Description`, all nullable, which
+`seed-ir` fills from the facts of the same names. The generator does not read them
+yet; writing them into the generated project (for example the `.csproj` `Version`
+and `Description`) is a follow-up. Captures without them deserialize and emit
+exactly as before.
 
 ### Shared servers (IR 0.8.0)
 
