@@ -36,21 +36,30 @@ public class VmLifecycleScenarioTests
         if (recording.Mode == RecorderMode.Record)
         {
             // Live ARM, one surface; the subscription comes from the signed-in profile.
+            var groupName = TestRun.ScopedName(ResourceGroupName, recording.Mode);
             using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
 
             var subscriptionId = host.LiveSubscriptionId();
-            RunGroupCreate(host, subscriptionId);
-            AssertVm(RunCreate(host, subscriptionId, VmName, "1"), VmName);
-            AssertListed(RunList(host, subscriptionId, showDetails: false));
-            AssertListedWithDetails(RunList(host, subscriptionId, showDetails: true));
-            AssertVm(RunShow(host, subscriptionId, VmName), VmName);
-            AssertActionCompleted(RunStop(host, subscriptionId, VmName));
-            AssertActionCompleted(RunDeallocate(host, subscriptionId, VmName));
-            AssertActionCompleted(RunStart(host, subscriptionId, VmName));
-            AssertVm(RunCreate(host, subscriptionId, ForceDeleteVmName, "2"), ForceDeleteVmName);
-            AssertActionCompleted(RunDelete(host, subscriptionId, VmName));
-            AssertActionCompleted(RunForceDelete(host, subscriptionId, ForceDeleteVmName));
-            recording.Save();
+            try
+            {
+                RunGroupCreate(host, subscriptionId, groupName);
+                AssertVm(RunCreate(host, subscriptionId, VmName, "1", groupName), VmName);
+                AssertListed(RunList(host, subscriptionId, showDetails: false, groupName));
+                AssertListedWithDetails(RunList(host, subscriptionId, showDetails: true, groupName));
+                AssertVm(RunShow(host, subscriptionId, VmName, groupName), VmName);
+                AssertActionCompleted(RunStop(host, subscriptionId, VmName, groupName));
+                AssertActionCompleted(RunDeallocate(host, subscriptionId, VmName, groupName));
+                AssertActionCompleted(RunStart(host, subscriptionId, VmName, groupName));
+                AssertVm(RunCreate(host, subscriptionId, ForceDeleteVmName, "2", groupName), ForceDeleteVmName);
+                AssertActionCompleted(RunDelete(host, subscriptionId, VmName, groupName));
+                AssertActionCompleted(RunForceDelete(host, subscriptionId, ForceDeleteVmName, groupName));
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording.
+                try { host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", groupName); } catch { }
+            }
             return;
         }
 
@@ -102,18 +111,18 @@ public class VmLifecycleScenarioTests
         }
     }
 
-    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId) =>
+    private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
         host.RunCli("group", "create",
             "--subscription-id", subscriptionId,
-            "--name", ResourceGroupName,
+            "--name", groupName ?? ResourceGroupName,
             "--location", Location);
 
-    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId, string vmName, string suffix) =>
+    private static IReadOnlyList<object> RunCreate(ScenarioHost host, string subscriptionId, string vmName, string suffix, string? groupName = null) =>
         host.RunCli("vm", "create",
             "--subscription-id", subscriptionId,
             "--name", vmName,
             "--location", Location,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--size", "Standard_D2s_v3",
             "--admin-username", "azadmin",
             "--admin-password", Password,
@@ -127,13 +136,13 @@ public class VmLifecycleScenarioTests
     /// <c>vm list</c> scoped to the scenario's resource group. <paramref name="showDetails"/> passes the
     /// short alias <c>-d</c>, so the step also exercises the alias wiring.
     /// </summary>
-    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, bool showDetails)
+    private static IReadOnlyList<object> RunList(ScenarioHost host, string subscriptionId, bool showDetails, string? groupName = null)
     {
         var args = new List<string>
         {
             "vm", "list",
             "--subscription-id", subscriptionId,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
         };
         if (showDetails)
         {
@@ -142,41 +151,41 @@ public class VmLifecycleScenarioTests
         return host.RunCli(args.ToArray());
     }
 
-    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunShow(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "show",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunStart(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunStart(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "start",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunStop(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunStop(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "stop",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunDeallocate(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunDeallocate(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "deallocate",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunDelete(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "delete",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName);
+            "--resource-group", groupName ?? ResourceGroupName);
 
-    private static IReadOnlyList<object> RunForceDelete(ScenarioHost host, string subscriptionId, string vmName) =>
+    private static IReadOnlyList<object> RunForceDelete(ScenarioHost host, string subscriptionId, string vmName, string? groupName = null) =>
         host.RunCli("vm", "delete",
             "--subscription-id", subscriptionId,
             "--name", vmName,
-            "--resource-group", ResourceGroupName,
+            "--resource-group", groupName ?? ResourceGroupName,
             "--force-deletion", "true");
 
     private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
