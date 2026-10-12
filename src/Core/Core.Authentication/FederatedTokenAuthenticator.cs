@@ -34,7 +34,7 @@ public class FederatedTokenAuthenticator(
 
         if (string.IsNullOrWhiteSpace(assertion))
         {
-            throw AzclipsErrorException.InvalidInput("No federated token was provided.");
+            throw AzclipsErrorException.NotSignedIn("No federated token was provided.");
         }
 
         // Forced past the cache: the app cache is keyed by client and scope, not by assertion, so a

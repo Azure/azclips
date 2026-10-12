@@ -262,7 +262,7 @@ $env:AZCLIPS_NO_EXTENSION_CACHE = "true"
 | Code | Meaning                                  |
 | ---- | ---------------------------------------- |
 | 0    | Success                                  |
-| 1    | Generic error                            |
+| 1    | Generic error or `NotSignedIn` (missing sign-in or profile) |
 | 2    | Usage error (bad args, unknown flag) or `InvalidInput` (malformed value) |
 | 3    | `LeafConflict`                           |
 | 4    | `ExtensionNotFound` or `CommandNotFound` |

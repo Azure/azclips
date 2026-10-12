@@ -66,6 +66,14 @@ public class AzclipsErrorException : Exception
     public static AzclipsErrorException ProfileNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("ProfileNotFound", 1, message, details);
 
+    /// <summary>
+    /// The command needs an active profile or credential that is missing, such as no active
+    /// profile, no federated token, or no subscription in the profile. The fix is to sign in.
+    /// This is not caused by the user's input, so the agent is not offered the error.
+    /// </summary>
+    public static AzclipsErrorException NotSignedIn(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new("NotSignedIn", 1, message, details);
+
     public static AzclipsErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("PinViolation", 6, message, details);
 

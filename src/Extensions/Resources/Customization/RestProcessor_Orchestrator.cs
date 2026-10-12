@@ -118,7 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            ResolvedProfile = context.Profile ?? throw AzclipsErrorException.InvalidInput("No profile is available. Please sign in.");
+            ResolvedProfile = context.Profile ?? throw AzclipsErrorException.NotSignedIn("No profile is available. Please sign in.");
             return this;
         }
 
@@ -425,7 +425,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
                 {
-                    throw AzclipsErrorException.InvalidInput($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
+                    throw AzclipsErrorException.NotSignedIn($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
                 }
 
                 url = url.Replace(SubscriptionToken, ResolvedProfile.SubscriptionId, StringComparison.Ordinal);

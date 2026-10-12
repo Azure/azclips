@@ -31,7 +31,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             }
             Profile profile = Active || !hasName
                 ? await profileService.GetActiveProfileAsync()
-                    ?? throw AzclipsErrorException.InvalidInput("No active profile is set.")
+                    ?? throw AzclipsErrorException.NotSignedIn("No active profile is set.")
                 : await profileService.GetProfileAsync(Name)
                     ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 

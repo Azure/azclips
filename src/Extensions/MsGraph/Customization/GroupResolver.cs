@@ -18,8 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         /// <summary>
         /// Runs the caller-prepared <see cref="ListGroupProcessor"/> child, deserialises the
         /// response envelope, and returns the single matching group's object ID. Throws a
-        /// deterministic <see cref="InvalidOperationException"/> when zero or more than one
-        /// group matches.
+        /// deterministic <c>InvalidInput</c> error when zero or more than one group matches.
         /// </summary>
         public static async Task<string> PickSingleGroupIdAsync(
             ListGroupProcessor listProcessor,
