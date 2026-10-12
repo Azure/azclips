@@ -440,14 +440,20 @@ function intervalUnionMilliseconds(intervals) {
 
 // Splits Agent process time into model turns, tool execution and remaining host work.
 // Intervals end at payload.At and last payload.Elapsed; unknown phases are omitted.
+// propose_plan and submit_response are the Agent's internal plan tools; the renderer shows the
+// plan when submit_response starts, and the process continues after that.
+const PLAN_TOOLS = new Set(['propose_plan', 'submit_response']);
+
 function readTiming(tracePath, processMs) {
   if (!tracePath || !fs.existsSync(tracePath)) return undefined;
   let traceStart;
   let traceEnd;
   let sessionStart;
   let planProposedAt;
+  let answerRenderedAt;
   const llm = [];
   const tools = [];
+  const planTools = [];
   for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
     let entry;
     try {
@@ -464,10 +470,17 @@ function readTiming(tracePath, processMs) {
     const elapsed = elapsedMilliseconds(entry.payload?.Elapsed);
     if (end === undefined || elapsed === undefined) continue;
     if (entry.event === 'LlmTurnCompleted') llm.push([end - elapsed, end]);
-    else if (entry.event === 'ToolCompleted' || entry.event === 'ToolFailed') tools.push([end - elapsed, end]);
+    else if (entry.event === 'ToolCompleted' || entry.event === 'ToolFailed') {
+      tools.push([end - elapsed, end]);
+      if (PLAN_TOOLS.has(entry.payload?.Name)) planTools.push([end - elapsed, end]);
+    }
     if (entry.event === 'ToolCompleted' && entry.payload?.Name === 'propose_plan' && !entry.payload.IsError &&
       planProposedAt === undefined) {
       planProposedAt = end;
+    }
+    if (entry.event === 'ToolCompleted' && entry.payload?.Name === 'submit_response' && !entry.payload.IsError &&
+      answerRenderedAt === undefined) {
+      answerRenderedAt = end - elapsed;
     }
   }
   const timing = {};
@@ -478,6 +491,9 @@ function readTiming(tracePath, processMs) {
   if (traceStart !== undefined && traceEnd !== undefined) record('traceMs', traceEnd - traceStart);
   if (traceStart !== undefined && sessionStart !== undefined) record('sessionStartMs', sessionStart - traceStart);
   if (traceStart !== undefined && planProposedAt !== undefined) record('planProposedMs', planProposedAt - traceStart);
+  if (traceStart !== undefined && answerRenderedAt !== undefined) {
+    record('answerRenderedMs', answerRenderedAt - traceStart);
+  }
   if (llm.length) {
     if (sessionStart !== undefined) {
       record('firstLlmRequestMs', Math.min(...llm.map(([start]) => start)) - sessionStart);
@@ -485,6 +501,7 @@ function readTiming(tracePath, processMs) {
     record('llmMs', llm.reduce((total, [start, end]) => total + (end - start), 0));
     timing.llmTurns = llm.length;
     record('toolMs', intervalUnionMilliseconds(tools));
+    record('planToolMs', intervalUnionMilliseconds(planTools));
     record('hostMs', processMs - intervalUnionMilliseconds([...llm, ...tools]));
   }
   return Object.keys(timing).length > (timing.processMs === undefined ? 0 : 1) ? timing : undefined;

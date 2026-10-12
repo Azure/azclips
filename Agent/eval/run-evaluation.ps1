@@ -12,6 +12,8 @@ param(
     [string] $ResourceCache = 'refresh',
     [ValidateRange(0, 10)]
     [int] $WarmupObservations = 1,
+    [ValidatePattern('^[0-9a-fA-F]{64}$')]
+    [string] $ExpectedPackageSha256,
     [switch] $Upload,
     [string] $ServiceUrl = 'https://azclis-evaluation-web-6b085460.azurewebsites.net'
 )
@@ -124,6 +126,9 @@ if ([string]::IsNullOrWhiteSpace($targetVersion)) {
 }
 $target = [ordered]@{ version = $targetVersion.Trim() }
 $packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)
+if ($ExpectedPackageSha256 -and $packageFingerprint.packageSha256 -ne $ExpectedPackageSha256.ToLowerInvariant()) {
+    throw "Target package fingerprint $($packageFingerprint.packageSha256) does not match -ExpectedPackageSha256 $($ExpectedPackageSha256.ToLowerInvariant()); no Agent evaluation was started."
+}
 $target.packageSha256 = $packageFingerprint.packageSha256
 $target.packageFiles = $packageFingerprint.packageFiles
 

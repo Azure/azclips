@@ -173,10 +173,15 @@ Every result records the facts needed to compare builds:
 - `response.metadata.timing`: `processMs` is the Agent process duration (the
   troubleshoot process in manual mode). `llmMs` and `llmTurns` cover model turns,
   `toolMs` is the union of tool executions, and `hostMs` is process time spent
-  neither waiting for the model nor running tools. `sessionStartMs`,
-  `firstLlmRequestMs`, `planProposedMs` (trace start to the accepted plan) and
-  `traceMs` locate startup and answer work. A phase that the trace does not report
-  is omitted rather than recorded as zero.
+  neither waiting for the model nor running tools. `planToolMs` is the part of
+  `toolMs` spent in the internal plan tools (`propose_plan` and `submit_response`),
+  not in Azure lookups. `sessionStartMs`, `firstLlmRequestMs`, `planProposedMs`
+  (trace start to the accepted plan), `answerRenderedMs` (trace start to the first
+  successful `submit_response`, when the renderer shows the plan) and `traceMs`
+  locate startup and answer work. The plan is not on screen at `planProposedMs`;
+  in Baseline V7 and its A/A run it appeared 1.74–5.00 s later, and the process then ran
+  `traceMs - answerRenderedMs` longer, including one more model turn. A phase that
+  the trace does not report is omitted rather than recorded as zero.
 - `response.metadata.planActivity`: plan attempts, plans rejected by the host
   (for example a `preToolUse` hook) and their reasons. Rejected plans add model
   turns that the tool-call list does not show.
@@ -294,7 +299,10 @@ fixture subscription/group, concurrency, repetition count and cache policy acros
 baseline and candidate runs. The wrapper records the target version, package
 fingerprint, cache state, Agent model settings and runtime-prompt hash in every
 result; check that they identify the intended builds and settings before
-comparing. Case inputs do not include run provenance, so the suite identity does
+comparing. To pin a build, pass its fingerprint (`target.packageSha256` of an
+earlier result) as `-ExpectedPackageSha256`; the wrapper then stops before the
+cache refresh or any configuration change when the installed package differs.
+Case inputs do not include run provenance, so the suite identity does
 not change with the commit, branch or time of a run. Do not present a replay/regrade as
 a fresh speed measurement. A provider, judge, or
 authentication error invalidates that measurement rather than producing a passing

@@ -937,6 +937,7 @@ function timedTrace() {
     { kind: 'agent_event', event: 'ToolCompleted', ts: at(24), payload: { CallId: 'b', Elapsed: '00:00:04.0000000', At: at(24) } },
     { kind: 'agent_event', event: 'ToolCompleted', ts: at(33), payload: { Name: 'propose_plan', CallId: 'p', Elapsed: '00:00:01', At: at(33), IsError: false } },
     { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(34), payload: { Elapsed: '00:00:10', At: at(34) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(35), payload: { Name: 'submit_response', CallId: 's', Elapsed: '00:00:01', At: at(35), IsError: false } },
     { kind: 'agent_event', event: 'ToolFailed', ts: at(35.5), payload: { CallId: 'c', Elapsed: '00:00:01.5', At: at(35.5) } },
     { kind: 'trace_end', ts: at(36) },
   ];
@@ -953,12 +954,34 @@ test('splits Agent process time into model, tool and remaining host phases from 
     traceMs: 36000,
     sessionStartMs: 3000,
     planProposedMs: 33000,
+    answerRenderedMs: 34000,
     firstLlmRequestMs: 5000,
     llmMs: 22000,
     llmTurns: 2,
     toolMs: 6500,
+    planToolMs: 2000,
     hostMs: 10500,
   });
+});
+
+test('times the rendered answer from the first successful submit_response, not a rejected one', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const at = (seconds) => new Date(Date.UTC(2026, 9, 12, 7, 38, 0) + seconds * 1000).toISOString();
+  fs.writeFileSync(tracePath, [
+    { kind: 'trace_start', ts: at(0) },
+    { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(10), payload: { Elapsed: '00:00:10', At: at(10) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(12), payload: { Name: 'submit_response', Elapsed: '00:00:02', At: at(12), IsError: true } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(13), payload: { Name: 'find_resources', Elapsed: '00:00:01', At: at(13) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(16), payload: { Name: 'submit_response', Elapsed: '00:00:01.5', At: at(16), IsError: false } },
+    { kind: 'trace_end', ts: at(18) },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+
+  const timing = readTiming(tracePath, 19000);
+  assert.equal(timing.answerRenderedMs, 14500);
+  assert.equal(timing.planToolMs, 3500);
+  assert.equal(timing.toolMs, 4500);
 });
 
 test('omits timing phases that the trace does not report instead of recording zero', (context) => {

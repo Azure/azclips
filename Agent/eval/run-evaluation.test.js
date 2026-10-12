@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -220,11 +221,12 @@ function global:node {
 }
 
 $parameters = @{
-    AzclipsExe = (Join-Path $root 'az.ps1')
+    AzclipsExe = (Join-Path $root 'package\az.ps1')
     TracePath = (Join-Path $root 'traces')
 }
 if (-not $scenario.defaultOutput) { $parameters.OutputPath = Join-Path $root 'result.json' }
 if ($scenario.upload) { $parameters.Upload = $true }
+if ($scenario.expectedPackageSha256) { $parameters.ExpectedPackageSha256 = $scenario.expectedPackageSha256 }
 if ($scenario.recoveryMode) { $parameters.RecoveryMode = $scenario.recoveryMode }
 if ($scenario.resourceCache) { $parameters.ResourceCache = $scenario.resourceCache }
 if ($null -ne $scenario.warmupObservations) { $parameters.WarmupObservations = $scenario.warmupObservations }
@@ -276,7 +278,8 @@ function runWrapper(context, options = {}) {
     fs.writeFileSync(configurationPath, scenario.emptyConfiguration ? Buffer.alloc(0) : initialConfigurationBytes);
   }
   fs.writeFileSync(path.join(directory, 'scenario.json'), JSON.stringify(scenario));
-  fs.writeFileSync(path.join(directory, 'az.ps1'), fakeAzclips);
+  fs.mkdirSync(path.join(directory, 'package'));
+  fs.writeFileSync(path.join(directory, 'package', 'az.ps1'), fakeAzclips);
   fs.writeFileSync(path.join(directory, 'driver.ps1'), driver);
   if (scenario.existingArtifact) {
     fs.writeFileSync(path.join(directory, 'result.json'), 'previous-result');
@@ -380,6 +383,30 @@ test('wrapper refreshes the ARM cache and identifies the target package before c
   assert.equal(cache.fixtureGroupFound, true);
   assert.ok(cache.refreshMs >= 0);
   assert.ok(!Number.isNaN(Date.parse(cache.refreshStartedAtUtc)));
+});
+
+function fakePackageFingerprint() {
+  const fileHash = createHash('sha256').update(Buffer.from(fakeAzclips, 'utf8')).digest('hex');
+  return createHash('sha256').update(`az.ps1\t${fileHash}`, 'utf8').digest('hex');
+}
+
+test('wrapper accepts the expected package fingerprint in either letter case', (context) => {
+  const expected = fakePackageFingerprint();
+  const result = runWrapper(context, { expectedPackageSha256: expected.toUpperCase() });
+  assert.equal(result.status, 0, result.summary.error);
+  const target = JSON.parse(result.runFacts.target);
+  assert.equal(target.packageSha256, expected);
+  assert.equal(target.packageFiles, 1);
+});
+
+test('wrapper stops before cache refresh, configuration changes or model calls when the package differs', (context) => {
+  const result = runWrapper(context, { expectedPackageSha256: 'f'.repeat(64), upload: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, new RegExp(`fingerprint ${fakePackageFingerprint()} does not match`));
+  assert.deepEqual(result.resourceCalls, []);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
 });
 
 test('wrapper stops before configuration changes or model calls when the cache cannot be refreshed', async (context) => {
