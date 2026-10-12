@@ -319,7 +319,8 @@ public class RestProcessorTests
         processor.ResourceType = ["resourceGroups"];
         processor.ApiVersion = "2021-04-01";
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+        Assert.Equal("NotSignedIn", ex.Code);
 
         Assert.Contains("No subscription is available", ex.Message);
         Assert.Equal(0, pipeline.SendCount);

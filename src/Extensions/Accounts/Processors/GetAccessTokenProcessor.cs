@@ -123,12 +123,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     }
 
                     var (signInCommand, tenantFlag) = SignInGuidance();
-                    throw AzclipsErrorException.InvalidInput(
+                    throw AzclipsErrorException.NotSignedIn(
                         $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
                         + "You may not be signed in to that tenant, or it requires additional sign-in "
                         + "(for example, multifactor authentication or a conditional access policy). "
-                        + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
-                        innerException: ex);
+                        + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.");
                 }
 
                 // get-access-token operates in the active profile's context, so the reported subscription

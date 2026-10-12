@@ -63,7 +63,7 @@ public class FederatedTokenAuthenticator(
 
         if (assertion is null)
         {
-            throw AzclipsErrorException.InvalidInput(
+            throw AzclipsErrorException.NotSignedIn(
                 $"Profile '{profile.Name}' signed in as a service principal, but no federated token is stored " +
                 "for it. Sign in again with a newly issued token.");
         }

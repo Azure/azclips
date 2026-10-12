@@ -305,7 +305,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (string.IsNullOrWhiteSpace(subscriptionId))
             {
-                throw AzclipsErrorException.InvalidInput(
+                throw AzclipsErrorException.NotSignedIn(
                     "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.");
             }
 

@@ -93,10 +93,9 @@ public class AddExtensionProcessor : IProcessor
                     CancellationToken.None
                 ).GetAwaiter().GetResult();
             }
-            catch (InvalidInputException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
+            catch (AzclipsErrorException ex) when (ex.Code == "ExtensionNotFound" && ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
             {
-                // Feed miss: normalize to typed ExtensionNotFound and append a local-artifact
-                // suggestion if a fresh nupkg exists in artifacts/Debug/.
+                // Feed miss: append a local-artifact suggestion if a fresh nupkg exists in artifacts/Debug/.
                 var localHint = LocalArtifactProbe.Find(resolvedPackageId);
                 var details = new Dictionary<string, object?>
                 {

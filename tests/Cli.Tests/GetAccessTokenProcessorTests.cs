@@ -215,7 +215,8 @@ public class GetAccessTokenProcessorTests
             new GetAccessTokenProcessor { Tenant = "other-tenant" },
             ProfileWith(AuthMethod.Browser), out _);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+        Assert.Equal("NotSignedIn", ex.Code);
         Assert.Contains("other-tenant", ex.Message, StringComparison.Ordinal);
         Assert.Contains("az login --tenant-id other-tenant", ex.Message, StringComparison.Ordinal);
         // The underlying cause is preserved for diagnosis.
@@ -233,7 +234,8 @@ public class GetAccessTokenProcessorTests
 
         var processor = InitProcessor(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser), out _);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+        Assert.Equal("NotSignedIn", ex.Code);
         Assert.Contains("Connect-AzAccount -TenantId", ex.Message, StringComparison.Ordinal);
     }
 
