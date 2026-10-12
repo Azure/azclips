@@ -97,6 +97,30 @@ jobs:
         & "${{ parameters.PackagingScriptsRoot }}/windows/zip/build_win_zip.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
       pwsh: true
 
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
+    displayName: Run BinSkim
+    condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+    inputs:
+      InputType: Basic
+      AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll'
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+    displayName: Publish Security Analysis Logs
+    condition: and(succeededOrFailed(), eq(variables['Rid'], 'win-x64'))
+    inputs:
+      ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
+      ArtifactType: Container
+      PublishProcessedResults: false
+      AllTools: true
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+    displayName: Analyze BinSkim Results
+    condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
+    inputs:
+      GdnBreakAllTools: false
+      GdnBreakGdnToolBinSkim: true
+      GdnBreakGdnToolBinSkimSeverity: Error
+
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows
     inputs:
