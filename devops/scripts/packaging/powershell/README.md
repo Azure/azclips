@@ -509,7 +509,7 @@ case therefore fails the actual Validate task after installation, while the buil
 fixtures remain independent.
 
 The matrix suite uses registry fixtures. Lifecycle fixtures isolate mocked module
-operations in child processes. Smoke fixtures import actual dummy script modules
+operations in child processes, including a module that loads under the wrong version. Smoke fixtures import actual dummy script modules
 in isolated processes, exercising version/dependency pinning, coverage, command
 provenance, assertions, timeout handling, and both authentication-module layouts.
 Pipeline fixtures exercise the real host runner
