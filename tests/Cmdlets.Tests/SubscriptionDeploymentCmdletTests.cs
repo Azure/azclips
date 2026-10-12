@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
-using static Cmdlets.Tests.ResourceGroupDeploymentCmdletTests;
 
 namespace Cmdlets.Tests;
 
@@ -51,5 +51,25 @@ public class SubscriptionDeploymentCmdletTests
     {
         Assert.Equal("dep", Bind(cmdlet, "Target dep")["Name"]);
         Assert.Equal("dep", Bind(cmdlet, "Target", new DeploymentExtended { Name = "dep" })["Name"]);
+    }
+
+    // Runs the real PowerShell binder against the cmdlet's parameter metadata, via a stand-in
+    // function that returns $PSBoundParameters, so binding is verified without starting the engine.
+    private static Hashtable Bind(Type cmdlet, string invocation, object? pipelineInput = null)
+    {
+        var metadata = new System.Management.Automation.CommandMetadata(cmdlet);
+        string paramBlock = ProxyCommand.GetCmdletBindingAttribute(metadata) + "param(" + ProxyCommand.GetParamBlock(metadata) + ")";
+        var iss = System.Management.Automation.Runspaces.InitialSessionState.Create();
+        iss.LanguageMode = PSLanguageMode.FullLanguage;
+        using var ps = PowerShell.Create(iss);
+        ps.AddScript($"function Target {{ {paramBlock} process {{ $PSBoundParameters }} }}; " + (pipelineInput is null ? invocation : $"$input | {invocation}"));
+        var result = pipelineInput is null ? ps.Invoke() : ps.Invoke(new[] { pipelineInput });
+        Assert.Empty(ps.Streams.Error);
+        var bound = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry e in (IDictionary)Assert.Single(result).BaseObject)
+        {
+            bound[e.Key] = e.Value is PSObject pso ? pso.BaseObject : e.Value;
+        }
+        return bound;
     }
 }
