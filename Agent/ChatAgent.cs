@@ -134,6 +134,13 @@ public sealed class ChatAgent : IAsyncDisposable
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
             UseLoggedInUser = useBuiltin ? false : null,
+            // Builtin only: its endpoint can reject replayed encrypted reasoning with
+            // 400 invalid_encrypted_content when a request reaches another region.
+            // The handler retries once without the reasoning items. Setting a
+            // handler moves model HTTP traffic from the runtime to .NET HttpClient.
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            RequestHandler = useBuiltin ? new EncryptedReasoningRecoveryHandler(renderer.OnEvent) : null,
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         });
 
         try

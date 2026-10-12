@@ -119,6 +119,16 @@ public class AgentEventStyleSnapshotTests
     }
 
     [Fact]
+    public void Llm_RequestRecovered_IsDarkGray()
+    {
+        var ev = new LlmRequestRecovered(
+            Reason: "invalid_encrypted_content", StatusCode: 400,
+            RemovedReasoningItems: 2, At: At);
+
+        SnapshotAssert.Matches("style-llm-request-recovered", RenderSegments(ev));
+    }
+
+    [Fact]
     public void SessionErrored_MarkerRed_MessageDefault_MetaDarkGray()
     {
         var ev = new SessionErrored(

@@ -1,0 +1,1 @@
+[Muted]"  ↻ LLM retry · 400 invalid_encrypted_content · dropped 2 reasoning items"

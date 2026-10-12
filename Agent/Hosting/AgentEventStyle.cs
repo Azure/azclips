@@ -84,6 +84,11 @@ public static class AgentEventStyle
             new Segment(AgentColorRole.Muted,
                 $"  ✓ LLM turn {e.Elapsed.TotalSeconds:F1}s · in {e.InputTokens} · out {e.OutputTokens} · cached {e.CachedTokens}"),
         },
+        LlmRequestRecovered e => new[]
+        {
+            new Segment(AgentColorRole.Muted,
+                $"  ↻ LLM retry · {e.StatusCode} {e.Reason} · dropped {e.RemovedReasoningItems} reasoning items"),
+        },
 
         SessionErrored e => BuildSessionErroredSegments(e),
 
