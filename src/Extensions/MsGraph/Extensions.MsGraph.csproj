@@ -18,7 +18,6 @@
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
-    <Import Project="$(MSBuildThisFileDirectory)..\Targets\ExtensionSidecar.targets" />
 
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <InternalsVisibleTo Include="Extensions.MsGraph.Tests" Key="$(MSSharedLibPublicKey)" />
