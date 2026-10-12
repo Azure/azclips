@@ -38,6 +38,20 @@ public sealed class ExtensionAddPlannerTests : IDisposable
     }
 
     [Fact]
+    public void ReadContract_ShouldReturnDeclaredVerbsAndLeaves_ForRealCompiledExtension()
+    {
+        // Exercises the exact method the build-time sidecar generator calls, against a real
+        // compiled assembly rather than an empty-directory edge case — catches regressions in
+        // the shared verb/leaf extraction logic regardless of caller (extension add vs sidecar).
+        var dir = StageFixtureDll("SharedAlpha");
+
+        var (verbs, leaves) = LeafReader.ReadContract(dir);
+
+        Assert.Equal(new[] { "sharedverb" }, verbs);
+        Assert.Equal(new[] { "sharedverb alpha" }, leaves);
+    }
+
+    [Fact]
     public void PlanContributions_SharedVerb_DisjointLeaves_BothSucceed()
     {
         // Alpha contributes `sharedverb alpha`, Beta contributes `sharedverb beta`. Same root

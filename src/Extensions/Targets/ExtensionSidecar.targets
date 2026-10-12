@@ -1,10 +1,23 @@
 <Project>
+  <!-- Core.Extensions owns LeafReader, the reflection-based verb/leaf reader this sidecar
+       generator calls. Build-order-only reference (no compile-time assembly reference, no
+       runtime copy) so Core.Extensions.dll is guaranteed to exist before this project's own
+       Build runs, without making the extension itself depend on it. -->
+  <ItemGroup>
+    <ProjectReference Include="$(RepoSrc)Core/Core.Extensions/Core.Extensions.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
   <UsingTask
     TaskName="GenerateExtensionSidecarTask"
     TaskFactory="RoslynCodeTaskFactory"
     AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
-      <ProjectDir ParameterType="System.String" Required="true" />
+      <ExtensionOutputDir ParameterType="System.String" Required="true" />
+      <CoreAssemblyDir ParameterType="System.String" Required="true" />
+      <ExtensionRuntimeAssemblyDir ParameterType="System.String" Required="true" />
       <PackageId ParameterType="System.String" Required="true" />
       <PackageVersion ParameterType="System.String" Required="false" />
       <OutputFile ParameterType="System.String" Required="true" />
@@ -13,102 +26,37 @@
       <Using Namespace="System" />
       <Using Namespace="System.IO" />
       <Using Namespace="System.Text" />
-      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Reflection" />
+      <Using Namespace="System.Collections" />
       <Using Namespace="System.Collections.Generic" />
       <Code Type="Fragment" Language="cs"><![CDATA[
-        // Build-time sidecar (CLIPS-933): regex-scans this extension's own source for
-        // declared [ExtensionVerb] attributes and CLI leaf keys, so runtime discovery can
-        // route commands (CLIPS-934) without loading the extension's DLL.
-        // Source-scan, not reflection: mirrors src/CLI/Targets/ExtensionHints.targets so
-        // generation never has to load/execute extension code.
+        // Build-time sidecar (CLIPS-933): reads the extension's REAL public contract via
+        // LeafReader.ReadContract - reflection over the just-built DLL for [ExtensionVerb]
+        // attributes and IExtensionIndex.GetCommandKeys(ClientType.CLI) - the exact mechanism
+        // "extension add" uses at runtime (Core.Extensions.LeafReader.ReadCliLeafKeys). Reading
+        // the real contract instead of pattern-matching a source-code table-naming convention
+        // means this can't silently drift from what the extension actually registers.
         //
-        // Two conventions exist in-tree for building the CLI command table, and both must
-        // be handled:
-        //   (a) dict-literal:   s_cliTable = new() { ["extension add"] = s_addExtension_CLI, ... }
-        //   (b) builder-call:   cliTable = BuildCommandTable(cliLogin, cliLogout, ...)
-        //       where each `cliXxx` is `CommandMetadata cliXxx = new(..., InvocationName: "...", ...)`
-        // (b) has no literal leaf-key strings at all — the leaf comes from the referenced
-        // CommandMetadata's InvocationName, resolved by field name below.
-        var verbAttrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
-        var fieldDeclPattern = new Regex(@"(?:private|internal|public)\s+static\s+readonly\s+CommandMetadata\s+(?<field>\w+)\s*=\s*new\b", RegexOptions.Multiline);
-        var invocationNamePattern = new Regex(@"InvocationName\s*:\s*""(?<name>[^""]*)""", RegexOptions.Multiline);
-        var dictLiteralTable = new Regex(@"\b(?:s_cliTable|cliTable)\s*=\s*new(?:\s*Dictionary<[^>]*>)?\s*\(\)\s*\{(?<body>[^{}]*)\}", RegexOptions.Multiline);
-        var builderCallTable = new Regex(@"\b(?:s_cliTable|cliTable)\s*=\s*(?!new\b)\w+\s*\((?<args>[^;]*)\)\s*;", RegexOptions.Multiline);
-        var leafKeyPattern = new Regex(@"\[\s*""([^""]+)""\s*\]", RegexOptions.Multiline);
-        var identifierPattern = new Regex(@"\w+", RegexOptions.Multiline);
+        // Invoked via reflection (not a compile-time <Reference>) for two reasons: it avoids
+        // RoslynCodeTaskFactory's default-reference-set friction with modern SDK-style
+        // assemblies, and it mirrors LeafReader's own "no hard reference dance" pattern for
+        // resolving Core.Abstractions.
+        var leafReaderAssembly = Assembly.LoadFrom(Path.Combine(CoreAssemblyDir, "Core.Extensions.dll"));
+        var leafReaderType = leafReaderAssembly.GetType("Core.Extensions.LeafReader")
+          ?? throw new InvalidOperationException("Core.Extensions.dll does not define Core.Extensions.LeafReader.");
+        var readContractMethod = leafReaderType.GetMethod("ReadContract", BindingFlags.Static | BindingFlags.Public)
+          ?? throw new InvalidOperationException("Core.Extensions.LeafReader does not define a public static ReadContract method.");
+
+        var probeDirs = new[] { CoreAssemblyDir, ExtensionRuntimeAssemblyDir };
+        var contract = readContractMethod.Invoke(null, new object[] { ExtensionOutputDir, probeDirs });
+        var contractType = contract.GetType();
+        var verbSource = (IEnumerable)contractType.GetField("Item1").GetValue(contract);
+        var leafSource = (IEnumerable)contractType.GetField("Item2").GetValue(contract);
 
         var verbs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string v in verbSource) { verbs.Add(v); }
         var leaves = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (Directory.Exists(ProjectDir))
-        {
-          foreach (var csFile in Directory.EnumerateFiles(ProjectDir, "*.cs", SearchOption.AllDirectories))
-          {
-            // Skip build output dirs so a stale copy can't be double-counted.
-            if (csFile.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) ||
-                csFile.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar))
-            {
-              continue;
-            }
-
-            var text = File.ReadAllText(csFile);
-
-            foreach (Match m in verbAttrPattern.Matches(text))
-            {
-              verbs.Add(m.Groups[1].Value);
-            }
-
-            // (a) dict-literal: leaf key is the literal bracket key, used as-is.
-            foreach (Match block in dictLiteralTable.Matches(text))
-            {
-              foreach (Match leaf in leafKeyPattern.Matches(block.Groups["body"].Value))
-              {
-                leaves.Add(leaf.Groups[1].Value);
-              }
-            }
-
-            // (b) builder-call: resolve each referenced field to its own InvocationName.
-            // Fields don't nest, so the Nth declaration's InvocationName is whichever match
-            // falls between its start and the next declaration's start (or EOF).
-            var builderMatches = builderCallTable.Matches(text);
-            if (builderMatches.Count > 0)
-            {
-              var fieldMatches = new List<Match>();
-              foreach (Match fm in fieldDeclPattern.Matches(text)) { fieldMatches.Add(fm); }
-              fieldMatches.Sort((x, y) => x.Index.CompareTo(y.Index));
-
-              var invMatches = new List<Match>();
-              foreach (Match im in invocationNamePattern.Matches(text)) { invMatches.Add(im); }
-
-              var invocationNameByField = new Dictionary<string, string>(StringComparer.Ordinal);
-              for (int i = 0; i < fieldMatches.Count; i++)
-              {
-                var start = fieldMatches[i].Index;
-                var end = (i + 1 < fieldMatches.Count) ? fieldMatches[i + 1].Index : text.Length;
-                foreach (var im in invMatches)
-                {
-                  if (im.Index >= start && im.Index < end)
-                  {
-                    invocationNameByField[fieldMatches[i].Groups["field"].Value] = im.Groups["name"].Value;
-                    break;
-                  }
-                }
-              }
-
-              foreach (Match table in builderMatches)
-              {
-                foreach (Match arg in identifierPattern.Matches(table.Groups["args"].Value))
-                {
-                  if (invocationNameByField.TryGetValue(arg.Value, out var invocationName))
-                  {
-                    leaves.Add(invocationName);
-                  }
-                }
-              }
-            }
-          }
-        }
-
+        foreach (string l in leafSource) { leaves.Add(l); }
 
         var sb = new StringBuilder();
         sb.AppendLine("{");
@@ -181,18 +129,21 @@
     </Task>
   </UsingTask>
 
-  <!-- v1 scope (CLIPS-933): just the s_cliTable leaf keys + declared verbs, no parameter/help
+  <!-- v1 scope (CLIPS-933): just the GetCommandKeys leaf keys + declared verbs, no parameter/help
        metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
        the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json. -->
   <Target Name="GenerateExtensionSidecar"
           AfterTargets="Build"
           Outputs="$(OutputPath)$(PackageId).commands.json">
     <GenerateExtensionSidecarTask
-      ProjectDir="$(MSBuildProjectDirectory)"
+      ExtensionOutputDir="$(OutputPath)"
+      CoreAssemblyDir="$(RepoArtifacts)$(Configuration)/Core/"
+      ExtensionRuntimeAssemblyDir="$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/"
       PackageId="$(PackageId)"
       PackageVersion="$(Version)"
       OutputFile="$(OutputPath)$(PackageId).commands.json" />
   </Target>
+
 
   <!-- Packaging (build_common.sh) runs "dotnet build" then a separate publish step with the
        NoBuild flag set, to stage builtin extension publish output. NoBuild skips the Build target
