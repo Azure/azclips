@@ -180,6 +180,9 @@ function global:npx {
     if ($scenario.produceArtifact) {
         $json = if ($scenario.invalidArtifact) { '{invalid json' }
             elseif ($scenario.emptyArtifact) { '{"results":{"results":[]}}' }
+            elseif ($scenario.judgeErrorArtifact) {
+                '{"results":{"results":[{"success":true,"testIdx":0,"testCase":{"vars":{"case_id":"profile-show-active"}},"gradingResult":{"componentResults":[{"pass":true}]}},{"success":false,"failureReason":1,"testIdx":1,"testCase":{"vars":{"case_id":"vm-create-long-flags"}},"gradingResult":{"componentResults":[{"pass":true},{"pass":false,"metadata":{"graderError":true}}]}}]}}'
+            }
             else { '{"results":{"results":[{"success":true}]}}' }
         $json | Set-Content -LiteralPath $output -Encoding utf8
     }
@@ -518,6 +521,15 @@ test('wrapper fails without uploading when Promptfoo does not export an artifact
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
   assert.equal(result.summary.executable, 'original-executable');
+});
+
+test('wrapper keeps but refuses to upload an artifact whose Judge calls failed', (context) => {
+  const result = runWrapper(context, { judgeErrorArtifact: true, evaluationExitCode: 100, upload: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /Judge infrastructure errors in 1 result\(s\): vm-create-long-flags#1/);
+  assert.equal(result.calls.includes('upload'), false);
+  assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
 });
 
 test('wrapper uploads fresh quality failures and preserves their nonzero exit code', (context) => {

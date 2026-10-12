@@ -276,7 +276,11 @@ comparing. Case inputs do not include run provenance, so the suite identity does
 not change with the commit, branch or time of a run. Do not present a replay/regrade as
 a fresh speed measurement. A provider, judge, or
 authentication error invalidates that measurement rather than producing a passing
-grade. Never retry until green and discard the failed attempts.
+grade. The Judge retries transient service errors (HTTP 408, 429 and 5xx, and
+timeouts) up to three attempts without re-running the target, and records the
+attempt count. A Judge call that still fails would otherwise read as a failed
+quality check, so the wrapper keeps that artifact but refuses to upload it.
+Never retry until green and discard the failed attempts.
 
 The wrapper uses the package-local Promptfoo version, runs the configured suite
 without Promptfoo caching, restores temporary Agent configuration and the

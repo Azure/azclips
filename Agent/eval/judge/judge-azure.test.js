@@ -214,6 +214,56 @@ test('does not invent the answering judge model when the response omits it', asy
   assert.equal(result.metadata.judgeDeployment, 'review-model');
 });
 
+test('retries a transient judge failure without changing the graded content and records the attempts', async (context) => {
+  const provider = new JudgeAzureProvider({ config: configuration });
+  context.mock.method(provider, '_bearer', async () => 'test-credential');
+  const delays = [];
+  context.mock.method(provider, '_sleep', async (milliseconds) => { delays.push(milliseconds); });
+  const output = '{"pass":true,"score":1,"reason":"ok"}';
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async () => {
+    calls += 1;
+    return calls === 1
+      ? new Response('server error', { status: 500 })
+      : new Response(JSON.stringify({ model: 'review-model-2026-01-01', choices: [{ message: { content: output } }] }), { status: 200 });
+  });
+  const result = await provider.callApi('Review this response');
+  assert.equal(result.output, output);
+  assert.equal(result.error, undefined);
+  assert.equal(result.metadata.judgeAttempts, 2);
+  assert.deepEqual(delays, [2000]);
+});
+
+test('honors Retry-After and reports a persistent transient failure after three attempts', async (context) => {
+  const provider = new JudgeAzureProvider({ config: configuration });
+  context.mock.method(provider, '_bearer', async () => 'test-credential');
+  const delays = [];
+  context.mock.method(provider, '_sleep', async (milliseconds) => { delays.push(milliseconds); });
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async () => {
+    calls += 1;
+    return new Response('busy', { status: 429, headers: { 'retry-after': '7' } });
+  });
+  const result = await provider.callApi('Review this response');
+  assert.match(result.error, /HTTP 429 after 3 attempts/);
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [7000, 7000]);
+});
+
+test('does not retry authorization or configuration errors', async (context) => {
+  const provider = new JudgeAzureProvider({ config: configuration });
+  context.mock.method(provider, '_bearer', async () => 'test-credential');
+  context.mock.method(provider, '_sleep', async () => assert.fail('No retry delay expected'));
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async () => {
+    calls += 1;
+    return new Response('forbidden', { status: 403 });
+  });
+  const result = await provider.callApi('Review this response');
+  assert.match(result.error, /HTTP 403 after 1 attempt\./);
+  assert.equal(calls, 1);
+});
+
 test('judge authentication, transport, and malformed-response failures are explicit errors, not successful grades', async (context) => {
   for (const scenario of [
     { name: 'authorization', response: () => new Response('private-response', { status: 403 }), reason: /HTTP 403/ },
@@ -226,6 +276,7 @@ test('judge authentication, transport, and malformed-response failures are expli
     await context.test(scenario.name, async (context) => {
       const provider = new JudgeAzureProvider({ config: configuration });
       context.mock.method(provider, '_bearer', async () => 'test-credential');
+      context.mock.method(provider, '_sleep', async () => {});
       context.mock.method(globalThis, 'fetch', scenario.response);
       const result = await provider.callApi('Review this response');
       assert.match(result.error, scenario.reason);

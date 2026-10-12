@@ -288,6 +288,27 @@ if ($null -eq $artifact.results -or $artifact.results.results -isnot [array] -or
     throw 'Promptfoo artifact contains no evaluation results.'
 }
 
+function Test-GraderError {
+    param($Result)
+
+    if ($null -eq $Result) { return $false }
+    if ($null -ne $Result.metadata -and $Result.metadata.graderError -eq $true) { return $true }
+    foreach ($child in @($Result.componentResults)) {
+        if (Test-GraderError $child) { return $true }
+    }
+    return $false
+}
+
+# Promptfoo scores a failed Judge call as an ordinary failed check, which would read as a quality failure.
+$graderErrors = @($artifact.results.results | Where-Object { Test-GraderError $_.gradingResult })
+if ($graderErrors.Count -gt 0) {
+    $graderErrorIds = ($graderErrors | ForEach-Object {
+            $caseId = $_.testCase.vars.case_id
+            if ($caseId) { "$caseId#$($_.testIdx)" } else { "#$($_.testIdx)" }
+        }) -join ', '
+    throw "Judge infrastructure errors in $($graderErrors.Count) result(s): $graderErrorIds. They would appear as quality failures, so the artifact is kept at $OutputPath but not uploaded. Rerun the evaluation."
+}
+
 Write-Host "Evaluation artifact: $OutputPath"
 if ($Upload) {
     $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

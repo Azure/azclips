@@ -164,6 +164,20 @@ async function sharedBearer(identity) {
   return t.token;
 }
 
+// Transient service failures are retried for the Judge only; the graded target response is unchanged.
+const TRANSIENT_JUDGE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+const MAX_JUDGE_ATTEMPTS = 3;
+
+function judgeRetryDelayMs(response, attempt) {
+  const retryAfter = response?.headers?.get?.('retry-after');
+  const retryAfterSeconds = retryAfter === null || retryAfter === undefined || !String(retryAfter).trim()
+    ? Number.NaN
+    : Number(retryAfter);
+  return Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
+    ? Math.min(retryAfterSeconds * 1000, 30_000)
+    : attempt * 2000;
+}
+
 class JudgeAzureProvider {
   constructor(options) {
     Object.assign(this, readJudgeConfiguration(options?.config));
@@ -175,6 +189,10 @@ class JudgeAzureProvider {
     return sharedBearer(require('@azure/identity'));
   }
 
+  async _sleep(milliseconds) {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+
   async callApi(prompt, _context) {
     let token;
     try {
@@ -183,22 +201,33 @@ class JudgeAzureProvider {
       return { error: `Azure judge authentication failed: ${error.message}` };
     }
     const url = `${this.endpoint}/openai/deployments/${encodeURIComponent(this.deployment)}/chat/completions?api-version=${encodeURIComponent(this.apiVersion)}`;
-    const requestStartedAt = Date.now();
     let res;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-    } catch (error) {
-      return { error: error.name === 'TimeoutError' || error.name === 'AbortError'
-        ? `Azure judge request timed out after ${this.timeoutMs} ms.`
-        : `Azure judge request failed: ${error.message}` };
+    let requestStartedAt;
+    let attempts = 0;
+    while (true) {
+      attempts += 1;
+      requestStartedAt = Date.now();
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+      } catch (error) {
+        if (attempts < MAX_JUDGE_ATTEMPTS) {
+          await this._sleep(judgeRetryDelayMs(undefined, attempts));
+          continue;
+        }
+        return { error: error.name === 'TimeoutError' || error.name === 'AbortError'
+          ? `Azure judge request timed out after ${this.timeoutMs} ms (${attempts} attempts).`
+          : `Azure judge request failed after ${attempts} attempts: ${error.message}` };
+      }
+      if (res.ok || !TRANSIENT_JUDGE_STATUS.has(res.status) || attempts >= MAX_JUDGE_ATTEMPTS) break;
+      await this._sleep(judgeRetryDelayMs(res, attempts));
     }
     if (!res.ok) {
-      return { error: `Azure judge returned HTTP ${res.status}. Check the deployment, API version, and Cognitive Services inference permissions.` };
+      return { error: `Azure judge returned HTTP ${res.status} after ${attempts} attempt${attempts === 1 ? '' : 's'}. Check the deployment, API version, and Cognitive Services inference permissions.` };
     }
     let data;
     try {
@@ -220,6 +249,7 @@ class JudgeAzureProvider {
         judgeDeployment: this.deployment,
         ...(typeof data.model === 'string' && data.model.trim() && { judgeModel: data.model.trim() }),
         judgeLatencyMs: Date.now() - requestStartedAt,
+        judgeAttempts: attempts,
       },
     };
   }
