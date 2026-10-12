@@ -34,7 +34,7 @@
       <Using Namespace="System.Collections" />
       <Using Namespace="System.Collections.Generic" />
       <Code Type="Fragment" Language="cs"><![CDATA[
-        // Build-time sidecar (CLIPS-933): reads the extension's REAL public contract via
+        // Build-time sidecar generator: reads the extension's REAL public contract via
         // LeafReader.ReadContract - reflection over the just-built DLL for [ExtensionVerb]
         // attributes and IExtensionIndex.GetCommandKeys(ClientType.CLI) - the exact mechanism
         // "extension add" uses at runtime (Core.Extensions.LeafReader.ReadCliLeafKeys). Reading
@@ -155,7 +155,7 @@
     </Task>
   </UsingTask>
 
-  <!-- v1 scope (CLIPS-933): just the GetCommandKeys leaf keys + declared verbs, no parameter/help
+  <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
        metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
        the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json. -->
   <Target Name="GenerateExtensionSidecar"
