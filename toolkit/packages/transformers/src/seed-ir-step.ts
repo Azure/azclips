@@ -30,6 +30,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
+import { warnUnknownKeys } from "./entry.js";
 import type { IR, IRTarget, IRTargetDirectories } from "@azure-client-engine/ir";
 
 const STEP_NAME = "seed-ir";
@@ -99,7 +100,7 @@ export function seedIrStep(facts: Record<string, unknown> = {}): TransformStep {
 // ─── Target ─────────────────────────────────────────────────────────────
 
 function resolveTarget(ir: IR, facts: Record<string, unknown>, report: Report): IRTarget {
-  warnUnknownKeys(facts, FACT_KEYS, "", report);
+  warnUnknownKeys(facts, FACT_KEYS, "fact", report);
   const read = factReader(facts, "", report);
 
   const rootNamespace = read("root-namespace", namespaceSegments, DOTTED_NAMESPACE) ?? sourceNamespace(ir);
@@ -139,7 +140,7 @@ function resolveDirectories(facts: Record<string, unknown>, report: Report): IRT
     return { ...DEFAULT_DIRECTORIES };
   }
 
-  warnUnknownKeys(value, DIRECTORY_KEYS, "directories.", report);
+  warnUnknownKeys(value, DIRECTORY_KEYS, "fact", report, "directories.");
   const read = factReader(value, "directories.", report);
   return {
     models: read("models", nonEmptyString, NON_EMPTY_STRING) ?? DEFAULT_DIRECTORIES.models,
@@ -175,23 +176,6 @@ function factReader(entry: Record<string, unknown>, prefix: string, report: Repo
     }
     return parsed;
   };
-}
-
-function warnUnknownKeys(
-  entry: Record<string, unknown>,
-  known: ReadonlySet<string>,
-  prefix: string,
-  report: Report,
-): void {
-  for (const key of Object.keys(entry)) {
-    if (known.has(key)) continue;
-    const expected = [...known].map((name) => `${prefix}${name}`).join(", ");
-    report(
-      "warning",
-      "unknown-fact",
-      `'${prefix}${key}' is not a known fact and is ignored. Known: ${expected}.`,
-    );
-  }
 }
 
 function nonEmptyString(value: unknown): string | undefined {

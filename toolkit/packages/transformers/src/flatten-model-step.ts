@@ -24,6 +24,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
+import { warnUnknownKeys } from "./entry.js";
 import {
   idKey,
   indexIR,
@@ -77,6 +78,11 @@ export interface FlattenModelOptions {
    */
   noInline?: string[];
 }
+
+const OPTION_KEYS: ReadonlySet<string> = new Set<keyof FlattenModelOptions>([
+  "inliningThreshold",
+  "noInline",
+]);
 
 interface ResolvedOptions {
   threshold: number;
@@ -144,7 +150,10 @@ export function flattenModelStep(options: Record<string, unknown> = {}): Transfo
         report: (severity, code, message) =>
           context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
         index: indexIR(ir),
-      };      for (const subPass of SUB_PASSES) subPass.run(pass);
+      };
+
+      warnUnknownKeys(options, OPTION_KEYS, "option", pass.report);
+      for (const subPass of SUB_PASSES) subPass.run(pass);
       return ir;
     },
   };

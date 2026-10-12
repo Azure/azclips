@@ -46,6 +46,7 @@
  */
 
 import type { TransformContext, TransformStep } from "./transform.js";
+import { NO_KEYS, warnUnknownKeys } from "./entry.js";
 import {
   commandKey,
   indexIR,
@@ -105,8 +106,9 @@ interface PassContext {
   readonly usedIdentities: Map<string, IROperation>;
 }
 
+/** Takes no options; any key it is given is warned about and ignored. */
 export function createCommandStep(
-  _options: Record<string, unknown> = {},
+  options: Record<string, unknown> = {},
 ): TransformStep<IR, TransformedIR> {
   return {
     name: STEP_NAME,
@@ -126,6 +128,7 @@ export function createCommandStep(
         usedNames: new Set<string>(),
         usedIdentities: new Map<string, IROperation>(),
       };
+      warnUnknownKeys(options, NO_KEYS, "option", pass.report);
 
       // Grouping is scratch, not shape: commands land flat, and downstream regroups
       // by reading `id.subject` / `id.action` rather than relying on array order.
