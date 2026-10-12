@@ -389,6 +389,84 @@ function toolTraceAvailable(tracePath) {
   return Boolean(tracePath && fs.existsSync(tracePath));
 }
 
+function timestampMilliseconds(value) {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function intervalUnionMilliseconds(intervals) {
+  const sorted = intervals.filter(([start, end]) => end > start).sort((left, right) => left[0] - right[0]);
+  let total = 0;
+  let current;
+  for (const [start, end] of sorted) {
+    if (!current || start > current[1]) {
+      if (current) total += current[1] - current[0];
+      current = [start, end];
+    } else {
+      current[1] = Math.max(current[1], end);
+    }
+  }
+  return total + (current ? current[1] - current[0] : 0);
+}
+
+// Splits Agent process time into model turns, tool execution and remaining host work.
+// Intervals end at payload.At and last payload.Elapsed; unknown phases are omitted.
+function readTiming(tracePath, processMs) {
+  if (!tracePath || !fs.existsSync(tracePath)) return undefined;
+  let traceStart;
+  let traceEnd;
+  let sessionStart;
+  const llm = [];
+  const tools = [];
+  for (const line of fs.readFileSync(tracePath, 'utf8').split(/\r?\n/).filter(Boolean)) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const at = timestampMilliseconds(entry.ts);
+    if (entry.kind === 'trace_start' && at !== undefined && traceStart === undefined) traceStart = at;
+    if (entry.kind === 'trace_end' && at !== undefined) traceEnd = at;
+    if (entry.kind === 'session_start' && at !== undefined && sessionStart === undefined) sessionStart = at;
+    if (entry.kind !== 'agent_event') continue;
+    const end = timestampMilliseconds(entry.payload?.At);
+    const elapsed = elapsedMilliseconds(entry.payload?.Elapsed);
+    if (end === undefined || elapsed === undefined) continue;
+    if (entry.event === 'LlmTurnCompleted') llm.push([end - elapsed, end]);
+    else if (entry.event === 'ToolCompleted' || entry.event === 'ToolFailed') tools.push([end - elapsed, end]);
+  }
+  const timing = {};
+  const record = (name, value) => {
+    if (Number.isFinite(value) && value >= 0) timing[name] = Math.round(value);
+  };
+  record('processMs', processMs);
+  if (traceStart !== undefined && traceEnd !== undefined) record('traceMs', traceEnd - traceStart);
+  if (traceStart !== undefined && sessionStart !== undefined) record('sessionStartMs', sessionStart - traceStart);
+  if (llm.length) {
+    if (sessionStart !== undefined) {
+      record('firstLlmRequestMs', Math.min(...llm.map(([start]) => start)) - sessionStart);
+    }
+    record('llmMs', llm.reduce((total, [start, end]) => total + (end - start), 0));
+    timing.llmTurns = llm.length;
+    record('toolMs', intervalUnionMilliseconds(tools));
+    record('hostMs', processMs - intervalUnionMilliseconds([...llm, ...tools]));
+  }
+  return Object.keys(timing).length > (timing.processMs === undefined ? 0 : 1) ? timing : undefined;
+}
+
+function readJsonEnvironment(name, env = process.env) {
+  const value = env[name];
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 class AzclipsAgentProvider {
   constructor(options) {
     this.exe = (options && options.config && options.config.exe) || process.env.AZCLIPS_EXE || DEFAULT_EXE;
@@ -398,6 +476,9 @@ class AzclipsAgentProvider {
     if (!['automatic', 'manual'].includes(this.recoveryMode)) {
       throw new Error('recoveryMode must be automatic or manual');
     }
+    // Run-level facts recorded by run-evaluation.ps1 before any case starts.
+    this.target = readJsonEnvironment('AZCLIPS_EVALUATION_TARGET');
+    this.resourceCache = readJsonEnvironment('AZCLIPS_EVALUATION_RESOURCE_CACHE');
   }
 
   id() { return 'azclips-agent'; }
@@ -424,6 +505,13 @@ class AzclipsAgentProvider {
         if (troubleshootStartedAt !== undefined) {
           recoveryMetadata.troubleshootDurationMs = Date.now() - troubleshootStartedAt;
         }
+        const processMs = troubleshootStartedAt !== undefined
+          ? recoveryMetadata.troubleshootDurationMs
+          : Date.now() - startedAt;
+        const runFacts = {
+          ...(this.target && { target: this.target }),
+          ...(this.resourceCache && { resourceCache: this.resourceCache }),
+        };
         const raw = `${stdout || ''}\n${stderr || ''}`;
         const numericExitCode = Number(err?.code ?? 1);
         const exitCode = err
@@ -443,6 +531,7 @@ class AzclipsAgentProvider {
             exitCode,
             resultType: 'azclips.plan.v1',
             runtimePromptSha256: runtimePrompt.sha256,
+            ...runFacts,
             processFailure,
             models: [],
             toolCalls: [],
@@ -453,6 +542,8 @@ class AzclipsAgentProvider {
             metadata.models = readModels(tracePath);
             metadata.toolCalls = readToolCalls(tracePath);
             tokenUsage = readTokenUsage(tracePath);
+            const timing = readTiming(tracePath, processMs);
+            if (timing) metadata.timing = timing;
           } catch {
             metadata.traceExtractionError = 'Unable to read diagnostic trace after process failure';
           }
@@ -475,6 +566,7 @@ class AzclipsAgentProvider {
           exitCode,
           resultType: 'azclips.plan.v1',
           runtimePromptSha256: runtimePrompt.sha256,
+          ...runFacts,
           models: readModels(tracePath),
           toolCalls: readToolCalls(tracePath),
           toolTraceAvailable: toolTraceAvailable(tracePath),
@@ -489,6 +581,12 @@ class AzclipsAgentProvider {
           if (!metadata.plan) metadata.planExtractionError = 'No propose_plan event found in trace';
         } catch (traceError) {
           metadata.planExtractionError = traceError instanceof Error ? traceError.message : String(traceError);
+        }
+        try {
+          const timing = readTiming(tracePath, processMs);
+          if (timing) metadata.timing = timing;
+        } catch (traceError) {
+          metadata.timingExtractionError = traceError instanceof Error ? traceError.message : String(traceError);
         }
         try {
           tokenUsage = readTokenUsage(tracePath);
@@ -550,6 +648,8 @@ class AzclipsAgentProvider {
               ...recoveryMetadata,
               resultType: 'azclips.plan.v1',
               runtimePromptSha256: runtimePrompt.sha256,
+              ...(this.target && { target: this.target }),
+              ...(this.resourceCache && { resourceCache: this.resourceCache }),
               recoveryMode: 'manual',
               processFailure: { type: 'infrastructure', reason: 'failure-capture', message },
             },
@@ -569,6 +669,8 @@ module.exports.originalCliError = originalCliError;
 module.exports.findRuntimePromptPath = findRuntimePromptPath;
 module.exports.readRuntimePrompt = readRuntimePrompt;
 module.exports.readModels = readModels;
+module.exports.readJsonEnvironment = readJsonEnvironment;
+module.exports.readTiming = readTiming;
 module.exports.splitAgentOutput = splitAgentOutput;
 module.exports.stripNoise = stripNoise;
 module.exports.readStructuredPlan = readStructuredPlan;

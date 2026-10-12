@@ -107,8 +107,20 @@ The reference suite requires a signed-in active profile. Its VM, deployment, and
 VNet fixtures use `azclips-test-rg` by default. Set
 `AZCLIPS_EVALUATION_RESOURCE_GROUP` to another group in the active subscription
 when needed. Deployment and VNet scenarios retain their existing-group
-precondition; verify that prerequisite before running. The harness does not
-create fixture groups or execute proposed resource-creation commands.
+precondition. The harness does not create fixture groups or execute proposed
+resource-creation commands.
+
+By default (`-ResourceCache refresh`), the wrapper runs the product's documented
+first-time setup, `az agent tool resource refresh`, in the selected home before it
+changes any configuration. It then requires the refreshed cache to contain the
+fixture group in the active subscription, or it stops before calling a model.
+The product answers lookups from this on-disk cache and refreshes it in the
+background only after its TTL expires, so every case sees the same near-real-time
+cache. Without the refresh, the first lookup in a new home reads an empty cache
+(`cache.resources` is 0) while the background refresh is still running; that miss
+reflects a cold start, not a missing group. Use `-ResourceCache existing` only to
+measure an unrefreshed cache deliberately or for a target without the refresh
+command; the choice is recorded with every result.
 
 The VM scenario accepts the cached-lookup policy confirmed on 2026-10-12:
 a cached lookup with no match may lead to proposing `az group create` before
@@ -135,6 +147,27 @@ up to five minutes per call. Promptfoo's duration measures the complete provider
 call, including CLI startup, error recovery, and trace extraction; it is not
 LLM-only latency. Preserve the same concurrency, timeout, case set, model,
 subscription, and cache conditions when comparing an optimized build.
+
+Every result records the facts needed to compare builds:
+
+- `response.metadata.target`: `version` is the `azclipsVersion` reported by
+  `agent tool env` (it includes the source commit), and `packageSha256` hashes the
+  relative path and SHA-256 of every file in the executable's directory.
+  Framework-dependent packages keep the product code in DLLs beside a generic app
+  host, so the executable hash alone does not identify a build.
+- `response.metadata.resourceCache`: the cache mode, refresh start time and
+  duration, cached resource count, and fixture-group check.
+- `response.metadata.timing`: `processMs` is the Agent process duration (the
+  troubleshoot process in manual mode). `llmMs` and `llmTurns` cover model turns,
+  `toolMs` is the union of tool executions, and `hostMs` is process time spent
+  neither waiting for the model nor running tools. `sessionStartMs`,
+  `firstLlmRequestMs` and `traceMs` locate startup work. A phase that the trace
+  does not report is omitted rather than recorded as zero.
+
+Model turns dominate end-to-end latency and vary between runs of the same build,
+while host time is much more stable. Compare `hostMs` and `llmMs` separately as
+well as the total, and do not treat an end-to-end difference that is smaller than
+the run-to-run spread of the same build as a speedup.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
@@ -208,8 +241,10 @@ observations per case are not sufficient to claim stable p95 latency.
 
 Freeze the case inputs, rubric version/content, judge deployment, runtime settings,
 fixture subscription/group, concurrency, repetition count and cache policy across
-baseline and candidate runs. Record binary and runtime-prompt hashes separately;
-do not present a replay/regrade as a fresh speed measurement. A provider, judge, or
+baseline and candidate runs. The wrapper records the target version, package
+fingerprint, cache state and runtime-prompt hash in every result; check that they
+identify the intended builds before comparing. Do not present a replay/regrade as
+a fresh speed measurement. A provider, judge, or
 authentication error invalidates that measurement rather than producing a passing
 grade. Never retry until green and discard the failed attempts.
 

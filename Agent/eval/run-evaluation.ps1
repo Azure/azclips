@@ -8,6 +8,8 @@ param(
     [string] $RecoveryMode = 'automatic',
     [ValidateRange(1, 2147483647)]
     [int] $Repeat = 1,
+    [ValidateSet('refresh', 'existing')]
+    [string] $ResourceCache = 'refresh',
     [switch] $Upload,
     [string] $ServiceUrl = 'https://azclis-evaluation-web-6b085460.azurewebsites.net'
 )
@@ -60,6 +62,80 @@ if ($runtimeEnvironment.signedIn -ne $true -or
     throw 'The reference suite requires an Azure-signed-in active profile with a subscription.'
 }
 
+function Get-PackageFingerprint {
+    param([string] $Root)
+
+    # Framework-dependent packages keep product code beside a generic app host, so hash every file.
+    $lines = [Collections.Generic.List[string]]::new()
+    foreach ($file in Get-ChildItem -LiteralPath $Root -File -Recurse) {
+        $relativePath = [IO.Path]::GetRelativePath($Root, $file.FullName).Replace('\', '/')
+        $lines.Add("$relativePath`t$((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant())")
+    }
+    $lines.Sort([StringComparer]::Ordinal)
+    $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+    return [ordered]@{
+        packageSha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+        packageFiles = $lines.Count
+    }
+}
+
+function Get-LastJsonLine {
+    param([string] $Text, [string] $Property)
+
+    $lines = @($Text -split "\r?\n" | Where-Object { $_.Trim().StartsWith('{') -and $_.Trim().EndsWith('}') })
+    [array]::Reverse($lines)
+    foreach ($line in $lines) {
+        try {
+            $value = $line | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($null -ne $value.PSObject.Properties[$Property]) { return $value }
+    }
+    return $null
+}
+
+$targetVersion = [string]$runtimeEnvironment.azclipsVersion
+if ([string]::IsNullOrWhiteSpace($targetVersion)) {
+    throw 'agent tool env did not report azclipsVersion; the evaluated target build cannot be identified.'
+}
+$target = [ordered]@{ version = $targetVersion.Trim() }
+$packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)
+$target.packageSha256 = $packageFingerprint.packageSha256
+$target.packageFiles = $packageFingerprint.packageFiles
+
+# Product lookups answer from the on-disk ARM cache and refresh it in the background.
+# Refresh it synchronously first so every case sees the same near-real-time cache.
+$fixtureGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_EVALUATION_RESOURCE_GROUP)) {
+    'azclips-test-rg'
+}
+else {
+    $env:AZCLIPS_EVALUATION_RESOURCE_GROUP.Trim()
+}
+$resourceCacheState = [ordered]@{ mode = $ResourceCache }
+if ($ResourceCache -eq 'refresh') {
+    $refreshStarted = [DateTimeOffset]::UtcNow
+    $refreshWatch = [Diagnostics.Stopwatch]::StartNew()
+    $refreshStatus = Get-LastJsonLine (Invoke-Azclips agent tool resource refresh) 'status'
+    $refreshWatch.Stop()
+    if ($null -eq $refreshStatus -or $refreshStatus.status -ne 'ok') {
+        throw 'The ARM resource cache refresh did not report status ok; no Agent evaluation was started.'
+    }
+    $lookup = Get-LastJsonLine (Invoke-Azclips agent tool resource find --name $fixtureGroup --kind resourceGroup --subscription-id $subscriptionId.ToString()) 'matchCount'
+    $fixtureFound = $null -ne $lookup -and @($lookup.matches | Where-Object {
+            $_.name -ieq $fixtureGroup -and $_.subscriptionId -ieq $subscriptionId.ToString()
+        }).Count -gt 0
+    if (-not $fixtureFound -or $lookup.cache.resources -le 0) {
+        throw "The refreshed ARM cache does not contain fixture group '$fixtureGroup' in subscription $subscriptionId. Create or select the fixture group before evaluating."
+    }
+    $resourceCacheState.refreshStartedAtUtc = $refreshStarted.ToString('o')
+    $resourceCacheState.refreshMs = $refreshWatch.ElapsedMilliseconds
+    $resourceCacheState.resources = [long]$lookup.cache.resources
+    $resourceCacheState.fixtureGroup = $fixtureGroup
+    $resourceCacheState.fixtureGroupFound = $true
+}
+
 $configurationRoot = if ($env:AZCLIPS_HOME) {
     $env:AZCLIPS_HOME
 }
@@ -86,6 +162,8 @@ $previousPromptfooUpdate = $env:PROMPTFOO_DISABLE_UPDATE
 $previousSignedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
 $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $previousRecoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
+$previousTarget = $env:AZCLIPS_EVALUATION_TARGET
+$previousResourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
 $runFailure = $null
 $restoreFailure = $null
 try {
@@ -101,6 +179,8 @@ try {
     $env:AZCLIPS_EVALUATION_SIGNED_IN = 'true'
     $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $subscriptionId.ToString()
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $RecoveryMode
+    $env:AZCLIPS_EVALUATION_TARGET = $target | ConvertTo-Json -Compress
+    $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $resourceCacheState | ConvertTo-Json -Compress
 
     Push-Location $PSScriptRoot
     try {
@@ -142,6 +222,8 @@ finally {
     $env:AZCLIPS_EVALUATION_SIGNED_IN = $previousSignedIn
     $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = $previousSubscriptionId
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $previousRecoveryMode
+    $env:AZCLIPS_EVALUATION_TARGET = $previousTarget
+    $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $previousResourceCache
 }
 
 if ($runFailure -or $restoreFailure) {

@@ -23,9 +23,42 @@ if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
     if ($scenario.environmentWarning) { Write-Error 'Environment diagnostic on stderr' -ErrorAction Continue }
     $signedIn = $scenario.signedOut -ne $true
     $subscription = if ($scenario.missingSubscription) { '' } else { '11111111-1111-4111-8111-111111111111' }
-    @{ signedIn = $signedIn; subscriptionId = $subscription } | ConvertTo-Json -Compress
+    $version = if ($scenario.missingVersion) { '' } else { '0.1.3+0123456789abcdef0123456789abcdef01234567' }
+    @{ signedIn = $signedIn; subscriptionId = $subscription; azclipsVersion = $version } | ConvertTo-Json -Compress
     $global:LASTEXITCODE = 0
     return
+}
+if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'resource') {
+    $resourceCalls = Join-Path $root 'resource-calls.txt'
+    if (Test-Path -LiteralPath (Join-Path $root 'configuration-calls.txt')) { Add-Content $resourceCalls 'after-configuration' }
+    Add-Content $resourceCalls ($args -join ' ')
+    if ($args[3] -eq 'refresh') {
+        if ($scenario.refreshFails) {
+            'ARM refresh failed'
+            $global:LASTEXITCODE = 5
+            return
+        }
+        '→ resources (ARG, paged)'
+        $status = if ($scenario.refreshStatus) { $scenario.refreshStatus } else { 'ok' }
+        @{ status = $status; tenantId = 'tenant'; elapsedSeconds = 1.5 } | ConvertTo-Json -Compress
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        $global:LASTEXITCODE = 0
+        return
+    }
+    if ($args[3] -eq 'find') {
+        $found = if ($scenario.fixtureMissing) { @() } else {
+            @(@{ name = $args[5]; subscriptionId = '11111111-1111-4111-8111-111111111111' })
+        }
+        @{
+            query = @{ namePattern = $args[5] }
+            cache = @{ resources = 42; loadedAtUtc = '2026-10-13T00:00:00Z' }
+            matchCount = $found.Count
+            matches = $found
+        } | ConvertTo-Json -Compress -Depth 5
+        $global:LASTEXITCODE = 0
+        return
+    }
+    throw "Unexpected fake resource command: $($args -join ' ')"
 }
 $statePath = Join-Path $env:AZCLIPS_HOME 'config.json'
 $json = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $statePath -Raw }
@@ -73,6 +106,8 @@ $env:PROMPTFOO_DISABLE_UPDATE = 'false'
 $env:AZCLIPS_EVALUATION_SIGNED_IN = 'original-signed-in'
 $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID = 'original-subscription'
 $env:AZCLIPS_EVALUATION_RECOVERY_MODE = 'original-recovery-mode'
+$env:AZCLIPS_EVALUATION_TARGET = 'original-target'
+$env:AZCLIPS_EVALUATION_RESOURCE_CACHE = 'original-resource-cache'
 
 function global:npx {
     if ($args[0] -ne '--no-install') { throw 'Expected package-local Promptfoo without installation' }
@@ -91,6 +126,10 @@ function global:npx {
     $outputIndex = [array]::IndexOf([object[]]$args, '--output') + 1
     $output = $args[$outputIndex]
     Add-Content (Join-Path $root 'calls.txt') "evaluate|$output"
+    @{
+        target = $env:AZCLIPS_EVALUATION_TARGET
+        resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
+    } | ConvertTo-Json | Set-Content (Join-Path $root 'run-facts.json')
     $configPath = Join-Path $env:AZCLIPS_HOME 'config.json'
     $configuration = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
     $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
@@ -141,6 +180,7 @@ $parameters = @{
 if (-not $scenario.defaultOutput) { $parameters.OutputPath = Join-Path $root 'result.json' }
 if ($scenario.upload) { $parameters.Upload = $true }
 if ($scenario.recoveryMode) { $parameters.RecoveryMode = $scenario.recoveryMode }
+if ($scenario.resourceCache) { $parameters.ResourceCache = $scenario.resourceCache }
 if ($null -ne $scenario.repeat) { $parameters.Repeat = $scenario.repeat }
 $exitCode = 0
 $failure = $null
@@ -163,6 +203,8 @@ catch {
     signedIn = $env:AZCLIPS_EVALUATION_SIGNED_IN
     subscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
     recoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
+    target = $env:AZCLIPS_EVALUATION_TARGET
+    resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
 } |
     ConvertTo-Json | Set-Content (Join-Path $root 'summary.json')
 exit $exitCode
@@ -215,6 +257,8 @@ function runWrapper(context, options = {}) {
     : null;
   const configurationText = configurationBytes?.toString('utf8').replace(/^\uFEFF/, '').trim();
   const backupDuringEvaluationPath = path.join(directory, 'backup-during-evaluation.bin');
+  const resourceCallsPath = path.join(directory, 'resource-calls.txt');
+  const runFactsPath = path.join(directory, 'run-facts.json');
   return {
     ...result,
     directory,
@@ -222,6 +266,12 @@ function runWrapper(context, options = {}) {
     summary: JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')),
     configuration: configurationText ? JSON.parse(configurationText) : null,
     configurationBytes,
+    resourceCalls: fs.existsSync(resourceCallsPath)
+      ? fs.readFileSync(resourceCallsPath, 'utf8').trim().split(/\r?\n/)
+      : [],
+    runFacts: fs.existsSync(runFactsPath)
+      ? JSON.parse(fs.readFileSync(runFactsPath, 'utf8').replace(/^\uFEFF/, ''))
+      : null,
     backups: fs.readdirSync(home)
       .filter((name) => /^config\.json\.evaluation-[a-f0-9]{32}\.bak$/.test(name))
       .map((name) => path.join(home, name)),
@@ -253,6 +303,63 @@ test('wrapper restores original configuration bytes, JSON types, and environment
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
   assert.equal(result.calls.length, 1);
   assert.ok(fs.existsSync(path.join(result.directory, 'result.json')));
+  assert.equal(result.summary.target, 'original-target');
+  assert.equal(result.summary.resourceCache, 'original-resource-cache');
+});
+
+test('wrapper refreshes the ARM cache and identifies the target package before changing configuration', (context) => {
+  const result = runWrapper(context);
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(result.resourceCalls, [
+    'agent tool resource refresh',
+    'agent tool resource find --name azclips-test-rg --kind resourceGroup --subscription-id 11111111-1111-4111-8111-111111111111',
+  ]);
+  const target = JSON.parse(result.runFacts.target);
+  assert.equal(target.version, '0.1.3+0123456789abcdef0123456789abcdef01234567');
+  assert.match(target.packageSha256, /^[0-9a-f]{64}$/);
+  assert.ok(target.packageFiles > 0);
+  const cache = JSON.parse(result.runFacts.resourceCache);
+  assert.equal(cache.mode, 'refresh');
+  assert.equal(cache.resources, 42);
+  assert.equal(cache.fixtureGroup, 'azclips-test-rg');
+  assert.equal(cache.fixtureGroupFound, true);
+  assert.ok(cache.refreshMs >= 0);
+  assert.ok(!Number.isNaN(Date.parse(cache.refreshStartedAtUtc)));
+});
+
+test('wrapper stops before configuration changes or model calls when the cache cannot be refreshed', async (context) => {
+  for (const [name, options, message] of [
+    ['refresh process fails', { refreshFails: true }, /azclips exited with 5 while running: agent tool resource refresh/],
+    ['refresh status is not ok', { refreshStatus: 'partial' }, /did not report status ok/],
+    ['fixture group is absent', { fixtureMissing: true }, /does not contain fixture group 'azclips-test-rg'/],
+  ]) {
+    await context.test(name, (context) => {
+      const result = runWrapper(context, { ...options, upload: true });
+      assert.equal(result.status, 1);
+      assert.match(result.summary.error, message);
+      assert.deepEqual(result.configurationCalls, []);
+      assert.deepEqual(result.calls, []);
+      assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+      assert.deepEqual(result.backups, []);
+      assert.ok(!result.resourceCalls.includes('after-configuration'));
+    });
+  }
+});
+
+test('existing cache mode records the choice without refreshing or querying the cache', (context) => {
+  const result = runWrapper(context, { resourceCache: 'existing' });
+  assert.equal(result.status, 0, result.summary.error);
+  assert.deepEqual(result.resourceCalls, []);
+  assert.deepEqual(JSON.parse(result.runFacts.resourceCache), { mode: 'existing' });
+});
+
+test('wrapper refuses an unidentified target before any side effect', (context) => {
+  const result = runWrapper(context, { missingVersion: true });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /did not report azclipsVersion/);
+  assert.deepEqual(result.resourceCalls, []);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
 });
 
 test('wrapper uses a distinct default artifact path for each run', (context) => {

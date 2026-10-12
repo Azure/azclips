@@ -16,7 +16,9 @@ const {
   findRuntimePromptPath,
   readRuntimePrompt,
   readModels,
+  readJsonEnvironment,
   readStructuredPlan,
+  readTiming,
   readToolCalls,
   readTokenUsage,
   splitAgentOutput,
@@ -875,6 +877,7 @@ test('returns unavailable values when the trace file is missing', () => {
   assert.deepEqual(readModels(missing), []);
   assert.deepEqual(readToolCalls(missing), []);
   assert.equal(toolTraceAvailable(missing), false);
+  assert.equal(readTiming(missing, 1000), undefined);
 });
 
 test('distinguishes an available zero-call trace from a missing trace', (context) => {
@@ -885,4 +888,131 @@ test('distinguishes an available zero-call trace from a missing trace', (context
 
   assert.equal(toolTraceAvailable(tracePath), true);
   assert.deepEqual(readToolCalls(tracePath), []);
+});
+
+function timedTrace() {
+  const at = (seconds) => new Date(Date.UTC(2026, 9, 12, 7, 38, 0) + seconds * 1000).toISOString();
+  return [
+    { kind: 'trace_start', ts: at(0) },
+    { kind: 'session_start', ts: at(3) },
+    { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(20), payload: { Elapsed: '00:00:12.0000000', At: at(20) } },
+    { kind: 'agent_event', event: 'ToolStarted', ts: at(20), payload: { Name: 'find_resources', CallId: 'a', At: at(20) } },
+    { kind: 'agent_event', event: 'ToolStarted', ts: at(20), payload: { Name: 'get_command', CallId: 'b', At: at(20) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(23), payload: { CallId: 'a', Elapsed: '00:00:03', At: at(23) } },
+    { kind: 'agent_event', event: 'ToolCompleted', ts: at(24), payload: { CallId: 'b', Elapsed: '00:00:04.0000000', At: at(24) } },
+    { kind: 'agent_event', event: 'LlmTurnCompleted', ts: at(34), payload: { Elapsed: '00:00:10', At: at(34) } },
+    { kind: 'agent_event', event: 'ToolFailed', ts: at(35.5), payload: { CallId: 'c', Elapsed: '00:00:01.5', At: at(35.5) } },
+    { kind: 'trace_end', ts: at(36) },
+  ];
+}
+
+test('splits Agent process time into model, tool and remaining host phases from the trace', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(tracePath, [...timedTrace().map((entry) => JSON.stringify(entry)), '{malformed'].join('\n'));
+
+  assert.deepEqual(readTiming(tracePath, 38000), {
+    processMs: 38000,
+    traceMs: 36000,
+    sessionStartMs: 3000,
+    firstLlmRequestMs: 5000,
+    llmMs: 22000,
+    llmTurns: 2,
+    toolMs: 5500,
+    hostMs: 10500,
+  });
+});
+
+test('omits timing phases that the trace does not report instead of recording zero', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-target-test-'));
+  const tracePath = path.join(directory, 'trace.jsonl');
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  fs.writeFileSync(tracePath, JSON.stringify({ kind: 'agent_event', event: 'LlmTurnCompleted', payload: { Model: 'gpt-test' } }));
+  assert.equal(readTiming(tracePath, 1000), undefined);
+
+  fs.writeFileSync(tracePath, [
+    { kind: 'trace_start', ts: '2026-10-12T07:38:00.0000000+00:00' },
+    { kind: 'trace_end', ts: '2026-10-12T07:38:01.2500000+00:00' },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+  assert.deepEqual(readTiming(tracePath, undefined), { traceMs: 1250 });
+});
+
+test('reads run-level JSON facts only from well-formed objects', () => {
+  assert.deepEqual(readJsonEnvironment('FACTS', { FACTS: '{"version":"0.1.3+abc"}' }), { version: '0.1.3+abc' });
+  for (const value of [undefined, '', '  ', 'not json', '[1]', '"text"', 'null']) {
+    assert.equal(readJsonEnvironment('FACTS', { FACTS: value }), undefined);
+  }
+});
+
+function withEnvironment(context, values) {
+  const previous = Object.fromEntries(Object.keys(values).map((name) => [
+    name, Object.prototype.hasOwnProperty.call(process.env, name) ? process.env[name] : undefined,
+  ]));
+  const apply = (entries) => {
+    for (const [name, value] of Object.entries(entries)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  };
+  apply(values);
+  context.after(() => apply(previous));
+}
+
+test('records the run target, cache state and phase timing on every manual observation', async (context) => {
+  const fixture = createProviderFixture(context);
+  fs.writeFileSync(fixture.tracePath, [
+    ...timedTrace().map((entry) => JSON.stringify(entry)),
+    JSON.stringify({ kind: 'agent_event', event: 'ToolStarted', payload: { Name: 'propose_plan', ArgsJson: JSON.stringify(fixture.plan) } }),
+  ].join('\n'));
+  const target = { version: '0.1.3+abc', packageSha256: 'a'.repeat(64), packageFiles: 3 };
+  const resourceCache = { mode: 'refresh', resources: 42, fixtureGroup: 'azclips-test-rg', fixtureGroupFound: true };
+  withEnvironment(context, {
+    AZCLIPS_EVALUATION_TARGET: JSON.stringify(target),
+    AZCLIPS_EVALUATION_RESOURCE_CACHE: JSON.stringify(resourceCache),
+  });
+  const provider = new AzclipsAgentProvider({
+    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+  });
+  const id = '1234-2026-1008-0000-0001';
+  let call = 0;
+  context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
+    call += 1;
+    queueMicrotask(() => {
+      if (call === 1) {
+        callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `az troubleshoot --id ${id}`);
+      } else {
+        callback(null, `${fixture.output}\ntrace: ${fixture.tracePath}`, '');
+      }
+    });
+    return { stdin: { end() {} } };
+  });
+
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show' } });
+
+  assert.equal(response.error, undefined);
+  assert.deepEqual(response.metadata.target, target);
+  assert.deepEqual(response.metadata.resourceCache, resourceCache);
+  assert.equal(response.metadata.timing.processMs, response.metadata.troubleshootDurationMs);
+  assert.equal(response.metadata.timing.llmMs, 22000);
+  assert.equal(response.metadata.timing.llmTurns, 2);
+  assert.equal(response.metadata.timing.toolMs, 5500);
+  assert.equal(response.metadata.timingExtractionError, undefined);
+});
+
+test('does not invent run facts when the wrapper did not record them', async (context) => {
+  const fixture = createProviderFixture(context);
+  withEnvironment(context, {
+    AZCLIPS_EVALUATION_TARGET: undefined,
+    AZCLIPS_EVALUATION_RESOURCE_CACHE: 'not json',
+  });
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
+  mockProcessResult(context, fixture, null, `${fixture.output}\ntrace: ${fixture.tracePath}`);
+
+  const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show', flavor: 'azure cli' } });
+
+  assert.equal(response.metadata.target, undefined);
+  assert.equal(response.metadata.resourceCache, undefined);
+  assert.equal(response.metadata.timing, undefined);
 });
