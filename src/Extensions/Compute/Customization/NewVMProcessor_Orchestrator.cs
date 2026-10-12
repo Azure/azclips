@@ -20,6 +20,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string? Image { get; set; }
 
+        [ParameterGroup("Security Arguments")]
+        public string? SecurityType { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecurityEncryptionType { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public string? OsDiskSecureVMDiskEncryptionSet { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -57,7 +66,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
             {
-                throw new ArgumentException("Specify an administrator password or SSH public key values.");
+                throw AzclipsErrorException.UsageError("Specify an administrator password or SSH public key values.");
             }
 
             var imageReference = ImageReferenceResolver.ResolveMarketplaceUrn(Image);
@@ -69,9 +78,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 (operatingSystemType, plan, useTrustedLaunchDefaults) = await ResolveImageMetadataAsync(imageReference);
             }
 
+            var securityProfile = VmSecurityProfileResolver.Resolve(
+                SecurityType,
+                useTrustedLaunchDefaults,
+                OsDiskSecurityEncryptionType,
+                OsDiskSecureVMDiskEncryptionSet,
+                SubscriptionId,
+                ResourceGroupName);
+
             if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
             }
 
             ResolvedLinuxProfile? linuxProfile = null;
@@ -120,17 +137,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
+                p.SecurityType = securityProfile.SecurityType;
+                p.SecureBootEnabled = securityProfile.SecureBootEnabled;
+                p.VTpmEnabled = securityProfile.VTpmEnabled;
+                p.OsDiskSecurityEncryptionType = securityProfile.OsDiskSecurityEncryptionType;
+                p.OsDiskSecureVMDiskEncryptionSetId = securityProfile.OsDiskSecureVMDiskEncryptionSetId;
                 if (linuxProfile is not null)
                 {
                     p.LinuxDisablePasswordAuthentication = linuxProfile.DisablePasswordAuthentication;
                     p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
                     p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
-                }
-                if (!useTrustedLaunchDefaults)
-                {
-                    p.SecurityType = null;
-                    p.SecureBootEnabled = null;
-                    p.VTpmEnabled = null;
                 }
                 p.NetworkInterfaceId = nic.Id;
              });
