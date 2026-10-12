@@ -79,6 +79,11 @@ internal sealed class ScenarioHost : IDisposable
     private readonly List<object> _outputs = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
+    private sealed class BackendHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
     /// <param name="useLiveAuth">
     /// Record mode needs a real token, so it keeps the host's real profile/auth/config and the
     /// signed-in profile. Playback stubs them and needs no credentials.
@@ -112,8 +117,7 @@ internal sealed class ScenarioHost : IDisposable
             }
             if (backendHandler is not null)
             {
-                services.AddSingleton(new HttpClient(backendHandler));
-                services.AddSingleton(new Core.Runtime.SensitiveHttpClient(backendHandler));
+                services.AddSingleton<IHttpClientFactory>(new BackendHttpClientFactory(backendHandler));
             }
 
             // Each surface binds arguments with its real provider; that binding difference

@@ -36,7 +36,11 @@ public sealed class SensitiveJsonSanitizer : IRecordingSanitizer
         }
         else if (node is JsonArray array)
         {
-            foreach (var item in array) Redact(item);
+            for (int index = 0; index < array.Count; index++)
+            {
+                if (array[index] is JsonValue) array[index] = "[redacted]";
+                else Redact(array[index]);
+            }
         }
     }
 }

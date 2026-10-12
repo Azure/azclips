@@ -25,10 +25,6 @@ namespace Core.Runtime
 
         public int PollingInterval { get; set; } = 30;
 
-        public HttpPipeline() : this(new HttpClientFactory())
-        {
-        }
-
         public HttpPipeline(ISendAsyncTerminalFactory terminalStep) : this(
             terminalStep,
             DefaultMaxRetry,

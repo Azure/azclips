@@ -442,7 +442,7 @@ IAuthHandler authHandler = new AuthHandler {
     ApplyOverride = false
 };
 IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-    new HttpClientFactory(httpClient),
+    httpTransportFactory,
     session.Option.Http.MaxRetries,
     session.Option.Http.MaxRetriesFor429) { PollingInterval = 15 };
 ProcessorContext context = new ProcessorContext(

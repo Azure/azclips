@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -81,8 +82,7 @@ public class SensitiveHttpDiagnosticsTests
         services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler((handler, _) =>
             handlers.Add(Assert.IsType<SocketsHttpHandler>(handler))));
         using var provider = services.BuildServiceProvider();
-        provider.GetRequiredService<HttpClient>();
-        provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>();
+        provider.GetRequiredService<ISendAsyncTerminalFactory>();
         Assert.Equal(2, handlers.Count);
         Assert.All(handlers, handler => Assert.Equal(TimeSpan.FromMinutes(2), handler.PooledConnectionLifetime));
         return new WeakReference(provider);
@@ -91,8 +91,8 @@ public class SensitiveHttpDiagnosticsTests
     [Fact]
     public async Task BothTransportsUseSharedHostConfiguration()
     {
-        Assert.NotNull(typeof(Core.Runtime.SensitiveHttpClient).GetConstructor([typeof(HttpMessageHandler)]));
         var handlers = new List<HttpClientHandler>();
+        var clients = new List<HttpClient>();
         using var interceptor = new CapturingHandler();
         using var key = RSA.Create(2048);
         var certificateRequest = new CertificateRequest("CN=transport-fixture", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -104,6 +104,7 @@ public class SensitiveHttpDiagnosticsTests
         services.ConfigureHttpClientDefaults(builder => builder
             .ConfigureHttpClient(client =>
             {
+                clients.Add(client);
                 client.Timeout = TimeSpan.FromSeconds(7);
                 client.DefaultRequestHeaders.Add("host-setting", "shared");
             })
@@ -122,8 +123,7 @@ public class SensitiveHttpDiagnosticsTests
             })
             .AddHttpMessageHandler(() => new HostConfiguredHandler(interceptor)));
         using var provider = services.BuildServiceProvider();
-        var ordinary = provider.GetRequiredService<HttpClient>();
-        var sensitive = provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>();
+        var transport = provider.GetRequiredService<ISendAsyncTerminalFactory>().Create();
 
         Assert.Equal(2, handlers.Count);
         Assert.True(handlers[0].AllowAutoRedirect);
@@ -135,9 +135,8 @@ public class SensitiveHttpDiagnosticsTests
             Assert.Equal(System.Security.Authentication.SslProtocols.Tls12, handler.SslProtocols);
             Assert.Contains(certificate, handler.ClientCertificates.Cast<X509Certificate2>());
         });
-        Assert.Equal(TimeSpan.FromSeconds(7), ordinary.Timeout);
-        Assert.Equal(ordinary.Timeout, sensitive.Timeout);
-        var transport = new Core.Runtime.HttpClientFactory(ordinary, sensitive);
+        Assert.Equal(2, clients.Count);
+        Assert.All(clients, client => Assert.Equal(TimeSpan.FromSeconds(7), client.Timeout));
         using var ordinaryRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/ordinary");
         using var sensitiveRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/private-secret-uri");
         sensitiveRequest.MarkSensitive();
@@ -159,7 +158,7 @@ public class SensitiveHttpDiagnosticsTests
         services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler(() => handler));
         using var provider = services.BuildServiceProvider();
 
-        var error = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>());
+        var error = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ISendAsyncTerminalFactory>());
 
         Assert.Contains("redirects can be disabled", error.Message);
         Assert.Equal(0, handler.Calls);
@@ -202,11 +201,11 @@ public class SensitiveHttpDiagnosticsTests
         var ordinaryHandler = new CapturingHandler();
         var sensitiveHandler = new CapturingHandler();
         using var ordinary = new HttpClient(ordinaryHandler);
-        using var protectedClient = new Core.Runtime.SensitiveHttpClient(sensitiveHandler);
+        using var protectedClient = new HttpClient(sensitiveHandler);
         ordinary.DefaultRequestHeaders.Add("host-setting", "ordinary");
         protectedClient.DefaultRequestHeaders.Add("host-setting", "sensitive");
         protectedClient.Timeout = TimeSpan.FromSeconds(7);
-        var factory = new Core.Runtime.HttpClientFactory(ordinary, protectedClient);
+        var factory = new Core.Runtime.HttpClientTransportFactory(ordinary, protectedClient);
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         if (sensitive) request.MarkSensitive();
 
@@ -219,15 +218,13 @@ public class SensitiveHttpDiagnosticsTests
     }
 
     [Fact]
-    public async Task SensitiveRequestWithoutHostConfigurationFailsBeforeNetwork()
+    public void MissingSensitiveRegistrationFailsDuringConstruction()
     {
-        var handler = new CapturingHandler();
-        using var client = new HttpClient(handler);
-        var factory = new Core.Runtime.HttpClientFactory(client);
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
-        request.MarkSensitive();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => factory.SendAsync(request, Mock.Of<IEventPublisher>()));
-        Assert.Equal(0, handler.Calls);
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.RemoveAllKeyed<HttpClient>(Core.Runtime.HttpClientTransportFactory.SensitiveClientName);
+        using var provider = services.BuildServiceProvider();
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ISendAsyncTerminalFactory>());
     }
 
     [Fact]
@@ -236,8 +233,8 @@ public class SensitiveHttpDiagnosticsTests
         using var cancellation = new CancellationTokenSource();
         var handler = new CapturingHandler { WaitForCancellation = true };
         using var client = new HttpClient();
-        using var sensitive = new Core.Runtime.SensitiveHttpClient(handler);
-        var factory = new Core.Runtime.HttpClientFactory(client, sensitive);
+        using var sensitive = new HttpClient(handler);
+        var factory = new Core.Runtime.HttpClientTransportFactory(client, sensitive);
         var publisher = new Mock<IEventPublisher>();
         publisher.SetupGet(value => value.Token).Returns(cancellation.Token);
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
@@ -266,6 +263,8 @@ public class SensitiveHttpDiagnosticsTests
     [Theory]
     [InlineData("{\"value\":\"private-fixture\",\"pwd\":\"private-fixture\"}")]
     [InlineData("{broken private-fixture")]
+    [InlineData("[\"private-fixture\"]")]
+    [InlineData("{\"value\":[\"private-fixture\",[\"private-fixture\"],{\"value\":\"private-fixture\"}]}")]
     public async Task MarkedTrafficIsSanitizedBeforeItEntersARecording(string body)
     {
         var record = new global::Tests.Recording.SessionRecord();
@@ -308,11 +307,10 @@ public class SensitiveHttpDiagnosticsTests
             Content = new StringContent("private-fixture")
         };
         request.MarkSensitive();
-        using var ordinaryClient = new HttpClient();
         var services = new ServiceCollection();
         Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
         using var provider = services.BuildServiceProvider();
-        var transport = new Core.Runtime.HttpClientFactory(ordinaryClient, provider.GetRequiredService<Core.Runtime.SensitiveHttpClient>());
+        var transport = provider.GetRequiredService<ISendAsyncTerminalFactory>().Create();
         Task<HttpResponseMessage> sending = transport.SendAsync(request, publisher.Object);
         using var connection = await listener.AcceptTcpClientAsync(cancellation.Token);
         using var stream = connection.GetStream();

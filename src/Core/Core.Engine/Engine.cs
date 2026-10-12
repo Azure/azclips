@@ -23,7 +23,7 @@ namespace Core.Engine
     /// </summary>
     public partial class Engine(
         ClientType clientType,
-        HttpClient httpClient,
+        ISendAsyncTerminalFactory httpTransportFactory,
         IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -31,8 +31,7 @@ namespace Core.Engine
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
-        IHttpPipelineService httpPipelineService,
-        SensitiveHttpClient? sensitiveHttpClient = null) : IEngine
+        IHttpPipelineService httpPipelineService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -118,7 +117,7 @@ namespace Core.Engine
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient, sensitiveHttpClient),
+                httpTransportFactory,
                 session.Option.Http.MaxRetries,
                 session.Option.Http.MaxRetriesFor429)
             {

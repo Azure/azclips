@@ -192,6 +192,8 @@ Deleted-secret metadata, including recovery ID and retention dates when returned
 
 Use Undo-AzKeyVaultSecretRemoval within the vault's retention period to recover a soft-deleted secret and its versions. A soft-deleted name remains reserved until recovered or removed by the service's retention policy. Purged secrets cannot be recovered.
 
+Purge is a known gap in this preview. Neither a CLI secret purge command nor a PowerShell secret purge parameter is exposed.
+
 ## RELATED LINKS
 
 [Get-AzKeyVaultSecret](Get-AzKeyVaultSecret.md)
