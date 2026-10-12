@@ -24,12 +24,17 @@ public class ManagedIdentityAuthenticator(
 
         Logger.Debug($"[{nameof(ManagedIdentityAuthenticator)}] Token acquired. ExpiresOn:{token.ExpiresOn}");
 
+        // The IMDS token carries the identity's directory and application ids. Surface them so the
+        // profile records the real tenant and identity instead of empty placeholders.
+        var claims = AccessTokenClaims.Read(token.Token, Logger);
+
         return new AuthResult
         {
             AccessToken = token.Token,
             ExpiresOn = token.ExpiresOn,
             Scopes = scopes,
-            TenantId = string.Empty,
+            TenantId = claims.TenantId ?? string.Empty,
+            ClientId = claims.ClientId,
             CorrelationId = null,
         };
     }

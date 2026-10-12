@@ -9,6 +9,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     public class LoginProcessor : LoginProcessorBase
     {
+        // Login establishes the profile, so it must be able to run before one exists: the subscription
+        // falls back to the profile when there is one, otherwise it is resolved after authenticating.
+        [OptionalProfileDefault]
         [ArgumentInfo(
         Required = false,
         Description = @"Azure Subscription Id.",
@@ -205,9 +208,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 CloudName = cloudName,
                 AuthMethod = authMode,
                 UserPrincipalName = authResult.UserPrincipalName,
-                ClientId = resultClientId,
+                // A managed identity has no user account, so the token's application id is the only
+                // identifier of the identity that signed in; record it when the caller did not name one.
+                ClientId = resultClientId ?? (authMode == AuthMethod.ManagedIdentity ? authResult.ClientId : null),
                 ManagedIdentityId = authMode == AuthMethod.ManagedIdentity
-                    ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
+                    ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest, authResult.ClientId))
                     : null,
             };
 
@@ -541,14 +546,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             {
                 var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
                 var subscriptions = await subscriptionService.ListSubscriptionsAsync(accessToken);
-                var defaultSubscription = subscriptions.FirstOrDefault(s => s.IsEnabled)
-                    ?? subscriptions.FirstOrDefault();
+                var enabled = subscriptions.Where(s => s.IsEnabled).ToList();
+                IReadOnlyList<SubscriptionInfo> candidates = enabled.Count > 0 ? enabled : subscriptions;
+                var defaultSubscription = candidates.FirstOrDefault();
 
                 if (defaultSubscription is null)
                 {
                     logger.Warn("No subscriptions found for the logged-in identity. "
                         + $"Continuing with tenant-level access; pass '{Flag(nameof(SubscriptionId))}' to target a subscription.");
                     return string.Empty;
+                }
+
+                if (candidates.Count > 1)
+                {
+                    // The identity can see several subscriptions, so the selection is arbitrary; say which
+                    // one was chosen and how to pick a different one.
+                    logger.Warn($"The identity has access to {candidates.Count} subscriptions. "
+                        + $"Selected '{defaultSubscription.SubscriptionId}'; pass '{Flag(nameof(SubscriptionId))}' to choose another.");
                 }
 
                 return defaultSubscription.SubscriptionId;

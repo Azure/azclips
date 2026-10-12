@@ -73,6 +73,41 @@ public class LoginCompatibilityAliasTests
         Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
     }
 
+    [Fact]
+    public void CliBinding_IdentityWithoutSubscription_ShouldBindWhenNoProfileExists()
+    {
+        // az login --identity before any profile exists: the subscription is resolved after
+        // authenticating, so binding must not demand one.
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { ["identity"] = new List<List<string>> { new() } },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            profile: null);
+
+        Assert.True(processor.Identity);
+        Assert.Equal(string.Empty, processor.SubscriptionId);
+    }
+
+    [Fact]
+    public void CliBinding_WithoutSubscription_ShouldStillDefaultFromProfile()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var processor = new LoginProcessor();
+
+        CreateBinder().BindArgumentsToProcessor(
+            processor,
+            new Dictionary<string, object> { ["identity"] = new List<List<string>> { new() } },
+            metadata.Parameters,
+            metadata.ParameterAliases,
+            new Profile { SubscriptionId = "profile-sub" });
+
+        Assert.Equal("profile-sub", processor.SubscriptionId);
+    }
+
     [Theory]
     [InlineData("s")]
     [InlineData("subscription")]

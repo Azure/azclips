@@ -43,19 +43,19 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     private MockImdsServer? _imds;
     private static readonly ILoggingService Logger = Mock.Of<ILoggingService>();
     private static readonly ITelemetryService Telemetry = Mock.Of<ITelemetryService>();
-    // unsigned JWT with the tenant id claim; avoids a token literal in source
-    private static readonly string MockAccessToken = BuildMockJwt(MockTenantId);
+    // unsigned JWT with the tenant and application id claims; avoids a token literal in source
+    private static readonly string MockAccessToken = BuildMockJwt(MockTenantId, MockClientId);
     private const string MockTenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47";
     private const string MockSubscriptionId = "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
     private const string MockClientId = "b4c5d6e7-1234-4abc-8def-0123456789ab";
 
-    private static string BuildMockJwt(string tenantId)
+    private static string BuildMockJwt(string tenantId, string appId)
     {
         static string B64Url(string value) =>
             Convert.ToBase64String(Encoding.UTF8.GetBytes(value)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
         var header = B64Url("{\"alg\":\"none\",\"typ\":\"JWT\"}");
-        var payload = B64Url($"{{\"tid\":\"{tenantId}\",\"aud\":\"https://management.azure.com\"}}");
+        var payload = B64Url($"{{\"tid\":\"{tenantId}\",\"appid\":\"{appId}\",\"aud\":\"https://management.azure.com\"}}");
         var signature = B64Url("mock-signature");
         return $"{header}.{payload}.{signature}";
     }
@@ -195,18 +195,46 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var savedProfile = await profileService.GetActiveProfileAsync();
         Assert.NotNull(savedProfile);
         Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
-        // managed identity does not persist a tenant id
-        Assert.True(string.IsNullOrEmpty(savedProfile.TenantId));
+        // the tenant and the identity come from the issued token
+        Assert.Equal(MockTenantId, savedProfile.TenantId);
         Assert.Equal(MockSubscriptionId, savedProfile.SubscriptionId);
-        Assert.Equal("MSI@", savedProfile.ManagedIdentityId); // System-assigned
+        Assert.Equal($"MSI@{MockClientId}", savedProfile.ManagedIdentityId); // System-assigned
+        Assert.Equal(MockClientId, savedProfile.ClientId);
 
         // profile is written to the CLI's default location
         var profilesFile = Path.Combine(_profileDirectory, "profiles.json");
         Assert.True(File.Exists(profilesFile), $"Profiles file should exist at: {profilesFile}");
         var profilesJson = await File.ReadAllTextAsync(profilesFile);
-        Assert.DoesNotContain(MockTenantId, profilesJson);
+        Assert.Contains(MockTenantId, profilesJson);
         Assert.Contains("ManagedIdentity", profilesJson);
-        Assert.Contains("MSI@", profilesJson);
+        Assert.Contains($"MSI@{MockClientId}", profilesJson);
+    }
+
+    [LinuxOnlyFact]
+    public async Task ManagedIdentity_E2E_WithoutSubscriptionId_ShouldLoginAndSaveProfile()
+    {
+        // A managed identity login must not require an explicit subscription id when no profile
+        // exists yet: the subscription is resolved from the subscriptions the identity can see.
+
+        // Arrange
+        ResetProfiles();
+        var profileService = CreateProfileService();
+
+        var cliBinary = ResolveCliBinary();
+
+        await RunCliAsync(cliBinary, "logout");
+
+        // Act
+        var loginExitCode = await RunCliAsync(cliBinary, "login", "--identity");
+
+        // Assert
+        Assert.Equal(0, loginExitCode);
+
+        var savedProfile = await profileService.GetActiveProfileAsync();
+        Assert.NotNull(savedProfile);
+        Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
+        Assert.Equal(MockTenantId, savedProfile.TenantId);
+        Assert.Equal($"MSI@{MockClientId}", savedProfile.ManagedIdentityId);
     }
 
     [LinuxOnlyFact]
