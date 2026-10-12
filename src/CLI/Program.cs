@@ -34,13 +34,14 @@ public class Program
     /// </summary>
     internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
+    private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
+    private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -78,7 +79,7 @@ public class Program
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            AzclipsServiceProvider.Initialize(_clientType);
+            AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
         }
 
         // Post-DI utility modes: completion generation needs the container to resolve
@@ -99,21 +100,35 @@ public class Program
         }
 
         Activity? activity = null;
+        IDisposable? startupLoggingScope = null;
 
-        // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-        var errorFormat = OutputFormat.Table;
-        var errorColorAllowed = false;
-        var errorHelpAllowed = false;
+        var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
         var positional = args;
         CommandInvocation? invocation = null;
 
+        GlobalArgs globalArgs;
+        EffectiveSessionSettings sessionSettings;
+
         try
         {
+            using (performance.Measure("AzureCLI.ParseGlobalArgs"))
+            {
+                globalArgs = GlobalArgParser.Parse(args);
+            }
+
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
-
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
+                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(sessionSettings.Color);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+
+                // Startup/profile reads happen before the session logger is set in ExecutionSession.
+                startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
+
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
 
                 // Tags the root activity directly (SetTag mutates a shared heap object) rather
@@ -129,21 +144,17 @@ public class Program
                 // telemetry to the Global endpoint. ExecutionSession.RunAsync below
                 // re-resolves and re-tags from the bound --profile once it's known, which is
                 // authoritative for the command's own spans.
-                var (routedTenantId, routedBoundary) = await TelemetryRoutingResolver.ResolveAsync(
+                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
                     _cancellationTokenSource.Token);
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
                 if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
+                if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
 
                 performance.Replay(_telemetryService);
-            }
-
-            GlobalArgs globalArgs;
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
-            {
-                globalArgs = GlobalArgParser.Parse(args);
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
@@ -154,17 +165,6 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-                ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
-                errorFormat = ErrorHelpPolicy.ResolveErrorFormat(
-                    errorStreamIsHumanReadable: ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output),
-                    configuredFormat: settings.Format,
-                    explicitFormat: globalArgs.Output);
-                errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -213,7 +213,7 @@ public class Program
                 (traceId, spanId, commandName) =>
                     TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
-        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
             try
@@ -225,7 +225,7 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
@@ -234,15 +234,14 @@ public class Program
         {
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
 
-            // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+            EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -260,6 +259,8 @@ public class Program
         }
         finally
         {
+            startupLoggingScope?.Dispose();
+
             // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
             // below disposes the TracerProvider, after which nothing can be exported.
             activity?.Dispose();
@@ -274,7 +275,7 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
@@ -293,7 +294,7 @@ public class Program
             },
             WriteVerbose: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Verbose))
                 {
                     ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
@@ -301,7 +302,7 @@ public class Program
             },
             WriteDebug: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Debug))
                 {
                     ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
@@ -309,7 +310,7 @@ public class Program
             },
             WriteWarning: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Warn))
                 {
                     ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
@@ -317,7 +318,7 @@ public class Program
             },
             WriteInformation: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Info))
                 {
                     ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }
@@ -397,42 +398,20 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Render extension help; structured errors are handled by Main.
+            // Render extension help; known errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
+    private static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
             : ex.Message;
 
-        if (format is OutputFormat.Json or OutputFormat.Jsonc)
-        {
-            var payload = new
-            {
-                error = new
-                {
-                    code = ex.Code,
-                    message,
-                    details = ex.Details,
-                },
-            };
-            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            });
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
-        }
-        else
-        {
-            ConsoleSink.Error($"[{ex.Code}] {message}");
-        }
+        ConsoleSink.Error($"[{ex.Code}] {message}");
     }
 
     /// <summary>
@@ -573,8 +552,7 @@ public class Program
         {
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
         }
-        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
-        recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
+        RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
 
         try
         {

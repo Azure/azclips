@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Core.Abstractions;
+using Core.Authentication;
 using Core.Tui.Azure;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
@@ -11,9 +13,11 @@ namespace Core.Tui.Services;
 /// </summary>
 class PromptService
 {
-    private static readonly string AzclipsDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
-    private static readonly string ContextFilePath = Path.Combine(AzclipsDir, "context.json");
+    private static string AzclipsDir => HomePaths.GetDefaultLocalAppDataRoot();
+
+    private readonly IProfileService _profileService;
+
+    public PromptService(IProfileService profileService) => _profileService = profileService;
 
     // Cached ARM-resolved names
     private string? _cachedTenantId;
@@ -79,12 +83,11 @@ class PromptService
     {
         try
         {
-            if (!File.Exists(ContextFilePath)) return "/ > ";
-
-            var json = File.ReadAllText(ContextFilePath);
-            var doc = JsonDocument.Parse(json);
-            var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-            var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+            // Used to read ~/.azclips/context.json, which went away with AuthContext — so the file never
+            // existed and the prompt always fell through to "/ > ".
+            var profile = _profileService.GetActiveProfileAsync().GetAwaiter().GetResult();
+            var tenantId = profile?.TenantId;
+            var subId = profile?.SubscriptionId;
 
             if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(subId))
                 return "/ > ";
@@ -116,13 +119,15 @@ class PromptService
                 .WithRedirectUri("http://localhost")
                 .Build();
 
-            var cacheFile = Path.Combine(AzclipsDir, "MSAL.cache.plaintext");
-            if (!File.Exists(cacheFile)) return (null, null);
+            // Let the factory pick the layout exactly as the auth stack does rather than guessing it.
+            // The existence check just avoids a keyring round-trip on every render before first login.
+            var protectedCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: false, cacheDirectory: AzclipsDir);
+            var plaintextCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: true, cacheDirectory: AzclipsDir);
+            if (!File.Exists(protectedCache) && !File.Exists(plaintextCache)) return (null, null);
 
-            var storageProps = new StorageCreationPropertiesBuilder("MSAL.cache.plaintext", AzclipsDir)
-                .WithUnprotectedFile()
-                .Build();
-            var cacheHelper = MsalCacheHelper.CreateAsync(storageProps).GetAwaiter().GetResult();
+            var cacheHelper = MsalTokenCacheFactory
+                .CreateAsync(cacheDirectory: AzclipsDir)
+                .GetAwaiter().GetResult().Helper;
             cacheHelper.RegisterCache(app.UserTokenCache);
 
             var accounts = app.GetAccountsAsync().GetAwaiter().GetResult();

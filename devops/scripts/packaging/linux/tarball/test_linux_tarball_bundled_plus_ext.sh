@@ -269,10 +269,10 @@ fi
 echo ""
 echo "[6/15] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
-get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
+get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level --query "value" || true)
 echo "  $set_output"
 echo "  $get_output"
-if grep -Fq "core.logging.level = debug" <<<"$get_output"; then
+if [[ "$get_output" == "debug" ]]; then
   echo "  PASS: Bundled Config commands work"
 else
   echo "  FAIL: Bundled Config commands did not return expected value"
@@ -381,11 +381,11 @@ echo "[14/15] Verify Resources command no longer resolves"
 removed_command_output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 printf '%s\n' "$removed_command_output" | sed -n '1,20p'
 if [[ "$PACKAGE_PROFILE" == "lean" ]] &&
-   grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+   grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Removed Resources command reports the extension installation path"
 elif [[ "$PACKAGE_PROFILE" == "full" ]] &&
      grep -Fq "[BundledExtensionLoader] Loaded 'Resources'" <<<"$removed_command_output" &&
-     ! grep -Fq '"code": "ExtensionNotFound"' <<<"$removed_command_output"; then
+     ! grep -Fq '[ExtensionNotFound]' <<<"$removed_command_output"; then
   echo "  PASS: Resources command fell back to the bundled full-package extension"
 else
   echo "  FAIL: az group list did not match the expected $PACKAGE_PROFILE profile behavior after removal"

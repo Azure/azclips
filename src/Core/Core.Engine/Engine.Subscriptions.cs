@@ -162,6 +162,12 @@ namespace Core.Engine
                 loggingService.Info(evt.Message);
             });
 
+            subscriber.Subscribe(Events.Warning, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info($"WARNING: {evt.Message}");
+            });
+
             return subscriber;
         }
 

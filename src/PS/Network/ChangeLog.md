@@ -18,5 +18,9 @@
 ## Upcoming Release
 
 ## Version 0.1.0
+* Added `New-AzPublicIpAddress`, `Get-AzPublicIpAddress` and `Remove-AzPublicIpAddress`
+    - `Get-AzPublicIpAddress` serves both the single-address `Get` set and the `List` set; omitting `-ResourceGroupName` lists every public IP address in the subscription.
+
+## Version 0.1.0
 
 * First preview

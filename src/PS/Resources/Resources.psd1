@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.1'
+ModuleVersion = '0.1.2'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }
+    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.1' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Reso
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Invoke-AzRestMethod'
+CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',

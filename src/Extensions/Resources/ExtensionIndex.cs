@@ -100,6 +100,64 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listRoleAssignment_PS = new(
+            Name: "ListRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "Get-AzRoleAssignment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]             = new("Scope", "Scope", typeof(string), "Fully qualified scope to list role assignments at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "List role assignments scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ObjectId"]          = new("AssigneeObjectId", "ObjectId", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IncludeInherited"]  = new("IncludeInherited", "IncludeInherited", typeof(bool), "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ExpandPrincipalGroups"] = new("IncludeGroups", "ExpandPrincipalGroups", typeof(bool), "When filtering by -ObjectId, also include assignments granted through groups the principal belongs to (transitive).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IncludeNestedScopes"] = new("All", "IncludeNestedScopes", typeof(bool), "List role assignments across the whole subscription, including every nested scope. Cannot be combined with -Scope or -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_newRoleAssignment_PS = new(
+            Name: "NewRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "New-AzRoleAssignment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]             = new("Scope", "Scope", typeof(string), "Fully qualified scope to create the role assignment at. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "Create the role assignment scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ObjectId"]          = new("AssigneeObjectId", "ObjectId", typeof(string), "The principal's object (principal) ID (GUID) to assign the role to.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["RoleDefinitionId"]  = new("RoleDefinitionId", "RoleDefinitionId", typeof(string), "The role to assign: a role definition ID (GUID) or a fully-qualified role definition ID. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ObjectType"]        = new("PrincipalType", "ObjectType", typeof(string), "The principal type of the assigned principal (User, Group, ServicePrincipal, or ForeignGroup).", IsRequired: false, Aliases: [], AllowedValues: ["User", "Group", "ServicePrincipal", "ForeignGroup"]),
+                ["Name"]              = new("Name", "Name", typeof(string), "The role assignment name (a GUID). Generated when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Description"]       = new("Description", "Description", typeof(string), "Description of the role assignment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Condition"]         = new("Condition", "Condition", typeof(string), "Condition under which the principal is granted permission.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ConditionVersion"]  = new("ConditionVersion", "ConditionVersion", typeof(string), "Version of the condition syntax (currently only '2.0').", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteRoleAssignment_PS = new(
+            Name: "DeleteRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "Remove-AzRoleAssignment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.DeleteRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]             = new("Scope", "Scope", typeof(string), "Fully qualified scope to delete the role assignment from. Mutually exclusive with -ResourceGroupName. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "Delete the role assignment scoped to this resource group under the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The role assignment name (a GUID) to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "New-AzResourceGroupDeployment",
@@ -293,10 +351,61 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["resource-group"]     = new("ResourceGroupName", "resource-group", typeof(string), "List role assignments scoped to this resource group under the subscription.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
                 ["assignee"]           = new("Assignee", "assignee", typeof(string), "Filter to role assignments for this principal. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["assignee-object-id"] = new("AssigneeObjectId", "assignee-object-id", typeof(string), "Filter to role assignments for this principal's object (principal) ID (GUID).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["role"]               = new("RoleDefinitionId", "role", typeof(string), "Filter to role assignments for this role definition ID (GUID). Role name resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["include-inherited"]  = new("IncludeInherited", "include-inherited", typeof(bool), "Include role assignments inherited from ancestor scopes. By default only assignments at the exact scope are listed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["all"]                = new("All", "all", typeof(bool), "List role assignments across the whole subscription, including every nested scope. Cannot be combined with --scope or --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["include-groups"]     = new("IncludeGroups", "include-groups", typeof(bool), "When filtering by assignee, also include assignments granted through groups the principal belongs to (transitive).", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
                 ["g"] = "resource-group",
+            }
+        );
+        private static readonly CommandMetadata s_newRoleAssignment_CLI = new(
+            Name: "NewRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "role assignment create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]         = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["scope"]                   = new("Scope", "scope", typeof(string), "Fully qualified scope to create the role assignment at (the grant target), e.g. a subscription, resource group, or resource ID. Mutually exclusive with --resource-group. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]          = new("ResourceGroupName", "resource-group", typeof(string), "Create the role assignment scoped to this resource group under the subscription. Mutually exclusive with --scope.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["assignee"]                = new("Assignee", "assignee", typeof(string), "The principal to assign the role to. Accepts an object (principal) ID; name/UPN/service-principal resolution is not yet supported.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["assignee-object-id"]      = new("AssigneeObjectId", "assignee-object-id", typeof(string), "The principal's object (principal) ID (GUID) to assign the role to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["role"]                    = new("RoleDefinitionId", "role", typeof(string), "The role to assign: a role definition ID (GUID) or a fully-qualified role definition ID. Role name resolution is not yet supported.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["assignee-principal-type"] = new("PrincipalType", "assignee-principal-type", typeof(string), "The principal type of the assignee (User, Group, ServicePrincipal, or ForeignGroup).", IsRequired: false, Aliases: [], AllowedValues: ["User", "Group", "ServicePrincipal", "ForeignGroup"]),
+                ["name"]                    = new("Name", "name", typeof(string), "The role assignment name (a GUID). Generated when omitted.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["description"]             = new("Description", "description", typeof(string), "Description of the role assignment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["condition"]               = new("Condition", "condition", typeof(string), "Condition under which the principal is granted permission.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["condition-version"]       = new("ConditionVersion", "condition-version", typeof(string), "Version of the condition syntax (currently only '2.0').", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+                ["n"] = "name",
+            }
+        );
+        private static readonly CommandMetadata s_deleteRoleAssignment_CLI = new(
+            Name: "DeleteRoleAssignmentProcessor_Orchestrator",
+            InvocationName: "role assignment delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeleteRoleAssignmentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.DeleteRoleAssignmentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["scope"]           = new("Scope", "scope", typeof(string), "Fully qualified scope to delete the role assignment from. Mutually exclusive with --resource-group. Defaults to the subscription scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "Delete the role assignment scoped to this resource group under the subscription. Mutually exclusive with --scope.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The role assignment name (a GUID) to delete.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["g"] = "resource-group",
+                ["n"] = "name",
             }
         );
         private static readonly CommandMetadata s_newResourceGroupDeployment_CLI = new(
@@ -381,6 +490,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Remove-AzResourceGroup"]   = s_removeResourceGroup_PS,
             ["Get-AzResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
+            ["Get-AzRoleAssignment"]     = s_listRoleAssignment_PS,
+            ["New-AzRoleAssignment"]     = s_newRoleAssignment_PS,
+            ["Remove-AzRoleAssignment"]  = s_deleteRoleAssignment_PS,
             ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
@@ -399,6 +511,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["group show"]                = s_getResourceGroup_CLI,
             ["group update"]              = s_updateResourceGroup_CLI,
             ["role assignment list"]      = s_listRoleAssignment_CLI,
+            ["role assignment create"]    = s_newRoleAssignment_CLI,
+            ["role assignment delete"]    = s_deleteRoleAssignment_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).

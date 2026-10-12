@@ -38,7 +38,7 @@ public class ConfigurationSchemaTests
         var key = _schema.GetKeyMetadata("agent.builtin.scope");
 
         Assert.NotNull(key);
-        Assert.Equal("api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/Azclis.Intelligent.All", key.DefaultValue);
+        Assert.Equal("api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/.default", key.DefaultValue);
     }
 
     [Theory]

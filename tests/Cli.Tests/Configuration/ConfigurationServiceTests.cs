@@ -168,6 +168,21 @@ public class ConfigurationServiceTests
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldUseConfiguredBuiltinModel_InsteadOfDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("custom-deployment", options.Builtin.ModelId);
+        Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
     }
 
     [Fact]
@@ -281,4 +296,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

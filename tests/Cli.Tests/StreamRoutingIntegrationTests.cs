@@ -40,7 +40,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         // Under the warn default, a plain get produces no diagnostic chatter on stderr —
         // including the ExtensionLoadTracker summary, which must stay gated behind --debug.
         Assert.DoesNotContain("DEBUG:", stderr);
@@ -52,25 +52,70 @@ public class StreamRoutingIntegrationTests
     public async Task ConfigGet_AppliesQuery_ToCommandOutput()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "config", "get", "--key", "core.logging.level", "--query", "@");
+            "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
         // A --query narrowing a result to a scalar now uses clients.cli.output.simpleFormat
         // (default tsv) rather than the complex-result default (json) -- plain text, no quotes.
-        // Source is "environment" because RunCliAsync pins AZCLIPS_LOG_LEVEL for determinism.
-        Assert.Equal("core.logging.level = warn [environment]", stdout.Trim());
+        Assert.Equal("warn", stdout.Trim());
         Assert.DoesNotContain("ERROR:", stderr);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StartupProfileLoad_AppliesDebugOverride_WhenProfileFileExists(bool debugOverride)
+    {
+        var homeDirectory = Directory.CreateTempSubdirectory("azclips-startup-log-tests-").FullName;
+        File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
+        File.WriteAllText(Path.Combine(homeDirectory, "profiles.json"), """
+{
+  "default": {
+    "name": "default",
+    "tenantId": "11111111-1111-1111-1111-111111111111",
+    "subscriptionId": "22222222-2222-2222-2222-222222222222",
+    "cloudName": "AzureCloud",
+    "authMethod": "Browser"
+  }
+}
+""");
+        File.WriteAllText(Path.Combine(homeDirectory, "active-profile"), "default");
+
+        try
+        {
+            var args = new List<string> { "config", "get", "--key", "core.logging.level" };
+            if (debugOverride)
+            {
+                args.Insert(0, "--debug");
+            }
+            var (exit, stdout, stderr) = await RunCliInHomeAsync(homeDirectory, args.ToArray());
+
+            Assert.Equal(0, exit);
+            AssertConfigGetResult(stdout, "core.logging.level", "warn");
+            if (debugOverride)
+            {
+                Assert.Contains("VERBOSE: [ProfileService] Loading profiles from", stderr);
+            }
+            else
+            {
+                Assert.DoesNotContain("[ProfileService] Loading profiles from", stderr);
+            }
+            Assert.DoesNotContain("VERBOSE:", stdout);
+        }
+        finally
+        {
+            try { Directory.Delete(homeDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     [Fact]
     public async Task ConfigGet_AppliesQuery_HonorsExplicitOutputOverride_ForScalarResult()
     {
         var (exit, stdout, stderr) = await RunCliAsync(
-            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "@");
+            "--output", "json", "config", "get", "--key", "core.logging.level", "--query", "value");
 
         Assert.Equal(0, exit);
-        Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
-        Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+        Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
         Assert.DoesNotContain("ERROR:", stderr);
     }
 
@@ -85,14 +130,15 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task InvalidQuery_UsesRequestedJsonErrorFormat()
+    public async Task InvalidQuery_RemainsText_WhenJsonOutputIsRequested()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "logout", "--query", "[[[");
 
         Assert.Equal(2, exit);
         Assert.Empty(stdout);
-        using var document = System.Text.Json.JsonDocument.Parse(stderr);
-        Assert.Equal("UsageError", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("ERROR: [UsageError]", stderr);
+        Assert.Contains("--query expression", stderr);
+        Assert.DoesNotContain("\"error\"", stderr);
     }
 
     [Fact]
@@ -101,7 +147,7 @@ public class StreamRoutingIntegrationTests
         var (exit, stdout, stderr) = await RunCliAsync("--debug", "config", "get", "--key", "core.logging.level");
 
         Assert.Equal(0, exit);
-        Assert.Contains("core.logging.level = warn", stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
         Assert.Contains("DEBUG:", stderr);
         // stdout should still be pure result — no diagnostic leakage.
         Assert.DoesNotContain("DEBUG:", stdout);
@@ -158,20 +204,16 @@ public class StreamRoutingIntegrationTests
     }
 
     [Fact]
-    public async Task MissingRequiredParameters_EmitsParseableError_WhenStderrIsRedirected()
+    public async Task MissingRequiredParameters_EmitsTextError_WhenJsonOutputIsRequested()
     {
         var (exit, stdout, stderr) = await RunCliAsync("--output", "json", "vm", "create");
 
         Assert.Equal(2, exit);
         Assert.Empty(stdout);
-        // stderr is redirected here, so the help page is suppressed and the error stays machine-readable.
-        using var document = System.Text.Json.JsonDocument.Parse(stderr);
-        var error = document.RootElement.GetProperty("error");
-        Assert.Equal("UsageError", error.GetProperty("code").GetString());
-        var message = error.GetProperty("message").GetString();
-        Assert.Contains("'--name'", message);
-        Assert.Contains("az vm create --help", message);
-        Assert.DoesNotContain("\\u0027", stderr, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ERROR: [UsageError]", stderr);
+        Assert.Contains("'--name'", stderr);
+        Assert.Contains("az vm create --help", stderr);
+        Assert.DoesNotContain("\"error\"", stderr);
     }
 
     [Fact]
@@ -182,6 +224,55 @@ public class StreamRoutingIntegrationTests
         Assert.Empty(stdout);
         Assert.DoesNotContain("# COMMAND", stderr);
         Assert.DoesNotContain("# ARGUMENTS", stderr);
+    }
+
+    [Fact]
+    public async Task ForceColor_KeepsJsonResultAnsiFree_OnRedirectedStdout()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain('\u001b', stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task ForceColor_ColorsJsoncResult_OnRedirectedStdout()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "--output", "jsonc", "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.Contains('\u001b', stdout);
+        AssertConfigGetResult(StripAnsi(stdout), "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task NoColor_RendersJsoncAsPlainJson_EvenWhenColorIsForced()
+    {
+        var (exit, stdout, _) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["NO_COLOR"] = "1", ["FORCE_COLOR"] = "1" },
+            "--output", "jsonc", "config", "get", "--key", "core.logging.level");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain('\u001b', stdout);
+        AssertConfigGetResult(stdout, "core.logging.level", "warn");
+    }
+
+    [Fact]
+    public async Task ForceColor_KeepsTextErrorAnsiFree_OnRedirectedStderr()
+    {
+        var (exit, stdout, stderr) = await RunCliWithEnvAsync(
+            new Dictionary<string, string> { ["FORCE_COLOR"] = "1" },
+            "--output", "json", "vm", "create");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        Assert.DoesNotContain('\u001b', stderr);
+        Assert.Contains("ERROR: [UsageError]", stderr);
     }
 
     [Fact]
@@ -202,11 +293,10 @@ public class StreamRoutingIntegrationTests
 
             var (exit, stdout, stderr) = await RunCliInHomeAsync(
                 homeDirectory,
-                "config", "get", "--key", "core.logging.level", "--query", "@");
+                "config", "get", "--key", "core.logging.level", "--query", "value");
 
             Assert.Equal(0, exit);
-            Assert.StartsWith("\"core.logging.level = warn", stdout, StringComparison.Ordinal);
-            Assert.EndsWith("\"" + Environment.NewLine, stdout, StringComparison.Ordinal);
+            Assert.Equal("\"warn\"" + Environment.NewLine, stdout);
             Assert.DoesNotContain("ERROR:", stderr);
         }
         finally
@@ -215,7 +305,15 @@ public class StreamRoutingIntegrationTests
         }
     }
 
-    private static async Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+    private static Task<(int exit, string stdout, string stderr)> RunCliAsync(params string[] args)
+        => RunCliWithEnvAsync(null, args);
+
+    private static string StripAnsi(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, "\u001b\\[[0-9;]*m", string.Empty);
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliWithEnvAsync(
+        IReadOnlyDictionary<string, string>? env,
+        params string[] args)
     {
         // Isolate config/profiles/extensions from the developer's/CI's real ~/.azclips -- a
         // persisted override (e.g. clients.cli.output.simpleFormat) would otherwise change these
@@ -226,7 +324,7 @@ public class StreamRoutingIntegrationTests
         File.WriteAllText(Path.Combine(homeDirectory, "config.json"), """{"telemetry":{"enabled":false}}""");
         try
         {
-            return await RunCliInHomeAsync(homeDirectory, args);
+            return await RunCliInHomeWithEnvAsync(homeDirectory, env, args);
         }
         finally
         {
@@ -238,8 +336,23 @@ public class StreamRoutingIntegrationTests
         }
     }
 
+    private static void AssertConfigGetResult(string stdout, string expectedKey, string expectedValue)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(stdout);
+        var entry = document.RootElement;
+
+        Assert.Equal(expectedKey, entry.GetProperty("key").GetString());
+        Assert.Equal(expectedValue, entry.GetProperty("value").GetString());
+    }
+
     /// <summary>Runs the CLI against an already-prepared, caller-owned <paramref name="homeDirectory"/> -- lets a test issue multiple invocations (e.g. <c>config set</c> then <c>config get</c>) against the same persisted config.</summary>
-    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
+    private static Task<(int exit, string stdout, string stderr)> RunCliInHomeAsync(string homeDirectory, params string[] args)
+        => RunCliInHomeWithEnvAsync(homeDirectory, null, args);
+
+    private static async Task<(int exit, string stdout, string stderr)> RunCliInHomeWithEnvAsync(
+        string homeDirectory,
+        IReadOnlyDictionary<string, string>? env,
+        params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -254,6 +367,13 @@ public class StreamRoutingIntegrationTests
         // `args > env` precedence means the flag still wins over this pin.
         psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
         psi.Environment["AZCLIPS_HOME"] = homeDirectory;
+        // Ambient color vars would otherwise leak into every assertion.
+        psi.Environment.Remove("NO_COLOR");
+        psi.Environment.Remove("FORCE_COLOR");
+        foreach (var (name, value) in env ?? new Dictionary<string, string>())
+        {
+            psi.Environment[name] = value;
+        }
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);

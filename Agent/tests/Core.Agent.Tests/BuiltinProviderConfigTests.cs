@@ -3,13 +3,15 @@
 
 using Core.Abstractions;
 using Core.Agent.Providers;
+using Core.Authentication;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 public class BuiltinProviderConfigTests
 {
-    private const string ApiScope = "api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3/Azclis.Intelligent.All";
+    private const string ApiResource = "api://a5ede409-60d3-4a6c-93e6-eb2e7271e8e3";
+    private const string ApiScope = ApiResource + "/.default";
 
     [Fact]
     public void DefaultScope_TargetsIntelligentApi()
@@ -53,6 +55,17 @@ public class BuiltinProviderConfigTests
         Assert.NotNull(auth.RequestedScopes);
         Assert.Equal([options.Scope], auth.RequestedScopes);
         Assert.Equal(1, auth.Calls);
+    }
+
+    [Fact]
+    public async Task Build_DefaultScope_ResolvesToTheManagedIdentityApiResource()
+    {
+        var auth = new RecordingAuthService(() => Task.FromResult(Token()));
+
+        await BuiltinProviderConfig.BuildAsync(new(), auth, CancellationToken.None);
+
+        Assert.NotNull(auth.RequestedScopes);
+        Assert.Equal(ApiResource, ManagedIdentityCredential.ScopeToResource(auth.RequestedScopes));
     }
 
     [Fact]

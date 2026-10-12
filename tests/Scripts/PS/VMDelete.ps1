@@ -97,16 +97,7 @@ function New-TestVM {
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "$Prefix-subnet-$Suffix" `
         -SubnetAddressPrefixes "10.0.2.0/24" `
-        -NetworkSecurityGroupName "$Prefix-nsg-$Suffix" `
-        -RuleNames rdp `
-        -RuleProtocols tcp `
-        -RuleDirections Inbound `
-        -RulePriorities 1001 `
-        -RuleSourceAddressPrefixes * `
-        -RuleSourcePortRanges * `
-        -RuleDestinationPortRanges 3389 `
-        -RuleDestinationAddressPrefixes * `
-        -RuleAccesses Allow
+        -SecurityGroupName "$Prefix-nsg-$Suffix"
 }
 
 # Setup: the resource group must exist before the VMs can be created. Runs outside the

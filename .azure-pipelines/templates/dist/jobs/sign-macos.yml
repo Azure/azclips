@@ -67,111 +67,11 @@ jobs:
           artifactName: ${{ parameters.source_artifact_name }}
           targetPath: $(Pipeline.Workspace)/unsigned-all
     - bash: |
-        set -euo pipefail
-        source_root="$(Pipeline.Workspace)/unsigned-all"
-        work_root="$(Build.ArtifactStagingDirectory)/macos-signing-inputs"
-        tarball_dir="$work_root/tarballs"
-        contents_dir="$work_root/contents"
-        mapping_tsv="$work_root/file-mapping.tsv"
-        entitlements_source="$(Build.SourcesDirectory)/devops/scripts/packaging/macos/signing/azclips-runtime.entitlements.plist"
-        current_arch="$(MacOSArchitecture)"
-        current_rid="$(MacOSRid)"
-        asset_arch_label="macos-$current_arch"
-        if [[ "$current_arch" == "x64" ]]; then
-          asset_arch_label="macos-x86_64"
-        fi
-        mkdir -p "$tarball_dir" "$contents_dir"
-        : > "$mapping_tsv"
-        if [[ ! -f "$entitlements_source" ]]; then
-          echo "ERROR: macOS signing entitlements file was not found: $entitlements_source"
-          exit 1
-        fi
-        cp "$entitlements_source" "$work_root/azclips-runtime.entitlements.plist"
-
-        verify_dotnet_entitlements() {
-          local candidate="$1"
-          local entitlements
-          entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
-          for entitlement in \
-            'com.apple.security.cs.allow-jit' \
-            'com.apple.security.cs.allow-unsigned-executable-memory' \
-            'com.apple.security.cs.disable-library-validation'; do
-            if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
-              echo "ERROR: Required .NET entitlement '$entitlement' missing after pre-sign: $candidate"
-              return 1
-            fi
-          done
-        }
-
-        requires_dotnet_entitlements() {
-          case "$(basename "$1")" in
-            az|azclips-agent)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
-        }
-
-        raw_mac_assets=()
-        while IFS= read -r asset; do
-          raw_mac_assets+=("$asset")
-        done < <(find "$source_root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
-
-        mac_assets=()
-        for asset in "${raw_mac_assets[@]}"; do
-          name=$(basename "$asset" | tr '[:upper:]' '[:lower:]')
-          if [[ "$name" == *"$current_rid"* || "$name" == *"$asset_arch_label"* || "$name" == *"darwin-$current_arch"* ]]; then
-            mac_assets+=("$asset")
-          fi
-        done
-
-        if [[ ${#mac_assets[@]} -eq 0 ]]; then
-          echo "ERROR: No macOS release artifacts matched architecture $current_arch ($current_rid) under $source_root"
-          exit 1
-        fi
-
-        echo "macOS architecture selected: $current_arch ($current_rid)"
-        printf 'macOS release artifacts (%s):\n' "${#mac_assets[@]}"
-        printf '  %s\n' "${mac_assets[@]}"
-
-        total_binaries=0
-        for asset in "${mac_assets[@]}"; do
-          file_name=$(basename "$asset")
-          base_name="${file_name%.tar.gz}"
-          content_root="$contents_dir/$base_name"
-
-          cp "$asset" "$tarball_dir/$file_name"
-          mkdir -p "$content_root"
-          tar -xzf "$asset" -C "$content_root"
-
-          while IFS= read -r -d '' binary; do
-            if ! file "$binary" | grep -q 'Mach-O'; then
-              continue
-            fi
-
-            relative_path="${binary#$content_root/}"
-            if requires_dotnet_entitlements "$binary"; then
-              chmod +x "$binary"
-              codesign --force --sign - --options runtime --entitlements "$entitlements_source" "$binary"
-              verify_dotnet_entitlements "$binary"
-            fi
-
-            safe_relative=$(printf '%s' "$relative_path" | sed 's#[/\\]#__#g; s#[^A-Za-z0-9._-]#_#g')
-            zip_name="${base_name}__${safe_relative}.zip"
-
-            printf '%s\t%s\t%s\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
-            total_binaries=$((total_binaries + 1))
-          done < <(find "$content_root" -type f -print0)
-        done
-
-        if [[ "$total_binaries" -eq 0 ]]; then
-          echo 'ERROR: No Mach-O binaries were found in the selected macOS artifacts.'
-          exit 1
-        fi
-
-        echo "Prepared $total_binaries Mach-O binaries for Developer ID signing."
+        "$(Build.SourcesDirectory)/devops/scripts/packaging/signing/prepare_macos_signing_inputs.sh" \
+          "$(Pipeline.Workspace)/unsigned-all" \
+          "$(Build.ArtifactStagingDirectory)/macos-signing-inputs" \
+          "$(MacOSArchitecture)" \
+          "$(MacOSRid)"
       displayName: Prepare macOS Signing Inputs
     - task: PublishPipelineArtifact@1
       displayName: Publish macOS Signing Inputs
@@ -211,47 +111,6 @@ jobs:
         $jsonSafeEntitlementsPath = $entitlementsPath.Replace('\', '/')
         Write-Host "##vso[task.setvariable variable=MacOSEntitlementsPath]$jsonSafeEntitlementsPath"
       displayName: Resolve macOS Entitlements Path For ESRP
-    - pwsh: |
-        $ErrorActionPreference = 'Stop'
-        $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
-        $mappingPath = Join-Path $inputRoot 'file-mapping.tsv'
-        $toBeSignedDir = Join-Path $inputRoot 'toBeSigned'
-        $hashesPath = Join-Path $inputRoot 'zip-hashes-before.tsv'
-
-        New-Item -ItemType Directory -Path $toBeSignedDir -Force | Out-Null
-        if (Test-Path $hashesPath) {
-          Remove-Item -Force $hashesPath
-        }
-
-        $count = 0
-        Get-Content $mappingPath | ForEach-Object {
-          if ([string]::IsNullOrWhiteSpace($_)) {
-            return
-          }
-
-          $parts = $_ -split "`t", 3
-          if ($parts.Count -ne 3) {
-            throw "Invalid file mapping row: $_"
-          }
-
-          $zipName = $parts[0]
-          $baseName = $parts[1]
-          $relativePath = $parts[2]
-          $binaryPath = "$inputRoot/contents/$baseName/$relativePath"
-          $zipPath = Join-Path $toBeSignedDir $zipName
-
-          if (-not (Test-Path $binaryPath)) {
-            throw "Binary to sign not found: $binaryPath"
-          }
-
-          Compress-Archive -Path $binaryPath -DestinationPath $zipPath -Force
-          $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
-          "$zipName`t$hash" | Add-Content -Path $hashesPath
-          $count++
-        }
-
-        Write-Host "Created $count ZIP files for ESRP signing."
-      displayName: Create macOS Binary ZIPs For ESRP
     - task: EsrpCodeSigning@6
       displayName: Sign macOS Binaries [MacAppDeveloperSign]
       inputs:
@@ -286,11 +145,9 @@ jobs:
         $signedZipsDir = "$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned"
         $mappingPath = "$(Pipeline.Workspace)/macos-signing-inputs/file-mapping.tsv"
         $hashesPath = "$(Pipeline.Workspace)/macos-signing-inputs/zip-hashes-before.tsv"
-        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-binaries"
-        $tempRoot = "$(Pipeline.Workspace)/macos-signed-extract"
+        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-zips"
 
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
         $originalHashes = @{}
         Get-Content $hashesPath | ForEach-Object {
@@ -310,14 +167,15 @@ jobs:
             return
           }
 
-          $parts = $_ -split "`t", 3
-          if ($parts.Count -ne 3) {
+          $parts = $_ -split "`t", 4
+          if ($parts.Count -ne 4) {
             throw "Invalid file mapping row: $_"
           }
 
           $zipName = $parts[0]
           $baseName = $parts[1]
           $relativePath = $parts[2]
+          $itemType = $parts[3]
           $zipPath = Join-Path $signedZipsDir $zipName
 
           if (-not (Test-Path $zipPath)) {
@@ -329,37 +187,26 @@ jobs:
             $unchangedZips += $zipName
           }
 
-          $extractPath = Join-Path $tempRoot ([IO.Path]::GetFileNameWithoutExtension($zipName))
-          if (Test-Path $extractPath) {
-            Remove-Item -Recurse -Force $extractPath
-          }
-          New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
-          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-
-          $extractedFile = Get-ChildItem -Path $extractPath -File | Select-Object -First 1
-          if (-not $extractedFile) {
-            throw "Signed zip did not contain a file: $zipPath"
+          if ($itemType -notin @('file', 'bundle')) {
+            throw "Unsupported signing input type '$itemType': $_"
           }
 
-          $targetPath = "$outputDir/$baseName/$relativePath"
-          $targetDir = Split-Path $targetPath -Parent
-          New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-          Copy-Item -Path $extractedFile.FullName -Destination $targetPath -Force
+          Copy-Item -Path $zipPath -Destination (Join-Path $outputDir $zipName) -Force
           $count++
         }
 
-        Write-Host "Extracted $count signed macOS binaries."
+        Write-Host "Collected $count signed macOS ZIPs without extracting them on Windows."
         if ($unchangedZips.Count -gt 0) {
           Write-Host "##vso[task.logissue type=error]ESRP did not modify $($unchangedZips.Count) macOS signing ZIP(s). MacAppDeveloperSign did not produce signed output."
           $unchangedZips | Select-Object -First 20 | ForEach-Object { Write-Host "  unchanged: $_" }
           throw 'ESRP macOS signing output matched the unsigned input.'
         }
-      displayName: Extract Signed macOS Binaries
+      displayName: Collect Signed macOS ZIPs
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed macOS Binaries
+      displayName: Publish Signed macOS ZIPs
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-binaries
-        artifact: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-zips
+        artifact: macos-signed-zips-$(MacOSArchitecture)
         publishLocation: pipeline
 
   - job: CreateMacOSNotarizationBundles
@@ -388,37 +235,196 @@ jobs:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed macOS Binaries
+      displayName: Download Signed macOS ZIPs
       inputs:
         buildType: current
-        artifactName: macos-signed-binaries-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
+        artifactName: macos-signed-zips-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-zips
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        signed_binary_root="$(Pipeline.Workspace)/macos-signed-binaries"
+        signed_zip_root="$(Pipeline.Workspace)/macos-signed-zips"
+        signed_extract_root="$(Pipeline.Workspace)/macos-signed-extract"
         signed_contents_root="$(Build.ArtifactStagingDirectory)/signed-contents"
         notarization_root="$(Build.ArtifactStagingDirectory)/macos-notarization-bundles"
-        mkdir -p "$signed_contents_root" "$notarization_root"
+        mkdir -p "$signed_extract_root" "$signed_contents_root" "$notarization_root"
+
+        verify_macho_signature() {
+          local candidate="$1"
+          local signature_details
+          local failed=0
+
+          if ! codesign --verify --deep --strict --verbose=4 "$candidate"; then
+            echo "ERROR: Strict codesign verification failed before notarization: $candidate"
+            failed=1
+          fi
+
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Microsoft TeamIdentifier missing before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+            echo "ERROR: Hardened runtime flag missing before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+            echo "ERROR: Signing timestamp missing before notarization: $candidate"
+            failed=1
+          fi
+
+          return "$failed"
+        }
+
+        verify_code_bundle() {
+          local candidate="$1"
+          local signature_details
+          local failed=0
+
+          if ! codesign --verify --deep --strict --verbose=4 "$candidate"; then
+            echo "ERROR: Strict code bundle verification failed before notarization: $candidate"
+            failed=1
+          fi
+
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Microsoft TeamIdentifier missing from code bundle before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+            echo "ERROR: Hardened runtime flag missing from code bundle before notarization: $candidate"
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+            echo "ERROR: Signing timestamp missing from code bundle before notarization: $candidate"
+            failed=1
+          fi
+
+          return "$failed"
+        }
+
+        verify_dotnet_entitlements() {
+          local candidate="$1"
+          local entitlements
+          local failed=0
+
+          entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
+          for entitlement in \
+            'com.apple.security.cs.allow-jit' \
+            'com.apple.security.cs.allow-unsigned-executable-memory' \
+            'com.apple.security.cs.disable-library-validation'; do
+            if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+              echo "ERROR: Required .NET entitlement '$entitlement' missing before notarization: $candidate"
+              failed=1
+            fi
+          done
+
+          return "$failed"
+        }
 
         cp -R "$input_root/contents/." "$signed_contents_root/"
 
-        while IFS=$'\t' read -r _zip_name base_name relative_path; do
+        while IFS=$'\t' read -r zip_name base_name relative_path item_type; do
           [[ -z "$base_name" ]] && continue
-          signed_file="$signed_binary_root/$base_name/$relative_path"
+          signed_zip="$signed_zip_root/$zip_name"
+          extract_root="$signed_extract_root/${zip_name%.zip}"
+          signed_item="$extract_root/$(basename "$relative_path")"
           target="$signed_contents_root/$base_name/$relative_path"
-          if [[ -z "$signed_file" ]]; then
-            echo "ERROR: Empty signed file path for $base_name/$relative_path"
-            exit 1
-          fi
-          if [[ ! -f "$signed_file" ]]; then
-            echo "ERROR: Signed binary not found: $signed_file"
+          if [[ ! -f "$signed_zip" ]]; then
+            echo "ERROR: Signed ZIP not found: $signed_zip"
             exit 1
           fi
 
-          cp "$signed_file" "$target"
-          chmod +x "$target" || true
+          rm -rf "$extract_root"
+          mkdir -p "$extract_root"
+          unzip -q "$signed_zip" -d "$extract_root"
+
+          expected_item_name=$(basename "$relative_path")
+          package_sidecar_name="${expected_item_name%.*}.pkg"
+          while IFS= read -r -d '' extracted_item; do
+            extracted_name=$(basename "$extracted_item")
+            if [[ "$extracted_name" == "$expected_item_name" ]]; then
+              continue
+            fi
+            if [[ "$item_type" == bundle && "$extracted_name" == "$package_sidecar_name" && -f "$extracted_item" ]]; then
+              echo "Ignoring ESRP package sidecar after bundle signing: $extracted_name"
+              continue
+            fi
+
+            echo "ERROR: Unexpected top-level item '$extracted_name' in signed ZIP: $signed_zip"
+            exit 1
+          done < <(find "$extract_root" -mindepth 1 -maxdepth 1 -print0)
+
+          case "$item_type" in
+            file)
+              if [[ ! -f "$signed_item" ]]; then
+                echo "ERROR: Signed binary not found: $signed_item"
+                exit 1
+              fi
+              cp "$signed_item" "$target"
+              chmod +x "$target" || true
+              ;;
+            bundle)
+              if [[ ! -d "$signed_item" ]]; then
+                echo "ERROR: Signed code bundle not found: $signed_item"
+                exit 1
+              fi
+              rm -rf "$target"
+              cp -R "$signed_item" "$target"
+              ;;
+            *)
+              echo "ERROR: Unsupported signing input type '$item_type' for $base_name/$relative_path"
+              exit 1
+              ;;
+          esac
         done < "$input_root/file-mapping.tsv"
+
+        verification_errors=0
+        while IFS= read -r -d '' candidate; do
+          if file "$candidate" | grep -q 'Mach-O'; then
+            chmod +x "$candidate"
+          fi
+        done < <(find "$signed_contents_root" -type f -print0)
+
+        total_code_bundles=0
+        while IFS=$'\t' read -r _zip_name base_name relative_path item_type; do
+          [[ "$item_type" == bundle ]] || continue
+          candidate="$signed_contents_root/$base_name/$relative_path"
+          total_code_bundles=$((total_code_bundles + 1))
+          if ! verify_code_bundle "$candidate"; then
+            verification_errors=1
+          fi
+        done < "$input_root/file-mapping.tsv"
+
+        total_macho=0
+        while IFS= read -r -d '' candidate; do
+          if ! file "$candidate" | grep -q 'Mach-O'; then
+            continue
+          fi
+
+          total_macho=$((total_macho + 1))
+          if ! verify_macho_signature "$candidate"; then
+            verification_errors=1
+          fi
+
+          case "$(basename "$candidate")" in
+            az|azclips-agent)
+              if ! verify_dotnet_entitlements "$candidate"; then
+                verification_errors=1
+              fi
+              ;;
+          esac
+        done < <(find "$signed_contents_root" -type f -print0)
+
+        if [[ "$total_macho" -eq 0 ]]; then
+          echo 'ERROR: No Mach-O binaries found before notarization.'
+          verification_errors=1
+        fi
+        if [[ "$verification_errors" -ne 0 ]]; then
+          echo 'ERROR: macOS payload validation failed; notarization ZIPs will not be created.'
+          exit 1
+        fi
+        echo "Validated $total_macho signed Mach-O binaries and $total_code_bundles code bundles before notarization."
 
         for content_dir in "$signed_contents_root"/*; do
           [[ -d "$content_dir" ]] || continue
