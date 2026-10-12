@@ -18,6 +18,7 @@ internal sealed class PlaybackAuthService : IAuthService
         ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
         Scopes = [],
         TenantId = RecordingSanitizers.PlaceholderGuid,
+        EntraObjectId = RecordingSanitizers.PlaceholderGuid,
         CorrelationId = Guid.Empty,
     };
 

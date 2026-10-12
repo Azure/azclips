@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Core.Abstractions;
 
 /// <summary>
@@ -39,6 +41,23 @@ public record Profile
     /// <summary>Persisted managed identity key used for token refresh.</summary>
     public string? ManagedIdentityId { get; init; }
 
+    /// <summary>Runtime-only authentication metadata resolved from the current token cache.</summary>
+    [JsonIgnore]
+    public ProfileRuntimeMetadata Metadata { get; init; } = new();
+
+    public Profile WithRuntimeMetadata(AuthResult authResult)
+    {
+        if (string.IsNullOrWhiteSpace(authResult.EntraObjectId))
+        {
+            return this;
+        }
+
+        return this with
+        {
+            Metadata = Metadata with { EntraObjectId = authResult.EntraObjectId }
+        };
+    }
+
     public override string ToString() =>
         $"Name: {Name}{Environment.NewLine}" +
         $"Subscription: {SubscriptionId}{Environment.NewLine}" +
@@ -46,4 +65,13 @@ public record Profile
         $"Cloud: {CloudName}{Environment.NewLine}" +
         $"AuthMethod: {AuthMethod}" +
         (string.IsNullOrEmpty(UserPrincipalName) ? string.Empty : $"{Environment.NewLine}User: {UserPrincipalName}");
+}
+
+/// <summary>
+/// Authentication values resolved at command runtime. These values must never be persisted to profiles.json.
+/// </summary>
+public record ProfileRuntimeMetadata
+{
+    /// <summary>The authenticated user's Entra object ID, when available from MSAL token metadata.</summary>
+    public string? EntraObjectId { get; init; }
 }

@@ -175,6 +175,7 @@ namespace Core.Engine
             {
                 throw AzclipsErrorException.ProfileNotFound($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
+
             return profile;
         }
 
