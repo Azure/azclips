@@ -116,6 +116,9 @@ a cached lookup with no match may lead to proposing `az group create` before
 check and the VM Judge rubric allow this prerequisite. The group must have a
 name and location, match the later VM's supplied group, and stay in the recorded
 subscription; password placeholders and unrelated-operation restrictions remain.
+This allowance does not require a lookup or group creation for every flag-only
+repair. Without recorded cache-miss evidence, a complete VM-only repair is valid;
+the Judge must not infer a missing group from an empty tool-call history.
 The VM and identity scenarios share the prerequisite checks without changing the
 identity scenario's policy. This rule correction changes the configured test
 identity; keep older artifacts intact and create a new `-Repeat 3` baseline

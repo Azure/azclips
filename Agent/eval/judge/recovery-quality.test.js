@@ -71,7 +71,11 @@ test('VM grading honors the accepted cache policy without asserting live resourc
   assert.match(rubric, /not proof of actual resource absence or successful execution/);
   assert.match(rubric, /same group used by the later VM creation/);
   assert.doesNotMatch(rubric, /supplied existing resource group/);
-  assert.match(require('../cases/vm-create-short-flags').vars.goal, /cached lookup reports no match/);
+  assert.match(rubric, /no recorded cache-miss evidence.*complete VM command by itself is sufficient/);
+  assert.match(rubric, /Do not invent a cache miss or require a lookup/);
+  const goal = require('../cases/vm-create-short-flags').vars.goal;
+  assert.match(goal, /supplied group/);
+  assert.doesNotMatch(goal, /creating that group first|cached lookup/);
 });
 
 test('the pinned Promptfoo runner calls the judge with evidence and preserves its pass/fail decision and rubric', async (t) => {
