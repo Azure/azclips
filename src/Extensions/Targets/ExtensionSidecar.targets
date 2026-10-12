@@ -192,9 +192,13 @@
        set to produce the installable .nupkg for "az extension add". Pack gathers its file list
        from static/dynamic None/Content items (not arbitrary files sitting in the output folder),
        so the sidecar needs to be registered as a packable item too - alongside the DLL in
-       lib/$(TargetFramework)/, which is where ExtensionInstaller.ExtractLibItemsAsync looks for it. -->
+       lib/$(TargetFramework)/, which is where ExtensionInstaller.ExtractLibItemsAsync looks for it.
+       GeneratePackageOnBuild=true also runs Pack via its own AfterTargets="Build" hook, with no
+       guaranteed order relative to GenerateExtensionSidecar (also AfterTargets="Build") - an
+       explicit DependsOnTargets forces the sidecar to exist before a clean "dotnet build" packs. -->
   <Target Name="AddExtensionSidecarToPackageList"
-          BeforeTargets="_GetPackageFiles">
+          BeforeTargets="_GetPackageFiles"
+          DependsOnTargets="GenerateExtensionSidecar">
     <ItemGroup Condition="Exists('$(OutputPath)$(PackageId).commands.json')">
       <None Include="$(OutputPath)$(PackageId).commands.json"
             Pack="true"
