@@ -4,7 +4,8 @@
 #
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields vm create returns:
-#   1. vm create --security-type TrustedLaunch    -> creates <vm>PublicIP; publicIps is set;
+#   1. vm create --security-type TrustedLaunch    -> enables secure boot/vTPM; creates
+#                                                    <vm>PublicIP; publicIps is set;
 #                                                    creates <vm>NSG with only the rdp rule
 #   2. vm create --security-type Standard --public-ip-address <new name>
 #                --nsg <existing resource id>        creates that public IP; publicIps is set;
@@ -415,7 +416,8 @@ else
     fail "existing nsg: failed to pre-create NSG '$EXISTING_NSG'"
 fi
 
-if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch)
+echo "== 1. vm create --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true (default public IP ${DEFAULT_VM}PublicIP) =="
+if output=$(create_vm "$DEFAULT_VM" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true)
 then
     check_public_ip "default" "$output" yes "${DEFAULT_VM}PublicIP"
     check_nsg "default" "$DEFAULT_VM" "$DEFAULT_NSG_ID" "$RDP_NSG_RULE"

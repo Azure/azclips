@@ -29,6 +29,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         [ParameterGroup("Security Arguments")]
         public string? OsDiskSecureVMDiskEncryptionSet { get; set; }
 
+        [ParameterGroup("Security Arguments")]
+        public bool? EnableSecureBoot { get; set; }
+
+        [ParameterGroup("Security Arguments")]
+        public bool? EnableVtpm { get; set; }
+
         [ParameterGroup("Authentication Arguments")]
         public string AdminUsername { get; set; } = string.Empty;
 
@@ -83,6 +89,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 useTrustedLaunchDefaults,
                 OsDiskSecurityEncryptionType,
                 OsDiskSecureVMDiskEncryptionSet,
+                EnableSecureBoot,
+                EnableVtpm,
                 SubscriptionId,
                 ResourceGroupName);
 

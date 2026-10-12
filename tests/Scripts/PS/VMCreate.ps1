@@ -6,13 +6,12 @@
 #
 # Creates VMs in one resource group, one per public IP mode/security mode, and checks the
 # detail fields New-AzVM returns:
-#   1. New-AzVM -SecurityType TrustedLaunch        -> creates <vm>PublicIP; PublicIps is set;
+#   1. New-AzVM -SecurityType TrustedLaunch        -> enables secure boot/vTPM; creates
+#                                                     <vm>PublicIP; PublicIps is set;
 #                                                     creates <vm>NSG with only the rdp rule
 #   2. New-AzVM -SecurityType Standard -PublicIpAddressName <new name>
 #                                                    -> creates that public IP; PublicIps is set
 #   3. New-AzVM -PublicIpAddressName <existing>    -> reuses that public IP; PublicIps is set
-#   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
-#               -SecurityGroupName <existing id>      attaches the pre-created NSG untouched
 #   4. New-AzVM -PublicIpAddressName ''            -> no public IP; PublicIps is empty;
 #               -SecurityGroupName <existing name>    attaches the pre-created NSG untouched
 #   5. New-AzVM -PublicIpAddressName <missing id>  -> fails with "was not found" before
@@ -371,10 +370,9 @@ try
     {
         Add-Failure "existing nsg: failed to pre-create NSG '$existingNsg': $($_.Exception.Message)"
     }
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
-    Write-Host "== 1. New-AzVM (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
+    Write-Host "== 1. New-AzVM -SecurityType TrustedLaunch -EnableSecureBoot -EnableVtpm (default public IP ${defaultVm}PublicIP, default NSG ${defaultVm}NSG) =="
     $createdVms.Add($defaultVm)
-    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch' }
+    $defaultResult = New-SmokeVM -Name $defaultVm -Extra @{ SecurityType = 'TrustedLaunch'; EnableSecureBoot = $true; EnableVtpm = $true }
     Test-PublicIp -Label 'default' -Vm $defaultResult -ExpectPublicIp $true -ExpectedPublicIpName "${defaultVm}PublicIP"
     Test-Nsg -Label 'default' -VmName $defaultVm -ExpectedId $defaultNsgId -ExpectedRule $defaultNsgRule
 

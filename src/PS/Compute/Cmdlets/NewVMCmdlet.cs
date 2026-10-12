@@ -46,6 +46,12 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string? OSDiskSecureVMDiskEncryptionSet { get; set; }
 
+    [Parameter(Mandatory = false)]
+    public SwitchParameter EnableSecureBoot { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter EnableVtpm { get; set; }
+
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
@@ -105,6 +111,8 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecurityEncryptionType)))   { parameters.Add("OsDiskSecurityEncryptionType", OSDiskSecurityEncryptionType!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableSecureBoot)))               { parameters.Add("EnableSecureBoot", EnableSecureBoot.IsPresent); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableVtpm)))                     { parameters.Add("EnableVtpm", EnableVtpm.IsPresent); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }

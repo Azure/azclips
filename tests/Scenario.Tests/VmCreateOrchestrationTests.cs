@@ -279,6 +279,31 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void UefiOverrides_Cli_RequireSecurityTypeWhenImageDoesNotDefaultTrustedLaunch()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunCli(s_groupArgs);
+        var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--enable-secure-boot", "false", "--enable-vtpm", "false"]));
+
+        Assert.Contains("Specify security type TrustedLaunch or ConfidentialVM", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void UefiOverrides_Cli_BindExplicitFalseValuesWithTrustedLaunch()
+    {
+        var vmBody = RecordVmBody([.. s_cliArgs, "--security-type", "TrustedLaunch", "--enable-secure-boot", "false", "--enable-vtpm", "false"]);
+
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":false", vmBody);
+        Assert.Contains("\"vTpmEnabled\":false", vmBody);
+    }
+
+    [Fact]
     public void SecurityType_ConfidentialVM_RequiresOsDiskSecurityEncryptionType()
     {
         var record = new SessionRecord();
@@ -399,6 +424,43 @@ public class VmCreateOrchestrationTests
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
         Assert.Contains("\"securityType\":\"ConfidentialVM\"", vmBody);
         Assert.Contains("\"securityEncryptionType\":\"VMGuestStateOnly\"", vmBody);
+    }
+
+    [Fact]
+    public void UefiOverrides_PowerShell_RequireSecurityTypeWhenImageDoesNotDefaultTrustedLaunch()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["EnableSecureBoot"] = false;
+        parameters["EnableVtpm"] = false;
+        var error = Assert.Throws<UsageErrorException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.Contains("Specify security type TrustedLaunch or ConfidentialVM", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void UefiOverrides_PowerShell_BindExplicitFalseValuesWithTrustedLaunch()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SecurityType"] = "TrustedLaunch";
+        parameters["EnableSecureBoot"] = false;
+        parameters["EnableVtpm"] = false;
+        AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+        Assert.Contains("\"securityType\":\"TrustedLaunch\"", vmBody);
+        Assert.Contains("\"secureBootEnabled\":false", vmBody);
+        Assert.Contains("\"vTpmEnabled\":false", vmBody);
     }
 
     [Theory]
