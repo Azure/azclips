@@ -61,6 +61,14 @@ public static class ToolInvocationLog
 
         public void SetResult(string result) => _result = result;
 
+        /// <summary>The tool span, or null when telemetry is off.</summary>
+        public Activity? Activity => _activity switch
+        {
+            Activity activity => activity,
+            Core.Abstractions.TelemetryActivityScope wrapped => wrapped.Activity,
+            _ => null,
+        };
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)

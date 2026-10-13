@@ -79,6 +79,8 @@ public static class TelemetryTags
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";
+    public const string ToolCommandName = PropertyTagPrefix + "tool.commandName";
+    public const string ToolCommandFound = PropertyTagPrefix + "tool.commandFound";
 
     /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
     public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";

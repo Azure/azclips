@@ -1,4 +1,7 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Text.Json;
+using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Shell;
 using Microsoft.Extensions.AI;
@@ -88,6 +91,38 @@ public sealed class HelpTools
             scope.SetResult("error=missing_name");
             return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
+        var result = await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
+        RecordLookup(scope.Activity, name, result);
+        return result;
+    }
+
+    // Records the catalog's own name for a hit, never the model's input text.
+    internal static void RecordLookup(Activity? activity, string requested, string helpJson)
+    {
+        if (activity is null)
+            return;
+        var (found, catalogName) = ReadCatalogName(requested, helpJson);
+        activity.SetTag(TelemetryTags.ToolCommandFound, found);
+        activity.SetTag(TelemetryTags.ToolCommandName, catalogName ?? "(not found)");
+    }
+
+    private static (bool Found, string? Name) ReadCatalogName(string requested, string helpJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(helpJson);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || root.TryGetProperty("error", out _))
+                return (false, null);
+            var cliName = root.TryGetProperty("cliName", out var cli) ? cli.GetString() : null;
+            var psName = root.TryGetProperty("psName", out var ps) ? ps.GetString() : null;
+            var matched = string.Equals(psName, requested.Trim(), StringComparison.OrdinalIgnoreCase) ? psName : cliName;
+            matched = string.IsNullOrEmpty(matched) ? (string.IsNullOrEmpty(cliName) ? psName : cliName) : matched;
+            return string.IsNullOrEmpty(matched) ? (false, null) : (true, matched);
+        }
+        catch (JsonException)
+        {
+            return (false, null);
+        }
     }
 }
