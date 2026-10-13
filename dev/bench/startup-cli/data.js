@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791872724458,
+  "lastUpdate": 1791872729121,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -10544,6 +10544,48 @@ window.BENCHMARK_DATA = {
             "value": 332252565.21,
             "unit": "ns",
             "range": "± 3868405.2869996643"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d20580166b781da8b473810aa382cd1b6a805755",
+          "message": "[CLI] Reject collection options without values (#1099)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nCLI commands with collection-valued options, including `az vm create\n--ssh-key-values` and `--subnet-address-prefixes`.\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nReject explicitly supplied collection options with no values during CLI\nargument binding instead of silently treating them as omitted.\n\n- Validate every raw flag occurrence, including an empty repeated\noccurrence alongside valid values\n- Cover flat lists, arrays, nested lists, and nested arrays before the\nassignable-type shortcut\n- Preserve omitted optional options, boolean switches, valid repeated\nvalues, and explicitly quoted empty strings\n- Add parser-to-binder regression tests and document missing option\nvalues\n\nThis is an independent fix branched from upstream `main`; it contains no\nVM networking feature changes. It addresses the parser behavior\nidentified during review of Azure/azclips#1097 (Azure/CLIPS#831).\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --filter\nFullyQualifiedName~CliArgumentValidationTests --verbosity quiet` -\npassed, 39 tests (one pre-existing nullable warning in\n`TUI\\services\\PromptService.cs`)\n- `dotnet build azclips.slnx --verbosity quiet` - passed, 0 warnings and\n0 errors\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --verbosity\nquiet` - passed, 1,257 passed and 8 skipped\n- `dotnet artifacts\\Debug\\Core.Cli\\az.dll vm create --ssh-key-values` -\npassed manual negative test: reports that `ssh-key-values` requires a\nvalue, exit code 2\n- `dotnet artifacts\\Debug\\Core.Cli\\az.dll vm create\n--subnet-address-prefixes 10.0.0.0/24 --subnet-address-prefixes` -\npassed manual negative test: rejects the empty repeated occurrence, exit\ncode 2\n- `git diff --check` - passed\n\nNo Azure resources were created.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[CLI] Reject explicitly supplied collection options without values,\nincluding empty repeated occurrences\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-13T05:51:33Z",
+          "tree_id": "1d21e3ccfb668574d5f540b0884084bcf7754754",
+          "url": "https://github.com/Azure/azclips/commit/d20580166b781da8b473810aa382cd1b6a805755"
+        },
+        "date": 1791872728880,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 324719136.49,
+            "unit": "ns",
+            "range": "± 5612423.039895417"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 326701012.57,
+            "unit": "ns",
+            "range": "± 7437425.600689538"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 324717137.79,
+            "unit": "ns",
+            "range": "± 6445963.652159587"
           }
         ]
       }
