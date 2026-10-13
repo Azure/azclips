@@ -1,104 +1,107 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-
-# Resource group scope deployment read - PowerShell (Get-AzResourceGroupDeployment)
-# Equivalent of: Get-AzResourceGroupDeployment
 #
-# Get/list are READ-ONLY. The one write below reuses a STABLE deployment name, so repeated
-# runs overwrite the same deployment record instead of accumulating new ones -- nothing to
-# clean up. The storage account it provisions is likewise idempotent (same name every run).
+# Resource group deployment get/list smoke test for the Azclips PowerShell surface
+# (Get-AzResourceGroupDeployment). Arranges one deployment under a STABLE name, so repeated runs
+# overwrite the same record and the same storage account instead of accumulating new ones; nothing
+# to clean up. Then reads it back by name, lists the group, and checks the 404 paths.
+#
+# Prereqs:
+#   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
+#   2. Sign in, or provide AZCLIPS_TENANT_ID so this script can sign in.
 #
 # Required:
-#   AZCLIPS_SUBSCRIPTION_ID - subscription holding the test resource group
+#   AZCLIPS_SUBSCRIPTION_ID    - subscription used for the live test resources
+#
 # Optional:
-#   AZCLIPS_RESOURCE_GROUP  - existing resource group to read, defaults to azclips-test-group-1
+#   AZCLIPS_TENANT_ID          - tenant to sign in with before running commands
+#   AZCLIPS_RESOURCE_GROUP     - existing resource group; defaults to azclips-test-group-1
+#   AZCLIPS_DEBUG              - set to 1 to show the cmdlet debug stream (HTTP traffic)
+#
+# Usage:
+#   pwsh -NoProfile -File .\tests\Scripts\PS\DeploymentGet.ps1
 
-$SubscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
-if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
+$ErrorActionPreference = 'Stop'
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Resources\Resources.psd1') -Force
+
+$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
     throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
 }
 
-$ResourceGroupName = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { 'azclips-test-group-1' } else { $env:AZCLIPS_RESOURCE_GROUP }
-$DeploymentName = 'azclips-test-deployment-get'
+$tenantId = $env:AZCLIPS_TENANT_ID
+$resourceGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { 'azclips-test-group-1' } else { $env:AZCLIPS_RESOURCE_GROUP }
+$deploymentName = 'azclips-test-deployment-get'
+$bicepDir = Join-Path $PSScriptRoot '..\Bicep'
+if ($env:AZCLIPS_DEBUG -eq '1') { $DebugPreference = 'Continue' }
 
-$BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
-
-# Surface the cmdlet debug stream without prompting. Passing -Debug to each call sets
-# $DebugPreference = Inquire, which raises an interactive confirmation prompt and hangs an
-# unattended run. Setting Continue once here shows the same debug output non-interactively.
-$DebugPreference = 'Continue'
-
-# Every check is tallied rather than thrown, so all cases run; the script exits non-zero at the
-# end if any failed (same pattern as DeploymentParametersQueryString.ps1).
-$script:failures = 0
-function Assert-Equal {
-    param($Expected, $Actual, [string]$Case)
-    if ($Expected -eq $Actual) {
-        Write-Host "PASS  $Case  => '$Actual'"
-    } else {
-        Write-Host "FAIL  $Case  expected '$Expected' but got '$Actual'" -ForegroundColor Red
-        $script:failures++
-    }
-}
-function Assert-Match {
-    param([string]$Pattern, $Actual, [string]$Case)
-    if ($Actual -match $Pattern) {
-        Write-Host "PASS  $Case  => '$Actual'"
-    } else {
-        Write-Host "FAIL  $Case  expected a message matching '$Pattern' but got '$Actual'" -ForegroundColor Red
-        $script:failures++
-    }
+function Section($title) {
+    Write-Host ''
+    Write-Host "=== $title ===" -ForegroundColor Cyan
 }
 
-# Arrange: ensure there is a deployment to read back. Stable name -> idempotent.
+function Assert-Equal($Expected, $Actual, [string]$Case) {
+    if (-not ($Expected -eq $Actual)) { throw "${Case}: expected '$Expected' but got '$Actual'." }
+    Write-Host "PASS  $Case" -ForegroundColor Green
+}
+
+function Assert-Match([string]$Pattern, $Actual, [string]$Case) {
+    if ($Actual -notmatch $Pattern) { throw "${Case}: expected a message matching '$Pattern' but got '$Actual'." }
+    Write-Host "PASS  $Case" -ForegroundColor Green
+}
+
+# Runs a call that must fail and returns its error text; throws if it unexpectedly succeeds.
+function Get-ErrorText([scriptblock]$Action) {
+    try { & $Action | Out-Null } catch { return "$_" }
+    throw 'Expected the command to fail, but it succeeded.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($tenantId)) {
+    Section 'Connect-AzAccount'
+    Connect-AzAccount -TenantId $tenantId -SubscriptionId $subscriptionId | Out-Host
+}
+
+Section "New-AzResourceGroupDeployment $deploymentName (arrange, idempotent)"
 $arranged = New-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $DeploymentName `
-    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=azclipsdeploymentget" `
+    -SubscriptionId $subscriptionId `
+    -ResourceGroupName $resourceGroup `
+    -Name $deploymentName `
+    -TemplateFile (Join-Path $bicepDir 'sample-storage.bicep') `
+    -Parameter 'storageAccountName=azclipsdeploymentget' `
     -Mode Incremental
 Assert-Equal 'Succeeded' $arranged.Properties.ProvisioningState 'arrange: deployment created'
 
-# Happy path (Get parameter set): retrieve the single deployment by name.
+Section 'Get-AzResourceGroupDeployment -Name'
 $deployment = Get-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $DeploymentName
-Assert-Equal $DeploymentName $deployment.Name 'get: deployment name'
+    -SubscriptionId $subscriptionId `
+    -ResourceGroupName $resourceGroup `
+    -Name $deploymentName
+Assert-Equal $deploymentName $deployment.Name 'get: deployment name'
 Assert-Equal 'Succeeded' $deployment.Properties.ProvisioningState 'get: provisioningState'
 
-# Happy path (List parameter set, the default): omit -Name to enumerate the resource group.
+Section 'Get-AzResourceGroupDeployment (list the resource group)'
 # The cmdlet enumerates output, so this is a flat array of DeploymentExtended, not an envelope.
-$deployments = @(Get-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName)
-Assert-Equal $true ($DeploymentName -in $deployments.Name) "list: contains '$DeploymentName' among $($deployments.Count)"
+$deployments = @(Get-AzResourceGroupDeployment -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup)
+Assert-Equal $true ($deploymentName -in $deployments.Name) "list: contains '$deploymentName' among $($deployments.Count)"
 
-# SubscriptionId is optional: it defaults to the active profile's subscription.
-$deployment = Get-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -Name $DeploymentName
-Assert-Equal $DeploymentName $deployment.Name 'default subscription: resolved from the active profile'
+Section 'Get-AzResourceGroupDeployment without -SubscriptionId (defaults to the active profile)'
+$deployment = Get-AzResourceGroupDeployment -ResourceGroupName $resourceGroup -Name $deploymentName
+Assert-Equal $deploymentName $deployment.Name 'default subscription'
 
-# Negative case: a deployment name that does not exist must surface an ARM 404
-# (DeploymentNotFound), not an empty success.
-Get-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name azclips-test-deployment-does-not-exist `
-    -ErrorVariable err | Out-Null
-Assert-Match 'DeploymentNotFound|not found|404' $err.Message 'missing deployment surfaces 404'
-
-# Negative case: a resource group that does not exist must surface an ARM 404
-# (ResourceGroupNotFound), not an empty list.
-Get-AzResourceGroupDeployment `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName azclips-test-group-does-not-exist `
-    -ErrorVariable err | Out-Null
-Assert-Match 'ResourceGroupNotFound|not found|404' $err.Message 'missing resource group surfaces 404'
-
-if ($script:failures -gt 0) {
-    Write-Host "`n$($script:failures) assertion(s) failed." -ForegroundColor Red
-    exit 1
+Section 'Get-AzResourceGroupDeployment missing deployment (must surface 404)'
+$message = Get-ErrorText {
+    Get-AzResourceGroupDeployment -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name 'azclips-test-deployment-does-not-exist'
 }
-Write-Host "`nAll assertions passed."
-exit 0
+Assert-Match 'DeploymentNotFound|not found|404' $message 'missing deployment surfaces 404'
+
+Section 'Get-AzResourceGroupDeployment missing resource group (must surface 404)'
+$message = Get-ErrorText {
+    Get-AzResourceGroupDeployment -SubscriptionId $subscriptionId -ResourceGroupName 'azclips-test-group-does-not-exist'
+}
+Assert-Match 'ResourceGroupNotFound|not found|404' $message 'missing resource group surfaces 404'
+
+Write-Host ''
+Write-Host 'All deployment get smoke checks completed.' -ForegroundColor Green
