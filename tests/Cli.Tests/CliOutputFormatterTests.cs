@@ -6,6 +6,7 @@ using System.Globalization;
 using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
+using Microsoft.Azure.Azclips.Extensions.KeyVault.Models;
 
 namespace Cli.Tests;
 
@@ -19,6 +20,34 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
+    [Theory]
+    [InlineData(nameof(CertificateBundle), false)]
+    [InlineData(nameof(CertificateBundle), true)]
+    [InlineData(nameof(CertificateItem), false)]
+    [InlineData(nameof(CertificateItem), true)]
+    [InlineData(nameof(DeletedCertificateBundle), false)]
+    [InlineData(nameof(DeletedCertificateBundle), true)]
+    public void FormatValue_ShouldPreserveCertificateThumbprintEncoding(string model, bool collection)
+    {
+        byte[] bytes = [251, 255];
+        object certificate = model switch
+        {
+            nameof(CertificateBundle) => new CertificateBundle { X509Thumbprint = bytes, Cer = bytes },
+            nameof(CertificateItem) => new CertificateItem { X509Thumbprint = bytes },
+            nameof(DeletedCertificateBundle) => new DeletedCertificateBundle { X509Thumbprint = bytes, Cer = bytes },
+            _ => throw new ArgumentOutOfRangeException(nameof(model))
+        };
+
+        string result = Core.Cli.Output.CliOutputFormatter.FormatValue(collection ? new[] { certificate } : certificate);
+        using var document = JsonDocument.Parse(result);
+        var output = collection ? document.RootElement[0] : document.RootElement;
+
+        Assert.Equal("-_8", output.GetProperty("x5t").GetString());
+        if (model != nameof(CertificateItem)) Assert.Equal("+/8=", output.GetProperty("cer").GetString());
+        var roundTrip = JsonSerializer.Deserialize(output.GetRawText(), certificate.GetType());
+        Assert.Equal(JsonSerializer.Serialize(certificate, certificate.GetType()), JsonSerializer.Serialize(roundTrip, certificate.GetType()));
+    }
+
     // ── String pass-through ──────────────────────────────────────────
 
     [Fact]

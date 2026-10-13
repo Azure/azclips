@@ -31,10 +31,7 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     protected void PrepareDataPlane()
     {
         if (!JsonOptions.IsReadOnly)
-        {
             JsonOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-            Customization.CertificateJson.Configure(JsonOptions);
-        }
         if (ResolvedProfile is null || string.IsNullOrWhiteSpace(ResolvedProfile.TenantId))
             throw new InvalidOperationException("Sign in and select a profile before using Key Vault.");
         if (!string.IsNullOrEmpty(ResolvedProfile.CloudName) && ResolvedProfile.CloudName != "AzureCloud")

@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Delete the name, all versions and associated policy. Requires certificates/delete and explicit `--yes`. Returns service recovery metadata without deleted-state polling. Never purges or alters vault retention settings. Use the PowerShell `Undo-AzKeyVaultCertificateRemoval` cmdlet within the retention period to recover the certificate.
+Description: Delete the name, all versions and associated policy. Requires certificates/delete and explicit `--yes`. Returns service recovery metadata without deleted-state polling. Never purges or alters vault retention settings. Recovery is not exposed in the CLI.
 
 ### Confirm deletion
 

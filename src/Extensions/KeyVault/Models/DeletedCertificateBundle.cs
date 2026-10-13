@@ -22,6 +22,7 @@ public partial class DeletedCertificateBundle
 
     /// <summary>Thumbprint of the certificate.</summary>
     [JsonPropertyName("x5t")]
+    [JsonConverter(typeof(Customization.CertificateJson.ThumbprintConverter))]
     public byte[]? X509Thumbprint { get; set; }
 
     /// <summary>The management policy.</summary>

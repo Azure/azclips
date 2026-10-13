@@ -225,7 +225,8 @@ public class KeyVaultCertificateScenarioTests
             if (statusCode == System.Net.HttpStatusCode.Forbidden)
             {
                 Assert.Contains("Access denied.", error.ToString());
-                Assert.Contains("Key Vault Certificates Officer", error.ToString());
+                Assert.Contains("Check the resource permissions and network access rules.", error.ToString());
+                Assert.DoesNotContain("Key Vault", error.Message);
             }
             else Assert.Contains($"HTTP {(int)statusCode}", error.ToString());
             Assert.DoesNotContain(sensitive, error.ToString());

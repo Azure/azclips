@@ -23,6 +23,7 @@ public partial class CertificateItem
 
     /// <summary>Thumbprint of the certificate.</summary>
     [JsonPropertyName("x5t")]
+    [JsonConverter(typeof(Customization.CertificateJson.ThumbprintConverter))]
     public byte[]? X509Thumbprint { get; set; }
 
     /// <summary>Determines whether the object is enabled.</summary>
