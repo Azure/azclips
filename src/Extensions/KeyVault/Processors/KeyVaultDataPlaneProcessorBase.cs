@@ -89,8 +89,11 @@ public abstract partial class KeyVaultDataPlaneProcessorBase : IProcessor
         return SendCoreAsync();
     }
 
-    protected virtual Task<HttpResponseMessage> SendCoreAsync() =>
-        HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+    protected virtual Task<HttpResponseMessage> SendCoreAsync()
+    {
+        EnsureExecutionAllowed();
+        return HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+    }
 }
 
 public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse> : KeyVaultDataPlaneProcessorBase

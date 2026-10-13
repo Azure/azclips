@@ -11,6 +11,7 @@
     <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
+    <ProjectReference Include="../../src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
     <ProjectReference Include="../../src/Extensions/Storage/Extensions.Storage.csproj" />
     <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <!-- The PowerShell surface's argument-parsing provider lives in the Accounts cmdlet module

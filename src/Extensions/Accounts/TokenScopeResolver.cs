@@ -107,7 +107,7 @@ internal static class TokenScopeResolver
     {
         if (string.IsNullOrWhiteSpace(resource))
         {
-            throw new ArgumentException("Resource must not be empty.", nameof(resource));
+            throw AzclipsErrorException.InvalidInput("Resource must not be empty.");
         }
 
         var trimmed = resource.Trim();

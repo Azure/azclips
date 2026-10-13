@@ -56,7 +56,7 @@ Describe 'Get-PublishableModule' {
     It 'discovers all publishable modules against the real src/PS tree' {
         $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
         $result = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
-        ($result | ForEach-Object Name) | Sort-Object | Should -Be @('Accounts', 'Compute', 'Config', 'ManagedServiceIdentity', 'MsGraph', 'Network', 'Resources', 'Storage')
+        ($result | ForEach-Object Name) | Sort-Object | Should -Be @('Accounts', 'Compute', 'Config', 'KeyVault', 'ManagedServiceIdentity', 'MsGraph', 'Network', 'Resources', 'Storage')
     }
 }
 

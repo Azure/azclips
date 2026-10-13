@@ -68,6 +68,7 @@
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Network/Cmdlets.Network.csproj" />
+    <Project Path="src/PS/KeyVault/Cmdlets.KeyVault.csproj" />
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
