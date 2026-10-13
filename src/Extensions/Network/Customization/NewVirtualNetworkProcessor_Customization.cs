@@ -18,6 +18,9 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
     // Compound form: one occurrence per subnet, each a list of key=value tokens.
     public List<List<string>> SubnetSpecs { get; set; } = [];
 
+    // PowerShell also accepts Subnet objects produced by New-AzVirtualNetworkSubnetConfig.
+    public List<object> SubnetInputs { get; set; } = [];
+
     // Positional form, kept for the simple name+prefix case.
     public List<string> SubnetNames { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
@@ -36,7 +39,11 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
             AddressPrefixes = [DefaultAddressPrefix];
         }
 
-        Subnets = SubnetSpecs.Count > 0 ? SubnetSpecs.Select(BuildSubnet).ToList() : BuildPositionalSubnets();
+        Subnets = SubnetInputs.Count > 0
+            ? SubnetInputs.Select(BuildSubnetInput).ToList()
+            : SubnetSpecs.Count > 0
+                ? SubnetSpecs.Select(BuildSubnet).ToList()
+                : BuildPositionalSubnets();
         Tags = ParseTags();
 
         return base.CreateRequestBody();
@@ -117,13 +124,21 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
             throw AzclipsErrorException.InvalidInput("Each --subnets value requires a 'name=<value>' key.");
         }
 
-        if (properties.AddressPrefix.Length == 0 && properties.AddressPrefixes.Count > 0)
+        if (string.IsNullOrEmpty(properties.AddressPrefix) && properties.AddressPrefixes is { Count: > 0 })
         {
             properties.AddressPrefix = properties.AddressPrefixes[0];
         }
 
         return new Subnet { Name = name, Properties = properties };
     }
+
+    private static Subnet BuildSubnetInput(object input) => input switch
+    {
+        Subnet subnet => subnet,
+        IEnumerable<string> tokens => BuildSubnet(tokens.ToList()),
+        _ => throw new ArgumentException(
+            $"Subnet input must be a Subnet object or a collection of KEY=VALUE tokens, but received '{input.GetType().FullName}'.")
+    };
 
     private Dictionary<string, string>? ParseTags()
     {
