@@ -32,8 +32,12 @@ internal static class TableFormatter
     /// Formats explicit string rows and optional headers into an aligned table string
     /// matching classic az table formatting.
     /// </summary>
-    internal static string FormatRows(List<string[]> rows, string[]? headers = null, int? terminalWidth = null) =>
-        RenderColumns(rows, headers, terminalWidth);
+    internal static string FormatRows(
+        List<string[]> rows,
+        string[]? headers = null,
+        int? terminalWidth = null,
+        bool includeHeaderSeparator = true) =>
+        RenderColumns(rows, headers, terminalWidth, includeHeaderSeparator);
 
     private static string FormatArray(JsonElement array, int? terminalWidth)
     {
@@ -67,7 +71,11 @@ internal static class TableFormatter
         return RenderColumns(rows, headers: null, terminalWidth: terminalWidth);
     }
 
-    private static string RenderColumns(List<string[]> rows, string[]? headers, int? terminalWidth)
+    private static string RenderColumns(
+        List<string[]> rows,
+        string[]? headers,
+        int? terminalWidth,
+        bool includeHeaderSeparator = true)
     {
         var columnCount = Math.Max(headers?.Length ?? 0, rows.Count > 0 ? rows.Max(r => r.Length) : 0);
         if (columnCount == 0)
@@ -92,7 +100,10 @@ internal static class TableFormatter
         if (headers is not null)
         {
             lines.Add(RenderRow(headers, widths, separatorWidth));
-            lines.Add(string.Join(new string(' ', separatorWidth), widths.Select(w => new string('-', w))));
+            if (includeHeaderSeparator)
+            {
+                lines.Add(string.Join(new string(' ', separatorWidth), widths.Select(w => new string('-', w))));
+            }
         }
         lines.AddRange(rows.Select(row => RenderRow(row, widths, separatorWidth)));
         return string.Join("\n", lines);

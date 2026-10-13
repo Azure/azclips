@@ -182,6 +182,24 @@ public class TableFormatterTests
     }
 
     [Fact]
+    public void FormatRows_ShouldOmitSeparatorLine_WhenIncludeHeaderSeparatorIsFalse()
+    {
+        var headers = new[] { "Extension", "Loader", "Time (ms)" };
+        var rows = new List<string[]>
+        {
+            new[] { "Compute", "Bundled", "12.3" }
+        };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, headers, includeHeaderSeparator: false);
+        var lines = result.Split('\n');
+
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(headers, Columns(lines[0]));
+        Assert.DoesNotContain("---", result);
+        Assert.Contains("Compute", lines[1]);
+    }
+
+    [Fact]
     public void FormatRows_ShouldHandleRaggedRowsGracefully()
     {
         var headers = new[] { "Col1", "Col2", "Col3" };

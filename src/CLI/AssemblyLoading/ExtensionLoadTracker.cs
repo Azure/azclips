@@ -74,7 +74,7 @@ public static class ExtensionLoadTracker
             _rows.Clear();
         }
 
-        var headers = new[] { "Extension", "Loader", "Time (ms)", "Version", "Path" };
+        var headers = new[] { "Extension", "Loader", "Time (ms)", "Version" };
         var tableRows = new List<string[]>(snapshot.Count + 1);
         double totalMs = 0;
         foreach (var r in snapshot)
@@ -84,8 +84,7 @@ public static class ExtensionLoadTracker
                 r.Name,
                 r.Loader,
                 r.ElapsedMs.ToString("F1", CultureInfo.InvariantCulture),
-                string.IsNullOrEmpty(r.Version) ? "-" : r.Version,
-                r.Path
+                string.IsNullOrEmpty(r.Version) ? "-" : r.Version
             });
             totalMs += r.ElapsedMs;
         }
@@ -95,11 +94,10 @@ public static class ExtensionLoadTracker
             $"Total ({snapshot.Count})",
             "-",
             totalMs.ToString("F1", CultureInfo.InvariantCulture),
-            "-",
             "-"
         });
 
-        var table = TableFormatter.FormatRows(tableRows, headers);
+        var table = TableFormatter.FormatRows(tableRows, headers, includeHeaderSeparator: false);
         foreach (var line in table.Split('\n'))
         {
             writeDebug($"[ExtensionLoadTracker] {line}");

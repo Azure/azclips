@@ -34,7 +34,9 @@ public sealed class ExtensionLoadTrackerTests
         Assert.All(logs, line => Assert.StartsWith("[ExtensionLoadTracker] ", line));
 
         // Must contain column headers
-        Assert.Contains(logs, l => l.Contains("Extension") && l.Contains("Loader") && l.Contains("Time (ms)") && l.Contains("Version") && l.Contains("Path"));
+        Assert.Contains(logs, l => l.Contains("Extension") && l.Contains("Loader") && l.Contains("Time (ms)") && l.Contains("Version"));
+        Assert.DoesNotContain(logs, l => l.Contains("Path"));
+        Assert.DoesNotContain(logs, l => l.Contains("---"));
 
         // Must contain data rows
         Assert.Contains(logs, l => l.Contains("Compute") && l.Contains("Bundled") && l.Contains("42.5"));
