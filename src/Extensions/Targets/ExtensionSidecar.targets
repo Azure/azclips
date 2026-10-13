@@ -157,9 +157,15 @@
 
   <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
        metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
-       the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json. -->
+       the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json.
+       AddExtensionSidecarToPackageList pulls this target in a second time via DependsOnTargets
+       (see below) - Inputs is required so MSBuild's incremental engine can actually skip that
+       second invocation; without it, the inline task would re-run and Assembly.LoadFrom would
+       throw ("Assembly with same name is already loaded") trying to reload Core.Extensions.dll
+       into the same task-host process. -->
   <Target Name="GenerateExtensionSidecar"
           AfterTargets="Build"
+          Inputs="$(TargetPath)"
           Outputs="$(OutputPath)$(PackageId).commands.json">
     <GenerateExtensionSidecarTask
       ExtensionOutputDir="$(OutputPath)"
