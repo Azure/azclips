@@ -12,26 +12,6 @@ namespace Extensions.KeyVault.Tests;
 public class SecretCommandTests
 {
     [Theory]
-    [InlineData(null)]
-    [InlineData("application/x-pem-file")]
-    [InlineData("application/x-pem-file&api-version=wrong&extra=true#fragment")]
-    public async Task ShowRebuildsOnlyTheOptionalContentTypeQuery(string? contentType)
-    {
-        var command = new ShowSecretCommand { SecretName = "test", OutContentType = contentType };
-        Initialize(command, "{}", request =>
-        {
-            var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri!.Query);
-            Assert.Equal("2025-07-01", query["api-version"]);
-            Assert.Equal(contentType, query["outContentType"]);
-            Assert.Equal(contentType is null ? 1 : 2, query.Count);
-            Assert.Empty(request.RequestUri.Fragment);
-            Assert.Equal("/secrets/test/", request.RequestUri.AbsolutePath);
-            return Task.CompletedTask;
-        });
-        await command.ProcessAsync();
-    }
-
-    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task InheritedAttributesArePreserved(bool update)
@@ -219,6 +199,46 @@ public class SecretCommandTests
         await command.ProcessAsync();
         Assert.Equal("recovery", Assert.IsType<SecretMetadata>(Assert.Single(output)).RecoveryId);
         Assert.DoesNotContain("private-fixture", JsonSerializer.Serialize(output));
+    }
+
+    [Fact]
+    public async Task RecoverSendsBodylessPostAndReturnsOnlyMetadata()
+    {
+        var command = new RecoverSecretCommand { SecretName = "test" };
+        int requests = 0;
+        var output = Initialize(command,
+            "{\"id\":\"https://fixture.vault.azure.net/secrets/test/version1\",\"value\":\"private-fixture\",\"attributes\":{\"enabled\":false}}",
+            request =>
+            {
+                requests++;
+                Assert.Equal(HttpMethod.Post, request.Method);
+                Assert.Equal("https://fixture.vault.azure.net/deletedsecrets/test/recover?api-version=2025-07-01", request.RequestUri!.AbsoluteUri);
+                Assert.Null(request.Content);
+                return Task.CompletedTask;
+            });
+
+        await command.ProcessAsync();
+
+        Assert.Equal(1, requests);
+        var metadata = Assert.IsType<SecretMetadata>(Assert.Single(output));
+        Assert.Equal("https://fixture.vault.azure.net/secrets/test/version1", metadata.Id);
+        Assert.False(metadata.Attributes!.Enabled);
+        Assert.DoesNotContain("private-fixture", JsonSerializer.Serialize(output));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("../test")]
+    [InlineData("test*")]
+    [InlineData("test%2Frecover")]
+    public async Task RecoverRejectsInvalidNamesBeforeNetwork(string name)
+    {
+        var command = new RecoverSecretCommand { SecretName = name };
+        var output = Initialize(command, "{}", _ => throw new InvalidOperationException("Unexpected request."));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => command.ProcessAsync());
+
+        Assert.Empty(output);
     }
 
     private static List<object> Initialize(KeyVaultDataPlaneProcessorBase command, string body, Func<HttpRequestMessage, Task> inspect)

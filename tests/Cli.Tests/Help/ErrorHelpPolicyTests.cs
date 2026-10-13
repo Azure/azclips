@@ -55,6 +55,7 @@ public class ErrorHelpPolicyTests
     {
         var ex = AzclipsErrorException.MissingRequiredParameters("Invalid arguments: Required parameter '--name' is missing.");
 
+        Assert.IsType<MissingRequiredArgumentException>(ex);
         Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(ex, Invocation("vm create"), errorStreamIsHumanReadable: true));
     }
 
@@ -83,33 +84,15 @@ public class ErrorHelpPolicyTests
     }
 
     [Fact]
-    public void IsHumanReadableErrorStream_IsTrue_ForInteractiveStderrWithoutExplicitFormat()
+    public void IsHumanReadableErrorStream_IsTrue_ForInteractiveStderr()
     {
-        Assert.True(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat: null));
+        Assert.True(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false));
     }
 
     [Fact]
     public void IsHumanReadableErrorStream_IsFalse_WhenStderrIsRedirected()
     {
-        Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: true, requestedFormat: null));
-    }
-
-    [Theory]
-    [InlineData(OutputFormat.Json)]
-    [InlineData(OutputFormat.Jsonc)]
-    public void IsHumanReadableErrorStream_IsFalse_WhenStructuredFormatWasRequested(OutputFormat requestedFormat)
-    {
-        // An explicit --output json means the error payload must stay parseable even at a terminal.
-        Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat));
-    }
-
-    [Theory]
-    [InlineData(OutputFormat.Table)]
-    [InlineData(OutputFormat.Tsv)]
-    [InlineData(OutputFormat.Yaml)]
-    public void IsHumanReadableErrorStream_IsTrue_ForPlainTextFormats(OutputFormat requestedFormat)
-    {
-        Assert.True(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: false, requestedFormat));
+        Assert.False(ErrorHelpPolicy.IsHumanReadableErrorStream(stderrIsRedirected: true));
     }
 
     [Fact]

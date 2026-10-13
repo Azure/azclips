@@ -78,11 +78,11 @@ Both clone the request before each attempt (`request.CloneWithContent()`) so the
 
 ## 3. How the engine composes the per-invocation chain
 
-`Engine.CreateProcessorContext` builds the pipeline for one invocation (`src/Core/Core.Engine/Engine.cs:115-135`). It constructs a `HttpPipeline` over the shared `HttpClient`, sized from `CoreOptions.Http`, and then layers three steps:
+`Engine.CreateProcessorContext` builds the pipeline for one invocation (`src/Core/Core.Engine/Engine.cs:115-135`). It constructs a `HttpPipeline` over the injected `ISendAsyncTerminalFactory`, sized from `CoreOptions.Http`, and then layers three steps. DI supplies `HttpClientTransportFactory`, which reuses the configured default or sensitive named client:
 
 ```csharp
 IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-    new HttpClientFactory(httpClient),
+    httpTransportFactory,
     session.Option.Http.MaxRetries,
     session.Option.Http.MaxRetriesFor429)
 { PollingInterval = 15 };

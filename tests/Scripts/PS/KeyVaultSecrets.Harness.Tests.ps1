@@ -92,6 +92,15 @@ try {
     if ((Read-State).cleanupNames.Count) { throw 'Partial run failure did not execute cleanup.' }
     if (@(Get-ChildItem $temp -Filter '*.txt').Count) { throw 'Completed cleanup retained synthetic value files.' }
     if ($responses.Count) { throw 'Some expected test invocations did not run.' }
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
+    Import-TestModule
+    $recovery = Get-Command -Module KeyVault -Name Undo-AzKeyVaultSecretRemoval
+    if (-not $recovery.Parameters.ContainsKey('WhatIf') -or -not $recovery.Parameters.ContainsKey('Confirm')) {
+        throw 'Recovery must support WhatIf and Confirm.'
+    }
+    $preview = @(Undo-AzKeyVaultSecretRemoval -VaultName fixture -Name test -Profile 'whatif-profile-does-not-exist' -WhatIf -ErrorAction Stop)
+    if ($preview.Count) { throw 'Recovery WhatIf returned service output.' }
+    Write-Host 'PASS: recovery cmdlet exported and WhatIf bypasses profile resolution and service execution'
     Write-Host 'PASS: offline failure-reason, ownership, target binding and cleanup tests'
 }
 finally { Remove-Item -LiteralPath $temp -Recurse -Force }

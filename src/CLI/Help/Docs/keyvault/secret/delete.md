@@ -5,7 +5,9 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Delete the named secret and all versions. Requires secrets/delete permission and explicit `--yes` confirmation. Output retains recovery metadata where returned by the service. The command never purges or bypasses purge protection. Recovery is not included in this release; use an existing recovery tool within the vault's retention period. A retained soft-deleted name cannot simply be reused as a new secret.
+Description: Delete the named secret and all versions. Requires secrets/delete permission and explicit `--yes` confirmation. Output retains recovery metadata where returned by the service. The command never purges or bypasses purge protection. Use the PowerShell `Undo-AzKeyVaultSecretRemoval` cmdlet within the vault's retention period to recover the secret. A retained soft-deleted name cannot simply be reused as a new secret.
+
+Purge is a known gap in this preview. Neither a CLI secret purge command nor a PowerShell secret purge parameter is exposed.
 
 ### Confirm deletion
 

@@ -155,7 +155,7 @@ function Assert-Metadata([string]$Name, $Metadata) {
 function Import-TestModule {
     Import-Module (Join-Path $repoRoot 'src/PS/Accounts/Accounts.psd1') -ErrorAction Stop
     Import-Module (Join-Path $repoRoot 'src/PS/KeyVault/KeyVault.psd1') -ErrorAction Stop
-    Assert-Check 'PowerShell module exports four secret commands' (@(Get-Command -Module KeyVault -Name '*KeyVaultSecret').Count -eq 4)
+    Assert-Check 'PowerShell module exports five secret commands' (@(Get-Command -Module KeyVault -Name '*AzKeyVaultSecret*').Count -eq 5)
 }
 
 try {
@@ -203,7 +203,7 @@ try {
         Assert-Check 'CLI update preserves explicit false' ($disabled.attributes.enabled -eq $false)
         $verified = Invoke-Legacy 'Azure CLI verifies disabled metadata' @('list-versions', '--name', $state.cli)
         Assert-Check 'Service records disabled latest version' (@($verified | Where-Object { $_.id.EndsWith($state.cliVersion2) -and $_.attributes.enabled -eq $false }).Count -eq 1)
-        $denied = Invoke-Clips 'cli-disabled-read' @('show', '--name', $state.cli, '--as-plain-text') -ExpectedError '\bHTTP 403\b'
+        $denied = Invoke-Clips 'cli-disabled-read' @('show', '--name', $state.cli, '--as-plain-text') -ExpectedError 'Access denied\.'
         Invoke-Legacy 'Service denies disabled secret read' @('show', '--name', $state.cli, '--query', 'id') -ExpectedError '\(Forbidden\)'
         Assert-Check 'Denied read does not leak fixture data' ($denied.Error -notmatch 'clips-live-')
         $null = Invoke-Clips 'cli-enable' @('set-attributes', '--name', $state.cli, '--enabled', 'true', '--expires', '2027-01-01T00:00:00Z')

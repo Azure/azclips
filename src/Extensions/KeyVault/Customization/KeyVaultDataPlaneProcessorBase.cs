@@ -12,6 +12,8 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     protected string Endpoint => VaultBaseUrl!.AbsoluteUri.TrimEnd('/');
     private bool dataPlanePrepared;
 
+    private protected partial void EnsureExecutionAllowed() => PrepareDataPlane();
+
     protected static string WithOptionalQueryParameters(string generatedUri, params (string Name, string? Value)[] optionalParameters)
     {
         var uri = new UriBuilder(generatedUri);
@@ -61,11 +63,11 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
             if (uri is null || !uri.IsAbsoluteUri || uri.Scheme != Uri.UriSchemeHttps ||
                 uri.Port != 443 || !string.Equals(uri.IdnHost, vault.IdnHost, StringComparison.OrdinalIgnoreCase) ||
                 uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
-                                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
-                                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal) ||
-                                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
-                                        "^/deletedcertificates/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
-                                throw new ArgumentException("The request must target the selected vault's secrets or certificates endpoint.");
+                !(uri.AbsolutePath == "/secrets" || uri.AbsolutePath.StartsWith("/secrets/", StringComparison.Ordinal) ||
+                    uri.AbsolutePath == "/certificates" || uri.AbsolutePath.StartsWith("/certificates/", StringComparison.Ordinal) ||
+                    request.Method == HttpMethod.Post && Regex.IsMatch(uri.AbsolutePath,
+                        "^/deleted(?:secrets|certificates)/[a-zA-Z0-9-]{1,127}/recover$", RegexOptions.CultureInvariant)))
+                throw new ArgumentException("The request must target the selected vault's secrets or certificates endpoint.");
 
             request.MarkSensitive();
             var previousOverride = AuthHandler.AcquireTokenAsyncOverride;
@@ -107,15 +109,5 @@ public abstract partial class KeyVaultDataPlaneProcessorBase
     {
         if (!Regex.IsMatch(name, "^[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]$", RegexOptions.CultureInvariant) || name.Contains("--", StringComparison.Ordinal))
             throw new ArgumentException("Vault names must be 3-24 letters, digits or hyphens, start with a letter, end with a letter or digit and contain no consecutive hyphens.");
-    }
-}
-
-public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse>
-    where TRequest : class
-    where TResponse : class
-{
-    partial void OverrideBeforeProcessBase()
-    {
-        PrepareDataPlane();
     }
 }

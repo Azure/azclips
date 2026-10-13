@@ -16,7 +16,8 @@ public partial class GetSecretsProcessor : KeyVaultDataPlaneProcessorBase<object
     public int? Maxresults { get; set; }
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/secrets?api-version=2025-07-01&maxresults={Maxresults}";
+    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/secrets?api-version=2025-07-01" +
+        (Maxresults.HasValue ? $"&maxresults={Maxresults.Value}" : string.Empty);
     private IEnumerable<SecretItem>? pageItems(SecretListResult body) => body.Value;
     private string? nextLink(SecretListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(SecretListResult? body)

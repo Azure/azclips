@@ -29,7 +29,7 @@ public sealed class ManagedIdentityCredentialTests
     [InlineData(ManagedIdentityIdType.SystemAssigned)]
     public void Factory_ShouldThrow_WhenSystemOrUnspecifiedTypeHasId(ManagedIdentityIdType? idType)
     {
-        Assert.Throws<System.ArgumentException>(
+        Assert.Throws<InvalidInputException>(
             () => _factory.CreateManagedIdentityCredential("unexpected-id", idType));
     }
 
@@ -61,12 +61,24 @@ public sealed class ManagedIdentityCredentialTests
         Assert.Equal("https://management.core.windows.net/", ManagedIdentityCredential.ScopeToResource(System.Array.Empty<string>()));
     }
 
+    [Fact]
+    public void ScopeToResource_ShouldThrow_WhenMultipleScopesProvided()
+    {
+        var ex = Assert.Throws<UsageErrorException>(() =>
+            ManagedIdentityCredential.ScopeToResource(new[]
+            {
+                "https://graph.microsoft.com/User.Read",
+                "https://graph.microsoft.com/Mail.Read",
+            }));
+        Assert.Contains("single resource", ex.Message, System.StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     public void Factory_ShouldThrow_WhenUserAssignedIdIsMissing(string? id)
     {
-        Assert.Throws<System.ArgumentException>(
+        Assert.Throws<InvalidInputException>(
             () => _factory.CreateManagedIdentityCredential(id, ManagedIdentityIdType.ClientId));
     }
 

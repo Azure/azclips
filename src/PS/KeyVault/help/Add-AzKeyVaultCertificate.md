@@ -365,4 +365,3 @@ Public Azure only. Uses an existing vault and profile. Use Undo-AzKeyVaultCertif
 ## RELATED LINKS
 
 [Key Vault certificate REST API](https://learn.microsoft.com/rest/api/keyvault/certificates/)
-

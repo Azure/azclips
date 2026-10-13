@@ -222,7 +222,12 @@ public class KeyVaultCertificateScenarioTests
         else
         {
             var error = Assert.ThrowsAny<Exception>(() => host.RunPowerShell("Undo-AzKeyVaultCertificateRemoval", parameters));
-            Assert.Contains($"HTTP {(int)statusCode}", error.ToString());
+            if (statusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                Assert.Contains("Access denied.", error.ToString());
+                Assert.Contains("Key Vault Certificates Officer", error.ToString());
+            }
+            else Assert.Contains($"HTTP {(int)statusCode}", error.ToString());
             Assert.DoesNotContain(sensitive, error.ToString());
         }
 

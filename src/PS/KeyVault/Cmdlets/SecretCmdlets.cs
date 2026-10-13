@@ -42,7 +42,7 @@ public abstract class KeyVaultCmdletBase : PSCmdlet
         telemetry.TagInvocation(invocation);
         using var session = engine.OpenExecutionSession(invocation, streams, cancellation.Token);
         try { session.Run(); }
-        finally { parameters.Remove("SecureValue"); parameters.Remove("SecurePassword"); }
+        finally { parameters.Remove("SecureValue"); }
     }
 
     protected override void EndProcessing() => cancellation.Dispose();
@@ -157,6 +157,21 @@ public class UpdateAzKeyVaultSecretCmdlet : SecretMutationCmdletBase
         var parameters = MutationParameters();
         if (Version is not null) parameters.Add("SecretVersion", Version);
         Execute("Update-AzKeyVaultSecret", parameters);
+    }
+}
+
+[Cmdlet(VerbsCommon.Undo, "AzKeyVaultSecretRemoval", SupportsShouldProcess = true)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.KeyVault.Customization.SecretMetadata")]
+public class UndoAzKeyVaultSecretRemovalCmdlet : KeyVaultCmdletBase
+{
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string Name { get; set; } = string.Empty;
+
+    protected override void ProcessRecord()
+    {
+        if (!ShouldProcess($"{VaultName ?? VaultUrl}/{Name}", "Recover a soft-deleted secret and its versions")) return;
+        Execute("Undo-AzKeyVaultSecretRemoval", new Dictionary<string, object> { ["SecretName"] = Name });
     }
 }
 

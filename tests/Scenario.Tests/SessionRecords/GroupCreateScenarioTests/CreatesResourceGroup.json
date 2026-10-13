@@ -13,7 +13,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022provisioningState\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
       },
       "response": {
         "statusCode": 201,
@@ -31,13 +31,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+            "8bdaa6aa-6432-4e5c-b88b-2716b29bb5ff"
           ],
           "x-ms-correlation-request-id": [
-            "e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+            "8bdaa6aa-6432-4e5c-b88b-2716b29bb5ff"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHCENTRALUS:20260807T020407Z:e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+            "WESTUS2:20260914T014931Z:8bdaa6aa-6432-4e5c-b88b-2716b29bb5ff"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -49,10 +49,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 3FEFFA1141EC4F43B11A28DF6F4A3EAC Ref B: SN4AA2022305017 Ref C: 2026-08-07T02:04:05Z"
+            "Ref A: 8B69497C2F634E5FAF097F722D4A4C5C Ref B: MWH011020809042 Ref C: 2026-09-14T01:49:28Z"
           ],
           "Date": [
-            "Fri, 07 Aug 2026 02:04:07 GMT"
+            "Mon, 14 Sep 2026 01:49:30 GMT"
           ]
         },
         "contentHeaders": {

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
@@ -66,7 +67,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToDeploymentName))
             {
-                throw new ArgumentException("Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.");
+                throw AzclipsErrorException.InvalidInput("Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.");
             }
         }
 

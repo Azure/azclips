@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Core.Authentication;
 
 namespace Benchmark.Auth;
 
@@ -13,6 +14,8 @@ namespace Benchmark.Auth;
 /// </summary>
 internal static class MsalCacheFixture
 {
+    private const string SeedApplicationId = "1950a258-227b-4e31-a9cf-717495945fc2";
+
     /// <summary>
     /// The seeded account's user principal name, read from the seed document so it always matches
     /// the account MSAL selects.
@@ -26,18 +29,26 @@ internal static class MsalCacheFixture
     private static readonly Lazy<string> s_accessTokenSecret = new(ReadAccessTokenSecret);
 
     private const string SeedFileName = "MsalCache.seed.json";
-    private const string CacheFileName = "MSAL.cache.plaintext";
+
+    /// <summary>Where the factory puts an unprotected user cache, which is what benchmarks force.</summary>
+    public static string CacheFileName { get; } = MsalTokenCacheFactory.GetCacheFileName(plaintextUnsafe: true);
 
     /// <summary>
     /// Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file,
-    /// stamping the access token's expiry nine years ahead of now so the fixture never goes stale.
+    /// replacing its application ID with <paramref name="firstPartyApplicationId"/> and stamping
+    /// the access token's expiry nine years ahead of now so the fixture never goes stale.
     /// </summary>
-    public static void Seed(string cacheDirectory)
+    public static void Seed(string cacheDirectory, string firstPartyApplicationId)
     {
         Directory.CreateDirectory(cacheDirectory);
+        var seedJson = File.ReadAllText(SeedPath())
+            .Replace(
+                SeedApplicationId,
+                firstPartyApplicationId,
+                StringComparison.OrdinalIgnoreCase);
         File.WriteAllText(
             Path.Combine(cacheDirectory, CacheFileName),
-            StampExpiry(File.ReadAllText(SeedPath())));
+            StampExpiry(seedJson));
     }
 
     // Stamps the access token expiry nine years ahead of now so the fixture never goes stale.

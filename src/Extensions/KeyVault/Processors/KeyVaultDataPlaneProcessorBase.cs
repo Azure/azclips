@@ -81,8 +81,19 @@ public abstract partial class KeyVaultDataPlaneProcessorBase : IProcessor
         return child;
     }
 
-    internal virtual Task<HttpResponseMessage> SendAsync() =>
-        HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+    private protected partial void EnsureExecutionAllowed();
+
+    internal Task<HttpResponseMessage> SendAsync()
+    {
+        EnsureExecutionAllowed();
+        return SendCoreAsync();
+    }
+
+    protected virtual Task<HttpResponseMessage> SendCoreAsync()
+    {
+        EnsureExecutionAllowed();
+        return HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
+    }
 }
 
 public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse> : KeyVaultDataPlaneProcessorBase
@@ -91,13 +102,7 @@ public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse
 {
     protected override TRequest? CreateRequestBody() => default;
 
-    partial void OverrideBeforeProcessBase();
-
-    protected virtual Task BeforeProcessAsync()
-    {
-        OverrideBeforeProcessBase();
-        return Task.CompletedTask;
-    }
+    protected virtual Task BeforeProcessAsync() => Task.CompletedTask;
 
     protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
 
@@ -105,44 +110,50 @@ public abstract partial class KeyVaultDataPlaneProcessorBase<TRequest, TResponse
     {
         try
         {
+            EnsureExecutionAllowed();
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             using HttpResponseMessage response = await SendAsync();
-            TResponse? body = default;
-
-            if (response.Content is null)
-            {
-                await Publisher.Publish(Events.ResponseNoContent, "Response has no content.");
-            }
-            else
-            {
-                string rawBody = await response.Content.ReadAsStringAsync();
-                if (string.IsNullOrWhiteSpace(rawBody))
-                {
-                    await Publisher.Publish(Events.ResponseEmptyBody, "Response has an empty body.");
-                }
-                else
-                {
-                    try
-                    {
-                        body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-                    }
-                    catch (JsonException)
-                    {
-                        await Publisher.Publish(Events.ResponseInvalidJson, "Response has invalid JSON.");
-                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}.");
-                    }
-                }
-            }
-
-            if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
-            {
-                await WriteOutput(body);
-            }
+            await ProcessResponseAsync(response);
         }
         finally
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+        }
+    }
+
+    protected async Task ProcessResponseAsync(HttpResponseMessage response)
+    {
+        TResponse? body = default;
+
+        if (response.Content is null)
+        {
+            await Publisher.Publish(Events.ResponseNoContent, "Response has no content.");
+        }
+        else
+        {
+            string rawBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(rawBody))
+            {
+                await Publisher.Publish(Events.ResponseEmptyBody, "Response has an empty body.");
+            }
+            else
+            {
+                try
+                {
+                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    await Publisher.Publish(Events.ResponseInvalidJson, "Response has invalid JSON.");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}.");
+                }
+            }
+        }
+
+        if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
+        {
+            await WriteOutput(body);
         }
     }
 }

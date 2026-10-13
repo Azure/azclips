@@ -17,14 +17,12 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
-  createRegistry,
   CSHARP_STAGE,
-  FLATTEN_MODEL_STAGE,
+  CREATE_COMMAND_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import { flattenModelStep } from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,
@@ -33,28 +31,21 @@ import {
 } from "./staging.js";
 import { createHostRuntime } from "./runtime.js";
 
-/**
- * Implementations this host supplies for the compiler's declared stages.
- *
- * This is fulfilment, not orchestration: the compiler's catalog owns where
- * `flatten-model` sits and whether it runs by default, and the host only
- * provides the code behind the id. `tsp-emit` and `csharp` need no entry — they
- * are external stages driven through the host runtime.
- */
-const STAGE_IMPLEMENTATIONS = createRegistry({
-  transforms: { [FLATTEN_MODEL_STAGE]: flattenModelStep },
-});
-
 /** Usage/help text for `ace compile`. */
 export function usage(): string {
   return [
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile --tsp-location <path> [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--root-namespace <ns>] [--capture-ir] [--capture-source]",
+    "  ace compile --tsp-location <path> [--entrypoint <path>] [--config <path>] [--api-version <v>] [--out-dir <path>] [--generator <id>] [--root-namespace <ns>] [--capture-ir] [--capture-source]",
     "",
     "Options:",
-    "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
+    "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
+    "                         directory is copied (required)",
+    "  --entrypoint <path>    Entry .tsp file or dir to compile, under --tsp-location;",
+    "                         a relative path resolves against the copied directory",
+    "                         (optional; default: --tsp-location). Temporary: a",
+    "                         compiler config will replace parameterized entrypoints.",
     "  --config <path>        Path to a JSON file of generation-time settings,",
     "                         loaded as CompileInput.config (CompileConfig) (optional).",
     "                         Its 'pipeline' flips compiler-declared stages on or off,",
@@ -63,9 +54,10 @@ export function usage(): string {
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
-    "                         The spec is staged under <out-dir>/source before compiling.",
+    "                         The spec is staged under <out-dir>/source before compiling,",
+    "                         which must not overlap the copied --tsp-location directory.",
     "  --generator <id>       Back end to run, e.g. 'csharp' (optional; default: 'csharp').",
-    "  --root-namespace <ns>  Root C# namespace for the generator (generator option).",
+    "  --root-namespace <ns>  Root C# namespace and project name for the generated extension.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -83,6 +75,7 @@ export function usage(): string {
  */
 export async function runCompile(args: string[]): Promise<number> {
   let tspLocation: string | undefined;
+  let entrypointArg: string | undefined;
   let configPath: string | undefined;
   let apiVersionArg: string | undefined;
   let outDirArg: string | undefined;
@@ -95,6 +88,7 @@ export async function runCompile(args: string[]): Promise<number> {
       args,
       options: {
         "tsp-location": { type: "string" },
+        entrypoint: { type: "string" },
         config: { type: "string" },
         "api-version": { type: "string" },
         "out-dir": { type: "string" },
@@ -106,6 +100,7 @@ export async function runCompile(args: string[]): Promise<number> {
       allowPositionals: false,
     });
     tspLocation = values["tsp-location"];
+    entrypointArg = values.entrypoint;
     configPath = values.config;
     apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
@@ -138,18 +133,22 @@ export async function runCompile(args: string[]): Promise<number> {
   }
   // Orchestration stays compiler-owned, so these flags do not assemble a
   // pipeline: --generator turns a generator *stage* on, and --root-namespace
-  // configures it through that stage's options.
+  // configures the stage that resolves placement.
   const generatorStage = generatorArg ?? CSHARP_STAGE;
   if (generatorArg !== undefined) {
     config = { ...config, pipeline: { ...config.pipeline, [generatorStage]: true } };
   }
   if (rootNamespaceArg !== undefined) {
+    // Placement is resolved at transform time, into `IRTarget` — so the flag feeds
+    // the command projection, not the generator. Routing it to the generator would
+    // be silently ignored: the generator reads the document's target and falls back
+    // to its own option only when a document carries none.
     config = {
       ...config,
       stageOptions: {
         ...config.stageOptions,
-        [generatorStage]: {
-          ...config.stageOptions?.[generatorStage],
+        [CREATE_COMMAND_STAGE]: {
+          ...config.stageOptions?.[CREATE_COMMAND_STAGE],
           rootNamespace: rootNamespaceArg,
         },
       },
@@ -161,13 +160,14 @@ export async function runCompile(args: string[]): Promise<number> {
   const outDir = outDirArg ?? process.cwd();
 
   // Host responsibility (design Part II §18): acquire the source before the
-  // TypeSpec-free orchestrator runs. Stage a pristine copy under <out-dir>/source.
+  // TypeSpec-free orchestrator runs. Stage a pristine copy of --tsp-location under
+  // <out-dir>/source and compile --entrypoint's counterpart inside it.
   // Tool resolution (the emit toolchain, the generator host) now happens lazily
   // inside the host runtime, per external stage, so ace itself loads neither
   // @typespec/compiler nor the C# generator.
   let staged: StagedProject;
   try {
-    staged = await stageLocalProject(tspLocation, outDir);
+    staged = await stageLocalProject(tspLocation, outDir, entrypointArg);
   } catch (err) {
     process.stderr.write(`compile: ${err instanceof Error ? err.message : String(err)}\n`);
     return 1;
@@ -180,7 +180,6 @@ export async function runCompile(args: string[]): Promise<number> {
     },
     {
       runtime: createHostRuntime(),
-      registry: STAGE_IMPLEMENTATIONS,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },

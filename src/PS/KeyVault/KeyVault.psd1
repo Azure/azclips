@@ -7,7 +7,7 @@
     CompanyName = 'Microsoft Corporation'
     Description = 'Key Vault secret and certificate lifecycle commands for Azclips'
     PowerShellVersion = '7.6'
-    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' })
+    RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.2' })
     RequiredAssemblies = @(
         '../../../artifacts/Debug/Core/Core.Abstractions.dll'
         '../../../artifacts/Debug/Core/Core.Telemetry.dll'
@@ -20,9 +20,7 @@
     )
     NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.KeyVault.dll')
     FunctionsToExport = @()
-    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret',
-        'Add-AzKeyVaultCertificate', 'Import-AzKeyVaultCertificate', 'Get-AzKeyVaultCertificate',
-        'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate', 'Undo-AzKeyVaultCertificateRemoval')
+    CmdletsToExport = @('Set-AzKeyVaultSecret', 'Get-AzKeyVaultSecret', 'Update-AzKeyVaultSecret', 'Remove-AzKeyVaultSecret', 'Undo-AzKeyVaultSecretRemoval', 'Add-AzKeyVaultCertificate', 'Import-AzKeyVaultCertificate', 'Get-AzKeyVaultCertificate', 'Update-AzKeyVaultCertificate', 'Export-AzKeyVaultCertificate', 'Remove-AzKeyVaultCertificate', 'Undo-AzKeyVaultCertificateRemoval')
     VariablesToExport = @()
     AliasesToExport = @()
     PrivateData = @{
@@ -30,7 +28,7 @@
             Tags = @('Azure', 'KeyVault', 'Azclips')
             LicenseUri = 'https://aka.ms/azps-license'
             ProjectUri = 'https://github.com/Azure/azclips'
-            ReleaseNotes = 'Secret and certificate lifecycle support. Secret plaintext requires AsPlainText. Certificate export contains public material only.'
+            ReleaseNotes = 'Secret and certificate lifecycle support, including soft-delete recovery. Secret metadata is returned by default; plaintext retrieval requires AsPlainText. Certificate downloads contain public certificates only.'
         }
     }
 }

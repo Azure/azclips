@@ -18,6 +18,7 @@ public class ExtensionIndex : IExtensionIndex
         Add<ListSecretVersionsCommand>("list-versions", "Get-AzKeyVaultSecret_Versions", hasName: true, page: true);
         Add<UpdateSecretCommand>("set-attributes", "Update-AzKeyVaultSecret", hasName: true, version: true, attributes: true);
         Add<RemoveSecretCommand>("delete", "Remove-AzKeyVaultSecret", hasName: true);
+        if (!cli) Add<RecoverSecretCommand>("recover", "Undo-AzKeyVaultSecretRemoval", hasName: true);
         Add<CreateCertificateCommand>("create", "Add-AzKeyVaultCertificate", hasName: true, attributes: true, certificate: true);
         Add<ImportCertificateCommand>("import", "Import-AzKeyVaultCertificate", hasName: true, attributes: true, certificate: true);
         Add<ShowCertificateCommand>("show", "Get-AzKeyVaultCertificate_Get", hasName: true, version: true, certificate: true);

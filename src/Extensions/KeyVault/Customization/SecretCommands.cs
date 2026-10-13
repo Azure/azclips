@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
-using System.Globalization;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Models;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Processors;
@@ -68,9 +67,6 @@ public class ShowSecretCommand : GetSecretProcessor
 {
     public bool AsPlainText { get; set; }
 
-    protected override string CreateRequestUri() =>
-        WithOptionalQueryParameters(base.CreateRequestUri(), ("outContentType", OutContentType));
-
     protected override Task BeforeProcessAsync()
     {
         SecretCommandInputs.ValidateName(SecretName);
@@ -132,12 +128,24 @@ public class RemoveSecretCommand : DeleteSecretProcessor
     }
 }
 
+public class RecoverSecretCommand : RecoverDeletedSecretProcessor
+{
+    protected override Task BeforeProcessAsync()
+    {
+        SecretCommandInputs.ValidateName(SecretName);
+        return base.BeforeProcessAsync();
+    }
+
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(SecretBundle? body)
+    {
+        if (body is not null) await WriteOutput(SecretMetadata.From(body));
+        return true;
+    }
+}
+
 public class ListSecretsCommand : GetSecretsProcessor
 {
     public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
-
-    protected override string CreateRequestUri() =>
-        WithOptionalQueryParameters(base.CreateRequestUri(), ("maxresults", Maxresults?.ToString(CultureInfo.InvariantCulture)));
 
     protected override Task BeforeProcessAsync()
     {
@@ -156,9 +164,6 @@ public class ListSecretsCommand : GetSecretsProcessor
 public class ListSecretVersionsCommand : GetSecretVersionsProcessor
 {
     public int PageSize { get => Maxresults ?? 25; set => Maxresults = value; }
-
-    protected override string CreateRequestUri() =>
-        WithOptionalQueryParameters(base.CreateRequestUri(), ("maxresults", Maxresults?.ToString(CultureInfo.InvariantCulture)));
 
     protected override Task BeforeProcessAsync()
     {

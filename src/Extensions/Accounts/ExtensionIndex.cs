@@ -11,6 +11,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
     [ExtensionVerb("login")]
     [ExtensionVerb("logout")]
     [ExtensionVerb("profile")]
+    [ExtensionVerb("account")]
+    [ExtensionVerb("survey")]
     public class ExtensionIndex : IExtensionIndex
     {
         private const string PSCommandPrefix = "Az";
@@ -31,7 +33,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Profile"]        = new("Profile", "Profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with -OutProfile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Identity"]       = new("Identity", "Identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["MSI", "ManagedIdentity", "ManagedService"], AllowedValues: []),
-                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ServicePrincipal"] = new("ServicePrincipal", "ServicePrincipal", typeof(bool), "Login as a service principal using a federated (OIDC) token.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["FederatedToken"] = new("FederatedToken", "FederatedToken", typeof(string), "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.", IsRequired: false, Aliases: ["ClientAssertion"], AllowedValues: []),
+                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with -ServicePrincipal.", IsRequired: false, Aliases: ["AccountId", "ApplicationId"], AllowedValues: []),
                 ["ObjectId"]       = new("ObjectId", "ObjectId", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceId"]     = new("ResourceId", "ResourceId", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
@@ -46,6 +50,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["MSI"]                    = "Identity",
                 ["ManagedService"]         = "Identity",
                 ["ManagedIdentity"] = "Identity",
+                ["AccountId"] = "ClientId",
+                ["ApplicationId"] = "ClientId",
+                ["ClientAssertion"] = "FederatedToken",
             }
         );
         private static readonly CommandMetadata psLogout = new(
@@ -55,6 +62,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             FullName: typeof(Processors.LogoutProcessor).FullName!,
             AssemblyName: typeof(Processors.LogoutProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LogoutProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata psOpenSurvey = new(
+            Name: nameof(Processors.OpenSurveyProcessor),
+            InvocationName: $"Open-{PSCommandPrefix}Survey",
+            Aliases: [],
+            FullName: typeof(Processors.OpenSurveyProcessor).FullName!,
+            AssemblyName: typeof(Processors.OpenSurveyProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.OpenSurveyProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -108,6 +125,27 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata psGetAccessToken = new(
+            Name: nameof(Processors.GetAccessTokenProcessor),
+            InvocationName: $"Get-{PSCommandPrefix}AccessToken",
+            Aliases: [],
+            FullName: typeof(Processors.GetAccessTokenProcessor).FullName!,
+            AssemblyName: typeof(Processors.GetAccessTokenProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.GetAccessTokenProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ResourceUrl"]      = new("Resource", "ResourceUrl", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with -ResourceTypeName and -Scope.", IsRequired: false, Aliases: ["Resource", "ResourceUri"], AllowedValues: []),
+                ["ResourceTypeName"] = new("ResourceType", "ResourceTypeName", typeof(string), "Well-known resource type shortcut (e.g. Arm, MSGraph, KeyVault). Mutually exclusive with -ResourceUrl and -Scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]            = new("Scope", "Scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with -ResourceUrl and -ResourceTypeName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TenantId"]         = new("Tenant", "TenantId", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AsPlainText"]      = new("Plaintext", "AsPlainText", typeof(bool), "Return the raw access token as a plain string. By default the token is returned as a SecureString.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["Resource"]    = "ResourceUrl",
+                ["ResourceUri"] = "ResourceUrl",
+            }
+        );
 #endregion
 
 #region CLI Command Metadata
@@ -126,7 +164,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["out-profile"]     = new("OutProfile", "out-profile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with --profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["profile"]         = new("Profile", "profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with --out-profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["identity"]        = new("Identity", "identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["i"], AllowedValues: []),
-                ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["service-principal"] = new("ServicePrincipal", "service-principal", typeof(bool), "Login as a service principal using a federated (OIDC) token.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["federated-token"] = new("FederatedToken", "federated-token", typeof(string), "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["object-id"]       = new("ObjectId", "object-id", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-id"]     = new("ResourceId", "resource-id", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
@@ -146,6 +186,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             FullName: typeof(Processors.LogoutProcessor).FullName!,
             AssemblyName: typeof(Processors.LogoutProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LogoutProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliSurvey = new(
+            Name: nameof(Processors.OpenSurveyProcessor),
+            InvocationName: "survey",
+            Aliases: [],
+            FullName: typeof(Processors.OpenSurveyProcessor).FullName!,
+            AssemblyName: typeof(Processors.OpenSurveyProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.OpenSurveyProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -200,24 +250,49 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             },
             ParameterAliases: new Dictionary<string, string> { [""] = "name" }
         );
+        private static readonly CommandMetadata cliGetAccessToken = new(
+            Name: nameof(Processors.GetAccessTokenProcessor),
+            InvocationName: "account get-access-token",
+            Aliases: [],
+            FullName: typeof(Processors.GetAccessTokenProcessor).FullName!,
+            AssemblyName: typeof(Processors.GetAccessTokenProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.GetAccessTokenProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["resource"]      = new("Resource", "resource", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with --resource-type and --scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-type"] = new("ResourceType", "resource-type", typeof(string), "Well-known resource type shortcut (e.g. arm, ms-graph, key-vault). Mutually exclusive with --resource and --scope.", IsRequired: false, Aliases: [], AllowedValues: WellKnownResourceTypes.Names),
+                ["scope"]         = new("Scope", "scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with --resource and --resource-type.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tenant-id"]     = new("Tenant", "tenant-id", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: ["t", "tenant"], AllowedValues: []),
+                ["plaintext"]     = new("Plaintext", "plaintext", typeof(bool), "Emit the raw access token as plain text. By default the token is redacted in output.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["t"] = "tenant-id",
+                ["tenant"] = "tenant-id",
+            }
+        );
 #endregion
 
 #region Command Tables
         private static readonly Dictionary<string, CommandMetadata> psTable = BuildCommandTable(
             psLogin,
             psLogout,
+            psOpenSurvey,
             psProfileList,
             psProfileShow,
             psProfileSet,
-            psProfileRemove
+            psProfileRemove,
+            psGetAccessToken
         );
         private static readonly Dictionary<string, CommandMetadata> cliTable = BuildCommandTable(
             cliLogin,
             cliLogout,
+            cliSurvey,
             cliProfileList,
             cliProfileShow,
             cliProfileSet,
-            cliProfileRemove
+            cliProfileRemove,
+            cliGetAccessToken
         );
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
             commands.ToDictionary(cmd => cmd.InvocationName, cmd => cmd);

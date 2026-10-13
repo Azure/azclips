@@ -107,13 +107,13 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveAndActivateProfileAsync(MakeProfile("bad name!")));
     }
 
     [Fact]
     public async Task SaveAndActivateProfile_ShouldThrow_OnInvalidSubscriptionId()
     {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
             _service.SaveAndActivateProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
 
         Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);
@@ -171,13 +171,13 @@ public sealed class ProfileServiceTests : IDisposable
     [Fact]
     public async Task SaveProfile_ShouldThrow_OnInvalidName()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
+        await Assert.ThrowsAsync<UsageErrorException>(() => _service.SaveProfileAsync(MakeProfile("bad name!")));
     }
 
     [Fact]
     public async Task SaveProfile_ShouldThrow_OnInvalidSubscriptionId()
     {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() =>
             _service.SaveProfileAsync(MakeProfile("prod", sub: "Steven Ma [stema] subscription")));
 
         Assert.Contains("Invalid subscription id 'Steven Ma [stema] subscription'", ex.Message, StringComparison.Ordinal);

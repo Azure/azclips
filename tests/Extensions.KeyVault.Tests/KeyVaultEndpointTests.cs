@@ -34,9 +34,7 @@ public class KeyVaultEndpointTests
     [InlineData("https://other.vault.azure.net/secrets/test")]
     [InlineData("https://fixture.vault.azure.net/other")]
     [InlineData("https://other.vault.azure.net/certificates/test")]
-    [InlineData("https://fixture.vault.azure.net/certificates-other/test")]
-    [InlineData("https://fixture.vault.azure.net/keys/test")]
-    [InlineData("https://fixture.vault.azure.net/deletedcertificates/test")]
+    [InlineData("https://fixture.vault.azure.net/certificates-unsupported/test")]
     public async Task CrossOriginOrUnsupportedRequestIsRejectedBeforeAuth(string requestUri)
     {
         var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
@@ -50,11 +48,15 @@ public class KeyVaultEndpointTests
     }
 
     [Theory]
-    [InlineData("GET", "/secrets/test")]
-    [InlineData("GET", "/certificates")]
-    [InlineData("GET", "/certificates/test/pending")]
-    [InlineData("POST", "/deletedcertificates/test/recover")]
-    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string requestPath)
+    [InlineData("GET", "/secrets/test", false)]
+    [InlineData("POST", "/deletedsecrets/test/recover", false)]
+    [InlineData("GET", "/secrets/test", true)]
+    [InlineData("POST", "/deletedsecrets/test/recover", true)]
+    [InlineData("GET", "/certificates/test", false)]
+    [InlineData("POST", "/deletedcertificates/test/recover", false)]
+    [InlineData("GET", "/certificates/test", true)]
+    [InlineData("POST", "/deletedcertificates/test/recover", true)]
+    public async Task ValidRequestUsesVaultAudienceAndRestoresAuthOverride(string method, string path, bool directCoreSend)
     {
         var profile = new Profile { TenantId = "fixture-tenant", CloudName = "AzureCloud" };
         string[]? capturedScopes = null;
@@ -88,10 +90,18 @@ public class KeyVaultEndpointTests
         var processor = new EndpointProcessor
         {
             VaultName = "fixture", RequestMethod = new HttpMethod(method),
-            RequestUri = "https://fixture.vault.azure.net" + requestPath
+            RequestUri = "https://fixture.vault.azure.net" + path
         };
         processor.Init(Context(pipeline, auth, profile));
-        await processor.ProcessAsync();
+        if (directCoreSend)
+        {
+            using var response = await processor.SendCoreDirectlyAsync();
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        else
+        {
+            await processor.ProcessAsync();
+        }
         Assert.NotNull(capturedScopes);
         Assert.Equal(["https://vault.azure.net/.default"], capturedScopes);
         Assert.Same(profile, capturedProfile);
@@ -100,6 +110,14 @@ public class KeyVaultEndpointTests
     }
 
     [Theory]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedsecrets/test/recover")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedsecrets/test/recover")]
+    [InlineData("PATCH", "https://fixture.vault.azure.net/deletedsecrets/test/recover")]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedsecrets")]
+    [InlineData("DELETE", "https://fixture.vault.azure.net/deletedsecrets/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedsecrets/test")]
+    [InlineData("POST", "https://fixture.vault.azure.net/deletedsecrets/test/recover/extra")]
+    [InlineData("POST", "https://other.vault.azure.net/deletedsecrets/test/recover")]
     [InlineData("GET", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
     [InlineData("DELETE", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
     [InlineData("PATCH", "https://fixture.vault.azure.net/deletedcertificates/test/recover")]
@@ -108,7 +126,7 @@ public class KeyVaultEndpointTests
     [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test")]
     [InlineData("POST", "https://fixture.vault.azure.net/deletedcertificates/test/recover/extra")]
     [InlineData("POST", "https://other.vault.azure.net/deletedcertificates/test/recover")]
-    public async Task OtherDeletedCertificateRequestsAreRejectedBeforeAuth(string method, string requestUri)
+    public async Task OtherDeletedResourceRequestsAreRejectedBeforeAuth(string method, string requestUri)
     {
         var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
         var terminal = new Mock<ISendAsync>(MockBehavior.Strict);
@@ -141,5 +159,6 @@ public class KeyVaultEndpointTests
         public HttpMethod RequestMethod { get; set; } = HttpMethod.Get;
         protected override HttpMethod Method => RequestMethod;
         protected override string CreateRequestUri() => RequestUri;
+        public Task<HttpResponseMessage> SendCoreDirectlyAsync() => base.SendCoreAsync();
     }
 }

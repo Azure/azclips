@@ -31,7 +31,7 @@ internal sealed class IrModelGenerator
     /// <summary>Names claimed as union-derived types (so they are not also emitted standalone).</summary>
     private readonly HashSet<string> _derivedNames = new(StringComparer.Ordinal);
 
-    private const string RootTypeName = "IRDocument";
+    private const string RootTypeName = "TransformedIR";
 
     public IrModelGenerator(string schemaJson, string @namespace)
     {
@@ -76,7 +76,9 @@ internal sealed class IrModelGenerator
             }
         }
 
-        // The root schema (outside `definitions`) becomes IRDocument.
+        // The root schema (outside `definitions`) becomes TransformedIR: the emitted
+        // root is `TransformedIRSchema`, so the generated document always carries
+        // commands and a resolved target, never bare operations alone.
         _classes[RootTypeName] = ObjectClass(RootTypeName, _root);
     }
 

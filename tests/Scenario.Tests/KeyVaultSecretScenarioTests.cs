@@ -141,6 +141,57 @@ public class KeyVaultSecretScenarioTests
         Assert.DoesNotContain("fixture-value", JsonSerializer.Serialize(record));
     }
 
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.OK)]
+    [InlineData(System.Net.HttpStatusCode.Forbidden)]
+    [InlineData(System.Net.HttpStatusCode.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.Conflict)]
+    public void PowerShellRecoveryUsesProtectedTransportAndSafeOutput(System.Net.HttpStatusCode statusCode)
+    {
+        using var backend = new RecoveryBackend(statusCode);
+        var record = new SessionRecord();
+        var interceptor = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, interceptor, backendHandler: backend, extensions: [ExtensionUnderTest.KeyVault]);
+        var parameters = new Dictionary<string, object> { ["VaultName"] = "fixture", ["SecretName"] = "test" };
+
+        if (statusCode == System.Net.HttpStatusCode.OK)
+        {
+            var output = host.RunPowerShell("Undo-AzKeyVaultSecretRemoval", parameters);
+            var metadata = Assert.IsType<SecretMetadata>(Assert.Single(output));
+            Assert.Equal($"{Root}/secrets/test/version1", metadata.Id);
+            Assert.False(metadata.Attributes!.Enabled);
+            Assert.DoesNotContain("fixture-value", JsonSerializer.Serialize(output));
+        }
+        else
+        {
+            var error = Assert.ThrowsAny<Exception>(() => host.RunPowerShell("Undo-AzKeyVaultSecretRemoval", parameters));
+            Assert.DoesNotContain("fixture-value", error.ToString());
+        }
+
+        Assert.Equal(1, backend.Calls);
+        Assert.Single(record.Entries);
+        Assert.DoesNotContain("fixture-value", JsonSerializer.Serialize(record));
+    }
+
+    private sealed class RecoveryBackend(System.Net.HttpStatusCode statusCode) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            Calls++;
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal($"{Root}/deletedsecrets/test/recover?{Version}", request.RequestUri!.AbsoluteUri);
+            Assert.Null(request.Content);
+            return Task.FromResult(new HttpResponseMessage(statusCode)
+            {
+                RequestMessage = request,
+                Content = new StringContent(statusCode == System.Net.HttpStatusCode.OK
+                    ? Bundle : "{\"error\":{\"message\":\"fixture-value\"}}")
+            });
+        }
+    }
+
     private sealed class VaultBackend : HttpMessageHandler
     {
         public int Calls { get; private set; }

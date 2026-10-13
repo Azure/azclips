@@ -16,7 +16,7 @@ internal static class ErrorHelpPolicy
 {
     /// <summary>
     /// True for a bare group invocation such as <c>az vm</c>. Extra tokens (<c>az vm --list</c>)
-    /// stay on the structured-error path, keeping their command-not-found exit code.
+    /// stay on the known-error path, keeping their command-not-found exit code.
     /// </summary>
     internal static bool ShouldShowGroupHelp(CommandNotFoundException ex, string[] positional)
         => ex.Path.Count == 0
@@ -24,17 +24,11 @@ internal static class ErrorHelpPolicy
         && positional[0].Equals(ex.Verb, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// True when the error stream belongs to a human: stderr is a terminal and the caller did not
-    /// ask for a machine-readable error format. Rendering a help page anywhere else would corrupt
-    /// the structured error already written to that stream.
+    /// True when the error stream belongs to a human. Output-format selection applies only to
+    /// successful command results on stdout and therefore does not affect this decision.
     /// </summary>
-    /// <param name="requestedFormat">
-    /// <c>GlobalArgs.Output</c>, which is null unless --output was passed explicitly, so the
-    /// configured default format alone does not suppress help for interactive users.
-    /// </param>
-    internal static bool IsHumanReadableErrorStream(bool stderrIsRedirected, OutputFormat? requestedFormat)
-        => !stderrIsRedirected
-        && requestedFormat is not (OutputFormat.Json or OutputFormat.Jsonc);
+    internal static bool IsHumanReadableErrorStream(bool stderrIsRedirected)
+        => !stderrIsRedirected;
 
     /// <summary>
     /// True when a resolved command failed only because required parameters were missing,
@@ -46,7 +40,8 @@ internal static class ErrorHelpPolicy
         bool errorStreamIsHumanReadable)
         => errorStreamIsHumanReadable
         && invocation is not null
-        && ex is UsageErrorException { HasMissingRequiredParameters: true };
+        && ex is MissingRequiredArgumentException
+            or UsageErrorException { HasMissingRequiredParameters: true };
 
     internal static HelpRequest CommandHelpRequest(CommandInvocation invocation)
         => new(invocation.CommandName.Split(

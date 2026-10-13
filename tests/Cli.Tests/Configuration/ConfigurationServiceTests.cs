@@ -27,6 +27,19 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripPowerShellOutputFormat()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        Assert.Equal("object", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+
+        await service.SetConfigurationAsync("clients.powershell.output.format", "json");
+
+        Assert.Equal("json", service.GetConfiguration<ClientsOptions>().PowerShell.Output.Format);
+    }
+
+    [Fact]
     public async Task DeleteConfigurationAsync_ShouldPruneEmptyParents()
     {
         using var fixture = new TempConfigurationFixture();
@@ -96,7 +109,7 @@ public class ConfigurationServiceTests
 
         await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), "{ invalid json }");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => service.GetConfiguration<CoreOptions>());
+        var exception = Assert.Throws<InvalidInputException>(() => service.GetConfiguration<CoreOptions>());
 
         Assert.Contains(fixture.Provider.GetConfigFilePath(), exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("invalid json", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -112,6 +125,21 @@ public class ConfigurationServiceTests
 
         Assert.Equal(512, values["core.engine.extensionIndexCacheSize"]);
         Assert.Equal(3, values["core.http.maxRetries"]);
+    }
+
+    [Fact]
+    public async Task ListConfigurationWithSourcesAsync_ShouldReturnOneSourceAwareSnapshot()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("core.logging.level", "debug");
+        var values = await service.ListConfigurationWithSourcesAsync();
+
+        Assert.Equal("debug", values["core.logging.level"].Value);
+        Assert.Equal("global config", values["core.logging.level"].Source);
+        Assert.Equal("oneshot", values["agent.sessionStyle"].Value);
+        Assert.Equal("default", values["agent.sessionStyle"].Source);
     }
 
     [Fact]
@@ -140,6 +168,21 @@ public class ConfigurationServiceTests
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
+        Assert.Equal("builtin", options.Provider);
+        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldUseConfiguredBuiltinModel_InsteadOfDefault()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("agent.builtin.modelId", "custom-deployment");
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        Assert.Equal("custom-deployment", options.Builtin.ModelId);
+        Assert.Equal("custom-deployment", Core.Telemetry.RecoveryTelemetry.GetConfiguredModel(options));
     }
 
     [Fact]
@@ -205,7 +248,7 @@ public class ConfigurationServiceTests
 
         public TestConfigurationProvider Provider { get; }
 
-        public IConfigurationService CreateService()
+        public ConfigurationService CreateService()
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
@@ -253,4 +296,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

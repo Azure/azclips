@@ -34,13 +34,14 @@ public class Program
     /// </summary>
     internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
+    private const string FirstPartyApplicationId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
+    private static OutputStreams streams = BuildStreams(LogLevel.Info, OutputFormat.Json, OutputFormat.Tsv);
 
     public static async Task<int> Main(string[] args)
     {
@@ -78,7 +79,7 @@ public class Program
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
-            AzclipsServiceProvider.Initialize(_clientType);
+            AzclipsServiceProvider.Initialize(new ClientMetadata(_clientType, FirstPartyApplicationId));
         }
 
         // Post-DI utility modes: completion generation needs the container to resolve
@@ -99,29 +100,61 @@ public class Program
         }
 
         Activity? activity = null;
+        IDisposable? startupLoggingScope = null;
 
-        // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-        var errorFormat = OutputFormat.Table;
-        var errorColorAllowed = false;
-        var errorHelpAllowed = false;
+        var errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected);
         var positional = args;
         CommandInvocation? invocation = null;
 
+        GlobalArgs globalArgs;
+        EffectiveSessionSettings sessionSettings;
+
         try
         {
-            // Disposed explicitly in the finally below — it must stop before the container
-            // is disposed, since that takes the TracerProvider (and the exporter) with it.
-
-            using (performance.Measure("AzureCLI.Startup.Telemetry"))
-            {
-                activity = _telemetryService.StartRootActivity(performance.StartedAt);
-                performance.Replay(_telemetryService);
-            }
-
-            GlobalArgs globalArgs;
-            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
+            using (performance.Measure("AzureCLI.ParseGlobalArgs"))
             {
                 globalArgs = GlobalArgParser.Parse(args);
+            }
+
+            // Disposed explicitly in the finally below — it must stop before the container
+            // is disposed, since that takes the TracerProvider (and the exporter) with it.
+            using (performance.Measure("AzureCLI.Startup.Telemetry"))
+            {
+                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(sessionSettings.Color);
+                streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query);
+
+                // Startup/profile reads happen before the session logger is set in ExecutionSession.
+                startupLoggingScope = ScopedLoggingService.UseScope(new OutputStreamAdapter(streams, _cancellationTokenSource.Token));
+
+                activity = _telemetryService.StartRootActivity(performance.StartedAt);
+
+                // Tags the root activity directly (SetTag mutates a shared heap object) rather
+                // than writing to AsyncLocal-backed ambient state, so the tag is visible to
+                // whichever code later disposes/exports this activity in Main's own finally
+                // block, regardless of which nested awaited call resolved it. This is a
+                // best-effort early resolution (from raw args, before command parsing).
+                // MUST run before performance.Replay below: Replay creates and immediately
+                // disposes the startup-phase activities, and the CLI's FileTelemetrySender
+                // exports synchronously on Dispose — so if those activities were replayed
+                // before the root carries a DataBoundary tag, they'd export untagged, get
+                // normalized to Global by TraceUploader, and leak an EU profile's startup
+                // telemetry to the Global endpoint. ExecutionSession.RunAsync below
+                // re-resolves and re-tags from the bound --profile once it's known, which is
+                // authoritative for the command's own spans.
+                var (routedTenantId, routedBoundary, routedSubscriptionId, routedAuthType) = await TelemetryRoutingResolver.ResolveAsync(
+                    AzclipsServiceProvider.GetRequiredService<IProfileService>(),
+                    AzclipsServiceProvider.GetRequiredService<IAuthService>(),
+                    TryGetProfileOverride(args),
+                    _cancellationTokenSource.Token);
+                if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
+                if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
+                if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);
+                if (routedAuthType is not null) activity?.SetTag(TelemetryTags.AuthType, routedAuthType);
+
+                performance.Replay(_telemetryService);
             }
 
             using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
@@ -132,14 +165,6 @@ public class Program
                     Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
                 }
 
-                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
-                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
-                ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel, settings.Format, settings.SimpleFormat, globalArgs.Query);
-                errorFormat = settings.Format;
-                errorColorAllowed = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-                errorHelpAllowed = ErrorHelpPolicy.IsHumanReadableErrorStream(Console.IsErrorRedirected, globalArgs.Output);
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Query is not null)
@@ -183,12 +208,12 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await StopRootThenFallbackAsync(
+            return (await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
         }
-        // Filtered rather than checked in the body so other shapes still reach the structured-error catch below.
+        // Filtered rather than checked in the body so other shapes still reach the known-error catch below.
         catch (CommandNotFoundException ex) when (ErrorHelpPolicy.ShouldShowGroupHelp(ex, positional))
         {
             try
@@ -200,24 +225,41 @@ public class Program
             {
                 // Throwing from a catch body skips the catches below, so degrade to the original error here.
                 _logger?.Debug($"group help unavailable: {helpEx.Message}");
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
+        }
+        // Typed errors flagged as agent-eligible go to the agent first. If the agent can't run, the typed error is printed.
+        catch (AzclipsErrorException ex) when (ex.AgentFallbackEligible)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            var agentExitCode = await StopRootThenFallbackAsync(
+                activity,
+                (traceId, spanId, commandName) =>
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+            if (agentExitCode is int code)
+            {
+                return code;
+            }
+
+            EmitKnownError(ex, invocation);
+            return ex.ExitCode;
         }
         catch (AzclipsErrorException ex)
         {
             if (ErrorHelpPolicy.ShouldShowCommandHelp(ex, invocation, errorHelpAllowed))
             {
-                EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+                EmitKnownError(ex, invocation);
                 TryRenderHelpAfterError(ErrorHelpPolicy.CommandHelpRequest(invocation), streams, activity);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 return ex.ExitCode;
             }
 
-            // Structured AzClips error: render per --output mode and return the symbolic exit code.
             // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-            EmitStructuredError(ex, errorFormat, errorColorAllowed, invocation);
+            EmitKnownError(ex, invocation);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return ex.ExitCode;
         }
@@ -228,13 +270,15 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await StopRootThenFallbackAsync(
+            return (await StopRootThenFallbackAsync(
                 activity,
                 (traceId, spanId, commandName) =>
-                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName))) ?? 1;
         }
         finally
         {
+            startupLoggingScope?.Dispose();
+
             // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
             // below disposes the TracerProvider, after which nothing can be exported.
             activity?.Dispose();
@@ -249,13 +293,16 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
+    private static OutputStreams BuildStreams(LogLevel level, OutputFormat format, OutputFormat simpleFormat, string? query = null)
     {
         var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query));
+                var terminalWidth = format == OutputFormat.Table || simpleFormat == OutputFormat.Table
+                    ? TerminalWidthProvider.Get()
+                    : null;
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, simpleFormat, colorPolicyAllowsColor, query, terminalWidth));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
@@ -265,7 +312,7 @@ public class Program
             },
             WriteVerbose: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Verbose))
                 {
                     ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
@@ -273,7 +320,7 @@ public class Program
             },
             WriteDebug: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Debug))
                 {
                     ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
@@ -281,7 +328,7 @@ public class Program
             },
             WriteWarning: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Warn))
                 {
                     ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
@@ -289,13 +336,39 @@ public class Program
             },
             WriteInformation: (value, ct) =>
             {
-                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                if (LoggingPolicy.IsEnabled(level, LogSeverity.Info))
                 {
                     ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             }
         );
+    }
+
+    internal static string? TryGetProfileOverride(string[] args)
+    {
+        // Normalized the same way ExtensionParser does (TrimStart('-')): the real parser
+        // treats any leading-dash form as an option marker, so `-profile`/`--profile`/
+        // `---profile` are all equivalent. Matching only "--profile" here would miss a
+        // valid `-profile eu-profile` invocation, causing this early best-effort pass to
+        // resolve the active profile instead of the explicit override — routing startup
+        // telemetry (and anything replayed before ExecutionSession's later, authoritative
+        // resolution) to the wrong tenant/boundary.
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (!arg.StartsWith("-", StringComparison.Ordinal))
+                continue;
+
+            var option = arg.TrimStart('-');
+            if (option.StartsWith("profile=", StringComparison.OrdinalIgnoreCase))
+                return option["profile=".Length..];
+
+            if (string.Equals(option, "profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+
+        return null;
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
@@ -343,41 +416,20 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return rootExit;
             }
-            // Render extension help; structured errors are handled by Main.
+            // Render extension help; known errors are handled by Main.
             var extExit = renderer.RenderExtensionHelp(help.Path);
             activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
             return extExit;
         }
     }
 
-    private static void EmitStructuredError(AzclipsErrorException ex, OutputFormat format, bool colorPolicyAllowsColor, CommandInvocation? invocation)
+    private static void EmitKnownError(AzclipsErrorException ex, CommandInvocation? invocation)
     {
         var message = invocation is not null && ex is UsageErrorException
             ? $"{ex.Message} (az {invocation.CommandName} --help)"
             : ex.Message;
 
-        if (format is OutputFormat.Json or OutputFormat.Jsonc)
-        {
-            var payload = new
-            {
-                error = new
-                {
-                    code = ex.Code,
-                    message,
-                    details = ex.Details,
-                },
-            };
-            var json = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-            });
-            Console.Error.WriteLine(format == OutputFormat.Jsonc && colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json);
-        }
-        else
-        {
-            ConsoleSink.Error($"[{ex.Code}] {message}");
-        }
+        ConsoleSink.Error($"[{ex.Code}] {message}");
     }
 
     /// <summary>
@@ -389,9 +441,9 @@ public class Program
     /// long as the model takes, and anything still inside the root span counts as command
     /// execution time.
     /// </remarks>
-    internal static async Task<int> StopRootThenFallbackAsync(
+    internal static async Task<T> StopRootThenFallbackAsync<T>(
         Activity? root,
-        Func<string?, string?, string?, Task<int>> fallback)
+        Func<string?, string?, string?, Task<T>> fallback)
     {
         // Read before disposing, so this does not depend on Activity's post-stop behaviour.
         var traceId = root?.TraceId.ToString();
@@ -458,7 +510,10 @@ public class Program
         return psi;
     }
 
-    private static async Task<int> TryAgentFallbackAsync(
+    /// <summary>
+    /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
+    /// </summary>
+    private static async Task<int?> TryAgentFallbackAsync(
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
@@ -472,13 +527,13 @@ public class Program
             agentOptions = config.GetConfiguration<AgentOptions>();
             if (!agentOptions.Enabled)
             {
-                return 1;
+                return null;
             }
         }
         catch (Exception ex)
         {
             _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
-            return 1;
+            return null;
         }
 
         // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
@@ -491,21 +546,21 @@ public class Program
         if (agentOptions.IsInteractive &&
             (Console.IsInputRedirected || Console.IsOutputRedirected))
         {
-            return 1;
+            return null;
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent process must NOT spawn another agent.
         if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
-            return 1;
+            return null;
         }
 
         var agentExe = FindAgentExe();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
-            return 1;
+            return null;
         }
 
         // Opened only once a spawn is certain. The command root is already stopped, so
@@ -518,8 +573,7 @@ public class Program
         {
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
         }
-        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
-        recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
+        RecoveryTelemetry.RecordConfiguration(recovery, agentOptions);
 
         try
         {
@@ -563,7 +617,7 @@ public class Program
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             recovery?.SetStatus(ActivityStatusCode.Error);
-            return 1;
+            return null;
         }
     }
 

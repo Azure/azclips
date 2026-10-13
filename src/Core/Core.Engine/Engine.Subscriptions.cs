@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Telemetry;
 using Core.Runtime;
 using System.Diagnostics;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
@@ -79,13 +80,13 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 HttpRequestMessage request = (HttpRequestMessage)evt.RequestMessage;
-                loggingService.Debug(await httpDiagnosticsHandler.FormatAsync(request));
+                loggingService.Debug(await request.GetLog());
             });
             subscriber.Subscribe(Events.TracingHttpResponseMessage, async (data) =>
             {
                 var evt = (EventData)data;
                 HttpResponseMessage response = (HttpResponseMessage)evt.ResponseMessage;
-                loggingService.Debug(await httpDiagnosticsHandler.FormatAsync(response));
+                loggingService.Debug(await response.GetLog());
             });
 
             subscriber.Subscribe(Events.DelayPolling, (data) =>
@@ -159,6 +160,12 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 loggingService.Info(evt.Message);
+            });
+
+            subscriber.Subscribe(Events.Warning, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info($"WARNING: {evt.Message}");
             });
 
             return subscriber;
@@ -238,6 +245,8 @@ namespace Core.Engine
                     telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
                     telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
                 }
+                // Data-boundary resolution/tagging lives in ExecutionSession.RunAsync/Run
+                // instead of here — see TagDataBoundary's remarks on ExecutionSession.
             });
 
             return subscriber;

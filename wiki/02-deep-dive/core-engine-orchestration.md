@@ -198,12 +198,12 @@ The CLI `Main` (`src/CLI/Program.cs`) is the outer orchestrator. `GlobalArgParse
 | ----------------------- | ---------------------------------------------------------- | --------- |
 | _(success)_             | `RunAsync()` returns, exit `0`                             | —         |
 | `HttpRequestException`  | Network failure → try agent                                | **Yes**   |
-| `AzclipsErrorException` | Structured, well-known error → render + symbolic exit code | **No**    |
+| `AzclipsErrorException` | Known error → render as text + symbolic exit code            | **No**    |
 | `Exception` (generic)   | Unknown failure → try agent                                | **Yes**   |
 
 Help and version return before this ladder runs — they read from `globalArgs.Help` / `globalArgs.Version` and dispatch through [`RuntimeHelpDispatcher`](../../src/CLI/Help/RuntimeHelpDispatcher.cs) / [`RuntimeVersionDispatcher`](../../src/CLI/Version/RuntimeVersionDispatcher.cs) directly.
 
-The design intent is explicit in the source: a structured `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback**. Only network faults and _unclassified_ exceptions route into `TryAgentFallbackAsync`.
+The design intent is explicit in the source: an `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback**. The exception is `InvalidInputException` (malformed user input), which is agent-eligible. Network faults and _unclassified_ exceptions also route into `TryAgentFallbackAsync`.
 
 ### ⚠️ Fact vs. stale doc: the fallback is out-of-process
 
@@ -254,7 +254,7 @@ sequenceDiagram
         Main-->>User: exit 0
     else AzclipsErrorException (well-known)
         Proc-->>Main: throw AzclipsErrorException
-        Main-->>User: EmitStructuredError + symbolic exit code (no fallback)
+        Main-->>User: EmitKnownError + symbolic exit code (no fallback)
     else HttpRequestException / generic
         Proc-->>Main: throw
         Main->>Main: TryAgentFallbackAsync(args, error)

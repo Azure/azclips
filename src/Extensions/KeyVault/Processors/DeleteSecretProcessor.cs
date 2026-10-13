@@ -16,5 +16,5 @@ public partial class DeleteSecretProcessor : KeyVaultDataPlaneProcessorBase<obje
     public string SecretName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/secrets/{SecretName}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{VaultBaseUrl!.AbsoluteUri.TrimEnd('/')}/secrets/{Uri.EscapeDataString(SecretName)}?api-version=2025-07-01";
 }

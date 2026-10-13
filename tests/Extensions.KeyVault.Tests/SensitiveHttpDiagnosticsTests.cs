@@ -1,10 +1,13 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
-using Core.Runtime;
-using Core.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Extensions.KeyVault.Tests;
@@ -12,23 +15,176 @@ namespace Extensions.KeyVault.Tests;
 public class SensitiveHttpDiagnosticsTests
 {
     [Theory]
-    [InlineData(HttpStatusCode.Unauthorized)]
-    [InlineData(HttpStatusCode.Forbidden)]
-    public async Task SharedSensitiveErrorsContainStatusWithoutServiceAuthAdvice(HttpStatusCode statusCode)
+    [InlineData("request", null)]
+    [InlineData("request", " ")]
+    [InlineData("request", "{invalid")]
+    [InlineData("response", null)]
+    [InlineData("response", " ")]
+    [InlineData("response", "{invalid")]
+    [InlineData("none", null)]
+    [InlineData("none", " ")]
+    [InlineData("none", "{invalid")]
+    public async Task PaginationDiagnosticsRespectSensitiveMarkers(string marker, string? body)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
-        request.MarkSensitive();
-        using var response = new HttpResponseMessage(statusCode)
-        {
-            RequestMessage = request, Content = new StringContent("private-fixture")
-        };
+        const string sentinel = "private-vault-and-secret";
+        const string nextLink = "https://fixture.invalid/" + sentinel;
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
-        Assert.Equal(statusCode, error.StatusCode);
-        Assert.Contains($"HTTP {(int)statusCode}", error.Message);
-        Assert.DoesNotContain("Key Vault", error.Message);
-        Assert.DoesNotContain("private-fixture", error.ToString());
+        using var responseRequest = new HttpRequestMessage(HttpMethod.Get, nextLink);
+        if (marker == "response") responseRequest.MarkSensitive();
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher.Object))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                if (marker == "request") request.MarkSensitive();
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    RequestMessage = responseRequest,
+                    Content = body is null ? null : new StringContent(body)
+                });
+            });
+        var page = new PaginationPage(["first"], nextLink);
+        var collecting = page.CollectWithPaginationAsync(value => value.Items, value => value.NextLink,
+            () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/first")),
+            publisher.Object, pipeline.Object, new System.Text.Json.JsonSerializerOptions());
+
+        if (body == "{invalid")
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => collecting);
+            if (marker != "none") Assert.DoesNotContain(body, error.ToString());
+        }
+        else
+        {
+            Assert.Equal(new[] { "first" }, await collecting);
+        }
+
+        var messages = string.Join("\n", publisher.Invocations.SelectMany(invocation => invocation.Arguments.OfType<string>()));
+        if (marker == "none") Assert.Contains(sentinel, messages);
+        else Assert.DoesNotContain(sentinel, messages);
+    }
+
+    private sealed record PaginationPage(string[] Items, string? NextLink);
+
+    [Fact]
+    public void SingletonTransportsRenewConnectionsWithoutHandlerRotation()
+    {
+        var handlers = new List<SocketsHttpHandler>();
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler((handler, _) =>
+            handlers.Add(Assert.IsType<SocketsHttpHandler>(handler))));
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<ISendAsyncTerminalFactory>();
+        var options = provider.GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>();
+        Assert.Equal(Timeout.InfiniteTimeSpan, options.Get(Options.DefaultName).HandlerLifetime);
+        Assert.Equal(Timeout.InfiniteTimeSpan, options.Get(Core.Runtime.HttpClientTransportFactory.SensitiveClientName).HandlerLifetime);
+        Assert.Equal(2, handlers.Count);
+        Assert.All(handlers, handler => Assert.Equal(TimeSpan.FromMinutes(2), handler.PooledConnectionLifetime));
+    }
+
+    [Fact]
+    public async Task BothTransportsUseSharedHostConfiguration()
+    {
+        var handlers = new List<HttpClientHandler>();
+        var clients = new List<HttpClient>();
+        using var interceptor = new CapturingHandler();
+        using var key = RSA.Create(2048);
+        var certificateRequest = new CertificateRequest("CN=transport-fixture", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificate = certificateRequest.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var logs = new TransportLogProvider();
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(logs));
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder
+            .ConfigureHttpClient(client =>
+            {
+                clients.Add(client);
+                client.Timeout = TimeSpan.FromSeconds(7);
+                client.DefaultRequestHeaders.Add("host-setting", "shared");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() =>
+            {
+                var handler = new HttpClientHandler
+                {
+                    AllowAutoRedirect = true,
+                    UseProxy = false,
+                    Proxy = new WebProxy("http://127.0.0.1:8888"),
+                    SslProtocols = System.Security.Authentication.SslProtocols.Tls12
+                };
+                handler.ClientCertificates.Add(certificate);
+                handlers.Add(handler);
+                return handler;
+            })
+            .AddHttpMessageHandler(() => new HostConfiguredHandler(interceptor)));
+        using var provider = services.BuildServiceProvider();
+        var transport = provider.GetRequiredService<ISendAsyncTerminalFactory>().Create();
+
+        Assert.Equal(2, handlers.Count);
+        Assert.True(handlers[0].AllowAutoRedirect);
+        Assert.False(handlers[1].AllowAutoRedirect);
+        Assert.All(handlers, handler =>
+        {
+            Assert.False(handler.UseProxy);
+            Assert.NotNull(handler.Proxy);
+            Assert.Equal(System.Security.Authentication.SslProtocols.Tls12, handler.SslProtocols);
+            Assert.Contains(certificate, handler.ClientCertificates.Cast<X509Certificate2>());
+        });
+        Assert.Equal(2, clients.Count);
+        Assert.All(clients, client => Assert.Equal(TimeSpan.FromSeconds(7), client.Timeout));
+        using var ordinaryRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/ordinary");
+        using var sensitiveRequest = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/private-secret-uri");
+        sensitiveRequest.MarkSensitive();
+        using var ordinaryResponse = await transport.SendAsync(ordinaryRequest, Mock.Of<IEventPublisher>());
+        using var sensitiveResponse = await transport.SendAsync(sensitiveRequest, Mock.Of<IEventPublisher>());
+
+        Assert.Equal(2, interceptor.Calls);
+        Assert.Equal("shared", interceptor.HostSetting);
+        Assert.Contains(logs.Messages, message => message.Contains("https://fixture.invalid/ordinary"));
+        Assert.DoesNotContain(logs.Messages, message => message.Contains("private-secret-uri"));
+    }
+
+    [Fact]
+    public void SensitiveFactoryRejectsUnknownPrimaryTransport()
+    {
+        using var handler = new CapturingHandler();
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler(() => handler));
+        using var provider = services.BuildServiceProvider();
+
+        var error = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ISendAsyncTerminalFactory>());
+
+        Assert.Contains("redirects can be disabled", error.Message);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    private sealed class TransportLogProvider : ILoggerProvider
+    {
+        public List<string> Messages { get; } = [];
+        public ILogger CreateLogger(string categoryName) => new TransportLogger(Messages);
+        public void Dispose() { }
+
+        private sealed class TransportLogger(List<string> messages) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                messages.Add(formatter(state, exception));
+        }
+    }
+
+    private sealed class HostConfiguredHandler(CapturingHandler interceptor) : DelegatingHandler
+    {
+        private readonly HttpMessageInvoker invoker = new(interceptor, disposeHandler: false);
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            invoker.SendAsync(request, cancellationToken);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) invoker.Dispose();
+            base.Dispose(disposing);
+        }
     }
 
     [Theory]
@@ -43,12 +199,11 @@ public class SensitiveHttpDiagnosticsTests
         ordinary.DefaultRequestHeaders.Add("host-setting", "ordinary");
         protectedClient.DefaultRequestHeaders.Add("host-setting", "sensitive");
         protectedClient.Timeout = TimeSpan.FromSeconds(7);
-        using var diagnostics = new HttpDiagnosticsHandler(protectedClient);
-        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(ordinary));
+        var factory = new Core.Runtime.HttpClientTransportFactory(ordinary, protectedClient);
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         if (sensitive) request.MarkSensitive();
 
-        using var response = await sender.SendAsync(request, Mock.Of<IEventPublisher>());
+        using var response = await factory.SendAsync(request, Mock.Of<IEventPublisher>());
 
         Assert.Equal(sensitive ? 0 : 1, ordinaryHandler.Calls);
         Assert.Equal(sensitive ? 1 : 0, sensitiveHandler.Calls);
@@ -57,16 +212,13 @@ public class SensitiveHttpDiagnosticsTests
     }
 
     [Fact]
-    public async Task SensitiveRequestWithoutHostConfigurationFailsBeforeNetwork()
+    public void MissingSensitiveRegistrationFailsDuringConstruction()
     {
-        var handler = new CapturingHandler();
-        using var client = new HttpClient(handler);
-        using var diagnostics = new HttpDiagnosticsHandler();
-        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(client));
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
-        request.MarkSensitive();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => sender.SendAsync(request, Mock.Of<IEventPublisher>()));
-        Assert.Equal(0, handler.Calls);
+        var services = new ServiceCollection();
+        Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
+        services.RemoveAllKeyed<HttpClient>(Core.Runtime.HttpClientTransportFactory.SensitiveClientName);
+        using var provider = services.BuildServiceProvider();
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ISendAsyncTerminalFactory>());
     }
 
     [Fact]
@@ -75,13 +227,13 @@ public class SensitiveHttpDiagnosticsTests
         using var cancellation = new CancellationTokenSource();
         var handler = new CapturingHandler { WaitForCancellation = true };
         using var client = new HttpClient();
-        using var diagnostics = new HttpDiagnosticsHandler(new HttpClient(handler));
-        var sender = new SendAsyncFactory(diagnostics.SendAsync).Create(new HttpClientFactory(client));
+        using var sensitive = new HttpClient(handler);
+        var factory = new Core.Runtime.HttpClientTransportFactory(client, sensitive);
         var publisher = new Mock<IEventPublisher>();
         publisher.SetupGet(value => value.Token).Returns(cancellation.Token);
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/");
         request.MarkSensitive();
-        Task<HttpResponseMessage> sending = sender.SendAsync(request, publisher.Object);
+        Task<HttpResponseMessage> sending = factory.SendAsync(request, publisher.Object);
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending);
         Assert.Equal(1, handler.Calls);
@@ -105,6 +257,8 @@ public class SensitiveHttpDiagnosticsTests
     [Theory]
     [InlineData("{\"value\":\"private-fixture\",\"pwd\":\"private-fixture\"}")]
     [InlineData("{broken private-fixture")]
+    [InlineData("[\"private-fixture\"]")]
+    [InlineData("{\"value\":[\"private-fixture\",[\"private-fixture\"],{\"value\":\"private-fixture\"}]}")]
     public async Task MarkedTrafficIsSanitizedBeforeItEntersARecording(string body)
     {
         var record = new global::Tests.Recording.SessionRecord();
@@ -133,10 +287,8 @@ public class SensitiveHttpDiagnosticsTests
         Assert.Single(record.Entries);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task HandlerPreservesOrdinaryRedirectsAndBlocksSensitiveRedirects(bool sensitive)
+    [Fact]
+    public async Task SensitiveTransportDoesNotFollowRedirects()
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         using var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
@@ -148,12 +300,11 @@ public class SensitiveHttpDiagnosticsTests
         {
             Content = new StringContent("private-fixture")
         };
-        if (sensitive) request.MarkSensitive();
-        using var ordinaryClient = new HttpClient();
+        request.MarkSensitive();
         var services = new ServiceCollection();
         Core.Engine.DIRegisterExtensions.RegisterEngineServices(services);
         using var provider = services.BuildServiceProvider();
-        var transport = new SendAsyncFactory(provider.GetRequiredService<IHttpDiagnosticsHandler>().SendAsync).Create(new HttpClientFactory(ordinaryClient));
+        var transport = provider.GetRequiredService<ISendAsyncTerminalFactory>().Create();
         Task<HttpResponseMessage> sending = transport.SendAsync(request, publisher.Object);
         using var connection = await listener.AcceptTcpClientAsync(cancellation.Token);
         using var stream = connection.GetStream();
@@ -162,49 +313,9 @@ public class SensitiveHttpDiagnosticsTests
         byte[] reply = System.Text.Encoding.ASCII.GetBytes(
             $"HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:{port}/redirected\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(reply, cancellation.Token);
-        if (!sensitive)
-        {
-            using var redirectedConnection = await listener.AcceptTcpClientAsync(cancellation.Token);
-            using var redirectedStream = redirectedConnection.GetStream();
-            using var redirectedReader = new StreamReader(redirectedStream, leaveOpen: true);
-            Assert.Contains("/redirected", await redirectedReader.ReadLineAsync(cancellation.Token));
-            while (!string.IsNullOrEmpty(await redirectedReader.ReadLineAsync(cancellation.Token))) { }
-            await redirectedStream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
-                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), cancellation.Token);
-        }
         using var response = await sending;
-        Assert.Equal(sensitive ? HttpStatusCode.TemporaryRedirect : HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.TemporaryRedirect, response.StatusCode);
         Assert.False(listener.Pending());
-    }
-
-    [Fact]
-    public async Task ProtectedTransportRemainsInsideRuntimeRetries()
-    {
-        int calls = 0;
-        var terminal = new Mock<ISendAsync>();
-        terminal.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
-            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
-        using var protectedClient = new HttpClient(new RetryingHandler(() => ++calls));
-        using var diagnostics = new HttpDiagnosticsHandler(protectedClient);
-        var pipeline = new HttpPipeline(new SendAsyncTerminalFactory(new SendAsyncFactory(diagnostics.SendAsync).Create(terminal.Object)), 1, 0);
-        var publisher = new Mock<IEventPublisher>();
-        publisher.SetReturnsDefault(Task.CompletedTask);
-        using var request = new HttpRequestMessage(HttpMethod.Put, "https://fixture.invalid/") { Content = new StringContent("private-fixture") };
-        request.MarkSensitive();
-        using var response = await pipeline.SendAsync(request, publisher.Object);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(2, calls);
-        terminal.VerifyNoOtherCalls();
-    }
-
-    private sealed class RetryingHandler(Func<int> nextCall) : HttpMessageHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
-        {
-            Assert.True(request.HasSensitiveDiagnostics());
-            Assert.Equal("private-fixture", await request.Content!.ReadAsStringAsync(token));
-            return new HttpResponseMessage(nextCall() == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { RequestMessage = request };
-        }
     }
 
     [Fact]
@@ -231,9 +342,6 @@ public class SensitiveHttpDiagnosticsTests
         Assert.True(clone.HasSensitiveDiagnostics());
         Assert.DoesNotContain(sentinel, await clone.GetLog());
         Assert.DoesNotContain(sentinel, await response.GetLog());
-        using var diagnostics = new HttpDiagnosticsHandler();
-        Assert.DoesNotContain(sentinel, await diagnostics.FormatAsync(clone));
-        Assert.DoesNotContain(sentinel, await diagnostics.FormatAsync(response));
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => response.EnsureSuccessAsync(publisher.Object));
         Assert.DoesNotContain(sentinel, error.ToString());
         Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
@@ -249,7 +357,6 @@ public class SensitiveHttpDiagnosticsTests
         {
             Content = new StringContent("ordinary-fixture")
         };
-        using var diagnostics = new HttpDiagnosticsHandler();
-        Assert.Contains("ordinary-fixture", await diagnostics.FormatAsync(request));
+        Assert.Contains("ordinary-fixture", await request.GetLog());
     }
 }

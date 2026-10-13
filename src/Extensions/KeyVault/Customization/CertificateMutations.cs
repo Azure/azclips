@@ -116,7 +116,7 @@ public class CreateCertificateCommand : CreateCertificateProcessor
             ?? throw new ArgumentException("An explicit certificate policy is required.");
     }
 
-    internal override async Task<HttpResponseMessage> SendAsync()
+    protected override async Task<HttpResponseMessage> SendCoreAsync()
     {
         // TODO: Replace custom polling when spec/directive metadata and codegen/runtime
         // support the certificate pending endpoint, terminal states, and required command behavior.
@@ -129,7 +129,7 @@ public class CreateCertificateCommand : CreateCertificateProcessor
         try
         {
             Token.ThrowIfCancellationRequested();
-            response = await base.SendAsync();
+            response = await base.SendCoreAsync();
             var poller = CreateExtendedProcessor<GetCertificateOperationProcessor>(child => child.CertificateName = CertificateName);
             while (true)
             {
@@ -270,7 +270,7 @@ public class UpdateCertificateCommand : UpdateCertificateProcessor
             throw new ArgumentException("Specify at least one certificate attribute, tag or policy update.");
     }
 
-    internal override async Task<HttpResponseMessage> SendAsync()
+    protected override async Task<HttpResponseMessage> SendCoreAsync()
     {
         if (policyUpdate is not null)
         {
@@ -284,6 +284,6 @@ public class UpdateCertificateCommand : UpdateCertificateProcessor
                 CertificateAttributesExpires is null && CertificateAttributesNotBefore is null)
                 return await CreateExtendedProcessor<GetCertificateProcessor>(child => child.CertificateName = CertificateName).SendAsync();
         }
-        return await base.SendAsync();
+        return await base.SendCoreAsync();
     }
 }

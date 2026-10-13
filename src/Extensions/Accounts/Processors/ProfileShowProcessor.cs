@@ -27,13 +27,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             bool hasName = !string.IsNullOrWhiteSpace(Name);
             if (Active && hasName)
             {
-                throw new ArgumentException("Specify either a profile name or --active, not both.");
+                throw AzclipsErrorException.InvalidInput("Specify either a profile name or --active, not both.");
             }
             Profile profile = Active || !hasName
                 ? await profileService.GetActiveProfileAsync()
-                    ?? throw new InvalidOperationException("No active profile is set.")
+                    ?? throw AzclipsErrorException.NotSignedIn("No active profile is set.")
                 : await profileService.GetProfileAsync(Name)
-                    ?? throw new ArgumentException($"Profile '{Name}' does not exist.");
+                    ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
             await WriteOutput(profile);
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
