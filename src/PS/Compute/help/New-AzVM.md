@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/28/2026
+ms.date: 10/13/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -22,13 +22,12 @@ Create a virtual machine together with its network interface, public IP address,
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- [-VirtualNetworkName <string>] [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>]
- [-SubscriptionId <string>] [-Image <string>]
- [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
- [-OSDiskSecureVMDiskEncryptionSet <string>] [-SecurityGroupName <string>]
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
+ [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
+ [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
+ [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
+ [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### ExistingNetworkInterface
@@ -36,9 +35,9 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
- [-NetworkInterfaceDeleteOption <string>] [-SubscriptionId <string>] [-Image <string>]
- [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
- [-OSDiskSecureVMDiskEncryptionSet <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
+ [-NetworkInterfaceDeleteOption <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
@@ -297,28 +296,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -NetworkInterfaceName
-
-The network interface name to create. This parameter cannot be combined with
-`-NetworkInterfaceId`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: NewNetworkInterface
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -NetworkInterfaceDeleteOption
 
 Specifies what happens to attached network interfaces when the virtual machine is deleted. The
@@ -357,6 +334,28 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: ExistingNetworkInterface
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -NetworkInterfaceName
+
+The network interface name to create. This parameter cannot be combined with
+`-NetworkInterfaceId`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -553,12 +552,14 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SubnetNames
+### -SubnetName
 
-Names of the subnets.
+Name or full resource ID of the subnet for the new network interface. A subnet name is resolved
+under `-VirtualNetworkName`. A full subnet resource ID bypasses virtual-network creation.
+Do not combine this parameter with `-SubnetNames` or `-NetworkInterfaceId`.
 
 ```yaml
-Type: System.String[]
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -574,14 +575,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SubnetName
+### -SubnetNames
 
-Name or full resource ID of the subnet for the new network interface. A subnet name is resolved
-under `-VirtualNetworkName`. A full subnet resource ID bypasses virtual-network creation.
-Do not combine this parameter with `-SubnetNames` or `-NetworkInterfaceId`.
+Names of the subnets.
 
 ```yaml
-Type: System.String
+Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -664,6 +663,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
