@@ -69,20 +69,35 @@ public sealed class LinuxFailureHistoryKeyStorageTests
     }
 
     [Theory]
-    [InlineData("/wrong_session", false, "application/octet-stream")]
-    [InlineData("/session", true, "application/octet-stream")]
-    [InlineData("/session", false, "text/plain")]
-    public void InconsistentSecretReply_IsRejected(string session, bool hasParameters, string contentType)
+    [InlineData("/wrong_session", false)]
+    [InlineData("/session", true)]
+    public void InconsistentSecretReply_IsRejected(string session, bool hasParameters)
     {
         var value = Enumerable.Repeat((byte)42, 32).ToArray();
         var client = new FakeClient
         {
             Search = new(["/item"], []),
-            Secret = new(session, hasParameters ? [1] : [], value, contentType),
+            Secret = new(session, hasParameters ? [1] : [], value, LinuxFailureHistoryKeyStorage.ContentType),
         };
         var error = Assert.Throws<FailureHistoryException>(() => CreateStorage(client).ReadData());
         Assert.Equal("failure_history_key_invalid", error.Code);
         Assert.All(value, octet => Assert.Equal(0, octet));
+    }
+
+    [Theory]
+    [InlineData("text/plain")]
+    [InlineData("application/octet-stream")]
+    public void StoredKey_IsReadRegardlessOfReturnedContentType(string contentType)
+    {
+        // GNOME Keyring returns text/plain for every item, whatever content type was written.
+        var value = Enumerable.Range(0, 32).Select(number => (byte)number).ToArray();
+        var client = new FakeClient
+        {
+            Search = new(["/item"], []),
+            Secret = new("/session", [], value.ToArray(), contentType),
+        };
+
+        Assert.Equal(value, CreateStorage(client).ReadData());
     }
 
     [Fact]
