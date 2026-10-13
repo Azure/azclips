@@ -185,6 +185,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
         _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Searching root(s): '{string.Join(";", GetCandidateRoots().Where(Directory.Exists))}'.");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         foreach (var root in GetCandidateRoots())
@@ -212,7 +213,6 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                 foreach (var assemblyName in GetCandidateAssemblyNames(extensionName))
                 {
                     var extensionPath = Path.Combine(packageDir, $"{assemblyName}.dll");
-                    _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Probing '{extensionPath}'.");
                     if (!File.Exists(extensionPath))
                     {
                         continue;
@@ -508,6 +508,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
         _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Searching root: '{_options.InstalledExtensionsRoot}'.");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         var extensionDir = ResolveExtensionDirectory(extensionName, version);
@@ -526,8 +527,6 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
             _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Extension '{extensionName}' version '{version}' has no matching .dll under '{extensionDir}'.");
             return null;
         }
-
-        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Probing '{extensionPath}'.");
 
         bool isCached = false;
         Assembly assembly;
