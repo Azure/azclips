@@ -41,9 +41,9 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
         }
         catch (JsonException ex)
         {
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 $"The configuration file '{path}' contains invalid JSON. Correct the file contents or delete the file and try again.",
-                ex);
+                innerException: ex);
         }
     }
 

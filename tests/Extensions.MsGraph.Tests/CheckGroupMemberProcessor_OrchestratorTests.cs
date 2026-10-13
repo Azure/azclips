@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
@@ -77,7 +78,7 @@ public class CheckGroupMemberProcessor_OrchestratorTests
             MemberId = MemberId,
         }.WithFakeContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
         Assert.Empty(pipeline.Sent);
     }
 
@@ -91,7 +92,7 @@ public class CheckGroupMemberProcessor_OrchestratorTests
             MemberId = "",
         }.WithFakeContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
         Assert.Empty(pipeline.Sent);
     }
 
@@ -112,6 +113,6 @@ public class CheckGroupMemberProcessor_OrchestratorTests
             MemberId = MemberId,
         }.WithFakeContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.InvokeSendAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
     }
 }

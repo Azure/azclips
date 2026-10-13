@@ -56,7 +56,7 @@ internal static class VmSecurityProfileResolver
                     "Disk encryption set",
                     "diskEncryptionSetName");
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidInputException ex)
             {
                 throw AzclipsErrorException.UsageError(ex.Message);
             }

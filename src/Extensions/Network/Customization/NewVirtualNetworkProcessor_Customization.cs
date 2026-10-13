@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using System.Text;
 
@@ -101,7 +102,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
                     properties.PrivateLinkServiceNetworkPolicies = ParseBool(value, key) ? "Disabled" : "Enabled";
                     break;
                 default:
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"Unknown --subnets key '{key}'. Supported keys: name, address-prefix, address-prefixes, nsg, route-table, " +
                         "nat-gateway, default-outbound-access, service-endpoints, " +
                         "service-endpoint-policy, delegations, " +
@@ -113,7 +114,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
 
         if (string.IsNullOrEmpty(name))
         {
-            throw new ArgumentException("Each --subnets value requires a 'name=<value>' key.");
+            throw AzclipsErrorException.InvalidInput("Each --subnets value requires a 'name=<value>' key.");
         }
 
         if (properties.AddressPrefix.Length == 0 && properties.AddressPrefixes.Count > 0)
@@ -171,7 +172,7 @@ public class NewVirtualNetworkProcessor_Customization : NewVirtualNetworkProcess
     private static bool ParseBool(string value, string key) =>
         bool.TryParse(value, out var parsed)
             ? parsed
-            : throw new ArgumentException($"'{key}' expects true or false, but received '{value}'.");
+            : throw AzclipsErrorException.InvalidInput($"'{key}' expects true or false, but received '{value}'.");
 
     private static SubResource ToSubResource(string id) => new() { Id = id };
 }

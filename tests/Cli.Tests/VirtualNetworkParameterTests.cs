@@ -162,7 +162,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_CompoundSubnets_UnknownKey_ListsSupportedKeys()
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
             () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["name=web", "bogus=1"]]));
 
         Assert.Contains("bogus", error.Message);
@@ -179,7 +179,7 @@ public class VirtualNetworkParameterTests
     [InlineData("application-gateway-ip-configurations")]
     public async Task Create_CompoundSubnets_RejectKeysOutsideTheMigratedSurface(string key)
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
             () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["name=web", $"{key}=value"]]));
 
         Assert.Contains(key, error.Message);
@@ -212,7 +212,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_CompoundSubnets_RequireName()
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
             () => CaptureCreateBodyAsync(processor => processor.SubnetSpecs = [["address-prefixes=10.0.1.0/24"]]));
 
         Assert.Contains("name=", error.Message);
@@ -232,7 +232,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_Tags_RejectTokensWithoutSeparator()
     {
-        var error = await Assert.ThrowsAsync<ArgumentException>(
+        var error = await Assert.ThrowsAsync<InvalidInputException>(
             () => CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner"]));
 
         Assert.Contains("--tags", error.Message);
