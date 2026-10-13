@@ -13,7 +13,7 @@ title: New-AzVM
 
 ## SYNOPSIS
 
-Create a virtual machine together with its network interface, public IP address, virtual network, and network security group in a single call.
+Create a virtual machine with a new network interface or attach existing network interfaces.
 
 ## SYNTAX
 
@@ -45,15 +45,16 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 
 ## DESCRIPTION
 
-Provisions the full networking + VM stack as a single operation.
-Creates a virtual network, network security group, public IP address, network interface, and virtual machine using the supplied names and parameters.
-By default the network security group is named after the virtual machine with an `NSG` suffix (for example `myvmNSG`), created or, if it already exists, updated.
+Creates a virtual machine using either the default `NewNetworkInterface` parameter set or the `ExistingNetworkInterface` parameter set.
+The default parameter set creates a network interface and creates or reuses its virtual network, subnet, network security group, and public IP address according to the supplied parameters.
+With `-NetworkInterfaceId`, the existing-NIC parameter set attaches the supplied network interfaces without creating a virtual network, network security group, public IP address, or network interface; the first network interface is primary.
+In the default parameter set, the network security group is named after the virtual machine with an `NSG` suffix (for example `myvmNSG`), created or, if it already exists, updated.
 A network security group this command creates has one inbound rule for the image's operating system, allowing traffic from any source: `rdp` (TCP port 3389) for Windows or `default-allow-ssh` (TCP port 22) for Linux.
 Use `-SecurityGroupName` to choose the network security group by name or resource ID, or pass an empty string to create none.
 Use `-SubnetName` to select one subnet by name from `-VirtualNetworkName`, or pass a full subnet resource ID.
 Use `-NetworkInterfaceId` instead of the network-creation parameters to attach one or more existing network interfaces; the first is primary.
 Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
-By default the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
+In the default parameter set, the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
@@ -700,11 +701,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration, plus the `PowerState`, `PublicIps`, `Fqdns`, `PrivateIps`, and `MacAddresses` detail fields.
 `Fqdns` is empty unless an attached existing public IP address has a DNS name label; public IP addresses this command creates have none.
-`PublicIps` is empty when `-PublicIpAddressName` is an empty string.
+`PublicIps` is empty when no public IP address is attached, including when `-PublicIpAddressName` is an empty string in the default parameter set or the supplied existing NICs have no public IP addresses.
 
 ## NOTES
 
 Generated help for compute.
+Networking resources are created or reused only in the default `NewNetworkInterface` parameter set.
+The `ExistingNetworkInterface` parameter set uses the existing NICs and their networking configuration without creating networking resources.
 
 ## RELATED LINKS
 
