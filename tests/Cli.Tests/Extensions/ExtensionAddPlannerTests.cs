@@ -65,6 +65,22 @@ public sealed class ExtensionAddPlannerTests : IDisposable
     }
 
     [Fact]
+    public void ReadContract_ShouldAggregateVerbs_AcrossAllExtensionVerbDeclarations()
+    {
+        // Must match ExtensionVerbReader.ReadVerbs (the runtime "extension add" path), which
+        // collects every [ExtensionVerb] declaration, not just the IExtensionIndex type's.
+        var dir = StageFixtureDll("ExtraVerb");
+
+        var (verbs, leaves) = LeafReader.ReadContract(dir);
+
+        Assert.Equal(
+            ExtensionVerbReader.ReadVerbs(dir).OrderBy(v => v, StringComparer.Ordinal),
+            verbs.OrderBy(v => v, StringComparer.Ordinal));
+        Assert.Equal(new[] { "primary", "secondary" }, verbs.OrderBy(v => v, StringComparer.Ordinal));
+        Assert.Equal(new[] { "primary run" }, leaves);
+    }
+
+    [Fact]
     public void PlanContributions_SharedVerb_DisjointLeaves_BothSucceed()
     {
         // Alpha contributes `sharedverb alpha`, Beta contributes `sharedverb beta`. Same root
