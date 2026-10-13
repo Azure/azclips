@@ -154,7 +154,7 @@ public class ExtensionDispatcher //: IParser
             }
         }
 
-        _loggingService?.Debug($"[{nameof(ExtensionDispatcher)}] Dispatched command '{commandName}' to extension '{extensionName}' (version: {resolved.Version ?? "default"}).");
+        _loggingService?.Debug($"[{nameof(ExtensionDispatcher)}] Dispatched command '{commandName}' to extension '{extensionName}' (version: {(string.IsNullOrWhiteSpace(resolved.Version) ? "default" : resolved.Version)}).");
 
         return new CommandInvocation(
             extensionName,

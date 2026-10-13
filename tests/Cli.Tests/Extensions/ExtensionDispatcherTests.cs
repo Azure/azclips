@@ -186,6 +186,28 @@ public class ExtensionDispatcherTests
         Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: 1.0.0).");
     }
 
+    [Fact]
+    public void Parse_ShouldLogDefaultVersionLabel_WhenVersionIsBlank()
+    {
+        var registry = new ExtensionRegistry();
+        var entry = new ExtensionRegistryEntry
+        {
+            Version = "",
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = entry;
+        entry.Contributions.Add(new Contribution { Verb = "vm", Path = "create" });
+
+        var index = LeafIndex.Build(registry);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+        var capturingLogger = new CapturingLoggingService();
+        var dispatcher = new ExtensionDispatcher(resolver, () => index, capturingLogger);
+
+        dispatcher.Parse(["vm", "create", "--name", "foo"]);
+
+        Assert.Contains(capturingLogger.Messages, m => m == "DEBUG: [ExtensionDispatcher] Dispatched command 'vm create' to extension 'Compute' (version: default).");
+    }
+
     private sealed class CapturingLoggingService : ILoggingService
     {
         public List<string> Messages { get; } = new();

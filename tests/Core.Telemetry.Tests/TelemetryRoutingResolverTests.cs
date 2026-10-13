@@ -69,7 +69,7 @@ public class TelemetryRoutingResolverTests
         Assert.Null(boundary);
         Assert.Null(subscriptionId);
         Assert.Null(authType);
-        Assert.Contains(capturingLogger.Messages, m => m.Contains("[TelemetryRoutingResolver] Failed to resolve telemetry routing for profile 'test-profile': Simulated failure"));
+        Assert.Contains(capturingLogger.Messages, m => m.StartsWith("DEBUG: [TelemetryRoutingResolver] Failed to resolve telemetry routing for profile 'test-profile': Simulated failure", StringComparison.Ordinal));
     }
 
     private sealed class ThrowingProfileService : StubProfileService
