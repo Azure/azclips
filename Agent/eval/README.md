@@ -133,8 +133,8 @@ repair. Without recorded cache-miss evidence, a complete VM-only repair is valid
 the Judge must not infer a missing group from an empty tool-call history.
 The VM and identity scenarios share the prerequisite checks without changing the
 identity scenario's policy. This rule correction changes the configured test
-identity; keep older artifacts intact and create a new `-Repeat 3` baseline
-before comparing optimized builds under the corrected rules.
+identity; keep older artifacts intact and create a new baseline with the current
+repeat count (`-Repeat 5`) before comparing optimized builds under the corrected rules.
 
 Use a target package that exposes every configured command, including Network
 and managed-identity creation. Verify the target catalog before running models;
@@ -223,12 +223,20 @@ Model turns dominate end-to-end latency. Host time varies less than model time
 within one run, but whole runs shift together: in the recorded 2026-10 runs most
 of the variance of host time and of total latency came from run-to-run shifts.
 One baseline run against one candidate run therefore detects only large changes.
-Run the baseline and candidate builds close together (for example baseline,
-candidate, candidate, baseline), compare `hostMs` and `llmMs` separately as well as
-the total, and do not treat a difference within the spread of repeated runs of
-the same build as a speedup. Agent behavior also drifts: in four runs of the same
+Before claiming a smaller change, run the baseline and candidate builds close
+together (for example baseline, candidate, candidate, baseline), compare `hostMs`
+and `llmMs` separately as well as the total, and do not treat a difference within
+the spread of repeated runs of the same build as a speedup. Agent behavior also drifts: in four runs of the same
 build, host-rejected plans rose from 0 to 5 per run and model turns from 3.30 to
 3.57 per observation, so compare plan activity and turns only within one block.
+Host time also follows the load on the workstation. Three overnight runs on an
+idle machine (Baseline V7, its A/A run and V8) had host means of 9.6–9.9 s.
+Baseline V9 used the same build and settings but ran in the evening while the
+workstation was in use; its host mean was 12.5 s, every observation started its
+session more slowly than the V8 median for its case, and failure capture, process
+start and the internal plan tools were slower as well, while model time was lower.
+Run candidates under the same workstation conditions as the baseline, or repeat
+the baseline in the same session, before reading a `hostMs` difference.
 The trace does not record model-call retries or HTTP status, so a slow model turn
 cannot be explained from it: one 110 s turn in Baseline V8 raised the run's mean
 latency from 37.8 s to 41.9 s. Report per-case medians beside means.
@@ -296,15 +304,17 @@ Set-Location <repository-root>
 .\Agent\eval\run-evaluation.ps1 `
   -AzclipsExe "$env:LOCALAPPDATA\Programs\azcli-dev\az.exe" `
   -RecoveryMode manual `
-  -Repeat 3 `
+  -Repeat 5 `
   -Upload
 ```
 
-`-Repeat` defaults to 1 for compatibility. Use `-Repeat 3` for the baseline and
-each candidate build: ten cases produce thirty independently generated answers
-and thirty real semantic judgments in one artifact. A repeat is a new target call,
+`-Repeat` defaults to 1 for compatibility. Use `-Repeat 5` for the baseline and
+each candidate build: ten cases produce fifty independently generated answers
+and fifty real semantic judgments in one artifact. Baselines up to V8 used
+`-Repeat 3`; the dashboard's Score sums every observation, so compare runs only
+with the same repeat count. A repeat is a new target call,
 not a reused response or an internal LLM turn. All attempts are retained, including
-failures. Compare case-level median and range as well as the overall mean; three
+failures. Compare case-level median and range as well as the overall mean; five
 observations per case are not sufficient to claim stable p95 latency.
 
 Freeze the case inputs, rubric version/content, judge deployment, runtime settings,

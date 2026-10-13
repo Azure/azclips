@@ -197,7 +197,7 @@ the generated response, measured duration or actual LLM verdict.
 ## Baseline evidence
 
 A baseline of the current default suite must contain all ten configured cases in
-one real run, using `-Repeat 3` for thirty independent results, with zero execution
+one real run, using `-Repeat 5` for fifty independent results, with zero execution
 or judge errors and a real LLM verdict for every result. Record source revision, target package,
 runtime prompt hash, model, suite identity, outputs, assertions, and usage. The
 wrapper records the target version and package fingerprint, the refreshed
@@ -217,7 +217,7 @@ ID, so a different process's latest failure cannot be selected. Missing IDs and
 unexpectedly successful stimuli are execution errors, not quality scores.
 Duration includes failure recording and troubleshooting, not just model inference. One pass
 provides one observation per case; it does not establish stable tail latency.
-Use the same three-repeat protocol for later optimization PRs. Retain every
+Use the same five-repeat protocol for later optimization PRs. Retain every
 result, report per-case median and range, and keep judge usage/time separate from
 target measurements. Freeze the rubric before measuring; investigate failures
 without relaxing valid constraints or selecting only successful attempts.
