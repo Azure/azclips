@@ -19,7 +19,8 @@
 #                                                     anything is created
 #   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
 #   7. optional AZCLIPS_ENABLE_CVM=1               -> creates a ConfidentialVM with OS disk security encryption
-#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1      -> attaches a pre-created NIC and sets its delete option
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1      -> subnet name/ID selection, missing-subnet
+#                                                     preflight, two NICs and a shared delete option
 #
 # PrivateIps is checked alongside PublicIps to prove the output was enriched: an
 # empty PublicIps with an empty PrivateIps means the detail lookup never ran.
@@ -55,7 +56,7 @@
 #   $env:AZCLIPS_CVM_SIZE = 'Standard_DC2as_v5'
 #   $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE = 'VMGuestStateOnly'
 #
-# To also test an existing NIC, set:
+# To also test networking (three additional Standard_D2s_v3 VMs, no public IPs), set:
 #   $env:AZCLIPS_ENABLE_EXISTING_NIC = '1'
 #
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
@@ -92,10 +93,15 @@ $noneVm            = "vmc-non-$suffix"
 $missingVm         = "vmc-mis-$suffix"
 $cvmVm             = "vmc-cvm-$suffix"
 $existingNicVm     = "vmc-nic-$suffix"
+$subnetNameVm      = "vmc-sub-$suffix"
+$subnetIdVm        = "vmc-sid-$suffix"
+$missingSubnetVm  = "vmc-msu-$suffix"
 $existingNicVnet   = "vmc-nic-vnet-$suffix"
 $existingNicSubnet = 'default'
 $existingNicName   = "vmc-existing-nic-$suffix"
 $existingNicId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkInterfaces/$existingNicName"
+$secondNicName     = "vmc-second-nic-$suffix"
+$secondNicId       = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkInterfaces/$secondNicName"
 $existingNicSubnetId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/virtualNetworks/$existingNicVnet/subnets/$existingNicSubnet"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
 $reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
@@ -232,6 +238,47 @@ function New-ConfidentialSmokeVM([string]$Name)
         SecurityType = 'ConfidentialVM'
         OSDiskSecurityEncryptionType = $cvmEncryptionType
         PublicIpAddressName = ''
+    }
+}
+
+function New-NetworkSmokeVM([string]$Name, [hashtable]$Extra)
+{
+    $parameters = @{
+        SubscriptionId = $subscriptionId
+        ResourceGroupName = $resourceGroup
+        Name = $Name
+        Location = $location
+        VmSize = 'Standard_D2s_v3'
+        AdminUsername = 'Artemis'
+        AdminPassword = $env:AZCLIPS_VM_ADMIN_PASSWORD
+    }
+    foreach ($key in $Extra.Keys)
+    {
+        $parameters[$key] = $Extra[$key]
+    }
+    $createdVms.Add($Name)
+    New-AzVM @parameters
+}
+
+function Get-SmokeVMResource([string]$Name)
+{
+    $url = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines/${Name}?api-version=2025-11-01"
+    (Invoke-AzRestMethod -Method GET -Uri $url).Content | ConvertFrom-Json
+}
+
+function Test-NoNetworkSideEffects([string]$Name)
+{
+    foreach ($type in @('networkInterfaces', 'networkSecurityGroups', 'publicIPAddresses', 'virtualNetworks'))
+    {
+        $url = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/${type}?api-version=2025-05-01"
+        $resources = (Invoke-AzRestMethod -Method GET -Uri $url).Content | ConvertFrom-Json
+        foreach ($resource in $resources.value)
+        {
+            if ($resource.name -in @("$Name-nic", "${Name}NSG", "${Name}PublicIP", "$Name-vnet"))
+            {
+                Add-Failure "${Name}: unexpected generated resource '$($resource.name)' in $type"
+            }
+        }
     }
 }
 
@@ -496,11 +543,12 @@ try
 
     if ($existingNicEnabled)
     {
-        Write-Host "== 8. New-AzVM -NetworkInterfaceId $existingNicName -NetworkInterfaceDeleteOption Detach =="
+        Write-Host '== 8. subnet selection, preflight and existing-NIC networking =='
         try
         {
             $vnetBody = @{
                 location = $location
+                tags = @{ 'azclips-smoke' = 'network-selection' }
                 properties = @{
                     addressSpace = @{ addressPrefixes = @('10.50.0.0/16') }
                     subnets = @(
@@ -537,29 +585,93 @@ try
                 throw "NIC '$existingNicName' did not finish provisioning."
             }
 
-            $createdVms.Add($existingNicVm)
-            $null = New-AzVM `
-                -SubscriptionId $subscriptionId `
-                -ResourceGroupName $resourceGroup `
-                -Name $existingNicVm `
-                -Location $location `
-                -VmSize Standard_D2s_v3 `
-                -AdminUsername Artemis `
-                -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
-                -NetworkInterfaceId $existingNicId `
-                -NetworkInterfaceDeleteOption Detach
+            foreach ($name in @($subnetNameVm, $subnetIdVm))
+            {
+                $extra = @{
+                    NetworkInterfaceName = "$name-nic"
+                    SubnetName = $existingNicSubnetId
+                    PublicIpAddressName = ''
+                    NetworkInterfaceDeleteOption = 'Delete'
+                }
+                if ($name -eq $subnetNameVm)
+                {
+                    $extra.SubnetName = $existingNicSubnet
+                    $extra.VirtualNetworkName = $existingNicVnet
+                }
+                $null = New-NetworkSmokeVM -Name $name -Extra $extra
+                $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "$name-nic"
+                if ($nic.properties.ipConfigurations[0].properties.subnet.id -ne $existingNicSubnetId)
+                {
+                    Add-Failure "${name}: created NIC references the wrong subnet"
+                }
+                $vm = Get-SmokeVMResource -Name $name
+                $references = @($vm.properties.networkProfile.networkInterfaces)
+                if ($references.Count -ne 1 -or $references[0].id -ne $nic.id -or
+                    $references[0].properties.deleteOption -ne 'Delete')
+                {
+                    Add-Failure "${name}: expected one created NIC with delete option Delete"
+                }
+            }
 
-            $vmUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines/${existingNicVm}?api-version=2025-11-01"
-            $vm = (Invoke-AzRestMethod -Method GET -Uri $vmUrl).Content | ConvertFrom-Json
-            $nicReference = $vm.properties.networkProfile.networkInterfaces[0]
-            if ($nicReference.id -ne $existingNicId)
+            $vnet = Get-NetworkResource -Type 'virtualNetworks' -Name $existingNicVnet
+            if ($vnet.tags.'azclips-smoke' -ne 'network-selection')
             {
-                Add-Failure "existing nic: VM references '$($nicReference.id)' instead of '$existingNicId'"
+                Add-Failure 'subnet selection: existing VNet was overwritten'
             }
-            if ($nicReference.properties.deleteOption -ne 'Detach')
+
+            $missingSubnetId = "$existingNicSubnetId-missing"
+            try
             {
-                Add-Failure "existing nic: VM NIC delete option '$($nicReference.properties.deleteOption)' is not Detach"
+                $null = New-NetworkSmokeVM -Name $missingSubnetVm -Extra @{
+                    NetworkInterfaceName = "$missingSubnetVm-nic"
+                    SubnetName = $missingSubnetId
+                }
+                Add-Failure 'missing subnet: expected failure'
             }
+            catch
+            {
+                if (-not $_.Exception.Message.Contains("Subnet '$missingSubnetId' was not found."))
+                {
+                    Add-Failure "missing subnet: unexpected error: $($_.Exception.Message)"
+                }
+            }
+            Test-NoNetworkSideEffects -Name $missingSubnetVm
+            $vmListUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01"
+            $vms = (Invoke-AzRestMethod -Method GET -Uri $vmListUrl).Content | ConvertFrom-Json
+            if ($missingSubnetVm -in @($vms.value.name))
+            {
+                Add-Failure 'missing subnet: VM was unexpectedly created'
+            }
+
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'networkInterfaces' -Name $secondNicName) -Payload ($nicBody | ConvertTo-Json -Depth 7 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'networkInterfaces' -Name $secondNicName -What "NIC '$secondNicName'"))
+            {
+                throw "NIC '$secondNicName' did not finish provisioning."
+            }
+            $null = New-NetworkSmokeVM -Name $existingNicVm -Extra @{
+                NetworkInterfaceId = @($existingNicId, $secondNicId)
+                NetworkInterfaceDeleteOption = 'Detach'
+            }
+            $vm = Get-SmokeVMResource -Name $existingNicVm
+            $references = @($vm.properties.networkProfile.networkInterfaces)
+            if ($references.Count -ne 2)
+            {
+                Add-Failure 'existing nic: expected exactly two NIC references'
+            }
+            else
+            {
+                for ($index = 0; $index -lt 2; $index++)
+                {
+                    $expectedId = @($existingNicId, $secondNicId)[$index]
+                    if ($references[$index].id -ne $expectedId -or
+                        $references[$index].properties.primary -cne ($index -eq 0) -or
+                        $references[$index].properties.deleteOption -ne 'Detach')
+                    {
+                        Add-Failure "existing nic: incorrect ID, primary flag or delete option at index $index"
+                    }
+                }
+            }
+            Test-NoNetworkSideEffects -Name $existingNicVm
         }
         catch
         {

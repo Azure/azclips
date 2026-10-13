@@ -18,7 +18,8 @@
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
 #   7. optional AZCLIPS_ENABLE_CVM=1              -> creates a ConfidentialVM with OS disk security encryption
-#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1     -> attaches a pre-created NIC and sets its delete option
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1     -> subnet name/ID selection, missing-subnet
+#                                                    preflight, two NICs and per-NIC delete options
 #
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
@@ -51,7 +52,7 @@
 #   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
-# Optional existing-NIC run:
+# Optional networking run (three additional Standard_D2s_v3 VMs, no public IPs):
 #   export AZCLIPS_ENABLE_EXISTING_NIC=1
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
@@ -105,10 +106,15 @@ NONE_VM="vmc-non-$SUFFIX"
 MISSING_VM="vmc-mis-$SUFFIX"
 CVM_VM="vmc-cvm-$SUFFIX"
 EXISTING_NIC_VM="vmc-nic-$SUFFIX"
+SUBNET_NAME_VM="vmc-sub-$SUFFIX"
+SUBNET_ID_VM="vmc-sid-$SUFFIX"
+MISSING_SUBNET_VM="vmc-msu-$SUFFIX"
 EXISTING_NIC_VNET="vmc-nic-vnet-$SUFFIX"
 EXISTING_NIC_SUBNET="default"
 EXISTING_NIC_NAME="vmc-existing-nic-$SUFFIX"
 EXISTING_NIC_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$EXISTING_NIC_NAME"
+SECOND_NIC_NAME="vmc-second-nic-$SUFFIX"
+SECOND_NIC_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$SECOND_NIC_NAME"
 EXISTING_NIC_SUBNET_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/virtualNetworks/$EXISTING_NIC_VNET/subnets/$EXISTING_NIC_SUBNET"
 NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
@@ -178,7 +184,7 @@ cleanup()
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
         "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || warn_public_ssh_cleanup
     else
-        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM" "$EXISTING_NIC_VM"
+        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM" "$EXISTING_NIC_VM" "$SUBNET_NAME_VM" "$SUBNET_ID_VM" "$MISSING_SUBNET_VM"
         do
             echo "== cleanup: deleting VM $vm =="
             "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || [[ "$vm" != "$NONE_VM" ]] || warn_public_ssh_cleanup
@@ -210,6 +216,51 @@ create_vm()
         --subnet-address-prefixes 10.0.2.0/24 \
         --output json \
         "$@"
+}
+
+create_network_vm()
+{
+    local name="$1"
+    shift
+    "$AZ" vm create \
+        --subscription-id "$SUBSCRIPTION_ID" \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$name" --location "$LOCATION" --size Standard_D2s_v3 \
+        --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
+        --admin-username Artemis --admin-password "$ADMIN_PASSWORD" \
+        --output json "$@"
+}
+
+check_vm_nics()
+{
+    local name="$1" expected="$2" actual
+    local url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$name?api-version=2025-11-01"
+    if ! actual=$("$AZ" rest --method GET --uri "$url" \
+        --query "json.properties.networkProfile.networkInterfaces[].join('|', [id, to_string(properties.primary), properties.deleteOption])" \
+        --output tsv)
+    then
+        fail "$name: could not read VM NIC references"
+    elif [[ "$(lowercase "$actual")" != "$(lowercase "$expected")" ]]
+    then
+        fail "$name: NIC references '$actual', expected '$expected'"
+    fi
+}
+
+check_no_network_side_effects()
+{
+    local name="$1" type names
+    for type in networkInterfaces networkSecurityGroups publicIPAddresses virtualNetworks
+    do
+        if ! names=$("$AZ" rest --method GET \
+            --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/$type?api-version=2025-05-01" \
+            --query 'json.value[].name' --output tsv)
+        then
+            fail "$name: could not list $type"
+        elif grep -Fxiq -e "$name-nic" -e "${name}NSG" -e "${name}PublicIP" -e "$name-vnet" <<< "$names"
+        then
+            fail "$name: unexpected generated resource in $type"
+        fi
+    done
 }
 
 # Linux vm create variant that exercises --ssh-key-values with a generated public key.
@@ -524,9 +575,9 @@ fi
 
 if [[ "$EXISTING_NIC_ENABLED" == "1" ]]
 then
-    echo "== 8. vm create --nics $EXISTING_NIC_NAME --nic-delete-option Detach =="
+    echo "== 8. subnet selection, preflight and existing-NIC networking =="
     existing_nic_vnet_url=$(network_url virtualNetworks "$EXISTING_NIC_VNET")
-    existing_nic_vnet_body=$(printf '{"location":"%s","properties":{"addressSpace":{"addressPrefixes":["10.50.0.0/16"]},"subnets":[{"name":"%s","properties":{"addressPrefix":"10.50.0.0/24"}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET")
+    existing_nic_vnet_body=$(printf '{"location":"%s","tags":{"azclips-smoke":"network-selection"},"properties":{"addressSpace":{"addressPrefixes":["10.50.0.0/16"]},"subnets":[{"name":"%s","properties":{"addressPrefix":"10.50.0.0/24"}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET")
     existing_nic_url=$(network_url networkInterfaces "$EXISTING_NIC_NAME")
     existing_nic_body=$(printf '{"location":"%s","properties":{"ipConfigurations":[{"name":"ipconfig1","properties":{"privateIPAllocationMethod":"Dynamic","subnet":{"id":"%s"}}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET_ID")
 
@@ -535,23 +586,63 @@ then
         && "$AZ" rest --method PUT --uri "$existing_nic_url" --body "$existing_nic_body" --output json >/dev/null \
         && wait_succeeded "existing nic" "NIC '$EXISTING_NIC_NAME'" "$existing_nic_url"
     then
-        if "$AZ" vm create \
-            --subscription-id "$SUBSCRIPTION_ID" \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$EXISTING_NIC_VM" \
-            --location "$LOCATION" \
-            --size Standard_D2s_v3 \
-            --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
-            --admin-username Artemis \
-            --admin-password "$ADMIN_PASSWORD" \
-            --nics "$EXISTING_NIC_NAME" \
-            --nic-delete-option Detach \
-            --output json >/dev/null
+        for vm in "$SUBNET_NAME_VM" "$SUBNET_ID_VM"
+        do
+            subnet_args=(--subnet "$EXISTING_NIC_SUBNET_ID")
+            if [[ "$vm" == "$SUBNET_NAME_VM" ]]
+            then
+                subnet_args=(--subnet "$EXISTING_NIC_SUBNET" --virtual-network-name "$EXISTING_NIC_VNET")
+            fi
+            if create_network_vm "$vm" --network-interface-name "$vm-nic" \
+                "${subnet_args[@]}" --public-ip-address "" --nic-delete-option Delete >/dev/null
+            then
+                actual_subnet=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "$vm-nic")" \
+                    --query 'json.properties.ipConfigurations[0].properties.subnet.id' --output tsv) \
+                    || fail "$vm: could not read created NIC"
+                [[ "$(lowercase "$actual_subnet")" == "$(lowercase "$EXISTING_NIC_SUBNET_ID")" ]] \
+                    || fail "$vm: incorrect subnet '$actual_subnet'"
+                # ARM can omit primary for a single NIC; check only ID and delete option.
+                vm_url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$vm?api-version=2025-11-01"
+                actual_reference=$("$AZ" rest --method GET --uri "$vm_url" \
+                    --query "join('|', [to_string(length(json.properties.networkProfile.networkInterfaces)), json.properties.networkProfile.networkInterfaces[0].id, json.properties.networkProfile.networkInterfaces[0].properties.deleteOption])" --output tsv) \
+                    || fail "$vm: could not read VM NIC reference"
+                expected_reference="1|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$vm-nic|Delete"
+                [[ "$(lowercase "$actual_reference")" == "$(lowercase "$expected_reference")" ]] \
+                    || fail "$vm: unexpected VM NIC reference '$actual_reference'"
+            else
+                fail "$vm: subnet selection failed"
+            fi
+        done
+        vnet_tag=$("$AZ" rest --method GET --uri "$existing_nic_vnet_url" \
+            --query 'json.tags."azclips-smoke"' --output tsv) || fail "subnet selection: could not read VNet tag"
+        [[ "$vnet_tag" == "network-selection" ]] || fail "subnet selection: existing VNet was overwritten"
+
+        missing_subnet_id="${EXISTING_NIC_SUBNET_ID}-missing"
+        if error=$(create_network_vm "$MISSING_SUBNET_VM" --network-interface-name "$MISSING_SUBNET_VM-nic" \
+            --subnet "$missing_subnet_id" 2>&1)
         then
-            vm_url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$EXISTING_NIC_VM?api-version=2025-11-01"
-            vm_json=$("$AZ" rest --method GET --uri "$vm_url" --output json)
-            grep -qi "$EXISTING_NIC_ID" <<< "$vm_json" || fail "existing nic: VM does not reference '$EXISTING_NIC_ID'"
-            grep -qi '"deleteOption".*"Detach"' <<< "$vm_json" || fail "existing nic: VM NIC delete option is not Detach"
+            fail "missing subnet: expected failure"
+        elif ! grep -Fq "Subnet '$missing_subnet_id' was not found." <<< "$error"
+        then
+            fail "missing subnet: unexpected error: $error"
+        fi
+        check_no_network_side_effects "$MISSING_SUBNET_VM"
+        vm_names=$("$AZ" rest --method GET \
+            --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01" \
+            --query 'json.value[].name' --output tsv) || fail "missing subnet: could not list VMs"
+        if grep -Fxiq "$MISSING_SUBNET_VM" <<< "$vm_names"
+        then
+            fail "missing subnet: VM was unexpectedly created"
+        fi
+
+        second_nic_url=$(network_url networkInterfaces "$SECOND_NIC_NAME")
+        if "$AZ" rest --method PUT --uri "$second_nic_url" --body "$existing_nic_body" --output json >/dev/null \
+            && wait_succeeded "existing nic" "NIC '$SECOND_NIC_NAME'" "$second_nic_url" \
+            && create_network_vm "$EXISTING_NIC_VM" --nics "$EXISTING_NIC_ID" "$SECOND_NIC_NAME" \
+                --nic-delete-option "$EXISTING_NIC_NAME=Detach" "$SECOND_NIC_NAME=Delete" >/dev/null
+        then
+            check_vm_nics "$EXISTING_NIC_VM" "$(printf '%s|true|Detach\n%s|false|Delete' "$EXISTING_NIC_ID" "$SECOND_NIC_ID")"
+            check_no_network_side_effects "$EXISTING_NIC_VM"
         else
             fail "existing nic: vm create failed"
         fi
