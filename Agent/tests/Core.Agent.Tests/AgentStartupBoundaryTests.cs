@@ -85,6 +85,35 @@ public class AgentStartupBoundaryTests
         Assert.ThrowsAny<OperationCanceledException>(() => startup.Failure!.Throw());
     }
 
+    [Fact]
+    public async Task CancellationSwallowedByTheLookup_IsStillSurfaced()
+    {
+        // Core's resolver catches every exception, so Ctrl+C during the ARM call returns null.
+        using var cts = new CancellationTokenSource();
+        DataBoundaryLookup swallowing = (_, _, _) =>
+        {
+            cts.Cancel();
+            return Task.FromResult<string?>(null);
+        };
+
+        var startup = await StartAsync(new CountingAuthService(), swallowing, ct: cts.Token);
+
+        Assert.Null(startup.DataBoundary);
+        Assert.NotNull(startup.Auth);
+        Assert.NotNull(startup.Failure);
+        Assert.ThrowsAny<OperationCanceledException>(() => startup.Failure!.Throw());
+    }
+
+    [Fact]
+    public async Task LookupTimeoutWithoutCallerCancellation_DoesNotFailStartup()
+    {
+        // The resolver's own timeout is not the user cancelling.
+        var startup = await StartAsync(new CountingAuthService(), new RecordingLookup(null).Invoke);
+
+        Assert.Null(startup.DataBoundary);
+        Assert.Null(startup.Failure);
+    }
+
     [Theory]
     [InlineData("github")]
     [InlineData("GitHub")]

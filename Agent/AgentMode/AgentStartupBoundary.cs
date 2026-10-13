@@ -83,6 +83,8 @@ internal static class AgentStartupBoundary
             }
 
             var boundary = await lookup(profile.TenantId, auth.AccessToken, ct).ConfigureAwait(false);
+            // Core's resolver returns null on any failure, including caller cancellation.
+            ct.ThrowIfCancellationRequested();
             return new StartupBoundary(Known(boundary), auth, null);
         }
         catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
