@@ -28,6 +28,13 @@ internal static class TableFormatter
         };
     }
 
+    /// <summary>
+    /// Formats explicit string rows and optional headers into an aligned table string
+    /// matching classic az table formatting.
+    /// </summary>
+    internal static string FormatRows(List<string[]> rows, string[]? headers = null, int? terminalWidth = null) =>
+        RenderColumns(rows, headers, terminalWidth);
+
     private static string FormatArray(JsonElement array, int? terminalWidth)
     {
         var items = array.EnumerateArray().ToList();
@@ -62,7 +69,7 @@ internal static class TableFormatter
 
     private static string RenderColumns(List<string[]> rows, string[]? headers, int? terminalWidth)
     {
-        var columnCount = headers?.Length ?? (rows.Count > 0 ? rows[0].Length : 0);
+        var columnCount = Math.Max(headers?.Length ?? 0, rows.Count > 0 ? rows.Max(r => r.Length) : 0);
         if (columnCount == 0)
         {
             return string.Empty;
@@ -71,10 +78,10 @@ internal static class TableFormatter
         var widths = new int[columnCount];
         for (var c = 0; c < columnCount; c++)
         {
-            widths[c] = headers is not null ? GetDisplayWidth(headers[c]) : 0;
+            widths[c] = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
             foreach (var row in rows)
             {
-                widths[c] = Math.Max(widths[c], GetDisplayWidth(row[c]));
+                widths[c] = Math.Max(widths[c], c < row.Length ? GetDisplayWidth(row[c]) : 0);
             }
         }
 
@@ -127,12 +134,22 @@ internal static class TableFormatter
     }
 
     // Pads every cell to its column's width except the last, which avoids trailing whitespace.
-    private static string RenderRow(string[] cells, int[] widths, int separatorWidth) =>
-        string.Join(new string(' ', separatorWidth), cells.Select((cell, i) =>
+    private static string RenderRow(string[] cells, int[] widths, int separatorWidth)
+    {
+        if (widths.Length == 0)
+            return string.Empty;
+
+        var renderedCells = new string[widths.Length];
+        for (var i = 0; i < widths.Length; i++)
         {
-            var rendered = Truncate(cell, widths[i]);
-            return i == cells.Length - 1 ? rendered : PadToDisplayWidth(rendered, widths[i]);
-        }));
+            var cell = i < cells.Length ? cells[i] : string.Empty;
+            var width = widths[i];
+            var rendered = Truncate(cell, width);
+            renderedCells[i] = i == widths.Length - 1 ? rendered : PadToDisplayWidth(rendered, width);
+        }
+
+        return string.Join(new string(' ', separatorWidth), renderedCells);
+    }
 
     private static string PadToDisplayWidth(string value, int width)
     {

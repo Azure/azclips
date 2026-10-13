@@ -218,6 +218,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                         continue;
                     }
 
+                    bool isCached = false;
                     Assembly assembly;
                     if (_options.BypassExtensionCache)
                     {
@@ -226,6 +227,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     }
                     else
                     {
+                        isCached = s_cache.ContainsKey(extensionPath);
                         var entry = s_cache.GetOrAdd(
                             extensionPath,
                             key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
@@ -240,8 +242,9 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     var loadedVersion = string.IsNullOrEmpty(version)
                         ? ResolvePackageVersion(packageDir, directoryName, _loggingService)
                         : version;
+                    var loaderName = isCached ? "Cached" : "Bundled";
                     _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
-                    ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
+                    ExtensionLoadTracker.Record(extensionName, loaderName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
                     return assembly;
                 }
             }
@@ -526,6 +529,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
 
         _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Probing '{extensionPath}'.");
 
+        bool isCached = false;
         Assembly assembly;
         if (_options.BypassExtensionCache)
         {
@@ -536,6 +540,7 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         }
         else
         {
+            isCached = s_cache.ContainsKey((extensionDir, extensionPath));
             var entry = s_cache.GetOrAdd(
                 (extensionDir, extensionPath),
                 key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
@@ -549,8 +554,9 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
 
         stopwatch.Stop();
         var resolvedVersion = version ?? Path.GetFileName(extensionDir);
+        var loaderName = isCached ? "Cached" : "Installed";
         _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Loaded '{extensionName}' v{resolvedVersion} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
-        ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, resolvedVersion, extensionPath);
+        ExtensionLoadTracker.Record(extensionName, loaderName, stopwatch.Elapsed.TotalMilliseconds, resolvedVersion, extensionPath);
         return assembly;
     }
 
