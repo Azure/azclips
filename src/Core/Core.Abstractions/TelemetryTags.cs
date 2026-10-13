@@ -49,7 +49,7 @@ public static class TelemetryTags
     public const string CommandTraceId = PropertyTagPrefix + "command.traceId";
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
-    public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
+    public const string AgentProvider = PropertyTagPrefix + "agent.provider";
     /// <summary>
     /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
     /// One acquisition serves both the model provider and the data boundary lookup. Absent for any
@@ -57,12 +57,11 @@ public static class TelemetryTags
     /// </summary>
     public const string AgentTokenElapsedMs = PropertyTagPrefix + "agent.tokenElapsedMs";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
-    public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
+    public const string AgentReprompts = PropertyTagPrefix + "agent.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
-    public const string ProcessName = PropertyTagPrefix + "process";
-    public const string ToolCommandName = PropertyTagPrefix + "tool.commandName";
-    public const string ToolCommandFound = PropertyTagPrefix + "tool.commandFound";
+    public const string AgentToolCommandName = PropertyTagPrefix + "agent.tool.commandName";
+    public const string AgentToolCommandFound = PropertyTagPrefix + "agent.tool.commandFound";
 
     /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
     public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";

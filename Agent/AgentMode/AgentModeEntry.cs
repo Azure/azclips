@@ -27,7 +27,7 @@ public static class AgentModeEntry
     private const int EscapeValveHardTurns = 20;
     private static readonly string[] SessionResultTags =
     [
-        TelemetryTags.ProcessName, TelemetryTags.RecoverySessionStyle, TelemetryTags.RecoveryProvider,
+        TelemetryTags.RecoverySessionStyle, TelemetryTags.AgentProvider,
         TelemetryTags.AgentModel, TelemetryTags.AgentModelSource, TelemetryTags.AgentTokenElapsedMs,
     ];
 
@@ -234,7 +234,6 @@ public static class AgentModeEntry
                     ? scope.Telemetry.StartActivityWithParent("Agent.Session", recoveryParent)
                     : scope.Telemetry.StartIndependentRootActivity("Agent.Session");
                 session = sessionScope?.Activity;
-                session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
 
                 await runAgent(session, lifetime);
                 outcome = RecoveryOutcome.Ok;
@@ -445,7 +444,7 @@ public static class AgentModeEntry
             if (agent.LastError is not null) break;
 
             using var reprompt = agent.Telemetry.StartActivity("Agent.Reprompt");
-            reprompt?.SetTag(TelemetryTags.RecoveryReprompts, attempt + 1);
+            reprompt?.SetTag(TelemetryTags.AgentReprompts, attempt + 1);
 
             WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");
             const string correction =

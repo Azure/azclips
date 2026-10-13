@@ -22,8 +22,8 @@ public sealed class HelpToolsTelemetryTests
 
         HelpTools.RecordLookup(activity, requested, VmCreate);
 
-        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.ToolCommandName));
-        Assert.Equal(true, activity.GetTagItem(TelemetryTags.ToolCommandFound));
+        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.AgentToolCommandName));
+        Assert.Equal(true, activity.GetTagItem(TelemetryTags.AgentToolCommandFound));
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public sealed class HelpToolsTelemetryTests
 
         HelpTools.RecordLookup(activity, "get-azthing", """{"cliName":"","psName":"Get-AzThing"}""");
 
-        Assert.Equal("Get-AzThing", activity.GetTagItem(TelemetryTags.ToolCommandName));
+        Assert.Equal("Get-AzThing", activity.GetTagItem(TelemetryTags.AgentToolCommandName));
     }
 
     [Theory]
@@ -47,8 +47,8 @@ public sealed class HelpToolsTelemetryTests
 
         HelpTools.RecordLookup(activity, "vm lst --password hunter2", helpJson);
 
-        Assert.Equal("(not found)", activity.GetTagItem(TelemetryTags.ToolCommandName));
-        Assert.Equal(false, activity.GetTagItem(TelemetryTags.ToolCommandFound));
+        Assert.Equal("(not found)", activity.GetTagItem(TelemetryTags.AgentToolCommandName));
+        Assert.Equal(false, activity.GetTagItem(TelemetryTags.AgentToolCommandFound));
         Assert.DoesNotContain(activity.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
     }
 
@@ -70,8 +70,8 @@ public sealed class HelpToolsTelemetryTests
             await tool.InvokeAsync(new Microsoft.Extensions.AI.AIFunctionArguments { ["name"] = "New-AzVM" });
 
             var span = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
-            Assert.Equal("New-AzVM", span.GetTagItem(TelemetryTags.ToolCommandName));
-            Assert.Equal(true, span.GetTagItem(TelemetryTags.ToolCommandFound));
+            Assert.Equal("New-AzVM", span.GetTagItem(TelemetryTags.AgentToolCommandName));
+            Assert.Equal(true, span.GetTagItem(TelemetryTags.AgentToolCommandFound));
         }
         finally
         {

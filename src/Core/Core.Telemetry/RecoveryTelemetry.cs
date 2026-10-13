@@ -40,7 +40,7 @@ public static partial class RecoveryTelemetry
     public static void RecordConfiguration(Activity? activity, AgentOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        activity?.SetTag(TelemetryTags.RecoveryProvider, options.Provider);
+        activity?.SetTag(TelemetryTags.AgentProvider, options.Provider);
         activity?.SetTag(TelemetryTags.RecoverySessionStyle, options.SessionStyle);
         RecordModel(activity, GetConfiguredModel(options), AgentModelSource.Configuration);
     }

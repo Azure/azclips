@@ -32,7 +32,7 @@ public class RecoveryTelemetryTests
 
         Assert.Equal(expectedModel, activity.GetTagItem(TelemetryTags.AgentModel));
         Assert.Equal(expectedSource, activity.GetTagItem(TelemetryTags.AgentModelSource));
-        Assert.Equal(provider, activity.GetTagItem(TelemetryTags.RecoveryProvider));
+        Assert.Equal(provider, activity.GetTagItem(TelemetryTags.AgentProvider));
         Assert.Equal("interactive", activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
     }
 

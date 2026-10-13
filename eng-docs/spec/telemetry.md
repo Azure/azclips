@@ -105,17 +105,16 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `service.name` | Agent layer | `Agent`; also persisted in the Resource used by the uploader |
 | `dataBoundary` | Agent layer | Captured route: EU, Global, Unknown, or an unrecognized value; only confirmed Global selects ROW |
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session` / `Agent.Create` | `oneshot` or `interactive`       |
-| `properties.recovery.provider`     | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
+| `properties.agent.provider`        | recovery / `Agent.Session` / `Agent.Create` | `builtin` or `github`            |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
 | `properties.recovery.outcome`      | `Agent.Session`             | `ok`, `cancelled`, `error`, or `unknown` — `error` covers a terminal SDK failure on the session's last turn, not only an unhandled exception |
 | `properties.recovery.failureReason` | `Agent.Session`             | Why it errored, from the closed list below. Classification only, never the message |
 | `properties.recovery.skipReason`   | `CLI.Activity.AiRecoverySkipped` | `disabled`                                 |
-| `properties.recovery.reprompts`   | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
+| `properties.agent.reprompts`      | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
 | `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
-| `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
-| `properties.tool.commandName`      | `tool.get_command`          | Catalog name of the looked-up command (`vm create` or `New-AzVM`, in the form requested), or `(not found)`. Never the raw tool input |
-| `properties.tool.commandFound`     | `tool.get_command`          | Whether the help catalog had the command        |
+| `properties.agent.tool.commandName` | `tool.get_command`          | Catalog name of the looked-up command (`vm create` or `New-AzVM`, in the form requested), or `(not found)`. Never the raw tool input |
+| `properties.agent.tool.commandFound` | `tool.get_command`          | Whether the help catalog had the command        |
 | `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
 Agent layer records carry the `dataBoundary` the CLI handed over at launch; it fixes the

@@ -102,8 +102,8 @@ public sealed class HelpTools
         if (activity is null)
             return;
         var (found, catalogName) = ReadCatalogName(requested, helpJson);
-        activity.SetTag(TelemetryTags.ToolCommandFound, found);
-        activity.SetTag(TelemetryTags.ToolCommandName, catalogName ?? "(not found)");
+        activity.SetTag(TelemetryTags.AgentToolCommandFound, found);
+        activity.SetTag(TelemetryTags.AgentToolCommandName, catalogName ?? "(not found)");
     }
 
     private static (bool Found, string? Name) ReadCatalogName(string requested, string helpJson)

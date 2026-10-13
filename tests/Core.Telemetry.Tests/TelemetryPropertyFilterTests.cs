@@ -37,11 +37,10 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.CommandTraceId,
         TelemetryTags.CommandSpanId,
         TelemetryTags.RecoverySessionStyle,
-        TelemetryTags.RecoveryProvider,
+        TelemetryTags.AgentProvider,
         TelemetryTags.RecoveryExitCode,
-        TelemetryTags.RecoveryReprompts,
+        TelemetryTags.AgentReprompts,
         TelemetryTags.AgentModel,
-        TelemetryTags.ProcessName,
         TelemetryTags.RecoveryOutcome,
         TelemetryTags.RecoverySkipReason,
     };
