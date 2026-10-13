@@ -510,10 +510,17 @@ public class Program
         return psi;
     }
 
+    private static Task<int?> TryAgentFallbackAsync(
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName) =>
+        TryAgentFallbackAsync(
+            () => AzclipsServiceProvider.GetRequiredService<IConfigurationService>().GetConfiguration<AgentOptions>(),
+            _telemetryService, args, errorText, commandTraceId, commandSpanId, commandName);
+
     /// <summary>
     /// Runs the agent. Returns null when the agent was not launched, so the caller can show the original error.
     /// </summary>
-    private static async Task<int?> TryAgentFallbackAsync(
+    internal static async Task<int?> TryAgentFallbackAsync(
+        Func<AgentOptions> getAgentOptions, ITelemetryService? telemetryService,
         string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
@@ -523,10 +530,19 @@ public class Program
         AgentOptions agentOptions;
         try
         {
-            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            agentOptions = config.GetConfiguration<AgentOptions>();
+            agentOptions = getAgentOptions();
             if (!agentOptions.Enabled)
             {
+                // A separate root preserves InstallationId without counting an execution.
+                using var skipped = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecoverySkipped");
+                skipped?.SetTag(TelemetryTags.RecoverySkipReason, "disabled");
+                skipped?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
+                skipped?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
+                var skippedCommandName = commandName ?? GetCommandGroupFromArgs(args);
+                if (!string.IsNullOrEmpty(skippedCommandName))
+                {
+                    skipped?.SetTag(TelemetryTags.Command, skippedCommandName);
+                }
                 return null;
             }
         }
@@ -565,7 +581,7 @@ public class Program
 
         // Opened only once a spawn is certain. The command root is already stopped, so
         // Activity.Current is null and this starts a second root with its own TraceId.
-        using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
+        using var recovery = telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
         var telemetryCommandName = commandName ?? GetCommandGroupFromArgs(args);
