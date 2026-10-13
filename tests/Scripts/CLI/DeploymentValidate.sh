@@ -124,6 +124,16 @@ STATE="$("$AZ" deployment group validate \
   --query properties.provisioningState -o tsv)"
 expect_succeeded "long-running validate" "$STATE"
 
+echo -e "\n=== [deployment group validate] nullable template parameter may be omitted ==="
+STATE="$("$AZ" deployment group validate \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name azclips-test-validate-nullable \
+  --template-file "$BICEP_DIR/nullable-parameter.json" \
+  --mode Incremental \
+  --query properties.provisioningState -o tsv)"
+expect_succeeded "nullable-parameter validate" "$STATE"
+
 # Negative cases run inside `if` so `set -e` doesn't abort on the expected failure.
 echo -e "\n=== [deployment group validate] malformed bicep must fail to compile ==="
 if OUTPUT="$("$AZ" deployment group validate \
@@ -193,5 +203,42 @@ if [[ "$OUTPUT" != *"Deployment validation failed"* ]]; then
   exit 1
 fi
 echo "Expected failure: Deployment validation failed"
+
+echo -e "\n=== [deployment group validate] nonexistent template file is rejected locally ==="
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-missing-file \
+      --template-file "$BICEP_DIR/does-not-exist.json" \
+      --mode Incremental 2>&1)"; then
+  echo "validate of a nonexistent template file succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *"File not found"* ]]; then
+  echo "nonexistent template file failed without 'File not found': $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: File not found"
+
+echo -e "\n=== [deployment group validate] malformed JSON template is rejected locally ==="
+BROKEN_TEMPLATE="$(mktemp --suffix=.json)"
+trap 'rm -f "$BROKEN_TEMPLATE"' EXIT
+echo '{ not json' > "$BROKEN_TEMPLATE"
+BROKEN_TEMPLATE_ARG="$BROKEN_TEMPLATE"
+command -v cygpath > /dev/null && BROKEN_TEMPLATE_ARG="$(cygpath -w "$BROKEN_TEMPLATE")"
+if OUTPUT="$("$AZ" deployment group validate \
+      --subscription-id "$SUBSCRIPTION_ID" \
+      --resource-group "$RESOURCE_GROUP" \
+      --name azclips-test-validate-malformed-json \
+      --template-file "$BROKEN_TEMPLATE_ARG" \
+      --mode Incremental 2>&1)"; then
+  echo "validate of a malformed JSON template succeeded" >&2
+  exit 1
+fi
+if [[ "$OUTPUT" != *"Failed to parse file"* ]]; then
+  echo "malformed JSON template failed without 'Failed to parse file': $OUTPUT" >&2
+  exit 1
+fi
+echo "Expected failure: Failed to parse file"
 
 echo -e "\nAll deployment validate smoke checks completed."

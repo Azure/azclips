@@ -462,7 +462,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             EnsureFileExists(path);
             string content = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<JsonElement>(content);
+            try
+            {
+                return JsonSerializer.Deserialize<JsonElement>(content);
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException($"Failed to parse file '{path}' as JSON: {ex.Message}", ex);
+            }
         }
 
         // ARM parameters files are wrapped as { "$schema": ..., "contentVersion": ..., "parameters": { ... } }.

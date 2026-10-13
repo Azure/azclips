@@ -90,6 +90,27 @@ if ! grep -qx "$DEPLOYMENT_NAME" <<< "$NAMES"; then
 fi
 echo "list returned $DEPLOYMENT_NAME"
 
+echo -e "\n=== [deployment group list] --filter provisioningState ==="
+NAMES="$("$AZ" deployment group list \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --filter "provisioningState eq 'Succeeded'" \
+  --query "[].name" -o tsv)"
+if ! grep -qx "$DEPLOYMENT_NAME" <<< "$NAMES"; then
+  echo "filtered list did not return $DEPLOYMENT_NAME" >&2
+  exit 1
+fi
+STATES="$("$AZ" deployment group list \
+  --subscription-id "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --filter "provisioningState eq 'Succeeded'" \
+  --query "[].properties.provisioningState" -o tsv | tr -d '\r' | sort -u)"
+if [[ "$STATES" != "Succeeded" ]]; then
+  echo "filtered list returned other states: $STATES" >&2
+  exit 1
+fi
+echo "filtered list returned $DEPLOYMENT_NAME and only Succeeded deployments"
+
 echo -e "\n=== [deployment group list] default subscription ==="
 NAMES="$("$AZ" deployment group list \
   --resource-group "$RESOURCE_GROUP" \

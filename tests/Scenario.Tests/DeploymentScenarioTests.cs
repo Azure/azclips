@@ -78,9 +78,12 @@ public sealed class DeploymentScenarioTests : IDisposable
         return http.Captured;
     }
 
-    private Run Create(params string[] parameterTokens) => new(
+    private Run Create(params string[] parameterTokens) => Create(rollbackOnError: true, parameterTokens);
+
+    private Run Create(bool rollbackOnError, params string[] parameterTokens) => new(
         ["deployment", "group", "create", "--resource-group", ResourceGroupName, "--name", "dep",
-         "--template-file", _templateFile, "--mode", "Complete", "--rollback-on-error",
+         "--template-file", _templateFile, "--mode", "Complete",
+         .. (rollbackOnError ? new[] { "--rollback-on-error" } : []),
          .. parameterTokens.SelectMany(t => new[] { "--parameter", t })],
         "New-AzResourceGroupDeployment",
         new()
@@ -89,9 +92,14 @@ public sealed class DeploymentScenarioTests : IDisposable
             ["Name"] = "dep",
             ["TemplateFile"] = _templateFile,
             ["Mode"] = "Complete",
-            ["RollbackOnError"] = true,
+            ["RollbackOnError"] = rollbackOnError,
             ["Parameter"] = parameterTokens,
         });
+
+    private static Run WithValidationLevel(Run run, string level) => new(
+        [.. run.Cli, "--validation-level", level],
+        run.Ps,
+        new(run.PsParameters) { ["ValidationLevel"] = level });
 
     private static readonly Run s_whatIf = new(
         ["deployment", "group", "what-if", "--resource-group", ResourceGroupName, "--name", "dep",
@@ -199,6 +207,31 @@ public sealed class DeploymentScenarioTests : IDisposable
 
         Assert.Contains("count", error.Message);
         Assert.Empty(http.Captured);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void Create_WithoutRollback_SendsNoOnErrorDeployment(ClientType surface)
+    {
+        var request = Execute(surface, Create(false, "p1=v1", "count=3"))[0];
+
+        Assert.Equal("PUT", request.Method);
+        Assert.False(Properties(request).TryGetProperty("onErrorDeployment", out var onError) && onError.ValueKind != JsonValueKind.Null);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "create")]
+    [InlineData(ClientType.PowerShell, "create")]
+    [InlineData(ClientType.CLI, "what-if")]
+    [InlineData(ClientType.PowerShell, "what-if")]
+    public void CreateAndWhatIf_PassValidationLevel(ClientType surface, string command)
+    {
+        var run = WithValidationLevel(command == "create" ? Create("p1=v1", "count=3") : s_whatIf, "Provider");
+
+        var request = Execute(surface, run)[0];
+
+        Assert.Equal("Provider", Properties(request).GetProperty("validationLevel").GetString());
     }
 
     [Fact]

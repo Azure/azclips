@@ -243,5 +243,39 @@ $message = Get-ErrorText {
 }
 Assert-Match 'TemplateUri' $message 'query string without template uri is rejected'
 
+Section 'Test-AzResourceGroupDeployment nullable template parameter may be omitted'
+$result = Test-AzResourceGroupDeployment `
+    -SubscriptionId $subscriptionId `
+    -ResourceGroupName $resourceGroup `
+    -Name azclips-test-validate-nullable `
+    -TemplateFile (Join-Path $bicepDir 'nullable-parameter.json') `
+    -Mode Incremental
+Assert-Validated $result 'nullable parameter omitted'
+
+Section 'Test-AzResourceGroupDeployment nonexistent -TemplateFile (rejected locally)'
+$message = Get-ErrorText {
+    Test-AzResourceGroupDeployment `
+        -SubscriptionId $subscriptionId `
+        -ResourceGroupName $resourceGroup `
+        -Name azclips-test-validate-missing-file `
+        -TemplateFile (Join-Path $bicepDir 'does-not-exist.json') `
+        -Mode Incremental
+}
+Assert-Match 'File not found' $message 'nonexistent template file is rejected'
+
+Section 'Test-AzResourceGroupDeployment malformed JSON -TemplateFile (rejected locally)'
+# Stable temp path, overwritten each run, so there is nothing to clean up.
+$brokenTemplate = Join-Path ([IO.Path]::GetTempPath()) 'azclips-validate-malformed.json'
+Set-Content -Path $brokenTemplate -Value '{ not json'
+$message = Get-ErrorText {
+    Test-AzResourceGroupDeployment `
+        -SubscriptionId $subscriptionId `
+        -ResourceGroupName $resourceGroup `
+        -Name azclips-test-validate-malformed-json `
+        -TemplateFile $brokenTemplate `
+        -Mode Incremental
+}
+Assert-Match 'Failed to parse file' $message 'malformed JSON template is rejected'
+
 Write-Host ''
 Write-Host 'All deployment validate smoke checks completed.' -ForegroundColor Green

@@ -82,6 +82,11 @@ $deployment = Get-AzResourceGroupDeployment `
 Assert-Equal $deploymentName $deployment.Name 'get: deployment name'
 Assert-Equal 'Succeeded' $deployment.Properties.ProvisioningState 'get: provisioningState'
 
+Section 'Get-AzResourceGroupDeployment -Id'
+$byId = Get-AzResourceGroupDeployment -Id $deployment.Id
+Assert-Equal $deploymentName $byId.Name 'get by id: deployment name'
+Assert-Equal $deployment.Id $byId.Id 'get by id: same resource id'
+
 Section 'Get-AzResourceGroupDeployment (list the resource group)'
 # The cmdlet enumerates output, so this is a flat array of DeploymentExtended, not an envelope.
 $deployments = @(Get-AzResourceGroupDeployment -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup)
