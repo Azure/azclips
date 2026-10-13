@@ -22,11 +22,12 @@ public class GetStorageAccountCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(ParameterSetName = AccountNameParameterSet, Mandatory = true)]
-    [Parameter(ParameterSetName = ResourceGroupParameterSet, Mandatory = false)]
+    [Parameter(ParameterSetName = AccountNameParameterSet, Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = ResourceGroupParameterSet, Mandatory = false, Position = 0, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(ParameterSetName = AccountNameParameterSet, Mandatory = true)]
+    [Parameter(ParameterSetName = AccountNameParameterSet, Mandatory = true, Position = 1, ValueFromPipelineByPropertyName = true)]
+    [Alias("StorageAccountName", "AccountName")]
     public string? Name { get; set; }
 
     [Parameter(ParameterSetName = AccountNameParameterSet, Mandatory = false)]

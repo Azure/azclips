@@ -38,7 +38,7 @@ try
     # location so every unspecified parameter keeps its service default.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsmin$(New-Suffix)" `
+        -Name "azclipsmin$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2
@@ -47,35 +47,35 @@ try
     # one out keeps the service default rather than sending false.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsopt$(New-Suffix)" `
+        -Name "azclipsopt$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
         -AccessTier Cool `
         -MinimumTlsVersion TLS1_2 `
-        -SupportsHttpsTrafficOnly $true `
+        -EnableHttpsTrafficOnly $true `
         -AllowBlobPublicAccess $false `
         -AllowSharedKeyAccess $true `
         -PublicNetworkAccess Enabled `
-        -Tags 'env=dev','owner=platform'
+        -Tag @{ env = 'dev'; owner = 'platform' }
 
     # Managed identity plus SAS and key policies. The response should include an identity
     # with a PrincipalId, and a SasPolicy whose ExpirationAction defaulted to Log.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsid$(New-Suffix)" `
+        -Name "azclipsid$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
         -IdentityType SystemAssigned `
         -SasExpirationPeriod 90.00:00:00 `
-        -KeyExpirationPeriodInDays 60
+        -KeyExpirationPeriodInDay 60
 
     # Network rules. Bypass is sent as a comma-separated string and each IP rule uses the
     # "value" wire name.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsnet$(New-Suffix)" `
+        -Name "azclipsnet$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
@@ -87,45 +87,45 @@ try
     # only be enabled at creation time.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsalw$(New-Suffix)" `
+        -Name "azclipsalw$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -EnableAlw $true `
-        -ImmutabilityPeriodSinceCreationInDays 30 `
+        -EnableAccountLevelImmutability `
+        -ImmutabilityPeriod 30 `
         -ImmutabilityPolicyState Unlocked `
         -AllowProtectedAppendWrites $true `
         -RoutingChoice MicrosoftRouting `
-        -PublishMicrosoftEndpoints $true
+        -PublishMicrosoftEndpoint $true
 
     # Hierarchical namespace with SFTP. SFTP requires a hierarchical namespace, so the two
     # are set together.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipshns$(New-Suffix)" `
+        -Name "azclipshns$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -IsHnsEnabled $true `
-        -IsSftpEnabled $true
+        -EnableHierarchicalNamespace $true `
+        -EnableSftp $true
 
     # Service-scoped encryption keys. Requesting a key type for table and queue replaces the
     # default blob services entry in the request.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsenc$(New-Suffix)" `
+        -Name "azclipsenc$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
         -EncryptionKeyTypeForTable Account `
         -EncryptionKeyTypeForQueue Account `
-        -RequireInfrastructureEncryption $true
+        -RequireInfrastructureEncryption
 
     # Azure Files share permission without an authentication enabler. The service requires
     # DirectoryServiceOptions, so the request carries it as None.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsfiles$(New-Suffix)" `
+        -Name "azclipsfiles$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
@@ -135,7 +135,7 @@ try
     # this in a region without them.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipszone$(New-Suffix)" `
+        -Name "azclipszone$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_GRS `
         -Kind StorageV2 `
@@ -146,7 +146,7 @@ try
     # the allowed SKU names and does NOT create an account.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_BOGUS `
         -Kind StorageV2
@@ -155,7 +155,7 @@ try
     # required by the service, so this is rejected locally.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
@@ -164,7 +164,7 @@ try
     # Negative case: a network rule without -DefaultAction, which the service requires.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
@@ -174,17 +174,17 @@ try
     # resource id without the virtual network it belongs to.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
         -DefaultAction Deny `
         -Subnet mysubnet
 
-    # Negative case: immutability policy parameters without -EnableAlw $true.
+    # Negative case: immutability policy parameters without -EnableAccountLevelImmutability.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
@@ -194,40 +194,41 @@ try
     # DirectoryServiceOptions value, so at most one may be true.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -EnableFilesAadds $true `
-        -EnableFilesAdds $true
+        -EnableAzureActiveDirectoryDomainServicesForFile $true `
+        -EnableActiveDirectoryDomainServicesForFile $true
 
-    # Negative case: -EnableFilesAdds without the full Active Directory property set.
+    # Negative case: -EnableActiveDirectoryDomainServicesForFile without the full Active Directory property set.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -EnableFilesAdds $true `
-        -DomainName contoso.com
+        -EnableActiveDirectoryDomainServicesForFile $true `
+        -ActiveDirectoryDomainName contoso.com
 
     # Negative case: a key vault URI without a key name. Both are required together.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -EncryptionKeyVault https://myvault.vault.azure.net/
+        -KeyVaultUri https://myvault.vault.azure.net/
 
-    # Negative case: a malformed tag that is not in KEY=VALUE form.
+    # Negative case: a tag name containing '='. The cmdlet rejects it before sending, since the
+    # name would otherwise be cut short at the '='.
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName "azclipsbad$(New-Suffix)" `
+        -Name "azclipsbad$(New-Suffix)" `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2 `
-        -Tags 'notavalidtag'
+        -Tag @{ 'a=b' = 'c' }
 
     # ── Get / Remove ──
     #
@@ -237,7 +238,7 @@ try
 
     New-AzStorageAccount `
         -ResourceGroupName $Rg `
-        -AccountName $CrudName `
+        -Name $CrudName `
         -Location $Loc `
         -SkuName Standard_LRS `
         -Kind StorageV2

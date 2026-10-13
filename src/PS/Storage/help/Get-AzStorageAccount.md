@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 09/08/2026
+ms.date: 10/13/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzStorageAccount
 ---
@@ -20,14 +20,14 @@ Get one or more Azure Storage accounts.
 ### ResourceGroup (Default)
 
 ```
-Get-AzStorageAccount [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Profile <string>]
+Get-AzStorageAccount [[-ResourceGroupName] <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### AccountName
 
 ```
-Get-AzStorageAccount -ResourceGroupName <string> -Name <string> [-IncludeGeoReplicationStats]
+Get-AzStorageAccount [-ResourceGroupName] <string> [-Name] <string> [-IncludeGeoReplicationStats]
  [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
@@ -96,13 +96,15 @@ The name of the storage account to get.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- StorageAccountName
+- AccountName
 ParameterSets:
 - Name: AccountName
-  Position: Named
+  Position: 1
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -141,16 +143,16 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: AccountName
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 - Name: ResourceGroup
-  Position: Named
+  Position: 0
   IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -193,6 +195,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### System.String
+
+You can pipe a resource group name and storage account name to this cmdlet by property name.
+
 ## OUTPUTS
 
 ### Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount
@@ -201,9 +207,7 @@ Gets Azure Storage accounts, either a single account by name or all accounts in 
 
 ## NOTES
 
-
-
 ## RELATED LINKS
 
-
+- [Online Version]()
 

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 09/08/2026
+ms.date: 10/13/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzStorageAccount
 ---
@@ -20,7 +20,7 @@ Remove an Azure Storage account.
 ### __AllParameterSets
 
 ```
-Remove-AzStorageAccount -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+Remove-AzStorageAccount [-ResourceGroupName] <string> [-Name] <string> [-SubscriptionId <string>]
  [-Force] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -98,13 +98,15 @@ The name of the storage account to remove.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- StorageAccountName
+- AccountName
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 1
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -143,10 +145,10 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -205,6 +207,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### System.String
+
+You can pipe a resource group name and storage account name to this cmdlet by property name.
+
 ## OUTPUTS
 
 ### System.Void
@@ -213,9 +219,7 @@ Removes an Azure Storage account and all of the data it contains.
 
 ## NOTES
 
-
-
 ## RELATED LINKS
 
-
+- [Online Version]()
 

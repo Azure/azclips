@@ -7,6 +7,68 @@
     {
       "request": {
         "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-test-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "66b54fef-5d77-466e-a3a8-4e5d7681fa92"
+          ],
+          "x-ms-correlation-request-id": [
+            "66b54fef-5d77-466e-a3a8-4e5d7681fa92"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261012T235230Z:66b54fef-5d77-466e-a3a8-4e5d7681fa92"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 5FF078557E0F4BDB948B50FB2BDB81BC Ref B: SYD281080709036 Ref C: 2026-10-12T23:52:24Z"
+          ],
+          "Date": [
+            "Mon, 12 Oct 2026 23:52:29 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
         "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg/providers/Microsoft.Storage/storageAccounts/azclipsscenariotest?api-version=2026-04-01",
         "headers": {
           "Content-Type": [
@@ -25,13 +87,13 @@
             "no-cache"
           ],
           "Location": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/c50e0533-8e7e-4872-b958-092a76a2c1aa?monitor=true\u0026api-version=2026-04-01\u0026t=639233160416607446\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/8c0a5e1f-9e46-448d-a3b3-db701d98da17?monitor=true\u0026api-version=2026-04-01\u0026t=639274459542948027\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "Retry-After": [
             "17"
           ],
           "x-ms-request-id": [
-            "c50e0533-8e7e-4872-b958-092a76a2c1aa"
+            "8c0a5e1f-9e46-448d-a3b3-db701d98da17"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -43,10 +105,10 @@
             "2999"
           ],
           "x-ms-correlation-request-id": [
-            "2e5c902b-0d9e-401c-839d-7967c317b57f"
+            "a9cdac9c-6f1c-44a1-ba31-fac63f1ba773"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260826T044041Z:2e5c902b-0d9e-401c-839d-7967c317b57f"
+            "WESTUS2:20261012T235234Z:a9cdac9c-6f1c-44a1-ba31-fac63f1ba773"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -55,10 +117,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: A14EE0DE71BC47468D2D557C9606C002 Ref B: MEL01EDGE1016 Ref C: 2026-08-26T04:40:35Z"
+            "Ref A: D8A87813C33A4DCB8123B0573EC51CB9 Ref B: SYD281080709036 Ref C: 2026-10-12T23:52:30Z"
           ],
           "Date": [
-            "Wed, 26 Aug 2026 04:40:40 GMT"
+            "Mon, 12 Oct 2026 23:52:33 GMT"
           ]
         },
         "contentHeaders": {
@@ -75,7 +137,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/c50e0533-8e7e-4872-b958-092a76a2c1aa?monitor=true\u0026api-version=2026-04-01\u0026t=639233160416607446\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/8c0a5e1f-9e46-448d-a3b3-db701d98da17?monitor=true\u0026api-version=2026-04-01\u0026t=639274459542948027\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -88,7 +150,7 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "4c57f8e4-097a-4add-b6b0-62d378b86fd6"
+            "f606fb5c-4099-4bdd-b6ab-0cf62212124f"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -100,10 +162,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "3099f8ff-63eb-439f-a725-4d2825a22d27"
+            "f1290316-15ae-4dfe-afb2-7fb3bc910c8a"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260826T044058Z:3099f8ff-63eb-439f-a725-4d2825a22d27"
+            "AUSTRALIAEAST:20261012T235252Z:f1290316-15ae-4dfe-afb2-7fb3bc910c8a"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -112,10 +174,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C973232E2C804086AD8036047C61054F Ref B: MEL01EDGE1016 Ref C: 2026-08-26T04:40:57Z"
+            "Ref A: 77343F506144482EB727EE433321EB11 Ref B: SYD281080709036 Ref C: 2026-10-12T23:52:51Z"
           ],
           "Date": [
-            "Wed, 26 Aug 2026 04:40:57 GMT"
+            "Mon, 12 Oct 2026 23:52:51 GMT"
           ]
         },
         "contentHeaders": {
@@ -126,13 +188,13 @@
             "-1"
           ]
         },
-        "body": "{\u0022sku\u0022:{\u0022name\u0022:\u0022Standard_LRS\u0022,\u0022tier\u0022:\u0022Standard\u0022},\u0022kind\u0022:\u0022StorageV2\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg/providers/Microsoft.Storage/storageAccounts/azclipsscenariotest\u0022,\u0022name\u0022:\u0022azclipsscenariotest\u0022,\u0022type\u0022:\u0022Microsoft.Storage/storageAccounts\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022properties\u0022:{\u0022allowCrossTenantDelegationSas\u0022:false,\u0022keyCreationTime\u0022:{\u0022key1\u0022:\u00222026-08-26T04:40:38.6463609Z\u0022,\u0022key2\u0022:\u00222026-08-26T04:40:38.6463609Z\u0022},\u0022allowCrossTenantReplication\u0022:false,\u0022privateEndpointConnections\u0022:[],\u0022minimumTlsVersion\u0022:\u0022TLS1_2\u0022,\u0022allowBlobPublicAccess\u0022:false,\u0022networkAcls\u0022:{\u0022ipv6Rules\u0022:[],\u0022bypass\u0022:\u0022AzureServices\u0022,\u0022virtualNetworkRules\u0022:[],\u0022ipRules\u0022:[],\u0022defaultAction\u0022:\u0022Allow\u0022},\u0022supportsHttpsTrafficOnly\u0022:true,\u0022encryption\u0022:{\u0022services\u0022:{\u0022file\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-08-26T04:40:38.6620230Z\u0022},\u0022blob\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-08-26T04:40:38.6620230Z\u0022}},\u0022keySource\u0022:\u0022Microsoft.Storage\u0022},\u0022accessTier\u0022:\u0022Cool\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022creationTime\u0022:\u00222026-08-26T04:40:38.2883958Z\u0022,\u0022primaryEndpoints\u0022:{\u0022dfs\u0022:\u0022https://azclipsscenariotest.dfs.core.windows.net/\u0022,\u0022web\u0022:\u0022https://azclipsscenariotest.z5.web.core.windows.net/\u0022,\u0022blob\u0022:\u0022https://azclipsscenariotest.blob.core.windows.net/\u0022,\u0022queue\u0022:\u0022https://azclipsscenariotest.queue.core.windows.net/\u0022,\u0022table\u0022:\u0022https://azclipsscenariotest.table.core.windows.net/\u0022,\u0022file\u0022:\u0022https://azclipsscenariotest.file.core.windows.net/\u0022},\u0022primaryLocation\u0022:\u0022westus2\u0022,\u0022statusOfPrimary\u0022:\u0022available\u0022}}"
+        "body": "{\u0022sku\u0022:{\u0022name\u0022:\u0022Standard_LRS\u0022,\u0022tier\u0022:\u0022Standard\u0022},\u0022kind\u0022:\u0022StorageV2\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg/providers/Microsoft.Storage/storageAccounts/azclipsscenariotest\u0022,\u0022name\u0022:\u0022azclipsscenariotest\u0022,\u0022type\u0022:\u0022Microsoft.Storage/storageAccounts\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022properties\u0022:{\u0022allowCrossTenantDelegationSas\u0022:false,\u0022keyCreationTime\u0022:{\u0022key1\u0022:\u00222026-10-12T23:52:31.8579743Z\u0022,\u0022key2\u0022:\u00222026-10-12T23:52:31.8579743Z\u0022},\u0022allowCrossTenantReplication\u0022:false,\u0022privateEndpointConnections\u0022:[],\u0022minimumTlsVersion\u0022:\u0022TLS1_2\u0022,\u0022allowBlobPublicAccess\u0022:false,\u0022networkAcls\u0022:{\u0022ipv6Rules\u0022:[],\u0022bypass\u0022:\u0022AzureServices\u0022,\u0022virtualNetworkRules\u0022:[],\u0022ipRules\u0022:[],\u0022defaultAction\u0022:\u0022Allow\u0022},\u0022supportsHttpsTrafficOnly\u0022:true,\u0022encryption\u0022:{\u0022services\u0022:{\u0022file\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-10-12T23:52:31.8681970Z\u0022},\u0022blob\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-10-12T23:52:31.8681970Z\u0022}},\u0022keySource\u0022:\u0022Microsoft.Storage\u0022},\u0022accessTier\u0022:\u0022Cool\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022creationTime\u0022:\u00222026-10-12T23:52:31.4895475Z\u0022,\u0022primaryEndpoints\u0022:{\u0022dfs\u0022:\u0022https://azclipsscenariotest.dfs.core.windows.net/\u0022,\u0022web\u0022:\u0022https://azclipsscenariotest.z5.web.core.windows.net/\u0022,\u0022blob\u0022:\u0022https://azclipsscenariotest.blob.core.windows.net/\u0022,\u0022queue\u0022:\u0022https://azclipsscenariotest.queue.core.windows.net/\u0022,\u0022table\u0022:\u0022https://azclipsscenariotest.table.core.windows.net/\u0022,\u0022file\u0022:\u0022https://azclipsscenariotest.file.core.windows.net/\u0022},\u0022primaryLocation\u0022:\u0022westus2\u0022,\u0022statusOfPrimary\u0022:\u0022available\u0022}}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/c50e0533-8e7e-4872-b958-092a76a2c1aa?monitor=true\u0026api-version=2026-04-01\u0026t=639233160416607446\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/locations/westus2/asyncoperations/8c0a5e1f-9e46-448d-a3b3-db701d98da17?monitor=true\u0026api-version=2026-04-01\u0026t=639274459542948027\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {}
       },
       "response": {
@@ -145,7 +207,7 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "574398db-d25e-472d-b617-8a0fd355065c"
+            "416240f9-8721-4f8b-866a-d3affe351da8"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -157,10 +219,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "7805ae3c-cae3-49dc-bec1-796713fb903a"
+            "2e8a1bd4-6a4d-4816-b9c8-ffd76716deb6"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20260826T044059Z:7805ae3c-cae3-49dc-bec1-796713fb903a"
+            "AUSTRALIASOUTHEAST:20261012T235252Z:2e8a1bd4-6a4d-4816-b9c8-ffd76716deb6"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -169,10 +231,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: F435777E54344CE6831E7C46BBB294C7 Ref B: MEL01EDGE1016 Ref C: 2026-08-26T04:40:58Z"
+            "Ref A: 630947757FAA4EB7837584B5014C875E Ref B: SYD281080709036 Ref C: 2026-10-12T23:52:52Z"
           ],
           "Date": [
-            "Wed, 26 Aug 2026 04:40:58 GMT"
+            "Mon, 12 Oct 2026 23:52:52 GMT"
           ]
         },
         "contentHeaders": {
@@ -183,7 +245,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022sku\u0022:{\u0022name\u0022:\u0022Standard_LRS\u0022,\u0022tier\u0022:\u0022Standard\u0022},\u0022kind\u0022:\u0022StorageV2\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg/providers/Microsoft.Storage/storageAccounts/azclipsscenariotest\u0022,\u0022name\u0022:\u0022azclipsscenariotest\u0022,\u0022type\u0022:\u0022Microsoft.Storage/storageAccounts\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022properties\u0022:{\u0022allowCrossTenantDelegationSas\u0022:false,\u0022keyCreationTime\u0022:{\u0022key1\u0022:\u00222026-08-26T04:40:38.6463609Z\u0022,\u0022key2\u0022:\u00222026-08-26T04:40:38.6463609Z\u0022},\u0022allowCrossTenantReplication\u0022:false,\u0022privateEndpointConnections\u0022:[],\u0022minimumTlsVersion\u0022:\u0022TLS1_2\u0022,\u0022allowBlobPublicAccess\u0022:false,\u0022networkAcls\u0022:{\u0022ipv6Rules\u0022:[],\u0022bypass\u0022:\u0022AzureServices\u0022,\u0022virtualNetworkRules\u0022:[],\u0022ipRules\u0022:[],\u0022defaultAction\u0022:\u0022Allow\u0022},\u0022supportsHttpsTrafficOnly\u0022:true,\u0022encryption\u0022:{\u0022services\u0022:{\u0022file\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-08-26T04:40:38.6620230Z\u0022},\u0022blob\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-08-26T04:40:38.6620230Z\u0022}},\u0022keySource\u0022:\u0022Microsoft.Storage\u0022},\u0022accessTier\u0022:\u0022Cool\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022creationTime\u0022:\u00222026-08-26T04:40:38.2883958Z\u0022,\u0022primaryEndpoints\u0022:{\u0022dfs\u0022:\u0022https://azclipsscenariotest.dfs.core.windows.net/\u0022,\u0022web\u0022:\u0022https://azclipsscenariotest.z5.web.core.windows.net/\u0022,\u0022blob\u0022:\u0022https://azclipsscenariotest.blob.core.windows.net/\u0022,\u0022queue\u0022:\u0022https://azclipsscenariotest.queue.core.windows.net/\u0022,\u0022table\u0022:\u0022https://azclipsscenariotest.table.core.windows.net/\u0022,\u0022file\u0022:\u0022https://azclipsscenariotest.file.core.windows.net/\u0022},\u0022primaryLocation\u0022:\u0022westus2\u0022,\u0022statusOfPrimary\u0022:\u0022available\u0022}}"
+        "body": "{\u0022sku\u0022:{\u0022name\u0022:\u0022Standard_LRS\u0022,\u0022tier\u0022:\u0022Standard\u0022},\u0022kind\u0022:\u0022StorageV2\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg/providers/Microsoft.Storage/storageAccounts/azclipsscenariotest\u0022,\u0022name\u0022:\u0022azclipsscenariotest\u0022,\u0022type\u0022:\u0022Microsoft.Storage/storageAccounts\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022tags\u0022:{\u0022env\u0022:\u0022scenario\u0022},\u0022properties\u0022:{\u0022allowCrossTenantDelegationSas\u0022:false,\u0022keyCreationTime\u0022:{\u0022key1\u0022:\u00222026-10-12T23:52:31.8579743Z\u0022,\u0022key2\u0022:\u00222026-10-12T23:52:31.8579743Z\u0022},\u0022allowCrossTenantReplication\u0022:false,\u0022privateEndpointConnections\u0022:[],\u0022minimumTlsVersion\u0022:\u0022TLS1_2\u0022,\u0022allowBlobPublicAccess\u0022:false,\u0022networkAcls\u0022:{\u0022ipv6Rules\u0022:[],\u0022bypass\u0022:\u0022AzureServices\u0022,\u0022virtualNetworkRules\u0022:[],\u0022ipRules\u0022:[],\u0022defaultAction\u0022:\u0022Allow\u0022},\u0022supportsHttpsTrafficOnly\u0022:true,\u0022encryption\u0022:{\u0022services\u0022:{\u0022file\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-10-12T23:52:31.8681970Z\u0022},\u0022blob\u0022:{\u0022keyType\u0022:\u0022Account\u0022,\u0022enabled\u0022:true,\u0022lastEnabledTime\u0022:\u00222026-10-12T23:52:31.8681970Z\u0022}},\u0022keySource\u0022:\u0022Microsoft.Storage\u0022},\u0022accessTier\u0022:\u0022Cool\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022creationTime\u0022:\u00222026-10-12T23:52:31.4895475Z\u0022,\u0022primaryEndpoints\u0022:{\u0022dfs\u0022:\u0022https://azclipsscenariotest.dfs.core.windows.net/\u0022,\u0022web\u0022:\u0022https://azclipsscenariotest.z5.web.core.windows.net/\u0022,\u0022blob\u0022:\u0022https://azclipsscenariotest.blob.core.windows.net/\u0022,\u0022queue\u0022:\u0022https://azclipsscenariotest.queue.core.windows.net/\u0022,\u0022table\u0022:\u0022https://azclipsscenariotest.table.core.windows.net/\u0022,\u0022file\u0022:\u0022https://azclipsscenariotest.file.core.windows.net/\u0022},\u0022primaryLocation\u0022:\u0022westus2\u0022,\u0022statusOfPrimary\u0022:\u0022available\u0022}}"
       }
     }
   ]

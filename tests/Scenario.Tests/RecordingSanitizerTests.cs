@@ -281,4 +281,34 @@ public class RecordingSanitizerTests
     {
         Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
     }
+
+    [Fact]
+    public void ResourceGroupListSanitizer_KeepsOnlyTheScenarioGroup()
+    {
+        // A subscription-wide list carries everyone's resources; only the scenario's own may stay.
+        const string list = """
+            {"value":[
+              {"id":"/subscriptions/s/resourceGroups/other-rg/providers/Microsoft.Storage/storageAccounts/someoneelse","name":"someoneelse"},
+              {"id":"/subscriptions/s/resourcegroups/SCENARIO-RG/providers/Microsoft.Storage/storageAccounts/mine","name":"mine"}
+            ]}
+            """;
+        var sanitizer = new ResourceGroupListSanitizer("scenario-rg");
+
+        var trimmed = sanitizer.Sanitize(list);
+
+        Assert.DoesNotContain("someoneelse", trimmed);
+        Assert.Contains("\"name\":\"mine\"", trimmed);
+        Assert.Equal(trimmed, sanitizer.Sanitize(trimmed));
+    }
+
+    [Theory]
+    [InlineData("https://management.azure.com/subscriptions/s/providers/Microsoft.Storage/storageAccounts?api-version=2026-04-01")]
+    [InlineData("""{"id":"/subscriptions/s/resourceGroups/other-rg/providers/Microsoft.Storage/storageAccounts/a","name":"a"}""")]
+    [InlineData("""{"value":[{"id":"/subscriptions/s/resourceGroups/scenario-rg/providers/Microsoft.Storage/storageAccounts/a"}]}""")]
+    [InlineData("""{"value": "not a list"}""")]
+    [InlineData("not json \"value\"")]
+    public void ResourceGroupListSanitizer_LeavesEverythingElseUntouched(string value)
+    {
+        Assert.Equal(value, new ResourceGroupListSanitizer("scenario-rg").Sanitize(value));
+    }
 }

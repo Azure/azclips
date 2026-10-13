@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 09/08/2026
+ms.date: 10/13/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzStorageAccount
 ---
@@ -20,28 +20,31 @@ Create an Azure Storage account.
 ### __AllParameterSets
 
 ```
-New-AzStorageAccount -ResourceGroupName <string> -AccountName <string> -Location <string>
- -SkuName <string> -Kind <string> [-Profile <string>] [-SubscriptionId <string>] [-Tags <string[]>]
- [-AccessTier <string>] [-MinimumTlsVersion <string>] [-PublicNetworkAccess <string>]
- [-AllowedCopyScope <string>] [-LargeFileSharesState <string>] [-DnsEndpointType <string>]
- [-SupportsHttpsTrafficOnly <bool>] [-AllowBlobPublicAccess <bool>] [-AllowSharedKeyAccess <bool>]
- [-IsHnsEnabled <bool>] [-IsSftpEnabled <bool>] [-IsLocalUserEnabled <bool>]
- [-EnableExtendedGroups <bool>] [-IsNfsV3Enabled <bool>] [-AllowCrossTenantReplication <bool>]
- [-DefaultToOAuthAuthentication <bool>] [-EdgeZone <string>] [-IdentityType <string>]
- [-UserIdentityId <string>] [-Zones <string[]>] [-ZonePlacementPolicy <string>]
- [-RoutingChoice <string>] [-PublishMicrosoftEndpoints <bool>] [-PublishInternetEndpoints <bool>]
- [-PublishIpv6Endpoint <bool>] [-EnableBlobGeoPriorityReplication <bool>]
- [-KeyExpirationPeriodInDays <int>] [-SasExpirationPeriod <string>] [-SasExpirationAction <string>]
- [-EnableAlw <bool>] [-ImmutabilityPeriodSinceCreationInDays <int>]
- [-ImmutabilityPolicyState <string>] [-AllowProtectedAppendWrites <bool>] [-Bypass <string[]>]
- [-DefaultAction <string>] [-Subnet <string>] [-VnetName <string>] [-Action <string>]
- [-IpAddress <string[]>] [-Ipv6Address <string[]>] [-EnableFilesAadds <bool>]
- [-EnableFilesAadkerb <bool>] [-EnableFilesAdds <bool>] [-DomainName <string>]
- [-NetBiosDomainName <string>] [-ForestName <string>] [-DomainGuid <string>] [-DomainSid <string>]
- [-AzureStorageSid <string>] [-SamAccountName <string>] [-AccountType <string>]
- [-DefaultSharePermission <string>] [-EnableSmbOauth <bool>] [-EncryptionKeySource <string>]
- [-EncryptionKeyVault <string>] [-EncryptionKeyName <string>] [-EncryptionKeyVersion <string>]
- [-RequireInfrastructureEncryption <bool>] [-KeyVaultUserIdentityId <string>]
+New-AzStorageAccount [-ResourceGroupName] <string> [-Name] <string> [-SkuName] <string>
+ [-Location] <string> [-Kind <string>] [-Profile <string>] [-SubscriptionId <string>]
+ [-Tag <hashtable>] [-AccessTier <string>] [-MinimumTlsVersion <string>]
+ [-PublicNetworkAccess <string>] [-AllowedCopyScope <string>] [-EnableLargeFileShare]
+ [-DnsEndpointType <string>] [-EnableHttpsTrafficOnly <bool>] [-AllowBlobPublicAccess <bool>]
+ [-AllowSharedKeyAccess <bool>] [-EnableHierarchicalNamespace <bool>] [-EnableSftp <bool>]
+ [-EnableLocalUser <bool>] [-EnableExtendedGroups <bool>] [-EnableNfsV3 <bool>]
+ [-AllowCrossTenantReplication <bool>] [-DefaultToOAuthAuthentication <bool>] [-EdgeZone <string>]
+ [-IdentityType <string>] [-AssignIdentity] [-UserAssignedIdentityId <string>] [-Zone <string[]>]
+ [-ZonePlacementPolicy <string>] [-RoutingChoice <string>] [-PublishMicrosoftEndpoint <bool>]
+ [-PublishInternetEndpoint <bool>] [-PublishIpv6Endpoint <bool>]
+ [-EnableBlobGeoPriorityReplication <bool>] [-KeyExpirationPeriodInDay <int>]
+ [-SasExpirationPeriod <timespan>] [-SasExpirationAction <string>] [-EnableAccountLevelImmutability]
+ [-ImmutabilityPeriod <int>] [-ImmutabilityPolicyState <string>]
+ [-AllowProtectedAppendWrites <bool>] [-Bypass <string[]>] [-DefaultAction <string>]
+ [-Subnet <string>] [-VnetName <string>] [-Action <string>] [-IpAddress <string[]>]
+ [-Ipv6Address <string[]>] [-EnableAzureActiveDirectoryDomainServicesForFile <bool>]
+ [-EnableAzureActiveDirectoryKerberosForFile <bool>]
+ [-EnableActiveDirectoryDomainServicesForFile <bool>] [-ActiveDirectoryDomainName <string>]
+ [-ActiveDirectoryNetBiosDomainName <string>] [-ActiveDirectoryForestName <string>]
+ [-ActiveDirectoryDomainGuid <string>] [-ActiveDirectoryDomainSid <string>]
+ [-ActiveDirectoryAzureStorageSid <string>] [-ActiveDirectorySamAccountName <string>]
+ [-ActiveDirectoryAccountType <string>] [-DefaultSharePermission <string>] [-EnableSmbOAuth <bool>]
+ [-EncryptionKeySource <string>] [-KeyVaultUri <string>] [-KeyName <string>] [-KeyVersion <string>]
+ [-RequireInfrastructureEncryption] [-KeyVaultUserAssignedIdentityId <string>]
  [-KeyVaultFederatedClientId <string>] [-EncryptionKeyTypeForTable <string>]
  [-EncryptionKeyTypeForQueue <string>] [-CustomDomainName <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -52,7 +55,7 @@ New-AzStorageAccount -ResourceGroupName <string> -AccountName <string> -Location
 ## DESCRIPTION
 
 Creates an Azure Storage account in the specified resource group.
-The account name, location, SKU, and kind are required; the account name must be 3-24 characters using lower-case letters and numbers only, and must be globally unique.
+The account name, location, and SKU are required, and the kind defaults to StorageV2; the account name must be 3-24 characters using lower-case letters and numbers only, and must be globally unique.
 Optional parameters cover access tiers, TLS and public access, hierarchical namespace, SFTP and NFS, network rules, customer-managed encryption keys, managed identities, Azure Files identity-based authentication, SAS and key policies, and account-level immutability.
 Parameters that are not supplied are omitted from the request so the service default applies.
 The cmdlet waits for the long-running create operation to finish and returns the created account.
@@ -62,7 +65,7 @@ The cmdlet waits for the long-running create operation to finish and returns the
 ### Create a general-purpose v2 account
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2
 ```
 
 ### Create a hardened account
@@ -70,31 +73,31 @@ New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageac
 Requires TLS 1.2, and disables anonymous blob access and shared key authorization.
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -MinimumTlsVersion TLS1_2 -AllowBlobPublicAccess $false -AllowSharedKeyAccess $false -SupportsHttpsTrafficOnly $true
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -MinimumTlsVersion TLS1_2 -AllowBlobPublicAccess $false -AllowSharedKeyAccess $false -EnableHttpsTrafficOnly $true
 ```
 
 ### Create an account restricted to specific networks
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -DefaultAction Deny -Bypass AzureServices -IpAddress 13.64.0.0/16
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -DefaultAction Deny -Bypass AzureServices -IpAddress 13.64.0.0/16
 ```
 
 ### Create a Data Lake Storage Gen2 account with SFTP
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -IsHnsEnabled $true -IsSftpEnabled $true
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -EnableHierarchicalNamespace $true -EnableSftp $true
 ```
 
 ### Create an account with a customer-managed key
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -IdentityType SystemAssigned -EncryptionKeyVault https://myvault.vault.azure.net/ -EncryptionKeyName mykey
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -IdentityType SystemAssigned -KeyVaultUri https://myvault.vault.azure.net/ -KeyName mykey
 ```
 
 ### Create an account with tags
 
 ```powershell
-New-AzStorageAccount -ResourceGroupName myResourceGroup -AccountName mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -Tags env=dev,owner=platform
+New-AzStorageAccount -ResourceGroupName myResourceGroup -Name mystorageaccount -Location eastus -SkuName Standard_LRS -Kind StorageV2 -Tag @{ env = "dev"; owner = "platform" }
 ```
 
 ## PARAMETERS
@@ -125,9 +128,9 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -AccountName
+### -Action
 
-The name of the storage account. Must be between 3 and 24 characters in length and use numbers and lower-case letters only.
+The action applied to the subnet and IP rules. Defaults to Allow.
 
 ```yaml
 Type: System.String
@@ -137,16 +140,17 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Allow
 HelpMessage: ''
 ```
 
-### -AccountType
+### -ActiveDirectoryAccountType
 
 The Active Directory account type for Azure Storage.
 
@@ -169,9 +173,9 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -Action
+### -ActiveDirectoryAzureStorageSid
 
-The action applied to the subnet and IP rules. Defaults to Allow.
+The security identifier (SID) for Azure Storage.
 
 ```yaml
 Type: System.String
@@ -186,8 +190,133 @@ ParameterSets:
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues:
-- Allow
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectoryDomainGuid
+
+The domain GUID.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectoryDomainName
+
+The primary domain the AD DNS server is authoritative for.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectoryDomainSid
+
+The security identifier (SID) of the AD domain.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectoryForestName
+
+The Active Directory forest to get.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectoryNetBiosDomainName
+
+The NetBIOS domain name.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ActiveDirectorySamAccountName
+
+The Active Directory SAMAccountName for Azure Storage.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
 HelpMessage: ''
 ```
 
@@ -259,7 +388,7 @@ HelpMessage: ''
 
 ### -AllowProtectedAppendWrites
 
-Allow new blocks to be written to an append blob while maintaining immutability protection. Requires -EnableAlw true.
+Allow new blocks to be written to an append blob while maintaining immutability protection. Requires -EnableAccountLevelImmutability.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
@@ -299,12 +428,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -AzureStorageSid
+### -AssignIdentity
 
-The security identifier (SID) for Azure Storage.
+Assigns a system-assigned managed identity to the account. -IdentityType takes precedence when both are given.
 
 ```yaml
-Type: System.String
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -476,69 +605,6 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -DomainGuid
-
-The domain GUID.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -DomainName
-
-The primary domain the AD DNS server is authoritative for.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -DomainSid
-
-The security identifier (SID) of the AD domain.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -EdgeZone
 
 The name of the edge zone to create the account in.
@@ -560,9 +626,72 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -EnableAlw
+### -EnableAccountLevelImmutability
 
 Enable account-level immutability. Can only be set at creation time.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableActiveDirectoryDomainServicesForFile
+
+Enable Active Directory Domain Services authentication for Azure Files. Requires all Active Directory properties.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableAzureActiveDirectoryDomainServicesForFile
+
+Enable Microsoft Entra Domain Services authentication for Azure Files.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableAzureActiveDirectoryKerberosForFile
+
+Enable Microsoft Entra Kerberos authentication for Azure Files.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
@@ -623,30 +752,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -EnableFilesAadds
+### -EnableHierarchicalNamespace
 
-Enable Microsoft Entra Domain Services authentication for Azure Files.
-
-```yaml
-Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -EnableFilesAadkerb
-
-Enable Microsoft Entra Kerberos authentication for Azure Files.
+Enable a hierarchical namespace (Azure Data Lake Storage Gen2).
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
@@ -665,9 +773,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -EnableFilesAdds
+### -EnableHttpsTrafficOnly
 
-Enable Active Directory Domain Services authentication for Azure Files. Requires all Active Directory properties.
+Allow https traffic only to the storage service. The service default is true.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
@@ -686,33 +794,96 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -EnableSmbOauth
+### -EnableLargeFileShare
+
+Allow large file shares. Cannot be disabled once enabled.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableLocalUser
+
+Enable the local users feature.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableNfsV3
+
+Enable NFS 3.0 protocol support.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableSftp
+
+Enable Secure File Transfer Protocol.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableSmbOAuth
 
 Whether managed identities can access SMB shares using OAuth.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -EncryptionKeyName
-
-The name of the key vault key. Must be given together with -EncryptionKeyVault.
-
-```yaml
-Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -797,72 +968,9 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -EncryptionKeyVault
-
-The URI of the key vault. Must be given together with -EncryptionKeyName.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -EncryptionKeyVersion
-
-The version of the key vault key. Opts out of implicit key rotation.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -ForestName
-
-The Active Directory forest to get.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -IdentityType
 
-The managed identity type for the account.
+The managed identity type for the account. `SystemAssignedUserAssigned` assigns both a system-assigned and a user-assigned identity.
 
 ```yaml
 Type: System.String
@@ -878,16 +986,16 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues:
-- None
 - SystemAssigned
 - UserAssigned
-- SystemAssigned,UserAssigned
+- SystemAssignedUserAssigned
+- None
 HelpMessage: ''
 ```
 
-### -ImmutabilityPeriodSinceCreationInDays
+### -ImmutabilityPeriod
 
-The immutability period for blobs since policy creation, in days (1-146000). Requires -EnableAlw true.
+The immutability period for blobs since policy creation, in days (1-146000). Requires -EnableAccountLevelImmutability.
 
 ```yaml
 Type: System.Nullable`1[System.Int32]
@@ -908,7 +1016,7 @@ HelpMessage: ''
 
 ### -ImmutabilityPolicyState
 
-The mode of the account-level immutability policy. Requires -EnableAlw true.
+The mode of the account-level immutability policy. Requires -EnableAccountLevelImmutability.
 
 ```yaml
 Type: System.String
@@ -972,96 +1080,33 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -IsHnsEnabled
-
-Enable a hierarchical namespace (Azure Data Lake Storage Gen2).
-
-```yaml
-Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IsLocalUserEnabled
-
-Enable the local users feature.
-
-```yaml
-Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IsNfsV3Enabled
-
-Enable NFS 3.0 protocol support.
-
-```yaml
-Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IsSftpEnabled
-
-Enable Secure File Transfer Protocol.
-
-```yaml
-Type: System.Nullable`1[System.Boolean]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -KeyExpirationPeriodInDays
+### -KeyExpirationPeriodInDay
 
 Expiration period in days of the key policy assigned to the account.
 
 ```yaml
 Type: System.Nullable`1[System.Int32]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -KeyName
+
+The name of the key vault key. Must be given together with -KeyVaultUri.
+
+```yaml
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -1098,7 +1143,28 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -KeyVaultUserIdentityId
+### -KeyVaultUri
+
+The URI of the key vault. Must be given together with -KeyName.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -KeyVaultUserAssignedIdentityId
 
 Resource id of the user-assigned identity used for server-side encryption.
 
@@ -1119,9 +1185,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Kind
+### -KeyVersion
 
-The type of storage account.
+The version of the key vault key. Opts out of implicit key rotation.
 
 ```yaml
 Type: System.String
@@ -1131,23 +1197,18 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues:
-- Storage
-- StorageV2
-- BlobStorage
-- FileStorage
-- BlockBlobStorage
+AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -LargeFileSharesState
+### -Kind
 
-Allow large file shares. Cannot be disabled once enabled.
+The type of storage account. Defaults to `StorageV2`.
 
 ```yaml
 Type: System.String
@@ -1163,8 +1224,11 @@ ParameterSets:
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues:
-- Disabled
-- Enabled
+- Storage
+- StorageV2
+- BlobStorage
+- FileStorage
+- BlockBlobStorage
 HelpMessage: ''
 ```
 
@@ -1179,10 +1243,10 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 3
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -1214,21 +1278,23 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -NetBiosDomainName
+### -Name
 
-The NetBIOS domain name.
+The name of the storage account. Must be between 3 and 24 characters in length and use numbers and lower-case letters only.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- StorageAccountName
+- AccountName
 ParameterSets:
 - Name: (All)
-  Position: Named
-  IsRequired: false
+  Position: 1
+  IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -1280,7 +1346,7 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -PublishInternetEndpoints
+### -PublishInternetEndpoint
 
 Whether internet routing storage endpoints are published.
 
@@ -1322,7 +1388,7 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -PublishMicrosoftEndpoints
+### -PublishMicrosoftEndpoint
 
 Whether Microsoft routing storage endpoints are published.
 
@@ -1345,10 +1411,10 @@ HelpMessage: ''
 
 ### -RequireInfrastructureEncryption
 
-Whether the service applies a secondary layer of encryption with platform managed keys.
+Applies a secondary layer of encryption with platform-managed keys.
 
 ```yaml
-Type: System.Nullable`1[System.Boolean]
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -1375,10 +1441,10 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -1408,27 +1474,6 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -SamAccountName
-
-The Active Directory SAMAccountName for Azure Storage.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -SasExpirationAction
 
 The action performed when the SAS expiration period is violated. Requires -SasExpirationPeriod. Defaults to Log.
@@ -1454,10 +1499,10 @@ HelpMessage: ''
 
 ### -SasExpirationPeriod
 
-Expiration period of the SAS policy assigned to the account, in DD.HH:MM:SS form.
+Expiration period of the SAS policy assigned to the account, as a TimeSpan such as `1.00:00:00` or `(New-TimeSpan -Days 1)`.
 
 ```yaml
-Type: System.String
+Type: System.Nullable`1[System.TimeSpan]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -1481,13 +1526,16 @@ The SKU name of the storage account.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- StorageAccountType
+- AccountType
+- Type
 ParameterSets:
 - Name: (All)
-  Position: Named
+  Position: 2
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
+  ValueFromPipelineByPropertyName: true
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues:
@@ -1550,15 +1598,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SupportsHttpsTrafficOnly
+### -Tag
 
-Allow https traffic only to the storage service. The service default is true.
+Resource tags as a hash table of names and values, for example `@{ env = "dev"; owner = "platform" }`.
 
 ```yaml
-Type: System.Nullable`1[System.Boolean]
+Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Tags
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -1571,28 +1620,7 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Tags
-
-Resource tags in KEY=VALUE form (comma-separated).
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -UserIdentityId
+### -UserAssignedIdentityId
 
 The ARM resource identifier of the user-assigned identity. Only one is permitted.
 
@@ -1656,6 +1684,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Zone
+
+The availability zones to pin the account to (comma-separated).
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -ZonePlacementPolicy
 
 The availability zone pinning policy for the account.
@@ -1679,27 +1728,6 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
-### -Zones
-
-The availability zones to pin the account to (comma-separated).
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### CommonParameters
 
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
@@ -1708,6 +1736,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 [about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
+
+### System.String
+
+You can pipe a resource group name, storage account name, SKU name and location to this cmdlet by property name.
 
 ## OUTPUTS
 

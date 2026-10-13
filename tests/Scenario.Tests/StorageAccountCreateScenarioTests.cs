@@ -26,12 +26,16 @@ public class StorageAccountCreateScenarioTests
     // into the recording, so both the request and the recorded id carry this placeholder.
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
 
+    // The scenario creates the group itself, so a record run needs nothing else in the
+    // subscription. Creating a group is idempotent, so sharing the name with other scenarios is fine.
     private const string ResourceGroupName = "scenario-test-rg";
 
     // Storage account names are globally unique. Re-recording against an account that already
     // exists is fine: the service treats a repeat create with the same properties as success.
     private const string AccountName = "azclipsscenariotest";
     private const string Location = "westus2";
+
+    private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.Storage];
 
     [Fact]
     public void CreatesStorageAccount()
@@ -44,21 +48,28 @@ public class StorageAccountCreateScenarioTests
             // test, and the sanitisers scrub it before it reaches disk, so nothing about it is
             // asserted here.
             using var host = new ScenarioHost(
-                ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: ExtensionUnderTest.Storage);
+                ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
+            RunCliGroupCreate(host);
             AssertCreated(RunCli(host));
             recording.Save();
             return;
         }
 
         using (var cli = new ScenarioHost(
-            ClientType.CLI, recording.CreateInterceptor(), extensions: ExtensionUnderTest.Storage))
+            ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions))
         {
+            RunCliGroupCreate(cli);
             AssertCreated(RunCli(cli), SubscriptionId);
         }
 
         using (var ps = new ScenarioHost(
-            ClientType.PowerShell, recording.CreateInterceptor(), extensions: ExtensionUnderTest.Storage))
+            ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_extensions))
         {
+            ps.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
+            {
+                ["Name"] = ResourceGroupName,
+                ["Location"] = Location,
+            }, extension: "Resources");
             AssertCreated(RunPowerShell(ps), SubscriptionId);
         }
     }
@@ -67,6 +78,9 @@ public class StorageAccountCreateScenarioTests
     // the placeholder stub on playback. The optional arguments cover one of each binding shape:
     // a plain string, an enum constrained by AllowedValues, a tri-state boolean, a list, and an
     // option that builds a nested request object.
+    private static IReadOnlyList<object> RunCliGroupCreate(ScenarioHost host) =>
+        host.RunCli("group", "create", "--name", ResourceGroupName, "--location", Location);
+
     private static IReadOnlyList<object> RunCli(ScenarioHost host) =>
         host.RunCli("storage", "account", "create",
             "--resource-group", ResourceGroupName,
@@ -93,7 +107,7 @@ public class StorageAccountCreateScenarioTests
             ["SupportsHttpsTrafficOnly"] = true,
             ["Tags"] = new[] { "env=scenario" },
             ["DefaultAction"] = "Allow",
-        });
+        }, extension: "Storage");
 
     // Asserts on the emitted object so an output regression fails the test. Both surfaces bind to
     // the same processor, so identical assertions holding for each is the parity check. The id is

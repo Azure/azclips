@@ -16,10 +16,11 @@ public class RemoveStorageAccountCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, Position = 1, ValueFromPipelineByPropertyName = true)]
+    [Alias("StorageAccountName", "AccountName")]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = false)]

@@ -35,7 +35,12 @@ public class StorageAccountLifecycleScenarioTests
     [Fact]
     public void CreateShowListDeleteStorageAccount()
     {
-        var recording = SessionRecordFiles.OpenSession(typeof(StorageAccountLifecycleScenarioTests), nameof(CreateShowListDeleteStorageAccount));
+        var recording = SessionRecordFiles.OpenSession(
+            typeof(StorageAccountLifecycleScenarioTests),
+            nameof(CreateShowListDeleteStorageAccount),
+            // The subscription-wide list returns every account in the recording subscription; keep
+            // only this scenario's group so nobody else's accounts reach the committed recording.
+            sanitizers: RecordingSanitizers.Default.With([new ResourceGroupListSanitizer(ResourceGroupName)]));
 
         if (recording.Mode == RecorderMode.Record)
         {

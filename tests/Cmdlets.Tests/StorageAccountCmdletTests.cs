@@ -3,6 +3,7 @@
 
 extern alias CmdletsStorage;
 
+using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using Core.Abstractions;
@@ -14,6 +15,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using GetStorageAccountCmdlet = CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage.GetStorageAccountCmdlet;
 using NewStorageAccountCmdlet = CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage.NewStorageAccountCmdlet;
 using RemoveStorageAccountCmdlet = CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage.RemoveStorageAccountCmdlet;
+using StorageCmdletArgumentConverter = CmdletsStorage::Microsoft.Azure.Azclips.Cmdlets.Storage.StorageCmdletArgumentConverter;
 
 namespace Cmdlets.Tests;
 
@@ -220,32 +222,213 @@ public class StorageAccountCmdletTests
         Assert.Equal(["Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount"], outputType.Type.Select(type => type.Name));
     }
 
+    // ── Az.Storage compatibility ──
+    //
+    // The cmdlets keep Az.Storage's parameter names and types so existing scripts bind, while the
+    // processors keep the CLI names. BuildInvocationParameters is the only bridge between the two,
+    // so these tests drive it into the real binder rather than handing the engine internal names.
+
+    [Theory]
+    [InlineData(typeof(NewStorageAccountCmdlet))]
+    [InlineData(typeof(GetStorageAccountCmdlet))]
+    [InlineData(typeof(RemoveStorageAccountCmdlet))]
+    public void Cmdlets_AcceptTheAzStorageAccountNameAliases(Type cmdletType)
+    {
+        var alias = cmdletType.GetProperty("Name")!.GetCustomAttribute<AliasAttribute>();
+
+        Assert.NotNull(alias);
+        Assert.Equal(["StorageAccountName", "AccountName"], alias.AliasNames);
+    }
+
+    [Theory]
+    [InlineData("ResourceGroupName", 0)]
+    [InlineData("Name", 1)]
+    [InlineData("SkuName", 2)]
+    [InlineData("Location", 3)]
+    public void NewCmdlet_PositionalParameters_MatchAzStorage(string propertyName, int position)
+    {
+        var parameter = typeof(NewStorageAccountCmdlet).GetProperty(propertyName)!.GetCustomAttribute<ParameterAttribute>()!;
+
+        Assert.Equal(position, parameter.Position);
+        Assert.True(parameter.ValueFromPipelineByPropertyName);
+    }
+
+    [Theory]
+    [InlineData("Tag", typeof(Hashtable))]
+    [InlineData("EnableHttpsTrafficOnly", typeof(bool?))]
+    [InlineData("EnableHierarchicalNamespace", typeof(bool?))]
+    [InlineData("EnableLargeFileShare", typeof(SwitchParameter))]
+    [InlineData("AssignIdentity", typeof(SwitchParameter))]
+    [InlineData("UserAssignedIdentityId", typeof(string))]
+    [InlineData("Zone", typeof(string[]))]
+    [InlineData("SasExpirationPeriod", typeof(TimeSpan?))]
+    [InlineData("KeyExpirationPeriodInDay", typeof(int?))]
+    [InlineData("EnableAccountLevelImmutability", typeof(SwitchParameter))]
+    [InlineData("ImmutabilityPeriod", typeof(int?))]
+    [InlineData("RequireInfrastructureEncryption", typeof(SwitchParameter))]
+    [InlineData("KeyVaultUri", typeof(string))]
+    [InlineData("ActiveDirectoryAccountType", typeof(string))]
+    [InlineData("EnableAzureActiveDirectoryKerberosForFile", typeof(bool?))]
+    public void NewCmdlet_UsesTheAzStorageParameterNamesAndTypes(string propertyName, Type expectedType)
+    {
+        var property = typeof(NewStorageAccountCmdlet).GetProperty(propertyName);
+
+        Assert.NotNull(property);
+        Assert.Equal(expectedType, property.PropertyType);
+    }
+
+    [Fact]
+    public void NewCmdlet_KindIsOptionalAndDefaultsToStorageV2()
+    {
+        var cmdlet = new NewStorageAccountCmdlet();
+        var parameter = typeof(NewStorageAccountCmdlet).GetProperty("Kind")!.GetCustomAttribute<ParameterAttribute>()!;
+
+        Assert.False(parameter.Mandatory);
+        Assert.Equal("StorageV2", cmdlet.Kind);
+    }
+
+    [Fact]
+    public void NewCmdlet_InvocationParameters_BindOntoTheCreateCustomization()
+    {
+        var cmdlet = new NewStorageAccountCmdlet
+        {
+            ResourceGroupName = "my-rg",
+            Name = "mystorageaccount",
+            Location = "eastus",
+            SkuName = "Standard_LRS",
+            Tag = new Hashtable { ["env"] = "dev" },
+            EnableHttpsTrafficOnly = true,
+            EnableHierarchicalNamespace = false,
+            EnableLargeFileShare = true,
+            AssignIdentity = true,
+            Zone = ["1"],
+            SasExpirationPeriod = TimeSpan.FromDays(1),
+            KeyExpirationPeriodInDay = 30,
+            EnableAccountLevelImmutability = true,
+            ImmutabilityPeriod = 7,
+            RequireInfrastructureEncryption = true,
+            KeyVaultUri = "https://myvault.vault.azure.net/",
+            ActiveDirectoryAccountType = "Computer",
+        };
+        var bound = new Dictionary<string, object>
+        {
+            ["ResourceGroupName"] = cmdlet.ResourceGroupName,
+            ["Name"] = cmdlet.Name,
+            ["Location"] = cmdlet.Location,
+            ["SkuName"] = cmdlet.SkuName,
+            ["Tag"] = cmdlet.Tag,
+            ["EnableHttpsTrafficOnly"] = true,
+            ["EnableHierarchicalNamespace"] = false,
+            ["EnableLargeFileShare"] = cmdlet.EnableLargeFileShare,
+            ["AssignIdentity"] = cmdlet.AssignIdentity,
+            ["Zone"] = cmdlet.Zone,
+            ["SasExpirationPeriod"] = cmdlet.SasExpirationPeriod,
+            ["KeyExpirationPeriodInDay"] = 30,
+            ["EnableAccountLevelImmutability"] = cmdlet.EnableAccountLevelImmutability,
+            ["ImmutabilityPeriod"] = 7,
+            ["RequireInfrastructureEncryption"] = cmdlet.RequireInfrastructureEncryption,
+            ["KeyVaultUri"] = cmdlet.KeyVaultUri,
+            ["ActiveDirectoryAccountType"] = cmdlet.ActiveDirectoryAccountType,
+        };
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzStorageAccount", ClientType.PowerShell)!;
+
+        var args = cmdlet.BuildInvocationParameters(bound);
+
+        // Every key the cmdlet sends must be one the index declares, or the engine drops it.
+        Assert.All(args.Keys, key => Assert.Contains(key, metadata.Parameters.Keys));
+
+        var processor = new NewStorageAccountProcessor_Customized();
+        // SubscriptionId is left to the profile, as it is when -SubscriptionId isn't passed.
+        Service().BindArgumentsToProcessor(processor, new Dictionary<string, object>(args, StringComparer.OrdinalIgnoreCase), metadata.Parameters, metadata.ParameterAliases, new Profile { SubscriptionId = "sub-1" });
+
+        Assert.Equal("mystorageaccount", processor.AccountName);
+        Assert.Equal("StorageV2", processor.Kind);
+        Assert.Equal(["env=dev"], processor.Tags);
+        Assert.Equal("true", processor.SupportsHttpsTrafficOnly, ignoreCase: true);
+        Assert.Equal("false", processor.IsHnsEnabled, ignoreCase: true);
+        Assert.Equal("Enabled", processor.LargeFileSharesState);
+        Assert.Equal("SystemAssigned", processor.IdentityType);
+        Assert.Equal(["1"], processor.Zones);
+        Assert.Equal("1.00:00:00", processor.SasExpirationPeriod);
+        Assert.Equal("30", processor.KeyExpirationPeriodInDays);
+        Assert.Equal("true", processor.EnableAlw, ignoreCase: true);
+        Assert.Equal("7", processor.ImmutabilityPeriodSinceCreationInDays);
+        Assert.Equal("true", processor.RequireInfrastructureEncryption, ignoreCase: true);
+        Assert.Equal("https://myvault.vault.azure.net/", processor.EncryptionKeyVault);
+        Assert.Equal("Computer", processor.AccountType);
+    }
+
+    [Fact]
+    public void NewCmdlet_UnboundParameters_AreNotSent()
+    {
+        // Unset options must be omitted so the service default applies; only the required set and
+        // Kind, which has a default like Az.Storage's, go out.
+        var cmdlet = new NewStorageAccountCmdlet { ResourceGroupName = "my-rg", Name = "acct", Location = "eastus", SkuName = "Standard_LRS" };
+
+        var args = cmdlet.BuildInvocationParameters(new Dictionary<string, object>());
+
+        Assert.Equal(["AccountName", "Kind", "Location", "ResourceGroupName", "SkuName"], args.Keys.Order());
+    }
+
+    [Fact]
+    public void NewCmdlet_ExplicitIdentityType_WinsOverAssignIdentity()
+    {
+        var cmdlet = new NewStorageAccountCmdlet { IdentityType = "SystemAssignedUserAssigned", AssignIdentity = true };
+
+        var args = cmdlet.BuildInvocationParameters(new Dictionary<string, object> { ["IdentityType"] = cmdlet.IdentityType, ["AssignIdentity"] = cmdlet.AssignIdentity });
+
+        Assert.Equal("SystemAssigned,UserAssigned", args["IdentityType"]);
+    }
+
+    [Fact]
+    public void ArgumentConverter_TagNamesContainingEquals_AreRejected()
+    {
+        // The processor splits each pair on its first '=', so such a name would be silently cut short.
+        var error = Assert.Throws<ArgumentException>(() => StorageCmdletArgumentConverter.ToTagArguments(new Hashtable { ["a=b"] = "c" }));
+
+        Assert.Equal("Tag", error.ParamName);
+    }
+
+    [Theory]
+    [InlineData(1, 0, "1.00:00:00")]
+    [InlineData(0, 12, "0.12:00:00")]
+    [InlineData(400, 6, "400.06:00:00")]
+    public void ArgumentConverter_SasExpirationPeriod_UsesArmsDayFirstFormat(int days, int hours, string expected)
+    {
+        Assert.Equal(expected, StorageCmdletArgumentConverter.ToSasExpirationPeriod(new TimeSpan(days, hours, 0, 0)));
+    }
+
     // ── Closed value sets ──
 
     [Fact]
-    public void NewCmdlet_ValidateSets_MatchTheValuesTheCliEnforces()
+    public void NewCmdlet_ValidateSets_AcceptExactlyTheValuesTheCliEnforces()
     {
         // The PowerShell binder never reads AllowedValues, so [ValidateSet] is what rejects a bad
         // value before a request is sent. Holding it to the index keeps both surfaces accepting the
-        // same values. Tri-state flags are bool? on the cmdlet, so only string properties count.
-        var stringProperties = typeof(NewStorageAccountCmdlet).GetProperties()
-            .Where(p => p.PropertyType == typeof(string))
-            .ToDictionary(p => p.Name);
+        // same values. ActiveDirectoryAccountType feeds the processor's AccountType, and IdentityType
+        // takes Az.Storage's SystemAssignedUserAssigned, which the cmdlet rewrites for ARM.
+        var processorNames = new Dictionary<string, string> { ["ActiveDirectoryAccountType"] = "AccountType" };
         var metadata = new ExtensionIndex().GetCommandMetadata("New-AzStorageAccount", ClientType.PowerShell)!;
-        var closed = metadata.Parameters.Values
-            .Where(p => p.AllowedValues.Length > 0 && stringProperties.ContainsKey(p.Name))
-            .ToDictionary(p => p.Name, p => p.AllowedValues);
-        var declared = stringProperties.Values
+        var declared = typeof(NewStorageAccountCmdlet).GetProperties()
             .Select(p => (p.Name, Set: p.GetCustomAttribute<ValidateSetAttribute>()))
             .Where(p => p.Set is not null)
-            .ToDictionary(p => p.Name, p => p.Set!);
+            .ToList();
 
-        Assert.NotEmpty(closed);
-        Assert.Equal(closed.Keys.Order(), declared.Keys.Order());
-        foreach (var (name, values) in closed)
+        Assert.NotEmpty(declared);
+        foreach (var (name, set) in declared)
         {
-            Assert.Equal(values, declared[name].ValidValues);
-            Assert.True(declared[name].IgnoreCase, $"-{name} must match case-insensitively, as the CLI does.");
+            Assert.True(set!.IgnoreCase, $"-{name} must match case-insensitively, as the CLI does.");
+            var accepted = set.ValidValues.Select(StorageCmdletArgumentConverter.ToIdentityType);
+            Assert.Equal(metadata.Parameters[processorNames.GetValueOrDefault(name, name)].AllowedValues.Order(), accepted.Order());
         }
+
+        // The reverse: every closed string option is guarded, bar tri-state flags (bool? on the
+        // cmdlet) and large file shares, which Az.Storage exposes as the -EnableLargeFileShare switch.
+        var guarded = declared.Select(p => processorNames.GetValueOrDefault(p.Name, p.Name)).ToHashSet();
+        var unguarded = metadata.Parameters.Values
+            .Where(p => p.AllowedValues.Length > 0 && !p.AllowedValues.Order().SequenceEqual(["false", "true"]))
+            .Select(p => p.Name)
+            .Where(n => !guarded.Contains(n) && n != "LargeFileSharesState");
+        Assert.Empty(unguarded);
     }
 }
