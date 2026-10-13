@@ -203,8 +203,9 @@ recorded 2026-10 run, the first Agent process of a run spent 0.6–4.4 s more ho
 time than the run's median. The warm-up artifact is written beside the output as
 `<name>.warmup.json`, and its traces move to a `warmup-<id>` folder under the trace
 path, so they never mix with measured results. If an observation times out, the
-provider ends the whole process tree; ending only `az.exe` leaves the Agent child
-process running into later observations.
+provider ends the whole process tree: on Windows with `taskkill /T`, and on Linux
+and macOS by ending the target and every descendant process that `ps` lists.
+Ending only `az` leaves the Agent child process running into later observations.
 
 The target runs without the evaluation host's AI-agent variables (`COPILOT_*`,
 `GITHUB_COPILOT_*`, `CLAUDE_*`, `ANTHROPIC_*`, `OPENAI_*`, `VSCODE_*`, `ELECTRON_*`,

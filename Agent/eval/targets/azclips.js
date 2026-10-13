@@ -80,12 +80,49 @@ function execFileUnattended(file, args, options, callback) {
 // The Agent runs in a child process of az.exe; ending only az.exe leaves it running into later cases.
 const PROCESS_TREE_GRACE_MS = 5000;
 
+function descendantProcessIds(rootPid) {
+  const childrenByParent = new Map();
+  const table = childProcess.execFileSync('ps', ['-A', '-o', 'pid=,ppid='], { encoding: 'utf8' });
+  for (const line of table.split('\n')) {
+    const [pid, parentPid] = line.trim().split(/\s+/).map(Number);
+    if (!Number.isInteger(pid) || !Number.isInteger(parentPid)) continue;
+    if (!childrenByParent.has(parentPid)) childrenByParent.set(parentPid, []);
+    childrenByParent.get(parentPid).push(pid);
+  }
+  const descendants = [];
+  const seen = new Set([rootPid]);
+  const pending = [rootPid];
+  while (pending.length > 0) {
+    for (const pid of childrenByParent.get(pending.pop()) || []) {
+      if (seen.has(pid)) continue;
+      seen.add(pid);
+      descendants.push(pid);
+      pending.push(pid);
+    }
+  }
+  return descendants;
+}
+
 function terminateProcessTree(child, platform = process.platform) {
   if (!child?.pid) return;
   if (platform === 'win32') {
     childProcess.spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
-  } else {
-    child.kill('SIGKILL');
+    return;
+  }
+  // Linux and macOS have no tree kill; list the target's descendants before ending the target.
+  let descendants = [];
+  try {
+    descendants = descendantProcessIds(child.pid);
+  } catch {
+    // Without ps, still end the target itself.
+  }
+  child.kill('SIGKILL');
+  for (const pid of descendants) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // The process has already ended.
+    }
   }
 }
 

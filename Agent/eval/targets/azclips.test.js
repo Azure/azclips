@@ -1109,16 +1109,90 @@ test('ends the whole Agent process tree, not only az.exe', (context) => {
     calls.push([file, args, options.windowsHide]);
     return { status: 0 };
   });
-  let killed;
-  terminateProcessTree({ pid: 4321, kill(signal) { killed = signal; } }, 'win32');
-  assert.deepEqual(calls, [['taskkill', ['/PID', '4321', '/T', '/F'], true]]);
-  assert.equal(killed, undefined);
+  // A duplicate row closes a cycle (4400 -> 4500 -> 4400); the walk must still end.
+  let processTable = ['  1     0', '4321     1', '4400  4321', '4500  4400', '4400  4500', '4600     1', '4700  4600', ''].join('\n');
+  const listings = [];
+  context.mock.method(childProcess, 'execFileSync', (file, args) => {
+    listings.push([file, args]);
+    if (processTable === undefined) throw Object.assign(new Error('spawnSync ps ENOENT'), { code: 'ENOENT' });
+    return processTable;
+  });
+  const signals = [];
+  context.mock.method(process, 'kill', (pid, signal) => {
+    signals.push([pid, signal]);
+    return true;
+  });
+  const target = () => ({ pid: 4321, kill(signal) { signals.push(['target', signal]); } });
 
-  terminateProcessTree({ pid: 4321, kill(signal) { killed = signal; } }, 'linux');
-  assert.equal(killed, 'SIGKILL');
+  terminateProcessTree(target(), 'win32');
+  assert.deepEqual(calls, [['taskkill', ['/PID', '4321', '/T', '/F'], true]]);
+  assert.deepEqual(listings, []);
+  assert.deepEqual(signals, []);
+
+  for (const platform of ['linux', 'darwin']) {
+    terminateProcessTree(target(), platform);
+  }
+  assert.deepEqual(listings, [['ps', ['-A', '-o', 'pid=,ppid=']], ['ps', ['-A', '-o', 'pid=,ppid=']]]);
+  const treeSignals = [['target', 'SIGKILL'], [4400, 'SIGKILL'], [4500, 'SIGKILL']];
+  assert.deepEqual(signals, [...treeSignals, ...treeSignals]);
+
+  signals.length = 0;
+  processTable = undefined;
+  terminateProcessTree(target(), 'linux');
+  assert.deepEqual(signals, [['target', 'SIGKILL']]);
   assert.equal(calls.length, 1);
   terminateProcessTree(undefined, 'win32');
   assert.equal(calls.length, 1);
+});
+
+test('a timeout ends a real target and the Agent child process it started', async (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-tree-test-'));
+  const pidPath = path.join(directory, 'agent.pid');
+  let agentPid;
+  context.after(() => {
+    if (agentPid) {
+      try { process.kill(agentPid, 'SIGKILL'); } catch { /* already ended */ }
+    }
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  // The fake az starts a long-running Agent child, records its PID and keeps running.
+  const fakeAz = [
+    "const agent = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+    `require('node:fs').writeFileSync(${JSON.stringify(pidPath)}, String(agent.pid));`,
+    'setInterval(() => {}, 1000);',
+  ].join('\n');
+  let child;
+  const exited = new Promise((resolve) => {
+    child = execFileUnattended(process.execPath, ['-e', fakeAz], { timeout: 30_000 }, resolve);
+  });
+  const deadline = Date.now() + 10_000;
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
+  while (!(fs.existsSync(pidPath) && fs.readFileSync(pidPath, 'utf8'))) {
+    assert.ok(Date.now() < deadline, 'the fake az did not start its Agent child');
+    await pause();
+  }
+  agentPid = Number(fs.readFileSync(pidPath, 'utf8'));
+
+  terminateProcessTree(child);
+  await exited;
+
+  const isAlive = (pid) => {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      return error.code === 'EPERM';
+    }
+    if (process.platform === 'win32') return true;
+    // A killed process stays in the process table as a zombie until its new parent reaps it.
+    try {
+      const state = childProcess.execFileSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' });
+      return !state.trim().startsWith('Z');
+    } catch {
+      return false;
+    }
+  };
+  while (isAlive(agentPid) && Date.now() < deadline) await pause();
+  assert.equal(isAlive(agentPid), false, 'the Agent child outlived the ended target');
 });
 
 test('a timed-out observation ends its process tree and is reported as a termination', async (context) => {
@@ -1131,6 +1205,7 @@ test('a timed-out observation ends its process tree and is reported as a termina
     queueMicrotask(() => finish(Object.assign(new Error('Command failed'), { code: 1 }), '', ''));
     return { status: 0 };
   });
+  context.mock.method(childProcess, 'execFileSync', () => '');
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(options.timeout, 20 + PROCESS_TREE_GRACE_MS);
     finish = callback;
