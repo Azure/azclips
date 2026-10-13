@@ -95,6 +95,7 @@ namespace Core.Extensions
 
             // Collectible ALC; unloaded after read so extension assembly bytes are GC-eligible.
             var alc = new ThrowawayLoadContext(extensionDirectory, additionalProbeDirectories);
+            string? verbAttributedTypeName = null;
             try
             {
                 foreach (var dllPath in dllPaths)
@@ -139,6 +140,10 @@ namespace Core.Extensions
                             }
                         }
                         if (verbs.Count == 0) { continue; }
+
+                        // A type was found carrying [ExtensionVerb]; from here on, failing to find a
+                        // usable IExtensionIndex implementer is a malformed extension, not "no CLI contract".
+                        verbAttributedTypeName ??= type.FullName;
 
                         // Verify it actually implements IExtensionIndex (defensive — but the
                         // verb attribute alone is not the contract).
@@ -185,8 +190,16 @@ namespace Core.Extensions
                 alc.Unload();
             }
 
-            // No verb-decorated type found in any DLL. Caller will surface this via the
-            // existing missing-[ExtensionVerb] error path.
+            if (verbAttributedTypeName is not null)
+            {
+                throw new InvalidOperationException(
+                    $"'{verbAttributedTypeName}' declares [ExtensionVerb] but does not implement " +
+                    $"IExtensionIndex (or lost the interface). The empty tuple is reserved for " +
+                    $"assemblies with no declared CLI contract at all.");
+            }
+
+            // No verb-decorated type found in any DLL: this extension has no CLI contract at all
+            // (e.g. ExtensionRuntime), as opposed to a malformed one (handled above).
             return (Array.Empty<string>(), Array.Empty<string>());
         }
 

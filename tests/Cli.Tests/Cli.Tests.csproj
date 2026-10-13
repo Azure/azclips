@@ -40,6 +40,9 @@
     <ProjectReference Include="../Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />
+    <ProjectReference Include="../Fixtures/Malformed/Azclips.Tests.Fixtures.Malformed.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
   </ItemGroup>
 
 </Project>

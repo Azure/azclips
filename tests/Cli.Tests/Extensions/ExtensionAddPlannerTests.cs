@@ -52,6 +52,19 @@ public sealed class ExtensionAddPlannerTests : IDisposable
     }
 
     [Fact]
+    public void ReadContract_ShouldThrow_WhenVerbAttributeHasNoExtensionIndexImplementer()
+    {
+        // A type carrying [ExtensionVerb] without implementing IExtensionIndex is a malformed
+        // extension, not "no CLI contract" - must throw rather than fall back to the same empty
+        // tuple ExtensionRuntime (genuinely command-less) returns.
+        var dir = StageFixtureDll("Malformed");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => LeafReader.ReadContract(dir));
+        Assert.Contains("ExtensionIndex", ex.Message);
+        Assert.Contains("IExtensionIndex", ex.Message);
+    }
+
+    [Fact]
     public void PlanContributions_SharedVerb_DisjointLeaves_BothSucceed()
     {
         // Alpha contributes `sharedverb alpha`, Beta contributes `sharedverb beta`. Same root
