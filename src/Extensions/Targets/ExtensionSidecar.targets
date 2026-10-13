@@ -155,6 +155,23 @@
     </Task>
   </UsingTask>
 
+  <!-- PackageVersion can change (e.g. "-p:PackageVersion=X" override) without touching
+       $(TargetPath) at all when GenerateAssemblyInfo is false (see Agent.Commands.csproj), since
+       no generated AssemblyInfo source file exists for the new value to invalidate. Stamp the
+       current value to a file - touched only when it actually changes - so it can stand in for
+       "PackageVersion" as a real, timestamp-comparable MSBuild Input below. -->
+  <Target Name="WriteSidecarVersionStamp" BeforeTargets="GenerateExtensionSidecar">
+    <PropertyGroup>
+      <_SidecarVersionStampFile>$(IntermediateOutputPath)$(PackageId).sidecar-version.stamp</_SidecarVersionStampFile>
+      <_SidecarLastStampedVersion Condition="Exists('$(_SidecarVersionStampFile)')">$([System.IO.File]::ReadAllText('$(_SidecarVersionStampFile)').Trim())</_SidecarLastStampedVersion>
+    </PropertyGroup>
+    <WriteLinesToFile
+      File="$(_SidecarVersionStampFile)"
+      Lines="$(PackageVersion)"
+      Overwrite="true"
+      Condition="'$(_SidecarLastStampedVersion)' != '$(PackageVersion)'" />
+  </Target>
+
   <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
        metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
        the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json.
@@ -162,10 +179,13 @@
        (see below) - Inputs is required so MSBuild's incremental engine can actually skip that
        second invocation; without it, the inline task would re-run and Assembly.LoadFrom would
        throw ("Assembly with same name is already loaded") trying to reload Core.Extensions.dll
-       into the same task-host process. -->
+       into the same task-host process. Inputs also covers everything else the generated
+       contract actually depends on: the extension DLL itself, the reader assembly LeafReader
+       lives in, this generator target file, and the PackageVersion stamp above. -->
   <Target Name="GenerateExtensionSidecar"
           AfterTargets="Build"
-          Inputs="$(TargetPath)"
+          DependsOnTargets="WriteSidecarVersionStamp"
+          Inputs="$(TargetPath);$(RepoArtifacts)$(Configuration)/Core/Core.Extensions.dll;$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
           Outputs="$(OutputPath)$(PackageId).commands.json">
     <GenerateExtensionSidecarTask
       ExtensionOutputDir="$(OutputPath)"
