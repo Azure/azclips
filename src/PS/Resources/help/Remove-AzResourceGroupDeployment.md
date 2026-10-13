@@ -41,7 +41,7 @@ A deployment that is currently running cannot be deleted -- cancel it with `Stop
 
 Deleting a deployment name that does not exist succeeds silently, because ARM answers the same `204 No Content` whether or not the deployment was there. The cmdlet emits nothing on success.
 
-The deployment can be identified either by `-ResourceGroupName` and `-Name` or by its fully qualified `-Id`. When `-Id` is used, the subscription is taken from the id unless `-SubscriptionId` is supplied explicitly; otherwise the subscription defaults to the active profile's.
+The deployment can be identified either by `-ResourceGroupName` and `-Name` or by its fully qualified `-Id`. When `-Id` is used, the subscription is always taken from the id and `-SubscriptionId` is ignored; otherwise the subscription defaults to the active profile's.
 
 ## EXAMPLES
 
@@ -103,7 +103,7 @@ HelpMessage: ''
 
 ### -Id
 
-The fully qualified resource id of the deployment, in the form `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/{deploymentName}`. The resource group and deployment name are read from the id, and so is the subscription unless `-SubscriptionId` is supplied explicitly. A malformed id fails before any request is sent.
+The fully qualified resource id of the deployment, in the form `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/{deploymentName}`. The subscription, resource group and deployment name are all read from the id; `-SubscriptionId` is ignored when `-Id` is used. A malformed id fails before any request is sent.
 
 ```yaml
 Type: System.String
@@ -190,7 +190,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure subscription id. Defaults to the active profile's subscription, or to the subscription embedded in `-Id` when that parameter set is used.
+Azure subscription id. Defaults to the active profile's subscription. Ignored when `-Id` is used; the subscription embedded in the id always wins.
 
 ```yaml
 Type: System.String

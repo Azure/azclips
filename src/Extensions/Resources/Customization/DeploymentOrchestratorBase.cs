@@ -61,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // per invocation: BuildTemplate and BuildParameters both read from this cache.
         private JsonElement? bicepParamEnvelope;
 
-        // Validates the template/parameters/mode/inline/validation-level rules shared by the
+        // Validates the template/parameters/mode/inline rules shared by the
         // create and what-if commands. Fails fast with deterministic ArgumentExceptions. Derived
         // orchestrators call this first, then add their own command-specific rules.
         protected void ValidateCommonInputs()
@@ -127,11 +127,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 && !Mode.Equals("Complete", StringComparison.OrdinalIgnoreCase))
             {
                 throw AzclipsErrorException.InvalidInput("Mode must be either 'Incremental' or 'Complete'.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(ValidationLevel) && NormalizeValidationLevel(ValidationLevel) is null)
-            {
-                throw AzclipsErrorException.InvalidInput("ValidationLevel must be one of 'Template', 'Provider', or 'ProviderNoRbac'.");
             }
         }
 
