@@ -303,15 +303,23 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         // Configuration is mirrored from the test assembly's own bin path so Debug/Release
         // matrix builds (see .github/workflows/build.yml) both resolve correctly.
         var configuration = InferConfigurationFromBaseDirectory() ?? "Debug";
+        var configurations = new[]
+        {
+            configuration,
+            string.Equals(configuration, "Debug", StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug"
+        };
         var probe = AppContext.BaseDirectory;
         for (int i = 0; i < 10 && !string.IsNullOrEmpty(probe); i++)
         {
-            var candidate = Path.Combine(
-                probe, "tests", "Fixtures", fixtureName, "bin", configuration, "net10.0");
-            if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(candidate, $"Azclips.Tests.Fixtures.{fixtureName}.dll")))
+            foreach (var candidateConfiguration in configurations)
             {
-                return candidate;
+                var candidate = Path.Combine(
+                    probe, "tests", "Fixtures", fixtureName, "bin", candidateConfiguration, "net10.0");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, $"Azclips.Tests.Fixtures.{fixtureName}.dll")))
+                {
+                    return candidate;
+                }
             }
             probe = Path.GetDirectoryName(probe.TrimEnd(Path.DirectorySeparatorChar));
         }

@@ -185,7 +185,7 @@
   <Target Name="GenerateExtensionSidecar"
           AfterTargets="Build"
           DependsOnTargets="WriteSidecarVersionStamp"
-          Inputs="$(TargetPath);$(RepoArtifacts)$(Configuration)/Core/Core.Extensions.dll;$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
+          Inputs="$(TargetPath);$(MSBuildProjectFullPath);$(RepoArtifacts)$(Configuration)/Core/Core.Extensions.dll;$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
           Outputs="$(OutputPath)$(PackageId).commands.json">
     <GenerateExtensionSidecarTask
       ExtensionOutputDir="$(OutputPath)"
