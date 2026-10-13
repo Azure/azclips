@@ -181,7 +181,9 @@
     </PropertyGroup>
     <ItemGroup>
       <_SidecarDependencyInput Include="$(_SidecarCoreAssemblyDir)Core.Extensions.dll" />
-      <_SidecarDependencyInput Include="$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll" />
+      <_SidecarDependencyInput
+        Include="$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll"
+        Condition="Exists('$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll')" />
     </ItemGroup>
   </Target>
 
