@@ -97,12 +97,13 @@ jobs:
         & "${{ parameters.PackagingScriptsRoot }}/windows/zip/build_win_zip.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
       pwsh: true
 
+  # Third-party prebuilt Copilot agent runtime binaries are built without CFG (BA2008) and are not compiled here.
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@4
     displayName: Run BinSkim
     condition: and(succeeded(), eq(variables['Rid'], 'win-x64'))
     inputs:
       InputType: Basic
-      AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll'
+      AnalyzeTargetGlob: '${{ parameters.PackagingWindowsOutRoot }}/**/*.dll;${{ parameters.PackagingWindowsOutRoot }}/**/*.exe;-:file|**/msalruntime*.dll;-:file|**/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/**/native/**'
 
   - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
     displayName: Publish Security Analysis Logs
