@@ -165,7 +165,7 @@ namespace Core.Engine
             subscriber.Subscribe(Events.Warning, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Info($"WARNING: {evt.Message}");
+                loggingService.Warn(evt.Message);
             });
 
             return subscriber;

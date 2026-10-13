@@ -102,6 +102,16 @@ public static class AzclipsServiceProvider
     }
 
     /// <summary>
+    /// Resolves an optional service from the initialized container.
+    /// </summary>
+    public static T? GetService<T>() where T : class
+    {
+        return (_serviceProvider ?? throw new InvalidOperationException(
+            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
+            .GetService<T>();
+    }
+
+    /// <summary>
     /// Resolves a service from the initialized container by Type.
     /// Use this overload from PowerShell, which cannot call generic methods directly.
     /// </summary>
@@ -110,6 +120,16 @@ public static class AzclipsServiceProvider
         return (_serviceProvider ?? throw new InvalidOperationException(
             "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
             .GetRequiredService(serviceType);
+    }
+
+    /// <summary>
+    /// Resolves an optional service from the initialized container by Type.
+    /// </summary>
+    public static object? GetService(Type serviceType)
+    {
+        return (_serviceProvider ?? throw new InvalidOperationException(
+            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
+            .GetService(serviceType);
     }
 
     /// <summary>

@@ -148,7 +148,8 @@ public class Program
                     AzclipsServiceProvider.GetRequiredService<IProfileService>(),
                     AzclipsServiceProvider.GetRequiredService<IAuthService>(),
                     TryGetProfileOverride(args),
-                    _cancellationTokenSource.Token);
+                    _cancellationTokenSource.Token,
+                    loggingService: AzclipsServiceProvider.GetService<ILoggingService>());
                 if (routedTenantId is not null) activity?.SetTag(TelemetryTags.TenantId, routedTenantId);
                 if (routedBoundary is not null) activity?.SetTag(TelemetryTags.DataBoundary, routedBoundary);
                 if (routedSubscriptionId is not null) activity?.SetTag(TelemetryTags.SubscriptionId, routedSubscriptionId);

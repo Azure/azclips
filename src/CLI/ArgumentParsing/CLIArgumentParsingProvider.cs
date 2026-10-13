@@ -30,7 +30,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             // (ParameterAliases["1"], ["2"], ...) and must never resolve as a named flag like `--1`.
             if (!parameters.ContainsKey(key) && !IsIndexedPositionalKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
             {
-                loggingService.Info($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
+                loggingService.Verbose($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
                 key = canonicalKey;
             }
 
