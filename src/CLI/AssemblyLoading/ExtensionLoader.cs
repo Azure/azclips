@@ -227,14 +227,14 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     }
                     else
                     {
-                        isCached = s_cache.ContainsKey(extensionPath);
-                        var entry = s_cache.GetOrAdd(
-                            extensionPath,
-                            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
-                            {
-                                var ctx = new ExtensionLoadContext(key, _loggingService);
-                                return (ctx, ctx.LoadManagedAssembly(key));
-                            }));
+                        var candidate = new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+                        {
+                            var ctx = new ExtensionLoadContext(extensionPath, _loggingService);
+                            return (ctx, ctx.LoadManagedAssembly(extensionPath));
+                        });
+                        // On a race, GetOrAdd returns the winner's entry, so reference equality shows whether this call created it.
+                        var entry = s_cache.GetOrAdd(extensionPath, candidate);
+                        isCached = !ReferenceEquals(entry, candidate);
                         assembly = entry.Value.Assembly;
                     }
                     stopwatch.Stop();
@@ -539,15 +539,14 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         }
         else
         {
-            isCached = s_cache.ContainsKey((extensionDir, extensionPath));
-            var entry = s_cache.GetOrAdd(
-                (extensionDir, extensionPath),
-                key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
-                {
-                    var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
-                    var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
-                    return (ctx, asm);
-                }));
+            var candidate = new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+            {
+                var ctx = new ExtensionLoadContext(extensionDir, _loggingService);
+                return (ctx, ctx.LoadManagedAssembly(extensionPath));
+            });
+            // On a race, GetOrAdd returns the winner's entry, so reference equality shows whether this call created it.
+            var entry = s_cache.GetOrAdd((extensionDir, extensionPath), candidate);
+            isCached = !ReferenceEquals(entry, candidate);
             assembly = entry.Value.Assembly;
         }
 

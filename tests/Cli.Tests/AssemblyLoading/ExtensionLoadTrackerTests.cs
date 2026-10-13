@@ -5,6 +5,7 @@ using Core.Cli;
 
 namespace Cli.Tests.AssemblyLoading;
 
+[Collection("Extension Load Tracker Tests")]
 public sealed class ExtensionLoadTrackerTests
 {
     [Fact]
