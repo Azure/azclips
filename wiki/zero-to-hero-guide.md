@@ -464,10 +464,11 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 | Thrown                  | Meaning                   | What happens                                                                    |
 | ----------------------- | ------------------------- | ------------------------------------------------------------------------------- |
 | `AzclipsErrorException` | a known error | print `ERROR: [code] message`, return its exit code — **no agent** |
+| `InvalidInputException` | malformed user input | offered to the agent first; if the agent doesn't run, print `ERROR: [InvalidInput] message` and exit 2 |
 | `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Known errors, including usage errors such as an unknown flag, a missing value, or an unknown subcommand under a known group, are printed and exit without reaching the agent. An unknown top-level command group is not a known error: no extension owns it, so it throws a plain `KeyNotFoundException` and does reach the agent. Even for unclassified failures, `TryAgentFallbackAsync` (`:495`) only proceeds if three gates pass:
+The key idea: **known, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for **unclassified** failures: `HttpRequestException` and exceptions that aren't `AzclipsErrorException`, where the cause isn't known. Known errors, including usage errors such as an unknown flag, a missing value, or an unknown subcommand under a known group, are printed and exit without reaching the agent. `InvalidInputException` (a malformed value, such as a bad `--set` expression) is the exception: it is offered to the agent first, and printed as a known error only if the agent doesn't run. An unknown top-level command group is not a known error: no extension owns it, so it throws a plain `KeyNotFoundException` and does reach the agent. Even for unclassified failures, `TryAgentFallbackAsync` (`:495`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -929,7 +930,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 13. **`CancellationToken`** — .NET's cooperative cancellation primitive threaded through async calls.
 14. **`ClientType`** — enum seeded into the container identifying the surface (CLI/TUI/PowerShell).
 15. **`CommandInvocation`** — the parsed command (extension, verb, params) produced by `ExtensionDispatcher`.
-16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, never triggers the agent.
+16. **`AzclipsErrorException`** — structured, well-known error; rendered directly, except `InvalidInputException` (malformed user input), which is offered to the agent first.
 17. **Composition root** — the single place services are registered/resolved (`AzclipsServiceProvider`).
 18. **`Core.Abstractions`** — the interface-only project with no concrete deps; the seam hub.
 19. **DI (Dependency Injection)** — supplying dependencies via constructors from a container.

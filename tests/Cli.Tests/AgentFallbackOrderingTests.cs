@@ -162,4 +162,13 @@ public class AgentFallbackOrderingTests
         Assert.Null(seenSpan);
         Assert.Equal(7, exitCode);
     }
+
+    [Fact]
+    public async Task StopRootThenFallbackAsync_ReturnsNull_WhenTheFallbackDidNotLaunchTheAgent()
+    {
+        // A null result tells the caller to print the original typed error instead of an agent exit code.
+        var exitCode = await Core.Cli.Program.StopRootThenFallbackAsync<int?>(null, (_, _, _) => Task.FromResult<int?>(null));
+
+        Assert.Null(exitCode);
+    }
 }

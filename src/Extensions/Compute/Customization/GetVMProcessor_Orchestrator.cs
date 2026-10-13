@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net.Http.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
@@ -87,7 +88,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
             if (string.IsNullOrWhiteSpace(ResourceGroupName) || string.IsNullOrWhiteSpace(Name))
             {
-                throw new InvalidOperationException(
+                throw AzclipsErrorException.InvalidInput(
                     "Specify the virtual machine by both name and resource group, or address it by resource id.");
             }
         }
