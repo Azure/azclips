@@ -67,7 +67,9 @@ internal static class NicDeleteOptionResolver
                 "Do not mix a shared --nic-delete-option value with NAME=VALUE assignments.");
         }
 
-        var assignments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string?[] resolvedOptions = new string?[nicInputs.Count];
+        bool[] assigned = new bool[nicInputs.Count];
+
         foreach (string value in cliValues)
         {
             string[] parts = value.Split('=', 2);
@@ -77,22 +79,60 @@ internal static class NicDeleteOptionResolver
                     $"Invalid NIC delete option '{value}'. Use NAME=Delete or NAME=Detach.");
             }
 
-            if (!assignments.TryAdd(parts[0], Normalize(parts[1])))
+            string targetKey = parts[0].Trim();
+            string normalizedValue = Normalize(parts[1]);
+
+            List<int> matchingIndices = [];
+            for (int i = 0; i < nicInputs.Count; i++)
+            {
+                if (string.Equals(nicInputs[i], targetKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    matchingIndices.Add(i);
+                }
+            }
+
+            if (matchingIndices.Count == 0)
+            {
+                for (int i = 0; i < nicInputs.Count; i++)
+                {
+                    if (string.Equals(GetNicName(nicInputs[i]), targetKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matchingIndices.Add(i);
+                    }
+                }
+            }
+
+            if (matchingIndices.Count == 0)
             {
                 throw AzclipsErrorException.UsageError(
-                    $"NIC delete option for '{parts[0]}' was specified more than once.");
+                    $"NIC delete option target '{targetKey}' was not supplied through --nics.");
             }
+
+            if (matchingIndices.Count > 1)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"NIC delete option target '{targetKey}' is ambiguous because multiple NICs share that name. Specify the full resource ID instead.");
+            }
+
+            int targetIndex = matchingIndices[0];
+            if (assigned[targetIndex])
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"NIC delete option for '{targetKey}' was specified more than once.");
+            }
+
+            assigned[targetIndex] = true;
+            resolvedOptions[targetIndex] = normalizedValue;
         }
 
-        var knownNics = new HashSet<string>(nicInputs, StringComparer.OrdinalIgnoreCase);
-        string? unknownNic = assignments.Keys.FirstOrDefault(name => !knownNics.Contains(name));
-        if (unknownNic is not null)
-        {
-            throw AzclipsErrorException.UsageError(
-                $"NIC delete option target '{unknownNic}' was not supplied through --nics.");
-        }
+        return resolvedOptions.ToList();
+    }
 
-        return nicInputs.Select(input => assignments.GetValueOrDefault(input)).ToList();
+    private static string GetNicName(string input)
+    {
+        string trimmed = input.Trim().TrimEnd('/');
+        int lastSlash = trimmed.LastIndexOf('/');
+        return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
     }
 
     private static void EnsureSingleSurface(IReadOnlyList<string> cliValues, string? powerShellValue)

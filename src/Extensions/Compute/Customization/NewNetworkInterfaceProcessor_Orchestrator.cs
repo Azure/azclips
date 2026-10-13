@@ -41,7 +41,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         if (SubnetName is not null && SubnetNames.Count > 0)
         {
             throw AzclipsErrorException.UsageError(
-                "Specify either --subnet or --subnet-names, not both.");
+                "Specify either --subnet or --subnet-names (-SubnetName or -SubnetNames), not both.");
         }
 
         // Explicit names and ids are looked up before anything is created, as legacy CLI checks
@@ -83,15 +83,23 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     {
         if (SubnetName is not null && SubnetName.Contains('/'))
         {
-            return [NormalizeSubnetResourceId(SubnetName)];
+            string normalizedSubnetId = NormalizeSubnetResourceId(SubnetName);
+            using HttpResponseMessage subnetResponse = await GetAllowingNotFoundAsync(
+                $"https://management.azure.com{normalizedSubnetId}?api-version=2025-05-01");
+            if (subnetResponse.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw AzclipsErrorException.UsageError($"Subnet '{SubnetName}' was not found.");
+            }
+
+            return [normalizedSubnetId];
         }
 
         if (string.IsNullOrWhiteSpace(VirtualNetworkName))
         {
             throw AzclipsErrorException.UsageError(
                 SubnetName is null
-                    ? "Specify --virtual-network-name when creating a network interface."
-                    : "Specify --virtual-network-name when --subnet is a subnet name.");
+                    ? "Specify --virtual-network-name (-VirtualNetworkName) when creating a network interface."
+                    : "Specify --virtual-network-name (-VirtualNetworkName) when --subnet (-SubnetName) is a subnet name.");
         }
 
         if (SubnetName is not null)

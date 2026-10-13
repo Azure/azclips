@@ -689,6 +689,48 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void ExistingNics_DeleteOption_MatchesByTerminalName()
+    {
+        string nicId1 = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/networkInterfaces/primary-nic";
+        string nicId2 = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/networkInterfaces/secondary-nic";
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", nicId1, nicId2, "--nic-delete-option", "primary-nic=Delete", "secondary-nic=Detach"));
+
+        var networkInterfaces = VmNetworkInterfaces(record);
+        Assert.Equal(2, networkInterfaces.GetArrayLength());
+        Assert.Equal("Delete", networkInterfaces[0].GetProperty("properties").GetProperty("deleteOption").GetString());
+        Assert.Equal("Detach", networkInterfaces[1].GetProperty("properties").GetProperty("deleteOption").GetString());
+    }
+
+    [Fact]
+    public void ExistingNics_DeleteOption_RejectsAmbiguousTerminalName()
+    {
+        string nicId1 = $"/subscriptions/{SubscriptionId}/resourceGroups/rg1/providers/Microsoft.Network/networkInterfaces/shared-nic";
+        string nicId2 = $"/subscriptions/{SubscriptionId}/resourceGroups/rg2/providers/Microsoft.Network/networkInterfaces/shared-nic";
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", nicId1, nicId2, "--nic-delete-option", "shared-nic=Delete"));
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("ambiguous", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void ExistingNics_DeleteOption_RejectsDuplicateOptionForSameNic()
+    {
+        string nicId = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/networkInterfaces/primary-nic";
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", nicId, "--nic-delete-option", $"{nicId}=Delete", "primary-nic=Detach"));
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("specified more than once", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/"));
+    }
+
+    [Fact]
     public void CreatedNic_SerializesDeleteOption()
     {
         var record = RecordCli(
@@ -706,11 +748,55 @@ public class VmCreateOrchestrationTests
         string subnetId = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/virtualNetworks/shared-vnet/subnets/app";
         string[] args = RemoveOption(s_cliArgs, "--subnet-names");
         var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId, subnetId),
+            [.. args, "--subnet", subnetId]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/subnets/app?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
+        Assert.Contains(subnetId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void SubnetResourceId_NotFound_FailsBeforeCreatingNetworkResources()
+    {
+        string subnetId = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/virtualNetworks/shared-vnet/subnets/app";
+        string[] args = RemoveOption(s_cliArgs, "--subnet-names");
+        var (record, error) = RecordCliFailure(
             new FakeVmArmBackend(SubscriptionId),
             [.. args, "--subnet", subnetId]);
 
-        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
-        Assert.Contains(subnetId, PutBody(record, "/networkInterfaces/"));
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains($"Subnet '{subnetId}' was not found.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/publicIPAddresses/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void SubnetAndSubnetNames_Conflict_ReportsBothClientSurfaces()
+    {
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. s_cliArgs, "--subnet", "custom"]);
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("Specify either --subnet or --subnet-names (-SubnetName or -SubnetNames), not both.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void VirtualNetworkName_MissingWhenSubnetIsName_ReportsBothClientSurfaces()
+    {
+        string[] args = RemoveOption(s_cliArgs, "--subnet-names");
+        string[] argsWithoutVnet = RemoveOption(args, "--virtual-network-name");
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. argsWithoutVnet, "--subnet", "custom"]);
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("Specify --virtual-network-name (-VirtualNetworkName) when --subnet (-SubnetName) is a subnet name.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
     }
 
     [Fact]
