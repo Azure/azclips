@@ -245,6 +245,9 @@ async function registerEvaluationArtifact({
     'Creating evaluation run',
   );
   const created = await createResponse.json();
+  if (typeof created?.runId !== 'string' || !created.runId || typeof created.uploadUrl !== 'string' || !created.uploadUrl) {
+    throw new Error('The evaluation service did not return a run ID and upload URL; the artifact and credentials were not sent.');
+  }
   const uploadUrl = new URL(created.uploadUrl, service);
   if (uploadUrl.origin !== service.origin) {
     throw new Error(

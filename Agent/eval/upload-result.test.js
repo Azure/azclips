@@ -308,6 +308,21 @@ test('does not send the artifact or credentials to an upload URL on another orig
   ]);
 });
 
+test('reports a run-creation response without an upload URL instead of uploading', async (context) => {
+  const { requests, fetchImpl } = recordingFetch(undefined);
+  await assert.rejects(
+    registerEvaluationArtifact({
+      artifactPath: writeMinimalArtifact(context),
+      serviceUrl: 'https://evaluation.example',
+      authorization: 'Bearer test-token',
+      env: pipelineEnvironment,
+      fetchImpl,
+    }),
+    /did not return a run ID and upload URL/,
+  );
+  assert.deepEqual(requests.map((request) => request.method), ['PUT', 'POST']);
+});
+
 test('does not report a judge model merely because a provider or environment default exists', () => {
   const dimensions = modelDimensions({
     results: { results: [{ response: { metadata: { models: ['target-model'] } } }] },

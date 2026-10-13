@@ -91,7 +91,10 @@ if ($operation -eq 'get') {
         $global:LASTEXITCODE = 1
         return
     }
-    if ($state.ContainsKey($key)) { "$key = $($state[$key]) [global config]" } else { "$key = default-$key [default]" }
+    if ($scenario.settingValues -and $null -ne $scenario.settingValues.$key) {
+        "$key = $($scenario.settingValues.$key) [global config]"
+    }
+    elseif ($state.ContainsKey($key)) { "$key = $($state[$key]) [global config]" } else { "$key = default-$key [default]" }
     $global:LASTEXITCODE = 0
     return
 }
@@ -512,6 +515,24 @@ test('wrapper records the effective model provider settings and skips keys the t
   assert.equal(settings['agent.trace.enabled'], undefined);
   assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
+});
+
+test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
+  const result = runWrapper(context, {
+    settingValues: {
+      'agent.builtin.endpoint': 'https://user:hidden@example.openai.azure.com/openai/?api-key=hidden#hidden',
+      'agent.provider': 'builtin',
+    },
+  });
+  assert.equal(result.status, 0, result.summary.error);
+  const settings = JSON.parse(result.runFacts.agentSettings);
+  assert.deepEqual(settings['agent.builtin.endpoint'], {
+    value: 'https://example.openai.azure.com/openai/',
+    source: 'global config',
+    redacted: true,
+  });
+  assert.deepEqual(settings['agent.provider'], { value: 'builtin', source: 'global config' });
+  assert.doesNotMatch(result.runFacts.agentSettings, /hidden/);
 });
 
 test('wrapper records every agent, HTTP-retry and telemetry setting the target lists', (context) => {

@@ -51,7 +51,8 @@ function readRuntimePrompt(exe) {
 // Evaluations are often launched from an AI agent host. Its variables configure the same Copilot runtime
 // that the target embeds (extra tools, MCP servers, credentials) and are absent from a user's terminal.
 // AZCLIPS_IN_AGENT_MODE comes from an azclips Agent host and would turn off the recovery under test.
-const HOST_AGENT_VARIABLE = /^(COPILOT_|GITHUB_COPILOT_|CLAUDE_|ANTHROPIC_|OPENAI_|AZCLIPS_EVALUATION_|VSCODE_|ELECTRON_)/i;
+// AZURE_OPENAI_* can configure the separate Judge and are documented Agent inputs too.
+const HOST_AGENT_VARIABLE = /^(COPILOT_|GITHUB_COPILOT_|CLAUDE_|ANTHROPIC_|OPENAI_|AZURE_OPENAI_|AZCLIPS_EVALUATION_|VSCODE_|ELECTRON_)/i;
 const HOST_AGENT_VARIABLES = new Set(['AI_AGENT', 'RUBBER_DUCK_AGENT', 'NODE_OPTIONS', 'AZCLIPS_IN_AGENT_MODE']);
 
 function isHostAgentVariable(name) {

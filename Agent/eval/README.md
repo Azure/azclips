@@ -163,6 +163,8 @@ Every result records the facts needed to compare builds:
   `telemetry.enabled`. This covers `agent.provider`, `agent.builtin.*`, recovery,
   and any agent setting that a newer build adds, such as a reasoning effort. A
   target that cannot list its keys falls back to the provider and recovery keys.
+  Keys whose names look secret are skipped, and a URL value is recorded without
+  its user info, query and fragment (marked `redacted: true`).
   Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
   manual mode, `agent.enabled` and `agent.sessionStyle` in automatic mode, and
   `agent.trace.*`), the wrapper does not change these settings,
@@ -209,7 +211,8 @@ Ending only `az` leaves the Agent child process running into later observations.
 
 The target runs without the evaluation host's AI-agent variables (`COPILOT_*`,
 `GITHUB_COPILOT_*`, `CLAUDE_*`, `ANTHROPIC_*`, `OPENAI_*`, `VSCODE_*`, `ELECTRON_*`,
-`AI_AGENT`, `RUBBER_DUCK_AGENT`, `NODE_OPTIONS`, `AZCLIPS_IN_AGENT_MODE`) and without
+`AI_AGENT`, `RUBBER_DUCK_AGENT`, `NODE_OPTIONS`, `AZCLIPS_IN_AGENT_MODE`), without
+the `AZURE_OPENAI_*` variables that can configure the Judge, and without
 the harness's own `AZCLIPS_EVALUATION_*` variables. The target embeds the same Copilot runtime, so
 these variables can change its tools and credentials: launched from an agent host,
 every first model turn grew by 1,229 input tokens, and the host's runtime token

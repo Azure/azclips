@@ -83,6 +83,25 @@ function Invoke-Azclips {
     return $output
 }
 
+function ConvertTo-RecordedSetting {
+    param([string] $Value, $Source)
+
+    # Results are uploaded, and a configured URL may carry credentials in its user info, query or fragment.
+    $setting = [ordered]@{ value = $Value; source = $Source }
+    $uri = $null
+    if ([Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$uri) -and -not $uri.IsFile -and
+        ($uri.UserInfo -or $uri.Query -or $uri.Fragment)) {
+        $builder = [UriBuilder]::new($uri)
+        $builder.UserName = ''
+        $builder.Password = ''
+        $builder.Query = ''
+        $builder.Fragment = ''
+        $setting.value = $builder.Uri.AbsoluteUri
+        $setting.redacted = $true
+    }
+    return $setting
+}
+
 $runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
 $subscriptionId = [guid]::Empty
 if ($runtimeEnvironment.signedIn -ne $true -or
@@ -230,7 +249,7 @@ try {
         if ($LASTEXITCODE -ne 0) { continue }
         $settingLine = @($settingText -split "\r?\n" | Where-Object { $_.StartsWith("$key = ") }) | Select-Object -Last 1
         if ($settingLine -match '^\S+ = (?<value>.*?)(?: \[(?<source>[^\]]+)\])?\s*$') {
-            $agentSettings[$key] = [ordered]@{ value = $Matches.value; source = $Matches.source }
+            $agentSettings[$key] = ConvertTo-RecordedSetting $Matches.value $Matches.source
         }
     }
 

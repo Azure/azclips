@@ -163,6 +163,8 @@ test('builds an isolated flavor environment without mutating the parent', () => 
     RUBBER_DUCK_AGENT: 'true',
     AI_AGENT: 'host-agent',
     CLAUDE_AGENT_SDK_VERSION: '1',
+    AZURE_OPENAI_ENDPOINT: 'https://judge.openai.azure.com',
+    AZURE_OPENAI_DEPLOYMENT: 'judge-deployment',
     AZCLIPS_EVALUATION_TARGET: '{}',
     AZCLIPS_IN_AGENT_MODE: '1',
     NODE_OPTIONS: '--require hook.js',
@@ -181,7 +183,8 @@ test('builds an isolated flavor environment without mutating the parent', () => 
     AZURECLI_FLAVOR: 'azure cli',
   });
   assert.deepEqual(removedHostVariables(parent), [
-    'AI_AGENT', 'AZCLIPS_EVALUATION_TARGET', 'AZCLIPS_IN_AGENT_MODE', 'CLAUDE_AGENT_SDK_VERSION',
+    'AI_AGENT', 'AZCLIPS_EVALUATION_TARGET', 'AZCLIPS_IN_AGENT_MODE', 'AZURE_OPENAI_DEPLOYMENT',
+    'AZURE_OPENAI_ENDPOINT', 'CLAUDE_AGENT_SDK_VERSION',
     'COPILOT_ENABLE_BUILTIN_GITHUB_MCP', 'COPILOT_SDK_AUTH_TOKEN', 'NODE_OPTIONS', 'RUBBER_DUCK_AGENT',
     'VSCODE_GIT_IPC_HANDLE', 'copilot_home',
   ]);
