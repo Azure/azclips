@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791852424745,
+  "lastUpdate": 1791852490785,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9030,6 +9030,48 @@ window.BENCHMARK_DATA = {
             "value": 3416593.692222446,
             "unit": "ns",
             "range": "± 101348.61160606275"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6087e560bbf74e1d9bc66f3ab25a66cac706b2e",
+          "message": "[CLI] Route user-facing errors through typed InvalidInput (#1087)\n\n**Related command**\naz config set, az config get, az login, az account get-access-token, az\nextension add, az extension update, az group update, az network, az vm,\naz ssh, az identity, az resource, az graph\n\n**Description**\nCloses the Azure/CLIPS#964 user-facing scope. Malformed user input used\nto throw plain .NET exceptions (`ArgumentException`,\n`InvalidOperationException`, and similar), so stderr had no stable code\nand the exit code was generic (1).\n\nThis PR adds `AzclipsErrorException.InvalidInput` (code `InvalidInput`,\nexit code 2) and converts about 100 user-facing throws across about 35\nfiles to it. Examples are invalid config keys and values, bad\n`--set`/`--add` expressions, malformed resource ids, and Graph and\nResources input validation.\n\nErrors about sign-in or profile state are not user input, so they use a\nnew `NotSignedIn` error (exit code 1, not offered to the agent). These\ncover no active profile, no federated token, silent token acquisition\nfailure, no subscription in the profile, and no-subscription ARM URLs.\n\nExtension lookups that miss every feed now report `ExtensionNotFound`\n(exit code 4) instead of a plain .NET exception. This covers `az\nextension add` and `az extension update`. The local-artifact `--path`\nhint on `extension add` is unchanged.\n\n**Behaviour change for maintainers:** `InvalidInputException` is the\nonly typed error marked agent-eligible. With `agent.enabled=true` in an\ninteractive session, these errors are offered to the agent first, as\nuntyped errors already are. With the agent disabled (the default),\noutput is `ERROR: [InvalidInput] <message>` on stderr with exit code 2.\n`NotSignedIn` and `ExtensionNotFound` are never offered to the agent.\n\n**Shared resource-id parser:**\n`VirtualMachineIdResolver.ParseResourceId` reports malformed ids as\n`InvalidInput`. Response-shape failures from the same parser are also\nreported as `InvalidInput`, because the shared parser does not\ndistinguish the two.\n\n**Not changed:** ARM service errors, Bicep compiler and environment\nerrors, `HttpRequestException`, internal invariants\n(`NotSupportedException`, reflection and response-shape checks), the\nmanaged identity token acquisition path (still\n`InvalidOperationException`), and everything under `src/CLI/`, including\nthe unknown-group `KeyNotFoundException` that must keep routing to the\nagent.\n\n**Regression fix:** `ScopedLoggingService` falls back to warn when the\nconfig file is unreadable. It caught `InvalidOperationException`, so the\nconverted invalid-JSON error would have escaped it. The filter now\nincludes `InvalidInputException`, with a new test.\n\n**Testing Guide**\nAutomated (run from the repository root, on commit `0c76ff8b2`):\n- `dotnet build azclips.slnx --no-restore`: 0 errors.\n- `dotnet test azclips.slnx --no-build --no-restore`: all projects pass\nwith 0 failures. Cli.Tests 1212 passed and 8 skipped. Scenario.Tests 117\npassed. Cmdlets.Tests 167 passed. Core.Agent.Tests 239 passed and 2\nskipped. Other projects also pass, including Accounts, Compute, MsGraph,\nKeyVault, Core.Extensions, Core.Engine, Core.Telemetry, and Help.Tool.\n- New tests: `tests/Cli.Tests/InvalidInputErrorTests.cs`,\n`AgentFallbackOrderingTests` (null passthrough),\n`ScopedLoggingServiceTests`\n(`Fallback_UsesWarnWhenConfigurationIsInvalidInput`),\n`StreamRoutingIntegrationTests.InvalidInput_AgentDisabled_EmitsTypedErrorAndExitsTwo`,\nand `ExtensionInstallerTests` (feed miss returns `ExtensionNotFound`).\n- Updated tests: the silent-acquisition and no-subscription tests now\nassert `NotSignedIn`.\n\nManual:\n- `az config set --key bogus..key --value x` prints `ERROR:\n[InvalidInput] Unknown configuration key 'bogus.key'...` on stderr and\nexits with code 2. Stdout is empty.\n- `az extension update --name <not-installed>` prints `ERROR:\n[ExtensionNotFound] ...` on stderr and exits with code 4.\n\nNot run: an end-to-end check with `agent.enabled=true` on a TTY.\nReviewers may want to confirm the agent is offered for a converted\nerror. The `extension add` feed-miss hint could not be checked live,\nbecause the feed was unreachable from the test machine. The installer\ntest covers the `ExtensionNotFound` part.\n\n**History Notes**\n[CLI] `az config set`: Invalid configuration keys and values now report\nthe `InvalidInput` code with exit code 2 instead of a raw .NET exception\nmessage\n[CLI] Malformed user input across commands now reports the\n`InvalidInput` code with exit code 2, and the agent is offered the error\nfirst when enabled\n[CLI] `az extension add` and `az extension update`: Unknown packages now\nreport the `ExtensionNotFound` code with exit code 4\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-13T11:21:26+11:00",
+          "tree_id": "ffe39a2c86d48fb324a8ee0c70dfe3a280cbb5db",
+          "url": "https://github.com/Azure/azclips/commit/a6087e560bbf74e1d9bc66f3ab25a66cac706b2e"
+        },
+        "date": 1791852487606,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 3742078.9783225283,
+            "unit": "ns",
+            "range": "± 177250.1962476366"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 3806033.748626094,
+            "unit": "ns",
+            "range": "± 159364.24193976348"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 3719231.114435908,
+            "unit": "ns",
+            "range": "± 159559.34648197927"
           }
         ]
       }
