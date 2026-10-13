@@ -192,8 +192,8 @@ public sealed class ProfileCliTests
         // The list command emits a single collection (so the JSON formatter renders one valid
         // JSON array) even when there are no profiles.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted);
-        Assert.Empty(summaries);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted);
+        Assert.Empty(results);
     }
 
     [Fact]
@@ -208,10 +208,11 @@ public sealed class ProfileCliTests
 
         // All profiles are written as a single collection rather than one WriteOutput per profile.
         var emitted = Assert.Single(fixture.RawOutputs);
-        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted).ToList();
-        Assert.Equal(2, summaries.Count);
-        Assert.Contains(summaries, s => s.Name == "prod" && s.IsActive);
-        Assert.Contains(summaries, s => s.Name == "staging" && !s.IsActive);
+        var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted).ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, s => s.Name == "prod");
+        Assert.Contains(results, s => s.Name == "staging");
+        Assert.All(results, result => Assert.Null(result.GetType().GetProperty("Metadata")));
     }
 
     [Fact]

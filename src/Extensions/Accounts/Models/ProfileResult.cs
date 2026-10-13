@@ -2,7 +2,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 
-/// <summary>Profile projection returned by login/connect commands; omits runtime-only profile metadata.</summary>
+/// <summary>Profile projection returned by account/profile commands; omits runtime-only profile metadata.</summary>
 public sealed record ProfileResult
 {
     public string Name { get; init; } = default!;
@@ -30,13 +30,3 @@ public sealed record ProfileResult
         ManagedIdentityId = profile.ManagedIdentityId,
     };
 }
-
-/// <summary>Projection used by profile list/show commands to surface profile details without runtime-only metadata</summary>
-public sealed record ProfileSummary(
-    string Name,
-    bool IsActive,
-    string TenantId,
-    string SubscriptionId,
-    string CloudName,
-    AuthMethod AuthMethod,
-    string? UserPrincipalName);

@@ -14,20 +14,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
 
             var profiles = await profileService.GetAllProfilesAsync();
-            var active = await profileService.GetActiveProfileNameAsync();
-
-            var summaries = profiles
-                .Select(profile => new ProfileSummary(
-                    profile.Name,
-                    string.Equals(profile.Name, active, StringComparison.OrdinalIgnoreCase),
-                    profile.TenantId,
-                    profile.SubscriptionId,
-                    profile.CloudName,
-                    profile.AuthMethod,
-                    profile.UserPrincipalName))
+            var results = profiles
+                .Select(ProfileResult.From)
                 .ToList();
 
-            await WriteOutput(summaries);
+            await WriteOutput(results);
 
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
