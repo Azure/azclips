@@ -9,6 +9,31 @@ namespace Core.Telemetry.Tests;
 public class TelemetryRoutingResolverTests
 {
     [Fact]
+    public async Task ResolveAsync_PreservesSubscriptionIdAndAuthType_ForBrowserProfile()
+    {
+        var profileService = new StubProfileService(seedDefault: false);
+        await profileService.SaveAndActivateProfileAsync(new Profile
+        {
+            Name = "default",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            CloudName = "AzureCloud",
+            AuthMethod = AuthMethod.Browser,
+        });
+
+        var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            profileService,
+            new StubAuthService(),
+            profileNameOverride: null,
+            CancellationToken.None);
+
+        Assert.Equal("tenant-1", tenantId);
+        Assert.Null(boundary);
+        Assert.Equal("sub-1", subscriptionId);
+        Assert.Equal(nameof(AuthMethod.Browser), authType);
+    }
+
+    [Fact]
     public async Task ResolveAsync_PreservesSubscriptionIdAndAuthType_ForManagedIdentityProfile()
     {
         // Managed-identity profiles deliberately do not persist a TenantId (see

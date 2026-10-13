@@ -113,6 +113,7 @@ public class FederatedTokenAuthenticator(
             TenantId = string.IsNullOrEmpty(result.TenantId) ? tenantId : result.TenantId,
             // Client credentials flows have no user; surface the app identity so profiles stay readable.
             UserPrincipalName = clientId,
+            EntraObjectId = result.UniqueId,
             CorrelationId = result.CorrelationId,
         };
     }

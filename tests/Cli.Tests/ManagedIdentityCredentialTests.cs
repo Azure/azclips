@@ -116,6 +116,72 @@ public sealed class ManagedIdentityCredentialTests
     }
 
     [Theory]
+    [InlineData(ManagedIdentityIdType.ObjectId, "44444444-4444-4444-4444-444444444444", "44444444-4444-4444-4444-444444444444")]
+    [InlineData(ManagedIdentityIdType.ClientId, "33333333-3333-3333-3333-333333333333", null)]
+    [InlineData(ManagedIdentityIdType.ResourceId, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id", null)]
+    [InlineData(ManagedIdentityIdType.SystemAssigned, null, null)]
+    public async Task ManagedIdentityAuthenticator_AuthenticateAsync_SetsEntraObjectIdOnlyForObjectIdSelector(
+        ManagedIdentityIdType idType,
+        string? idValue,
+        string? expectedObjectId)
+    {
+        var credential = new Mock<TokenCredential>();
+        credential.Setup(c => c.GetTokenAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccessToken("stub-token", DateTimeOffset.UtcNow.AddHours(1)));
+
+        var factory = new Mock<AzureCredentialFactory>();
+        factory.Setup(f => f.CreateManagedIdentityCredential(It.IsAny<string?>(), It.IsAny<ManagedIdentityIdType?>()))
+            .Returns(credential.Object);
+
+        var authenticator = new ManagedIdentityAuthenticator(factory.Object, Logger, Telemetry);
+
+        var request = idType switch
+        {
+            ManagedIdentityIdType.ObjectId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityObjectId = idValue },
+            ManagedIdentityIdType.ClientId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityClientId = idValue },
+            ManagedIdentityIdType.ResourceId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityResourceId = idValue },
+            _ => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity },
+        };
+
+        var result = await authenticator.AuthenticateAsync(request);
+
+        Assert.Equal(expectedObjectId, result.EntraObjectId);
+    }
+
+    [Theory]
+    [InlineData(ManagedIdentityIdType.ObjectId, "44444444-4444-4444-4444-444444444444", "44444444-4444-4444-4444-444444444444")]
+    [InlineData(ManagedIdentityIdType.ClientId, "33333333-3333-3333-3333-333333333333", null)]
+    [InlineData(ManagedIdentityIdType.ResourceId, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id", null)]
+    [InlineData(ManagedIdentityIdType.SystemAssigned, null, null)]
+    public async Task ManagedIdentityAuthenticator_AcquireTokenAsync_SetsEntraObjectIdOnlyForObjectIdSelector(
+        ManagedIdentityIdType idType,
+        string? idValue,
+        string? expectedObjectId)
+    {
+        var credential = new Mock<TokenCredential>();
+        credential.Setup(c => c.GetTokenAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccessToken("stub-token", DateTimeOffset.UtcNow.AddHours(1)));
+
+        var factory = new Mock<AzureCredentialFactory>();
+        factory.Setup(f => f.CreateManagedIdentityCredential(It.IsAny<string?>(), It.IsAny<ManagedIdentityIdType?>()))
+            .Returns(credential.Object);
+
+        var authenticator = new ManagedIdentityAuthenticator(factory.Object, Logger, Telemetry);
+        var profile = new Profile
+        {
+            Name = "test",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            AuthMethod = AuthMethod.ManagedIdentity,
+            ManagedIdentityId = ManagedIdentityIdCodec.Format(idType, idValue),
+        };
+
+        var result = await authenticator.AcquireTokenAsync(profile, scopes: null);
+
+        Assert.Equal(expectedObjectId, result.EntraObjectId);
+    }
+
+    [Theory]
     [InlineData("not-a-jwt")]                                    // arbitrary token; contents are irrelevant
     [InlineData("eyJhbGciOiJub25lIn0.eyJhdWQiOiJhcm0ifQ.")]      // valid JWT, no 'tid' claim
     public async Task ManagedIdentityAuthenticator_DoesNotStoreTenantId(string token)

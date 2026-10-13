@@ -175,6 +175,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 FederatedToken = federatedToken,
             };
 
+            await Publisher.Publish(Events.AuthBeforeTokenAcquisition);
             AuthResult authResult = await authService.LoginAsync(loginRequest);
 
             // Resolve the tenant that actually owns the requested subscription. Without an explicit
@@ -197,7 +198,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 effectiveSubscriptionId = await ResolveDefaultSubscriptionAsync(authResult.AccessToken);
             }
 
-            Profile resultProfile = new()
+            Profile resultProfile = new Profile
             {
                 Name = targetName,
                 TenantId = string.IsNullOrEmpty(resolvedTenantId) ? authResult.TenantId : resolvedTenantId,
@@ -209,7 +210,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 ManagedIdentityId = authMode == AuthMethod.ManagedIdentity
                     ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
                     : null,
-            };
+            }.WithRuntimeMetadata(authResult);
+
+            await Publisher.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = resultProfile });
 
             // When the subscription is homed in a different tenant than the one we signed into, verify we can
             // obtain a token for that tenant without prompting BEFORE persisting anything. If interactive
