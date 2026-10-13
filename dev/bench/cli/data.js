@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791880088910,
+  "lastUpdate": 1791880142606,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -16290,6 +16290,54 @@ window.BENCHMARK_DATA = {
             "value": 3630650.013437058,
             "unit": "ns",
             "range": "± 100460.6117977255"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cfbe12e1ae0426350246a745f2e10fe21b485449",
+          "message": "{agent} Record agent outcomes and disabled recovery telemetry (#865)\n\n<!-- agent-telemetry-stack-20260925 -->\n## Dependency update\n\nDepends on #884. This diff adds session outcomes and disabled-recovery\ntelemetry; startup boundary lookup and Agent isolation remain in #818\nand #893. The selected outcome, model, skip and filter tests passed: 185\ncases.\n\n<!-- /agent-telemetry-stack-20260925 -->\n\n**Related command**\nCLI error-recovery fallback and `azclips-agent` sessions\n\n**Description**\nFollow-up to merged Azure/azclips#782 for exactly the two nonblocking\ntelemetry gaps in [the original review\ncomment](https://github.com/Azure/azclips/pull/782#issuecomment-5536349979).\nRelated to Azure/CLIPS#648, particularly the session-outcome and\ndisabled-recovery signals; this does not complete that issue's other\ntelemetry requests.\n\n1. **Record terminal `Agent.Session` outcomes before export.** Keep the\nsession activity alive through success/cancellation/error handling, tag\n`properties.recovery.outcome` as `ok` / `cancelled` / `error`, and\npreserve exit codes 0 / 130 / 1. Status is `Ok` for success, `Unset` for\ncancellation (not an error), and `Error` for other exceptions. Stop the\nactivity in `finally` before telemetry-service disposal. The entry point\nuses the same internal session runner exercised by the tests.\n2. **Observe only the `agent.enabled=false` fallback branch.** Emit a\nseparate `CLI.Activity.AiRecoverySkipped` root with\n`properties.recovery.skipReason=disabled`. `StartRootActivity` supplies\n`InstallationId`; only the safe resolved command name (or command group\nafter a parse failure) and available command trace/span IDs are added.\nAdd the exact activity name to the existing allowlist and keep the new\nkeys on the vetted `properties.*` channel. No raw arguments, error\nmessages, prompts, or model output are introduced.\n\nThe skipped root does **not** increment `CLI.Activity.AiRecovery`\nexecution counts. It means recovery was disabled when fallback was\nattempted, including the default-off configuration, not necessarily an\nexplicit opt-out. Other guards remain unchanged and uninstrumented;\ntelemetry-disabled operation remains a no-op.\n\n3. **Report a terminal SDK failure as an errored session.**\n`SendAndPumpAsync` swallows the cancellation the SDK raises when\n`ChatAgent.LastError` is set so the interactive loop can offer another\nturn, which left the chat loop returning normally either way. A session\nthe user watched fail therefore exported `outcome=ok` with `Status=Ok`\nand exit code 0 — the success-rate signal this PR introduces would have\nbeen wrong from the day it shipped. `LastError` is per-turn, so it is\nread once the loop finishes and answers \"did the session END in\nfailure\": in one-shot the failed turn is the session, and in interactive\na user who recovers on a later turn still ends successfully. The loops\nalso exit by observing the cancellation token rather than by throwing,\nso that is propagated at the same point.\n\n4. **Record why it errored** via `properties.recovery.failureReason`, on\na closed vocabulary. Not the SDK's string and not the exception type\nname: `ErrorType` is a service-chosen value with no constants behind it,\nand an exception type is an implementation detail — either one makes the\ndimension whatever the runtime happens to produce. The allowlist is the\nvalues this repository has observed (`rate_limit`, `authentication`);\neverything else from the model is `sdk_other` and everything from our\nside is `host_fault`. `sdk_other` is expected to be common, and that is\nthe point: it measures how much of a vocabulary we do not control we\nhave not yet seen. **This extends the original scope** — the earlier\nrevision of this description said error classification was out of scope.\nIt is included because `outcome=error` alone cannot separate throttling\nfrom an expired credential from a host bug, so it could not answer the\nquestion the dashboard asks next, which is what to go fix.\nClassification only; the message is never emitted, as it can echo\nsubscription ids, resource names, or the user's own prompt.\n\n**Important distinction:** the CLI already records the agent's process\nexit code on `CLI.Activity.AiRecovery`, including 130 for cancellation.\nCancellation counts based on that exit code already work independently\nof the missing `Agent.Session` outcome. This PR fixes the Agent outcome\ngap, not the existing CLI exit-code signal. Additional phase/model\ntiming remains out of scope.\n\n**Testing Guide**\nPreviously completed local validation with the repository-pinned .NET\nSDK **10.0.303** (`net10.0`): **168 passed, 0 failed, 0 skipped**.\n\n| Focus | Passed |\n| --- | ---: |\n| Agent terminal outcomes, export/disposal ordering, telemetry-off\nbehavior, trace context/nesting | 18 |\n| CLI disabled fallback, safe correlation/installation tags,\ntelemetry-off behavior, unchanged configuration/recursion guards,\nfallback ordering and spawn metadata | 25 |\n| Activity/property allowlists, filter processors, and runtime telemetry\ngate | 125 |\n\n```powershell\ndotnet test Agent\\tests\\Core.Agent.Tests\\Core.Agent.Tests.csproj --no-restore -p:CopilotSkipCliDownload=true --filter 'FullyQualifiedName~AgentTelemetryProviderTests|FullyQualifiedName~RecoveryTraceContextTests|FullyQualifiedName~AgentSpanNestingTests' --nologo --verbosity quiet --logger 'trx;LogFileName=agent-telemetry-final.trx' --results-directory artifacts\\telemetry-validation\n\ndotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore -p:CopilotSkipCliDownload=true --filter 'FullyQualifiedName~AgentFallback|FullyQualifiedName~AgentStartInfoTests' --nologo --verbosity quiet --logger 'trx;LogFileName=cli-recovery-final.trx' --results-directory artifacts\\telemetry-validation\n\ndotnet test tests\\Core.Telemetry.Tests\\Core.Telemetry.Tests.csproj --no-restore -p:CopilotSkipCliDownload=true --filter 'FullyQualifiedName~ActivityNameFilter|FullyQualifiedName~TelemetryPropertyFilter|FullyQualifiedName~TelemetryServiceEnabledGateTests' --nologo --verbosity quiet --logger 'trx;LogFileName=telemetry-filters-final.trx' --results-directory artifacts\\telemetry-validation\n```\n\nThe new tests call production control flow and snapshot exported values\nrather than reimplementing its `try/catch` or inspecting mutable\nactivities after export. Regression-sensitivity checks temporarily\nrestored premature Agent-session disposal (2 cancellation/error tests\nfailed) and removed the disabled-only span (5 CLI tests failed). Both\nmutations were reverted and all 168 selected tests then passed again.\n\nBefore initial publication, the preserved final TRX results and tested\npatch were rechecked after rebasing onto `main`; the intervening\nupstream changes were only the PowerShell completion script and its\nREADME. A later documentation-only revision preserves the original\n`CLI.Activity.AiRecovery` table rows and reduces the spec change to 12\nadded lines, with no existing lines changed. Production and test code\nremain unchanged; tests were **not rerun for the publication or\ndocumentation-only update**.\n\n**Validation limitation:** the initial default build failed with\n`MSB3923` / TLS `HandshakeFailure` while the SDK downloaded the bundled\nnative Copilot CLI from `registry.npmjs.org`. The successful focused\nruns used the SDK-supported `CopilotSkipCliDownload=true` switch,\nwithout dependency or certificate changes. They did not launch the\nnative daemon, exercise live LLM recovery, or validate\npackaging/deployment. Existing `GHCP001` and `CS8604` warnings were not\nchanged.\n\n---\n\n- [x] The PR title uses `{Component Name}` for an internal telemetry\nchange, without trailing punctuation or spaces\n- [x] Customer-facing release notes are not applicable to this\ninternal-only telemetry follow-up\n- [x] Added or updated tests for the changed telemetry behavior\n- [x] Updated `eng-docs/spec/telemetry.md`",
+          "timestamp": "2026-10-13T19:03:25+11:00",
+          "tree_id": "67326a8f4dce021a98093c590f6fdb56d2b20f5e",
+          "url": "https://github.com/Azure/azclips/commit/cfbe12e1ae0426350246a745f2e10fe21b485449"
+        },
+        "date": 1791880138345,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 3721024.450222582,
+            "unit": "ns",
+            "range": "± 94519.38794704115"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 3775596.646253022,
+            "unit": "ns",
+            "range": "± 101788.94820283566"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 3690482.2203150243,
+            "unit": "ns",
+            "range": "± 100727.20346749782"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 3589711.4611982307,
+            "unit": "ns",
+            "range": "± 100963.6188515195"
           }
         ]
       }
