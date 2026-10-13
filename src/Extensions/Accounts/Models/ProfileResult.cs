@@ -1,0 +1,42 @@
+using Core.Abstractions;
+
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Models;
+
+/// <summary>Profile projection returned by login/connect commands; omits runtime-only profile metadata.</summary>
+public sealed record ProfileResult
+{
+    public string Name { get; init; } = default!;
+    public string TenantId { get; init; } = default!;
+    public string SubscriptionId { get; init; } = default!;
+    public string CloudName { get; init; } = default!;
+    public AuthMethod AuthMethod { get; init; }
+    public string? DefaultLocation { get; init; }
+    public string? DefaultResourceGroup { get; init; }
+    public string? UserPrincipalName { get; init; }
+    public string? ClientId { get; init; }
+    public string? ManagedIdentityId { get; init; }
+
+    public static ProfileResult From(Profile profile) => new()
+    {
+        Name = profile.Name,
+        TenantId = profile.TenantId,
+        SubscriptionId = profile.SubscriptionId,
+        CloudName = profile.CloudName,
+        AuthMethod = profile.AuthMethod,
+        DefaultLocation = profile.DefaultLocation,
+        DefaultResourceGroup = profile.DefaultResourceGroup,
+        UserPrincipalName = profile.UserPrincipalName,
+        ClientId = profile.ClientId,
+        ManagedIdentityId = profile.ManagedIdentityId,
+    };
+}
+
+/// <summary>Projection used by profile list/show commands to surface profile details without runtime-only metadata</summary>
+public sealed record ProfileSummary(
+    string Name,
+    bool IsActive,
+    string TenantId,
+    string SubscriptionId,
+    string CloudName,
+    AuthMethod AuthMethod,
+    string? UserPrincipalName);
