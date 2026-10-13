@@ -107,10 +107,31 @@ public class AgentStartupBoundaryTests
     [Fact]
     public async Task LookupTimeoutWithoutCallerCancellation_DoesNotFailStartup()
     {
-        // The resolver's own timeout is not the user cancelling.
-        var startup = await StartAsync(new CountingAuthService(), new RecordingLookup(null).Invoke);
+        // Mirrors Core's resolver: an internal deadline cancels a slow ARM call and yields null.
+        using var caller = new CancellationTokenSource();
+        var timedOut = false;
+        DataBoundaryLookup slowArm = async (_, _, ct) =>
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromMilliseconds(20));
+            try
+            {
+                await Task.Delay(Timeout.Infinite, deadline.Token);
+                return "EU";
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                timedOut = true;
+                return null;
+            }
+        };
 
+        var startup = await StartAsync(new CountingAuthService(), slowArm, ct: caller.Token);
+
+        Assert.True(timedOut, "the lookup must reach its own deadline for this case to mean anything.");
+        Assert.False(caller.IsCancellationRequested);
         Assert.Null(startup.DataBoundary);
+        Assert.Equal(CountingAuthService.IssuedToken, startup.Auth!.AccessToken);
         Assert.Null(startup.Failure);
     }
 
