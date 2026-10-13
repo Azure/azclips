@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791876991283,
+  "lastUpdate": 1791876996528,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -9110,6 +9110,42 @@ window.BENCHMARK_DATA = {
             "value": 378830663.32,
             "unit": "ns",
             "range": "± 5594996.957475528"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "98823eb2bc877310fa8651628f89b9fe6d497f31",
+          "message": "{Profile} Add profile metadata and Entra object id instrumentation into telemetry traces (#1091)\n\n## Description\nhttps://github.com/Azure/CLIPS/issues/944\n\n**Q: Why do we need the Profile Metadata?**\n**A:** Azclips profiles persist auth state such as subscription, tenant,\nmethod, etc required to refresh credentials. Some authentication values\nare different: they are only known at runtime, may be derived from token\nacquisition, and should not be written to `profiles.json`.\n\nThis change introduces a runtime-only metadata object on Profile so the\ncommand execution pipeline has a typed place to carry those values. The\nfirst value added is `Entra Object Id`, which telemetry can emit as a\ntop-level property when it is known from the authentication flow.\n\n### Goals\n\n- Provide runtime profile metadata for authentication context that is\ndiscovered during command execution and must not be persisted. The\ninitial use case is Entra Object Id for telemetry.\n\n### Non-Goals\n\n- Do not persist Entra Object Id or other runtime auth metadata in\nprofiles.json.\n- Do not acquire a token only to populate telemetry (such as local\ncommands).\n- Do not infer Entra Object Id from the active profile for commands that\nnever authenticate.\n\n### Design\n\n- Profile gains a runtime-only Metadata property\n- ProfileRuntimeMetadata is an in-memory extension point for\nauth-related runtime values.\n\n| Auth type | EntraObjectId source | When populated |\n| --- | --- | --- |\n| Browser | MSAL AuthenticationResult.UniqueId | When login/token\nacquisition returns it |\n| Device code | MSAL AuthenticationResult.UniqueId | When login/token\nacquisition returns it |\n| Managed identity, object id configured | Configured managed identity\nobject id | During login and silent token refresh |\n| Managed identity, client id configured | Not set | Left null |\n| Managed identity, resource id configured | Not set | Left null |\n| Managed identity, system-assigned | Not set | Left null |\n| Federated / service principal | MSAL AuthenticationResult.UniqueId if\nMSAL returns it (TBD when implemented) | Usually may be null; no\nfallback to client id |\n| Local/no-auth command | Not set | No token acquisition, so left null |\n\n### Sequence Flow\n<img width=\"1327\" height=\"812\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/63f54528-5836-4b65-8627-8f2ff96cf87e\"\n/>\n\n### Local Commands\nLocal commands that do not make authenticated HTTP requests do not\nacquire a token and therefore do not receive an Entra Object Id\ntelemetry tag. This is intentional.\n\nFor local commands, there may be an active profile on disk, but that\ndoes not prove the command executed as that identity. Emitting an Entra\nObject Id from a previously active profile could be stale or misleading.\nWe also do not want local commands to require authentication purely to\npopulate telemetry.\n\n---\n### Testing\n#### Trace export using `az login` via browser:\n```sh\n--- Batch at 2026-10-12T12:26:00.7507089Z ---\n[\n  {\n    \"TraceId\": \"8a7ba7b63286d5cd118e3ee21ab22008\",\n    \"SpanId\": \"35e76ec19c7e96ed\",\n    \"ParentSpanId\": \"b4f6ebac6d35dd8c\",\n    \"OperationName\": \"MsalAuthService.LoginAsync\",\n    .....\n    \"EntraObjectId\": null\n  }\n]\n\n--- Batch at 2026-10-12T12:26:00.7527517Z ---\n[\n  {\n    \"TraceId\": \"8a7ba7b63286d5cd118e3ee21ab22008\",\n    \"SpanId\": \"47a6cebf50f7e489\",\n    \"ParentSpanId\": \"b4f6ebac6d35dd8c\",\n    \"OperationName\": \"AuthBeforeTokenAcquisition\",\n    .....\n    \"EntraObjectId\": \"111111a1-1a11-11a1-a111-a11a11a111a1\",\n    \"Tags\": [\n      {\n        \"Key\": \"eventName\",\n        \"Value\": \"AuthBeforeTokenAcquisition\"\n      }\n    ],\n  }\n]\n```\n#### Trace export using managed identity login with VM `/az login\n--identity --object-id 222222a2-2a22-22a2-a222-a22a22a222a2\n--subscription-id xx` (matches portal principal id)\n```sh\n--- Batch at 2026-10-12T13:41:06.5638821Z ---\n[\n  {\n    \"TraceId\": \"cc7f38566c328379e4e2cb30776d341a\",\n    \"SpanId\": \"6111c185111b7b64\",\n    \"ParentSpanId\": \"82055d743e397bdd\",\n    \"OperationName\": \"ManagedIdentityAuthenticator.AuthenticateAsync\",\n    \"DisplayName\": \"ManagedIdentityAuthenticator.AuthenticateAsync\",\n     ....\n    \"TenantId\": null,\n    \"DataBoundary\": null,\n    \"EntraObjectId\": null,\n    ....\n  }\n]\n\n--- Batch at 2026-10-12T13:41:06.5644970Z ---\n[\n  {\n    \"TraceId\": \"cc7f38566c328379e4e2cb30776d341a\",\n    \"SpanId\": \"82055d743e397bdd\",\n    \"ParentSpanId\": \"86833e23dd021004\",\n    \"OperationName\": \"MsalAuthService.LoginAsync\",\n    \"DisplayName\": \"MsalAuthService.LoginAsync\",\n     ....\n    \"EntraObjectId\": null,\n    ....\n  }\n]\n\n--- Batch at 2026-10-12T13:41:06.5656412Z ---\n[\n  {\n    \"TraceId\": \"cc7f38566c328379e4e2cb30776d341a\",\n    \"SpanId\": \"1aa093e697421c79\",\n    \"ParentSpanId\": \"86833e23dd021004\",\n    \"OperationName\": \"AuthBeforeTokenAcquisition\",\n    \"DisplayName\": \"AuthBeforeTokenAcquisition\",\n    \"StartTime\": \"2026-10-12T13:41:06.4103288Z\",\n     .....\n    \"EntraObjectId\": \"222222a2-2a22-22a2-a222-a22a22a222a2\",\n   ....\n  }\n]\n\n```\n\n\n\n---\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-10-13T06:47:37Z",
+          "tree_id": "3fa78ca5a3a0d198afc303702da2ccd873ebddc4",
+          "url": "https://github.com/Azure/azclips/commit/98823eb2bc877310fa8651628f89b9fe6d497f31"
+        },
+        "date": 1791876996366,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 385121712.64,
+            "unit": "ns",
+            "range": "± 6064546.812433994"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 378606324.01,
+            "unit": "ns",
+            "range": "± 6185050.315626603"
           }
         ]
       }
