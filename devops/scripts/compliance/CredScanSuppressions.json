@@ -2,16 +2,20 @@
   "tool": "Credential Scanner",
   "suppressions": [
     {
-      "file": "src/CLI/Help/Docs/vm/create.md",
-      "_justification": "CLI help examples use the placeholder password P@ssw0rd123! and the $adminPwd variable; not real credentials."
+      "file": [
+        "src/CLI/Help/Docs/vm/create.md",
+        "tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json"
+      ],
+      "placeholder": [
+        "P@ssw0rd123!",
+        "$adminPwd"
+      ],
+      "_justification": "CLI help examples and their exported fixture use known placeholder password values; not real credentials."
     },
     {
       "file": "src/PS/Compute/help/New-AzVM.md",
+      "placeholder": "P@ssw0rd-replace-me!",
       "_justification": "PowerShell help examples use the literal placeholder P@ssw0rd-replace-me!; not a real credential."
-    },
-    {
-      "file": "tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/vm.json",
-      "_justification": "Help tool test fixture exported from CLI help examples containing the placeholder password P@ssw0rd123!."
     },
     {
       "file": "tests/Scripts/CLI/VMCreate.sh",
