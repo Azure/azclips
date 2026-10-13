@@ -47,6 +47,18 @@ az config set --key agent.enabled --value false
 
 # No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
 # continue past them. Each command's exit code surfaces its own error on stderr.
+#
+# The exit status still means something. Any other command that fails trips the ERR trap,
+# negative cases run through expect_failure (inside an `if`, which the ERR trap ignores) and
+# count only if they unexpectedly succeed, and the script exits non-zero if anything counted.
+UNEXPECTED=0
+trap 'UNEXPECTED=$((UNEXPECTED + 1))' ERR
+expect_failure() {
+    if "$@"; then
+        echo "UNEXPECTED SUCCESS: $*" >&2
+        UNEXPECTED=$((UNEXPECTED + 1))
+    fi
+}
 
 az group create --name "$RG" --location $LOC
 
@@ -172,7 +184,7 @@ az storage account create \
 
 # Negative case: invalid --sku value. Expected result: the command fails fast listing the
 # allowed SKU names and does NOT create an account.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -181,13 +193,13 @@ az storage account create \
 
 # Negative case: missing required options. Expected result: one message per missing
 # option (--location, --sku, --kind).
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM
 
 # Negative case: --sas-expiration-action without --sas-expiration-period. Both members are
 # required by the service, so this is rejected locally.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -196,7 +208,7 @@ az storage account create \
     --sas-expiration-action Block
 
 # Negative case: a network rule without --default-action, which the service requires.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -206,7 +218,7 @@ az storage account create \
 
 # Negative case: a subnet NAME without --vnet-name. A name cannot be composed into a
 # resource id without the virtual network it belongs to.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -216,7 +228,7 @@ az storage account create \
     --subnet mysubnet
 
 # Negative case: immutability policy options without --enable-alw true.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -226,7 +238,7 @@ az storage account create \
 
 # Negative case: two Azure Files authentication enablers. They map onto a single
 # directoryServiceOptions value, so at most one may be true.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -236,7 +248,7 @@ az storage account create \
     --enable-files-adds true
 
 # Negative case: --enable-files-adds without the full Active Directory property set.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -246,7 +258,7 @@ az storage account create \
     --domain-name contoso.com
 
 # Negative case: a key vault URI without a key name. Both are required together.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -255,7 +267,7 @@ az storage account create \
     --encryption-key-vault https://myvault.vault.azure.net/
 
 # Negative case: a malformed tag that is not in KEY=VALUE form.
-az storage account create \
+expect_failure az storage account create \
     --resource-group $RG \
     --name azclipsbad$RANDOM \
     --location $LOC \
@@ -303,6 +315,12 @@ az storage account delete \
     --name $CRUD_NAME
 
 # Negative case: show an account that does not exist.
-az storage account show \
+expect_failure az storage account show \
     --resource-group $RG \
     --name azclipsdoesnotexist
+
+if (( UNEXPECTED > 0 )); then
+    echo "$UNEXPECTED case(s) did not behave as expected; see the output above." >&2
+    exit 1
+fi
+echo "All storage account cases behaved as expected."
