@@ -72,6 +72,6 @@ public record Profile
 /// </summary>
 public record ProfileRuntimeMetadata
 {
-    /// <summary>The authenticated user's Entra object ID, when available from MSAL token metadata.</summary>
+    /// <summary>The authenticated identity's Entra object ID, when available from MSAL token metadata.</summary>
     public string? EntraObjectId { get; init; }
 }

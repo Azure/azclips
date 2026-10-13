@@ -51,7 +51,7 @@ public record AuthResult
     public string? UserPrincipalName;
 
     /// <summary>
-    /// The authenticated user's Entra object ID, if available from the authentication result.
+    /// The authenticated identity's Entra object ID, if available from the authentication result.
     /// </summary>
     public string? EntraObjectId;
 
