@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
@@ -99,7 +100,7 @@ public class ListGroupMemberProcessor_OrchestratorTests
         var orch = new ListGroupMemberProcessor_Orchestrator();
         orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
         Assert.Empty(pipeline.Sent);
     }
 
@@ -139,7 +140,7 @@ public class ListGroupMemberProcessor_OrchestratorTests
         var orch = new ListGroupMemberProcessor_Orchestrator();
         orch.WithCapturingContext(pipeline, publisher.Object);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => orch.ProcessAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
 
         Assert.Contains(Events.ProcessorProcessAsyncEnd, publishedEvents);
         Assert.Empty(pipeline.Sent);

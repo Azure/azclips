@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.1'
+ModuleVersion = '0.1.2'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')

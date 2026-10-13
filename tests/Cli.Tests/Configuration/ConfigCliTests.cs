@@ -252,7 +252,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var exception = Assert.Throws<KeyNotFoundException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "get", "--key", "coreasdf"]));
 
         Assert.Contains("Configuration key 'coreasdf' was not found.", exception.Message);
@@ -337,7 +337,7 @@ public class ConfigCliTests
         using var fixture = new ConfigCommandFixture();
 
         // Attempt to set an unknown key without --force should throw
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<InvalidInputException>(() =>
             fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--value", "value"])
         );
 
