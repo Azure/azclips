@@ -128,6 +128,31 @@ public class NicDeleteOptionResolverTests
         Assert.Equal(["Delete", "Detach"], result);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ResolveForExistingNics_MixedInputsWithSameName_RejectsShortTarget(bool idFirst)
+    {
+        string nicId = "/subscriptions/sub/resourceGroups/other-rg/providers/Microsoft.Network/networkInterfaces/shared-nic";
+        string[] inputs = idFirst ? [nicId, "shared-nic"] : ["shared-nic", nicId];
+
+        var ex = Assert.Throws<UsageErrorException>(() =>
+            NicDeleteOptionResolver.ResolveForExistingNics(inputs, ["SHARED-NIC=Delete"], null));
+
+        Assert.Contains("ambiguous", ex.Message);
+    }
+
+    [Fact]
+    public void ResolveForExistingNics_MixedInputsWithSameName_FullIdSelectsOnlyExactInput()
+    {
+        string nicId = "/subscriptions/sub/resourceGroups/other-rg/providers/Microsoft.Network/networkInterfaces/shared-nic";
+
+        var result = NicDeleteOptionResolver.ResolveForExistingNics(
+            ["shared-nic", nicId], [$"{nicId}=Delete"], null);
+
+        Assert.Equal([null, "Delete"], result);
+    }
+
     [Fact]
     public void ResolveForExistingNics_DuplicateOptionForSameNic_ThrowsUsageError()
     {

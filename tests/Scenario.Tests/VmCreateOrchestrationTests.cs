@@ -731,6 +731,19 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void ExistingNics_DeleteOption_RejectsAmbiguousMixedNameAndIdBeforeCreatingResources()
+    {
+        string nicId = $"/subscriptions/{SubscriptionId}/resourceGroups/other-rg/providers/Microsoft.Network/networkInterfaces/shared-nic";
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", "shared-nic", nicId, "--nic-delete-option", "shared-nic=Delete"));
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("ambiguous", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/providers/"));
+    }
+
+    [Fact]
     public void CreatedNic_SerializesDeleteOption()
     {
         var record = RecordCli(

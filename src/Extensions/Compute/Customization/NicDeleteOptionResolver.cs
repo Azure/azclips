@@ -82,23 +82,14 @@ internal static class NicDeleteOptionResolver
             string targetKey = parts[0].Trim();
             string normalizedValue = Normalize(parts[1]);
 
+            bool targetIsResourceId = targetKey.Contains('/');
             List<int> matchingIndices = [];
             for (int i = 0; i < nicInputs.Count; i++)
             {
-                if (string.Equals(nicInputs[i], targetKey, StringComparison.OrdinalIgnoreCase))
+                string candidate = targetIsResourceId ? nicInputs[i] : GetNicName(nicInputs[i]);
+                if (string.Equals(candidate, targetKey, StringComparison.OrdinalIgnoreCase))
                 {
                     matchingIndices.Add(i);
-                }
-            }
-
-            if (matchingIndices.Count == 0)
-            {
-                for (int i = 0; i < nicInputs.Count; i++)
-                {
-                    if (string.Equals(GetNicName(nicInputs[i]), targetKey, StringComparison.OrdinalIgnoreCase))
-                    {
-                        matchingIndices.Add(i);
-                    }
                 }
             }
 
