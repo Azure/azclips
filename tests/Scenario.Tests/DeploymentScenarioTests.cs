@@ -138,9 +138,8 @@ public sealed class DeploymentScenarioTests : IDisposable
     [InlineData(ClientType.PowerShell)]
     public void Create_SendsPutWithInlineTemplateParametersAndRollback(ClientType surface)
     {
-        var request = Execute(surface, Create("p1=v1", "count=3"))[0];
+        var request = Assert.Single(Execute(surface, Create("p1=v1", "count=3")), r => r.Method == "PUT");
 
-        Assert.Equal("PUT", request.Method);
         Assert.Equal(DeploymentsUri + "dep?api-version=2025-04-01", request.Uri);
         var properties = Properties(request);
         Assert.Equal("Complete", properties.GetProperty("mode").GetString());
@@ -214,9 +213,8 @@ public sealed class DeploymentScenarioTests : IDisposable
     [InlineData(ClientType.PowerShell)]
     public void Create_WithoutRollback_SendsNoOnErrorDeployment(ClientType surface)
     {
-        var request = Execute(surface, Create(false, "p1=v1", "count=3"))[0];
+        var request = Assert.Single(Execute(surface, Create(false, "p1=v1", "count=3")), r => r.Method == "PUT");
 
-        Assert.Equal("PUT", request.Method);
         Assert.False(Properties(request).TryGetProperty("onErrorDeployment", out var onError) && onError.ValueKind != JsonValueKind.Null);
     }
 
