@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.Http.Json;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
@@ -14,34 +14,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         public List<string> OperationIds { get; set; } = [];
 
-        protected override Task BeforeProcessAsync()
+        public override async Task ProcessAsync()
         {
-            OperationId = DeploymentOperationFanOut.FirstId(OperationIds);
-            return base.BeforeProcessAsync();
-        }
+            DeploymentOperationFanOut.ThrowIfEmpty(OperationIds);
 
-        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DeploymentOperation? body)
-        {
-            List<DeploymentOperation> operations = body is null ? [] : [body];
-
-            foreach (string operationId in OperationIds.Skip(1))
+            try
             {
-                GetSubscriptionDeploymentOperationProcessor child = CreateExtendedProcessor<GetSubscriptionDeploymentOperationProcessor>(processor =>
-                {
-                    processor.SubscriptionId = SubscriptionId;
-                    processor.DeploymentName = DeploymentName;
-                    processor.OperationId = operationId;
-                });
+                await BeforeProcessAsync();
+                await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-                using HttpResponseMessage response = await child.SendAsync();
-                if (await response.Content.ReadFromJsonAsync<DeploymentOperation>(JsonOptions) is { } operation)
+                List<DeploymentOperation> operations = [];
+                foreach (string operationId in OperationIds)
                 {
-                    operations.Add(operation);
+                    using HttpResponseMessage response = await CreateExtendedProcessor<GetSubscriptionDeploymentOperationProcessor>(processor =>
+                    {
+                        processor.SubscriptionId = SubscriptionId;
+                        processor.DeploymentName = DeploymentName;
+                        processor.OperationId = operationId;
+                    }).SendAsync();
+
+                    if (await DeploymentOperationFanOut.ReadOperationAsync(response, Publisher, JsonOptions) is { } operation)
+                    {
+                        operations.Add(operation);
+                    }
                 }
-            }
 
-            await WriteOutput(operations);
-            return true;
+                await WriteOutput(operations);
+            }
+            finally
+            {
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            }
         }
     }
 }

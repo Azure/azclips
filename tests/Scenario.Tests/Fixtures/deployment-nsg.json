@@ -7,23 +7,34 @@
     },
     "nsgName": {
       "type": "string"
+    },
+    "nsgCount": {
+      "type": "int",
+      "minValue": 1
     }
   },
   "resources": [
     {
       "type": "Microsoft.Network/networkSecurityGroups",
       "apiVersion": "2023-11-01",
-      "name": "[parameters('nsgName')]",
+      "name": "[format('{0}-{1}', parameters('nsgName'), copyIndex())]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "nsgCopy",
+        "count": "[parameters('nsgCount')]"
+      },
       "properties": {
         "securityRules": []
       }
     }
   ],
   "outputs": {
-    "nsgId": {
-      "type": "string",
-      "value": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+    "nsgIds": {
+      "type": "array",
+      "copy": {
+        "count": "[parameters('nsgCount')]",
+        "input": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-{1}', parameters('nsgName'), copyIndex()))]"
+      }
     }
   }
 }

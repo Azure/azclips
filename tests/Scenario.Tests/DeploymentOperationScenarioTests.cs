@@ -11,13 +11,15 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Exercises the deployment and deployment-operation read commands on both client surfaces. A real
-/// resource-group deployment is created first (one network security group, the cheapest resource
-/// that still produces deployment operations), then read back by name, by list, and operation by
-/// operation. Record mode runs the CLI surface against live Azure and rewrites the recording;
-/// playback replays the committed recording without credentials.
+/// resource-group deployment is created first (several network security groups, the cheapest resource
+/// that still produces deployment operations, so each one yields its own operation), then read back by
+/// name, by list, and operation by operation. Record mode runs the CLI surface against live Azure and
+/// rewrites the recording; playback replays the committed recording without credentials.
 /// <para>
 /// The operation ids passed to <c>show</c> are taken from the preceding <c>list</c> response, so the
-/// fan-out requests are identical in record and playback.
+/// fan-out requests are identical in record and playback. <c>show</c> is checked with one id, with the
+/// network security group ids in reverse list order (the output must follow the requested order), and
+/// with every listed id.
 /// </para>
 /// </summary>
 [Collection("Scenario Tests")]
@@ -27,7 +29,12 @@ public class DeploymentOperationScenarioTests
     private const string ResourceGroupName = "scenario-deployment-rg";
     private const string DeploymentName = "scenario-deployment";
     private const string NsgName = "scenario-deployment-nsg";
+    private const int NsgCount = 3;
+    private const string NsgResourceType = "Microsoft.Network/networkSecurityGroups";
     private const string Location = "westus2";
+
+    // Matches the copy-loop naming in deployment-nsg.json.
+    private static readonly string[] NsgNames = [.. Enumerable.Range(0, NsgCount).Select(index => $"{NsgName}-{index}")];
 
     private static string TemplateFile =>
         Path.Combine(RepoLocator.GetRepoRoot(), "tests", "Scenario.Tests", "Fixtures", "deployment-nsg.json");
@@ -79,9 +86,9 @@ public class DeploymentOperationScenarioTests
             "--resource-group", ResourceGroupName,
             "--name", DeploymentName,
             "--template-file", TemplateFile,
-            "--parameter", $"location={Location}", $"nsgName={NsgName}")));
+            "--parameter", $"location={Location}", $"nsgName={NsgName}", $"nsgCount={NsgCount}")));
 
-        List<string> operationIds = AssertOperationsListed(host.RunCli(
+        (List<string> operationIds, List<string> nsgOperationIds) = AssertOperationsListed(host.RunCli(
             "deployment", "operation", "group", "list",
             "--subscription-id", subscriptionId,
             "--resource-group", ResourceGroupName,
@@ -95,6 +102,15 @@ public class DeploymentOperationScenarioTests
                 "--name", DeploymentName,
                 "--operation-ids", operationIds[0]),
             expectedIds: [operationIds[0]]);
+
+        AssertOperationsShown(
+            host.RunCli([
+                "deployment", "operation", "group", "show",
+                "--subscription-id", subscriptionId,
+                "--resource-group", ResourceGroupName,
+                "--name", DeploymentName,
+                "--operation-ids", .. nsgOperationIds]),
+            expectedIds: nsgOperationIds);
 
         AssertOperationsShown(
             host.RunCli([
@@ -123,10 +139,10 @@ public class DeploymentOperationScenarioTests
             ["ResourceGroupName"] = ResourceGroupName,
             ["Name"] = DeploymentName,
             ["TemplateFile"] = TemplateFile,
-            ["Parameter"] = new[] { $"location={Location}", $"nsgName={NsgName}" },
+            ["Parameter"] = new[] { $"location={Location}", $"nsgName={NsgName}", $"nsgCount={NsgCount}" },
         })));
 
-        List<string> operationIds = AssertOperationsListed(host.RunPowerShell("Get-AzResourceGroupDeploymentOperation_List", new Dictionary<string, object>
+        (List<string> operationIds, List<string> nsgOperationIds) = AssertOperationsListed(host.RunPowerShell("Get-AzResourceGroupDeploymentOperation_List", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["ResourceGroupName"] = ResourceGroupName,
@@ -142,6 +158,16 @@ public class DeploymentOperationScenarioTests
                 ["OperationIds"] = new[] { operationIds[0] },
             }),
             expectedIds: [operationIds[0]]);
+
+        AssertOperationsShown(
+            host.RunPowerShell("Get-AzResourceGroupDeploymentOperation_Get", new Dictionary<string, object>
+            {
+                ["SubscriptionId"] = SubscriptionId,
+                ["ResourceGroupName"] = ResourceGroupName,
+                ["DeploymentName"] = DeploymentName,
+                ["OperationIds"] = nsgOperationIds.ToArray(),
+            }),
+            expectedIds: nsgOperationIds);
 
         AssertOperationsShown(
             host.RunPowerShell("Get-AzResourceGroupDeploymentOperation_Get", new Dictionary<string, object>
@@ -167,13 +193,28 @@ public class DeploymentOperationScenarioTests
         Assert.Equal("Succeeded", deployment.Properties?.ProvisioningState);
     }
 
-    private static List<string> AssertOperationsListed(IReadOnlyList<object> outputs)
+    /// <summary>
+    /// Asserts the list holds exactly one create operation per network security group and returns every
+    /// listed id plus the network security group ids in reverse list order.
+    /// </summary>
+    private static (List<string> All, List<string> NsgReversed) AssertOperationsListed(IReadOnlyList<object> outputs)
     {
         var operations = Assert.IsType<List<DeploymentOperation>>(Assert.Single(outputs));
-        Assert.NotEmpty(operations);
         Assert.All(operations, operation => Assert.NotNull(operation.OperationId));
-        return [.. operations.Select(operation => operation.OperationId!)];
+
+        List<DeploymentOperation> nsgOperations = [.. operations.Where(IsNsgCreate)];
+        Assert.Equal(
+            NsgNames.Order(StringComparer.Ordinal),
+            nsgOperations.Select(operation => operation.Properties!.TargetResource!.ResourceName).Order(StringComparer.Ordinal));
+
+        return (
+            [.. operations.Select(operation => operation.OperationId!)],
+            [.. nsgOperations.Select(operation => operation.OperationId!).Reverse()]);
     }
+
+    private static bool IsNsgCreate(DeploymentOperation operation) =>
+        operation.Properties is { ProvisioningOperation: ProvisioningOperation.Create, TargetResource.ResourceType: { } resourceType }
+        && string.Equals(resourceType, NsgResourceType, StringComparison.OrdinalIgnoreCase);
 
     private static void AssertOperationsShown(IReadOnlyList<object> outputs, IReadOnlyList<string> expectedIds)
     {
