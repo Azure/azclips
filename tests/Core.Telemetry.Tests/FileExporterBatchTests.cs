@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 using Tests.Common.Utilities;
@@ -50,6 +51,43 @@ public class FileExporterBatchTests
             Assert.Equal(
                 new[] { "first", "root", "second", "third" },
                 names.OrderBy(name => name, StringComparer.Ordinal).ToArray());
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void Export_ShouldPromoteEntraObjectId_FromParentChain()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(SourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var root = source.StartActivity("root");
+                Assert.NotNull(root);
+                root.SetTag(TelemetryTags.EntraObjectId, "object-1");
+
+                using var child = source.StartActivity("child");
+                Assert.NotNull(child);
+            }
+
+            var childEntry = Directory
+                .GetFiles(directory, TraceFileStore.PendingFilePattern)
+                .SelectMany(file => TraceFileFormat.Parse(File.ReadAllText(file)))
+                .Single(entry => entry.OperationName == "child");
+
+            Assert.Equal("object-1", childEntry.EntraObjectId);
         }
         finally
         {

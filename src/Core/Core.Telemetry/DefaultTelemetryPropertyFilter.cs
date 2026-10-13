@@ -30,6 +30,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.Parameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
+        TelemetryTags.EntraObjectId,
         TelemetryTags.AuthType,
         TelemetryTags.CloudName,
         TelemetryTags.Mode,

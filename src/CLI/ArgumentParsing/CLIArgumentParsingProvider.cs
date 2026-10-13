@@ -112,6 +112,14 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
+        // Validate each CLI occurrence before flattening or passing nested collections through.
+        if (source is List<List<string>> occurrences
+            && TryGetCollectionElementType(targetType, out _)
+            && (occurrences.Count == 0 || occurrences.Any(values => values.Count == 0)))
+        {
+            throw AzclipsErrorException.UsageError($"Parameter '{originalInput}' requires a value.");
+        }
+
         // Already the expected type
         if (targetType.IsInstanceOfType(source))
         {

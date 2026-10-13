@@ -225,12 +225,10 @@ Only allowlisted SDK error types have dedicated values; other types map to
 `sdk_other`, which may be common. Host failures map to `host_fault`.
 Add a new value only when telemetry shows a useful distinction.
 
-`error` on a session the user watched succeed is possible in one narrow case. The SDK
-delivers events on its own thread, which is not synchronised with the host's turn
-boundaries, so a session error queued during turn N-1 can arrive after turn N cleared it
-and be attributed to the wrong turn. The host reads and writes that state through
-`Volatile`, which guarantees it observes the write at all; it cannot fix the attribution,
-because the SDK's error payload carries no turn identifier to correlate against.
+Session errors that arrive while no send is active are dropped, so a late error cannot
+change a finished session's outcome. `error` on a session the user watched succeed is still
+possible in one narrow case: an error queued during turn N-1 can arrive while turn N is
+active and be attributed to it, because the SDK's error payload carries no turn identifier.
 
 The link is one-directional. The command trace closes before the recovery trace exists, so
 correlation goes recovery → command:

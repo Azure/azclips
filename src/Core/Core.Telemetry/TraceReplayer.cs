@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using Core.Abstractions;
 using SpanKey = (string? TraceId, string? SpanId, string DataBoundary);
 
 namespace Core.Telemetry;
@@ -215,6 +216,11 @@ internal static class TraceReplayer
         if (activity == null)
             return;
         activity.DisplayName = entry.DisplayName ?? activity.OperationName;
+
+        if (!string.IsNullOrWhiteSpace(entry.EntraObjectId))
+        {
+            activity.SetTag(TelemetryTags.EntraObjectId, entry.EntraObjectId);
+        }
 
         // Recorded before disposal so descendants can reference it.
         if (!string.IsNullOrEmpty(entry.SpanId))

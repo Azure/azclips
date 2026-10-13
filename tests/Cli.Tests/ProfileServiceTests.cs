@@ -41,6 +41,25 @@ public sealed class ProfileServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveProfile_ShouldNotPersistRuntimeMetadata()
+    {
+        var profile = MakeProfile("prod") with
+        {
+            Metadata = new ProfileRuntimeMetadata
+            {
+                EntraObjectId = "33333333-3333-3333-3333-333333333333"
+            }
+        };
+
+        await _service.SaveProfileAsync(profile);
+
+        var profilesJson = await File.ReadAllTextAsync(Path.Combine(_dir, "profiles.json"));
+        Assert.DoesNotContain("Metadata", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("EntraObjectId", profilesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("33333333-3333-3333-3333-333333333333", profilesJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task GetProfile_ShouldBeCaseInsensitive()
     {
         await _service.SaveProfileAsync(MakeProfile("Prod"));
