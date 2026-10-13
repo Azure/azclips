@@ -68,9 +68,12 @@ namespace Core.Extensions
         /// rely on the real CLI host to provide them at install time.
         /// </param>
         /// <returns>
-        /// Verbs and leaf keys declared by the extension, or both empty if it exposes no CLI
-        /// commands (or pre-dates the <c>GetCommandKeys</c> interface member and inherits the
-        /// default empty implementation).
+        /// Verbs and leaf keys declared by the extension. <c>LeafKeys</c> alone can be empty for
+        /// an extension that declares <c>[ExtensionVerb]</c> but has no commands yet (e.g.
+        /// KeyVault) or pre-dates the <c>GetCommandKeys</c> interface member and inherits the
+        /// default empty implementation. Both collections are empty only when the extension
+        /// declares no <c>[ExtensionVerb]</c> contract at all (e.g. ExtensionRuntime) - callers
+        /// must not treat "both empty" and "LeafKeys empty" as the same case.
         /// </returns>
         /// <exception cref="DirectoryNotFoundException">Install directory does not exist.</exception>
         /// <exception cref="InvalidOperationException">

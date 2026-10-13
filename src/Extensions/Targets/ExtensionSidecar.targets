@@ -170,6 +170,16 @@
       OutputFile="$(OutputPath)$(PackageId).commands.json" />
   </Target>
 
+  <!-- Written directly via File.WriteAllText, not a tracked compiler output, so it's invisible to
+       FileWrites/IncrementalClean (which snapshots @(FileWrites) as part of CoreBuild's own
+       DependsOnTargets, before any AfterTargets="Build" hook like the one above ever runs) -
+       "dotnet clean" would otherwise leave it behind, letting a later NoBuild publish/pack copy a
+       stale contract. Delete it explicitly as part of the project's own Clean. -->
+  <Target Name="CleanExtensionSidecar" AfterTargets="CoreClean">
+    <Delete Files="$(OutputPath)$(PackageId).commands.json"
+            Condition="Exists('$(OutputPath)$(PackageId).commands.json')" />
+  </Target>
+
 
   <!-- Packaging (build_common.sh) runs "dotnet build" then a separate publish step with the
        NoBuild flag set, to stage builtin extension publish output. NoBuild skips the Build target
