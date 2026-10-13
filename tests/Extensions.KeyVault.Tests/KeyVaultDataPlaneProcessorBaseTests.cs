@@ -55,18 +55,21 @@ public class KeyVaultDataPlaneProcessorBaseTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public async Task FoundationRejectsExecutionBeforeNetworkOrOutput(bool hasProfile, bool skipBaseHook)
+    public async Task MissingProfileOrVaultRejectsExecutionBeforeNetworkOrOutput(bool hasProfile, bool skipBaseHook)
     {
         var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
         var publisher = CreatePublisher();
         var profile = hasProfile ? new Profile { TenantId = "fixture-tenant" } : null;
         var authHandler = new AuthHandler { Profile = profile };
         var output = new List<object>();
-        var processor = new TestProcessor { SkipBaseHook = skipBaseHook };
+    var processor = new TestProcessor { SkipBaseHook = skipBaseHook };
         processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, authHandler,
             new OutputHandler { WriteOutput = (value, _) => { output.Add(value); return Task.CompletedTask; } }, profile));
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => processor.ProcessAsync());
+        if (hasProfile)
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
 
         pipeline.VerifyNoOtherCalls();
         Assert.Empty(output);
@@ -82,7 +85,7 @@ public class KeyVaultDataPlaneProcessorBaseTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task FoundationRejectsDirectAndChildSendsBeforeCustomization(bool useChild)
+    public async Task MissingProfileRejectsDirectAndChildSendsBeforeCustomization(bool useChild)
     {
         var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
         var publisher = CreatePublisher();
@@ -93,7 +96,7 @@ public class KeyVaultDataPlaneProcessorBaseTests
         var send = typeof(KeyVaultDataPlaneProcessorBase).GetMethod("SendAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         Assert.False(send.IsVirtual);
-        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             try
             {
@@ -109,6 +112,39 @@ public class KeyVaultDataPlaneProcessorBaseTests
         Assert.False(target.BeforeProcessCalled);
         Assert.False(target.SendCoreCalled);
         Assert.False(target.RequestCreated);
+        publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Never);
+        publisher.Verify(value => value.Publish(Events.TracingHttpResponseMessage, It.IsAny<HttpResponseMessage>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DirectCoreSendRejectsMissingProfileOrInvalidVault(bool hasProfile, bool useChild)
+    {
+        var pipeline = new Mock<IRuntimeHttpPipeline>(MockBehavior.Strict);
+        var publisher = CreatePublisher();
+        var profile = hasProfile ? new Profile { TenantId = "fixture-tenant" } : null;
+        var authHandler = new AuthHandler { Profile = profile };
+        var processor = new TestProcessor { VaultBaseUrl = new Uri("https://attacker.example/") };
+        processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, authHandler,
+            new OutputHandler { WriteOutput = (_, _) => throw new InvalidOperationException("Unexpected output.") }, profile));
+        var target = useChild ? processor.CreateChild() : processor;
+        Func<Task> send = async () =>
+        {
+            using var response = await target.SendCoreDirectlyAsync();
+        };
+
+        if (hasProfile)
+            await Assert.ThrowsAsync<ArgumentException>(send);
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(send);
+
+        Assert.False(target.RequestCreated);
+        pipeline.VerifyNoOtherCalls();
+        Assert.False(authHandler.ApplyOverride);
+        Assert.Null(authHandler.AcquireTokenAsyncOverride);
         publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Never);
         publisher.Verify(value => value.Publish(Events.TracingHttpResponseMessage, It.IsAny<HttpResponseMessage>()), Times.Never);
     }
@@ -206,5 +242,6 @@ public class KeyVaultDataPlaneProcessorBaseTests
         public TestProcessor CreateChild() => CreateExtendedProcessor<TestProcessor>();
         public Task EmitAsync(TestResponse response) => WriteOutput(response);
         public Task ProcessResponseForTestAsync(HttpResponseMessage response) => ProcessResponseAsync(response);
+        public Task<HttpResponseMessage> SendCoreDirectlyAsync() => base.SendCoreAsync();
     }
 }
