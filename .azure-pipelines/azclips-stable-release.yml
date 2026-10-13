@@ -37,6 +37,20 @@ variables:
   value: ${{ variables.esrp_service_connection }}
 - name: MacOSBundleId
   value: ${{ variables.macos_bundle_id }}
+- name: DockerCliRegistryName
+  value: azclips
+- name: DockerCliRegistryServer
+  value: azclips.azurecr.io
+- name: DockerCliRepository
+  value: unlisted/azclips/cli-dev
+- name: DockerPowerShellRegistryName
+  value: azclips
+- name: DockerPowerShellRegistryServer
+  value: azclips.azurecr.io
+- name: DockerPowerShellRepository
+  value: unlisted/azclips/powershell-dev
+- name: DockerAzureServiceConnection
+  value: 'Azure CLI release'
 
 stages:
 - stage: Preflight
@@ -86,6 +100,10 @@ stages:
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
     final_artifact_name: Final_Build_Distribution
+    build_docker_images: true
+    build_cli_docker_images: true
+    build_powershell_docker_images: false
+    include_docker_images_in_final_distribution: false
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -151,4 +169,18 @@ stages:
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)
     signed_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
+- template: templates/dist/stages/publish-docker-to-acr.yml
+  parameters:
+    dependency_stage: VerifySignedDistribution
+    cli_dependency_stage: ValidateDockerAzureLinux3
+    azure_subscription: ${{ variables.DockerAzureServiceConnection }}
+    cli_registry_name: $(DockerCliRegistryName)
+    cli_registry_server: $(DockerCliRegistryServer)
+    cli_repository: $(DockerCliRepository)
+    powershell_registry_name: $(DockerPowerShellRegistryName)
+    powershell_registry_server: $(DockerPowerShellRegistryServer)
+    powershell_repository: $(DockerPowerShellRepository)
+    PackagingScriptsRoot: $(PackagingScriptsRoot)
     signed_artifact_name: ${{ variables.SignedArtifactName }}

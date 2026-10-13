@@ -151,5 +151,3 @@ stages:
     powershell_repository: $(DockerPowerShellRepository)
     PackagingScriptsRoot: $(PackagingScriptsRoot)
     signed_artifact_name: ${{ variables.SignedArtifactName }}
-    publication_environment: azclips-container-test
-    verify_mcr: true

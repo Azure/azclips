@@ -13,7 +13,7 @@ parameters:
 
 jobs:
 - job: DockerValidation
-  displayName: Docker Validation
+  displayName: Docker Image Validation
   timeoutInMinutes: 30
   strategy:
     matrix:
