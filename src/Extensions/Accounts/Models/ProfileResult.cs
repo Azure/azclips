@@ -9,7 +9,7 @@ public sealed record ProfileResult
     public string TenantId { get; init; } = default!;
     public string SubscriptionId { get; init; } = default!;
     public string CloudName { get; init; } = default!;
-    public AuthMethod AuthMethod { get; init; }
+    public string AuthMethod { get; init; } = default!;
     public string? DefaultLocation { get; init; }
     public string? DefaultResourceGroup { get; init; }
     public string? UserPrincipalName { get; init; }
@@ -22,7 +22,7 @@ public sealed record ProfileResult
         TenantId = profile.TenantId,
         SubscriptionId = profile.SubscriptionId,
         CloudName = profile.CloudName,
-        AuthMethod = profile.AuthMethod,
+        AuthMethod = profile.AuthMethod.ToString(),
         DefaultLocation = profile.DefaultLocation,
         DefaultResourceGroup = profile.DefaultResourceGroup,
         UserPrincipalName = profile.UserPrincipalName,

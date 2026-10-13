@@ -212,6 +212,7 @@ public sealed class ProfileCliTests
         Assert.Equal(2, results.Count);
         Assert.Contains(results, s => s.Name == "prod");
         Assert.Contains(results, s => s.Name == "staging");
+        Assert.All(results, result => Assert.Equal(nameof(AuthMethod.Browser), result.AuthMethod));
         Assert.All(results, result => Assert.Null(result.GetType().GetProperty("Metadata")));
     }
 
