@@ -51,29 +51,11 @@ public static class TelemetryTags
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     /// <summary>
-    /// The caller tenant's ARM data boundary, or why there is none: <c>eu</c>, <c>global</c> or a
-    /// future ARM value, otherwise one of the closed no-answer values (e.g. <c>skipped_github</c>,
-    /// <c>no_tenant</c>, <c>arm_status_429</c>).
-    /// </summary>
-    /// <remarks>
-    /// One field, so it can never be half-written: every startup path records exactly one value
-    /// here. A no-answer value is not a boundary — consumers must not read any of them as
-    /// <c>global</c>. Full vocabulary in <c>eng-docs/spec/telemetry.md</c>.
-    /// </remarks>
-    public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
-    /// <summary>
     /// Wall-clock cost of acquiring the caller's Azure token, recorded on success and failure alike.
-    /// One acquisition serves both the model provider and the ARM data boundary lookup, so this is
-    /// the shared startup cost rather than something either one owns. Absent for any provider other
-    /// than builtin, which is the only one needing an Azure token.
+    /// One acquisition serves both the model provider and the data boundary lookup. Absent for any
+    /// provider other than builtin, which is the only one needing an Azure token.
     /// </summary>
-    public const string RecoveryTokenElapsedMs = PropertyTagPrefix + "recovery.tokenElapsedMs";
-    /// <summary>
-    /// Wall-clock cost of the data boundary lookup: profile read, ARM call, parse. Excludes the
-    /// token, which is acquired by the caller and timed by
-    /// <see cref="RecoveryTokenElapsedMs"/> — pair the two for the full startup probe.
-    /// </summary>
-    public const string RecoveryDataBoundaryElapsedMs = PropertyTagPrefix + "recovery.dataBoundary.elapsedMs";
+    public const string AgentTokenElapsedMs = PropertyTagPrefix + "agent.tokenElapsedMs";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";

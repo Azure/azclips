@@ -40,8 +40,7 @@ public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
         // but DefaultTelemetryActivityNameFilter rejects "System.Net.Http.HttpRequestOut" — asserted
         // in ActivityNameFilterTests — so every span it produces is dropped before export. Adding it
         // would buy instrumentation overhead on every agent HTTP call and no data. Outbound calls
-        // that need timing carry it on their own allowlisted span instead, the way
-        // Agent.DataBoundary records elapsedMs.
+        // that need timing carry it on their own allowlisted span instead.
         foreach (var processor in filterProcessors)
         {
             builder.AddProcessor(processor);
