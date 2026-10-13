@@ -210,9 +210,9 @@ public sealed class ProfileCliTests
         var emitted = Assert.Single(fixture.RawOutputs);
         var results = Assert.IsAssignableFrom<IEnumerable<ProfileResult>>(emitted).ToList();
         Assert.Equal(2, results.Count);
-        Assert.Contains(results, s => s.Name == "prod");
-        Assert.Contains(results, s => s.Name == "staging");
-        Assert.All(results, result => Assert.Equal(nameof(AuthMethod.Browser), result.AuthMethod));
+        Assert.Contains(results, s => s.Name == "prod" && s.IsActive);
+        Assert.Contains(results, s => s.Name == "staging" && !s.IsActive);
+        Assert.All(results, result => Assert.Equal(AuthMethod.Browser, result.AuthMethod));
         Assert.All(results, result => Assert.Null(result.GetType().GetProperty("Metadata")));
     }
 

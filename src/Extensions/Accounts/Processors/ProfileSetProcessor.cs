@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 ?? throw AzclipsErrorException.ProfileNotFound($"Profile '{Name}' does not exist.");
 
             await profileService.SetActiveProfileNameAsync(profile.Name);
-            await WriteOutput(ProfileResult.From(profile));
+            await WriteOutput(ProfileResult.From(profile, isActive: true));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }

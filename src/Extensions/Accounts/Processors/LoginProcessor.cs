@@ -227,7 +227,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             await profileService.SaveAndActivateProfileAsync(resultProfile);
 
-            await WriteOutput(ProfileResult.From(resultProfile));
+            await WriteOutput(ProfileResult.From(resultProfile, isActive: true));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
 

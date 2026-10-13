@@ -117,7 +117,8 @@ public class ConnectAccountCmdletTests
         Assert.Equal(profile.TenantId, output.TenantId);
         Assert.Equal(profile.SubscriptionId, output.SubscriptionId);
         Assert.Equal(profile.CloudName, output.CloudName);
-        Assert.Equal(profile.AuthMethod.ToString(), output.AuthMethod);
+        Assert.Equal(profile.AuthMethod, output.AuthMethod);
+        Assert.False(output.IsActive);
         Assert.Equal(profile.DefaultLocation, output.DefaultLocation);
         Assert.Equal(profile.DefaultResourceGroup, output.DefaultResourceGroup);
         Assert.Equal(profile.UserPrincipalName, output.UserPrincipalName);
