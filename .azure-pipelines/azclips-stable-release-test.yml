@@ -26,13 +26,13 @@ variables:
 - name: DockerCliRegistryServer
   value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: internal/azclips/cli
+  value: unlisted/azclips/cli-dev
 - name: DockerPowerShellRegistryName
   value: azclips
 - name: DockerPowerShellRegistryServer
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: internal/azclips/powershell
+  value: unlisted/azclips/powershell-dev
 - name: DockerAzureServiceConnection
   value: 'Azure CLI release'
 
@@ -152,4 +152,4 @@ stages:
     PackagingScriptsRoot: $(PackagingScriptsRoot)
     signed_artifact_name: ${{ variables.SignedArtifactName }}
     publication_environment: azclips-container-test
-    promote_aliases: false
+    verify_mcr: true
