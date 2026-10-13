@@ -327,11 +327,12 @@ observations per case are not sufficient to claim stable p95 latency.
 
 Freeze the case inputs, rubric version/content, judge deployment, runtime settings,
 fixture subscription/group, concurrency, repetition count and cache policy across
-baseline and candidate runs. Also keep the harness's measurement and grading code
-(assertions, provider and wrapper) identical: the suite version that the dashboard
-uses to decide whether two runs are comparable covers the case inputs and rubric
-text but not the assertion implementations, so compare only runs whose harness
-commits have identical measurement and grading code. The wrapper records the
+baseline and candidate runs. Also keep the harness's measurement and grading
+behavior (assertions, provider and wrapper) the same: the suite version that the
+dashboard uses to decide whether two runs are comparable covers the case inputs
+and rubric text but not the assertion implementations, so check the harness
+commits of both runs for changes that affect measurement or grading on the
+platform used. The wrapper records the
 target version, package
 fingerprint, cache state, Agent model settings and runtime-prompt hash in every
 result; check that they identify the intended builds and settings before
