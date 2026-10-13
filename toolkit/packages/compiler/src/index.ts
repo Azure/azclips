@@ -94,3 +94,12 @@ export {
   type GeneratorContext,
   type GeneratedArtifact,
 } from "./generate.js";
+
+// The checks every stage applies to its stage config, re-exported for hosts so that
+// their own checks of the config file read the same way.
+export {
+  describeValue,
+  isMap,
+  warnUnknownKeys,
+  type ConfigKeyKind,
+} from "@azure-client-engine/transformers";
