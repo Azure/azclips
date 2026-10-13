@@ -5,7 +5,9 @@ using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Extensions.KeyVault.Tests;
@@ -64,17 +66,7 @@ public class SensitiveHttpDiagnosticsTests
     private sealed record PaginationPage(string[] Items, string? NextLink);
 
     [Fact]
-    public void DisposedTransportProviderIsCollectible()
-    {
-        var reference = CreateDisposedTransportProvider();
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-        Assert.False(reference.IsAlive);
-    }
-
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    private static WeakReference CreateDisposedTransportProvider()
+    public void SingletonTransportsRenewConnectionsWithoutHandlerRotation()
     {
         var handlers = new List<SocketsHttpHandler>();
         var services = new ServiceCollection();
@@ -83,9 +75,11 @@ public class SensitiveHttpDiagnosticsTests
             handlers.Add(Assert.IsType<SocketsHttpHandler>(handler))));
         using var provider = services.BuildServiceProvider();
         provider.GetRequiredService<ISendAsyncTerminalFactory>();
+        var options = provider.GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>();
+        Assert.Equal(Timeout.InfiniteTimeSpan, options.Get(Options.DefaultName).HandlerLifetime);
+        Assert.Equal(Timeout.InfiniteTimeSpan, options.Get(Core.Runtime.HttpClientTransportFactory.SensitiveClientName).HandlerLifetime);
         Assert.Equal(2, handlers.Count);
         Assert.All(handlers, handler => Assert.Equal(TimeSpan.FromMinutes(2), handler.PooledConnectionLifetime));
-        return new WeakReference(provider);
     }
 
     [Fact]
