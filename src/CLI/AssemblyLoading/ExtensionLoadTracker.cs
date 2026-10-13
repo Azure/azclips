@@ -98,6 +98,7 @@ public static class ExtensionLoadTracker
         });
 
         var table = TableFormatter.FormatRows(tableRows, headers, includeHeaderSeparator: false);
+        writeDebug("[ExtensionLoadTracker] Extension load timing for this command:");
         foreach (var line in table.Split('\n'))
         {
             writeDebug($"[ExtensionLoadTracker] {line}");

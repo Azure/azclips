@@ -34,6 +34,9 @@ public sealed class ExtensionLoadTrackerTests
         // Every single log line must have the [ExtensionLoadTracker] prefix
         Assert.All(logs, line => Assert.StartsWith("[ExtensionLoadTracker] ", line));
 
+        // Must contain the heading line above the table
+        Assert.Equal("[ExtensionLoadTracker] Extension load timing for this command:", logs[0]);
+
         // Must contain column headers
         Assert.Contains(logs, l => l.Contains("Extension") && l.Contains("Loader") && l.Contains("Time (ms)") && l.Contains("Version"));
         Assert.DoesNotContain(logs, l => l.Contains("Path"));
