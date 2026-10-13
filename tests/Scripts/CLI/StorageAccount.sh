@@ -43,7 +43,12 @@ cleanup() {
     restore_agent_config
 }
 trap cleanup EXIT
-az config set --key agent.enabled --value false
+# Every negative case depends on this: with the agent still enabled, an expected error would open
+# the interactive agent and hang the run instead of failing, so stop here if it can't be set.
+if ! az config set --key agent.enabled --value false; then
+    echo "Could not disable agent mode; aborting before any case runs." >&2
+    exit 1
+fi
 
 # No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
 # continue past them. Each command's exit code surfaces its own error on stderr.
