@@ -317,12 +317,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return false;
         }
 
+        // Legacy clients accept JSONC in template/parameter files: az strips comments, Az PowerShell parses with Newtonsoft.
+        private static readonly JsonDocumentOptions JsoncDocumentOptions = new() { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+        private static readonly JsonSerializerOptions JsoncSerializerOptions = new() { ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+
         private static JsonObject ParseJsonObject(string json, string description)
         {
             JsonNode? node;
             try
             {
-                node = JsonNode.Parse(json);
+                node = JsonNode.Parse(json, documentOptions: JsoncDocumentOptions);
             }
             catch (JsonException ex)
             {
@@ -464,7 +468,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             string content = File.ReadAllText(path);
             try
             {
-                return JsonSerializer.Deserialize<JsonElement>(content);
+                return JsonSerializer.Deserialize<JsonElement>(content, JsoncSerializerOptions);
             }
             catch (JsonException ex)
             {

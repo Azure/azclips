@@ -163,7 +163,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
         // is readable instead of a wall of raw JSON.
-        private static string BuildErrorMessage(ErrorResponse? error)
+        internal static string BuildErrorMessage(ErrorResponse? error)
         {
             StringBuilder builder = new StringBuilder("Deployment validation failed.");
             AppendError(builder, error, indent: 1);
