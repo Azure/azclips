@@ -172,6 +172,19 @@
       Condition="'$(_SidecarLastStampedVersion)' != '$(PackageVersion)'" />
   </Target>
 
+  <Target Name="ResolveExtensionSidecarDependencyPaths">
+    <PropertyGroup>
+      <_SidecarCoreAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/Core.Extensions.dll')">$(RepoArtifacts)$(Configuration)/Core/$(RuntimeIdentifier)/</_SidecarCoreAssemblyDir>
+      <_SidecarCoreAssemblyDir Condition="'$(_SidecarCoreAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Core/</_SidecarCoreAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/Microsoft.Azure.Azclips.ExtensionRuntime.dll')">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/$(RuntimeIdentifier)/</_SidecarRuntimeAssemblyDir>
+      <_SidecarRuntimeAssemblyDir Condition="'$(_SidecarRuntimeAssemblyDir)' == ''">$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/</_SidecarRuntimeAssemblyDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SidecarDependencyInput Include="$(_SidecarCoreAssemblyDir)Core.Extensions.dll" />
+      <_SidecarDependencyInput Include="$(_SidecarRuntimeAssemblyDir)Microsoft.Azure.Azclips.ExtensionRuntime.dll" />
+    </ItemGroup>
+  </Target>
+
   <!-- v1 scope: just the GetCommandKeys leaf keys + declared verbs, no parameter/help
        metadata yet. Runs after Build so $(OutputPath) already exists; the sidecar sits next to
        the extension's own DLL, e.g. artifacts/Debug/<ExtName>/<PackageId>.commands.json.
@@ -184,13 +197,13 @@
        lives in, this generator target file, and the PackageVersion stamp above. -->
   <Target Name="GenerateExtensionSidecar"
           AfterTargets="Build"
-          DependsOnTargets="WriteSidecarVersionStamp"
-          Inputs="$(TargetPath);$(MSBuildProjectFullPath);$(RepoArtifacts)$(Configuration)/Core/Core.Extensions.dll;$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
+          DependsOnTargets="WriteSidecarVersionStamp;ResolveExtensionSidecarDependencyPaths"
+          Inputs="$(TargetPath);$(MSBuildProjectFullPath);@(_SidecarDependencyInput);$(MSBuildThisFileFullPath);$(_SidecarVersionStampFile)"
           Outputs="$(OutputPath)$(PackageId).commands.json">
     <GenerateExtensionSidecarTask
       ExtensionOutputDir="$(OutputPath)"
-      CoreAssemblyDir="$(RepoArtifacts)$(Configuration)/Core/"
-      ExtensionRuntimeAssemblyDir="$(RepoArtifacts)$(Configuration)/Microsoft.Azure.Azclips.ExtensionRuntime/"
+      CoreAssemblyDir="$(_SidecarCoreAssemblyDir)"
+      ExtensionRuntimeAssemblyDir="$(_SidecarRuntimeAssemblyDir)"
       PackageId="$(PackageId)"
       PackageVersion="$(PackageVersion)"
       OutputFile="$(OutputPath)$(PackageId).commands.json" />
