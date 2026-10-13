@@ -2,7 +2,6 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
-using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
@@ -29,8 +28,7 @@ public static class AgentModeEntry
     private static readonly string[] SessionResultTags =
     [
         TelemetryTags.ProcessName, TelemetryTags.RecoverySessionStyle, TelemetryTags.RecoveryProvider,
-        TelemetryTags.AgentModel, TelemetryTags.AgentModelSource, TelemetryTags.RecoveryDataBoundary,
-        TelemetryTags.RecoveryTokenElapsedMs,
+        TelemetryTags.AgentModel, TelemetryTags.AgentModelSource, TelemetryTags.AgentTokenElapsedMs,
     ];
 
     public static async Task<int> RunAsync(string[] args)
@@ -137,18 +135,16 @@ public static class AgentModeEntry
             // thing that can spend seconds here.
             spinner.Start("Analyzing error root cause using AI");
 
-            // Reuse one Azure token for the builtin provider and this diagnostic ARM probe.
-            // The probe does not select the model endpoint.
+            // Reuse one Azure token for the builtin provider and the boundary lookup.
+            // The boundary does not select the model endpoint.
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
             var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService,
-                profile => ResolverFactory(profile, lifetime.Telemetry), session, cts.Token);
+                agentOpts, auth, profileService, lifetime.Scope.Context.DataBoundary,
+                LookupDataBoundary, session, cts.Token);
 
-            // The only place this tag is written. Unconditional, because the seam never throws:
-            // there is no path from here to ChatAgent.CreateAsync that reaches it without a value.
-            session?.SetTag(TelemetryTags.RecoveryDataBoundary, startup.Boundary.Value);
-
-            trace?.Note("data_boundary", new { boundary = startup.Boundary.Value });
+            // Layer records carry the boundary handed over at launch, which fixed this file's
+            // upload route; a later lookup only refreshes Core's cache for the next run.
+            trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
 
             var azureAuth = startup.Auth;
             // Preserves today's behavior exactly: a signed-out user still gets
@@ -298,6 +294,11 @@ public static class AgentModeEntry
         }
     }
 
+    // Core reads its per-tenant cache first and calls ARM only on a miss.
+    private static Task<string?> LookupDataBoundary(string tenantId, string accessToken, CancellationToken ct) =>
+        DataBoundaryResolver.ResolveAndCacheAsync(
+            tenantId, _ => Task.FromResult<string?>(accessToken), AgentStartupBoundary.LookupTimeout, ct);
+
     /// <summary>Maps SDK error types to the closed recovery failure vocabulary.</summary>
     /// <remarks>
     /// Do not export raw SDK values; map unlisted values to <c>sdk_other</c>.
@@ -314,9 +315,6 @@ public static class AgentModeEntry
     /// <summary>
     /// Binds the diagnostic-only probe to this host's telemetry service.
     /// </summary>
-    private static IDataBoundaryResolver ResolverFactory(IProfileService profileService, ITelemetryService telemetry) =>
-        new Core.Agent.Providers.DataBoundaryResolver(profileService, telemetry: telemetry);
-
     private static async Task RunChatLoopAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,

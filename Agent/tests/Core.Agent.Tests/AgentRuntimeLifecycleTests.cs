@@ -265,11 +265,11 @@ public sealed class AgentRuntimeLifecycleTests
     }
 
     [Theory]
-    [InlineData("builtin", false, 1, "global", 0)]
-    [InlineData("builtin", true, 1, "no_token", 1)]
-    [InlineData("github", false, 0, "skipped_github", 0)]
+    [InlineData("builtin", false, 1, 1, 0)]
+    [InlineData("builtin", true, 1, 0, 1)]
+    [InlineData("github", false, 0, 0, 0)]
     public async Task StandaloneStartup_DoesNotAuthenticateForRouting_AndPublishesAuthFailure(
-        string provider, bool authFails, int acquisitions, string expectedBoundary, int expectedCode)
+        string provider, bool authFails, int acquisitions, int lookups, int expectedCode)
     {
         var cacheReads = 0;
         var launch = AgentTelemetryHost.ResolveLaunch(true, _ => null, enabled =>
@@ -285,11 +285,17 @@ public sealed class AgentRuntimeLifecycleTests
                 ? throw new InvalidOperationException("offline signed-out account")
                 : Task.FromResult(AgentOfflineAuth.Token()),
         };
+        var lookupCalls = 0;
         var code = await AgentModeEntry.RunSessionAsync(() => scope, async (session, _) =>
         {
             var startup = await AgentStartupBoundary.ResolveAsync(new AgentOptions { Provider = provider },
-                auth, new AgentOfflineProfiles(), _ => new StubBoundary(), session, CancellationToken.None);
-            session?.SetTag(TelemetryTags.RecoveryDataBoundary, startup.Boundary.Value);
+                auth, new AgentOfflineProfiles
+                {
+                    Read = _ => Task.FromResult<Profile?>(new Profile { Name = "offline", TenantId = "offline-tenant" }),
+                },
+                scope.Context.DataBoundary,
+                (_, _, _) => { lookupCalls++; return Task.FromResult<string?>("Global"); },
+                session, CancellationToken.None);
             startup.Failure?.Throw();
             if (startup.Auth is not null)
                 Assert.Equal(startup.Auth.AccessToken,
@@ -299,17 +305,10 @@ public sealed class AgentRuntimeLifecycleTests
         Assert.Equal(expectedCode, code);
         Assert.Equal(acquisitions, auth.AcquireCount);
         Assert.Equal(1, cacheReads);
+        Assert.Equal(lookups, lookupCalls);
+        // A lookup answer refreshes the cache only; the file keeps the route fixed at launch.
         var entry = Assert.Single(harness.ReadEntries());
-        var tags = AgentLayerTestHarness.Tags(entry);
-        Assert.Equal(expectedBoundary, tags[TelemetryTags.RecoveryDataBoundary].GetString());
         Assert.Equal("Unknown", entry.GetProperty("DataBoundary").GetString());
-    }
-
-    private sealed class StubBoundary : IDataBoundaryResolver
-    {
-        public Task<DataBoundaryResult> ResolveAsync(string accessToken, CancellationToken ct = default) =>
-            Task.FromResult(DataBoundaryResult.FromArm("Global", "offline-tenant"));
-        public void Dispose() { }
     }
 
     [Fact]
@@ -346,32 +345,6 @@ public sealed class AgentRuntimeLifecycleTests
             release.Set();
             await cancelling.WaitAsync(TimeSpan.FromSeconds(5));
         }
-    }
-
-    [Fact]
-    public async Task DiagnosticBoundary_UsesInjectedTelemetry_WithoutChangingRouting()
-    {
-        await using var harness = new AgentLayerTestHarness(context:
-            new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true, DataBoundary: "Global"));
-        var scope = harness.CreateScope();
-        using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
-        var root = rootScope?.Activity;
-        var profiles = new AgentOfflineProfiles
-        {
-            Telemetry = scope.Telemetry,
-            Read = _ => Task.FromResult<Profile?>(new Profile { Name = "offline", TenantId = "offline-tenant" }),
-        };
-        using var http = new HttpClient(new AgentOfflineHttp((_, _) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
-        {
-            Content = new StringContent("""{"name":"offline-tenant","properties":{"dataBoundary":"EU"}}"""),
-        })));
-        using var resolver = new Core.Agent.Providers.DataBoundaryResolver(profiles, http, scope.Telemetry);
-        Assert.Equal("eu", (await resolver.ResolveAsync("offline-token")).Value);
-        Assert.Equal(TelemetryLayerCompletion.Published, await scope.CompleteAsync(root));
-        var entry = Assert.Single(harness.ReadEntries(), entry =>
-            entry.GetProperty("OperationName").GetString() == "Agent.DataBoundary");
-        Assert.Equal("Global", entry.GetProperty("DataBoundary").GetString());
-        Assert.Equal("eu", AgentLayerTestHarness.Tags(entry)[TelemetryTags.RecoveryDataBoundary].GetString());
     }
 
     private sealed class SilentRenderer : IAgentRenderer

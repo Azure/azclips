@@ -116,46 +116,14 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 | `properties.tool.commandName`      | `tool.get_command`          | Catalog name of the looked-up command (`vm create` or `New-AzVM`, in the form requested), or `(not found)`. Never the raw tool input |
 | `properties.tool.commandFound`     | `tool.get_command`          | Whether the help catalog had the command        |
-| `properties.recovery.dataBoundary` | `Agent.Session`, `Agent.DataBoundary` | The caller tenant's ARM data boundary, or why there is none — vocabulary below |
-| `properties.recovery.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
-| `properties.recovery.dataBoundary.elapsedMs` | `Agent.DataBoundary` | The boundary lookup: profile read, ARM call, parse. Excludes the token — pair with `recovery.tokenElapsedMs` for the whole startup probe |
+| `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
-`recovery.dataBoundary` records one diagnostic value: ARM's answer or why it is unavailable.
-Startup writes it on `Agent.Session`; a lookup also writes it on `Agent.DataBoundary`.
-It does not select the model endpoint.
-
-This Agent probe is diagnostic only. Its `properties.recovery.dataBoundary` value is
-separate from the command's `dataBoundary` and the shared telemetry routing resolver;
-it does not select the model endpoint or an export destination.
-
-ARM's answer passes through, lowercased: `eu`, `global`, or any value ARM adds later. It is the only
-untrusted string in this dimension, so it is the only one sanitised — it must match
-`^[a-z0-9_-]{1,32}$` or it is recorded as `unexpected_value`. That is a check on shape, not on
-recognition: an unfamiliar but well-shaped value is reported as itself, because discovering one is
-the point of the probe. Every other value is closed by the compiler — the emitting code takes a
-`DataBoundaryUnavailable` enum, so arbitrary error details cannot be written here. The one
-exception is `arm_status_<code>`, where the suffix is an HTTP status code.
-
-**None of the no-answer values is a boundary**, and none of them may be read as `global`.
-
-| Value | Meaning |
-| ----- | ------- |
-| `eu`, `global`, or another lowercase token | ARM's answer for the caller's tenant |
-| `skipped_github` | Provider is `github`; it never calls ARM, so no lookup was attempted |
-| `skipped_unsupported_provider` | Provider is neither `builtin` nor `github`. The boundary is recorded before startup rejects the value, so this is a misconfiguration, not a session that ran |
-| `no_tenant` | Nothing to ask ARM about: signed out, or the profile names no tenant |
-| `profile_unavailable` | The profile could not be read at all — a storage or permissions problem, not a signed-out user |
-| `timeout_profile` | The profile read exceeded the lookup budget |
-| `no_token` / `timeout_token` | Token acquisition ran and failed, or exceeded its budget |
-| `arm_status_<code>` | ARM answered with a non-success status, e.g. `arm_status_429` |
-| `timeout_arm` / `arm_failed` | The ARM call exceeded the lookup budget, or failed at the transport |
-| `unreadable` | ARM answered with success but no usable boundary: empty, malformed, or absent |
-| `tenant_mismatch` | ARM echoed a different tenant than the one asked about |
-| `tenant_unconfirmed` | ARM echoed no tenant at all, so the answer proves nothing about whose boundary it is. Distinct from `tenant_mismatch`, which is ARM answering about someone else |
-| `cancelled` | The caller's cancellation token was signalled — Ctrl+C during startup |
-| `unexpected_value` | ARM's value failed the shape check above |
-| `lookup_faulted` | The lookup threw despite contracting never to — our bug, not ARM's. The token was acquired and recovery continues; only the boundary is lost |
-| `not_started` | Unreachable by design: the startup seam never throws, so an outcome is always classified. Seeing this means that contract broke |
+Agent layer records carry the `dataBoundary` the CLI handed over at launch; it fixes the
+file's upload route. When the handover has no boundary, the builtin provider resolves it
+through Core's `DataBoundaryResolver`, which reads the per-tenant cache and calls ARM only
+on a miss, reusing the token acquired for the model. That lookup refreshes the cache for
+later runs and does not change the route of the current file. It does not select the model
+endpoint.
 
 `modelSource` is a closed set: the four values are the wire forms of `AgentModelSource`,
 mapped by an exhaustive `Wire()`, so a mistyped literal can no longer create a fifth value. A test pins the set itself, so a new member cannot ship without being

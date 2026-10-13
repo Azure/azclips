@@ -70,7 +70,6 @@ public class ActivityNameFilterTests
     [InlineData("Agent.Turn")]
     [InlineData("Agent.Send")]
     [InlineData("Agent.Reprompt")]
-    [InlineData("Agent.DataBoundary")]
     [InlineData("tool.get_command")]
     [InlineData("tool.bash")]
     [InlineData("tool.")]

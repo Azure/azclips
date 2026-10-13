@@ -213,7 +213,6 @@ public class TelemetryLayerFactoryTests
         Assert.Throws<ArgumentException>(() => new TelemetryLayer("Test", "..\\test", "v1", ["Test.Root"]));
         Assert.Throws<ArgumentException>(() => new TelemetryLayer("Test", "Uppercase", "v1", ["Test.Root"]));
         Assert.Equal(TelemetryLayers.Agent.ServiceName, TelemetryLayers.Agent.SourceName);
-        Assert.True(TelemetryLayers.Agent.NameFilter.IsAllowed("Agent.DataBoundary"));
         Assert.True(TelemetryLayers.Agent.NameFilter.IsAllowed("MsalAuthService.GetAccessTokenAsync"));
         Assert.True(TelemetryLayers.Agent.NameFilter.IsAllowed("ProfileService.Load"));
         Assert.False(TelemetryLayers.Agent.NameFilter.IsAllowed("http.request"));
