@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791854126438,
+  "lastUpdate": 1791854131128,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -10460,6 +10460,48 @@ window.BENCHMARK_DATA = {
             "value": 319203748.19,
             "unit": "ns",
             "range": "± 7034461.339943389"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55773468+notyashhh@users.noreply.github.com",
+            "name": "Yash",
+            "username": "notyashhh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dbe6f815e0127844c294a736b0b72979e8fb85c3",
+          "message": "[Key Vault] Add secret lifecycle commands for CLI and PowerShell (#928)\n\n**Review Order and Target**\n\nThe foundation PR https://github.com/Azure/azclips/pull/905 is merged\ninto `main`. This PR targets `main` and is next in the review/merge\norder, followed by certificates\nhttps://github.com/Azure/azclips/pull/997. Merge remains subject to\nrequired CI and reviewer approval.\n\n**Related Commands**\n\n- CLI: `az keyvault secret set`, `show`, `list`, `list-versions`,\n`set-attributes`, `delete`.\n- PowerShell: `Set-AzKeyVaultSecret`, `Get-AzKeyVaultSecret`\n(show/list/versions), `Update-AzKeyVaultSecret`,\n`Remove-AzKeyVaultSecret`, `Undo-AzKeyVaultSecretRemoval`.\n- Recovery is explicitly included in the requested P0 PowerShell scope.\nCLI recovery remains unexposed.\n- Related: https://github.com/Azure/CLIPS/issues/719 under\nhttps://github.com/Azure/CLIPS/issues/717. This PR does not complete\neither issue.\n\n**Description**\n\nAdds six secret operations shared by CLI and PowerShell, plus PowerShell\nrecovery, to the Key Vault foundation. Includes command help, regression\ntests and a phased live-test script.\n\n- Generates atomic processors and models from the Secrets TypeSpec at\nAPI `2025-07-01`. Spec revision:\n`f24f79579b392171062e81b9b573ab714c7839b5`.\n- Keeps input validation, file/SecureString handling, attribute mapping\nand output shaping in customization. Metadata is returned by default;\nplaintext retrieval requires `--as-plain-text` or `-AsPlainText`.\n- Uses Core token acquisition with a temporary vault-audience override.\nValidates the selected public-Azure vault and continuation destinations,\nand restores the auth override after each request. Direct sends also\nenforce the preparation guard.\n- Adds opt-in sensitive HTTP diagnostics, payload-free error handling\nand recording sanitization. Removes raw values from CLI verbose\nconversion messages. Empty and malformed pagination responses respect\nrequest or response sensitivity markers.\n- Builds ordinary and sensitive transports through the standard .NET\nHTTP client factory. Hosts apply common proxy, TLS/client-certificate,\ntimeout, header and delegating-handler settings through\n`ConfigureHttpClientDefaults`. The sensitive primary transport has\nredirects disabled after configuration and factory logging removed.\nUnknown primary transport types fail closed. Arbitrary prebuilt\n`HttpClient` instances are not cloned; hosts must configure shared\ndefaults or explicitly supply both transports.\n- Supports multi-page listing, explicit versions, omitted versus false\nattribute values, CLI deletion confirmation, and PowerShell\n`ShouldProcess`/`WhatIf`. Delete preserves service soft-delete behavior\nand never purges.\n- Adds name-based `Undo-AzKeyVaultSecretRemoval` with vault/profile\nselection, `WhatIf` and `Confirm`. Returns recovery metadata without a\nsecret value. It does not implement legacy `InputObject`/ID parameter\nsets or poll subsequent read availability.\n- Adds the PowerShell module and rollup integration. Uses the named\nAccounts dependency, matching Compute/Resources, to avoid the\nsource-manifest validation failure found during live testing.\n- Fixes a live-discovered input bug: binding metadata initialized an\nempty value and incorrectly rejected file/SecureString input as a second\nvalue source. Includes regression coverage.\n- Runs the existing offline secret safety harness in GitHub Actions\nafter PowerShell setup. Updates docs-sync's explicit module inventory to\ninclude KeyVault and gives cmdlet tests a direct Core DI runtime\nreference.\n\nGeneration needed a scratch copy without the SDK-only `client.tsp`\nimport because the emitter skipped the get/update override methods. The\nupstream spec was left unchanged. Generated output was adjusted for the\nexisting base/endpoint, missing open-enum declarations, required-value\ninitialization, URI escaping and omitted optional query parameters.\nThese adjustments still need codegen review; this is not an unmodified\nregeneration. This review-fix update does not change shared codegen or\ngenerated processors.\n\n**Testing Guide**\n\nCurrent local validation used the pinned .NET SDK `10.0.401` and an\nisolated tracked-files checkout on macOS:\n\n```sh\ndotnet build azclips.slnx -m:1\ndotnet test azclips.slnx --no-build --configuration Debug -m:1\npwsh -NoProfile -File tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1\npwsh -NoProfile -Command 'Import-Module Pester -RequiredVersion 6.2.0; $result = Invoke-Pester -Path tests/Ps.DocsSync.Tests/ -PassThru; if ($result.Result -ne \"Passed\") { exit 1 }'\npwsh -NoProfile -File build/build.ps1 -Configuration Release -GenerateHelpArtifacts\ndotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj --configuration Release --no-build -- --artifacts-root artifacts/Release --output-root artifacts/help\ngit diff --check\n```\n\n- Full Debug solution suite: **2,608 passed, 10 skipped, 0 failed**.\nIncludes 89 Key Vault unit tests, all 121 frontend scenarios (14 Key\nVault secret scenarios), 164 cmdlet tests and 4 Engine tests.\n- All 29 docs-sync tests passed on Pester `6.2.0`, matching the\npreviously failing CI job.\n- Offline ownership, target binding, expected-failure, cleanup and\nactual recovery export/WhatIf checks passed. No Azure resources are\naccessed by this offline harness.\n- Debug and Release solution builds passed. Release MAML generation for\neight modules and explicit help validation passed with no help issues.\nExisting compiler warnings remain.\n- Keep Debug test validation separate from Release output: the existing\ncompatibility fixture searches artifact directories without filtering\nthe build configuration. The final full-suite run used Debug-only\nartifacts.\n- New remote CI results must be checked on the pushed head. No live\nAzure run was performed for this review-fix update.\n\nHistorical live validation on September 21 used a dedicated RBAC-enabled\nStandard vault with seven-day soft delete and purge protection, on macOS\nwith user authentication. Actual CLIPS CLI and PowerShell results were\nchecked independently with the existing Azure CLI.\n\n- Tested the original six operations, two versions, page size one,\nUnicode/newline preservation, metadata-only defaults, explicit\nplaintext, attribute updates, tag clearing, denied access, confirmation,\nWhatIf and soft-delete recovery metadata.\n- Final saved live phases contain 73 passing assertions. Scanned 16\ncaptured diagnostic files and 30 isolated telemetry files for the\nsynthetic-value marker; none contained it. This is evidence for those\ncases on that earlier revision, not a blanket security guarantee or live\nvalidation of the newly added recovery cmdlet.\n- Repeatable live harness: `tests/Scripts/PS/KeyVaultSecrets.Live.ps1`,\nwith `Cli`, `PowerShell` and `Delete` phases. Uses synthetic fixtures;\nlocal evidence and credentials are not included in this PR.\n\n**Limits and Review Gates**\n\n- Public Azure only. CLI recovery, purge, backup/restore, standalone\nkeys, certificates and vault control-plane commands are not exposed\nhere. PowerShell secret recovery is included.\n- Review the temporary auth approach and shared transport contract. This\nupdate addresses configuration isolation but does not introduce\nresponse-content secret detection or guarantee that arbitrary host-added\nhandlers never log sensitive data.\n- Review compatibility choices: metadata-only default output, explicit\nCLI deletion confirmation, limited convenience inputs and the current\nsigned-32-bit timestamp range through January 2038.\n- Supported-platform CI, other authentication methods and final\nproduct/architecture review remain separate gates. Historical live\nvalidation covered public Azure/user authentication on macOS.\n- Architecture and decision notes are maintained in Microsoft Loop.\nCustomer command help is included here. Passing local tests is not final\npreview sign-off.\n\n**History Notes**\n\n[Key Vault] Add secret set, retrieval, listing, version listing,\nattribute update and deletion for CLI and PowerShell, plus PowerShell\nsecret recovery, with metadata-only output by default\n\n---\n\n- [x] PR title uses the customer-facing component prefix and has no\ntrailing punctuation\n- [x] Customer-facing changes have a release-note entry\n- [x] Added behavior, security, frontend and live-test coverage\n- [x] Added command help and documented limitations and decisions",
+          "timestamp": "2026-10-13T11:46:07+11:00",
+          "tree_id": "344a3f9a68b902c2ecd7002ac5b25229a1ed719f",
+          "url": "https://github.com/Azure/azclips/commit/dbe6f815e0127844c294a736b0b72979e8fb85c3"
+        },
+        "date": 1791854130849,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 334714630.84,
+            "unit": "ns",
+            "range": "± 4564415.506367169"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 336071978.6,
+            "unit": "ns",
+            "range": "± 4434758.484851839"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 332252565.21,
+            "unit": "ns",
+            "range": "± 3868405.2869996643"
           }
         ]
       }
