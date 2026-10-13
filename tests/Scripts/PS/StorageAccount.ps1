@@ -23,12 +23,31 @@
 # unattended run. Setting Continue once here shows the same debug output non-interactively.
 $DebugPreference = 'Continue'
 
-# The negative cases below are EXPECTED to fail, and the script must continue past them.
-$ErrorActionPreference = 'Continue'
+# Any failure stops the run, so a broken create, get or remove fails the script (the finally
+# block still removes the resource group). The negative cases are EXPECTED to fail, so each runs
+# through Assert-Fails, which catches the expected error and throws if the command succeeds.
+$ErrorActionPreference = 'Stop'
 
 $Rg = "azclips-storage-account-$(Get-Date -Format 'yyyyMMddHHmmss')-$PID-$(Get-Random)"
 $Loc = 'australiaeast'
 function New-Suffix { Get-Random -Minimum 10000 -Maximum 99999 }
+
+function Assert-Fails
+{
+    param([string]$Case, [scriptblock]$Command)
+
+    try
+    {
+        & $Command | Out-Null
+    }
+    catch
+    {
+        Write-Host "Failed as expected ($Case): $($_.Exception.Message)"
+        return
+    }
+
+    throw "UNEXPECTED SUCCESS: $Case"
+}
 
 try
 {
@@ -144,91 +163,109 @@ try
 
     # Negative case: invalid -SkuName value. Expected result: the command fails fast listing
     # the allowed SKU names and does NOT create an account.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_BOGUS `
-        -Kind StorageV2
+    Assert-Fails 'invalid -SkuName value' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_BOGUS `
+            -Kind StorageV2
+    }
 
     # Negative case: -SasExpirationAction without -SasExpirationPeriod. Both members are
     # required by the service, so this is rejected locally.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -SasExpirationAction Block
+    Assert-Fails '-SasExpirationAction without -SasExpirationPeriod' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -SasExpirationAction Block
+    }
 
     # Negative case: a network rule without -DefaultAction, which the service requires.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -Bypass Logging,Metrics
+    Assert-Fails 'a network rule without -DefaultAction, which the service requires' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -Bypass Logging,Metrics
+    }
 
     # Negative case: a subnet NAME without -VnetName. A name cannot be composed into a
     # resource id without the virtual network it belongs to.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -DefaultAction Deny `
-        -Subnet mysubnet
+    Assert-Fails 'a subnet NAME without -VnetName' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -DefaultAction Deny `
+            -Subnet mysubnet
+    }
 
     # Negative case: immutability policy parameters without -EnableAccountLevelImmutability.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -ImmutabilityPolicyState Locked
+    Assert-Fails 'immutability policy parameters without -EnableAccountLevelImmutability' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -ImmutabilityPolicyState Locked
+    }
 
     # Negative case: two Azure Files authentication enablers. They map onto a single
     # DirectoryServiceOptions value, so at most one may be true.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -EnableAzureActiveDirectoryDomainServicesForFile $true `
-        -EnableActiveDirectoryDomainServicesForFile $true
+    Assert-Fails 'two Azure Files authentication enablers' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -EnableAzureActiveDirectoryDomainServicesForFile $true `
+            -EnableActiveDirectoryDomainServicesForFile $true
+    }
 
     # Negative case: -EnableActiveDirectoryDomainServicesForFile without the full Active Directory property set.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -EnableActiveDirectoryDomainServicesForFile $true `
-        -ActiveDirectoryDomainName contoso.com
+    Assert-Fails '-EnableActiveDirectoryDomainServicesForFile without the full Active Directory property set' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -EnableActiveDirectoryDomainServicesForFile $true `
+            -ActiveDirectoryDomainName contoso.com
+    }
 
     # Negative case: a key vault URI without a key name. Both are required together.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -KeyVaultUri https://myvault.vault.azure.net/
+    Assert-Fails 'a key vault URI without a key name' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -KeyVaultUri https://myvault.vault.azure.net/
+    }
 
     # Negative case: a tag name containing '='. The cmdlet rejects it before sending, since the
     # name would otherwise be cut short at the '='.
-    New-AzStorageAccount `
-        -ResourceGroupName $Rg `
-        -Name "azclipsbad$(New-Suffix)" `
-        -Location $Loc `
-        -SkuName Standard_LRS `
-        -Kind StorageV2 `
-        -Tag @{ 'a=b' = 'c' }
+    Assert-Fails 'a tag name containing ''=''' {
+        New-AzStorageAccount `
+            -ResourceGroupName $Rg `
+            -Name "azclipsbad$(New-Suffix)" `
+            -Location $Loc `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 `
+            -Tag @{ 'a=b' = 'c' }
+    }
 
     # ── Get / Remove ──
     #
@@ -267,7 +304,9 @@ try
     Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -Force
 
     # Negative case: get an account that does not exist.
-    Get-AzStorageAccount -ResourceGroupName $Rg -Name 'azclipsdoesnotexist'
+    Assert-Fails 'get an account that does not exist' {
+        Get-AzStorageAccount -ResourceGroupName $Rg -Name 'azclipsdoesnotexist'
+    }
 }
 finally
 {
