@@ -21,10 +21,10 @@ foreach ($dep in $dependencies)
     }
 
     Write-Host "Installing $($dep.Name) $($dep.RequiredVersion) (CurrentUser scope)..."
-    Install-Module -Name $dep.Name `
-        -RequiredVersion $dep.RequiredVersion `
+    Install-PSResource -Name $dep.Name `
+        -Version $dep.RequiredVersion `
         -Repository PSGallery `
         -Scope CurrentUser `
-        -Force `
-        -AllowClobber
+        -TrustRepository `
+        -Quiet
 }

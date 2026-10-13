@@ -33,7 +33,7 @@ public class AgentFallbackSkipTelemetryTests
                 ["profile", "show", SensitiveValue, "--token", SensitiveValue],
                 ErrorText, traceId, spanId, commandName));
 
-        Assert.Equal(1, exitCode);
+        Assert.Null(exitCode);
         Assert.Equal(new[] { "CLI.Activity.Root", "CLI.Activity.AiRecoverySkipped" },
             harness.Exported.Select(activity => activity.Name));
         Assert.DoesNotContain(harness.Exported, activity => activity.Name == "CLI.Activity.AiRecovery");
@@ -77,7 +77,7 @@ public class AgentFallbackSkipTelemetryTests
         var exitCode = await Program.TryAgentFallbackAsync(
             () => harness.Options, harness.Telemetry, args, ErrorText, null, null, null);
 
-        Assert.Equal(1, exitCode);
+        Assert.Null(exitCode);
         var skipped = Assert.Single(harness.Exported);
         Assert.Equal("CLI.Activity.AiRecoverySkipped", skipped.Name);
         Assert.Equal(expectedCommand, skipped.Tags.GetValueOrDefault(TelemetryTags.Command));
@@ -95,7 +95,7 @@ public class AgentFallbackSkipTelemetryTests
         var exitCode = await Program.TryAgentFallbackAsync(
             () => harness.Options, harness.Telemetry, ["vm", "lst"], ErrorText, null, null, null);
 
-        Assert.Equal(1, exitCode);
+        Assert.Null(exitCode);
         Assert.Empty(harness.Exported);
     }
 
@@ -107,7 +107,7 @@ public class AgentFallbackSkipTelemetryTests
         var exitCode = await Program.TryAgentFallbackAsync(
             () => harness.Options, null, ["vm", "lst"], ErrorText, null, null, null);
 
-        Assert.Equal(1, exitCode);
+        Assert.Null(exitCode);
         Assert.Empty(harness.Exported);
     }
 
@@ -120,7 +120,7 @@ public class AgentFallbackSkipTelemetryTests
             () => throw new InvalidOperationException("test-only configuration failure"),
             harness.Telemetry, ["vm", "lst"], ErrorText, null, null, null);
 
-        Assert.Equal(1, exitCode);
+        Assert.Null(exitCode);
         Assert.Empty(harness.Exported);
     }
 
@@ -136,7 +136,7 @@ public class AgentFallbackSkipTelemetryTests
             var exitCode = await Program.TryAgentFallbackAsync(
                 () => harness.Options, harness.Telemetry, ["vm", "lst"], ErrorText, null, null, null);
 
-            Assert.Equal(1, exitCode);
+            Assert.Null(exitCode);
             Assert.Empty(harness.Exported);
         }
         finally

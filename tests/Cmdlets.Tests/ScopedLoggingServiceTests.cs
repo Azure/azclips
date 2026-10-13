@@ -75,6 +75,25 @@ public class ScopedLoggingServiceTests
         configuration.Verify(service => service.GetConfiguration<CoreOptions>(null, null), Times.Never);
     }
 
+    [Fact]
+    public void Fallback_UsesWarnWhenConfigurationIsInvalidInput()
+    {
+        var configuration = new Mock<IConfigurationService>();
+        configuration
+            .Setup(service => service.GetConfiguration<CoreOptions>(null, null))
+            .Throws(AzclipsErrorException.InvalidInput("Configuration file contains invalid JSON."));
+        var sink = new RecordingLoggingService();
+        var logger = new ScopedLoggingService(configuration.Object, sink);
+
+        logger.Verbose("profile details");
+        logger.Warn("startup warning");
+        logger.Error("startup error");
+
+        Assert.Empty(sink.VerboseMessages);
+        Assert.Equal(["startup warning"], sink.Warnings);
+        Assert.Equal(["warn", "error"], sink.Calls);
+    }
+
     [Theory]
     [InlineData(typeof(InvalidOperationException))]
     [InlineData(typeof(IOException))]

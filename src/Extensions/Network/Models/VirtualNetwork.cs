@@ -116,14 +116,24 @@ public class Subnet
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Id { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Type { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Etag { get; set; }
+
     public SubnetProperties Properties { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class SubnetProperties
 {
-    public string AddressPrefix { get; set; } = string.Empty;
-    public List<string> AddressPrefixes { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AddressPrefix { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? AddressPrefixes { get; set; }
+
     public List<ServiceEndpoint> ServiceEndpoints { get; set; } = [];
     public List<SubResource> ServiceEndpointPolicies { get; set; } = [];
     public List<SubResource> IpAllocations { get; set; } = [];
@@ -132,6 +142,27 @@ public class SubnetProperties
     public string PrivateLinkServiceNetworkPolicies { get; set; } = "Enabled";
     public List<ApplicationGatewayIPConfiguration> ApplicationGatewayIPConfigurations { get; set; } = [];
     public List<IpamPoolPrefixAllocation> IpamPoolPrefixAllocations { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<object>? PrivateEndpoints { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<object>? IpConfigurations { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<object>? IpConfigurationProfiles { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<object>? ResourceNavigationLinks { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<object>? ServiceAssociationLinks { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Purpose { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SubResource? NetworkSecurityGroup { get; set; }
@@ -161,12 +192,22 @@ public class ServiceEndpoint
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Locations { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SubResource? NetworkIdentifier { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
 public class Delegation
 {
     public string Name { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Type { get; set; }
+
     public DelegationProperties Properties { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
@@ -174,6 +215,13 @@ public class Delegation
 public class DelegationProperties
 {
     public string ServiceName { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Actions { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -189,6 +237,9 @@ public class IpamPoolPrefixAllocation
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NumberOfIpAddresses { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? AllocatedAddressPrefixes { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }

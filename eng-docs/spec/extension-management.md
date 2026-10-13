@@ -118,7 +118,7 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 | ---- | ---------------------------------------------------- |
 | 0    | success                                              |
 | 1    | generic error                                        |
-| 2    | usage error (bad args, unknown flag)                 |
+| 2    | usage error or invalid input (`InvalidInput`)        |
 | 3    | leaf conflict on install                             |
 | 4    | extension not found (in feed or registry)            |
 | 5    | feed / network error                                 |
@@ -131,7 +131,8 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 option formats successful command results on stdout only. Programmatic callers detect failure using
 the process exit code.
 
-- Known errors retain internal symbolic categories (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`) for host behavior and telemetry.
+- Known errors retain internal symbolic categories (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `InvalidInput`, `NotSignedIn`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`) for host behavior and telemetry.
+- `InvalidInput` (exit 2) is for malformed user-supplied values. It is the one known error that is offered to the agent before it is printed, when the agent is enabled and the session is interactive.
 - `ExtensionNotFound` (exit 4) fires only when the owning package is genuinely absent from discovery. `CommandNotFound` (exit 4) fires when the top-level verb IS owned by a discovered extension but the specific `(verb, path)` leaf doesn't exist — e.g. `az vm --list` or `az group foobar` when Compute/Resources are installed. Splitting these prevents the misleading "install the extension you already have" hint.
 - Error messages are human-readable and not contractual.
 - Internal details can carry operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on.

@@ -4,6 +4,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -52,11 +53,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (string.IsNullOrWhiteSpace(ResourceGroupName))
             {
-                throw new ArgumentException("ResourceGroupName must be provided.");
+                throw AzclipsErrorException.InvalidInput("ResourceGroupName must be provided.");
             }
             if (string.IsNullOrWhiteSpace(Name) || Name.Length > 64 || !DeploymentNamePattern.IsMatch(Name))
             {
-                throw new ArgumentException("Deployment name must be 1-64 characters and match the pattern ^[-\\w\\._\\(\\)]+$.");
+                throw AzclipsErrorException.InvalidInput("Deployment name must be 1-64 characters and match the pattern ^[-\\w\\._\\(\\)]+$.");
             }
 
             int templateSources = (string.IsNullOrWhiteSpace(TemplateUri) ? 0 : 1)
@@ -64,20 +65,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                                  + (string.IsNullOrWhiteSpace(TemplateSpecId) ? 0 : 1);
             if (templateSources != 1)
             {
-                throw new ArgumentException("Exactly one of TemplateUri, TemplateFile, or TemplateSpecId must be provided.");
+                throw AzclipsErrorException.InvalidInput("Exactly one of TemplateUri, TemplateFile, or TemplateSpecId must be provided.");
             }
 
             int parameterSources = (string.IsNullOrWhiteSpace(ParametersUri) ? 0 : 1)
                                   + (string.IsNullOrWhiteSpace(ParametersFile) ? 0 : 1);
             if (parameterSources > 1)
             {
-                throw new ArgumentException("Provide at most one of ParametersUri or ParametersFile.");
+                throw AzclipsErrorException.InvalidInput("Provide at most one of ParametersUri or ParametersFile.");
             }
 
             // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
             if (Parameter is { Length: > 0 } && !string.IsNullOrWhiteSpace(ParametersUri))
             {
-                throw new ArgumentException("Inline parameters cannot be combined with a parameters URI; ARM does not allow inline parameters together with a parameters link. Provide a parameters file instead, or remove the parameters URI.");
+                throw AzclipsErrorException.InvalidInput("Inline parameters cannot be combined with a parameters URI; ARM does not allow inline parameters together with a parameters link. Provide a parameters file instead, or remove the parameters URI.");
             }
 
             // Validate inline parameter tokens up front so malformed input fails fast.
@@ -93,12 +94,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 && !Mode.Equals("Incremental", StringComparison.OrdinalIgnoreCase)
                 && !Mode.Equals("Complete", StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException("Mode must be either 'Incremental' or 'Complete'.");
+                throw AzclipsErrorException.InvalidInput("Mode must be either 'Incremental' or 'Complete'.");
             }
 
             if (!string.IsNullOrWhiteSpace(ValidationLevel) && NormalizeValidationLevel(ValidationLevel) is null)
             {
-                throw new ArgumentException("ValidationLevel must be one of 'Template', 'Provider', or 'ProviderNoRbac'.");
+                throw AzclipsErrorException.InvalidInput("ValidationLevel must be one of 'Template', 'Provider', or 'ProviderNoRbac'.");
             }
         }
 
@@ -186,7 +187,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 if (element.ValueKind != JsonValueKind.Object)
                 {
-                    throw new ArgumentException("The parameters file must contain a JSON object of parameters to combine with inline parameter values.");
+                    throw AzclipsErrorException.InvalidInput("The parameters file must contain a JSON object of parameters to combine with inline parameter values.");
                 }
                 parameters = JsonObject.Create(element)!;
             }
@@ -277,19 +278,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (string.IsNullOrWhiteSpace(pair))
             {
-                throw new ArgumentException("Invalid inline parameter: the token is empty; expected KEY=VALUE.");
+                throw AzclipsErrorException.InvalidInput("Invalid inline parameter: the token is empty; expected KEY=VALUE.");
             }
 
             int separator = pair.IndexOf('=');
             if (separator <= 0)
             {
-                throw new ArgumentException($"Invalid inline parameter '{pair}': expected KEY=VALUE with a non-empty key.");
+                throw AzclipsErrorException.InvalidInput($"Invalid inline parameter '{pair}': expected KEY=VALUE with a non-empty key.");
             }
 
             string key = pair[..separator].Trim();
             if (key.Length == 0)
             {
-                throw new ArgumentException($"Invalid inline parameter '{pair}': the key is empty.");
+                throw AzclipsErrorException.InvalidInput($"Invalid inline parameter '{pair}': the key is empty.");
             }
 
             string raw = pair[(separator + 1)..];
