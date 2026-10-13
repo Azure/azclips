@@ -516,7 +516,6 @@ stages:
     - job: DelayForMcrSync
       displayName: Delay ${{ parameters.mcr_sync_delay_minutes }} Minutes After ACR Publish
       pool: server
-      timeoutInMinutes: ${{ add(parameters.mcr_sync_delay_minutes, 5) }}
       steps:
       - task: Delay@1
         displayName: Wait For MCR Sync
