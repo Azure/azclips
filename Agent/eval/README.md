@@ -220,15 +220,22 @@ reads and writes) run with `AZCLIPS_IN_AGENT_MODE=1`, the product's recursion gu
 so a failed setup command cannot start an unmeasured AI recovery session.
 
 Model turns dominate end-to-end latency. Host time varies less than model time
-within one run, but whole runs shift together: in the recorded 2026-10 runs most
-of the variance of host time and of total latency came from run-to-run shifts.
-One baseline run against one candidate run therefore detects only large changes.
+within one run, but whole runs shift together: across the four valid runs of the
+same build (Baseline V7, its A/A run, V8 and V9), run-to-run shifts explain about
+90% of the variance of a run's mean host time and about half of the variance of
+its mean total latency. One baseline run against one candidate run therefore
+detects only large changes.
 Before claiming a smaller change, run the baseline and candidate builds close
 together (for example baseline, candidate, candidate, baseline), compare `hostMs`
 and `llmMs` separately as well as the total, and do not treat a difference within
-the spread of repeated runs of the same build as a speedup. Agent behavior also drifts: in four runs of the same
-build, host-rejected plans rose from 0 to 5 per run and model turns from 3.30 to
-3.57 per observation, so compare plan activity and turns only within one block.
+the spread of repeated runs of the same build as a speedup. Agent behavior also
+varies between runs: in the same four runs, host-rejected plans were 0.10–0.17
+and model turns 3.40–3.57 per observation, so compare plan activity and turns
+only within one block. Judge results vary too: across these four runs and the
+incomplete first V9 attempt (189 graded observations), one observation failed,
+because `msgraph-app-create-missing-display-name` gave only a placeholder name.
+Inspect a single failed observation in a candidate before reading it as a
+regression.
 Host time also follows the load on the workstation. Three overnight runs on an
 idle machine (Baseline V7, its A/A run and V8) had host means of 9.6–9.9 s.
 Baseline V9 used the same build and settings but ran in the evening while the
