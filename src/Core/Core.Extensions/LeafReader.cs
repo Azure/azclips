@@ -68,9 +68,9 @@ namespace Core.Extensions
         /// rely on the real CLI host to provide them at install time.
         /// </param>
         /// <returns>
-        /// Verbs are aggregated across every <c>[ExtensionVerb]</c> declaration in the directory
-        /// (matching <see cref="ExtensionVerbReader.ReadVerbs"/>); leaf keys come from the first
-        /// <c>IExtensionIndex</c> implementer. <c>LeafKeys</c> alone can be empty for
+        /// Verbs and leaf keys declared by the extension. Verbs come from the <c>IExtensionIndex</c>
+        /// type only, matching live discovery (<c>ExtensionVerbDeclarations.GetDeclaredVerbs</c>);
+        /// <c>[ExtensionVerb]</c> on other types is ignored. <c>LeafKeys</c> alone can be empty for
         /// an extension that declares <c>[ExtensionVerb]</c> but has no commands yet (e.g.
         /// KeyVault) or pre-dates the <c>GetCommandKeys</c> interface member and inherits the
         /// default empty implementation. Both collections are empty only when the extension
@@ -101,10 +101,6 @@ namespace Core.Extensions
             // Collectible ALC; unloaded after read so extension assembly bytes are GC-eligible.
             var alc = new ThrowawayLoadContext(extensionDirectory, additionalProbeDirectories);
             string? verbAttributedTypeName = null;
-            // Same distinct/case-insensitive/first-seen semantics as ExtensionVerbReader.ReadVerbs.
-            var allVerbs = new List<string>();
-            var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            List<string>? leafKeys = null;
             try
             {
                 foreach (var dllPath in dllPaths)
@@ -133,8 +129,7 @@ namespace Core.Extensions
                         types = ex.Types.Where(t => t is not null).ToArray()!;
                     }
 
-                    // Scan every type: verbs aggregate across all [ExtensionVerb] declarations, leaf keys
-                    // come from the first IExtensionIndex implementer.
+                    // Find the [ExtensionVerb]-decorated type (conventionally the IExtensionIndex implementer).
                     foreach (var type in types)
                     {
                         if (type is null) { continue; }
@@ -151,11 +146,6 @@ namespace Core.Extensions
                         }
                         if (verbs.Count == 0) { continue; }
 
-                        foreach (var v in verbs)
-                        {
-                            if (seenVerbs.Add(v)) { allVerbs.Add(v); }
-                        }
-
                         // A type was found carrying [ExtensionVerb]; from here on, failing to find a
                         // usable IExtensionIndex implementer is a malformed extension, not "no CLI contract".
                         verbAttributedTypeName ??= type.FullName;
@@ -164,7 +154,7 @@ namespace Core.Extensions
                         // verb attribute alone is not the contract).
                         var implementsIndex = type.GetInterfaces()
                             .Any(i => i.FullName == ExtensionIndexInterfaceFullName);
-                        if (!implementsIndex || leafKeys is not null) { continue; }
+                        if (!implementsIndex) { continue; }
 
                         object? instance;
                         try
@@ -182,32 +172,27 @@ namespace Core.Extensions
                         if (instance is null) { continue; }
 
                         var method = type.GetMethod("GetCommandKeys", BindingFlags.Instance | BindingFlags.Public);
-                        if (method is null) { leafKeys = new List<string>(); continue; }
+                        if (method is null) { return (verbs, Array.Empty<string>()); }
 
                         // Pass enum value as int to avoid a hard ref to Core.Abstractions here.
                         var clientTypeEnum = method.GetParameters()[0].ParameterType;
                         var cliValue = Enum.Parse(clientTypeEnum, "CLI", ignoreCase: true);
 
                         var result = method.Invoke(instance, new[] { cliValue }) as System.Collections.IEnumerable;
-                        if (result is null) { leafKeys = new List<string>(); continue; }
+                        if (result is null) { return (verbs, Array.Empty<string>()); }
 
                         var keys = new List<string>();
                         foreach (var item in result)
                         {
                             if (item is string s) { keys.Add(s); }
                         }
-                        leafKeys = keys;
+                        return (verbs, keys);
                     }
                 }
             }
             finally
             {
                 alc.Unload();
-            }
-
-            if (leafKeys is not null)
-            {
-                return (allVerbs, leafKeys);
             }
 
             if (verbAttributedTypeName is not null)

@@ -7,8 +7,8 @@ namespace Azclips.Tests.Fixtures.ExtraVerb;
 
 /// <summary>
 /// Test fixture: a valid <c>IExtensionIndex</c> declaring <c>primary</c>, plus a second
-/// <c>[ExtensionVerb]</c> type that does not implement the interface. Runtime discovery
-/// (<c>ExtensionVerbReader</c>) reports both verbs, so <c>LeafReader.ReadContract</c> must too.
+/// <c>[ExtensionVerb]</c> type that does not implement the interface. Live discovery only
+/// reads the index type, so <c>LeafReader.ReadContract</c> must ignore <c>secondary</c>.
 /// </summary>
 [ExtensionVerb("primary")]
 public sealed class ExtensionIndex : IExtensionIndex

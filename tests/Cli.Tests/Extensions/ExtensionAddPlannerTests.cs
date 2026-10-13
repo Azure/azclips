@@ -65,18 +65,16 @@ public sealed class ExtensionAddPlannerTests : IDisposable
     }
 
     [Fact]
-    public void ReadContract_ShouldAggregateVerbs_AcrossAllExtensionVerbDeclarations()
+    public void ReadContract_ShouldOnlyReportVerbs_FromTheIndexType()
     {
-        // Must match ExtensionVerbReader.ReadVerbs (the runtime "extension add" path), which
-        // collects every [ExtensionVerb] declaration, not just the IExtensionIndex type's.
+        // Live discovery (ExtensionVerbDeclarations.GetDeclaredVerbs) reads verbs from the
+        // IExtensionIndex type only; an [ExtensionVerb] on any other type must not leak into
+        // the sidecar, or metadata-first routing would claim a verb the runtime never serves.
         var dir = StageFixtureDll("ExtraVerb");
 
         var (verbs, leaves) = LeafReader.ReadContract(dir);
 
-        Assert.Equal(
-            ExtensionVerbReader.ReadVerbs(dir).OrderBy(v => v, StringComparer.Ordinal),
-            verbs.OrderBy(v => v, StringComparer.Ordinal));
-        Assert.Equal(new[] { "primary", "secondary" }, verbs.OrderBy(v => v, StringComparer.Ordinal));
+        Assert.Equal(new[] { "primary" }, verbs);
         Assert.Equal(new[] { "primary run" }, leaves);
     }
 
