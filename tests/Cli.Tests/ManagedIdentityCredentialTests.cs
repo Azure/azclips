@@ -29,7 +29,7 @@ public sealed class ManagedIdentityCredentialTests
     [InlineData(ManagedIdentityIdType.SystemAssigned)]
     public void Factory_ShouldThrow_WhenSystemOrUnspecifiedTypeHasId(ManagedIdentityIdType? idType)
     {
-        Assert.Throws<System.ArgumentException>(
+        Assert.Throws<InvalidInputException>(
             () => _factory.CreateManagedIdentityCredential("unexpected-id", idType));
     }
 
@@ -78,7 +78,7 @@ public sealed class ManagedIdentityCredentialTests
     [InlineData("")]
     public void Factory_ShouldThrow_WhenUserAssignedIdIsMissing(string? id)
     {
-        Assert.Throws<System.ArgumentException>(
+        Assert.Throws<InvalidInputException>(
             () => _factory.CreateManagedIdentityCredential(id, ManagedIdentityIdType.ClientId));
     }
 

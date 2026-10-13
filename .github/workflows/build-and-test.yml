@@ -52,6 +52,12 @@ jobs:
           }
           Write-Host "Found $($commands.Count) commands in Accounts module"
 
+      - name: Key Vault offline safety checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1
+
   recording-secret-scan:
     runs-on: ubuntu-latest
 

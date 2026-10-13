@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Net.Http;
@@ -129,7 +129,7 @@ public class LoginProcessorValidationTests
         var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
         var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             new LoginProcessor(),
             "ValidateArguments",
             Array.Empty<object?>()));
@@ -231,11 +231,12 @@ public class LoginProcessorValidationTests
         var expectedFlag = FlagFor(surface, nameof(LoginProcessor.TenantId));
         var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
+        var ex = Assert.Throws<AzclipsErrorException>(() => InvokePrivate(
             new LoginProcessor(),
             "EnsureCrossTenantAccessible",
             new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" }));
 
+        Assert.Equal("NotSignedIn", ex.Code);
         Assert.Contains(expectedCommand, ex.Message, StringComparison.Ordinal);
         Assert.Contains(expectedFlag, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbiddenCommand, ex.Message, StringComparison.Ordinal);
@@ -330,7 +331,7 @@ public class LoginProcessorValidationTests
         var forbiddenProfile = FlagFor(OtherSurface(surface), nameof(LoginProcessorBase.Profile));
         var forbiddenOutProfile = FlagFor(OtherSurface(surface), nameof(LoginProcessor.OutProfile));
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedProfile, ex.Message, StringComparison.Ordinal);
@@ -351,7 +352,7 @@ public class LoginProcessorValidationTests
         var forbiddenIdentity = FlagFor(OtherSurface(surface), nameof(LoginProcessor.Identity));
         var forbiddenProfile = FlagFor(OtherSurface(surface), nameof(LoginProcessorBase.Profile));
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedIdentity, ex.Message, StringComparison.Ordinal);
@@ -374,7 +375,7 @@ public class LoginProcessorValidationTests
         var expected = FlagFor(surface, nameof(LoginProcessor.ClientId));
         var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ClientId));
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
@@ -395,7 +396,7 @@ public class LoginProcessorValidationTests
         var expected = FlagFor(surface, nameof(LoginProcessor.ObjectId));
         var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ObjectId));
 
-        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
@@ -418,7 +419,7 @@ public class LoginProcessorValidationTests
         var forbiddenIdentity = FlagFor(OtherSurface(surface), nameof(LoginProcessor.Identity));
         var forbiddenTenant = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedIdentity, ex.Message, StringComparison.Ordinal);
@@ -446,7 +447,7 @@ public class LoginProcessorValidationTests
         var forbiddenObject = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ObjectId));
         var forbiddenResource = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ResourceId));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedClient, ex.Message, StringComparison.Ordinal);
@@ -473,7 +474,7 @@ public class LoginProcessorValidationTests
         var forbiddenIdentity = FlagFor(OtherSurface(surface), nameof(LoginProcessor.Identity));
         var forbiddenDeviceCode = FlagFor(OtherSurface(surface), nameof(LoginProcessor.UseDeviceCode));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedIdentity, ex.Message, StringComparison.Ordinal);
@@ -498,7 +499,7 @@ public class LoginProcessorValidationTests
         var forbiddenSelector = FlagFor(OtherSurface(surface), nameof(LoginProcessor.ClientId));
         var forbiddenIdentity = FlagFor(OtherSurface(surface), nameof(LoginProcessor.Identity));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
             processor, "ValidateArguments", Array.Empty<object?>()));
 
         Assert.Contains(expectedSelector, ex.Message, StringComparison.Ordinal);

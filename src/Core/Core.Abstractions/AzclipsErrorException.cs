@@ -15,7 +15,7 @@ namespace Core.Abstractions;
 /// <list type="bullet">
 ///   <item>0 success</item>
 ///   <item>1 generic error</item>
-///   <item>2 usage error (<see cref="UsageError"/>)</item>
+///   <item>2 usage error (<see cref="UsageError"/>) or invalid input (<see cref="InvalidInputException"/>)</item>
 ///   <item>3 verb / leaf conflict (<see cref="VerbConflict"/>, <see cref="LeafConflict"/>)</item>
 ///   <item>4 extension not found (<see cref="ExtensionNotFound"/>)</item>
 ///   <item>5 feed / network unavailable (<see cref="FeedUnavailable"/>)</item>
@@ -30,6 +30,12 @@ public class AzclipsErrorException : Exception
     public string Code { get; }
     public int ExitCode { get; }
     public IReadOnlyDictionary<string, object?> Details { get; }
+
+    /// <summary>
+    /// When true, the CLI offers the error to the AI agent before printing it. Only subtypes that
+    /// represent recoverable input mistakes set this.
+    /// </summary>
+    public virtual bool AgentFallbackEligible => false;
 
     public AzclipsErrorException(string code, int exitCode, string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
         : base(message, innerException)
@@ -59,6 +65,14 @@ public class AzclipsErrorException : Exception
     /// </summary>
     public static AzclipsErrorException ProfileNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("ProfileNotFound", 1, message, details);
+
+    /// <summary>
+    /// The command needs an active profile or credential that is missing, such as no active
+    /// profile, no federated token, or no subscription in the profile. The fix is to sign in.
+    /// This is not caused by the user's input, so the agent is not offered the error.
+    /// </summary>
+    public static AzclipsErrorException NotSignedIn(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        => new("NotSignedIn", 1, message, details, innerException);
 
     public static AzclipsErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("PinViolation", 6, message, details);
@@ -98,6 +112,27 @@ public class AzclipsErrorException : Exception
     /// </summary>
     public static AzclipsErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("RegistryInvalid", 9, message, details);
+
+    /// <summary>
+    /// A user-supplied value is malformed or out of range (for example a bad <c>--set</c>
+    /// expression or an unrecognized configuration key). Offered to the AI agent before it is printed.
+    /// </summary>
+    public static InvalidInputException InvalidInput(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        => new(message, details, innerException);
+}
+
+/// <summary>
+/// A user-supplied value is malformed. Exits with code 2, the same lane as <see cref="UsageErrorException"/>,
+/// and is eligible for AI agent fallback.
+/// </summary>
+public sealed class InvalidInputException : AzclipsErrorException
+{
+    public InvalidInputException(string message, IReadOnlyDictionary<string, object?>? details = null, Exception? innerException = null)
+        : base("InvalidInput", 2, message, details, innerException)
+    {
+    }
+
+    public override bool AgentFallbackEligible => true;
 }
 
 public class UsageErrorException : AzclipsErrorException
