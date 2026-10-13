@@ -354,6 +354,9 @@ Before applying temporary settings, the wrapper backs up the original
 `config.json` to `config.json.evaluation-<id>.bak` in the same directory and prints
 the backup path. It uses `AZCLIPS_HOME` when set, otherwise `.azclips` under the
 current user's profile directory, matching the target CLI's configuration path.
+`AZCLIPS_HOME` must be an absolute path; a relative one stops the wrapper before
+any change, because setup commands and measured cases run from different
+directories.
 The whole file is restored byte-for-byte after evaluation or a setup/run failure,
 preserving JSON types, formatting, and encoding. If the file did not exist before
 the run, the temporary file is removed instead. Successful restoration consumes
@@ -380,7 +383,9 @@ artifacts and configuration backup/restoration failures are errors.
 Quality failures still produce an artifact and can be uploaded with `-Upload`;
 the wrapper preserves Promptfoo's nonzero exit code. Process failures such as a
 timeout or a missing executable are execution errors, not ordinary quality
-scores. Upload failures are reported explicitly.
+scores. Upload failures are reported explicitly. The upload client sends its
+token only to an HTTPS service URL (plain HTTP only for localhost), and it uploads
+the artifact only to an upload URL on the service's own origin.
 
 Upload metadata identifies the current checkout or CI source revision, not the
 provenance of an arbitrary executable. Verify that `-AzclipsExe` points to the

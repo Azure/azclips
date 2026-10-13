@@ -5,6 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 const {
   acquireAuthorization,
+  checkedServiceUrl,
   modelDimensions,
   projectSchema,
   registerEvaluationArtifact,
@@ -237,6 +238,74 @@ test('registers schema, run metadata, and artifact in order', async (context) =>
     result.dashboardUrl,
     'https://evaluation.example/evaluations?project=azclips&evalId=00000000-0000-4000-8000-000000000123',
   );
+});
+
+function writeMinimalArtifact(context) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'azclips-upload-test-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const artifactPath = path.join(directory, 'artifact.json');
+  fs.writeFileSync(artifactPath, JSON.stringify({
+    results: { timestamp: '2026-08-14T01:02:03.000Z', prompts: [], results: [] },
+    config: { tests: [{ description: 'case' }] },
+    metadata: { promptfooVersion: '0.121.18' },
+  }));
+  return artifactPath;
+}
+
+function recordingFetch(uploadUrl) {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ method: options.method, url: url.toString(), authorization: options.headers.Authorization });
+    return {
+      ok: true,
+      status: options.method === 'POST' ? 201 : 200,
+      text: async () => '',
+      json: async () => ({ runId: 'run-1', uploadUrl }),
+    };
+  };
+  return { requests, fetchImpl };
+}
+
+test('accepts HTTPS service URLs and plain HTTP only for this machine', () => {
+  for (const url of ['https://evaluation.example', 'http://127.0.0.1:3125', 'http://localhost:3125', 'http://[::1]:3125']) {
+    assert.equal(checkedServiceUrl(url).origin, new URL(url).origin);
+  }
+  for (const url of ['http://evaluation.example', 'http://10.0.0.5:3125', 'ftp://evaluation.example']) {
+    assert.throws(() => checkedServiceUrl(url), /must use HTTPS/);
+  }
+});
+
+test('sends no request when the service URL is plain HTTP on another host', async (context) => {
+  const { requests, fetchImpl } = recordingFetch('/api/v1/runs/run-1/artifact');
+  await assert.rejects(
+    registerEvaluationArtifact({
+      artifactPath: writeMinimalArtifact(context),
+      serviceUrl: 'http://evaluation.example',
+      authorization: 'Bearer test-token',
+      env: pipelineEnvironment,
+      fetchImpl,
+    }),
+    /must use HTTPS/,
+  );
+  assert.deepEqual(requests, []);
+});
+
+test('does not send the artifact or credentials to an upload URL on another origin', async (context) => {
+  const { requests, fetchImpl } = recordingFetch('https://other.example/upload');
+  await assert.rejects(
+    registerEvaluationArtifact({
+      artifactPath: writeMinimalArtifact(context),
+      serviceUrl: 'https://evaluation.example',
+      authorization: 'Bearer test-token',
+      env: pipelineEnvironment,
+      fetchImpl,
+    }),
+    /upload URL on another origin \(https:\/\/other\.example\)/,
+  );
+  assert.deepEqual(requests.map((request) => [request.method, request.url]), [
+    ['PUT', 'https://evaluation.example/api/v1/projects'],
+    ['POST', 'https://evaluation.example/api/v1/runs'],
+  ]);
 });
 
 test('does not report a judge model merely because a provider or environment default exists', () => {

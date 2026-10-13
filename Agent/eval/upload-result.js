@@ -178,6 +178,19 @@ async function acquireAuthorization(env = process.env, credentialFactory) {
   return `Bearer ${accessToken.token}`;
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+// The service URL receives an Entra bearer token; allow plain HTTP only for a dashboard on this machine.
+function checkedServiceUrl(serviceUrl) {
+  const url = new URL(serviceUrl);
+  if (url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname))) {
+    return url;
+  }
+  throw new Error(
+    `Evaluation service URL must use HTTPS (plain HTTP is allowed only for localhost): ${url.origin}; nothing was sent.`,
+  );
+}
+
 async function checkedFetch(fetchImpl, url, options, operation) {
   const response = await fetchImpl(url, options);
   if (!response.ok) {
@@ -195,6 +208,7 @@ async function registerEvaluationArtifact({
   fetchImpl = fetch,
   now = () => new Date(),
 }) {
+  const service = checkedServiceUrl(serviceUrl);
   const artifact = fs.readFileSync(artifactPath);
   const parsed = JSON.parse(artifact.toString('utf8'));
   const source = sourceContext(env, now);
@@ -231,9 +245,16 @@ async function registerEvaluationArtifact({
     'Creating evaluation run',
   );
   const created = await createResponse.json();
+  const uploadUrl = new URL(created.uploadUrl, service);
+  if (uploadUrl.origin !== service.origin) {
+    throw new Error(
+      `The evaluation service returned an upload URL on another origin (${uploadUrl.origin}); ` +
+        'the artifact and credentials were not sent.',
+    );
+  }
   await checkedFetch(
     fetchImpl,
-    new URL(created.uploadUrl, serviceUrl),
+    uploadUrl,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: authorization },
@@ -261,6 +282,7 @@ async function main(args = process.argv.slice(2), env = process.env) {
   const serviceUrl = option(args, '--service-url') ||
     env.AZCLIPS_EVALUATION_URL ||
     DEFAULT_SERVICE_URL;
+  checkedServiceUrl(serviceUrl);
   const authorization = await acquireAuthorization(env);
   const result = await registerEvaluationArtifact({
     artifactPath: path.resolve(artifactPath),
@@ -280,6 +302,7 @@ if (require.main === module) {
 
 module.exports = {
   acquireAuthorization,
+  checkedServiceUrl,
   modelDimensions,
   projectSchema,
   registerEvaluationArtifact,

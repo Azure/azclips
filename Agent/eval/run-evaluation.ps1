@@ -24,6 +24,11 @@ $PSNativeCommandUseErrorActionPreference = $false
 if ([string]::IsNullOrWhiteSpace($AzclipsExe) -or -not (Test-Path $AzclipsExe -PathType Leaf)) {
     throw 'Pass -AzclipsExe or set AZCLIPS_EXE to an installed azclips executable.'
 }
+# Setup commands run from the caller's directory and measured cases from this script's directory,
+# so a relative home could select two different configurations.
+if ($env:AZCLIPS_HOME -and -not [IO.Path]::IsPathFullyQualified($env:AZCLIPS_HOME)) {
+    throw "AZCLIPS_HOME must be an absolute path, not '$env:AZCLIPS_HOME'; no Agent evaluation was started."
+}
 
 $AzclipsExe = (Resolve-Path $AzclipsExe).Path
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)

@@ -292,7 +292,7 @@ function runWrapper(context, options = {}) {
     timeout: 20_000,
     env: {
       ...process.env,
-      AZCLIPS_HOME: home,
+      AZCLIPS_HOME: scenario.homeOverride ?? home,
       AZCLIPS_EVAL_TEST_ROOT: directory,
       AZCLIPS_EVAL_TEST_WRAPPER: path.join(__dirname, 'run-evaluation.ps1'),
       TEMP: directory,
@@ -442,6 +442,17 @@ test('wrapper refuses an unidentified target before any side effect', (context) 
   assert.deepEqual(result.resourceCalls, []);
   assert.deepEqual(result.configurationCalls, []);
   assert.deepEqual(result.calls, []);
+});
+
+test('wrapper refuses a relative AZCLIPS_HOME before any side effect', (context) => {
+  const result = runWrapper(context, { homeOverride: 'relative-home' });
+  assert.equal(result.status, 1);
+  assert.match(result.summary.error, /AZCLIPS_HOME must be an absolute path, not 'relative-home'/);
+  assert.deepEqual(result.resourceCalls, []);
+  assert.deepEqual(result.configurationCalls, []);
+  assert.deepEqual(result.calls, []);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
 });
 
 test('wrapper discards one warm-up observation and moves its traces before measuring', (context) => {
