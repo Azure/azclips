@@ -29,6 +29,7 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
   `--out-dir`, `--generator`, `--root-namespace`, and `--config <json>`, which is
   cast to `CompileConfig` (`pipeline` toggles, `stageOptions`, `apiVersion`,
   `emitter`, …) without validation (`packages/cli/src/compile-command.ts`).
+  Replaced by `aceconfig.yaml` on 2026-10-13.
 - **The host maps flags onto stages by hand.** `--root-namespace` is written into
   `stageOptions["create-command"]`, and `--generator` sets a `pipeline` toggle.
   Both flags were removed on 2026-10-12: facts come only from config, and with
@@ -456,6 +457,38 @@ Each party takes the keys it knows (decision 8).
     an invalid value before starting its tool.
   - The CLI passes the JSON `--config` on untouched and `--api-version` as compile
     input; `--generator` is removed. Remaining: the YAML loader.
+- **YAML loader plan (agreed 2026-10-12; implemented 2026-10-13 as described):**
+  - **Where:** a new `packages/cli/src/aceconfig.ts` finds, parses and checks
+    the file; `compile-command.ts` combines flags, file and defaults. `yaml`
+    becomes a CLI dependency.
+  - **Finding the file:** `--config <path>`, relative to the current directory;
+    else `./aceconfig.yaml` when it exists; else no file.
+  - **Parsing:** YAML 1.2, so a JSON file also parses. A syntax error or a
+    duplicate key stops the run and names `file:line:col`. The top level must
+    be a map.
+  - **The CLI's keys:**
+    - `schema-version`: required, `1`.
+    - `tsp-location` and `output-dir`: strings, resolved against the file's
+      folder; `output-dir` defaults to that folder.
+    - `entrypoints`: exactly one item `{ path, api-version? }`, `path` relative
+      to `tsp-location`. An empty list is an error, and two or more are refused
+      until phase 5. A key it does not know inside the item is a warning.
+  - **Checks:** every problem is reported, and any error stops the run before
+    staging (exit code 2).
+  - **Flags:** `--tsp-location` and `--out-dir` (relative to the current
+    directory), `--entrypoint` and `--api-version` override the file; a flag
+    beats the file, which beats the default. With no file, `--tsp-location` and
+    `--out-dir` are required.
+  - **Hand-off:** staging receives absolute paths; `compile()` receives the
+    entrypoint, its API version, and every other key untouched.
+  - **Reporting:** the loader's problems print like compiler diagnostics, with
+    `@azure-client-engine/cli/...` codes (`invalid-setting`, `missing-setting`,
+    `unknown-setting`) and, for a syntax error, the file location.
+  - **Shared checks:** the compiler re-exports `warnUnknownKeys`,
+    `describeValue` and `isMap`, so the CLI's checks read like every stage's.
+  - **Testing:** `runCompile` takes an optional current directory, so finding
+    `./aceconfig.yaml` is testable without changing the test process's
+    directory.
 
 ## Why — benefits
 
@@ -507,16 +540,12 @@ toolkit root.
   - Transforms still receive their stage config through their factory rather
     than their context (`configOf()` in `packages/compiler/src/compile.ts`).
   - `packages/compiler/src/builtins/emit.ts`: sends one `EmitToolRequest` per run.
-  - `packages/cli/src/compile-command.ts`: the JSON `--config` loader, `usage()`,
-    and `--out-dir` defaulting to `process.cwd()`.
   - `packages/cli/src/staging.ts`: a flat copy of one directory, with no
     specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
-  - Docs: `packages/generator/README.md` (the temporary `--entrypoint` note).
 - **Tests (early-stage; reconcile, don't let them shape the design):**
   - `packages/cli/test/cli.test.ts`: compiles `packages/ir/examples/pets.tsp`
     and `packages/typespec-emitter/test/fixtures/multipart-service.tsp`, neither
-    inside a specs repo, so they need the escape hatch. It also writes JSON
-    `--config` files, which become YAML.
+    inside a specs repo, so they need the escape hatch.
   - `packages/cli/test/staging.test.ts`: builds spec trees in temp folders and
     asserts the flat layout.
 
@@ -572,10 +601,10 @@ toolkit root.
 ## Open details (proposed defaults; confirm when implementing)
 
 - **`entrypoints` omitted:** one entrypoint, `tsp-location` itself (today's
-  `--entrypoint` default).
-- **`api-version` omitted:** `latest` (today's default).
+  `--entrypoint` default). Implemented 2026-10-13.
+- **`api-version` omitted:** `latest` (today's default). Implemented 2026-10-13.
 - **Required keys:** `schema-version`, and `tsp-location` unless
-  `--tsp-location` is given.
+  `--tsp-location` is given. Implemented 2026-10-13.
 - **`tspconfig.yaml` lookup:** stops at the specs repo root.
 - **`options` on a disabled stage:** ignored (decided 2026-10-12).
 - **Emitter options such as `sourceId`:** `stages.tsp-emit.options.emitter`
@@ -590,7 +619,8 @@ toolkit root.
 
 1. **Load the file:** the CLI reads and deserializes it, takes its own keys,
    resolves paths, applies flag overrides and passes the rest to the compiler
-   untouched; by then the compiler takes `stages` itself (see step 3).
+   untouched; by then the compiler takes `stages` itself (see step 3). Done on
+   2026-10-13 (see [Loading the file](#loading-the-file-agreed-2026-10-12)).
 2. **Staging:** specs-repo detection, the mirrored layout, `additionalDirectories`,
    the `tsp-output` exclusion, and the escape hatch.
 3. **Compiler:** drop `"off"`, move each stage config from its factory into its

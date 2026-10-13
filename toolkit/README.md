@@ -51,6 +51,46 @@ This is the single entry point CI/pipelines should call; it wraps `npm run build
 and `dotnet build` so callers need not know the per-package commands. `npm run
 build` stays the fast inner loop for TypeScript-only work.
 
+## Configuration: `aceconfig.yaml`
+
+`ace compile` reads one file per generated extension: `--config <path>`, or
+`./aceconfig.yaml` when it exists. The CLI takes the keys it uses itself, the run
+inputs, and passes every other key to the compiler untouched:
+
+```yaml
+schema-version: 1                   # required
+
+# Run inputs, taken by the CLI. Relative paths resolve against this file's folder.
+tsp-location: ../specs/Contoso.Widgets   # the folder to copy
+entrypoints:                        # one, for now; relative to tsp-location
+  - path: client.tsp
+    api-version: 2024-05-01
+output-dir: ./generated             # default: this file's folder
+
+# Document facts, for seed-ir.
+root-namespace: Contoso.Widgets
+version: "0.1.0"
+
+# The compiler's own setting: disable a stage, or set its stage config.
+stages:
+  flatten-model:
+    options:
+      inliningThreshold: 24
+```
+
+- **Paths** resolve against the file's folder, so the same file works from any
+  directory, and output goes next to it unless `output-dir` says otherwise.
+- **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
+  override the run inputs; no flag sets a stage or a fact. Without a file,
+  `--tsp-location` and `--out-dir` are required.
+- **Checks:** the CLI checks its own keys as every stage checks its stage config.
+  A key it does not know inside an entrypoint is a warning; an invalid or missing
+  value, or a YAML syntax error, is an error that stops the run before anything is
+  staged.
+
+The design and its rationale:
+[`DocDumpster/Aceconfig-Generation-Time-Config.md`](DocDumpster/Aceconfig-Generation-Time-Config.md).
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in
@@ -76,14 +116,14 @@ A host has exactly one orchestration verb: **disable an optional stage**. It can
 append, insert, or reorder. A stage's section under `stages` can also carry its
 options:
 
-```jsonc
-// generation-time config
-{
-  "stages": {
-    "flatten-model": { "disabled": true },
-    "tsp-emit": { "options": { "warnAsError": true } }
-  }
-}
+```yaml
+# aceconfig.yaml
+stages:
+  flatten-model:
+    disabled: true
+  tsp-emit:
+    options:
+      warnAsError: true
 ```
 
 Disabling a stage simply removes it from the sequence — there is no tree to
@@ -475,14 +515,14 @@ The facts are config keys, written as in the config file (kebab-case). The CLI
 and the compiler each take their own keys; every other top-level key is a fact,
 and the compiler hands those to `seed-ir` untouched:
 
-```jsonc
-// --config: the compiler's `stages` beside document facts
-{
-  "stages": { "flatten-model": { "disabled": true } },
-  "root-namespace": "Contoso.Widgets",
-  "project-name": "Contoso.Widgets.Client",
-  "version": "0.1.0"
-}
+```yaml
+# aceconfig.yaml: the compiler's `stages` beside document facts
+stages:
+  flatten-model:
+    disabled: true
+root-namespace: Contoso.Widgets
+project-name: Contoso.Widgets.Client
+version: "0.1.0"
 ```
 
 | Fact | Target field | Default when absent |

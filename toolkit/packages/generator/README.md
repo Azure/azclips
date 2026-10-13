@@ -124,20 +124,25 @@ choosing the configuration and gathering dependency dlls are the build script's
 job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
-ace compile --tsp-location <spec> [--entrypoint <path>] [--config <file>] --out-dir <dir>
+ace compile [--config aceconfig.yaml]                     # the extension's config file
+ace compile --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>
 ```
 
+The config file (`./aceconfig.yaml` when `--config` is not given) names the spec,
+its entrypoint and the output folder, plus the document facts and per-stage
+settings; the flags override its run inputs. See
+[Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
 `--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
 its containing directory). `--entrypoint` selects the `.tsp` file or directory to
 compile inside that copy — absolute, or relative to the copied directory — and
 defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
 import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
-the copied directory. The root namespace and the other document facts come from
-the config file (`{ "root-namespace": "Contoso.Widgets" }`); without one, the
+the copied directory. The root namespace and the other document facts come only
+from the config file (`root-namespace: Contoso.Widgets`); without one, the
 namespace is the spec's own.
 
-> **Temporary:** `--entrypoint` is a stopgap. A compiler configuration, now being
-> designed, will replace parameterized entrypoints.
+> **Temporary:** the `--entrypoint` flag stays until the flag review; the config
+> file's `entrypoints` is the lasting way to choose an entrypoint.
 
 ## IR POCOs (single source of truth)
 
