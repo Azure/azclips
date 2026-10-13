@@ -19,6 +19,7 @@
 #                                                     anything is created
 #   6. Get-AzVM / Remove-AzVM / Get-AzVM           -> the last get is expected to fail
 #   7. optional AZCLIPS_ENABLE_CVM=1               -> creates a ConfidentialVM with OS disk security encryption
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1      -> attaches a pre-created NIC and sets its delete option
 #
 # PrivateIps is checked alongside PublicIps to prove the output was enriched: an
 # empty PublicIps with an empty PrivateIps means the detail lookup never ran.
@@ -54,6 +55,9 @@
 #   $env:AZCLIPS_CVM_SIZE = 'Standard_DC2as_v5'
 #   $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE = 'VMGuestStateOnly'
 #
+# To also test an existing NIC, set:
+#   $env:AZCLIPS_ENABLE_EXISTING_NIC = '1'
+#
 # Cleanup: on exit, whether the run passed or failed, the resource group this script
 # created is deleted with Remove-AzResourceGroup, which removes the VMs, public IPs,
 # NICs, VNets and NSGs with it, including the pre-created public IP and NSG. A group
@@ -87,10 +91,17 @@ $reuseVm           = "vmc-reu-$suffix"
 $noneVm            = "vmc-non-$suffix"
 $missingVm         = "vmc-mis-$suffix"
 $cvmVm             = "vmc-cvm-$suffix"
+$existingNicVm     = "vmc-nic-$suffix"
+$existingNicVnet   = "vmc-nic-vnet-$suffix"
+$existingNicSubnet = 'default'
+$existingNicName   = "vmc-existing-nic-$suffix"
+$existingNicId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkInterfaces/$existingNicName"
+$existingNicSubnetId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/virtualNetworks/$existingNicVnet/subnets/$existingNicSubnet"
 $namedPublicIp     = "azclips-vmcreate-pip-$suffix"
 $reusePublicIp     = "azclips-vmcreate-existing-pip-$suffix"
 $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/publicIPAddresses/azclips-vmcreate-missing-pip-$suffix"
 $cvmEnabled        = $env:AZCLIPS_ENABLE_CVM -eq '1'
+$existingNicEnabled = $env:AZCLIPS_ENABLE_EXISTING_NIC -eq '1'
 $cvmImage          = $env:AZCLIPS_CVM_IMAGE
 $cvmSize           = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_SIZE)) { 'Standard_DC2as_v5' } else { $env:AZCLIPS_CVM_SIZE }
 $cvmEncryptionType = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE)) { 'VMGuestStateOnly' } else { $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE }
@@ -481,6 +492,83 @@ try
     else
     {
         Write-Host '== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =='
+    }
+
+    if ($existingNicEnabled)
+    {
+        Write-Host "== 8. New-AzVM -NetworkInterfaceId $existingNicName -NetworkInterfaceDeleteOption Detach =="
+        try
+        {
+            $vnetBody = @{
+                location = $location
+                properties = @{
+                    addressSpace = @{ addressPrefixes = @('10.50.0.0/16') }
+                    subnets = @(
+                        @{
+                            name = $existingNicSubnet
+                            properties = @{ addressPrefix = '10.50.0.0/24' }
+                        }
+                    )
+                }
+            }
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'virtualNetworks' -Name $existingNicVnet) -Payload ($vnetBody | ConvertTo-Json -Depth 6 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'virtualNetworks' -Name $existingNicVnet -What "VNet '$existingNicVnet'"))
+            {
+                throw "VNet '$existingNicVnet' did not finish provisioning."
+            }
+
+            $nicBody = @{
+                location = $location
+                properties = @{
+                    ipConfigurations = @(
+                        @{
+                            name = 'ipconfig1'
+                            properties = @{
+                                privateIPAllocationMethod = 'Dynamic'
+                                subnet = @{ id = $existingNicSubnetId }
+                            }
+                        }
+                    )
+                }
+            }
+            $null = Invoke-AzRestMethod -Method PUT -Uri (Get-NetworkUrl -Type 'networkInterfaces' -Name $existingNicName) -Payload ($nicBody | ConvertTo-Json -Depth 7 -Compress)
+            if (-not (Wait-ResourceSucceeded -Label 'existing nic' -Type 'networkInterfaces' -Name $existingNicName -What "NIC '$existingNicName'"))
+            {
+                throw "NIC '$existingNicName' did not finish provisioning."
+            }
+
+            $createdVms.Add($existingNicVm)
+            $null = New-AzVM `
+                -SubscriptionId $subscriptionId `
+                -ResourceGroupName $resourceGroup `
+                -Name $existingNicVm `
+                -Location $location `
+                -VmSize Standard_D2s_v3 `
+                -AdminUsername Artemis `
+                -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
+                -NetworkInterfaceId $existingNicId `
+                -NetworkInterfaceDeleteOption Detach
+
+            $vmUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Compute/virtualMachines/${existingNicVm}?api-version=2025-11-01"
+            $vm = (Invoke-AzRestMethod -Method GET -Uri $vmUrl).Content | ConvertFrom-Json
+            $nicReference = $vm.properties.networkProfile.networkInterfaces[0]
+            if ($nicReference.id -ne $existingNicId)
+            {
+                Add-Failure "existing nic: VM references '$($nicReference.id)' instead of '$existingNicId'"
+            }
+            if ($nicReference.properties.deleteOption -ne 'Detach')
+            {
+                Add-Failure "existing nic: VM NIC delete option '$($nicReference.properties.deleteOption)' is not Detach"
+            }
+        }
+        catch
+        {
+            Add-Failure "existing nic: $($_.Exception.Message)"
+        }
+    }
+    else
+    {
+        Write-Host '== 8. skipping existing-NIC live create; set AZCLIPS_ENABLE_EXISTING_NIC=1 to enable =='
     }
 
     if ($failures.Count -gt 0)

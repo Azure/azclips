@@ -18,6 +18,7 @@
 #                                                    anything is created
 #   6. vm show / vm delete / vm show              -> the last show is expected to fail
 #   7. optional AZCLIPS_ENABLE_CVM=1              -> creates a ConfidentialVM with OS disk security encryption
+#   8. optional AZCLIPS_ENABLE_EXISTING_NIC=1     -> attaches a pre-created NIC and sets its delete option
 #
 # privateIps is checked alongside publicIps to prove the output was enriched: an
 # empty publicIps with an empty privateIps means the detail lookup never ran.
@@ -48,6 +49,10 @@
 #   export AZCLIPS_CVM_IMAGE=Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:latest
 #   export AZCLIPS_CVM_SIZE=Standard_DC2as_v5
 #   export AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE=VMGuestStateOnly
+#   ./tests/Scripts/CLI/VMCreate.sh
+#
+# Optional existing-NIC run:
+#   export AZCLIPS_ENABLE_EXISTING_NIC=1
 #   ./tests/Scripts/CLI/VMCreate.sh
 #
 # Case 4 deploys an Ubuntu image with a temporary key pair from ssh-keygen, deleted on exit.
@@ -99,6 +104,12 @@ REUSE_VM="vmc-reu-$SUFFIX"
 NONE_VM="vmc-non-$SUFFIX"
 MISSING_VM="vmc-mis-$SUFFIX"
 CVM_VM="vmc-cvm-$SUFFIX"
+EXISTING_NIC_VM="vmc-nic-$SUFFIX"
+EXISTING_NIC_VNET="vmc-nic-vnet-$SUFFIX"
+EXISTING_NIC_SUBNET="default"
+EXISTING_NIC_NAME="vmc-existing-nic-$SUFFIX"
+EXISTING_NIC_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$EXISTING_NIC_NAME"
+EXISTING_NIC_SUBNET_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/virtualNetworks/$EXISTING_NIC_VNET/subnets/$EXISTING_NIC_SUBNET"
 NAMED_PUBLIC_IP="azclips-vmcreate-pip-$SUFFIX"
 REUSE_PUBLIC_IP="azclips-vmcreate-existing-pip-$SUFFIX"
 SSH_PUBLIC_IP="azclips-vmcreate-ssh-pip-$SUFFIX"
@@ -119,6 +130,7 @@ CVM_ENABLED="${AZCLIPS_ENABLE_CVM:-0}"
 CVM_IMAGE="${AZCLIPS_CVM_IMAGE:-}"
 CVM_SIZE="${AZCLIPS_CVM_SIZE:-Standard_DC2as_v5}"
 CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE="${AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE:-VMGuestStateOnly}"
+EXISTING_NIC_ENABLED="${AZCLIPS_ENABLE_EXISTING_NIC:-0}"
 
 FAILURES=0
 
@@ -166,7 +178,7 @@ cleanup()
         echo "== cleanup: deleting resource group $RESOURCE_GROUP =="
         "$AZ" group delete --subscription-id "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP" || warn_public_ssh_cleanup
     else
-        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM"
+        for vm in "$DEFAULT_VM" "$NAMED_VM" "$REUSE_VM" "$NONE_VM" "$MISSING_VM" "$CVM_VM" "$EXISTING_NIC_VM"
         do
             echo "== cleanup: deleting VM $vm =="
             "$AZ" vm delete --subscription-id "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$vm" || [[ "$vm" != "$NONE_VM" ]] || warn_public_ssh_cleanup
@@ -508,6 +520,46 @@ then
     fi
 else
     echo "== 7. skipping ConfidentialVM live create; set AZCLIPS_ENABLE_CVM=1 and AZCLIPS_CVM_IMAGE to enable =="
+fi
+
+if [[ "$EXISTING_NIC_ENABLED" == "1" ]]
+then
+    echo "== 8. vm create --nics $EXISTING_NIC_NAME --nic-delete-option Detach =="
+    existing_nic_vnet_url=$(network_url virtualNetworks "$EXISTING_NIC_VNET")
+    existing_nic_vnet_body=$(printf '{"location":"%s","properties":{"addressSpace":{"addressPrefixes":["10.50.0.0/16"]},"subnets":[{"name":"%s","properties":{"addressPrefix":"10.50.0.0/24"}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET")
+    existing_nic_url=$(network_url networkInterfaces "$EXISTING_NIC_NAME")
+    existing_nic_body=$(printf '{"location":"%s","properties":{"ipConfigurations":[{"name":"ipconfig1","properties":{"privateIPAllocationMethod":"Dynamic","subnet":{"id":"%s"}}}]}}' "$LOCATION" "$EXISTING_NIC_SUBNET_ID")
+
+    if "$AZ" rest --method PUT --uri "$existing_nic_vnet_url" --body "$existing_nic_vnet_body" --output json >/dev/null \
+        && wait_succeeded "existing nic" "VNet '$EXISTING_NIC_VNET'" "$existing_nic_vnet_url" \
+        && "$AZ" rest --method PUT --uri "$existing_nic_url" --body "$existing_nic_body" --output json >/dev/null \
+        && wait_succeeded "existing nic" "NIC '$EXISTING_NIC_NAME'" "$existing_nic_url"
+    then
+        if "$AZ" vm create \
+            --subscription-id "$SUBSCRIPTION_ID" \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$EXISTING_NIC_VM" \
+            --location "$LOCATION" \
+            --size Standard_D2s_v3 \
+            --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
+            --admin-username Artemis \
+            --admin-password "$ADMIN_PASSWORD" \
+            --nics "$EXISTING_NIC_NAME" \
+            --nic-delete-option Detach \
+            --output json >/dev/null
+        then
+            vm_url="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$EXISTING_NIC_VM?api-version=2025-11-01"
+            vm_json=$("$AZ" rest --method GET --uri "$vm_url" --output json)
+            grep -qi "$EXISTING_NIC_ID" <<< "$vm_json" || fail "existing nic: VM does not reference '$EXISTING_NIC_ID'"
+            grep -qi '"deleteOption".*"Detach"' <<< "$vm_json" || fail "existing nic: VM NIC delete option is not Detach"
+        else
+            fail "existing nic: vm create failed"
+        fi
+    else
+        fail "existing nic: failed to pre-create VNet or NIC"
+    fi
+else
+    echo "== 8. skipping existing-NIC live create; set AZCLIPS_ENABLE_EXISTING_NIC=1 to enable =="
 fi
 
 if (( FAILURES > 0 ))

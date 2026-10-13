@@ -17,16 +17,28 @@ Create a virtual machine together with its network interface, public IP address,
 
 ## SYNTAX
 
-### __AllParameterSets
+### NewNetworkInterface (Default)
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
  -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- -VirtualNetworkName <string> [-SubscriptionId <string>] [-Image <string>]
+ [-VirtualNetworkName <string>] [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>]
+ [-SubscriptionId <string>] [-Image <string>]
  [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
  [-OSDiskSecureVMDiskEncryptionSet <string>] [-SecurityGroupName <string>]
  [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
  [-AcceleratedNetworking] [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### ExistingNetworkInterface
+
+```
+New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
+ -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
+ [-NetworkInterfaceDeleteOption <string>] [-SubscriptionId <string>] [-Image <string>]
+ [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
+ [-OSDiskSecureVMDiskEncryptionSet <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
@@ -39,6 +51,9 @@ Creates a virtual network, network security group, public IP address, network in
 By default the network security group is named after the virtual machine with an `NSG` suffix (for example `myvmNSG`), created or, if it already exists, updated.
 A network security group this command creates has one inbound rule for the image's operating system, allowing traffic from any source: `rdp` (TCP port 3389) for Windows or `default-allow-ssh` (TCP port 22) for Linux.
 Use `-SecurityGroupName` to choose the network security group by name or resource ID, or pass an empty string to create none.
+Use `-SubnetName` to select one subnet by name from `-VirtualNetworkName`, or pass a full subnet resource ID.
+Use `-NetworkInterfaceId` instead of the network-creation parameters to attach one or more existing network interfaces; the first is primary.
+Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
 By default the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
@@ -85,6 +100,30 @@ $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName ''
 ```
 
+### Create a VM in a selected subnet
+
+Create the network interface in the existing `app` subnet of `myvnet`. A full subnet resource ID
+can be supplied instead of the subnet name.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -SubnetName app
+```
+
+### Create a VM with existing network interfaces
+
+Attach two existing network interfaces. The first is primary, and both interfaces are detached
+when the virtual machine is deleted.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+$nicIds = @(
+    '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Network/networkInterfaces/my-primary-nic',
+    '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Network/networkInterfaces/my-secondary-nic'
+)
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceId $nicIds -NetworkInterfaceDeleteOption Detach
+```
+
 ## PARAMETERS
 
 ### -AcceleratedNetworking
@@ -98,7 +137,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -119,7 +158,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -260,7 +299,31 @@ HelpMessage: ''
 
 ### -NetworkInterfaceName
 
-The network interface name to create.
+The network interface name to create. This parameter cannot be combined with
+`-NetworkInterfaceId`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: NewNetworkInterface
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -NetworkInterfaceDeleteOption
+
+Specifies what happens to attached network interfaces when the virtual machine is deleted. The
+value applies to every interface supplied through `-NetworkInterfaceId`, or to the interface
+created through `-NetworkInterfaceName`.
 
 ```yaml
 Type: System.String
@@ -269,6 +332,31 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues:
+- Delete
+- Detach
+HelpMessage: ''
+```
+
+### -NetworkInterfaceId
+
+Names or resource IDs of existing network interfaces to attach. Names are resolved in the VM's
+resource group. The first interface is primary. This parameter cannot be combined with the
+network-interface creation parameters.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: ExistingNetworkInterface
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
@@ -361,7 +449,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -409,7 +497,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -454,7 +542,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -475,7 +563,30 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SubnetName
+
+Name or full resource ID of the subnet for the new network interface. A subnet name is resolved
+under `-VirtualNetworkName`. A full subnet resource ID bypasses virtual-network creation.
+Do not combine this parameter with `-SubnetNames` or `-NetworkInterfaceId`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: NewNetworkInterface
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -509,7 +620,7 @@ HelpMessage: ''
 
 ### -VirtualNetworkName
 
-The virtual network name to create.
+The virtual network name to create or use when `-SubnetName` is a subnet name.
 
 ```yaml
 Type: System.String
@@ -517,9 +628,9 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: NewNetworkInterface
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

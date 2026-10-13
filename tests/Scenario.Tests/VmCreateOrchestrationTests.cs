@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Tests.Recording;
@@ -613,6 +614,119 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void ExistingNics_CliAttachesMultipleNicsWithoutCreatingNetworkResources()
+    {
+        string secondNicId = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/networkInterfaces/shared-nic";
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", "primary-nic", secondNicId, "--nic-delete-option", "Delete"));
+
+        AssertNoNetworkDependencyWrites(record);
+        var networkInterfaces = VmNetworkInterfaces(record);
+        Assert.Equal(2, networkInterfaces.GetArrayLength());
+        Assert.EndsWith("/networkInterfaces/primary-nic", networkInterfaces[0].GetProperty("id").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.True(networkInterfaces[0].GetProperty("properties").GetProperty("primary").GetBoolean());
+        Assert.Equal("Delete", networkInterfaces[0].GetProperty("properties").GetProperty("deleteOption").GetString());
+        Assert.Equal(secondNicId, networkInterfaces[1].GetProperty("id").GetString());
+        Assert.False(networkInterfaces[1].GetProperty("properties").GetProperty("primary").GetBoolean());
+        Assert.Equal("Delete", networkInterfaces[1].GetProperty("properties").GetProperty("deleteOption").GetString());
+    }
+
+    [Fact]
+    public void ExistingNics_CliSupportsPerNicDeleteOptions()
+    {
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs(
+                "--nics", "primary-nic", "secondary-nic",
+                "--nic-delete-option", "primary-nic=Delete", "secondary-nic=Detach"));
+
+        var networkInterfaces = VmNetworkInterfaces(record);
+        Assert.Equal("Delete", networkInterfaces[0].GetProperty("properties").GetProperty("deleteOption").GetString());
+        Assert.Equal("Detach", networkInterfaces[1].GetProperty("properties").GetProperty("deleteOption").GetString());
+    }
+
+    [Fact]
+    public void ExistingNics_PowerShellAppliesOneDeleteOptionToAllNics()
+    {
+        var parameters = PsParameters();
+        RemoveNewNicParameters(parameters);
+        parameters["NetworkInterfaceIds"] = new List<string> { "primary-nic", "secondary-nic" };
+        parameters["NetworkInterfaceDeleteOption"] = "Detach";
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        AssertNoNetworkDependencyWrites(record);
+        var networkInterfaces = VmNetworkInterfaces(record);
+        Assert.Equal(2, networkInterfaces.GetArrayLength());
+        Assert.All(
+            networkInterfaces.EnumerateArray(),
+            nic => Assert.Equal("Detach", nic.GetProperty("properties").GetProperty("deleteOption").GetString()));
+    }
+
+    [Fact]
+    public void ExistingNics_RejectNetworkCreationArgumentsBeforeCreatingResources()
+    {
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", "primary-nic", "--subnet", "default"));
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("--subnet", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/providers/"));
+    }
+
+    [Fact]
+    public void ExistingNics_RejectUnknownDeleteOptionTarget()
+    {
+        var (record, error) = RecordCliFailure(
+            new FakeVmArmBackend(SubscriptionId),
+            ExistingNicCliArgs("--nics", "primary-nic", "--nic-delete-option", "other-nic=Delete"));
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Contains("other-nic", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualMachines/"));
+    }
+
+    [Fact]
+    public void CreatedNic_SerializesDeleteOption()
+    {
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. s_cliArgs, "--nic-delete-option", "Delete"]);
+
+        var networkInterface = Assert.Single(VmNetworkInterfaces(record).EnumerateArray());
+        Assert.Equal("Delete", networkInterface.GetProperty("properties").GetProperty("deleteOption").GetString());
+        Assert.False(networkInterface.GetProperty("properties").TryGetProperty("primary", out _));
+    }
+
+    [Fact]
+    public void SubnetResourceId_BypassesVirtualNetworkCreation()
+    {
+        string subnetId = $"/subscriptions/{SubscriptionId}/resourceGroups/shared-rg/providers/Microsoft.Network/virtualNetworks/shared-vnet/subnets/app";
+        string[] args = RemoveOption(s_cliArgs, "--subnet-names");
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. args, "--subnet", subnetId]);
+
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
+        Assert.Contains(subnetId, PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
+    public void SubnetName_SelectsExistingSubnetWithoutUpdatingVirtualNetwork()
+    {
+        string[] args = RemoveOption(s_cliArgs, "--subnet-names");
+        var record = RecordCli(
+            new FakeVmArmBackend(SubscriptionId),
+            [.. args, "--subnet", "default"]);
+
+        Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/virtualNetworks/scenario-vm-vnet?"));
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
+        Assert.Contains("/subnets/default", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Fact]
     public void PublicIp_Omitted_CreatesTheDefaultWithoutALookup()
     {
         var record = RecordCli(new FakeVmArmBackend(SubscriptionId), s_cliArgs);
@@ -855,6 +969,57 @@ public class VmCreateOrchestrationTests
 
     private static bool IsRequest(SessionRecordEntry entry, string method, string uriFragment)
         => entry.Request.Method == method && entry.Request.Uri.Contains(uriFragment);
+
+    private static JsonElement VmNetworkInterfaces(SessionRecord record)
+        => JsonDocument.Parse(PutBody(record, "/virtualMachines/"))
+            .RootElement.GetProperty("properties").GetProperty("networkProfile").GetProperty("networkInterfaces");
+
+    private static void AssertNoNetworkDependencyWrites(SessionRecord record)
+    {
+        Assert.DoesNotContain(record.Entries, e =>
+            e.Request.Method == "PUT"
+            && (e.Request.Uri.Contains("/virtualNetworks/")
+                || e.Request.Uri.Contains("/networkSecurityGroups/")
+                || e.Request.Uri.Contains("/publicIPAddresses/")
+                || e.Request.Uri.Contains("/networkInterfaces/")));
+    }
+
+    private static string[] ExistingNicCliArgs(params string[] networkArgs) =>
+    [
+        "vm", "create",
+        "--subscription-id", SubscriptionId,
+        "--name", VmName,
+        "--location", "westus2",
+        "--resource-group", "scenario-vm-rg",
+        "--size", "Standard_D2s_v3",
+        "--image", Image,
+        "--admin-username", "azadmin",
+        "--admin-password", Password,
+        .. networkArgs,
+    ];
+
+    private static void RemoveNewNicParameters(Dictionary<string, object> parameters)
+    {
+        foreach (string name in new[]
+        {
+            "NetworkInterfaceName",
+            "VirtualNetworkName",
+            "SecurityGroupName",
+            "SubnetNames",
+            "SubnetAddressPrefixes",
+            "AddressPrefixes",
+        })
+        {
+            parameters.Remove(name);
+        }
+    }
+
+    private static string[] RemoveOption(string[] args, string option)
+    {
+        int index = Array.IndexOf(args, option);
+        Assert.True(index >= 0, $"Option '{option}' was not found.");
+        return [.. args[..index], .. args[(index + 2)..]];
+    }
 
     /// <summary>The body of the first PUT whose URI contains <paramref name="uriFragment"/>.</summary>
     private static string PutBody(SessionRecord record, string uriFragment)
