@@ -101,12 +101,12 @@ public class NewStorageAccountProcessorTests
     /// sent is the point: these rules exist so an invalid combination fails locally instead of
     /// reaching the service.
     /// </summary>
-    private static async Task<ArgumentException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor_Customized> configure)
+    private static async Task<InvalidInputException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor_Customized> configure)
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(SucceededAccount));
         var processor = CreateProcessor(pipeline, new FakeOutputHandler());
         configure(processor);
-        var error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
+        var error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
         Assert.Equal(0, pipeline.SendCount);
         return error;
     }

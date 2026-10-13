@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Runtime.CompilerServices;
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
@@ -140,7 +141,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 int separator = tag.IndexOf('=');
                 if (separator <= 0)
                 {
-                    throw new ArgumentException($"Tag '{tag}' is not in KEY=VALUE form.");
+                    throw AzclipsErrorException.InvalidInput($"Tag '{tag}' is not in KEY=VALUE form.");
                 }
                 tags[tag[..separator]] = tag[(separator + 1)..];
             }
@@ -231,7 +232,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             bool wantsUserAssigned = IdentityType.Contains("UserAssigned", StringComparison.OrdinalIgnoreCase);
             if (!wantsUserAssigned && !string.IsNullOrEmpty(UserIdentityId))
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     "UserIdentityId can only be specified when IdentityType includes UserAssigned.");
             }
 
@@ -297,7 +298,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             if (string.IsNullOrEmpty(SasExpirationPeriod))
             {
-                throw new ArgumentException("SasExpirationAction can only be specified together with SasExpirationPeriod.");
+                throw AzclipsErrorException.InvalidInput("SasExpirationAction can only be specified together with SasExpirationPeriod.");
             }
 
             return new SasPolicy
@@ -318,7 +319,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             bool? enableAlw = ParseBool(EnableAlw);
             if (hasPolicy && enableAlw != true)
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     "ImmutabilityPeriodSinceCreationInDays, ImmutabilityPolicyState and AllowProtectedAppendWrites require EnableAlw to be true.");
             }
 
@@ -351,13 +352,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             // otherwise empty object.
             if (!string.IsNullOrEmpty(VnetName) && string.IsNullOrEmpty(Subnet))
             {
-                throw new ArgumentException("VnetName can only be specified together with Subnet.");
+                throw AzclipsErrorException.InvalidInput("VnetName can only be specified together with Subnet.");
             }
 
             bool anyRule = !string.IsNullOrEmpty(Subnet) || IpAddress.Count > 0 || Ipv6Address.Count > 0;
             if (!string.IsNullOrEmpty(Action) && !anyRule)
             {
-                throw new ArgumentException("Action can only be specified together with Subnet, IpAddress or Ipv6Address.");
+                throw AzclipsErrorException.InvalidInput("Action can only be specified together with Subnet, IpAddress or Ipv6Address.");
             }
 
             bool any = Bypass.Count > 0
@@ -372,7 +373,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             if (string.IsNullOrEmpty(DefaultAction))
             {
-                throw new ArgumentException("DefaultAction is required when any network rule is specified.");
+                throw AzclipsErrorException.InvalidInput("DefaultAction is required when any network rule is specified.");
             }
 
             string action = string.IsNullOrEmpty(Action) ? "Allow" : Action;
@@ -381,7 +382,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             {
                 if (!ValidBypassValues.Contains(bypass, StringComparer.OrdinalIgnoreCase))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"Bypass value '{bypass}' is not allowed. Allowed values: {string.Join(", ", ValidBypassValues)}.");
                 }
             }
@@ -416,7 +417,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             if (string.IsNullOrEmpty(VnetName))
             {
-                throw new ArgumentException("VnetName is required when Subnet is a name rather than a resource id.");
+                throw AzclipsErrorException.InvalidInput("VnetName is required when Subnet is a name rather than a resource id.");
             }
 
             return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}"
@@ -435,7 +436,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             if ((aadds == true ? 1 : 0) + (aadkerb == true ? 1 : 0) + (adds == true ? 1 : 0) > 1)
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     "At most one of EnableFilesAadds, EnableFilesAadkerb and EnableFilesAdds can be true.");
             }
 
@@ -451,7 +452,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             {
                 if (requiredAdFields.Any(string.IsNullOrEmpty))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "EnableFilesAdds requires all of DomainName, NetBiosDomainName, ForestName, DomainGuid, DomainSid and AzureStorageSid.");
                 }
 
@@ -487,7 +488,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 // are rejected rather than silently ignored.
                 if (anyAdField)
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "Active Directory properties cannot be specified with EnableFilesAadds; the service infers the domain.");
                 }
 
@@ -497,7 +498,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             {
                 if (anyAdField)
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "Active Directory properties cannot be specified when Azure Files identity based authentication is disabled.");
                 }
 
@@ -508,7 +509,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             {
                 if (anyAdField)
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "Active Directory properties require EnableFilesAdds or EnableFilesAadkerb to be true.");
                 }
 
@@ -555,12 +556,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             bool hasVaultAndName = !string.IsNullOrEmpty(EncryptionKeyVault) && !string.IsNullOrEmpty(EncryptionKeyName);
             if (anyKeyVaultKey && !hasVaultAndName)
             {
-                throw new ArgumentException("EncryptionKeyVault and EncryptionKeyName must be specified together.");
+                throw AzclipsErrorException.InvalidInput("EncryptionKeyVault and EncryptionKeyName must be specified together.");
             }
 
             if (anyEncryptionIdentity && !hasVaultAndName)
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     "KeyVaultUserIdentityId and KeyVaultFederatedClientId can only be specified together with EncryptionKeyVault and EncryptionKeyName.");
             }
 
@@ -571,7 +572,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             if (keySource.Equals("Microsoft.Keyvault", StringComparison.OrdinalIgnoreCase) && !hasVaultAndName)
             {
-                throw new ArgumentException(
+                throw AzclipsErrorException.InvalidInput(
                     "EncryptionKeySource 'Microsoft.Keyvault' requires EncryptionKeyVault and EncryptionKeyName.");
             }
 
@@ -633,7 +634,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             return int.TryParse(value, out int parsed)
                 ? parsed
-                : throw new ArgumentException($"{name} must be a whole number, but was '{value}'.");
+                : throw AzclipsErrorException.InvalidInput($"{name} must be a whole number, but was '{value}'.");
         }
 
         private static bool? ParseBool(string value, [CallerArgumentExpression(nameof(value))] string? name = null)
@@ -645,7 +646,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             return bool.TryParse(value, out bool parsed)
                 ? parsed
-                : throw new ArgumentException($"{name} must be true or false, but was '{value}'.");
+                : throw AzclipsErrorException.InvalidInput($"{name} must be true or false, but was '{value}'.");
         }
     }
 }

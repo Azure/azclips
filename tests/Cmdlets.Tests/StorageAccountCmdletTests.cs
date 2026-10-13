@@ -384,9 +384,9 @@ public class StorageAccountCmdletTests
     public void ArgumentConverter_TagNamesContainingEquals_AreRejected()
     {
         // The processor splits each pair on its first '=', so such a name would be silently cut short.
-        var error = Assert.Throws<ArgumentException>(() => StorageCmdletArgumentConverter.ToTagArguments(new Hashtable { ["a=b"] = "c" }));
+        var error = Assert.Throws<InvalidInputException>(() => StorageCmdletArgumentConverter.ToTagArguments(new Hashtable { ["a=b"] = "c" }));
 
-        Assert.Equal("Tag", error.ParamName);
+        Assert.Contains("a=b", error.Message);
     }
 
     [Theory]

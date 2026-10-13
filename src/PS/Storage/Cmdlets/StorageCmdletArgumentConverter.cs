@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using Core.Abstractions;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
@@ -27,7 +28,7 @@ public static class StorageCmdletArgumentConverter
             // silently cut short.
             if (key.Contains('='))
             {
-                throw new ArgumentException($"Tag name '{key}' cannot contain '='.", "Tag");
+                throw AzclipsErrorException.InvalidInput($"Tag name '{key}' cannot contain '='.");
             }
 
             arguments.Add($"{key}={entry.Value}");
