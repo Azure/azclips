@@ -45,7 +45,19 @@
         // RoslynCodeTaskFactory's default-reference-set friction with modern SDK-style
         // assemblies, and it mirrors LeafReader's own "no hard reference dance" pattern for
         // resolving Core.Abstractions.
-        var leafReaderAssembly = Assembly.LoadFrom(Path.Combine(CoreAssemblyDir, "Core.Extensions.dll"));
+        var coreExtensionsPath = Path.GetFullPath(Path.Combine(CoreAssemblyDir, "Core.Extensions.dll"));
+        Assembly leafReaderAssembly = null;
+        foreach (var loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+          if (string.Equals(loadedAssembly.GetName().Name, "Core.Extensions", StringComparison.Ordinal) &&
+              !string.IsNullOrEmpty(loadedAssembly.Location) &&
+              string.Equals(Path.GetFullPath(loadedAssembly.Location), coreExtensionsPath, StringComparison.OrdinalIgnoreCase))
+          {
+            leafReaderAssembly = loadedAssembly;
+            break;
+          }
+        }
+        leafReaderAssembly ??= Assembly.LoadFrom(coreExtensionsPath);
         var leafReaderType = leafReaderAssembly.GetType("Core.Extensions.LeafReader")
           ?? throw new InvalidOperationException("Core.Extensions.dll does not define Core.Extensions.LeafReader.");
         var readContractMethod = leafReaderType.GetMethod("ReadContract", BindingFlags.Static | BindingFlags.Public)
