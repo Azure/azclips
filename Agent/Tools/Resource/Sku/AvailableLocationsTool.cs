@@ -23,7 +23,7 @@ namespace Core.Agent.Tools.Resource.Sku;
 /// or only at Zone level. Auto-approved by ChatAgent because tool name
 /// starts with <c>find_</c> (see <c>IsReadOnlyCacheTool</c>).
 /// </summary>
-public sealed class AvailableLocationsTool
+public sealed partial class AvailableLocationsTool
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -97,11 +97,14 @@ public sealed class AvailableLocationsTool
 
         using var scope = ToolInvocationLog.Start("find_available_locations",
             $"vmSize={vmSize} locations={probed.Length} sub={subscriptionId ?? "auth-context"}", _activityCreator);
+        // SKU names are public Azure catalog values; anything else is not recorded.
+        scope.RecordRequest(vmSize is not null && SkuNamePattern().IsMatch(vmSize) ? vmSize : "invalid");
 
         if (string.IsNullOrWhiteSpace(vmSize))
         {
             var err = JsonSerializer.Serialize(new { error = "missing_argument", argument = "vmSize" }, Json);
             scope.SetResult("error=missing_argument");
+            scope.RecordResponse("error");
             return err;
         }
 
@@ -118,6 +121,7 @@ public sealed class AvailableLocationsTool
                     hint = "Pass subscriptionId or set the active profile first.",
                 }, Json);
                 scope.SetResult("error=no_subscription");
+                scope.RecordResponse("error");
                 return err;
             }
         }
@@ -139,6 +143,7 @@ public sealed class AvailableLocationsTool
                 message = ex.Message,
             }, Json);
             scope.SetResult($"error=token_acquisition_failed {ex.GetType().Name}");
+            scope.RecordResponse("error");
             return err;
         }
 
@@ -159,6 +164,7 @@ public sealed class AvailableLocationsTool
             ? $"{vmSize} not available in any of {probed.Length} probed regions"
             : $"{vmSize} available in {available.Length}/{probed.Length}: {string.Join(", ", available.Select(r => r.Location))}";
         scope.SetResult(summary);
+        scope.RecordResponse(available.Length == 0 ? "not_found" : "found");
         return json;
     }
 
@@ -289,4 +295,7 @@ public sealed class AvailableLocationsTool
         [JsonPropertyName("locations")] public string[]? Locations { get; set; }
         [JsonPropertyName("zones")]     public string[]? Zones { get; set; }
     }
+
+    [GeneratedRegex("^[A-Za-z0-9_]{1,64}$")]
+    private static partial Regex SkuNamePattern();
 }

@@ -58,6 +58,9 @@ public sealed class ProposePlanTool
         using var scope = ToolInvocationLog.Start("propose_plan",
             $"issues={issues?.Count ?? 0} steps={steps?.Count ?? 0} placeholders={placeholders?.Count ?? 0} defaults={defaults?.Count ?? 0}", _activityCreator);
         scope.SetResult($"plan proposed ({issues?.Count ?? 0} issues, {steps?.Count ?? 0} steps)");
+        // Counts only; issue text and commands can carry user values.
+        scope.RecordRequest($"issues={issues?.Count ?? 0} steps={steps?.Count ?? 0} placeholders={placeholders?.Count ?? 0} defaults={defaults?.Count ?? 0}");
+        scope.RecordResponse("ok");
         return "plan submitted for user review";
     }
 }

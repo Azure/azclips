@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
@@ -75,7 +74,9 @@ public sealed class HelpTools
         // subprocess call — returning the Task without awaiting would dispose
         // the scope immediately, recording a near-zero duration.
         using var scope = ToolInvocationLog.Start("list_commands", "full catalog", _activityCreator);
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
+        var result = await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
+        scope.RecordResponse(IsError(result) ? "error" : "ok");
+        return result;
     }
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
@@ -89,21 +90,40 @@ public sealed class HelpTools
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
+            scope.RecordResponse("error");
             return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
         var result = await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
-        RecordLookup(scope.Activity, name, result);
+        RecordLookup(scope, name, result);
         return result;
     }
 
     // Records the catalog's own name for a hit, never the model's input text.
-    internal static void RecordLookup(Activity? activity, string requested, string helpJson)
+    internal static void RecordLookup(ToolInvocationLog.Scope scope, string requested, string helpJson)
     {
-        if (activity is null)
-            return;
         var (found, catalogName) = ReadCatalogName(requested, helpJson);
-        activity.SetTag(TelemetryTags.AgentToolCommandFound, found);
-        activity.SetTag(TelemetryTags.AgentToolCommandName, catalogName ?? "(not found)");
+        scope.RecordRequest(catalogName ?? "(not found)");
+        scope.RecordResponse(found ? "found" : IsError(helpJson) && !IsNotFound(helpJson) ? "error" : "not_found");
+    }
+
+    private static bool IsError(string json) => TryReadError(json) is not null;
+
+    private static bool IsNotFound(string json) => TryReadError(json) == "not_found";
+
+    private static string? TryReadError(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Object &&
+                   document.RootElement.TryGetProperty("error", out var error)
+                ? error.GetString() ?? "error"
+                : null;
+        }
+        catch (JsonException)
+        {
+            return "unreadable";
+        }
     }
 
     private static (bool Found, string? Name) ReadCatalogName(string requested, string helpJson)

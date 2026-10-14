@@ -3,7 +3,10 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Agent.Hosting;
 using Core.Agent.Tools.Help;
+using Core.Agent.Tools.Resource.Cache;
+using Microsoft.Extensions.AI;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -12,49 +15,62 @@ public sealed class HelpToolsTelemetryTests
 {
     private const string VmCreate = """{"cliName":"vm create","psName":"New-AzVM","verb":"compute","summary":"Create a VM."}""";
 
+    [Fact]
+    public void EveryToolSpan_RecordsItsName()
+    {
+        using var capture = new SpanCapture();
+        using (ToolInvocationLog.Start("find_resources", activityCreator: capture.Start)) { }
+
+        Assert.Equal("find_resources", capture.Single.GetTagItem(TelemetryTags.AgentToolName));
+    }
+
     [Theory]
     [InlineData("vm create", "vm create")]
     [InlineData("VM CREATE", "vm create")]
     [InlineData("new-azvm", "New-AzVM")]
-    public void Hit_RecordsTheCatalogNameInTheFormThatWasRequested(string requested, string expected)
+    public void GetCommandHit_RecordsTheCatalogNameInTheFormThatWasRequested(string requested, string expected)
     {
-        using var activity = new Activity("tool.get_command").Start();
+        using var capture = new SpanCapture();
+        using (var scope = ToolInvocationLog.Start("get_command", activityCreator: capture.Start))
+            HelpTools.RecordLookup(scope, requested, VmCreate);
 
-        HelpTools.RecordLookup(activity, requested, VmCreate);
-
-        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.AgentToolCommandName));
-        Assert.Equal(true, activity.GetTagItem(TelemetryTags.AgentToolCommandFound));
+        Assert.Equal(expected, capture.Single.GetTagItem(TelemetryTags.AgentToolRequest));
+        Assert.Equal("found", capture.Single.GetTagItem(TelemetryTags.AgentToolResponse));
     }
 
     [Fact]
-    public void Hit_WithoutCliName_FallsBackToThePowerShellName()
+    public void GetCommandHit_WithoutCliName_FallsBackToThePowerShellName()
     {
-        using var activity = new Activity("tool.get_command").Start();
+        using var capture = new SpanCapture();
+        using (var scope = ToolInvocationLog.Start("get_command", activityCreator: capture.Start))
+            HelpTools.RecordLookup(scope, "get-azthing", """{"cliName":"","psName":"Get-AzThing"}""");
 
-        HelpTools.RecordLookup(activity, "get-azthing", """{"cliName":"","psName":"Get-AzThing"}""");
-
-        Assert.Equal("Get-AzThing", activity.GetTagItem(TelemetryTags.AgentToolCommandName));
+        Assert.Equal("Get-AzThing", capture.Single.GetTagItem(TelemetryTags.AgentToolRequest));
     }
 
     [Theory]
-    [InlineData("""{"error":"not_found","name":"vm lst --password hunter2","suggestions":["vm list"]}""")]
-    [InlineData("""{"error":"az_exit_1","stderr":"boom"}""")]
-    [InlineData("not json")]
-    [InlineData("""["unexpected"]""")]
-    public void Miss_NeverRecordsTheRequestedText(string helpJson)
+    [InlineData("""{"error":"not_found","name":"vm lst --password hunter2","suggestions":["vm list"]}""", "not_found")]
+    [InlineData("""{"error":"az_exit_1","stderr":"boom"}""", "error")]
+    [InlineData("not json", "error")]
+    [InlineData("""["unexpected"]""", "not_found")]
+    public void GetCommandMiss_NeverRecordsTheRequestedText(string helpJson, string response)
     {
-        using var activity = new Activity("tool.get_command").Start();
+        using var capture = new SpanCapture();
+        using (var scope = ToolInvocationLog.Start("get_command", activityCreator: capture.Start))
+            HelpTools.RecordLookup(scope, "vm lst --password hunter2", helpJson);
 
-        HelpTools.RecordLookup(activity, "vm lst --password hunter2", helpJson);
-
-        Assert.Equal("(not found)", activity.GetTagItem(TelemetryTags.AgentToolCommandName));
-        Assert.Equal(false, activity.GetTagItem(TelemetryTags.AgentToolCommandFound));
-        Assert.DoesNotContain(activity.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
+        Assert.Equal("(not found)", capture.Single.GetTagItem(TelemetryTags.AgentToolRequest));
+        Assert.Equal(response, capture.Single.GetTagItem(TelemetryTags.AgentToolResponse));
+        Assert.DoesNotContain(capture.Single.TagObjects, tag => tag.Value is string text && text.Contains("hunter2"));
     }
 
     [Fact]
-    public void NoActivity_IsANoOp()
-        => HelpTools.RecordLookup(null, "vm create", VmCreate);
+    public void NoTelemetry_IsANoOp()
+    {
+        using var scope = ToolInvocationLog.Start("get_command");
+        HelpTools.RecordLookup(scope, "vm create", VmCreate);
+        scope.RecordResponse("found");
+    }
 
     [Fact]
     public async Task GetCommand_TagsItsOwnToolSpan()
@@ -67,16 +83,32 @@ public sealed class HelpToolsTelemetryTests
             using var trace = new AgentTraceCapture();
             var tool = new HelpTools(fakeAz, trace.StartToolActivity).GetCommand;
 
-            await tool.InvokeAsync(new Microsoft.Extensions.AI.AIFunctionArguments { ["name"] = "New-AzVM" });
+            await tool.InvokeAsync(new AIFunctionArguments { ["name"] = "New-AzVM" });
 
             var span = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
-            Assert.Equal("New-AzVM", span.GetTagItem(TelemetryTags.AgentToolCommandName));
-            Assert.Equal(true, span.GetTagItem(TelemetryTags.AgentToolCommandFound));
+            Assert.Equal("get_command", span.GetTagItem(TelemetryTags.AgentToolName));
+            Assert.Equal("New-AzVM", span.GetTagItem(TelemetryTags.AgentToolRequest));
+            Assert.Equal("found", span.GetTagItem(TelemetryTags.AgentToolResponse));
         }
         finally
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Theory]
+    [InlineData("completed", "status=completed")]
+    [InlineData("OUT_OF_SCOPE_secret-value", "status=invalid")]
+    public async Task SubmitResponse_RecordsOnlyTheClosedStatus(string status, string expected)
+    {
+        using var trace = new AgentTraceCapture();
+        var tool = new SubmitResponseTool(trace.StartToolActivity).SubmitResponse;
+
+        await tool.InvokeAsync(new AIFunctionArguments { ["status"] = status, ["message"] = "private detail" });
+
+        var span = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.submit_response");
+        Assert.Equal(expected, span.GetTagItem(TelemetryTags.AgentToolRequest));
+        Assert.DoesNotContain(span.TagObjects, tag => tag.Value is string text && text.Contains("private detail"));
     }
 
     private static string WriteFakeAz(string directory, string stdout)
@@ -91,5 +123,38 @@ public sealed class HelpToolsTelemetryTests
         File.WriteAllText(script, "#!/bin/sh\ncat <<'EOF'\n" + stdout + "\nEOF\n");
         File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         return script;
+    }
+
+    private sealed class SpanCapture : IDisposable
+    {
+        private readonly ActivitySource _source = new("HelpToolsTelemetryTests." + Guid.NewGuid().ToString("N"));
+        private readonly ActivityListener _listener;
+        private readonly List<Activity> _started = [];
+
+        public SpanCapture()
+        {
+            _listener = new ActivityListener
+            {
+                ShouldListenTo = source => source == _source,
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            };
+            ActivitySource.AddActivityListener(_listener);
+        }
+
+        public Activity Single => Assert.Single(_started);
+
+        public IDisposable? Start(string name)
+        {
+            var activity = _source.StartActivity(name);
+            if (activity is not null)
+                _started.Add(activity);
+            return activity;
+        }
+
+        public void Dispose()
+        {
+            _listener.Dispose();
+            _source.Dispose();
+        }
     }
 }

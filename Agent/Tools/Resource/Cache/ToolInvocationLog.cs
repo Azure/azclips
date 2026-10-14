@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Core.Abstractions;
 
 namespace Core.Agent.Tools.Resource.Cache;
 
@@ -57,9 +58,17 @@ public static class ToolInvocationLog
             _args = args;
             _sw = Stopwatch.StartNew();
             _activity = activityCreator?.Invoke($"tool.{name}");
+            Activity?.SetTag(TelemetryTags.AgentToolName, name);
         }
 
         public void SetResult(string result) => _result = result;
+
+        /// <summary>Records a redacted request on the tool span.</summary>
+        /// <remarks>Never pass raw model input; each tool defines its own redaction.</remarks>
+        public void RecordRequest(string request) => Activity?.SetTag(TelemetryTags.AgentToolRequest, request);
+
+        /// <summary>Records a short, closed-set result on the tool span, such as found or error.</summary>
+        public void RecordResponse(string response) => Activity?.SetTag(TelemetryTags.AgentToolResponse, response);
 
         /// <summary>The tool span, or null when telemetry is off.</summary>
         public Activity? Activity => _activity switch

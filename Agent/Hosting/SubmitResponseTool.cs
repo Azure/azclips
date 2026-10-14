@@ -49,6 +49,9 @@ public sealed class SubmitResponseTool
     {
         using var scope = ToolInvocationLog.Start("submit_response", $"status={status}", _activityCreator);
         scope.SetResult(string.IsNullOrEmpty(message) ? status : $"{status}: {message}");
+        // The status is a closed set; the free-text message is never recorded.
+        scope.RecordRequest(status is "completed" or "rejected" or "failed" ? $"status={status}" : "status=invalid");
+        scope.RecordResponse("ok");
         return "session terminated";
     }
 }

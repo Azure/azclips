@@ -113,8 +113,9 @@ unchanged, and telemetry-disabled operation emits no skip span.
 | `properties.agent.reprompts`      | `Agent.Reprompt`            | Tool-enforcement retry number on that turn     |
 | `properties.agent.model`           | recovery / `Agent.Session` / `Agent.Create` / `Agent.Send` | Configured, SDK-selected, or observed model |
 | `properties.agent.modelSource`     | same as model               | `configuration`, `sdk`, `usage`, or `unavailable` |
-| `properties.agent.tool.commandName` | `tool.get_command`          | Catalog name of the looked-up command (`vm create` or `New-AzVM`, in the form requested), or `(not found)`. Never the raw tool input |
-| `properties.agent.tool.commandFound` | `tool.get_command`          | Whether the help catalog had the command        |
+| `properties.agent.tool.name`       | `tool.*`                    | Name of the tool the Agent called, for example `get_command` |
+| `properties.agent.tool.request`    | `tool.*`                    | Redacted request. Each tool defines its own form: `get_command` records the help catalog name or `(not found)`; resource tools record only `kind=...`; `find_available_locations` records the SKU name; `propose_plan` records counts; `submit_response` records `status=...`. Never the raw tool input |
+| `properties.agent.tool.response`   | `tool.*`                    | Short closed-set result: `found`, `not_found`, `ambiguous`, `ok`, or `error`. Never the tool output |
 | `properties.agent.tokenElapsedMs` | `Agent.Session`           | Azure token acquisition, success or failure. One acquisition serves the model provider and the data boundary lookup; absent for any provider other than `builtin`, which is the only one needing an Azure token |
 
 Agent layer records carry the `dataBoundary` the CLI handed over at launch; it fixes the
