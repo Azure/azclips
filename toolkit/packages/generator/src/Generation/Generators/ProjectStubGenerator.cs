@@ -14,8 +14,8 @@ namespace Ace.Generator.Generators;
 /// (well-formed and escaped by construction) rather than string templating — the XML analog to the
 /// Roslyn approach used for the C# stages.
 /// <para>
-/// TODO: thread <c>Version</c>/<c>Authors</c>/<c>Company</c> through <see cref="GeneratorOptions"/>
-/// instead of hardcoding; add the remaining project artifacts; and promote the Core.Abstractions
+/// TODO: take <c>Version</c> from the document's target instead of hardcoding (<c>Authors</c> and
+/// <c>Company</c> have no source yet); add the remaining project artifacts; and promote the Core.Abstractions
 /// reference from a relative <c>ProjectReference</c> to a published NuGet <c>PackageReference</c>.
 /// </para>
 /// </remarks>

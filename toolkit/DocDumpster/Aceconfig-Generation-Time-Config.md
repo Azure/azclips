@@ -38,11 +38,15 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
   `GeneratorContext.config` expose all of `CompileConfig`. The `csharp` adapter
   forwards it whole to the C# host (`GenerateToolOptions.config`), which never
   reads it. Since 2026-10-12 no context exposes it, and the `csharp` adapter
-  forwards only its own options.
+  forwards only its own options. Since 2026-10-14 the request carries them as
+  `config`, with no `options` wrapper, and the C# generator's context exposes
+  them as `GenerationContext.Config`.
 - **Stage options are already routed by id.** `stageOptions` is keyed by stage id
   and handed untouched to each stage's factory (`configOf()` in
   `packages/compiler/src/compile.ts`), and each step checks its own options when
-  it runs. Since 2026-10-12 they are `stages.<id>.options`.
+  it runs. Since 2026-10-12 they are `stages.<id>.options`. Since 2026-10-14 each
+  stage reads its stage config from its context (`config`), and the step factories
+  are gone.
 - **One entrypoint, one flat copy.** Staging copies the `--tsp-location` directory
   flat into `<out-dir>/source`. Imports that reach outside that directory break;
   `--entrypoint` only partly works around this. Since 2026-10-14 staging keeps the
@@ -126,16 +130,17 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
    See [Stage enablement](#stage-enablement).
 
 10. **Each stage receives only its own stage config.** The compiler picks it out by
-    the stage's id and puts it in that stage's context: `TransformContext`, or
-    `GeneratorContext` for a generator. No stage sees the whole config, so the
-    contexts stop exposing it, and the `csharp` adapter forwards only its own
-    stage config. A stage config is a plain dictionary, resolved lazily by the
-    stage when it runs, as options are today. Every stage checks its own config
-    the same way: a key it does not know is a warning, and an invalid value, or a
-    missing key the stage requires, is an error that fails the stage. No default
-    stands in for an invalid value, and the compiler stops the run after a stage
-    that reports an error (2026-10-12). Directives, once designed, live inside a
-    stage's `options`.
+    the stage's id and puts it in that stage's context, as `config`:
+    `TransformContext`, `GeneratorContext` for a generator, or `EmitContext` for
+    the emit stage (the field name and the emit context decided 2026-10-14). No
+    stage sees the whole config, so the contexts stop exposing it, and the
+    `csharp` adapter forwards only its own stage config. A stage config is a plain
+    dictionary, resolved lazily by the stage when it runs, as options are today.
+    Every stage checks its own config the same way: a key it does not know is a
+    warning, and an invalid value, or a missing key the stage requires, is an
+    error that fails the stage. No default stands in for an invalid value, and
+    the compiler stops the run after a stage that reports an error (2026-10-12).
+    Directives, once designed, live inside a stage's `options`.
 
 11. **Casing.** Structural keys are kebab-case, and stage ids are the catalog ids.
     Everything under `options:` is camelCase, so today's option names pass through
@@ -647,8 +652,6 @@ toolkit root.
 - **Source:**
   - `packages/compiler/src/types.ts`: `CompileInput` carries a single
     entrypoint and its API version.
-  - Transforms still receive their stage config through their factory rather
-    than their context (`configOf()` in `packages/compiler/src/compile.ts`).
   - `packages/compiler/src/builtins/emit.ts`: sends one `EmitToolRequest` per run.
 
 ## Relationship to other records
@@ -692,9 +695,9 @@ toolkit root.
   produces the same mirrored tree. Relative `additional-directories` resolve
   against `tsp-location` in the same repo and commit, which gives the paths to
   sparse-check-out. Provenance would be recorded with `/` separators.
-- **Schema polish.** `flatten-model` failing on invalid option values instead of
-  defaulting (decision 10), and a JSON Schema for editor completion. The compiler
-  stays validation-free.
+- **Schema polish.** A JSON Schema for editor completion. The compiler stays
+  validation-free. (`flatten-model` failing on invalid option values, decision 10,
+  was done on 2026-10-14.)
 - **Flag review.** Whether to retire the remaining run-input flags, and
   `--out-dir` vs. `output-dir` naming.
 - **Generator use of the new `IRTarget` fields.** The C# generator writing
@@ -773,7 +776,17 @@ toolkit root.
    stage's context (`seed-ir`'s included), shrink the compiler's own settings to
    `stages`, remove the whole-config contexts, and retire `--generator`. Done on
    2026-10-12, ahead of step 1, except moving stage configs into contexts (see
-   [Loading the file](#loading-the-file-agreed-2026-10-12)).
+   [Loading the file](#loading-the-file-agreed-2026-10-12)), which was done on
+   2026-10-14:
+   - Every stage reads its stage config from its context as `config`: the four
+     transforms, `csharp`, and `tsp-emit` through `EmitContext`. Nothing is
+     planned for the emitter's own config yet, but the field leaves room for it.
+   - The four transform factories held nothing but their config, so they are
+     gone. Each step is a plain object, and `TRANSFORMS` maps a stage id straight
+     to its step. `createBuiltinEmit` and `createCsharpGenerator` remain, because
+     they bind the host runtime; they no longer take a config.
+   - `flatten-model` now fails on an invalid option value. An absent
+     `inliningThreshold` (or `null`) is 100, and an absent `noInline` is empty.
 4. **`seed-ir`:** done, ahead of steps 1–3. The IR part, `IRTarget` on `IR` with
    the new fields (IR 0.14.0), landed on 2026-10-07; the stage itself, taking
    over `buildTarget`'s defaults from `create-command`, landed on 2026-10-12 (see

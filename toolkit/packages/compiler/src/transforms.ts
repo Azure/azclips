@@ -2,7 +2,8 @@
  * The compiler's transform implementations, keyed by stage id.
  *
  * `STAGE_CATALOG` says where each transform runs; this map says which step runs
- * there. Both are compiler-owned, so a host supplies no stage code.
+ * there. Both are compiler-owned, so a host supplies no stage code. A step reads its
+ * stage config from its context when it runs, so the map holds the steps themselves.
  */
 
 import {
@@ -20,13 +21,7 @@ import {
   TWEAK_IR_STAGE,
 } from "./stages.js";
 
-/** Builds a transform step from its stage config. */
-export type TransformStepFactory = (config: Record<string, unknown>) => TransformStep;
-
-export const TRANSFORMS: ReadonlyMap<string, TransformStepFactory> = new Map<
-  string,
-  TransformStepFactory
->([
+export const TRANSFORMS: ReadonlyMap<string, TransformStep> = new Map<string, TransformStep>([
   [SEED_IR_STAGE, seedIrStep],
   [TWEAK_IR_STAGE, tweakIrStep],
   [FLATTEN_MODEL_STAGE, flattenModelStep],

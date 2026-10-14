@@ -53,7 +53,7 @@ public sealed class ServerReferenceTests
     {
         var files = new GeneratedFileCollector();
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            ir, new GeneratorOptions(), files.WriteAsync);
+            ir, config: null, files.WriteAsync);
         return (result, files);
     }
 

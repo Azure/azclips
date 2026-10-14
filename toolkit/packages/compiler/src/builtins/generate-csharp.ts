@@ -26,14 +26,11 @@ export const CSHARP_GENERATOR_ID = "csharp";
 const DIAGNOSTIC_PREFIX = `@azure-client-engine/compiler/${CSHARP_GENERATOR_ID}`;
 
 /**
- * Build the C# generator backed by the host runtime's `csharp-generate` tool.
- * `options` is its stage config. It takes none yet, so any key is warned about, and
- * the config is forwarded to the tool as it is.
+ * Build the C# generator backed by the host runtime's `csharp-generate` tool. Its
+ * stage config arrives in the context. It takes none yet, so any key is warned about,
+ * and the config is forwarded to the tool as it is.
  */
-export function createCsharpGenerator(
-  runtime: Runtime,
-  options: Record<string, unknown> = {},
-): Generator<TransformedIR> {
+export function createCsharpGenerator(runtime: Runtime): Generator<TransformedIR> {
   return {
     name: CSHARP_GENERATOR_ID,
     // This backend renders commands and a resolved target, not bare operations, and
@@ -43,16 +40,13 @@ export function createCsharpGenerator(
     // out-of-process host it is about to be serialized to.
     accepts: safeParseTransformedIR,
     async generate(ir: TransformedIR, context: GeneratorContext): Promise<void> {
-      warnUnknownKeys(options, NO_KEYS, "option", (severity, code, message) =>
+      warnUnknownKeys(context.config, NO_KEYS, "option", (severity, code, message) =>
         context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
       );
 
       // Placement travels in the document (`ir.target`), so the request carries no
-      // namespace of its own, and no config beyond this stage's options.
-      const request: GenerateToolRequest = {
-        ir,
-        options: { config: options },
-      };
+      // namespace of its own, and no config beyond this stage's own.
+      const request: GenerateToolRequest = { ir, config: context.config };
 
       // Stream the tool's NDJSON stdout line by line, forwarding each artifact to
       // the host as it arrives (removes precede files) — nothing is buffered.

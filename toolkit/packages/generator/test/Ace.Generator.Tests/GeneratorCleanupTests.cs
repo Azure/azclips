@@ -48,7 +48,7 @@ public sealed class GeneratorCleanupTests
         }
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            Ir(), new GeneratorOptions(), Write, Remove);
+            Ir(), config: null, Write, Remove);
 
         Assert.True(result.Success);
 
@@ -73,7 +73,7 @@ public sealed class GeneratorCleanupTests
         // and simply performs no cleanup.
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             Ir(),
-            new GeneratorOptions(),
+            config: null,
             (_, _, _) => ValueTask.CompletedTask);
 
         Assert.True(result.Success);
@@ -90,7 +90,7 @@ public sealed class GeneratorCleanupTests
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
-            new GeneratorOptions(),
+            config: null,
             (_, _, _) => ValueTask.CompletedTask,
             (scope, _) =>
             {

@@ -23,7 +23,7 @@ public sealed class ProcessorBaseTests
                 Operations = [],
                 Target = Targets.For("Azure.ElasticSan"),
             },
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
         return writer.Files.Source(result, "ProcessorBase");
     }
@@ -43,7 +43,7 @@ public sealed class ProcessorBaseTests
                 Operations = [],
                 Target = Targets.For("Azure.ElasticSan"),
             },
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
         return writer.Files.Source(result, "ProcessorBase");
     }

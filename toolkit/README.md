@@ -205,9 +205,10 @@ richer input than it actually established. That pairs with the catalog's
 transform id to its step in `@azure-client-engine/transformers`
 (`packages/compiler/src/transforms.ts`), so a host supplies no stage code. The two
 external stages (`tsp-emit`, `csharp`) run through the host `Runtime`, which is
-all a host provides. Each stage gets only its own stage config: the `options` of
-its section under `stages`. `tsp-emit` reads `warnAsError`, `trace`, `nostdlib`,
-`additionalImports` and `emitter` (the emitter's own options) from its config; the
+all a host provides. Each stage gets only its own stage config, in its context as
+`config`: the `options` of its section under `stages`. `tsp-emit` reads
+`warnAsError`, `trace`, `nostdlib`, `additionalImports` and `emitter` (the
+emitter's own options) from its config; the
 API version travels with the entrypoint in `CompileInput`. `stages` is the
 compiler's only setting, so every other config key is a document fact, and the
 compiler hands those to `seed-ir` as its stage config (see
@@ -240,17 +241,20 @@ compiler passes its own reporter in, and the compiler stops building if the two
 shapes drift apart. A run carries one IR, so returning it mutated in place is the
 expected shape; returning a replacement works too.
 
-Every step checks its own stage config when it runs, through one shared function,
-`warnUnknownKeys` (`src/stage-config.ts`): a key it does not know is a warning
-(`unknown-fact` for `seed-ir`, `unknown-option` for the others) and is ignored.
-A step that takes no options warns about any key it is given.
+Every step reads its stage config from `TransformContext.config` and checks it
+when it runs. A key it does not know is a warning (`unknown-fact` for `seed-ir`,
+`unknown-option` for the others) and is ignored, through one shared function,
+`warnUnknownKeys` (`src/stage-config.ts`); a step that takes no options warns about
+any key it is given. An invalid value is an error that fails the stage
+(`invalid-fact`, `invalid-option`); no default stands in for it. A step is a plain
+object: it holds no state between runs.
 
-`seedIrStep()` fulfils the mandatory `seed-ir` stage, the first transform. It
+`seedIrStep` fulfils the mandatory `seed-ir` stage, the first transform. It
 turns the document facts, the gen-time config the spec cannot provide, into the
 IR's `target` (see [Generation target](#generation-target)). It writes only
 top-level IR nodes and never renames anything.
 
-`tweakIrStep()` fulfils the `tweak-ir` stage, and is **the only place IR-level
+`tweakIrStep` fulfils the `tweak-ir` stage, and is **the only place IR-level
 renaming happens**. Today it gives every model and enum a name that is unique
 across the type universe, so two same-named declarations from different
 namespaces cannot collapse onto one generated type. It runs before the two
@@ -261,7 +265,7 @@ into commands — so a rename after either would leave a stale copy behind. (An
 denormalizes them, so later steps may name their own output freely.) It never
 touches `id`, which stays a record of where a declaration came from.
 
-`flattenModelStep()` fulfils the `flatten-model` stage: it hoists nested object
+`flattenModelStep` fulfils the `flatten-model` stage: it hoists nested object
 members onto their containing model (`ModelHints.flattened`) and projects a
 request body onto its operation's parameter surface
 (`RequestBodyHints.parameters`). See [Flattening](#flattening). It is additive —
@@ -479,8 +483,9 @@ although it declares only 99 properties.
 
 The threshold is a generation-time setting only — `inliningThreshold` in the
 `flatten-model` stage options, beside `noInline`, which keeps named models nested
-whatever their size. Spec decorators such as `@flattenProperty` do not raise or
-bypass it.
+whatever their size. An absent threshold is 100; a value that is not a number, 0
+or more, fails the stage. Spec decorators such as `@flattenProperty` do not raise
+or bypass it.
 
 ### Visibility of what was flattened through
 

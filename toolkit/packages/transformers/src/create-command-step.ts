@@ -106,45 +106,41 @@ interface PassContext {
   readonly usedIdentities: Map<string, IROperation>;
 }
 
-/** Takes no options; any key it is given is warned about and ignored. */
-export function createCommandStep(
-  options: Record<string, unknown> = {},
-): TransformStep<IR, TransformedIR> {
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): TransformedIR {
-      const target = ir.target;
-      if (target === undefined) {
-        throw new Error(
-          "The document has no target. The seed-ir stage writes it and must run before create-command.",
-        );
+/** The `create-command` stage. It takes no options; any key it is given is warned about and ignored. */
+export const createCommandStep: TransformStep<IR, TransformedIR> = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): TransformedIR {
+    const target = ir.target;
+    if (target === undefined) {
+      throw new Error(
+        "The document has no target. The seed-ir stage writes it and must run before create-command.",
+      );
+    }
+
+    const pass: PassContext = {
+      ir,
+      report: (severity, code, message) =>
+        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
+      index: indexIR(ir),
+      usedNames: new Set<string>(),
+      usedIdentities: new Map<string, IROperation>(),
+    };
+    warnUnknownKeys(context.config, NO_KEYS, "option", pass.report);
+
+    // Grouping is scratch, not shape: commands land flat, and downstream regroups
+    // by reading `id.subject` / `id.action` rather than relying on array order.
+    const commands: IRCommand[] = [];
+    for (const [, operations] of groupOperations(pass)) {
+      for (const operation of operations) {
+        const command = buildCommand(pass, operation);
+        if (command !== undefined) commands.push(command);
       }
+    }
 
-      const pass: PassContext = {
-        ir,
-        report: (severity, code, message) =>
-          context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        index: indexIR(ir),
-        usedNames: new Set<string>(),
-        usedIdentities: new Map<string, IROperation>(),
-      };
-      warnUnknownKeys(options, NO_KEYS, "option", pass.report);
-
-      // Grouping is scratch, not shape: commands land flat, and downstream regroups
-      // by reading `id.subject` / `id.action` rather than relying on array order.
-      const commands: IRCommand[] = [];
-      for (const [, operations] of groupOperations(pass)) {
-        for (const operation of operations) {
-          const command = buildCommand(pass, operation);
-          if (command !== undefined) commands.push(command);
-        }
-      }
-
-      const transformed: TransformedIR = { ...ir, commands, target };
-      return transformed;
-    },
-  };
-}
+    const transformed: TransformedIR = { ...ir, commands, target };
+    return transformed;
+  },
+};
 
 // ─── Grouping ───────────────────────────────────────────────────────────
 

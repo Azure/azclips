@@ -202,7 +202,10 @@ compiler free of `child_process` and `fs`.
   all of `CompileConfig`.** The transform contract cannot name a compiler type,
   so its `config` field was removed (no step read it); options still arrive
   through each step's factory. Routing each stage config into its stage's context
-  is the aceconfig work.
+  is the aceconfig work. **Resolved:** since 2026-10-12 no context exposes the
+  whole `CompileConfig`, and since 2026-10-14 every context (`TransformContext`,
+  `EmitContext`, `GeneratorContext`) carries only its own stage config, as
+  `config`. The transform factories are gone.
 - **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
   to map `--generator` and `--root-namespace` onto config. They are compiler
   exports, not transformer details, and go away with the aceconfig flags.

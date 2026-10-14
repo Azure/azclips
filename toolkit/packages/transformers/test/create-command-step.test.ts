@@ -90,8 +90,9 @@ function run(ir: IR): {
   diagnostics: { severity: string; code: string; message: string }[];
 } {
   const diagnostics: { severity: string; code: string; message: string }[] = [];
-  const result = createCommandStep().run(ir, {
+  const result = createCommandStep.run(ir, {
     reportDiagnostic: (d) => diagnostics.push(d),
+    config: {},
   }) as TransformedIR;
   parseTransformedIR(result);
   return { out: result, diagnostics };
@@ -665,15 +666,16 @@ describe("target", () => {
     const ir = document([operation()]);
     delete ir.target;
 
-    expect(() => createCommandStep().run(ir, { reportDiagnostic: () => {} })).toThrow(/seed-ir/);
+    expect(() => createCommandStep.run(ir, { reportDiagnostic: () => {}, config: {} })).toThrow(/seed-ir/);
   });
 });
 
 describe("options", () => {
   it("takes none, so it warns about any it is given, such as the retired rootNamespace", () => {
     const diagnostics: { code: string; message: string }[] = [];
-    createCommandStep({ rootNamespace: "Fabrikam" }).run(document([operation()]), {
+    createCommandStep.run(document([operation()]), {
       reportDiagnostic: (d) => diagnostics.push(d),
+      config: { rootNamespace: "Fabrikam" },
     });
 
     expect(
@@ -690,8 +692,9 @@ describe("degradation", () => {
     (ir.operations[0] as unknown as IROperation).name = "";
 
     const diagnostics: { severity: string; code: string; message: string }[] = [];
-    const out = createCommandStep({}).run(ir, {
+    const out = createCommandStep.run(ir, {
       reportDiagnostic: (d) => diagnostics.push(d),
+      config: {},
     }) as TransformedIR;
 
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["empty-operation-name"]);

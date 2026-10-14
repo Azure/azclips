@@ -25,6 +25,13 @@ export interface TransformContext {
     code: string;
     message: string;
   }) => void;
+  /**
+   * This step's stage config, as written: its `stages.<id>.options` map, or for
+   * `seed-ir` the document facts. The compiler routes it by stage id and checks
+   * nothing; the step checks it when it runs. A key it does not know is a warning,
+   * and an invalid value is an error that fails the stage.
+   */
+  readonly config: Readonly<Record<string, unknown>>;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
 }

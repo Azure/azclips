@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Ace.Generator.Generators;
@@ -31,13 +33,12 @@ public sealed class CSharpClientGenerator : IClientGenerator
     /// <inheritdoc />
     public async Task<GenerationResult> GenerateAsync(
         TransformedIR ir,
-        GeneratorOptions options,
+        JsonElement? config,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ir);
-        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(writeFile);
 
         var diagnostics = new List<GeneratorDiagnostic>();
@@ -54,7 +55,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
             return new GenerationResult(diagnostics, new Dictionary<string, string>());
         }
 
-        var context = new GenerationContext(ir, options, diagnostics, cancellationToken);
+        var context = new GenerationContext(ir, config, diagnostics, cancellationToken);
 
         // Cleanup pass (before any produce): each stage names the output scopes it
         // owns; the host wipes them so every regeneration starts clean. Running

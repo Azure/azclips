@@ -26,7 +26,7 @@ public sealed class ElasticSanProcessorTests
         var writer = new ArtifactWriter(scenario);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             LoadIr(),
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
         return (result, writer);
     }

@@ -21,6 +21,11 @@ import type { CompileInput, CompilerDiagnostic } from "./types.js";
 export interface EmitContext {
   /** Record a diagnostic without throwing; collected into the final result. */
   reportDiagnostic(diagnostic: CompilerDiagnostic): void;
+  /**
+   * The emit stage's own stage config, as written: its `stages.<id>.options` map.
+   * The compiler routes it by stage id and checks nothing; the producer checks it.
+   */
+  readonly config: Readonly<Record<string, unknown>>;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
 }

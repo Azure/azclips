@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
@@ -58,13 +59,13 @@ public sealed class CSharpClientGeneratorTests
     /// </summary>
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> RunAsync(
         TransformedIR ir,
-        GeneratorOptions? options = null,
+        JsonElement? config = null,
         [CallerMemberName] string scenario = "default")
     {
         var writer = new ArtifactWriter(scenario);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
-            options ?? new GeneratorOptions(),
+            config,
             writer.WriteAsync);
         return (result, writer);
     }
@@ -394,7 +395,7 @@ public sealed class CSharpClientGeneratorTests
     [Fact]
     public async Task Generate_ReportsWarningForEmptyModelName()
     {
-        (GenerationResult result, _) = await RunAsync(Ir(models: [""]), new GeneratorOptions());
+        (GenerationResult result, _) = await RunAsync(Ir(models: [""]));
 
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
         // The empty-named model is skipped, not emitted — only the always-on base remains.

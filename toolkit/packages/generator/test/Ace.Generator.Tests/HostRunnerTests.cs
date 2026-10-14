@@ -44,7 +44,7 @@ public sealed class HostRunnerTests
     [Fact]
     public async Task Streams_a_file_frame_per_model_then_a_success_result()
     {
-        (int code, List<JsonElement> frames) = await RunAsync(new { ir = Ir(), options = new { } });
+        (int code, List<JsonElement> frames) = await RunAsync(new { ir = Ir(), config = new { } });
 
         Assert.Equal(0, code);
 
@@ -66,7 +66,7 @@ public sealed class HostRunnerTests
     [Fact]
     public async Task Takes_the_namespace_from_the_documents_target()
     {
-        (int code, List<JsonElement> frames) = await RunAsync(new { ir = Ir(), options = new { } });
+        (int code, List<JsonElement> frames) = await RunAsync(new { ir = Ir(), config = new { } });
 
         Assert.Equal(0, code);
         JsonElement widget = frames.First(f =>
@@ -81,7 +81,7 @@ public sealed class HostRunnerTests
         TransformedIR ir = Ir();
         ir.Target = null!;
 
-        (int code, List<JsonElement> frames) = await RunAsync(new { ir, options = new { } });
+        (int code, List<JsonElement> frames) = await RunAsync(new { ir, config = new { } });
 
         Assert.Equal(1, code);
         Assert.DoesNotContain(frames, f => f.GetProperty("kind").GetString() == "file");
@@ -104,7 +104,7 @@ public sealed class HostRunnerTests
                 new IRId { Module = "Test", Name = "get" }),
         ];
 
-        (int code, List<JsonElement> frames) = await RunAsync(new { ir, options = new { } });
+        (int code, List<JsonElement> frames) = await RunAsync(new { ir, config = new { } });
 
         Assert.Equal(1, code);
         JsonElement result = frames[^1];

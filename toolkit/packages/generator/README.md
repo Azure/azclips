@@ -32,9 +32,8 @@ packages/generator/
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
       CSharpClass.cs                    Roslyn single-class scaffold (used by the stub generators)
-      GenerationContext.cs              Read-only run state (IR, options, diagnostics)
+      GenerationContext.cs              Read-only run state (IR, stage config, diagnostics)
       GenerationResult.cs               Run outcome: diagnostics, generated-class map, success
-      GeneratorOptions.cs               Host-resolved options
       GeneratorDiagnostic.cs            Structured diagnostic
       Ir/
         Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
@@ -96,14 +95,17 @@ provides that adapter — `Ace.Generator.Host`, a small `dotnet` executable that
 implements the compiler's **`csharp-generate`** tool contract:
 
 ```
-stdin  : one JSON GenerateToolRequest  { ir, options: { config? } }
+stdin  : one JSON GenerateToolRequest  { ir, config }
 stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
          (streamed as produced), then a terminal
          {"kind":"result","success","diagnostics":[{severity,code,message}]}
 ```
 
 The IR is read with `IrJson.Options` (the polymorphic unions place their
-discriminator out of order). Placement comes only from the document's `target`,
+discriminator out of order). `config` is the `csharp` stage's own stage config
+(`stages.csharp.options`), as written; the generator takes none yet, and its
+`GenerationContext.Config` carries it unread. Placement comes only from the
+document's `target`,
 which the `seed-ir` stage writes: the request carries no namespace, and a document
 without a target is rejected with `ace-generator/missing-target` before anything
 is written or removed. `HostRunner` holds all the framing and is unit-tested
@@ -378,7 +380,7 @@ Asynchronous, streaming:
 
 ```csharp
 Task<GenerationResult> GenerateAsync(
-    TransformedIR ir, GeneratorOptions options,
+    TransformedIR ir, JsonElement? config,
     GeneratedFileHandler writeFile, CancellationToken ct = default);
 ```
 

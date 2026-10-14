@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 
@@ -71,14 +73,14 @@ public interface IClientGenerator
     /// (full-refresh codegen semantics). With no handler, nothing is removed.
     /// </remarks>
     /// <param name="ir">The IR document to generate from.</param>
-    /// <param name="options">Host-resolved generation options.</param>
+    /// <param name="config">The <c>csharp</c> stage's own stage config, as written, if any.</param>
     /// <param name="writeFile">Handler invoked once per generated file (relative path + contents).</param>
     /// <param name="removeScope">Optional handler invoked once per owned scope to wipe, before writing.</param>
     /// <param name="cancellationToken">Cooperative cancellation.</param>
     /// <returns>The run's diagnostics and emitted-file count (files themselves are streamed).</returns>
     Task<GenerationResult> GenerateAsync(
         TransformedIR ir,
-        GeneratorOptions options,
+        JsonElement? config,
         GeneratedFileHandler writeFile,
         RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default);

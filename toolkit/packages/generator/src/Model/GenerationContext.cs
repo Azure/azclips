@@ -1,10 +1,12 @@
+using System.Text.Json;
+
 using Ace.Generator.Model.Ir;
 
 namespace Ace.Generator.Model;
 
 /// <summary>
 /// Read-only run state shared with the artifact generators: the IR document, the
-/// resolved options, cancellation, and the diagnostic sink. Stages read from it
+/// stage config, cancellation, and the diagnostic sink. Stages read from it
 /// and report diagnostics through it, but <em>produce files by yielding</em>
 /// (see <c>IArtifactGenerator</c>) — the orchestrator, not the context, streams
 /// those files to the caller's handler, so the context never touches file output.
@@ -17,12 +19,12 @@ internal sealed class GenerationContext
 
     internal GenerationContext(
         TransformedIR ir,
-        GeneratorOptions options,
+        JsonElement? config,
         List<GeneratorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
         Ir = ir;
-        Options = options;
+        Config = config;
         _diagnostics = diagnostics;
         CancellationToken = cancellationToken;
         _index = new Lazy<Generators.IrIndex>(() => new Generators.IrIndex(ir));
@@ -44,8 +46,12 @@ internal sealed class GenerationContext
     /// </summary>
     public Generators.Placement Placement => _placement.Value;
 
-    /// <summary>Host-resolved generation options.</summary>
-    public GeneratorOptions Options { get; }
+    /// <summary>
+    /// The <c>csharp</c> stage's own stage config (<c>stages.csharp.options</c>), as
+    /// written, if any. Opaque for now: no artifact generator reads it yet. Placement is
+    /// not config; it comes from the document's <see cref="TransformedIR.Target"/>.
+    /// </summary>
+    public JsonElement? Config { get; }
 
     /// <summary>Cooperative cancellation for the run.</summary>
     public CancellationToken CancellationToken { get; }

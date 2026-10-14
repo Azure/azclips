@@ -78,28 +78,27 @@ const DIRECTORY_KEYS: ReadonlySet<string> = new Set<keyof IRTargetDirectories>([
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
-export function seedIrStep(facts: Record<string, unknown> = {}): TransformStep {
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      let failed = false;
-      const report: Report = (severity, code, message) => {
-        if (severity === "error") failed = true;
-        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
-      };
+/** The `seed-ir` stage. Its stage config is the document facts. */
+export const seedIrStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    let failed = false;
+    const report: Report = (severity, code, message) => {
+      if (severity === "error") failed = true;
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+    };
 
-      const target = resolveTarget(ir, facts, report);
-      // An invalid fact fails the stage. No default stands in for a value the config
-      // got wrong, so nothing is written, and the compiler stops the run.
-      if (!failed) ir.target = target;
-      return ir;
-    },
-  };
-}
+    const target = resolveTarget(ir, context.config, report);
+    // An invalid fact fails the stage. No default stands in for a value the config
+    // got wrong, so nothing is written, and the compiler stops the run.
+    if (!failed) ir.target = target;
+    return ir;
+  },
+};
 
 // ─── Target ─────────────────────────────────────────────────────────────
 
-function resolveTarget(ir: IR, facts: Record<string, unknown>, report: Report): IRTarget {
+function resolveTarget(ir: IR, facts: Readonly<Record<string, unknown>>, report: Report): IRTarget {
   warnUnknownKeys(facts, FACT_KEYS, "fact", report);
   const read = factReader(facts, "", report);
 

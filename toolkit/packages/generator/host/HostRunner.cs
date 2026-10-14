@@ -35,8 +35,6 @@ public static class HostRunner
                 JsonSerializer.Deserialize<HostRequest>(requestJson, IrJson.Options)
                 ?? throw new JsonException("GenerateToolRequest deserialized to null.");
 
-            var options = new GeneratorOptions { Config = request.Options.Config };
-
             // Stream each generated file to stdout the moment it is produced.
             async ValueTask WriteFileAsync(string relativePath, string contents, CancellationToken ct)
             {
@@ -55,7 +53,7 @@ public static class HostRunner
             }
 
             GenerationResult result =
-                await new CSharpClientGenerator().GenerateAsync(request.Ir, options, WriteFileAsync, RemoveScopeAsync);
+                await new CSharpClientGenerator().GenerateAsync(request.Ir, request.Config, WriteFileAsync, RemoveScopeAsync);
 
             await WriteResultAsync(writer, result.Success, MapDiagnostics(result.Diagnostics));
             return result.Success ? 0 : 1;
@@ -110,13 +108,7 @@ internal sealed record HostRequest
     [JsonPropertyName("ir")]
     public TransformedIR Ir { get; init; } = new();
 
-    [JsonPropertyName("options")]
-    public HostOptions Options { get; init; } = new();
-}
-
-/// <summary>Host-resolved generation options carried in the request.</summary>
-internal sealed record HostOptions
-{
+    /// <summary>The <c>csharp</c> stage's own stage config, as written, if any.</summary>
     [JsonPropertyName("config")]
     public JsonElement? Config { get; init; }
 }

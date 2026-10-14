@@ -46,20 +46,17 @@ export interface EmitToolResponse {
 }
 
 /**
- * Host-resolved options for the `csharp-generate` tool. Placement (root namespace,
- * project name, folders) is not among them: it travels in the document's `target`.
+ * stdin payload for the `csharp-generate` tool. Placement (root namespace, project
+ * name, folders) is not in it: it travels in the document's `target`.
  */
-export interface GenerateToolOptions {
-  /** The `csharp` stage's own options (`stages.csharp.options`), opaque to the generator for now. */
-  config?: unknown;
-}
-
-/** stdin payload for the `csharp-generate` tool. */
 export interface GenerateToolRequest {
   /** The IR document to generate from. */
   ir: IR;
-  /** Host-resolved generation options. */
-  options: GenerateToolOptions;
+  /**
+   * The `csharp` stage's own stage config (`stages.csharp.options`), as written.
+   * Opaque to the generator for now.
+   */
+  config: Readonly<Record<string, unknown>>;
 }
 
 /** One newline-delimited frame emitted by the `csharp-generate` tool on stdout. */
