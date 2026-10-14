@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>../../src/MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Extensions\Compute\Extensions.Compute.csproj" />
+    <!-- The extension references these with ExcludeAssets=runtime, so the tests must bring them. -->
+    <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Extensions\ExtensionRuntime\ExtensionRuntime.csproj" />
+  </ItemGroup>
+
+</Project>

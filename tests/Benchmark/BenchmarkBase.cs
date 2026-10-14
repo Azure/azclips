@@ -24,6 +24,8 @@ namespace Benchmark;
 /// </summary>
 public abstract class BenchmarkBase
 {
+    private ClientMetadata _clientMetadata = null!;
+
     protected string RepoRoot { get; set; } = null!;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
@@ -74,12 +76,16 @@ public abstract class BenchmarkBase
     /// <summary>
     /// Initialize repo root and the seeded profile store (one-time setup).
     /// </summary>
-    protected void InitializeCommon()
+    /// <param name="clientMetadata">
+    /// Metadata for the client product under benchmark, used to seed a matching MSAL cache.
+    /// </param>
+    protected void InitializeCommon(ClientMetadata clientMetadata)
     {
+        _clientMetadata = clientMetadata;
         RepoRoot = RepoLocator.GetRepoRoot();
 
         MsalCacheDirectory = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "msal");
-        MsalCacheFixture.Seed(MsalCacheDirectory);
+        MsalCacheFixture.Seed(MsalCacheDirectory, clientMetadata.FirstPartyApplicationId);
         ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
 
         // The profile store is seeded and verified once during global setup to confirm that
@@ -142,6 +148,9 @@ public abstract class BenchmarkBase
                 HttpClientFactory = new ThrowingMsalHttpClientFactory(),
             });
         });
+
+        // The fixture seeds an unprotected cache file; the real credential store is off limits.
+        MsalTokenCacheFactory.ForcePlaintextForTests = true;
     }
 
     /// <summary>
@@ -153,7 +162,7 @@ public abstract class BenchmarkBase
     protected void VerifyAuthFixture()
     {
         RegisterBenchmarkStubs();
-        AzclipsServiceProvider.Initialize(ClientType.CLI);
+        AzclipsServiceProvider.Initialize(_clientMetadata);
         try
         {
             var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
@@ -181,7 +190,7 @@ public abstract class BenchmarkBase
         }
         catch (Exception ex)
         {
-            var cacheFile = Path.Combine(MsalCacheDirectory, "MSAL.cache.plaintext");
+            var cacheFile = Path.Combine(MsalCacheDirectory, MsalCacheFixture.CacheFileName);
             var exists = File.Exists(cacheFile);
             var size = exists ? new FileInfo(cacheFile).Length : 0;
             throw new InvalidOperationException(

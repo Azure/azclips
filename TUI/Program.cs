@@ -16,6 +16,7 @@ namespace Core.Tui;
 
 public static class Program
 {
+    private const string FirstPartyApplicationId = "1950a258-227b-4e31-a9cf-717495945fc2";
     private static ILoggingService? _logger;
 
     public static async Task<int> Main(string[] args)
@@ -39,7 +40,8 @@ public static class Program
             services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
-        AzclipsServiceProvider.Initialize(ClientType.TUI);
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(ClientType.TUI, FirstPartyApplicationId));
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
         _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
 

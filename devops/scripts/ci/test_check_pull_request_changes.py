@@ -35,7 +35,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         self.assertIn("<Version>", violations[1])
 
         conditional_project = head_project.replace(
-            "<PropertyGroup>", '<PropertyGroup Condition="\'$(Configuration)\' == \'Release\'">'
+            "<PropertyGroup>", "<PropertyGroup Condition=\"'$(Configuration)' == 'Release'\">"
         )
         violations = find_policy_violations(
             ["src/Example/Example.csproj"],
@@ -63,17 +63,107 @@ class PullRequestFilePolicyTests(unittest.TestCase):
             [],
         )
 
-        changed_files, project_renames = parse_changed_files(
-            "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n"
+    def test_allows_project_renames_that_preserve_release_versions(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        head_project = (
+            "<Project><PropertyGroup><Version>0.1.0</Version><Nullable>enable</Nullable></PropertyGroup></Project>"
         )
+        changed_files, project_renames = parse_changed_files("R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n")
+        self.assertEqual(
+            find_policy_violations(
+                changed_files,
+                lambda path: base_project if path == "src/Old/Old.csproj" else None,
+                lambda path: head_project if path == "src/New/New.csproj" else None,
+                project_renames=project_renames,
+            ),
+            [],
+        )
+
+        versionless_base_project = "<Project><PropertyGroup><AssemblyName>Old</AssemblyName></PropertyGroup></Project>"
+        versionless_head_project = "<Project><PropertyGroup><AssemblyName>New</AssemblyName></PropertyGroup></Project>"
+        self.assertEqual(
+            find_policy_violations(
+                changed_files,
+                lambda path: versionless_base_project if path == "src/Old/Old.csproj" else None,
+                lambda path: versionless_head_project if path == "src/New/New.csproj" else None,
+                project_renames=project_renames,
+            ),
+            [],
+        )
+
+    def test_rejects_project_renames_that_change_release_versions(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        changed_version_project = "<Project><PropertyGroup><Version>0.1.1</Version></PropertyGroup></Project>"
+        changed_files, project_renames = parse_changed_files("R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n")
         violations = find_policy_violations(
             changed_files,
             lambda path: base_project if path == "src/Old/Old.csproj" else None,
-            lambda path: head_project if path == "src/New/New.csproj" else None,
+            lambda path: changed_version_project if path == "src/New/New.csproj" else None,
             project_renames=project_renames,
         )
         self.assertEqual(len(violations), 1)
-        self.assertIn("may not be renamed", violations[0])
+        self.assertIn("must preserve release-owned versions", violations[0])
+
+    def test_rejects_unmatched_project_delete_add_pairs(self):
+        base_project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        changed_files, project_renames = parse_changed_files("D\tsrc/Old/Old.csproj\nA\tsrc/New/New.csproj\n")
+
+        for head_version in ("0.1.0", "0.1.1"):
+            with self.subTest(head_version=head_version):
+                head_project = f"<Project><PropertyGroup><Version>{head_version}</Version></PropertyGroup></Project>"
+                violations = find_policy_violations(
+                    changed_files,
+                    lambda path: base_project if path == "src/Old/Old.csproj" else None,
+                    lambda path: head_project if path == "src/New/New.csproj" else None,
+                    project_renames=project_renames,
+                )
+
+                self.assertEqual(len(violations), 1)
+                self.assertIn("matched one-to-one as Git renames", violations[0])
+
+    def test_rejects_surplus_project_additions_or_deletions_alongside_rename(self):
+        project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        cases = {
+            "surplus deletion": (
+                "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\nD\tsrc/Extra/Extra.csproj\n",
+                {"src/Old/Old.csproj", "src/Extra/Extra.csproj"},
+                {"src/New/New.csproj"},
+            ),
+            "surplus addition": (
+                "R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\nA\tsrc/Extra/Extra.csproj\n",
+                {"src/Old/Old.csproj"},
+                {"src/New/New.csproj", "src/Extra/Extra.csproj"},
+            ),
+        }
+
+        for name, (diff_output, base_paths, head_paths) in cases.items():
+            with self.subTest(name=name):
+                changed_files, project_renames = parse_changed_files(diff_output)
+                violations = find_policy_violations(
+                    changed_files,
+                    lambda path: project if path in base_paths else None,
+                    lambda path: project if path in head_paths else None,
+                    project_renames=project_renames,
+                )
+
+                self.assertEqual(len(violations), 1)
+                self.assertIn("matched one-to-one as Git renames", violations[0])
+
+    def test_rejects_project_renames_with_a_missing_side(self):
+        project = "<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>"
+        changed_files, project_renames = parse_changed_files("R098\tsrc/Old/Old.csproj\tsrc/New/New.csproj\n")
+
+        for base_content, head_content in ((None, project), (project, None)):
+            with self.subTest(base_missing=base_content is None):
+                violations = find_policy_violations(
+                    changed_files,
+                    lambda path: base_content if path == "src/Old/Old.csproj" else None,
+                    lambda path: head_content if path == "src/New/New.csproj" else None,
+                    project_renames=project_renames,
+                )
+
+                self.assertEqual(len(violations), 1)
+                self.assertIn("must preserve release-owned versions", violations[0])
 
     def test_allows_package_reference_child_version_changes(self):
         base_project = """
@@ -153,7 +243,7 @@ class PullRequestFilePolicyTests(unittest.TestCase):
         )
         dependency_project = version_only_project.replace(
             "    </PropertyGroup>",
-            "    </PropertyGroup>\n    <ItemGroup>\n        <PackageReference Include=\"Example\">\n"
+            '    </PropertyGroup>\n    <ItemGroup>\n        <PackageReference Include="Example">\n'
             "            <Version>0.1.0</Version>\n        </PackageReference>\n    </ItemGroup>",
         )
         modified_dependency_project = dependency_project.replace(

@@ -20,6 +20,7 @@
 import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
 import { VisibilityKinds, type IRVisibility } from "./primitives.js";
+import { type IRPropertyRef } from "./property-ref.js";
 
 // ─── Shared sub-namespaces ──────────────────────────────────────────────
 
@@ -93,28 +94,26 @@ export const FlattenHintSchema: z.ZodType<FlattenHint> = z
  * the resolved *outcome* of `FlattenHint`, computed by a transform so that the
  * generator does not have to re-derive naming or collision rules.
  *
+ * `property` is the hoisted leaf and `via` the containers it was hoisted through,
+ * from the containing model down — so `Properties.Sku.Name` is `property: name`,
+ * `via: [properties, sku]`. `via` has at least one entry, since a flattened member
+ * always crosses one nesting hop. Ids are invariant under renaming transforms, so
+ * the reference stays correct however the members are later renamed.
+ *
  * `IRModel.properties` is left untouched: this is rendering metadata, and the
- * wire truth stays with the properties the `path` walks through.
+ * wire truth stays with the properties the reference walks through.
  */
-export type FlattenedMember = {
+export type FlattenedMember = IRPropertyRef & {
   /**
    * Final C#-facing member name on the containing model. Unique within that
    * model's flattened set, and resolved against its ordinary property names.
    */
   name: string;
-  /**
-   * Property ids from the containing model down to the leaf, in access order
-   * (e.g. `[properties, sku, name]` for `Properties.Sku.Name`). At least two
-   * entries, since a flattened member always crosses one nesting hop. Ids are
-   * invariant under renaming transforms, and the wire path is each hop's
-   * `wireName`, so this stays correct however the members are later renamed.
-   */
-  path: IRId[];
-  /** True when any hop along `path` is optional — reaching the leaf may fail. */
+  /** True when any property along `via` or the leaf is optional — reaching it may fail. */
   optional: boolean;
   /**
-   * Lifecycle phases in which *every* hop along `path` is visible (the
-   * intersection). **Omitted when unconstrained**, matching
+   * Lifecycle phases in which *every* property along `via` and the leaf is
+   * visible (the intersection). **Omitted when unconstrained**, matching
    * `IRProperty.visibility`: an absent field means "all phases", not "none".
    */
   visibility?: IRVisibility[] | undefined;
@@ -123,7 +122,8 @@ export type FlattenedMember = {
 export const FlattenedMemberSchema: z.ZodType<FlattenedMember> = z
   .object({
     name: z.string().min(1),
-    path: z.array(IRIdSchema).min(2),
+    property: IRIdSchema,
+    via: z.array(IRIdSchema).min(1),
     optional: z.boolean(),
     visibility: z.enum(VisibilityKinds).array().optional(),
   })
@@ -136,16 +136,14 @@ export const FlattenedMemberSchema: z.ZodType<FlattenedMember> = z
  * table: the projection filters by HTTP binding and lifecycle phase, and
  * resolves names against **this** operation's path/query/header parameters — so
  * two operations sharing a body model can legitimately disagree. Carrying the
- * `path` inline also keeps the generator free of a cross-model lookup.
+ * reference inline also keeps the generator free of a cross-model lookup.
+ *
+ * `property` and `via` reference into the request-body model. An empty `via` is a
+ * top-level body property promoted as-is; otherwise the parameter crosses nesting.
  */
-export type FlattenedParameter = {
+export type FlattenedParameter = IRPropertyRef & {
   /** Final parameter name, after resolving collisions against the operation's own parameters. */
   name: string;
-  /**
-   * Property ids into the request-body model, container → leaf. A single entry
-   * is a top-level body property promoted as-is; longer paths cross nesting.
-   */
-  path: IRId[];
   /** Whether the operation requires a value. Narrower than the property's own optionality. */
   required: boolean;
 };
@@ -153,7 +151,8 @@ export type FlattenedParameter = {
 export const FlattenedParameterSchema: z.ZodType<FlattenedParameter> = z
   .object({
     name: z.string().min(1),
-    path: z.array(IRIdSchema).min(1),
+    property: IRIdSchema,
+    via: z.array(IRIdSchema),
     required: z.boolean(),
   })
   .strict();

@@ -19,7 +19,7 @@ public sealed class ElasticSanProcessorTests
     private static readonly string IrPath =
         Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ir.json");
 
-    private static IRDocument LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
+    private static TransformedIR LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
 
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(string scenario)
     {
@@ -32,13 +32,13 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task Emits_A_Processor_File_Per_Ir_Operation()
+    public async Task Emits_A_Processor_File_Per_Command()
     {
-        IRDocument ir = LoadIr();
+        TransformedIR ir = LoadIr();
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
-        // One processor per operation, plus the shared ProcessorBase.
-        Assert.Equal(ir.Operations.Count + 1, writer.Files.ProcessorSources().Count());
+        // One processor per command, plus the shared ProcessorBase.
+        Assert.Equal(ir.Commands.Count + 1, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
-    public async Task Regrouped_Operations_Use_Source_Interface_Names()
+    public async Task Commands_Are_Named_From_Their_Subject_And_Action()
     {
         (GenerationResult result, _) = await EmitAsync("ElasticSan_Processors_Interfaces");
 
@@ -64,12 +64,18 @@ public sealed class ElasticSanProcessorTests
         Assert.Empty(result.Diagnostics);
         foreach (string name in new[]
         {
-            "RestoreVolumeProcessor",
-            "PreBackupVolumeGroupsProcessor",
-            "PreRestoreVolumeGroupsProcessor",
-            "ListByElasticSanElasticSansProcessor",
-            "GetSnapshotsProcessor",
-            "ListSkusOperationGroupProcessor",
+            // No @clientLocation applies (its decorator is scoped "go"), so this one
+            // keeps the subject derived from its declaration site.
+            "RestoreVolumeElasticSanProcessor",
+            // Relocated by the spec: VolumeGroups.preBackup -> Volumes.
+            "PreBackupVolumesProcessor",
+            "PreRestoreVolumesProcessor",
+            // ElasticSans.listByElasticSan -> "PrivateLinkResources".
+            "ListByElasticSanPrivateLinkResourcesProcessor",
+            // Snapshots.get -> "VolumeSnapshots".
+            "GetVolumeSnapshotsProcessor",
+            // SkusOperationGroup.list -> "Skus", dropping the interface's suffix.
+            "ListSkusProcessor",
         })
         {
             Assert.Contains(name, result.GeneratedClasses.Keys);
@@ -88,8 +94,9 @@ public sealed class ElasticSanProcessorTests
         Assert.Contains("public string SubscriptionId { get; set; }", create);
         Assert.Contains("public string ResourceGroupName { get; set; }", create);
         Assert.Contains("public string ElasticSanName { get; set; }", create);
-        // Single request-body member handed back by the CreateRequestBody seam.
-        Assert.Contains("public ElasticSan? Body { get; set; }", create);
+        // The body is projected onto flat members, so the payload leaves the public surface —
+        // otherwise it would duplicate every one of them.
+        Assert.Contains("internal ElasticSan? Body { get; set; }", create);
         Assert.Contains("CreateRequestBody() => Body;", create);
         // Request seams: PUT method + interpolated URI (host, path members, api-version).
         Assert.Contains("Method => HttpMethod.Put;", create);

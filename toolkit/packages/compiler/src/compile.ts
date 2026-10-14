@@ -22,10 +22,10 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
+import type { TransformContext, TransformStep } from "@azure-client-engine/transformers";
 
 import type { EmitContext, EmitProducer } from "./emit-producer.js";
-import type { TransformContext, TransformStep } from "./transform.js";
-import type { Generator, GeneratorContext } from "./generate.js";
+import type { Generator, GeneratorContext, GeneratorInputIssue } from "./generate.js";
 import { createBuiltinEmit } from "./builtins/emit.js";
 import { createCsharpGenerator } from "./builtins/generate-csharp.js";
 import { createCollectorSink, type OutputDelegate } from "./output.js";
@@ -37,6 +37,7 @@ import {
   type PlannedStage,
   type StageDescriptor,
 } from "./stages.js";
+import { TRANSFORMS } from "./transforms.js";
 import type {
   CompileConfig,
   CompileInput,
@@ -97,7 +98,7 @@ export async function compile(
   };
 
   // ── Emit: the sequence's first stage, and the run's only IR source ──────
-  const emitProducer = resolveEmit(plan.emit.descriptor, options, config, reportDiagnostic);
+  const emitProducer = resolveEmit(plan.emit.descriptor, options, reportDiagnostic);
   if (emitProducer === undefined) return finish(false);
 
   const emitContext: EmitContext = {
@@ -124,14 +125,13 @@ export async function compile(
 
   const transformContext: TransformContext = {
     reportDiagnostic,
-    config,
     ...(signal !== undefined ? { signal } : {}),
   };
 
   /** Run one transform stage. Returns the IR to carry on with, or `undefined` on failure. */
   const runTransform = async (stage: PlannedStage, current: IR): Promise<IR | undefined> => {
     const id = stage.descriptor.id;
-    const step = resolveTransform(stage.descriptor, options, config, reportDiagnostic);
+    const step = resolveTransform(stage.descriptor, config, reportDiagnostic);
     if (step === undefined) return undefined;
     try {
       return await step.run(current, transformContext);
@@ -147,6 +147,17 @@ export async function compile(
     const id = stage.descriptor.id;
     const generator = resolveGenerator(stage.descriptor, options, config, reportDiagnostic);
     if (generator === undefined) return false;
+
+    // A generator declares what it renders; the orchestrator checks it. The pipeline
+    // carries one `IR` and a generate stage may sit anywhere, so this is the only
+    // point where "the document this backend needs" can actually be established.
+    // Doing it here rather than inside each generator keeps the failure uniform and
+    // keeps a backend's signature honest about its input.
+    const accepted = generator.accepts?.(current) ?? { success: true as const, data: current };
+    if (!accepted.success) {
+      reportDiagnostic(unacceptableInput(id, generator.name, accepted.error.issues));
+      return false;
+    }
 
     let outputFailed = false;
     const generatorContext: GeneratorContext = {
@@ -195,7 +206,7 @@ export async function compile(
       // Awaited in place, so the generator sees the IR exactly as it stands at
       // its position. Handing a live IR to something that runs concurrently
       // would let a later transform change what it renders.
-      await generator.generate(current, generatorContext);
+      await generator.generate(accepted.data, generatorContext);
     } catch (error) {
       if (isAbortError(error)) throw error;
       reportDiagnostic(stageError("generate", id, error));
@@ -226,17 +237,13 @@ export async function compile(
   return finish(!diagnosticsFailed, ir);
 }
 
-/** Resolve the root emit stage: explicit override, registry, then the built-in. */
+/** Resolve the root emit stage: an injected producer, else the built-in. */
 function resolveEmit(
   descriptor: StageDescriptor,
   options: CompileOptions,
-  config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): EmitProducer | undefined {
   if (options.emit !== undefined) return options.emit;
-
-  const factory = options.registry?.emitters.get(descriptor.id);
-  if (factory !== undefined) return factory(stageOptions(config, descriptor.id));
 
   if (descriptor.id === TSP_EMIT_STAGE) {
     if (options.runtime === undefined) {
@@ -256,14 +263,13 @@ function resolveEmit(
   return undefined;
 }
 
-/** Resolve a transform stage. Transforms have no built-ins; the host must fulfil them. */
+/** Resolve a transform stage from the compiler's own implementations. */
 function resolveTransform(
   descriptor: StageDescriptor,
-  options: CompileOptions,
   config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): TransformStep | undefined {
-  const factory = options.registry?.transforms.get(descriptor.id);
+  const factory = TRANSFORMS.get(descriptor.id);
   if (factory === undefined) {
     reportDiagnostic(unimplemented(descriptor.id, "transform"));
     return undefined;
@@ -271,18 +277,13 @@ function resolveTransform(
   return factory(stageOptions(config, descriptor.id));
 }
 
-/** Resolve a generate stage: a registry entry, else the compiler's built-in `csharp`. */
+/** Resolve a generate stage: the compiler's built-in `csharp`. */
 function resolveGenerator(
   descriptor: StageDescriptor,
   options: CompileOptions,
   config: CompileConfig,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): Generator | undefined {
-  const resolved = stageOptions(config, descriptor.id);
-
-  const factory = options.registry?.generators.get(descriptor.id);
-  if (factory !== undefined) return factory(resolved);
-
   if (descriptor.id === CSHARP_STAGE) {
     if (options.runtime === undefined) {
       reportDiagnostic({
@@ -294,7 +295,7 @@ function resolveGenerator(
       });
       return undefined;
     }
-    return createCsharpGenerator(options.runtime, resolved);
+    return createCsharpGenerator(options.runtime, stageOptions(config, descriptor.id));
   }
 
   reportDiagnostic(unimplemented(descriptor.id, "generate"));
@@ -310,8 +311,8 @@ function unimplemented(id: string, kind: string): CompilerDiagnostic {
     severity: "error",
     code: "@azure-client-engine/compiler/unimplemented-stage",
     message:
-      `The '${id}' ${kind} stage is enabled but no implementation was supplied. ` +
-      "Register one through CompileOptions.registry, or disable the stage in config.pipeline.",
+      `The '${id}' ${kind} stage is enabled, but the compiler has no implementation for it. ` +
+      "Disable the stage in config.pipeline.",
   };
 }
 
@@ -321,6 +322,33 @@ function stageError(stage: string, name: string, error: unknown): CompilerDiagno
     severity: "error",
     code: `@azure-client-engine/compiler/${stage}-stage-failed`,
     message: `${stage} stage '${name}' threw: ${detail}`,
+  };
+}
+
+/**
+ * A document the generate stage's backend will not render.
+ *
+ * Reported by the orchestrator rather than the generator so every backend fails the
+ * same way, and so the message can name the stage whose position produced the
+ * document — which is what a reader needs to know to fix it (usually an earlier
+ * transform that did not run).
+ */
+function unacceptableInput(
+  stage: string,
+  name: string,
+  issues: readonly GeneratorInputIssue[],
+): CompilerDiagnostic {
+  const detail = issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
+    .join("; ");
+  const more = issues.length > 3 ? ` (+${issues.length - 3} more)` : "";
+  return {
+    severity: "error",
+    code: "@azure-client-engine/compiler/invalid-generator-input",
+    message:
+      `Generator '${name}' (stage '${stage}') cannot render the document it was given ` +
+      `— ${detail}${more}`,
   };
 }
 

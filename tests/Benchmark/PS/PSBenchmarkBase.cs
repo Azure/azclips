@@ -25,6 +25,10 @@ namespace Benchmark.PS;
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class PSBenchmarkBase : BenchmarkBase
 {
+    private static readonly ClientMetadata s_clientMetadata = new(
+        ClientType.PowerShell,
+        "1950a258-227b-4e31-a9cf-717495945fc2");
+
     /// <summary>
     /// The PowerShell module this benchmark exercises. Only this module and its
     /// <c>RequiredModules</c> dependency closure are staged for the run. Defaults to the
@@ -40,7 +44,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     [GlobalSetup]
     public void GlobalSetup()
     {
-        InitializeCommon();
+        InitializeCommon(s_clientMetadata);
 
         _psModuleManifestPath = PSManifestStager.StageModule(RepoRoot, ModuleName);
 

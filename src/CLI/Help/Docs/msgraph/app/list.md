@@ -5,9 +5,9 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Return the first page of application registrations from Microsoft Graph. Pagination is not followed in this preview — the response contains the default Graph page size. Use `--display-name` for a quick equality lookup, or `--filter` for any other OData expression.
+Description: Return application registrations from Microsoft Graph. All pages are returned, following the Graph `@odata.nextLink` continuation. Use `--display-name` for a quick equality lookup, or `--filter` for any other OData expression.
 
-### List the first page of applications
+### List applications
 
 ```bash
 az msgraph app list

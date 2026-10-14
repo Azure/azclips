@@ -14,6 +14,7 @@ namespace Cli.Tests;
 /// produced non-existent paths like <c>foo.dll/Other.dll</c>, breaking dependency resolution
 /// for any cache-bypassed extension. Pins the contract.
 /// </summary>
+[Collection("Extension Load Tracker Tests")]
 public class ExtensionLoadContextDirectoryTests
 {
     [Fact]
