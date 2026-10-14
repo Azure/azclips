@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791952440343,
+  "lastUpdate": 1791952526598,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -13612,6 +13612,48 @@ window.BENCHMARK_DATA = {
             "value": 2232024.4926188067,
             "unit": "ns",
             "range": "± 54816.03586301587"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1dcc12b5835ffc44097db4b4d9f12e5050359425",
+          "message": "{CLI} Improve extension loading debug logs and table formatting (#1098)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\nCLI startup and extension assembly loading diagnostics (`--debug`).\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes https://github.com/Azure/CLIPS/issues/958 (Better debug logs for\nextension loading).\n\nNote: The tracking issue is in the `Azure/CLIPS` repository\n(https://github.com/Azure/CLIPS/issues/958), not `Azure/azclips`.\n\n### Summary of Changes:\n- **Table Formatter Integration**: Exposed\n`TableFormatter.FormatRows(List<string[]> rows, string[]? headers, int?\nterminalWidth, bool includeHeaderSeparator)` in\n`src/CLI/Output/TableFormatter.cs` to enable programmatic table\nformatting without going through JSON serialization, and made column\nwidth calculation defensive against ragged rows.\n- **Extension Load Tracker**: Refactored `ExtensionLoadTracker` to\nrender its timing summary using `TableFormatter.FormatRows`. Columns are\ncleanly aligned (`Extension`, `Loader`, `Time (ms)`, `Version`),\nomitting wrapped paths and dashed lines for clean terminal display,\nwhile every line retains the `[ExtensionLoadTracker] ` prefix for\nbackward-compatibility with integration tests and log parsing.\n- **Probe Noise Elimination & Search Root Logging**: Removed noisy\nindividual candidate file probe logs on misses. `BundledExtensionLoader`\nand `InstalledExtensionLoader` now log their search root directory\nupfront, while preserving the exact loaded assembly path, version, and\nduration in the final `Loaded` debug log.\n- **Loader & Source Tracking**: Updated `BundledExtensionLoader` and\n`InstalledExtensionLoader` to track the loader mechanism (`Bundled`,\n`Installed`) as well as whether the load was an in-memory cache hit\n(`Cached`).\n- **CLI Logging Defects & Cleanup**:\n- Fixed `Events.Warning` in `Engine.Subscriptions.cs` to route to\n`loggingService.Warn(evt.Message)` instead of\n`loggingService.Info($\"WARNING: {evt.Message}\")`, ensuring warnings are\nsurfaced and colored under default `warn` logging level.\n- Demoted parameter alias resolution in `CLIArgumentParsingProvider.cs`\nfrom `Info` to `Verbose` to eliminate command-line log noise.\n- Added debug log in `ExtensionDispatcher.cs` when a command is\ndispatched to an extension (`[ExtensionDispatcher] Dispatched command\n'{commandName}' to extension '{extensionName}' (version:\n{resolved.Version ?? \"default\"}).`).\n- Added debug log on catch in `TelemetryRoutingResolver.cs` when profile\nor ARM data boundary resolution fails.\n- Cleaned up dead commented-out code and legacy `Console.WriteLine`\nprobes in `PropertyParser.cs` and `ExtensionParser.cs`.\n- **Tests**:\n- Added unit tests for `TableFormatter.FormatRows` in\n`TableFormatterTests.cs`.\n- Added unit tests for `ExtensionLoadTracker` in\n`ExtensionLoadTrackerTests.cs`.\n- Added unit tests for `Events.Warning` routing to `Warn` in\n`EngineSubscriptionTests.cs`.\n- Added unit tests for `ExtensionDispatcher` dispatch debug logging in\n`ExtensionDispatcherTests.cs`.\n- Added unit tests for `TelemetryRoutingResolver` error logging in\n`TelemetryRoutingResolverTests.cs`.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- `dotnet build azclips.slnx --configuration Debug` — passed\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug` —\npassed (1,221 passed, 8 skipped)\n- `dotnet test tests\\Core.Telemetry.Tests\\Core.Telemetry.Tests.csproj\n--configuration Debug` — passed (297 passed)\n- `dotnet test tests\\Core.Engine.Tests\\Core.Engine.Tests.csproj\n--configuration Debug` — passed (4 passed)\n- `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj --configuration\nDebug` — passed (251 passed)\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug\n--filter FullyQualifiedName~EngineSubscriptionTests` — passed (1 test)\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug\n--filter FullyQualifiedName~ExtensionDispatcherTests` — passed (15\ntests)\n- `dotnet test tests\\Core.Telemetry.Tests\\Core.Telemetry.Tests.csproj\n--configuration Debug --filter\nFullyQualifiedName~TelemetryRoutingResolverTests` — passed (3 tests)\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug\n--filter FullyQualifiedName~ExtensionLoadTrackerTests` — passed (2\ntests)\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug\n--filter FullyQualifiedName~TableFormatterTests` — passed (17 tests)\n- `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --configuration Debug\n--filter FullyQualifiedName~StreamRoutingIntegrationTests` — passed (25\ntests)\n- `git diff --check` — clean\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n{CLI} Improve extension loading debug logs, table formatting, and\nwarning level routing\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-14T15:07:35+11:00",
+          "tree_id": "3a010b60d321841c307f7a3d71d8d5a853d4128b",
+          "url": "https://github.com/Azure/azclips/commit/1dcc12b5835ffc44097db4b4d9f12e5050359425"
+        },
+        "date": 1791952521378,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2260847.9506672057,
+            "unit": "ns",
+            "range": "± 56586.19030040761"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2294319.495143581,
+            "unit": "ns",
+            "range": "± 57749.207427972586"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2224280.4107579463,
+            "unit": "ns",
+            "range": "± 57953.320785429394"
           }
         ]
       }
