@@ -165,7 +165,7 @@ Every result records the facts needed to compare builds:
   target that cannot list its keys falls back to the provider and recovery keys.
   Values come from `config get`. Both the older `key = value [source]` text and
   the newer JSON object output are accepted, and both record the same value text
-  (for example `false` or `9`).
+  (for example `false`, `9` or `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
   Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
