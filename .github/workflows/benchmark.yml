@@ -111,7 +111,7 @@ jobs:
         run: dotnet build azclips.slnx --configuration Release
 
       - name: Upload build outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-build-outputs
           path: |
@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload CLI benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-cli-results-${{ matrix.extension }}
           path: artifacts/Benchmark/ci
@@ -200,7 +200,7 @@ jobs:
 
       - name: Upload PS benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-ps-results-${{ matrix.extension }}
           path: artifacts/Benchmark/ci
@@ -241,7 +241,7 @@ jobs:
 
       - name: Upload STARTUP benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-startup-results
           path: artifacts/Benchmark/ci
@@ -444,7 +444,7 @@ jobs:
       # Upload benchmark result JSONs for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-results
           path: downloaded/**/results/*-report-full-compressed.json
@@ -453,7 +453,7 @@ jobs:
 
       - name: Upload BDN logs (always)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-ci-${{ github.run_id }}
           path: downloaded/**
@@ -474,7 +474,7 @@ jobs:
 
       - name: Upload trace sidecars
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-trace-sidecars
           path: sidecars

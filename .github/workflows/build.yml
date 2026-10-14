@@ -60,7 +60,7 @@ jobs:
 
     # Upload the build artifacts
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: Build Artifacts (${{ matrix.configuration }}-${{ matrix.platform }})
         path: artifacts/${{ matrix.configuration }}
@@ -136,7 +136,7 @@ jobs:
 
     # Upload the MSIX package:
     - name: Upload MSIX package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: MSIX Package (${{ matrix.configuration }}-${{ matrix.platform }})
         path: ./bin/${{ matrix.configuration }}/az-${{ matrix.platform }}.msix
@@ -204,7 +204,7 @@ jobs:
         env:
           Configuration: ${{ matrix.configuration }}
       - name: Upload Extension Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Extension - ${{ steps.extract-metadata.outputs.ext_name }} (${{ matrix.configuration }})
           path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.ext_name }}
@@ -323,7 +323,7 @@ jobs:
           }
       # Skip upload for now since publish step is skipped
       # - name: Upload PowerShell Module Artifact
-      #   uses: actions/upload-artifact@v4
+      #   uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       #   with:
       #     name: PowerShell Module - ${{ steps.extract-metadata.outputs.module_name }}
       #     path: ./publish/${{ steps.extract-metadata.outputs.module_name }}
