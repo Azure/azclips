@@ -97,8 +97,22 @@
       },
       {
         "name": "--network-interface-name",
-        "required": true,
-        "short_summary": "The network interface name to create.",
+        "required": false,
+        "short_summary": "The network interface name to create. Do not specify with --nics.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--nic-delete-option",
+        "required": false,
+        "short_summary": "What happens to network interfaces when the VM is deleted. Use Delete or Detach for all NICs, or NAME=VALUE for individual NICs.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--nics",
+        "required": false,
+        "short_summary": "Names or resource IDs of existing network interfaces to attach. The first NIC is primary.",
         "long_summary": "",
         "group_name": "Network Arguments"
       },
@@ -166,6 +180,13 @@
         "group_name": "Authentication Arguments"
       },
       {
+        "name": "--subnet",
+        "required": false,
+        "short_summary": "Name or resource ID of the subnet for the new network interface.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
@@ -187,8 +208,8 @@
       },
       {
         "name": "--virtual-network-name",
-        "required": true,
-        "short_summary": "The virtual network name to create.",
+        "required": false,
+        "short_summary": "The virtual network name to create or use for a named subnet. Do not specify with --nics.",
         "long_summary": "",
         "group_name": "Network Arguments"
       },

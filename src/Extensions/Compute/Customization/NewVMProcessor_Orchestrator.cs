@@ -45,6 +45,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string VirtualNetworkName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
+        public string? SubnetName { get; set; }
+
+        [ParameterGroup("Network Arguments")]
+        public List<string> NetworkInterfaceIds { get; set; } = [];
+
+        [ParameterGroup("Network Arguments")]
+        public List<string> NicDeleteOptions { get; set; } = [];
+
+        [ParameterGroup("Network Arguments")]
+        public string? NetworkInterfaceDeleteOption { get; set; }
+
+        [ParameterGroup("Network Arguments")]
         public string? NetworkSecurityGroup { get; set; }
 
         [ParameterGroup("Network Arguments")]
@@ -57,13 +69,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public List<string> AddressPrefixes { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
-        public bool AcceleratedNetworking { get; set; }
+        public bool? AcceleratedNetworking { get; set; }
 
         [ParameterGroup("Network Arguments")]
         public string? PublicIpAddress { get; set; }
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            ValidateNetworkArguments();
+
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
             {
                 throw AzclipsErrorException.UsageError("Specify an administrator password or SSH public key values.");
@@ -97,25 +111,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 linuxProfile = OSProfileResolver.Resolve(SshKeyValues, AdminUsername, AdminPassword);
             }
 
-             NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
+            List<string> normalizedNetworkInterfaceIds;
+            List<string?> networkInterfaceDeleteOptions;
+            string? createdNetworkInterfaceDeleteOption = null;
+            if (NetworkInterfaceIds.Count > 0)
             {
-                p.SubscriptionId = SubscriptionId;
-                p.Name = NetworkInterfaceName;
-                p.Location = Location;
-                p.ResourceGroupName = ResourceGroupName;
-                p.VirtualNetworkName = VirtualNetworkName;
-                p.NetworkSecurityGroup = NetworkSecurityGroup;
-                p.DefaultNetworkSecurityGroupName = $"{Name}NSG";
-                p.SubnetNames = SubnetNames;
-                p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-                p.AddressPrefixes = AddressPrefixes;
-                p.AcceleratedNetworking = AcceleratedNetworking;
-                p.PublicIpAddress = PublicIpAddress;
-                p.DefaultPublicIpAddressName = $"{Name}PublicIP";
-                p.OsType = operatingSystemType;
-            });
-            using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
-            NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
+                normalizedNetworkInterfaceIds = NetworkInterfaceIds.Select(NormalizeNetworkInterfaceId).ToList();
+                networkInterfaceDeleteOptions = NicDeleteOptionResolver.ResolveForExistingNics(
+                    NetworkInterfaceIds, NicDeleteOptions, NetworkInterfaceDeleteOption);
+            }
+            else
+            {
+                createdNetworkInterfaceDeleteOption =
+                    NicDeleteOptionResolver.ResolveForNewNic(NicDeleteOptions, NetworkInterfaceDeleteOption);
+                NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.Name = NetworkInterfaceName;
+                    p.Location = Location;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.VirtualNetworkName = VirtualNetworkName;
+                    p.SubnetName = SubnetName;
+                    p.NetworkSecurityGroup = NetworkSecurityGroup;
+                    p.DefaultNetworkSecurityGroupName = $"{Name}NSG";
+                    p.SubnetNames = SubnetNames;
+                    p.SubnetAddressPrefixes = SubnetAddressPrefixes;
+                    p.AddressPrefixes = AddressPrefixes;
+                    p.AcceleratedNetworking = AcceleratedNetworking ?? false;
+                    p.PublicIpAddress = PublicIpAddress;
+                    p.DefaultPublicIpAddressName = $"{Name}PublicIP";
+                    p.OsType = operatingSystemType;
+                });
+                using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
+                NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
+                normalizedNetworkInterfaceIds = [nic.Id];
+                networkInterfaceDeleteOptions = [];
+            }
 
             NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
             {
@@ -148,9 +179,65 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     p.LinuxSshPublicKeyPaths = linuxProfile.SshPublicKeyPaths;
                     p.LinuxSshPublicKeyData = linuxProfile.SshPublicKeyData;
                 }
-                p.NetworkInterfaceId = nic.Id;
+                if (NetworkInterfaceIds.Count > 0)
+                {
+                    p.NetworkInterfaceIds = normalizedNetworkInterfaceIds;
+                    p.NetworkInterfaceDeleteOptions = networkInterfaceDeleteOptions;
+                }
+                else
+                {
+                    p.NetworkInterfaceId = normalizedNetworkInterfaceIds[0];
+                    p.NetworkInterfaceDeleteOption = createdNetworkInterfaceDeleteOption;
+                }
              });
             return await vmProcessor.SendAsync();
+        }
+
+        private void ValidateNetworkArguments()
+        {
+            if (NetworkInterfaceIds.Count == 0)
+            {
+                if (string.IsNullOrWhiteSpace(NetworkInterfaceName))
+                {
+                    throw AzclipsErrorException.UsageError(
+                        "Specify a name for the new network interface when existing network interfaces are not supplied.");
+                }
+                return;
+            }
+
+            var conflicts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("a new network interface name");
+            if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("a virtual network name");
+            if (SubnetName is not null) conflicts.Add("a subnet");
+            if (SubnetNames.Count > 0) conflicts.Add("subnet names");
+            if (SubnetAddressPrefixes.Count > 0) conflicts.Add("subnet address prefixes");
+            if (AddressPrefixes.Count > 0) conflicts.Add("virtual network address prefixes");
+            if (NetworkSecurityGroup is not null) conflicts.Add("a network security group");
+            if (PublicIpAddress is not null) conflicts.Add("a public IP address");
+            if (AcceleratedNetworking is not null) conflicts.Add("an accelerated networking setting");
+
+            if (conflicts.Count > 0)
+            {
+                throw AzclipsErrorException.UsageError(
+                    $"When specifying existing NICs, do not specify {string.Join(", ", conflicts)}.");
+            }
+        }
+
+        private string NormalizeNetworkInterfaceId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw AzclipsErrorException.UsageError("Network interface name or resource ID cannot be empty.");
+            }
+
+            if (!value.Contains('/'))
+            {
+                return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{value}";
+            }
+
+            var parsed = VirtualMachineIdResolver.ParseResourceId(
+                value, "Microsoft.Network", "networkInterfaces", "Network interface", "networkInterfaceName");
+            return $"/subscriptions/{parsed.SubscriptionId}/resourceGroups/{parsed.ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{parsed.Name}";
         }
 
         private async Task<(string OperatingSystemType, ImagePlan? Plan, bool UseTrustedLaunchDefaults)> ResolveImageMetadataAsync(ImageReference imageReference)
