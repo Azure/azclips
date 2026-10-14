@@ -5,7 +5,7 @@ parameters:
 - name: cli_dependency_stage
   type: object
   default: ValidateDockerAzureLinux3
-- name: azure_subscription
+- name: azure_service_connection
   type: string
 - name: cli_registry_name
   type: string
@@ -285,7 +285,7 @@ stages:
     - task: AzureCLI@2
       displayName: Push Images And Create Version Manifests
       inputs:
-        azureSubscription: ${{ parameters.azure_subscription }}
+        azureSubscription: ${{ parameters.azure_service_connection }}
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
@@ -357,7 +357,7 @@ stages:
     - task: AzureCLI@2
       displayName: Pull Published Images
       inputs:
-        azureSubscription: ${{ parameters.azure_subscription }}
+        azureSubscription: ${{ parameters.azure_service_connection }}
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |

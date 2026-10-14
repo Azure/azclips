@@ -3,12 +3,6 @@ name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
-parameters:
-- name: docker_azure_service_connection
-  displayName: Azure service connection used to publish Docker images to ACR
-  type: string
-  default: 'Azure CLI release'
-
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -17,6 +11,7 @@ variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
   - group: 'esrp-signing-codes'
+  - group: 'azclips-docker-publish'
 - name: ReleasePipelineName
   value: $(Build.DefinitionName)
 - name: SourceProject
@@ -39,8 +34,6 @@ variables:
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
   value: unlisted/azclips/powershell-dev
-- name: DockerAzureServiceConnection
-  value: ${{ parameters.docker_azure_service_connection }}
 
 stages:
 - stage: Preflight
@@ -148,7 +141,7 @@ stages:
   parameters:
     dependency_stage: VerifySignedDistribution
     cli_dependency_stage: ValidateDockerAzureLinux3
-    azure_subscription: ${{ variables.DockerAzureServiceConnection }}
+    azure_service_connection: $(DockerAzureServiceConnection)
     cli_registry_name: $(DockerCliRegistryName)
     cli_registry_server: $(DockerCliRegistryServer)
     cli_repository: $(DockerCliRepository)
