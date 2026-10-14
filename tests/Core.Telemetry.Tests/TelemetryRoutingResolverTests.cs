@@ -73,6 +73,21 @@ public class TelemetryRoutingResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_LogsActiveLabel_WhenOverrideIsWhitespace()
+    {
+        var capturingLogger = new CapturingLoggingService();
+
+        await TelemetryRoutingResolver.ResolveAsync(
+            new ThrowingProfileService(),
+            new StubAuthService(),
+            profileNameOverride: "   ",
+            CancellationToken.None,
+            loggingService: capturingLogger);
+
+        Assert.Contains(capturingLogger.Messages, m => m.Contains("for profile 'active': Simulated failure", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ResolveAsync_ReturnsFallback_WhenLoggingServiceThrows()
     {
         var throwingProfileService = new ThrowingProfileService();
