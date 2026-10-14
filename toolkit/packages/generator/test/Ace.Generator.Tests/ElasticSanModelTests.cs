@@ -27,7 +27,7 @@ public sealed class ElasticSanModelTests
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
 
         Assert.True(result.Success);
@@ -44,7 +44,7 @@ public sealed class ElasticSanModelTests
 
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
 
         // Every generated model must be valid C# (syntactically).

@@ -82,7 +82,6 @@ export {
 export type {
   EmitToolRequest,
   EmitToolResponse,
-  GenerateToolOptions,
   GenerateToolRequest,
   GenerateToolFrame,
 } from "./builtins/protocol.js";

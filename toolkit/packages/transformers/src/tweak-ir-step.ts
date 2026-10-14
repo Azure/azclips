@@ -38,20 +38,18 @@ const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
-/** Takes no options; any key it is given is warned about and ignored. */
-export function tweakIrStep(options: Record<string, unknown> = {}): TransformStep {
-  return {
-    name: STEP_NAME,
-    run(ir: IR, context: TransformContext): IR {
-      const report: Report = (severity, code, message) =>
-        context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
+/** The `tweak-ir` stage. It takes no options; any key it is given is warned about and ignored. */
+export const tweakIrStep: TransformStep = {
+  name: STEP_NAME,
+  run(ir: IR, context: TransformContext): IR {
+    const report: Report = (severity, code, message) =>
+      context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
 
-      warnUnknownKeys(options, NO_KEYS, "option", report);
-      resolveTypeNames(ir, report);
-      return ir;
-    },
-  };
-}
+    warnUnknownKeys(context.config, NO_KEYS, "option", report);
+    resolveTypeNames(ir, report);
+    return ir;
+  },
+};
 
 // ─── Type names ─────────────────────────────────────────────────────────
 

@@ -110,16 +110,12 @@ export async function compile(
   };
 
   // ── Emit: the sequence's first stage, and the run's only IR source ──────
-  const emitProducer = resolveEmit(
-    plan.emit.descriptor,
-    options,
-    configOf(plan.emit.descriptor.id),
-    reportDiagnostic,
-  );
+  const emitProducer = resolveEmit(plan.emit.descriptor, options, reportDiagnostic);
   if (emitProducer === undefined) return finish(false);
 
   const emitContext: EmitContext = {
     reportDiagnostic,
+    config: configOf(plan.emit.descriptor.id),
     ...(signal !== undefined ? { signal } : {}),
   };
   let emitted: IR | undefined;
@@ -140,22 +136,22 @@ export async function compile(
 
   if (!(await captureSnapshot(plan.emit, ir))) return finish(false, ir);
 
-  const transformContext: TransformContext = {
-    reportDiagnostic,
-    ...(signal !== undefined ? { signal } : {}),
-  };
-
   /**
    * Run one transform stage. Returns the IR to carry on with, or `undefined` when the
    * stage failed: it threw, or it reported an error.
    */
   const runTransform = async (stage: PlannedStage, current: IR): Promise<IR | undefined> => {
     const id = stage.descriptor.id;
-    const step = resolveTransform(stage.descriptor, configOf(id), reportDiagnostic);
+    const step = resolveTransform(stage.descriptor, reportDiagnostic);
     if (step === undefined) return undefined;
+    const context: TransformContext = {
+      reportDiagnostic,
+      config: configOf(id),
+      ...(signal !== undefined ? { signal } : {}),
+    };
     const reportedBefore = diagnostics.length;
     try {
-      const next = await step.run(current, transformContext);
+      const next = await step.run(current, context);
       // The step reports every problem it finds and returns; one error among them
       // fails the stage, as a failed emit does.
       const failed = diagnostics.slice(reportedBefore).some((d) => d.severity === "error");
@@ -170,7 +166,7 @@ export async function compile(
   /** Run one generate stage, streaming its artifacts straight to the sink. */
   const runGenerator = async (stage: PlannedStage, current: IR): Promise<boolean> => {
     const id = stage.descriptor.id;
-    const generator = resolveGenerator(stage.descriptor, options, configOf(id), reportDiagnostic);
+    const generator = resolveGenerator(stage.descriptor, options, reportDiagnostic);
     if (generator === undefined) return false;
 
     // A generator declares what it renders; the orchestrator checks it. The pipeline
@@ -187,6 +183,7 @@ export async function compile(
     let outputFailed = false;
     const generatorContext: GeneratorContext = {
       reportDiagnostic,
+      config: configOf(id),
       ...(signal !== undefined ? { signal } : {}),
       emit: async (artifact) => {
         if (outputFailed) return;
@@ -265,7 +262,6 @@ export async function compile(
 function resolveEmit(
   descriptor: StageDescriptor,
   options: CompileOptions,
-  stageConfig: Record<string, unknown>,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): EmitProducer | undefined {
   if (options.emit !== undefined) return options.emit;
@@ -281,7 +277,7 @@ function resolveEmit(
       });
       return undefined;
     }
-    return createBuiltinEmit(options.runtime, stageConfig);
+    return createBuiltinEmit(options.runtime);
   }
 
   reportDiagnostic(unimplemented(descriptor.id, "emit"));
@@ -291,22 +287,17 @@ function resolveEmit(
 /** Resolve a transform stage from the compiler's own implementations. */
 function resolveTransform(
   descriptor: StageDescriptor,
-  stageConfig: Record<string, unknown>,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): TransformStep | undefined {
-  const factory = TRANSFORMS.get(descriptor.id);
-  if (factory === undefined) {
-    reportDiagnostic(unimplemented(descriptor.id, "transform"));
-    return undefined;
-  }
-  return factory(stageConfig);
+  const step = TRANSFORMS.get(descriptor.id);
+  if (step === undefined) reportDiagnostic(unimplemented(descriptor.id, "transform"));
+  return step;
 }
 
 /** Resolve a generate stage: the compiler's built-in `csharp`. */
 function resolveGenerator(
   descriptor: StageDescriptor,
   options: CompileOptions,
-  stageConfig: Record<string, unknown>,
   reportDiagnostic: (d: CompilerDiagnostic) => void,
 ): Generator | undefined {
   if (descriptor.id === CSHARP_STAGE) {
@@ -320,7 +311,7 @@ function resolveGenerator(
       });
       return undefined;
     }
-    return createCsharpGenerator(options.runtime, stageConfig);
+    return createCsharpGenerator(options.runtime);
   }
 
   reportDiagnostic(unimplemented(descriptor.id, "generate"));

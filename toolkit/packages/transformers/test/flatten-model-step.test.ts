@@ -115,10 +115,11 @@ function irOf(models: IRModel[], operations: IROperation[] = []): IR {
   };
 }
 
-function run(ir: IR, options: Record<string, unknown> = {}) {
+function run(ir: IR, config: Record<string, unknown> = {}) {
   const diagnostics: Diagnostic[] = [];
-  const out = flattenModelStep(options).run(parseIR(ir), {
+  const out = flattenModelStep.run(parseIR(ir), {
     reportDiagnostic: (d) => diagnostics.push(d),
+    config,
   });
   return { ir: out as IR, diagnostics };
 }
@@ -215,7 +216,7 @@ describe("flatten-model: models", () => {
   it("is additive: it adds rendering hints in place and changes nothing else", () => {
     const input = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
     const before = structuredClone(input);
-    const out = flattenModelStep().run(input, { reportDiagnostic: vi.fn() });
+    const out = flattenModelStep.run(input, { reportDiagnostic: vi.fn(), config: {} });
 
     // Written in place — the catalog declares this stage `additive`, so the
     // orchestrator hands it an IR it owns rather than paying for a copy.
@@ -265,6 +266,34 @@ describe("flatten-model: opt-outs and limits", () => {
     expect(flattenedOf(ir, "Thing").length).toBeGreaterThan(0);
     // Sku (2 members) is over the threshold and is an ordinary container.
     expect(flattenedOf(ir, "ThingProperties")).toEqual([]);
+  });
+
+  it("fails on invalid option values, reporting each, and flattens nothing", () => {
+    const { ir, diagnostics } = run(irOf(armModels()), { inliningThreshold: "small", noInline: ["Sku", 3] });
+
+    expect(
+      diagnostics.filter((d) => d.code.endsWith("/invalid-option")).map((d) => [d.severity, d.message]),
+    ).toEqual([
+      ["error", "'inliningThreshold' must be a number, 0 or more, not 'small'."],
+      ["error", "'noInline[1]' must be a model name, not the number 3."],
+    ]);
+    expect(flattenedOf(ir, "Thing")).toEqual([]);
+  });
+
+  it("rejects a negative threshold, and a noInline that is not a list", () => {
+    const { diagnostics } = run(irOf(armModels()), { inliningThreshold: -1, noInline: "Sku" });
+
+    expect(diagnostics.filter((d) => d.code.endsWith("/invalid-option")).map((d) => d.message)).toEqual([
+      "'inliningThreshold' must be a number, 0 or more, not the number -1.",
+      "'noInline' must be a list of model names, not 'Sku'.",
+    ]);
+  });
+
+  it("takes an option with no value as absent", () => {
+    const { ir, diagnostics } = run(irOf(armModels()), { inliningThreshold: null, noInline: null });
+
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(flattenedOf(ir, "Thing").length).toBeGreaterThan(0);
   });
 
   it("flattens below a default threshold of 100, counting members already flattened in", () => {

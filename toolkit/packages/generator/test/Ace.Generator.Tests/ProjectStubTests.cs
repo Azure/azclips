@@ -24,7 +24,7 @@ public sealed class ProjectStubTests
                 Operations = [],
                 Target = Targets.For(RootNamespace),
             },
-            new GeneratorOptions(),
+            config: null,
             writer.WriteAsync);
         return writer.Files.ProjectFile();
     }

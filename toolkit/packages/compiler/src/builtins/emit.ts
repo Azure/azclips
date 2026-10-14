@@ -40,14 +40,12 @@ const OPTION_KEYS: ReadonlySet<string> = new Set([
 type Report = (severity: "error" | "warning", code: string, message: string) => void;
 
 /**
- * Build the emit producer backed by the host runtime's `tsp-emit` tool. `options`
- * is its stage config: `warnAsError`, `trace`, `nostdlib`, `additionalImports`, and
- * `emitter`, the options forwarded verbatim to the Azure Client Engine emitter.
+ * Build the emit producer backed by the host runtime's `tsp-emit` tool. Its stage
+ * config arrives in the context: `warnAsError`, `trace`, `nostdlib`,
+ * `additionalImports`, and `emitter`, the options forwarded verbatim to the Azure
+ * Client Engine emitter.
  */
-export function createBuiltinEmit(
-  runtime: Runtime,
-  options: Record<string, unknown> = {},
-): EmitProducer {
+export function createBuiltinEmit(runtime: Runtime): EmitProducer {
   return {
     name: TSP_EMIT_TOOL,
     async produce(input: CompileInput, context: EmitContext): Promise<EmitProduct> {
@@ -55,7 +53,7 @@ export function createBuiltinEmit(
         context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message });
 
       // An invalid option fails the stage before the tool is started.
-      const settings = readOptions(options, report);
+      const settings = readOptions(context.config, report);
       if (settings === undefined) return {};
 
       const request: EmitToolRequest = {

@@ -234,7 +234,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     expect(seen).toEqual(["remove:Models", "remove:Processors", "file:out/one.cs"]);
   });
 
-  it("forwards the IR, with the target seed-ir resolved, and only the stage's own options to the generate request", async () => {
+  it("forwards the IR, with the target seed-ir resolved, and only the stage's own config to the generate request", async () => {
     let seen: GenerateToolRequest | undefined;
     const runtime = fakeRuntime({
       emit: emitOk,
@@ -258,7 +258,7 @@ describe("built-in csharp generator (runtime csharp-generate tool)", () => {
     // Placement travels in the document; the request has no namespace of its own,
     // and none of the config beyond the stage's section.
     expect(seen?.ir.target?.rootNamespace).toEqual(["Contoso", "Clients"]);
-    expect(seen?.options).toEqual({ config: { someday: true } });
+    expect(seen?.config).toEqual({ someday: true });
     expect(seen?.ir.sources[0]?.id).toBe("S");
     // The stage takes no options yet, so the one it was given is warned about.
     expect(result.diagnostics.map((d) => d.code)).toContain(

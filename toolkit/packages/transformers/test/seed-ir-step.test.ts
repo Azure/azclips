@@ -42,7 +42,7 @@ function run(
   ir: IR = document(),
 ): { out: IR; diagnostics: Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
-  const out = seedIrStep(facts).run(ir, { reportDiagnostic: (d) => diagnostics.push(d) }) as IR;
+  const out = seedIrStep.run(ir, { reportDiagnostic: (d) => diagnostics.push(d), config: facts }) as IR;
   parseIR(out);
   return { out, diagnostics };
 }
