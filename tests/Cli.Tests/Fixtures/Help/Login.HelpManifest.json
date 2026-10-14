@@ -14,13 +14,25 @@
           "psName": "ClientId",
           "type": "string",
           "required": false,
-          "description": "Client ID of the user-assigned managed identity.",
+          "description": "Client ID of the user-assigned managed identity, or the application ID when used with --service-principal.",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
           "supportsWildcards": false,
           "groupName": "Managed Identity Arguments"
+        },
+        {
+          "name": "federated-token",
+          "psName": "FederatedToken",
+          "type": "string",
+          "required": false,
+          "description": "Federated token issued by a trusted external identity provider. The issuer and subject must be configured as a federated credential on the application.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
         },
         {
           "name": "identity",
@@ -84,6 +96,18 @@
           "supportsPipeline": false,
           "supportsWildcards": false,
           "groupName": "Managed Identity Arguments"
+        },
+        {
+          "name": "service-principal",
+          "psName": "ServicePrincipal",
+          "type": "bool",
+          "required": false,
+          "description": "Login as a service principal using a federated (OIDC) token.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
         },
         {
           "name": "subscription-id",

@@ -20,25 +20,21 @@ jobs:
         Rid: win-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Windows_Lean
-        SkipRuntime: false
         PoolName: ${{ parameters.windows_pool }}
       win_arm64_lean:
         Rid: win-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Windows_Arm64_Lean
-        SkipRuntime: false
         PoolName: ${{ parameters.windows_arm64_pool }}
       win_x64_full:
         Rid: win-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Windows_Full
-        SkipRuntime: false
         PoolName: ${{ parameters.windows_pool }}
       win_arm64_full:
         Rid: win-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Windows_Arm64_Full
-        SkipRuntime: false
         PoolName: ${{ parameters.windows_arm64_pool }}
   pool:
     name: $(PoolName)
@@ -106,13 +102,7 @@ jobs:
         $ErrorActionPreference = 'Stop'
         $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
         $env:PACKAGE_PROFILE = "$(BuildProfile)"
-        $skipRuntime = "$(SkipRuntime)"
-        if ($skipRuntime -eq 'true') {
-          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -SkipRuntime
-        }
-        else {
-          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
-        }
+        & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Windows Sim

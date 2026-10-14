@@ -26,11 +26,10 @@ internal sealed class TraceUploader
         if (claimedFiles.Count == 0)
             return;
 
-        // Group by service name so each group exports under the correct cloud_RoleName.
-        // Entries are flattened across a group's files so replay can link a parent and
-        // child that landed in different files.
-        var groups = new Dictionary<string, (List<string> Files, List<TraceEntry> Entries)>(
-            StringComparer.Ordinal);
+        // Group by service and persisted data boundary so each replay batch exports
+        // under the right cloud_RoleName and Aria ingestion endpoint.
+        var groups = new Dictionary<UploadGroupKey, (HashSet<string> Files, List<TraceEntry> Entries)>();
+        var fileGroups = new Dictionary<string, HashSet<UploadGroupKey>>(StringComparer.Ordinal);
 
         foreach (var file in claimedFiles)
         {
@@ -38,27 +37,74 @@ internal sealed class TraceUploader
                 continue;
 
             var entries = TraceFileFormat.Parse(content);
-            var serviceName = (entries.Count > 0 ? entries[0].TryGetServiceName() : null)
-                ?? FallbackServiceName;
-
-            if (!groups.TryGetValue(serviceName, out var group))
-            {
-                group = (new List<string>(), new List<TraceEntry>());
-                groups[serviceName] = group;
-            }
-
-            group.Files.Add(file);
-            group.Entries.AddRange(entries);
+            AddFileEntries(file, entries, groups, fileGroups);
         }
 
-        foreach (var (serviceName, group) in groups)
+        var deliveredGroups = new HashSet<UploadGroupKey>();
+        foreach (var (key, group) in groups)
         {
-            // Delete only what shipped; the rest is retried next run.
-            if (!_sink.TryExport(serviceName, group.Entries))
+            if (!_sink.TryExport(key.ServiceName, group.Entries, key.DataBoundary))
                 continue;
 
-            foreach (var file in group.Files)
+            deliveredGroups.Add(key);
+        }
+
+        foreach (var (file, keys) in fileGroups)
+        {
+            if (keys.All(deliveredGroups.Contains))
                 _store.Delete(file);
         }
     }
+
+    private static void AddFileEntries(
+        string file,
+        IReadOnlyList<TraceEntry> entries,
+        Dictionary<UploadGroupKey, (HashSet<string> Files, List<TraceEntry> Entries)> groups,
+        Dictionary<string, HashSet<UploadGroupKey>> fileGroups)
+    {
+        var serviceName = (entries.Count > 0 ? entries[0].TryGetServiceName() : null)
+            ?? FallbackServiceName;
+
+        if (entries.Count == 0)
+        {
+            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Unknown), [], groups, fileGroups);
+            return;
+        }
+
+        foreach (var boundaryGroup in entries.GroupBy(e => DataBoundaryRouting.Normalize(e.DataBoundary)))
+        {
+            AddGroup(
+                file,
+                new UploadGroupKey(serviceName, boundaryGroup.Key),
+                boundaryGroup.ToList(),
+                groups,
+                fileGroups);
+        }
+    }
+
+    private static void AddGroup(
+        string file,
+        UploadGroupKey key,
+        IReadOnlyList<TraceEntry> entries,
+        Dictionary<UploadGroupKey, (HashSet<string> Files, List<TraceEntry> Entries)> groups,
+        Dictionary<string, HashSet<UploadGroupKey>> fileGroups)
+    {
+        if (!groups.TryGetValue(key, out var group))
+        {
+            group = (new HashSet<string>(StringComparer.Ordinal), new List<TraceEntry>());
+            groups[key] = group;
+        }
+
+        group.Files.Add(file);
+        group.Entries.AddRange(entries);
+
+        if (!fileGroups.TryGetValue(file, out var keys))
+        {
+            keys = new HashSet<UploadGroupKey>();
+            fileGroups[file] = keys;
+        }
+        keys.Add(key);
+    }
+
+    private readonly record struct UploadGroupKey(string ServiceName, string DataBoundary);
 }

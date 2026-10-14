@@ -31,8 +31,8 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     internal static TelemetryTarget SelectAuthoritative(IReadOnlyList<TelemetryTarget> targets) =>
         targets.Contains(TelemetryTarget.Remote) ? TelemetryTarget.Remote : TelemetryTarget.Local;
 
-    public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries) =>
-        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries));
+    public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null) =>
+        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries, dataBoundary));
 
     /// <summary>
     /// Attempts every target and returns the authoritative target's verdict.
@@ -57,14 +57,15 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     private static bool ExportTo(
         TelemetryTarget target,
         string serviceName,
-        IReadOnlyList<TraceEntry> entries)
+        IReadOnlyList<TraceEntry> entries,
+        string? dataBoundary)
     {
         using var source = new ActivitySource(serviceName);
 
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
-        TelemetryExporters.AddTraceExporters(builder, [target]);
+        TelemetryExporters.AddTraceExporters(builder, [target], dataBoundary);
 
         using var provider = builder.Build()!;
 

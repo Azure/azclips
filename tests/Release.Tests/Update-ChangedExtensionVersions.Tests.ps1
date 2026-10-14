@@ -269,7 +269,7 @@ Describe 'Update-ChangedExtensionVersions' {
     It 'preserves the initial version of a new rollup extension' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
-        $identityProjectPath = 'src/Extensions/Identity/Extensions.Identity.csproj'
+        $identityProjectPath = 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj'
         Write-TestFile -Root $root -RelativePath $identityProjectPath -Content @'
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
@@ -277,24 +277,24 @@ Describe 'Update-ChangedExtensionVersions' {
     </PropertyGroup>
 </Project>
 '@
-        Write-TestFile -Root $root -RelativePath 'src/Extensions/Identity/Processor.cs' -Content 'class IdentityProcessor { }'
-        Write-TestFile -Root $root -RelativePath 'src/PS/Identity/Identity.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
-        Write-TestFile -Root $root -RelativePath 'src/PS/Identity/ChangeLog.md' -Content "## Upcoming Release`n"
+        Write-TestFile -Root $root -RelativePath 'src/Extensions/ManagedServiceIdentity/Processor.cs' -Content 'class ManagedServiceIdentityProcessor { }'
+        Write-TestFile -Root $root -RelativePath 'src/PS/ManagedServiceIdentity/ManagedServiceIdentity.psd1' -Content "@{`nModuleVersion = '0.1.0'`n}`n"
+        Write-TestFile -Root $root -RelativePath 'src/PS/ManagedServiceIdentity/ChangeLog.md' -Content "## Upcoming Release`n"
         $rollupPath = Join-Path $root 'src/PS/Az/Az.psd1'
         $rollupContent = Get-Content -Raw $rollupPath
         $rollupContent = $rollupContent.Replace(
             "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' }`n)",
-            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },`n    @{ ModuleName = '../Identity/Identity.psd1'; ModuleVersion = '0.1.0' }`n)"
+            "    @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },`n    @{ ModuleName = '../ManagedServiceIdentity/ManagedServiceIdentity.psd1'; ModuleVersion = '0.1.0' }`n)"
         )
         [System.IO.File]::WriteAllText($rollupPath, $rollupContent, [System.Text.UTF8Encoding]::new($false))
         git -C $root add .
-        git -C $root commit --quiet -m 'add Identity extension'
+        git -C $root commit --quiet -m 'add ManagedServiceIdentity extension'
 
         & $scriptPath -RepoRoot $root -BaseRef $baseRef
 
-        Get-Content -Raw (Join-Path $root 'src/Extensions/Identity/Extensions.Identity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
-        Get-Content -Raw (Join-Path $root 'src/PS/Identity/Identity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
-        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Identity/Identity\.psd1'; ModuleVersion = '0\.1\.0'"
+        Get-Content -Raw (Join-Path $root 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
+        Get-Content -Raw (Join-Path $root 'src/PS/ManagedServiceIdentity/ManagedServiceIdentity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "ManagedServiceIdentity/ManagedServiceIdentity\.psd1'; ModuleVersion = '0\.1\.0'"
         @(git -C $root diff --name-only -- $identityProjectPath) | Should -BeNullOrEmpty
     }
 }

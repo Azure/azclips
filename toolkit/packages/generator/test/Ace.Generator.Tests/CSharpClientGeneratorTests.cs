@@ -10,11 +10,21 @@ public sealed class CSharpClientGeneratorTests
 {
     private static IRId ServerId() => new() { Module = "Test", Name = "server" };
 
-    private static IRDocument Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
+    private static IRId OperationId(string name) => new() { Module = "Test", Name = name };
+
+    private static string Pascal(string value) =>
+        value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
+
+    /// <summary>
+    /// A document with one command per named operation. The generator reads commands; the
+    /// operations are carried alongside as the wire truth each command points back at.
+    /// </summary>
+    private static TransformedIR Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
     {
-        return new IRDocument
+        string[] names = [.. operations ?? []];
+        return new TransformedIR
         {
-            SchemaVersion = "0.8.0",
+            SchemaVersion = "0.12.0",
             Servers =
             [
                 new IRServerDefinition
@@ -31,8 +41,11 @@ public sealed class CSharpClientGeneratorTests
                     Id = new IRId { Module = "Test", Name = name },
                 })
                 .ToList(),
-            Operations = (operations ?? [])
-                .Select(name => new IROperation { Name = name, Server = ServerId() })
+            Operations = names
+                .Select(name => new IROperation { Id = OperationId(name), Name = name, Server = ServerId() })
+                .ToList(),
+            Commands = names
+                .Select(name => Commands.Atomic(Pascal(name), ServerId(), OperationId(name)))
                 .ToList(),
         };
     }
@@ -43,7 +56,7 @@ public sealed class CSharpClientGeneratorTests
     /// memory (for assertions). The scenario defaults to the calling test's name.
     /// </summary>
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> RunAsync(
-        IRDocument ir,
+        TransformedIR ir,
         GeneratorOptions? options = null,
         [CallerMemberName] string scenario = "default")
     {
@@ -77,78 +90,154 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
-    public async Task Generate_Paging_Uses_WholeBody_Bindings_Across_Response_Statuses()
+    public async Task Generate_FormatsNonStringHeaderValues()
     {
-        IRDocument ir = Ir(operations: ["list"]);
-        ir.Operations[0].Responses =
+        // TryAddWithoutValidation only takes string?/IEnumerable<string?>, so an enum- or
+        // number-typed header has to be formatted. Passing it raw compiles only by accident of
+        // overload resolution — and here, not at all.
+        TransformedIR ir = Ir(operations: ["get"]);
+        ir.Commands =
         [
-            new IRResponse
+            Commands.Atomic(
+                "Get",
+                ServerId(),
+                OperationId("get"),
+                headers:
+                [
+                    Commands.Supplied("x-ms-force-delete", "XMsForceDelete"),
+                    Commands.Supplied("x-ms-client-request-id", "ClientRequestId"),
+                    Commands.Supplied("x-ms-tags", "Tags"),
+                ],
+                parameters:
+                [
+                    Commands.Parameter(
+                        "XMsForceDelete",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "force" }),
+                        new IRTypeRefEnum { Id = new IRId { Module = "Test", Name = "ForceDelete" } }),
+                    Commands.Parameter(
+                        "ClientRequestId",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "reqid" })),
+                    Commands.Parameter(
+                        "Tags",
+                        Commands.FromHeader(new IRId { Module = "Test", Name = "tags" }),
+                        new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } }),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string source = writer.Files.Source(result, "GetProcessor");
+        // A non-string value is interpolated...
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-force-delete\", $\"{XMsForceDelete}\")", source);
+        // ...while a string and a string collection go straight to their overloads.
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-client-request-id\", ClientRequestId)", source);
+        Assert.Contains("TryAddWithoutValidation(\"x-ms-tags\", Tags)", source);
+    }
+
+    [Fact]
+    public async Task Generate_Paging_ReachesANestedItemsPropertyThroughItsContainers()
+    {
+        // `via` lists the containers outermost first: the selector walks them, then the property.
+        IRId envelopeId = new() { Module = "Test", Name = "Envelope" };
+        IRId pageId = new() { Module = "Test", Name = "Page" };
+        IRId resultId = new() { Module = "Test", Name = "Envelope.result" };
+        IRId valueId = new() { Module = "Test", Name = "Page.value" };
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Models =
+        [
+            new IRModel
             {
-                StatusCode = new IRStatusCodeExact { Code = 200 },
-                Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+                Name = "Envelope",
+                Source = "Test",
+                Id = envelopeId,
+                Properties =
+                [
+                    new IRPropertyObject
+                    {
+                        Id = resultId,
+                        Name = "Result",
+                        WireName = "result",
+                        Type = new IRTypeRefModel { Id = pageId },
+                    },
+                ],
+            },
+            new IRModel
+            {
+                Name = "Page",
+                Source = "Test",
+                Id = pageId,
+                Properties =
+                [
+                    new IRPropertyCollection
+                    {
+                        Id = valueId,
+                        Name = "Value",
+                        WireName = "value",
+                        Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+                    },
+                ],
             },
         ];
-        ir.Operations[0].Semantics = new IROperationSemantics
-        {
-            Pageable = new IRPageableSemantics
-            {
-                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-                Output = new IRPageableSemanticsOutput
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                pagination: new IRCommandPagination
                 {
-                    PageItems = new IRPagingProperty
-                    {
-                        Bindings =
-                        [
-                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } },
-                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 201 } } },
-                        ],
-                    },
+                    ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                    Items = new IRPropertyRef { Property = valueId, Via = [resultId] },
                 },
-            },
-        };
+                surface: Commands.Surface(response: new IRTypeRefModel { Id = envelopeId }, paginated: true)),
+        ];
 
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
 
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
-        Assert.Contains("=> body;", source);
+        Assert.Contains("=> body.Result.Value;", source);
         Assert.Contains("WriteOutputWithPaginationAsync", source);
     }
 
     [Fact]
-    public async Task Generate_Header_Paging_Diagnoses_Unsupported_Binding_Without_Inventing_A_Body_Member()
+    public async Task Generate_Paging_WithAnUnresolvableReference_DiagnosesRatherThanInventingAMember()
     {
-        IRDocument ir = Ir(operations: ["list"]);
-        ir.Operations[0].Semantics = new IROperationSemantics
-        {
-            Pageable = new IRPageableSemantics
-            {
-                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
-                Output = new IRPageableSemanticsOutput
+        // A property id that names no property in the document must not be PascalCased into a
+        // plausible-looking member: that compiles into a wrong selector. Report and emit nothing.
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                pagination: new IRCommandPagination
                 {
-                    PageItems = new IRPagingProperty
-                    {
-                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = ["items"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
-                    },
-                    NextLink = new IRPagingProperty
-                    {
-                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Header, Path = ["x-next"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
-                    },
+                    ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                    Items = new IRPropertyRef { Property = new IRId { Module = "Test", Name = "ghost" } },
                 },
-            },
-        };
+                surface: Commands.Surface(paginated: true)),
+        ];
 
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "ace-generator/paging-binding-not-supported");
-        Assert.DoesNotContain("WriteOutputWithPaginationAsync", writer.Files.Source(result, "ListProcessor"));
+        Assert.True(result.Success);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == DiagnosticSeverity.Warning &&
+            d.Code == "ace-generator/paging-path-unresolved");
+
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.DoesNotContain("Ghost", source);
+        Assert.DoesNotContain("WriteOutputWithPaginationAsync", source);
     }
 
     [Fact]
     public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
     {
-        IRDocument ir = Ir(operations: ["upload"]);
-        ir.Operations[0].RequestBody = new IRRequestBody
+        TransformedIR ir = Ir(operations: ["upload"]);
+        ir.Commands[0].Steps[0].Request!.Body = new IRCommandRequestBody
         {
             ContentType = "multipart/mixed",
             Multipart = new IRMultipartBody
@@ -179,79 +268,60 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
-    public async Task Generate_DistinguishesInterfacesWithinTheSameNamespace()
+    public async Task Generate_SpellsTheCommandsNameVerbatim()
     {
-        IRDocument ir = Ir();
-        ir.Operations = new string?[] { "Widgets", "Gadgets", null }
-            .Select(group => new IROperation
-            {
-                Id = new IRId
-                {
-                    Module = "Test",
-                    Namespace = ["Contoso", "Inventory"],
-                    Interface = group,
-                    Name = "get",
-                },
-                Name = "get",
-                Server = ServerId(),
-            })
-            .ToList();
-
-        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
-
-        Assert.True(result.Success);
-        Assert.Empty(result.Diagnostics);
-        Assert.Equal(
-            new[] { "GetGadgetsProcessor", "GetProcessor", "GetWidgetsProcessor", "ProcessorBase" },
-            result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
-        Assert.Equal(4, writer.Files.ProcessorSources().Count());
-    }
-
-    [Fact]
-    public async Task Generate_UsesDisplayNameAndSourceInterfaceForProcessorName()
-    {
-        IRDocument ir = Ir();
+        // Naming is the projection's job: it normalizes and resolves collisions once, across the
+        // whole document. Re-deriving a name here would silently undo that, so the generator must
+        // spell exactly what the command carries — neither the operation's name nor its id.
+        TransformedIR ir = Ir();
         ir.Operations =
         [
             new IROperation
             {
-                Id = new IRId { Module = "Test", Interface = "Widgets", Name = "read" },
-                Name = "fetch",
+                Id = new IRId { Module = "Test", Namespace = ["Contoso", "Inventory"], Interface = "Widgets", Name = "read" },
+                Name = "read",
                 Server = ServerId(),
             },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "FetchWidgets",
+                ServerId(),
+                new IRId { Module = "Test", Namespace = ["Contoso", "Inventory"], Interface = "Widgets", Name = "read" }),
         ];
 
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
 
         Assert.True(result.Success);
         Assert.Contains("class FetchWidgetsProcessor", writer.Files.Source(result, "FetchWidgetsProcessor"));
-        Assert.DoesNotContain("ReadWidgetsProcessor", result.GeneratedClasses.Keys);
+        Assert.DoesNotContain(
+            result.GeneratedClasses.Keys,
+            k => k is "ReadProcessor" or "ReadWidgetsProcessor" or "ReadInventoryProcessor");
     }
 
     [Fact]
-    public async Task Generate_DoesNotInferInterfaceFromNamespace()
+    public async Task Generate_EmitsAProcessorPerCommand_IncludingSiblingsOverOneOperation()
     {
-        IRDocument ir = Ir();
-        ir.Operations =
+        // Commands, not operations, are the unit: variants project several commands from a single
+        // operation, and each is its own processor.
+        IRId operation = OperationId("get");
+        TransformedIR ir = Ir();
+        ir.Operations = [new IROperation { Id = operation, Name = "get", Server = ServerId() }];
+        ir.Commands =
         [
-            new IROperation
-            {
-                Id = new IRId
-                {
-                    Module = "Test",
-                    Namespace = ["Contoso", "Inventory"],
-                    Name = "get",
-                },
-                Name = "get",
-                Server = ServerId(),
-            },
+            Commands.Atomic("GetWidget", ServerId(), operation, action: "get"),
+            Commands.Atomic("GetWidgetByName", ServerId(), operation, action: "getByName"),
         ];
 
-        (GenerationResult result, _) = await RunAsync(ir);
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
 
         Assert.True(result.Success);
-        Assert.Contains("GetProcessor", result.GeneratedClasses.Keys);
-        Assert.DoesNotContain("GetInventoryProcessor", result.GeneratedClasses.Keys);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(
+            new[] { "GetWidgetByNameProcessor", "GetWidgetProcessor", "ProcessorBase" },
+            result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Equal(3, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -328,6 +398,92 @@ public sealed class CSharpClientGeneratorTests
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
         // The empty-named model is skipped, not emitted — only the always-on base remains.
         Assert.Equal("ProcessorBase", Assert.Single(result.GeneratedClasses.Keys));
+    }
+
+    [Fact]
+    public async Task Generate_NamesBothModelsWhenTwoRenderAsOneType()
+    {
+        // Distinct models routinely share a name across namespaces (`ErrorResponse`
+        // exists in a provider's namespace and in Azure.ResourceManager.CommonTypes).
+        // They collapse onto one C# type, and since a model reference resolves by the
+        // id's name, references to either bind to whichever was emitted first — silent,
+        // and it compiles. The diagnostic must name both ids, not just the file.
+        TransformedIR ir = Ir();
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "ErrorResponse",
+                Source = "Test",
+                Id = new IRId { Module = "Test", Namespace = ["Contoso", "Storage"], Name = "ErrorResponse" },
+            },
+            new IRModel
+            {
+                Name = "ErrorResponse",
+                Source = "Common",
+                Id = new IRId { Module = "Common", Namespace = ["Azure", "CommonTypes"], Name = "ErrorResponse" },
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        GeneratorDiagnostic diagnostic = Assert.Single(
+            result.Diagnostics,
+            d => d.Code == "ace-generator/model-name-collision");
+        Assert.Contains("Contoso.Storage.ErrorResponse", diagnostic.Message);
+        Assert.Contains("Azure.CommonTypes.ErrorResponse", diagnostic.Message);
+
+        // The second is dropped at the source, so the generic duplicate-file warning
+        // never fires — the specific diagnostic replaces it rather than doubling it.
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "ace-generator/duplicate-file");
+        Assert.Single(writer.Files.Keys, k => k.EndsWith("ErrorResponse.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Generate_ReferencesARenamedModelByItsCurrentName()
+    {
+        // A transform renames a model to keep two same-named types apart, which makes
+        // `model.Name` diverge from `id.Name`. A reference resolved off the id would
+        // then name a type nobody declares — so references must resolve through the
+        // document. Nothing in the IR itself flags the divergence, which is why this is
+        // pinned rather than left to a real spec to expose.
+        IRId renamedId = new() { Module = "Common", Namespace = ["Azure", "CommonTypes"], Name = "ErrorResponse" };
+        TransformedIR ir = Ir();
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "CommonTypesErrorResponse",
+                Source = "Common",
+                Id = renamedId,
+            },
+            new IRModel
+            {
+                Name = "Holder",
+                Source = "Test",
+                Id = new IRId { Module = "Test", Name = "Holder" },
+                Properties =
+                [
+                    new IRPropertyObject
+                    {
+                        Id = new IRId { Module = "Test", Name = "Holder.error" },
+                        Name = "Error",
+                        WireName = "error",
+                        Type = new IRTypeRefModel { Id = renamedId },
+                        Optional = true,
+                        Nullable = false,
+                    },
+                ],
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string holder = writer.Files.Source(result, "Holder");
+        Assert.Contains("CommonTypesErrorResponse? Error", holder);
+        // The id's name must not leak through as a type reference.
+        Assert.DoesNotContain("ErrorResponse? Error", holder.Replace("CommonTypesErrorResponse? Error", ""));
     }
 
     [Fact]

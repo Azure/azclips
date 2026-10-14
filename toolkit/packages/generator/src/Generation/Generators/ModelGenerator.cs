@@ -9,14 +9,14 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Ace.Generator.Generators;
 
 /// <summary>
-/// Emits C# model types from <see cref="IRDocument.Models"/>. Faithful
+/// Emits C# model types from <see cref="TransformedIR.Models"/>. Faithful
 /// ("garbage in, garbage out") for now: one class per model with every property
 /// the IR carries, mapped literally to C# — plus a <c>[JsonIgnore]</c> accessor for each
 /// flattened member the transform resolved. No inheritance, polymorphism, or enum
 /// emission yet.
 /// </summary>
 /// <remarks>
-/// TODO — richer emission: enums (<see cref="IRDocument.Enums"/>), inheritance +
+/// TODO — richer emission: enums (<see cref="TransformedIR.Enums"/>), inheritance +
 /// overrides (deduplicate inherited properties), polymorphism (<c>[JsonPolymorphic]</c>),
 /// and visibility/access shaping.
 /// </remarks>
@@ -30,8 +30,15 @@ internal sealed class ModelGenerator : IArtifactGenerator
 
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        string ns = context.Options.RootNamespace + ".Models";
-        Dictionary<string, IRProperty> properties = FlattenSupport.IndexProperties(context.Ir);
+        string ns = context.Placement.ModelsNamespace;
+
+        // Distinct models can share a name across namespaces — `ErrorResponse` exists in
+        // both a provider's namespace and Azure.ResourceManager.CommonTypes. They collapse
+        // onto one C# type, and because IrTypeMapper resolves a model reference by its
+        // id's *name*, every reference to either then binds to whichever was emitted
+        // first. That is silent and it compiles, so it is called out here with both ids
+        // rather than left to the generic duplicate-file warning downstream.
+        var claimed = new Dictionary<string, IRId>(StringComparer.Ordinal);
 
         foreach (IRModel model in context.Ir.Models)
         {
@@ -47,7 +54,25 @@ internal sealed class ModelGenerator : IArtifactGenerator
             }
 
             string typeName = model.Name.Identifier();
-            yield return new GeneratedFile($"Models/{typeName}.cs", Emit(context, ns, typeName, model, properties), typeName);
+
+            if (model.Id is { } id)
+            {
+                if (claimed.TryGetValue(typeName, out IRId? owner))
+                {
+                    context.Report(
+                        Model.DiagnosticSeverity.Warning,
+                        "ace-generator/model-name-collision",
+                        $"Models '{IrIds.Serialize(owner)}' and '{IrIds.Serialize(id)}' both render as " +
+                        $"C# type '{typeName}'. Only the first is emitted, and references to either " +
+                        "resolve to it — so the second model's shape is silently lost. The tweak-ir " +
+                        "stage resolves this; it looks like it did not run.");
+                    continue;
+                }
+
+                claimed[typeName] = id;
+            }
+
+            yield return new GeneratedFile(context.Placement.ModelFile(typeName), Emit(context, ns, typeName, model), typeName);
         }
     }
 
@@ -77,14 +102,13 @@ internal sealed class ModelGenerator : IArtifactGenerator
         GenerationContext context,
         string @namespace,
         string className,
-        IRModel model,
-        IReadOnlyDictionary<string, IRProperty> properties)
+        IRModel model)
     {
         // Build the class: `public partial class <Name> { <props> }`, with an XML
         // <summary> doc attached last so it lands on the declaration's first token.
         ClassDeclarationSyntax cls = ClassDeclaration(className)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers([.. model.Properties.Select(EmitProperty), .. EmitFlattened(context, model, properties)])
+            .AddMembers([.. model.Properties.Select(p => EmitProperty(p, context.Index)), .. EmitFlattened(context, model)])
             .WithLeadingXmlDoc(model.Docs ?? model.Summary);
 
         // Wrap it in usings + a file-scoped namespace, then let Roslyn format it.
@@ -120,11 +144,11 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// every one of them. It stays on the type because it is still what serializes — hence
     /// <c>[JsonInclude]</c>, without which System.Text.Json skips a non-public member.
     /// </remarks>
-    private PropertyDeclarationSyntax EmitProperty(IRProperty property)
+    private PropertyDeclarationSyntax EmitProperty(IRProperty property, IrIndex index)
     {
         // Reuse the string mapper, then parse into a TypeSyntax; wrap in NullableType
         // (`T?`) when optional/nullable — the idiomatic way to annotate nullability.
-        TypeSyntax type = ParseTypeName(IrTypeMapper.ToCSharp(property));
+        TypeSyntax type = ParseTypeName(IrTypeMapper.ToCSharp(property, index));
         if (property.Optional || property.Nullable)
         {
             type = NullableType(type);
@@ -167,8 +191,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
     /// </remarks>
     private static IEnumerable<PropertyDeclarationSyntax> EmitFlattened(
         GenerationContext context,
-        IRModel model,
-        IReadOnlyDictionary<string, IRProperty> properties)
+        IRModel model)
     {
         foreach (FlattenedMember member in model.Rendering?.Flattened ?? [])
         {
@@ -177,20 +200,20 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 continue;
             }
 
-            IRProperty[]? hops = FlattenSupport.ResolvePath(member.Path, properties);
+            IRProperty[]? hops = FlattenSupport.ResolveHops(member.Property, member.Via, context.Index);
             if (hops is null)
             {
                 context.Report(
                     Model.DiagnosticSeverity.Warning,
                     "ace-generator/unresolved-flattened-path",
-                    $"Model '{model.Name}' declares flattened member '{member.Name}' whose path does not " +
-                    "resolve to walkable model properties. The accessor is skipped; the nested properties " +
+                    $"Model '{model.Name}' declares flattened member '{member.Name}' whose property or containers " +
+                    "do not resolve to walkable model properties. The accessor is skipped; the nested properties " +
                     "are still emitted.");
                 continue;
             }
 
             IRProperty leaf = hops[^1];
-            string accessorType = FlattenSupport.AccessorType(leaf, member.Optional);
+            string accessorType = FlattenSupport.AccessorType(leaf, member.Optional, context.Index);
             string docs = leaf.Docs ?? leaf.Summary ?? $"Flattened access to {FlattenSupport.WirePath(hops)}.";
 
             // A member no hop exposes for create or update is server-owned, so it gets no setter:
@@ -210,7 +233,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                     .WithBody(Block(List<StatementSyntax>(
                     [
                         .. FlattenSupport
-                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional))
+                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional), context.Index)
                             .Select(statement => ParseStatement(statement)),
                     ]))));
             }

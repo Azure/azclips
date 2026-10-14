@@ -46,6 +46,21 @@ public class TraceUploaderTests
     }
 
     [Fact]
+    public void Run_CallsSinkOncePerServiceAndDataBoundary()
+    {
+        using var temp = new TempDirectory();
+        WriteTraceFileWithBoundary(temp.Path, "aaa", "CLI", "EU", "op-1");
+        WriteTraceFileWithBoundary(temp.Path, "bbb", "CLI", "Global", "op-2");
+        var sink = new FakeSink(exportSucceeds: true);
+
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Equal(
+            new[] { "EU", "Global" },
+            sink.Calls.Select(c => c.DataBoundary).OrderBy(n => n, StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void Run_FlattensEntriesAcrossFilesInTheSameGroup()
     {
         using var temp = new TempDirectory();
@@ -59,6 +74,18 @@ public class TraceUploaderTests
         Assert.Equal(
             new[] { "op-1", "op-2", "op-3" },
             call.Entries.Select(e => e.OperationName).OrderBy(n => n, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Run_DeletesMixedBoundaryFile_OnlyWhenAllGroupsExport()
+    {
+        using var temp = new TempDirectory();
+        WriteMixedBoundaryTraceFile(temp.Path, "aaa", "CLI");
+        var sink = new FakeSink(boundaryFailures: ["EU"]);
+
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Single(Directory.GetFiles(temp.Path, "traces-*.uploading"));
     }
 
     [Fact]
@@ -107,6 +134,26 @@ public class TraceUploaderTests
         string? serviceName,
         params string[] operationNames)
     {
+        WriteTraceFileCore(directory, traceId, serviceName, null, operationNames);
+    }
+
+    private static void WriteTraceFileWithBoundary(
+        string directory,
+        string traceId,
+        string? serviceName,
+        string? dataBoundary,
+        params string[] operationNames)
+    {
+        WriteTraceFileCore(directory, traceId, serviceName, dataBoundary, operationNames);
+    }
+
+    private static void WriteTraceFileCore(
+        string directory,
+        string traceId,
+        string? serviceName,
+        string? dataBoundary,
+        params string[] operationNames)
+    {
         var resource = serviceName == null
             ? new Dictionary<string, string>()
             : new Dictionary<string, string> { ["service.name"] = serviceName };
@@ -123,6 +170,8 @@ public class TraceUploaderTests
                 Duration = 1.0,
                 Status = "Unset",
                 Kind = "Internal",
+                TenantId = "tenant-1",
+                DataBoundary = dataBoundary,
                 Tags = Array.Empty<object>(),
                 Events = Array.Empty<object>(),
                 Resource = resource,
@@ -134,22 +183,68 @@ public class TraceUploaderTests
             TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
     }
 
+    private static void WriteMixedBoundaryTraceFile(string directory, string traceId, string serviceName)
+    {
+        var resource = new Dictionary<string, string> { ["service.name"] = serviceName };
+        var traces = new List<object>
+        {
+            new
+            {
+                TraceId = "0123456789abcdef0123456789abcdef",
+                SpanId = "1111111111111111",
+                ParentSpanId = "0000000000000000",
+                OperationName = "op-eu",
+                DisplayName = "op-eu",
+                StartTime = "2024-01-01T00:00:00.0000000Z",
+                Duration = 1.0,
+                Status = "Unset",
+                Kind = "Internal",
+                DataBoundary = "EU",
+                Tags = Array.Empty<object>(),
+                Events = Array.Empty<object>(),
+                Resource = resource,
+            },
+            new
+            {
+                TraceId = "0123456789abcdef0123456789abcdef",
+                SpanId = "2222222222222222",
+                ParentSpanId = "0000000000000000",
+                OperationName = "op-global",
+                DisplayName = "op-global",
+                StartTime = "2024-01-01T00:00:00.0000000Z",
+                Duration = 1.0,
+                Status = "Unset",
+                Kind = "Internal",
+                DataBoundary = "Global",
+                Tags = Array.Empty<object>(),
+                Events = Array.Empty<object>(),
+                Resource = resource,
+            },
+        };
+
+        File.WriteAllText(
+            Path.Combine(directory, TraceFileStore.FileNameFor(traceId)),
+            TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
+    }
+
     /// <summary>Records what the uploader tried to send and returns a fixed outcome.</summary>
     private sealed class FakeSink : ITraceExportSink
     {
         private readonly bool _exportSucceeds;
+        private readonly HashSet<string> _boundaryFailures;
 
-        public FakeSink(bool exportSucceeds)
+        public FakeSink(bool exportSucceeds = true, IEnumerable<string>? boundaryFailures = null)
         {
             _exportSucceeds = exportSucceeds;
+            _boundaryFailures = new HashSet<string>(boundaryFailures ?? [], StringComparer.OrdinalIgnoreCase);
         }
 
-        public List<(string ServiceName, IReadOnlyList<TraceEntry> Entries)> Calls { get; } = new();
+        public List<(string ServiceName, string? DataBoundary, IReadOnlyList<TraceEntry> Entries)> Calls { get; } = new();
 
-        public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries)
+        public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null)
         {
-            Calls.Add((serviceName, entries));
-            return _exportSucceeds;
+            Calls.Add((serviceName, dataBoundary, entries));
+            return _exportSucceeds && !_boundaryFailures.Contains(dataBoundary ?? string.Empty);
         }
     }
 

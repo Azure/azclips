@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
+using Core.Cli.Output;
 using Core.Extensions;
 using Core.Runtime;
 
@@ -125,7 +126,7 @@ public sealed class RuntimeHelpDispatcher
                 throw new ExtensionNotInstalledException(verb, hintedPackage);
             }
 
-            // Truly unknown verb (no install hint either). Surface as a structured error so the
+            // Truly unknown verb (no install hint either). Surface as a known error so the
             // top-level AzclipsErrorException catch renders it cleanly.
             throw new AzclipsErrorException(
                 code: "VerbNotFound",
@@ -427,16 +428,6 @@ public sealed class RuntimeHelpDispatcher
             command.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
             command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
     }
-    private static uint? TerminalWidth()
-    {
-        try
-        {
-            var width = (uint)Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static uint? TerminalWidth() =>
+        TerminalWidthProvider.Get() is { } width ? (uint)width : null;
 }

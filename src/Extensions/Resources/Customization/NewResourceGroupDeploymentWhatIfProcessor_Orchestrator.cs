@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -60,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.WhatIf = body;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncPollLocation();
         }
 
         // The what-if API returns HTTP 200 with status Succeeded even when the template has an error;
@@ -125,7 +126,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (!string.IsNullOrWhiteSpace(ResultFormat) && NormalizeResultFormatOrNull(ResultFormat) is null)
             {
-                throw new ArgumentException("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
+                throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
             }
         }
 

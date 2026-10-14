@@ -34,7 +34,10 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         _provider = new StubTelemetryProvider(_source);
         _config = new EnabledConfigurationService();
-        _telemetryService = new TelemetryService(_provider, _config, ClientType.CLI);
+        _telemetryService = new TelemetryService(
+            _provider,
+            _config,
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
     }
 
     public void Dispose()

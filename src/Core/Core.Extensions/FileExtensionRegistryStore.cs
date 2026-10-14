@@ -103,7 +103,7 @@ namespace Core.Extensions
 
             // Optimistic-concurrency check: if we previously observed a write time and
             // the file's current write time disagrees, another process touched it between our
-            // Load and Save. Surface as a structured error so the caller can retry or inform the
+            // Load and Save. Surface as a known error so the caller can retry or inform the
             // user — silently overwriting would be the worst outcome.
             if (_lastObservedWriteUtc is { } expected && File.Exists(_path))
             {

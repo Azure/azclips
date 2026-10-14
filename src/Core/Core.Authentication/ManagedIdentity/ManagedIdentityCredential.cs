@@ -22,7 +22,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
             case ManagedIdentityIdType.SystemAssigned:
                 if (!string.IsNullOrEmpty(id))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         "A system-assigned managed identity must not be given an id; " +
                         "use a ClientId/ObjectId/ResourceId type for a user-assigned identity.");
                 }
@@ -37,7 +37,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
             case ManagedIdentityIdType.ResourceId:
                 if (string.IsNullOrEmpty(id))
                 {
-                    throw new ArgumentException(
+                    throw AzclipsErrorException.InvalidInput(
                         $"A user-assigned managed identity of type {idType} requires a non-empty id.");
                 }
                 _idType = idType.Value;
@@ -46,7 +46,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
                 break;
 
             default:
-                throw new ArgumentException($"Unsupported managed-identity type: {idType}.");
+                throw AzclipsErrorException.InvalidInput($"Unsupported managed-identity type: {idType}.");
         }
 
         _application = new Lazy<IManagedIdentityApplication>(
@@ -59,7 +59,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
         ManagedIdentityIdType.ClientId => MsalManagedIdentityId.WithUserAssignedClientId(id),
         ManagedIdentityIdType.ObjectId => MsalManagedIdentityId.WithUserAssignedObjectId(id),
         ManagedIdentityIdType.ResourceId => MsalManagedIdentityId.WithUserAssignedResourceId(id),
-        _ => throw new ArgumentException($"'{idType}' is not a user-assigned managed-identity type."),
+        _ => throw AzclipsErrorException.InvalidInput($"'{idType}' is not a user-assigned managed-identity type."),
     };
 
     public ManagedIdentityIdType IdType => _idType;
@@ -82,6 +82,16 @@ public sealed class ManagedIdentityCredential : TokenCredential
     /// <summary>Converts a scope to the resource format expected by MI endpoints.</summary>
     public static string ScopeToResource(string[] scopes)
     {
+        // Managed identity acquires tokens through AcquireTokenForManagedIdentity, which takes a
+        // single resource rather than a scope list, so a request with more than one scope cannot be
+        // honored. Reject it with a usage error rather than silently keeping only the first scope and
+        // dropping the rest, which would hand back a token for a resource the caller did not ask for.
+        if (scopes is { Length: > 1 })
+        {
+            throw AzclipsErrorException.UsageError(
+                "Managed identity supports a single resource per token request; multiple scopes cannot be requested for a managed identity account.");
+        }
+
         var scope = scopes is { Length: > 0 } ? scopes[0] : AuthConstants.ArmDefaultScope;
         return scope.EndsWith("/.default", StringComparison.Ordinal)
             ? scope[..^"/.default".Length]

@@ -23,31 +23,40 @@
  * peak memory on a large spec.
  */
 
-import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "./transform.js";
 import {
+  idKey,
+  indexIR,
   serializeId,
   type FlattenedMember,
   type FlattenedParameter,
   type HttpMethod,
   type IR,
   type IRId,
+  type IRIndex,
   type IRModel,
   type IRProperty,
   type IRPropertyObject,
+  type IRPropertyRef,
   type IRVisibility,
 } from "@azure-client-engine/ir";
 
 const STEP_NAME = "flatten-model";
 const DIAGNOSTIC_PREFIX = `@azure-client-engine/transformers/${STEP_NAME}`;
 
-/** Matches AutoRest's `inlining-threshold` default. */
-const DEFAULT_INLINING_THRESHOLD = 24;
+/**
+ * Default `inliningThreshold`: a nested model rendering this many members or more
+ * stays nested rather than being flattened into its container. Raising it trades
+ * model-typed members for longer flat member and parameter lists.
+ */
+const DEFAULT_INLINING_THRESHOLD = 100;
 
 const ALL_PHASES: readonly IRVisibility[] = ["read", "create", "update", "delete", "query"];
 
 /**
- * Containers whose members flatten without picking up a name prefix.
- * `properties` is the ARM envelope (always flattened, whatever its size);
+ * Containers whose members flatten without picking up a name prefix, whatever
+ * their size — the inlining threshold does not apply. `properties` is the ARM
+ * resource envelope and `error` the ARM error envelope.
  */
 const TRANSPARENT_CONTAINERS = new Set(["properties", "error"]);
 
@@ -55,8 +64,12 @@ const TRANSPARENT_CONTAINERS = new Set(["properties", "error"]);
 
 export interface FlattenModelOptions {
   /**
-   * Maximum renderable member count a nested model may have and still be
-   * flattened into its container. A `properties` envelope ignores this.
+   * A nested model is flattened into its container only while it renders fewer
+   * members than this. The count is cumulative — the model's own properties that
+   * were not themselves flattened, plus every member flattened into it — so a
+   * model can stay nested because of its descendants. `properties` and `error`
+   * containers are exempt, and spec decorators such as `@flattenProperty` do not
+   * bypass it. Defaults to `DEFAULT_INLINING_THRESHOLD` (100).
    */
   inliningThreshold?: number;
   /**
@@ -93,10 +106,8 @@ interface PassContext {
   readonly ir: IR;
   readonly options: ResolvedOptions;
   readonly report: Report;
-  /** `serializeId(model.id)` → model. */
-  readonly modelsById: ReadonlyMap<string, IRModel>;
-  /** `serializeId(property.id)` → the property's logical name, for name fallbacks. */
-  readonly propertyNames: ReadonlyMap<string, string>;
+  /** Shared identity lookup, built once for the whole step. */
+  readonly index: IRIndex;
 }
 
 interface SubPass {
@@ -108,9 +119,8 @@ interface SubPass {
  * A member node carries the naming scratch (`components`, `leafTypeName`)
  * that collision resolution needs but the IR deliberately does not persist.
  */
-interface MemberNode {
+interface MemberNode extends IRPropertyRef {
   name: string;
-  path: IRId[];
   optional: boolean;
   visibility: IRVisibility[] | undefined;
   /** Name fragments, outermost → leaf, used only to build collision fallbacks. */
@@ -133,9 +143,8 @@ export function flattenModelStep(options: Record<string, unknown> = {}): Transfo
         options: option,
         report: (severity, code, message) =>
           context.reportDiagnostic({ severity, code: `${DIAGNOSTIC_PREFIX}/${code}`, message }),
-        ...indexIR(ir),
-      };
-      for (const subPass of SUB_PASSES) subPass.run(pass);
+        index: indexIR(ir),
+      };      for (const subPass of SUB_PASSES) subPass.run(pass);
       return ir;
     },
   };
@@ -146,18 +155,6 @@ const SUB_PASSES: readonly SubPass[] = [
   { name: "flatten-models", run: flattenModels },
   { name: "project-body-params", run: projectBodyParameters },
 ];
-
-function indexIR(ir: IR): Pick<PassContext, "modelsById" | "propertyNames"> {
-  const modelsById = new Map<string, IRModel>();
-  const propertyNames = new Map<string, string>();
-  for (const model of ir.models) {
-    modelsById.set(serializeId(model.id), model);
-    for (const property of model.properties) {
-      propertyNames.set(serializeId(property.id), property.name);
-    }
-  }
-  return { modelsById, propertyNames };
-}
 
 // ─── Sub-pass 1: flatten models ─────────────────────────────────────────
 
@@ -172,7 +169,7 @@ function flattenModels(pass: PassContext): void {
   }
 
   for (const model of pass.ir.models) {
-    const memberNodes = members.get(serializeId(model.id));
+    const memberNodes = members.get(idKey(model.id));
     if (memberNodes === undefined || memberNodes.length === 0) continue;
     model.rendering = { ...model.rendering, flattened: memberNodes.map(toFlattenedMember) };
   }
@@ -193,7 +190,7 @@ function resolveModel(
   states: Map<string, InlineState>,
   members: Map<string, MemberNode[]>,
 ): boolean {
-  const key = serializeId(model.id);
+  const key = idKey(model.id);
   const state = states.get(key);
   if (state === "visited") return true;
   if (state === "unvisited") return false;
@@ -208,7 +205,8 @@ function resolveModel(
     );
     return false;
   }
-  if (pass.options.noInline.has(model.name) || pass.options.noInline.has(key)) {
+  // `noInline` is user-facing config, so it matches the display form, not the key.
+  if (pass.options.noInline.has(model.name) || pass.options.noInline.has(serializeId(model.id))) {
     states.set(key, "unvisited");
     return false;
   }
@@ -221,7 +219,7 @@ function resolveModel(
     // model can be hoisted — a dictionary is an open map with no fixed members.
     if (property.typeKind !== "object" || property.type.kind !== "model") continue;
     if (property.rendering?.flatten?.into === "never") continue;
-    const target = pass.modelsById.get(serializeId(property.type.id));
+    const target = pass.index.model(property.type.id);
     if (target === undefined) {
       pass.report(
         "warning",
@@ -233,7 +231,7 @@ function resolveModel(
     }
     if (!resolveModel(pass, target, [...stack, model.id], states, members)) continue;
 
-    const childMembers = members.get(serializeId(target.id)) ?? [];
+    const childMembers = members.get(idKey(target.id)) ?? [];
     const childCount = renderableCount(target, childMembers);
     if (childCount === 0) continue;
 
@@ -250,7 +248,8 @@ function resolveModel(
       if (isHoisted(child)) continue;
       memberNodes.push({
         name: prefixed(prefix, child.name),
-        path: [property.id, child.id],
+        property: child.id,
+        via: [property.id],
         optional: property.optional || child.optional,
         visibility: intersectVisibility(property.visibility, child.visibility),
         components: dedupeSequential([property.name, child.name]),
@@ -263,7 +262,8 @@ function resolveModel(
       // at every level would produce `AutoScalePropertiesScaleUpProperties…`.
       memberNodes.push({
         name: nested.name,
-        path: [property.id, ...nested.path],
+        property: nested.property,
+        via: [property.id, ...nested.via],
         optional: property.optional || nested.optional,
         visibility: intersectVisibility(property.visibility, nested.visibility),
         components: dedupeSequential([property.name, ...nested.components]),
@@ -295,7 +295,8 @@ function renderableCount(model: IRModel, members: readonly MemberNode[]): number
 function toFlattenedMember(member: MemberNode): FlattenedMember {
   return {
     name: member.name,
-    path: member.path,
+    property: member.property,
+    via: member.via,
     optional: member.optional,
     ...(member.visibility !== undefined ? { visibility: member.visibility } : {}),
   };
@@ -304,9 +305,8 @@ function toFlattenedMember(member: MemberNode): FlattenedMember {
 // ─── Sub-pass 2: project the request body onto parameters ───────────────
 
 /** One candidate on a body model's renderable surface. */
-interface SurfaceMember {
+interface SurfaceMember extends IRPropertyRef {
   name: string;
-  path: IRId[];
   optional: boolean;
   visibility: IRVisibility[] | undefined;
   access: "public" | "internal" | undefined;
@@ -322,7 +322,7 @@ function projectBodyParameters(pass: PassContext): void {
     if (body.type === undefined || body.type.kind !== "model") continue;
     if (body.rendering?.flatten?.into === "never") continue;
 
-    const model = pass.modelsById.get(serializeId(body.type.id));
+    const model = pass.index.model(body.type.id);
     if (model === undefined) {
       pass.report(
         "warning",
@@ -345,9 +345,9 @@ function projectBodyParameters(pass: PassContext): void {
     const parameters: FlattenedParameter[] = [];
     for (const member of bodySurfaceOf(model)) {
       if (!isWritable(member, phase)) continue;
-      const name = selectName(member.name, nameOptionsForPath(pass, member.path), used);
+      const name = selectName(member.name, nameOptionsForRef(pass, member), used);
       used.add(name);
-      parameters.push({ name, path: member.path, required: !member.optional });
+      parameters.push({ name, property: member.property, via: member.via, required: !member.optional });
     }
 
     if (parameters.length === 0) continue;
@@ -362,7 +362,8 @@ function bodySurfaceOf(model: IRModel): SurfaceMember[] {
     if (isHoisted(property)) continue;
     surface.push({
       name: property.name,
-      path: [property.id],
+      property: property.id,
+      via: [],
       optional: property.optional,
       visibility: property.visibility,
       access: property.access,
@@ -371,7 +372,8 @@ function bodySurfaceOf(model: IRModel): SurfaceMember[] {
   for (const member of model.rendering?.flattened ?? []) {
     surface.push({
       name: member.name,
-      path: member.path,
+      property: member.property,
+      via: member.via,
       optional: member.optional,
       visibility: member.visibility,
       // Flattened members carry no access of their own; a hop's `access` was
@@ -423,9 +425,9 @@ function nameOptions(components: readonly string[], leafTypeName?: string): stri
   return [...new Set(options)];
 }
 
-/** Rebuild name alternatives for an already-published member from its path. */
-function nameOptionsForPath(pass: PassContext, path: readonly IRId[]): string[] {
-  return nameOptions(path.map((id) => pass.propertyNames.get(serializeId(id)) ?? id.name));
+/** Rebuild name alternatives for an already-published member from the hops it references. */
+function nameOptionsForRef(pass: PassContext, ref: IRPropertyRef): string[] {
+  return nameOptions([...ref.via, ref.property].map((id) => pass.index.property(id)?.name ?? id.name));
 }
 
 /** First unused candidate, else `<preferred>2`, `<preferred>3`, ... */

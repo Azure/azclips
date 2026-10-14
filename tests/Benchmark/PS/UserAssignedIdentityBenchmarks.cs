@@ -9,7 +9,7 @@ using BenchmarkDotNet.Attributes;
 
 namespace Benchmark.PS;
 
-[BenchmarkExtension("Identity")]
+[BenchmarkExtension("ManagedServiceIdentity")]
 public class UserAssignedIdentityBenchmarks : PSBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";
