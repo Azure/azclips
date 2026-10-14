@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
@@ -48,6 +50,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 ValidationLevel = NormalizeValidationLevel(ValidationLevel),
             };
 
+            await ValidateDeployment(properties);
+
             NewResourceGroupDeploymentProcessor processor = CreateExtendedProcessor<NewResourceGroupDeploymentProcessor>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
@@ -57,6 +61,32 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             });
 
             return await processor.SendAsync();
+        }
+
+        // Preflight validation, matching legacy clients (az: begin_validate; Az PowerShell: RunDeploymentValidation):
+        // an invalid template fails here without issuing the PUT or leaving a failed deployment record.
+        private async Task ValidateDeployment(DeploymentProperties properties)
+        {
+            TestResourceGroupDeploymentProcessor validator = CreateExtendedProcessor<TestResourceGroupDeploymentProcessor>(p =>
+            {
+                p.SubscriptionId = SubscriptionId;
+                p.ResourceGroupName = ResourceGroupName;
+                p.Name = Name;
+                p.Properties = properties;
+            });
+
+            using HttpResponseMessage response = await validator.SendAsync();
+            string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
+            if (!string.IsNullOrWhiteSpace(body)
+                && JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is { } error)
+            {
+                throw new InvalidOperationException(TestResourceGroupDeploymentProcessor_Orchestrator.BuildErrorMessage(error));
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await response.EnsureSuccessAsync(Publisher);
+            }
         }
 
         // Validates the shared template/parameters/mode/inline/validation-level rules together with

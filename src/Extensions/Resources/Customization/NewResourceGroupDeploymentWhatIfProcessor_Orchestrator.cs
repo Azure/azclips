@@ -61,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.WhatIf = body;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncPollLocation();
         }
 
         // The what-if API returns HTTP 200 with status Succeeded even when the template has an error;
