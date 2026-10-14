@@ -210,7 +210,9 @@ public class TableFormatterTests
         };
 
         var result = Core.Cli.Output.TableFormatter.FormatRows(rows, headers);
-        Assert.NotEmpty(result);
+        var lines = result.Split('\n');
+        Assert.All(lines, line => Assert.Equal(line.TrimEnd(), line));
+        Assert.Equal("Val1", lines[2]);
     }
 
     [Fact]

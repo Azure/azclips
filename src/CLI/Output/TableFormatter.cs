@@ -150,13 +150,13 @@ internal static class TableFormatter
         if (widths.Length == 0)
             return string.Empty;
 
-        var renderedCells = new string[widths.Length];
-        for (var i = 0; i < widths.Length; i++)
+        var cellCount = Math.Min(cells.Length, widths.Length);
+        var renderedCells = new string[cellCount];
+        for (var i = 0; i < cellCount; i++)
         {
-            var cell = i < cells.Length ? cells[i] : string.Empty;
             var width = widths[i];
-            var rendered = Truncate(cell, width);
-            renderedCells[i] = i == widths.Length - 1 ? rendered : PadToDisplayWidth(rendered, width);
+            var rendered = Truncate(cells[i], width);
+            renderedCells[i] = i == cellCount - 1 ? rendered : PadToDisplayWidth(rendered, width);
         }
 
         return string.Join(new string(' ', separatorWidth), renderedCells);
