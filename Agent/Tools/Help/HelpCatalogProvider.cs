@@ -206,9 +206,9 @@ public sealed class HelpCatalogProvider
 
     private static bool IsExpectedReadFailure(Exception exception) =>
         exception is IOException or UnauthorizedAccessException or JsonException ||
-        // ConfigurationService wraps invalid JSON; ConfigurationBinder wraps
-        // invalid setting values. Other InvalidOperationExceptions are defects.
-        (exception.GetType() == typeof(InvalidOperationException) &&
+        // ConfigurationService reports invalid JSON as InvalidInput; ConfigurationBinder
+        // wraps invalid setting values. Other exceptions of these types are defects.
+        ((exception is InvalidInputException || exception.GetType() == typeof(InvalidOperationException)) &&
          exception.InnerException is FormatException or InvalidDataException or JsonException);
 
     private static string ErrorJson(Exception exception) => JsonSerializer.Serialize(new

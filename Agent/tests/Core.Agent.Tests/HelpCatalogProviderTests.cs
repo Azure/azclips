@@ -261,14 +261,15 @@ public sealed class HelpCatalogProviderTests
         if (damage == "json")
         {
             await File.WriteAllTextAsync(path, "{PRIVATE invalid JSON");
+            Assert.Throws<InvalidInputException>(() => fixture.Configuration.GetConfiguration<AssemblyLoadingOptions>());
         }
         else
         {
             var json = JsonNode.Parse(await File.ReadAllTextAsync(path))!;
             json["assemblyLoading"]!["bypassExtensionCache"] = "PRIVATE invalid boolean";
             await File.WriteAllTextAsync(path, json.ToJsonString());
+            Assert.Throws<InvalidOperationException>(() => fixture.Configuration.GetConfiguration<AssemblyLoadingOptions>());
         }
-        Assert.Throws<InvalidOperationException>(() => fixture.Configuration.GetConfiguration<AssemblyLoadingOptions>());
 
         var result = await fixture.Provider.ListJsonAsync();
         AssertError(result, "help_catalog_read_failed");
