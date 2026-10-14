@@ -35,7 +35,7 @@ public class EngineSubscriptionTests
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("test", "test", new Dictionary<string, object>(), IsTransient: false);
 
-        var session = engine.OpenExecutionSession(invocation, streams);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
         await session.EventBus.Publish(Events.Warning, new EventData { Message = "Sample warning message" });
 
         mockLogging.Verify(l => l.Warn("Sample warning message"), Times.Once);
