@@ -304,7 +304,8 @@ function readStructuredPlan(tracePath) {
 }
 
 const SECRET_KEY = /(authorization|api[-_]?key|token|password|secret|connection[-_]?string|sas)/i;
-const SECRET_VALUE = /(Bearer\s+)[^\s"']+|([?&](?:sig|token|key|code)=)[^&\s"']+/gi;
+// Query names whose -, _ or . separated part names a credential, e.g. api-key, access_token, client_secret.
+const SECRET_VALUE = /(Bearer\s+)[^\s"']+|([?&](?:[\w.-]*[-_.])?(?:api[-_]?key|apikey|key|token|secret|password|passwd|pwd|sig|signature|credential|code)(?:[-_.][\w.-]*)?=)[^&\s"']+/gi;
 
 function redactTraceValue(value, key = '') {
   if (SECRET_KEY.test(key)) return '[REDACTED]';

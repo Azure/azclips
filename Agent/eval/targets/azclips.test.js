@@ -493,6 +493,21 @@ test('redacts credential-shaped values from captured original error messages', (
   assert.match(error.message, /\[REDACTED\]/);
 });
 
+test('redacts common credential query parameters and keeps ordinary ones', () => {
+  const secretNames = [
+    'api-key', 'apikey', 'x-api-key', 'subscription-key', 'access_token', 'refresh_token',
+    'client_secret', 'password', 'sig', 'code', 'token', 'key',
+  ];
+  const urls = secretNames.map((name) => `https://example.test/path?${name}=private-value-${name}&api-version=2024-01-01`);
+  const error = originalCliError('', JSON.stringify({
+    error: { code: 'BadRequest', message: `${urls.join(' ')} https://example.test/?design=plain&keyword=plain` },
+  }), 1);
+  assert.doesNotMatch(error.message, /private-value/);
+  assert.equal(error.message.match(/\[REDACTED\]/g).length, secretNames.length);
+  assert.equal(error.message.match(/api-version=2024-01-01/g).length, secretNames.length);
+  assert.match(error.message, /\?design=plain&keyword=plain/);
+});
+
 test('manual recovery records the failure then analyzes its exact ID with closed stdin', async (context) => {
   const fixture = createProviderFixture(context);
   const answer = `${fixture.output}\nRunning this command will display the active profile.`;
