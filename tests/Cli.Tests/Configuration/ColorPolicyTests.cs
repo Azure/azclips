@@ -32,6 +32,61 @@ public class ColorPolicyTests
         Assert.Equal(expected, ColorPolicy.Parse(configuredValue));
     }
 
+    [Theory]
+    [InlineData(ColorMode.Auto,   null, null, null,   false, true)]
+    [InlineData(ColorMode.Auto,   null, null, null,   true,  false)]
+    [InlineData(ColorMode.Auto,   null, null, "dumb", false, false)]
+    [InlineData(ColorMode.Auto,   null, null, "dumb", true,  false)]
+    [InlineData(ColorMode.Auto,   null, null, "DuMb", false, false)]
+    [InlineData(ColorMode.Auto,   null, null, "DuMb", true,  false)]
+    [InlineData(ColorMode.Always, null, null, null,   false, true)]
+    [InlineData(ColorMode.Always, null, null, null,   true,  true)]
+    [InlineData(ColorMode.Always, null, null, "dumb", false, true)]
+    [InlineData(ColorMode.Always, null, null, "dumb", true,  true)]
+    [InlineData(ColorMode.Never,  null, null, null,   false, false)]
+    [InlineData(ColorMode.Never,  null, null, null,   true,  false)]
+    [InlineData(ColorMode.Always, "1",  "1",  "dumb", false, false)]
+    [InlineData(ColorMode.Always, "1",  "1",  "dumb", true,  false)]
+    [InlineData(ColorMode.Always, "0",  "1",  "dumb", false, false)]
+    [InlineData(ColorMode.Always, "0",  "1",  "dumb", true,  false)]
+    [InlineData(ColorMode.Always, "1",  "0",  "dumb", false, false)]
+    [InlineData(ColorMode.Always, "1",  "0",  "dumb", true,  false)]
+    [InlineData(ColorMode.Always, "0",  "0",  "dumb", false, false)]
+    [InlineData(ColorMode.Always, "0",  "0",  "dumb", true,  false)]
+    [InlineData(ColorMode.Auto,   null, "1",  "dumb", false, true)]
+    [InlineData(ColorMode.Auto,   null, "1",  "dumb", true,  true)]
+    [InlineData(ColorMode.Auto,   null, "0",  "dumb", false, true)]
+    [InlineData(ColorMode.Auto,   null, "0",  "dumb", true,  true)]
+    [InlineData(ColorMode.Never,  null, "1",  "dumb", false, true)]
+    [InlineData(ColorMode.Never,  null, "1",  "dumb", true,  true)]
+    [InlineData(ColorMode.Never,  null, "0",  "dumb", false, true)]
+    [InlineData(ColorMode.Never,  null, "0",  "dumb", true,  true)]
+    [InlineData(ColorMode.Auto,   "",   "",   null,   false, true)]
+    [InlineData(ColorMode.Auto,   "",   "",   null,   true,  false)]
+    [InlineData(ColorMode.Auto,   "",   "",   "dumb", false, false)]
+    [InlineData(ColorMode.Auto,   "",   "",   "dumb", true,  false)]
+    [InlineData(ColorMode.Always, "",   "",   "dumb", false, true)]
+    [InlineData(ColorMode.Always, "",   "",   "dumb", true,  true)]
+    [InlineData(ColorMode.Never,  "",   "",   null,   false, false)]
+    [InlineData(ColorMode.Never,  "",   "",   null,   true,  false)]
+    [InlineData(ColorMode.Never,  "",   "0",  "dumb", false, true)]
+    [InlineData(ColorMode.Never,  "",   "0",  "dumb", true,  true)]
+    [InlineData(ColorMode.Always, "0",  "",   null,   false, false)]
+    [InlineData(ColorMode.Always, "0",  "",   null,   true,  false)]
+    public void ShouldEmitColor_RespectsModeEnvironmentAndTargetRedirection(
+        ColorMode mode,
+        string? noColor,
+        string? forceColor,
+        string? term,
+        bool targetIsRedirected,
+        bool expected)
+    {
+        using var _ = new EnvScope(("NO_COLOR", noColor), ("FORCE_COLOR", forceColor), ("TERM", term));
+        using var __ = new ModeScope(mode);
+
+        Assert.Equal(expected, ColorPolicy.ShouldEmitColor(targetIsRedirected));
+    }
+
     [Fact]
     public void NoColorEnv_BeatsEverything_IncludingModeAlwaysAndForceColor()
     {

@@ -302,6 +302,62 @@ public class RuntimeHelpRendererTests
         Assert.DoesNotContain("\u001b[1maz vm create", actual);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RenderCommand_ShouldStyleEveryArgumentHeaderWithoutStylingContent(bool boldHeaders)
+    {
+        var renderer = new RuntimeHelpRenderer(boldHeaders);
+        var command = Command(
+            parameters:
+            [
+                new("name", ["n"], true, "VM name.", "VM name.", [], "(All)", false, false, ValueSources: "az vm list"),
+                new("admin-username", ["u"], true, "Admin user.", "Admin user.", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+                new("vnet-name", [], false, "VNet.", "VNet.", [], "(All)", false, false, GroupName: "Network Arguments"),
+                new("security-type", [], false, "Security.", "Security.", [], "(All)", false, false, GroupName: "Security Arguments"),
+            ],
+            examples: [new("Create a VM", "az vm create --name vm1")]);
+
+        var lines = renderer.RenderCommand(command, terminalWidth: null);
+        string[] headers =
+        [
+            "# COMMAND",
+            "# ARGUMENTS",
+            "# AUTHENTICATION ARGUMENTS",
+            "# NETWORK ARGUMENTS",
+            "# SECURITY ARGUMENTS",
+            "# GLOBAL ARGUMENTS",
+            "# EXAMPLES",
+        ];
+        var expectedHeaders = headers.Select(header => boldHeaders ? $"\u001b[1m{header}\u001b[0m" : header).ToArray();
+        var actualHeaders = lines.Where(line => line.StartsWith(boldHeaders ? "\u001b[1m# " : "# ", StringComparison.Ordinal)).ToArray();
+
+        Assert.Equal(expectedHeaders, actualHeaders);
+        Assert.Equal(
+            new RuntimeHelpRenderer().RenderCommand(command, terminalWidth: null),
+            lines.Select(line => line.Replace("\u001b[1m", string.Empty).Replace("\u001b[0m", string.Empty)));
+        Assert.All(lines, line =>
+        {
+            if (expectedHeaders.Contains(line))
+            {
+                if (boldHeaders)
+                {
+                    Assert.StartsWith("\u001b[1m# ", line);
+                    Assert.EndsWith("\u001b[0m", line);
+                    Assert.Equal(2, line.Count(character => character == '\u001b'));
+                }
+            }
+            else
+            {
+                Assert.DoesNotContain('\u001b', line);
+            }
+        });
+        if (!boldHeaders)
+        {
+            Assert.All(lines, line => Assert.DoesNotContain('\u001b', line));
+        }
+    }
+
     [Fact]
     public void RenderGroupsSection_ShouldSortGroupsAndHaveNoExteriorBlankLines()
     {
