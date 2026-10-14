@@ -227,28 +227,47 @@ for ext_dir in "$SIM_ROOT/install/Extensions"/*/; do
     echo "  FAIL: sidecar missing for bundled extension $ext_name ($sidecar)"
     exit 1
   fi
-  if ! grep -Fq '"schemaVersion"' "$sidecar" || ! grep -Fq "\"packageId\": \"$ext_name\"" "$sidecar"; then
-    echo "  FAIL: sidecar for $ext_name is malformed: $sidecar"
-    exit 1
-  fi
-  # ExtensionRuntime ships no CLI commands (empty verbs/leaves); KeyVault declares a verb but
-  # has no commands yet (empty leaves only). Every other bundled extension must declare at
-  # least one verb/leaf, otherwise a generator regression (e.g. an unrecognized leaf-table
-  # convention) could silently emit empty arrays and still pass the checks above.
-  verbs_block=$(awk '/"verbs": \[/{flag=1; next} /\]/{flag=0} flag' "$sidecar")
-  leaves_block=$(awk '/"leaves": \[/{flag=1; next} /\]/{flag=0} flag' "$sidecar")
-  if [[ "$ext_name" == "Microsoft.Azure.Azclips.ExtensionRuntime" ]]; then
-    if [[ -n "$verbs_block" || -n "$leaves_block" ]]; then
-      echo "  FAIL: expected empty verbs/leaves for $ext_name (no CLI commands): $sidecar"
-      exit 1
-    fi
-  elif [[ "$ext_name" == "Microsoft.Azure.Azclips.Extensions.KeyVault" ]]; then
-    if [[ -z "$verbs_block" ]]; then
-      echo "  FAIL: sidecar for $ext_name has no declared verbs: $sidecar"
-      exit 1
-    fi
-  elif [[ -z "$verbs_block" || -z "$leaves_block" ]]; then
-    echo "  FAIL: sidecar for $ext_name has empty verbs or leaves: $sidecar"
+  # ExtensionRuntime and KeyVault intentionally have empty contracts; other bundles must expose commands.
+  if ! python3 - "$sidecar" "$ext_name" <<'PY'
+import json
+import sys
+
+sidecar, expected_package_id = sys.argv[1:]
+
+def fail(message):
+    print(f"  FAIL: {message}: {sidecar}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with open(sidecar, encoding="utf-8") as sidecar_file:
+        payload = json.load(sidecar_file)
+except (OSError, json.JSONDecodeError) as error:
+    fail(f"sidecar is not valid JSON ({error})")
+
+if not isinstance(payload, dict):
+    fail("sidecar root must be an object")
+if payload.get("schemaVersion") != 1:
+    fail("sidecar schemaVersion must be 1")
+if payload.get("packageId") != expected_package_id:
+    fail(f"sidecar packageId must be {expected_package_id}")
+
+verbs = payload.get("verbs")
+leaves = payload.get("leaves")
+if not isinstance(verbs, list) or not all(isinstance(verb, str) for verb in verbs):
+    fail("sidecar verbs must be an array of strings")
+if not isinstance(leaves, list) or not all(isinstance(leaf, str) for leaf in leaves):
+    fail("sidecar leaves must be an array of strings")
+
+if expected_package_id == "Microsoft.Azure.Azclips.ExtensionRuntime":
+    if verbs or leaves:
+        fail("ExtensionRuntime must have empty verbs and leaves")
+elif expected_package_id == "Microsoft.Azure.Azclips.Extensions.KeyVault":
+    if not verbs:
+        fail("KeyVault must declare at least one verb")
+elif not verbs or not leaves:
+    fail("command-bearing extensions must declare verbs and leaves")
+PY
+  then
     exit 1
   fi
   sidecar_count=$((sidecar_count + 1))
