@@ -289,10 +289,9 @@ public class ConfigurationServiceTests
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("agent.reasoningEffort", "high");
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var exception = await Assert.ThrowsAsync<InvalidInputException>(() =>
             service.SetConfigurationAsync("agent.reasoningEffort", effort));
 
-        Assert.Equal("value", exception.ParamName);
         Assert.Contains("agent.reasoningEffort", exception.Message);
         Assert.Equal("high", service.GetConfiguration<AgentOptions>().ReasoningEffort);
     }

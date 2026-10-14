@@ -76,10 +76,10 @@ public class ConfigCliTests
         using var fixture = new ConfigCommandFixture();
 
         var defaultOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
-        Assert.Contains("agent.reasoningEffort = medium [default]", defaultOutput.Single());
+        AssertConfigEntry(defaultOutput, "agent.reasoningEffort", "medium", "default");
 
         var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
-        Assert.Contains("agent.reasoningEffort = medium [default]", listOutput.Single());
+        AssertConfigEntry(listOutput, "agent.reasoningEffort", "medium", "default");
 
         var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
         Assert.Contains("agent.reasoningEffort", infoOutput.Single());
@@ -87,12 +87,12 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "set", "--key", "agent.reasoningEffort", "--value", effort]);
 
         var configuredOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
-        Assert.Contains($"agent.reasoningEffort = {effort} [global config]", configuredOutput.Single());
+        AssertConfigEntry(configuredOutput, "agent.reasoningEffort", effort, "global config");
 
         fixture.ExecuteCli(["config", "delete", "--key", "agent.reasoningEffort"]);
 
         var resetOutput = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
-        Assert.Contains("agent.reasoningEffort = medium [default]", resetOutput.Single());
+        AssertConfigEntry(resetOutput, "agent.reasoningEffort", "medium", "default");
     }
 
     [Theory]
@@ -107,11 +107,11 @@ public class ConfigCliTests
             args = [.. args, "--force"];
         }
 
-        var exception = Assert.Throws<ArgumentException>(() => fixture.ExecuteCli(args));
+        var exception = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
 
         Assert.Contains("Value 'extreme' is not allowed for 'agent.reasoningEffort'.", exception.Message);
         var output = fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]);
-        Assert.Contains("agent.reasoningEffort = medium [default]", output.Single());
+        AssertConfigEntry(output, "agent.reasoningEffort", "medium", "default");
     }
 
     [Theory]
@@ -125,12 +125,12 @@ public class ConfigCliTests
         if (force)
             args = [.. args, "--force"];
 
-        var error = Assert.Throws<ArgumentException>(() => fixture.ExecuteCli(args));
+        var error = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(args));
 
         Assert.Contains("agent.reasoningEffort", error.Message);
         Assert.Contains("cannot be null", error.Message);
-        Assert.Contains("agent.reasoningEffort = high [global config]",
-            fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]).Single());
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "agent.reasoningEffort"]),
+            "agent.reasoningEffort", "high", "global config");
     }
 
     [Fact]
