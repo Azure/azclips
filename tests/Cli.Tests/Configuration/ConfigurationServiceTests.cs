@@ -169,7 +169,7 @@ public class ConfigurationServiceTests
         Assert.False(options.Enabled);
         Assert.Equal("oneshot", options.SessionStyle);
         Assert.Equal("builtin", options.Provider);
-        Assert.Equal("gpt-5.4", options.Builtin.ModelId);
+        Assert.Equal("gpt-5.4-mini", options.Builtin.ModelId);
     }
 
     [Fact]
