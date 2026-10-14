@@ -159,6 +159,69 @@ public class TableFormatterTests
         Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 8, line));
     }
 
+    [Fact]
+    public void FormatRows_ShouldAlignColumnsWithHeadersAndSeparators()
+    {
+        var headers = new[] { "Extension", "Duration", "Source", "Assembly" };
+        var rows = new List<string[]>
+        {
+            new[] { "Compute", "12.3 ms", "Bundled", "/path/to/compute.dll" },
+            new[] { "Storage", "5.1 ms", "Cached", "/path/to/storage.dll" }
+        };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, headers);
+        var lines = result.Split('\n');
+
+        Assert.Equal(4, lines.Length);
+        Assert.Equal(headers, Columns(lines[0]));
+        Assert.Matches("^-+\\s+-+\\s+-+\\s+-+$", lines[1]);
+        Assert.Contains("Compute", lines[2]);
+        Assert.Contains("12.3 ms", lines[2]);
+        Assert.Contains("Storage", lines[3]);
+        Assert.Contains("Cached", lines[3]);
+    }
+
+    [Fact]
+    public void FormatRows_ShouldOmitSeparatorLine_WhenIncludeHeaderSeparatorIsFalse()
+    {
+        var headers = new[] { "Extension", "Loader", "Time (ms)" };
+        var rows = new List<string[]>
+        {
+            new[] { "Compute", "Bundled", "12.3" }
+        };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, headers, includeHeaderSeparator: false);
+        var lines = result.Split('\n');
+
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(headers, Columns(lines[0]));
+        Assert.DoesNotContain("---", result);
+        Assert.Contains("Compute", lines[1]);
+    }
+
+    [Fact]
+    public void FormatRows_ShouldHandleRaggedRowsGracefully()
+    {
+        var headers = new[] { "Col1", "Col2", "Col3" };
+        var rows = new List<string[]>
+        {
+            new[] { "Val1" },
+            new[] { "Val1", "Val2", "Val3", "Val4" }
+        };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, headers);
+        var lines = result.Split('\n');
+        Assert.All(lines, line => Assert.Equal(line.TrimEnd(), line));
+        Assert.Equal("Val1", lines[2]);
+    }
+
+    [Fact]
+    public void FormatRows_ShouldReturnEmptyString_WhenEmptyAndNoHeaders()
+    {
+        var result = Core.Cli.Output.TableFormatter.FormatRows(new List<string[]>());
+        Assert.Equal(string.Empty, result);
+    }
+
     private static int MeasureDisplayCells(string value)
     {
         var total = 0;
