@@ -123,16 +123,6 @@ public static class AzclipsServiceProvider
     }
 
     /// <summary>
-    /// Resolves an optional service from the initialized container by Type.
-    /// </summary>
-    public static object? GetService(Type serviceType)
-    {
-        return (_serviceProvider ?? throw new InvalidOperationException(
-            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
-            .GetService(serviceType);
-    }
-
-    /// <summary>
     /// Disposes the initialized DI container, clears the cached provider,
     /// and removes all prepend/override registrations.
     /// Safe to call multiple times.
