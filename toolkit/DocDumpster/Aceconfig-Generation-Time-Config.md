@@ -1,6 +1,6 @@
 # aceconfig.yaml: the Generation-Time Configuration File
 
-> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks)_
+> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition)_
 >
 > **Scope:** how a run of the Azure Client Engine (ACE) is configured: the file a
 > user writes for each generated extension, how the `ace` CLI reads it, and what
@@ -45,7 +45,9 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
   it runs. Since 2026-10-12 they are `stages.<id>.options`.
 - **One entrypoint, one flat copy.** Staging copies the `--tsp-location` directory
   flat into `<out-dir>/source`. Imports that reach outside that directory break;
-  `--entrypoint` only partly works around this.
+  `--entrypoint` only partly works around this. Since 2026-10-14 staging keeps the
+  specs repo's layout and copies `additional-directories` too; one entrypoint
+  remains until phase 5.
 - **`--out-dir` defaults to the current directory,** and the CLI deletes that
   directory's `Models/`, `Processors/`, `source/` and `ir/`.
 - **The target was built inside `create-command`.** Its `buildTarget` turned the
@@ -75,8 +77,10 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
    section). See [The file](#the-file).
 
 4. **One shared `tsp-location`, inside a specs repo.** `tsp-location` is the
-   directory to copy. Entrypoints are relative to it and compile from inside the
-   copy. See [Source acquisition](#source-acquisition).
+   directory to copy, and the entrypoints, relative to it, are what to compile.
+   Folders the compile needs outside it are listed in `additional-directories`,
+   also relative to it; ACE reads no `tspconfig.yaml` (2026-10-14). See
+   [Source acquisition](#source-acquisition).
 
 5. **Several entrypoints merge into one extension.** Each entrypoint compiles
    separately at its own `api-version`, and the emit stage merges the results into
@@ -155,6 +159,8 @@ schema-version: 1
 # Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
 output-dir: .                            # default: this file's folder
 tsp-location: ../azure-rest-api-specs/specification/elasticsan/resource-manager/Microsoft.ElasticSan/ElasticSan
+# additional-directories:                # folders the compile needs, not under tsp-location
+#   - ../Shared                          # relative to tsp-location, or absolute
 entrypoints:                             # relative to tsp-location
   - path: client.tsp
     api-version: 2024-05-01
@@ -188,6 +194,7 @@ stages:
 | `schema-version` | `1` | — | config loader |
 | `output-dir` | folder, relative to this file | this file's folder | CLI: output root; staging under `<output-dir>/source` |
 | `tsp-location` | folder inside a specs repo, relative to this file | — (required unless `--tsp-location` is given) | CLI: the directory to copy |
+| `additional-directories[]` | folder not under `tsp-location`, relative to `tsp-location` or absolute | none | CLI: copied at its repo-relative path, or by name directly under `<output-dir>/source` when outside the specs repo |
 | `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | see [Open details](#open-details-proposed-defaults-confirm-when-implementing) | CLI (staging), `tsp-emit` |
 | `entrypoints[].api-version` | a version, `latest`, or `all` | see [Open details](#open-details-proposed-defaults-confirm-when-implementing) | `tsp-emit` |
 | `service-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
@@ -341,43 +348,139 @@ The catalog becomes:
 ## Source acquisition
 
 The CLI stages the spec before the compiler runs, following AzDev's
-`New-DevTSPModule` (`Azure/azure-powershell`, `tools/AzDev/src/Typespec`):
+`New-DevTSPModule` (`Azure/azure-powershell`, `tools/AzDev/src/Typespec`).
+Revised 2026-10-14: ACE reads no `tspconfig.yaml`, and the folders to copy come
+from aceconfig (see [Decisions](#source-acquisition-decisions-2026-10-14)).
 
 1. **Find the specs repo root.** Walk up from `tsp-location` to the first folder
    that contains `specification/`, `.github/` and `.azure-pipelines/` (AzDev's
    `IsSpecRoot`). No `.git` is needed, so zip downloads, worktrees and the
    private `-pr` repo all work. If no root is found, staging fails.
-2. **Collect `additionalDirectories`.** For each entrypoint, read the nearest
-   `tspconfig.yaml` at or above it (TypeSpec's own lookup rule), under
-   `options."@azure-tools/typespec-client-generator-cli".additionalDirectories`.
-   The paths are relative to the specs repo root (`specification/...`). Combine
-   them across entrypoints.
-3. **Copy, keeping the repo's layout.** Copy `tsp-location` and each additional
-   directory to `<output-dir>/source/<path relative to the specs repo root>`, as
-   AzDev's `TempTypeSpecFiles` does. Imports such as `../Shared/x.tsp` keep
-   working, and a future remote sparse checkout produces the same tree.
-   - Skip directories that are already inside a copied one.
-   - Exclude `node_modules`, `.git` and `tsp-output`.
-   - A listed directory that is missing locally is an error.
-   - Each copied directory must not overlap `<output-dir>/source`; the existing
+2. **Collect the folders to copy:** `tsp-location` and each
+   `additional-directories` entry: a folder the compile needs that is not under
+   `tsp-location`. A relative entry resolves against `tsp-location`, the
+   effective one after a `--tsp-location` override, as entrypoints do; an
+   absolute entry is used as is. An entry under `tsp-location` is an error,
+   since it contradicts that definition (decided 2026-10-14).
+3. **Copy, keeping the repo's layout.** `<output-dir>/source` stands for the
+   specs repo root.
+   - `tsp-location`, and each listed folder inside the specs repo, goes to
+     `<output-dir>/source/<path relative to the specs repo root>`, as AzDev's
+     `TempTypeSpecFiles` does. Their positions relative to each other are kept,
+     so imports such as `../Shared/x.tsp` keep working, and a future remote
+     sparse checkout produces the same tree.
+   - A listed folder outside the specs repo, an external reference, goes
+     directly under `<output-dir>/source`, by folder name (decided 2026-10-14).
+     Imports may not resolve to it there; external references are not
+     expected, and the rule is kept for now.
+   - Two folders landing at the same place is an error: for example, two
+     external folders with one name, or an external folder named
+     `specification`. Copied together, one's files would silently overwrite
+     the other's, which the compile cannot detect.
+   - A listed folder inside another listed folder, or one that contains
+     `tsp-location`, is copied once, as part of the outer folder.
+   - Exclude `node_modules`, `.git` and `tsp-output` at any depth; a listed
+     folder by those names is skipped too.
+   - A listed folder that does not exist is an error (confirmed 2026-10-14), and
+     so is one that is a file: the key lists directories.
+   - Each copied folder must not overlap `<output-dir>/source`; the existing
      guard applies.
+   - Everything is checked before `<output-dir>/source` is wiped.
 4. **Provide the toolchain.** The `node_modules` link stays at
    `<output-dir>/source/node_modules`, above every copied directory.
 5. **Compile from the copy.** Each entrypoint maps to its counterpart inside
-   `<output-dir>/source`.
+   `<output-dir>/source`, through the copied folder that carries it:
+   `tsp-location`'s folder, or a listed folder that holds it. Staging treats the
+   entrypoint as a path: it must be under `tsp-location`, exist, and be copied.
+   What it means to TypeSpec (a folder compiles its `main.tsp`) is the emit
+   side's concern; the CLI and the compiler do not check it (decided
+   2026-10-14, see [Open details](#open-details-proposed-defaults-confirm-when-implementing)).
 
 **Test escape hatch.** With `ACE_ALLOW_STANDALONE_SPEC=1`, a `tsp-location`
-outside any specs repo is copied flat into `<output-dir>/source`, as today. Any
-`additionalDirectories` are then an error, because there is no root to resolve
-them against. Inside a specs repo the variable has no effect.
+outside any specs repo is copied flat into `<output-dir>/source`, as staging did
+before. Any `additional-directories` are then an error, because there is no root
+to mirror them against. Inside a specs repo the variable has no effect.
 
-Cleanup and `--capture-source` behave as today.
+Cleanup and `--capture-source` behave as before.
 
-In azure-rest-api-specs (at `b91dabc3`), 32 `tspconfig.yaml` files declare
-`additionalDirectories`, all as `specification/...` paths. Some point inside the
-project, which the copy already covers; others point at siblings such as
-`Contoso.WidgetManager.Shared`. Foundry keeps one `tspconfig.yaml` per client
-folder (`src/sdk-*/`), which is why the lookup is per entrypoint.
+**Implemented 2026-10-14** (`packages/cli/src/staging.ts`):
+
+- Every problem is reported, before anything is touched, as an
+  `@azure-client-engine/cli/...` error: `invalid-tsp-location`,
+  `invalid-entrypoint`, `not-in-specs-repo`, `invalid-additional-directory`,
+  `staging-collision` or `staging-overlap`. Any of them stops the run with exit
+  code 1.
+- Three checks added while implementing were dropped (decided 2026-10-14). Each
+  guarded a problem that the entrypoint mapping or the compile already reports:
+  - An entry that contains the whole specs repo. It is outside the repo, so it
+    is copied by name, with `tsp-location` inside it, and the entrypoint maps
+    through it. When it also holds the output folder, the overlap guard refuses
+    it.
+  - An entry named `node_modules`, `.git` or `tsp-output`. The copy skips it like
+    any folder by those names; if the compile needed it, the compile reports
+    `import-not-found`.
+  - A folder landing under `<output-dir>/source/node_modules`, which only a folder
+    inside the repo's own `node_modules` can do. The toolchain link is then
+    skipped, and the compile cannot resolve the TypeSpec libraries.
+- Checked against azure-rest-api-specs (at `b91dabc3`):
+  - ElasticSan, staged in the mirrored layout, gives the same five IR snapshots
+    as a flat copy, apart from `sources[].entrypoint`, and byte-identical C#.
+  - `Contoso.WidgetManager` compiles with
+    `additional-directories: [../Contoso.WidgetManager.Shared]`, and fails with
+    `import-not-found` without it.
+
+### Source acquisition decisions (2026-10-14)
+
+- **ACE reads no `tspconfig.yaml`.**
+  - ACE's emit worker calls TypeSpec's `compile()` with explicit options, and
+    `compile()` loads no tspconfig; only the `tsp` CLI and the language server do.
+    The one exception is inside the compiler: for a folder entrypoint, it reads
+    that folder's tspconfig `entrypoint` field (default `main.tsp`), which no
+    spec sets.
+  - The 651 tspconfigs in azure-rest-api-specs (at `b91dabc3`) hold `options`
+    for other tools (650: mostly other emitters, plus tsp-client's
+    `additionalDirectories` in 32), `linter` (649), `emit` (632), `parameters`
+    (428), `output-dir` (144), and top-level `imports` (12, all in
+    `ai-foundry/data-plane/Foundry`). Only `imports` changes what is compiled,
+    and aceconfig's equivalent is `stages.tsp-emit.options.additionalImports`.
+  - Cost: an aceconfig restates what a spec's tspconfig may carry, which is
+    additional directories (32 specs) and imports (12, Foundry only).
+- **`additional-directories` belongs to aceconfig, as a run input the CLI
+  takes.** The host copies these folders, so they are its concern, not the
+  compiler's or an emitter's. tsp-client and AzDev keep them under
+  emitter-specific `options` sections, which ACE does not read. aceconfig is
+  rooted at `tsp-location`, and these folders are literally additional to it: by
+  definition, folders the compile needs that are not under `tsp-location`. So a
+  relative path resolves against `tsp-location`, absolute paths are allowed, and
+  an entry under `tsp-location` is an error. The rule must cover remote sources
+  too (deferred): there, a relative path resolves against `tsp-location` in the
+  same repo and commit.
+- **Where a listed folder lands.** Inside the specs repo, whether given relative
+  or absolute, it lands at its repo-relative path, so its position relative to
+  `tsp-location` is kept. Outside the repo, it lands directly under
+  `<output-dir>/source` by folder name. That may not suit external references,
+  whose imports would not resolve there, but none are expected; the rule is kept
+  for now.
+- **Mirror relative to the specs repo root, for now.** The direction is to not
+  depend on any specific folder structure. Whether that is achievable is not
+  known yet: every spec comes from azure-rest-api-specs, and there may be hidden
+  facts that depend on its layout. The alternative, mirroring relative to the
+  common ancestor of `tsp-location` and the additional directories, needs no root
+  detection, no specs-repo requirement and no escape hatch, and keeps the copied
+  folders' relative positions, which is all imports need. It is the candidate to
+  revisit.
+- **A missing listed folder stays an error.** Because the list lives in aceconfig,
+  a stale entry is the aceconfig's own mistake to fix.
+
+In azure-rest-api-specs (at `b91dabc3`), the 32 tspconfigs that declare
+`additionalDirectories` all do so under tsp-client's section,
+`@azure-tools/typespec-client-generator-cli`; 2 repeat them under the PowerShell
+emitter's, the section AzDev reads. They list 169 `specification/...` paths with
+no `{...}` variables, 156 of them outside the tspconfig's folder, at siblings such
+as `Contoso.WidgetManager.Shared`. 3 entries in Foundry's `sdk-agents` point at
+folders that were never in git. Today's flat copy fails on such specs:
+`Contoso.WidgetManager` stops at
+`import-not-found: "../Contoso.WidgetManager.Shared"`.
 
 ## Merging entrypoints
 
@@ -470,6 +573,8 @@ Each party takes the keys it knows (decision 8).
     - `schema-version`: required, `1`.
     - `tsp-location` and `output-dir`: strings, resolved against the file's
       folder; `output-dir` defaults to that folder.
+    - `additional-directories`: a list of non-empty strings, kept as written;
+      staging resolves them against the effective `tsp-location` (2026-10-14).
     - `entrypoints`: exactly one item `{ path, api-version? }`, `path` relative
       to `tsp-location`. An empty list is an error, and two or more are refused
       until phase 5. A key it does not know inside the item is a warning.
@@ -479,8 +584,9 @@ Each party takes the keys it knows (decision 8).
     directory), `--entrypoint` and `--api-version` override the file; a flag
     beats the file, which beats the default. With no file, `--tsp-location` and
     `--out-dir` are required.
-  - **Hand-off:** staging receives absolute paths; `compile()` receives the
-    entrypoint, its API version, and every other key untouched.
+  - **Hand-off:** staging receives absolute paths, and the additional
+    directories as written; `compile()` receives the entrypoint, its API
+    version, and every other key untouched.
   - **Reporting:** the loader's problems print like compiler diagnostics, with
     `@azure-client-engine/cli/...` codes (`invalid-setting`, `missing-setting`,
     `unknown-setting`) and, for a syntax error, the file location.
@@ -506,7 +612,7 @@ Each party takes the keys it knows (decision 8).
 - **The compiler stays schema-free.** It routes stage configs by id, so it never
   changes when a stage gains an option or the facts grow.
 - **Multi-spec extensions without copying a common root.** Only `tsp-location`
-  and the declared `additionalDirectories` are copied.
+  and the listed `additional-directories` are copied.
 - **Same model as AzDev.** Specs-repo detection, the mirrored temporary layout and
   the specs-repo requirement match the azure-powershell workflow.
 
@@ -522,8 +628,12 @@ Each party takes the keys it knows (decision 8).
 - **Mixed casing in one file:** kebab-case structure, camelCase options.
 - **`IR` gains a field the emitter never writes.** `target` is optional on `IR`,
   so only `commands` now marks that `create-command` ran.
-- **Specs must live in a specs repo.** Ad-hoc local specs need the test-only
-  escape hatch.
+- **Specs must live in a specs repo, for now.** Ad-hoc local specs need the
+  test-only escape hatch. Mirroring relative to the common ancestor would lift
+  this (see [Source acquisition](#source-acquisition-decisions-2026-10-14)).
+- **aceconfig restates spec-owned lists.** Additional directories, and for
+  Foundry the imports, are copied by hand from the spec's `tspconfig.yaml` and can
+  drift from it.
 - **Merges can fail on shared types,** with no automatic resolution.
 - **Two input paths until the flag review.** Both flags and the file configure a
   run's inputs. Facts come only from the file.
@@ -540,14 +650,6 @@ toolkit root.
   - Transforms still receive their stage config through their factory rather
     than their context (`configOf()` in `packages/compiler/src/compile.ts`).
   - `packages/compiler/src/builtins/emit.ts`: sends one `EmitToolRequest` per run.
-  - `packages/cli/src/staging.ts`: a flat copy of one directory, with no
-    specs-repo detection, `additionalDirectories` or `tsp-output` exclusion.
-- **Tests (early-stage; reconcile, don't let them shape the design):**
-  - `packages/cli/test/cli.test.ts`: compiles `packages/ir/examples/pets.tsp`
-    and `packages/typespec-emitter/test/fixtures/multipart-service.tsp`, neither
-    inside a specs repo, so they need the escape hatch.
-  - `packages/cli/test/staging.test.ts`: builds spec trees in temp folders and
-    asserts the flat layout.
 
 ## Relationship to other records
 
@@ -576,8 +678,8 @@ toolkit root.
   - **Not taken:** `npm install` of a pinned emitter package on every run (ACE
     links its own toolchain); writing a merged `tspconfig.yaml` and running
     `tsp compile` (ACE calls the compiler API); output relative to a repo root;
-    and reading `additionalDirectories` from the emitter's own `tspconfig.yaml`
-    section (no spec has an ACE section).
+    and reading `additionalDirectories` from a `tspconfig.yaml` at all (ACE reads
+    no tspconfig, and aceconfig lists the folders; 2026-10-14).
 
 ## Deferred (recorded, not designed now)
 
@@ -587,8 +689,9 @@ toolkit root.
   largely duplicate `tspconfig.yaml`.
 - **Remote specs.** `repo` + `commit` sources using AzDev's flow: clone without
   checkout, sparse-checkout the same directories, then check out the commit. This
-  produces the same mirrored tree. Provenance would be recorded with `/`
-  separators.
+  produces the same mirrored tree. Relative `additional-directories` resolve
+  against `tsp-location` in the same repo and commit, which gives the paths to
+  sparse-check-out. Provenance would be recorded with `/` separators.
 - **Schema polish.** `flatten-model` failing on invalid option values instead of
   defaulting (decision 10), and a JSON Schema for editor completion. The compiler
   stays validation-free.
@@ -605,7 +708,48 @@ toolkit root.
 - **`api-version` omitted:** `latest` (today's default). Implemented 2026-10-13.
 - **Required keys:** `schema-version`, and `tsp-location` unless
   `--tsp-location` is given. Implemented 2026-10-13.
-- **`tspconfig.yaml` lookup:** stops at the specs repo root.
+- **`tspconfig.yaml` lookup:** none; ACE reads no tspconfig (decided 2026-10-14).
+- **Folder entrypoint (decided 2026-10-14):** keep TypeSpec's rule. A folder
+  compiles `main.tsp`, and a folder holding only `client.tsp` needs it named in
+  `entrypoints`. Evidence from azure-rest-api-specs (at `b91dabc3`):
+  - 374 folders hold both files. The repo's validation rule `client-tsp-import`
+    requires `main.tsp` to `import "./client.tsp"`, and 372 comply, so compiling
+    `main.tsp` loads `client.tsp` too. ElasticSan is one: compiled from
+    `main.tsp` and from `client.tsp`, its five IR snapshots are identical. The 2
+    exceptions are in Foundry (`Foundry` and `src/sdk-extensions-openai`).
+  - 45 folders hold only `client.tsp`, 20 of them with their own tspconfig.
+    Compiling such a folder fails, loudly, for want of `main.tsp`.
+  - tsp-client, which also calls `compile()`, prefers `client.tsp` when it
+    exists (`findEntrypoint("client.tsp") ?? findEntrypoint("main.tsp")`); the
+    repo's CI compiles `main.tsp`, and `client.tsp` separately when it exists.
+  - TypeSpec's other ways for a folder to name its main file are unused: no
+    `package.json` under `specification/` sets `tspMain` (0 of 33), and no
+    tspconfig sets `entrypoint`.
+  - **Who checks it (decided 2026-10-14):** the emit side. The CLI and the
+    compiler do not need to know what an entrypoint means to the emitter, so
+    staging does not look for `main.tsp`. TypeSpec's `compile()` used to fail
+    such a folder with a bare `file-not-found: File
+    <output-dir>/source/.../main.tsp not found.`
+  - **Implemented 2026-10-14** in the `tsp-emit` worker
+    (`packages/typespec-emitter/src/tsp-emit-worker.ts`), the only code that sees
+    the failure: the emitter itself never runs when the main file is missing. The
+    worker moved there from the CLI the same day (see
+    [the layering record](./Compiler-Owned-Stage-Orchestration.md#revision--the-tsp-emit-tool-lives-in-the-emitter-package)).
+    - When TypeSpec loads nothing from the entrypoint, its location-less load
+      errors (`file-not-found`, `file-load`, `invalid-main`) become one
+      `@azure-client-engine/typespec-emitter/invalid-tsp-source` error.
+    - The error says whether the entrypoint does not exist, is a folder without
+      a main file, or is a file TypeSpec cannot load, and quotes TypeSpec. For a
+      folder it adds: "TypeSpec compiles a folder's main.tsp; to compile another
+      file, such as client.tsp, name that file as the entrypoint."
+    - The worker relies on TypeSpec's own resolution rather than repeating it.
+      It also checks the program's loaded files, so a broken install that reports
+      the same codes is left as it is.
+    - The path it names is still the staged copy's, as in every TypeSpec
+      diagnostic.
+- **Absolute `additional-directories` for a remote source:** what an absolute
+  path means there is decided with remote support.
+- **A flag for `additional-directories`:** none for now; the flag review decides.
 - **`options` on a disabled stage:** ignored (decided 2026-10-12).
 - **Emitter options such as `sourceId`:** `stages.tsp-emit.options.emitter`
   (decided 2026-10-12). A single `sourceId` would still collide across
@@ -621,8 +765,10 @@ toolkit root.
    resolves paths, applies flag overrides and passes the rest to the compiler
    untouched; by then the compiler takes `stages` itself (see step 3). Done on
    2026-10-13 (see [Loading the file](#loading-the-file-agreed-2026-10-12)).
-2. **Staging:** specs-repo detection, the mirrored layout, `additionalDirectories`,
-   the `tsp-output` exclusion, and the escape hatch.
+2. **Staging:** specs-repo detection, the mirrored layout, `additional-directories`
+   from aceconfig, the `tsp-output` exclusion, and the escape hatch. Design
+   settled on 2026-10-14 and done the same day (see
+   [Source acquisition](#source-acquisition)).
 3. **Compiler:** drop `"off"`, move each stage config from its factory into its
    stage's context (`seed-ir`'s included), shrink the compiler's own settings to
    `stages`, remove the whole-config contexts, and retire `--generator`. Done on

@@ -8,6 +8,13 @@
 
 export type EmitterOutputFormat = "yaml" | "json";
 
+/**
+ * The emitter's library name (`$lib.name`): the prefix of its diagnostic codes, and
+ * the key TypeSpec files its options under. It lives here, apart from `lib.ts`, so
+ * the `tsp-emit` worker can read it without loading `@typespec/compiler`.
+ */
+export const EMITTER_NAME = "@azure-client-engine/typespec-emitter";
+
 export interface EmitterOptions {
   /** Output file name (relative to emitterOutputDir). Default `ir.yaml`. */
   outputFile?: string;

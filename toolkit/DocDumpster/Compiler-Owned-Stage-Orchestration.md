@@ -8,6 +8,9 @@
 > implemented the same day, and narrows point 3, which lands with the aceconfig
 > work — see
 > [Revision — compiler-owned stage implementations](#revision--compiler-owned-stage-implementations).
+> A third (2026-10-14) moves the `tsp-emit` tool's code out of the CLI into the
+> emitter package — see
+> [Revision — the `tsp-emit` tool lives in the emitter package](#revision--the-tsp-emit-tool-lives-in-the-emitter-package).
 > Every other point stands as written. _(originally accepted 2026-08-26)_
 >
 > **Scope:** the Azure Client Engine (ACE) compiler pipeline
@@ -203,6 +206,64 @@ compiler free of `child_process` and `fs`.
 - **The CLI still imports two stage ids** (`CSHARP_STAGE`, `CREATE_COMMAND_STAGE`)
   to map `--generator` and `--root-namespace` onto config. They are compiler
   exports, not transformer details, and go away with the aceconfig flags.
+
+## Revision — the `tsp-emit` tool lives in the emitter package
+
+_2026-10-14. Implemented the same day. Narrows "resolving those tools is the CLI's
+job" from the previous revision: the CLI decides what runs and where it is, but
+holds no tool's own code._
+
+**The `tsp-emit` worker moves from the CLI into
+`@azure-client-engine/typespec-emitter`, as the C# generator's host lives in its
+own package.** The worker drives TypeSpec's `compile()` with the emitter, so it
+knows the emitter's options and output: the library name its options are filed
+under, `format`, `outputFile`, `pretty`, `api-version`, and the `ir.json` it
+writes. In the CLI it came with a request type that copied the compiler's
+`EmitToolRequest` field by field.
+
+### What changes
+
+- **The emitter package ships the worker and its contract** as subpath exports:
+  `./tsp-emit-worker` (`src/tsp-emit-worker.ts`) and `./tsp-emit-protocol`. The
+  library entry stays apart from them, because the worker must not load
+  `@typespec/compiler` statically. The worker implements its end of the
+  compiler's protocol by hand, so the emitter still depends only on `ir`.
+- **The host passes the compiler's request through untouched,** together with the
+  toolchain it resolved (`compilerPath`, `emitterPath`). It reads only the
+  entrypoint, to find that toolchain.
+- **The CLI keeps what runs and where it is:** the runtime's switch over tool ids
+  (`packages/cli/src/runtime.ts`), the TypeSpec toolchain and ace's own worker
+  (`toolchain.ts`), and the generator host dll (`generator-host.ts`). The worker
+  comes from the emitter package the CLI ships with, so its protocol always
+  matches the compiler's; it still loads whichever toolchain was resolved, by
+  path.
+- **Running a child process is generic** (`packages/cli/src/subprocess.ts`):
+  `runWorker` forks a Node module for one request and one reply, and
+  `spawnStream` reads a command's stdout line by line. Both stop the child past a
+  hang guard or on cancellation.
+- **Two behavior changes:**
+  - Cancelling the worker rejects with an `AbortError`. It used a plain `Error`,
+    which the compiler did not recognise as a cancellation.
+  - The worker's own failure is reported as
+    `@azure-client-engine/typespec-emitter/tsp-emit-worker-failed` (was
+    `@azure-client-engine/cli/tsp-compile-worker-failed`).
+
+### Why
+
+- **The CLI stops knowing the emitter's options and output.** Where the emitter
+  is remains its concern; that is resolution.
+- **Errors about what an entrypoint means belong to the emit side** (see
+  [`Aceconfig-Generation-Time-Config.md`](./Aceconfig-Generation-Time-Config.md#open-details-proposed-defaults-confirm-when-implementing)),
+  and the worker is the code that sees them. It reports an entrypoint TypeSpec
+  cannot load as `invalid-tsp-source` (implemented 2026-10-14).
+
+### Costs
+
+- **The `tsp-emit` request and reply are declared twice:** by the compiler, and by
+  hand in the emitter package. The CLI, which sees both, type-checks that the
+  compiler's request fits the worker's and that the worker's reply fits the
+  compiler's. A field the compiler adds but the worker does not declare is not
+  flagged.
 
 ## Context — where we are today
 

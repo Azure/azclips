@@ -3,12 +3,14 @@
  *
  * Proves the full out-of-process emit chain now driven by the compiler's
  * built-in `tsp-emit` stage over `CompileOptions.runtime`: the host runtime
- * resolves the toolchain and forks the `tsp-compile` worker, whose IR + already
- * translated diagnostics are threaded back through the orchestrator. pets.tsp
- * lives inside the workspace, so its libraries resolve without staging.
+ * resolves the toolchain and forks the emitter package's `tsp-emit` worker, whose
+ * IR + already translated diagnostics are threaded back through the orchestrator.
+ * pets.tsp lives inside the workspace, so its libraries resolve without staging.
  */
 
-import { dirname, resolve } from "node:path";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -22,10 +24,9 @@ import {
   type StageSection,
 } from "@azure-client-engine/compiler";
 
-// These tests fork the real (compiled) worker process, so they must exercise the
-// built artifacts under dist — Node cannot execute the .ts worker directly, and
-// under vitest `import.meta.url` would otherwise point at the source tree.
-import { createHostRuntime } from "../dist/src/runtime.js";
+// The worker these tests fork is the emitter package's built module, found through
+// its `./tsp-emit-worker` export, so the emitter must be built first.
+import { createHostRuntime } from "../src/runtime.js";
 
 /**
  * Emit-only runs: disable every optional stage after emit so these tests exercise
@@ -48,6 +49,19 @@ const PETS_TSP = resolve(
   "examples",
   "pets.tsp",
 );
+
+/** The worker's error for an entrypoint TypeSpec cannot load. */
+const INVALID_TSP_SOURCE = "@azure-client-engine/typespec-emitter/invalid-tsp-source";
+
+/** Emit `entrypoint` alone and return the run's errors. */
+async function emitErrors(entrypoint: string) {
+  const result = await compile(
+    { entrypoint, config: { stages: EMIT_ONLY } },
+    { runtime: createHostRuntime() },
+  );
+  expect(result.success).toBe(false);
+  return result.diagnostics.filter((d) => d.severity === "error");
+}
 
 describe("built-in emit (host runtime tsp-emit)", () => {
   it("produces schema-valid IR out of process and threads it through compile()", async () => {
@@ -127,13 +141,41 @@ describe("built-in emit (host runtime tsp-emit)", () => {
     expect(result.snapshots?.[0]?.ir.models.some((m) => m.name === "Pet")).toBe(true);
   });
 
-  it("reports a structured error when the entrypoint does not exist", async () => {
-    const result = await compile(
-      { entrypoint: resolve(dirname(PETS_TSP), "no-such-file.tsp"), config: { stages: EMIT_ONLY } },
-      { runtime: createHostRuntime() },
-    );
+  it("explains an entrypoint that does not exist", async () => {
+    const errors = await emitErrors(resolve(dirname(PETS_TSP), "no-such-file.tsp"));
 
-    expect(result.success).toBe(false);
-    expect(result.diagnostics.some((d) => d.severity === "error")).toBe(true);
+    // One error that says what is wrong, in place of TypeSpec's file-not-found.
+    expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+    expect(errors[0]?.message).toMatch(/^The entrypoint '.*no-such-file\.tsp' does not exist\.$/);
+  });
+
+  it("explains a folder without main.tsp, quoting TypeSpec and naming what to do", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "ace-emit-folder-"));
+    try {
+      copyFileSync(PETS_TSP, join(folder, "client.tsp"));
+      const errors = await emitErrors(folder);
+
+      expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+      expect(errors[0]?.message).toContain("is a folder without a main file TypeSpec can load.");
+      expect(errors[0]?.message).toMatch(/File .*main\.tsp not found\./);
+      expect(errors[0]?.message).toContain("to compile another file, such as client.tsp, name that file");
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("explains an entrypoint that is not a TypeSpec source", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "ace-emit-file-"));
+    try {
+      const notes = join(folder, "notes.txt");
+      writeFileSync(notes, "not TypeSpec\n", "utf8");
+      const errors = await emitErrors(notes);
+
+      expect(errors.map((d) => d.code)).toEqual([INVALID_TSP_SOURCE]);
+      expect(errors[0]?.message).toContain("is not a source TypeSpec can load.");
+      expect(errors[0]?.message).toContain("Main file must either be a .tsp file or a .js file.");
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

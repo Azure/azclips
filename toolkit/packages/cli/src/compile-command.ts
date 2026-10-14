@@ -23,6 +23,7 @@ import {
 
 import { CONFIG_FILE_NAME, findConfigFile, loadAceConfig, type AceConfig } from "./aceconfig.js";
 import {
+  STANDALONE_SPEC_VARIABLE,
   stageLocalProject,
   removeDir,
   type StagedProject,
@@ -44,7 +45,11 @@ export function usage(): string {
     "                         document facts (e.g. 'root-namespace') go to the compiler.",
     "                         No flag sets a stage or a fact.",
     "  --tsp-location <path>  TypeSpec project dir to copy, or an entry .tsp file whose",
-    "                         directory is copied (required without a config file)",
+    "                         directory is copied (required without a config file).",
+    "                         It must be inside an azure-rest-api-specs checkout: the",
+    "                         copy keeps the repo's layout, together with the config's",
+    "                         'additional-directories'. Set ACE_ALLOW_STANDALONE_SPEC=1",
+    "                         to copy a spec from outside a checkout as is.",
     "  --entrypoint <path>    Entry .tsp file or dir to compile, under --tsp-location;",
     "                         a relative path resolves against the copied directory",
     "                         (default: the config's entrypoint, else --tsp-location).",
@@ -53,7 +58,7 @@ export function usage(): string {
     "  --out-dir <path>       Directory to write generated files to (default: the config",
     "                         file's folder; required without a config file).",
     "                         The spec is staged under <out-dir>/source before compiling,",
-    "                         which must not overlap the copied --tsp-location directory.",
+    "                         which must not overlap any copied directory.",
     "  --capture-ir           Keep each pipeline IR under <out-dir>/ir; without it,",
     "                         a stale ir/ is removed (optional)",
     "  --capture-source       Keep the staged spec under <out-dir>/source instead of",
@@ -150,18 +155,30 @@ export async function runCompile(
     apiVersionArg ?? (entrypointArg === undefined ? loaded?.inputs.entrypoint?.apiVersion : undefined);
 
   // Host responsibility (design Part II §18): acquire the source before the
-  // TypeSpec-free orchestrator runs. Stage a pristine copy of the tsp-location under
-  // <out-dir>/source and compile the entrypoint's counterpart inside it.
+  // TypeSpec-free orchestrator runs. Stage a pristine copy of the tsp-location, and of
+  // each additional directory, under <out-dir>/source in the specs repo's layout, and
+  // compile the entrypoint's counterpart inside it.
   // Tool resolution (the emit toolchain, the generator host) now happens lazily
   // inside the host runtime, per external stage, so ace itself loads neither
   // @typespec/compiler nor the C# generator.
-  let staged: StagedProject;
+  let staged: StagedProject | undefined;
   try {
-    staged = await stageLocalProject(tspLocation, outDir, entrypoint);
+    staged = await stageLocalProject(
+      {
+        tspLocation,
+        outDir,
+        entrypoint,
+        additionalDirectories: loaded?.inputs.additionalDirectories,
+        allowStandaloneSpec: process.env[STANDALONE_SPEC_VARIABLE] === "1",
+      },
+      printDiagnostic,
+    );
   } catch (err) {
+    // Staging checks its inputs before touching anything, so this is an I/O failure.
     process.stderr.write(`compile: ${err instanceof Error ? err.message : String(err)}\n`);
     return 1;
   }
+  if (staged === undefined) return 1; // diagnostics already written
 
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
