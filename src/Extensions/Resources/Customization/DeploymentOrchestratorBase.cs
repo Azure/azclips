@@ -57,7 +57,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (string.IsNullOrWhiteSpace(resourceGroupName))
             {
-                throw new ArgumentException("ResourceGroupName must be provided.");
+                throw AzclipsErrorException.InvalidInput("ResourceGroupName must be provided.");
             }
         }
 
@@ -66,7 +66,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (string.IsNullOrWhiteSpace(location))
             {
-                throw new ArgumentException("Location must be provided.");
+                throw AzclipsErrorException.InvalidInput("Location must be provided.");
             }
         }
 
@@ -74,7 +74,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             if (!string.IsNullOrWhiteSpace(resultFormat) && NormalizeResultFormatOrNull(resultFormat) is null)
             {
-                throw new ArgumentException("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
+                throw AzclipsErrorException.InvalidInput("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.");
             }
         }
 

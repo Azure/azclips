@@ -63,8 +63,8 @@ public class SubscriptionDeploymentWaitTests
     {
         var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.OK, SucceededSubscriptionDeployment));
 
-        await Assert.ThrowsAsync<ArgumentException>(() => Wait(pipeline, output, p => { p.Created = true; p.Deleted = true; }).ProcessAsync());
-        await Assert.ThrowsAsync<ArgumentException>(() => Wait(pipeline, output, _ => { }).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => Wait(pipeline, output, p => { p.Created = true; p.Deleted = true; }).ProcessAsync());
+        await Assert.ThrowsAsync<InvalidInputException>(() => Wait(pipeline, output, _ => { }).ProcessAsync());
 
         Assert.Equal(0, pipeline.SendCount);
     }

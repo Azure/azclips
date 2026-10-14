@@ -63,13 +63,13 @@ public class SubscriptionDeploymentCreateTests
     }
 
     [Theory]
-    [InlineData(null, "https://example.com/t.json")]
-    [InlineData("eastus", null)]
-    public async Task Create_MissingLocationOrTemplate_ThrowsBeforeSending(string? location, string? templateUri)
+    [InlineData(null, "https://example.com/t.json", typeof(InvalidInputException))]
+    [InlineData("eastus", null, typeof(ArgumentException))]
+    public async Task Create_MissingLocationOrTemplate_ThrowsBeforeSending(string? location, string? templateUri, Type expected)
     {
         var (pipeline, output, _) = Fake(_ => Status(HttpStatusCode.OK, SucceededSubscriptionDeployment));
 
-        await Assert.ThrowsAsync<ArgumentException>(() => Configure(new NewSubscriptionDeploymentProcessor_Orchestrator(), pipeline, output, p =>
+        var error = await Record.ExceptionAsync(() => Configure(new NewSubscriptionDeploymentProcessor_Orchestrator(), pipeline, output, p =>
         {
             p.SubscriptionId = SubscriptionId;
             p.Name = "dep";
@@ -77,6 +77,7 @@ public class SubscriptionDeploymentCreateTests
             p.TemplateUri = templateUri;
         }).ProcessAsync());
 
+        Assert.IsType(expected, error);
         Assert.Equal(0, pipeline.SendCount);
     }
 }

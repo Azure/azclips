@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -38,11 +39,11 @@ public class WaitSubscriptionDeploymentProcessor_Orchestrator : GetSubscriptionD
 
             if ((Created ? 1 : 0) + (Updated ? 1 : 0) + (Deleted ? 1 : 0) + (Exists ? 1 : 0) != 1)
             {
-                throw new ArgumentException("Specify exactly one of --created, --updated, --deleted, or --exists.");
+                throw AzclipsErrorException.InvalidInput("Specify exactly one of --created, --updated, --deleted, or --exists.");
             }
             if (Interval <= 0 || Timeout < 0)
             {
-                throw new ArgumentException("--interval must be positive and --timeout must not be negative.");
+                throw AzclipsErrorException.InvalidInput("--interval must be positive and --timeout must not be negative.");
             }
 
             // Same loop shape as azure-cli: one check per interval within the timeout.
