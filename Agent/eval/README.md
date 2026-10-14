@@ -414,11 +414,13 @@ npm test
 These tests use local fixtures and mocks; they do not sign in to Azure, call
 models, or upload results. PowerShell is required for the wrapper lifecycle tests.
 
-The alpha pipeline runs the same offline tests on its shared named Windows pool.
-Full model evaluation and upload are intentionally not enabled in CI while
-AZCLIPS lacks a supported service-principal login path for the builtin Agent.
-No unsupported login command or Azure service connection is used by the offline
-stage.
+The `eval-harness-tests` job in `.github/workflows/build-and-test.yml` runs the
+same offline tests on a GitHub-hosted Windows runner for pull requests to `main`.
+It uses no secrets, Azure sign-in or service connection. Like the repository's
+other tool tests, it is not a required check. Full model evaluation and upload
+are not part of CI: they need unattended sign-in for the target Agent and the
+Judge, a built package, and a separate pipeline that does not run on every pull
+request.
 
 The uploader supports PR, push, manual, and scheduled Azure Pipelines metadata.
 PR runs use the PR source commit rather than a synthetic merge commit; other

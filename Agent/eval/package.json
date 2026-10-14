@@ -3,7 +3,7 @@
   "private": true,
   "description": "Promptfoo harness and keyless local/Azure Pipelines uploader for the AZCLIPS agent.",
   "scripts": {
-    "test": "node --test assertions/command-set.test.js assertions/plan-contract.test.js reference-cases.test.js targets/azclips.test.js judge/judge-azure.test.js judge/recovery-quality.test.js local-azure-cli.test.js upload-result.test.js run-evaluation.test.js pipeline-contract.test.js"
+    "test": "node --test assertions/command-set.test.js assertions/plan-contract.test.js reference-cases.test.js targets/azclips.test.js judge/judge-azure.test.js judge/recovery-quality.test.js local-azure-cli.test.js upload-result.test.js run-evaluation.test.js ci-contract.test.js"
   },
   "dependencies": {
     "@azure/identity": "4.13.1",
