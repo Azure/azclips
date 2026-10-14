@@ -197,8 +197,9 @@ post_triage_result(
 )
 ```
 
-The helper applies only profile-allowlisted classification and squad labels,
-adds `agent-assist-triaged`, clears the waiting label, and prevents duplicate
+The helper applies only profile-allowlisted classification and squad labels
+(never `bug`),
+adds `X Engineering Agent Triaged`, clears the waiting label, and prevents duplicate
 analysis comments.
 
 For `bug`, do not post or label the issue. Return this no-write handoff to the

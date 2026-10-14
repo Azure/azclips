@@ -40,3 +40,26 @@ def _ownership_block(pr, file_changes):
         "reason": "codegen ownership preflight failed",
         "findings": [finding["summary"] for finding in findings],
     }
+
+
+def _production(changes):
+    return [change for change in changes if analysis._review_is_production_file(REPOSITORY, change["filename"])]
+
+
+def _wire(items):
+    return [
+        {key: item[key] for key in ("summary", "remediation", "file", "line") if item.get(key) is not None}
+        for item in items or []
+    ]
+
+
+def release_artifact_findings(pr, changes, read_file):
+    items, _ = analysis._release_artifact_check(REPOSITORY, pr, changes, _production(changes), None, None)
+    return _wire(items)
+
+
+def generated_ownership_findings(pr, changes):
+    items, _ = analysis._generated_ownership_check(
+        REPOSITORY, pr, changes, _production(changes), None, None, generation_source_prs=[],
+    )
+    return _wire(items)
