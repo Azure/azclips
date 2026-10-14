@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791880210370,
+  "lastUpdate": 1791946543270,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -13736,6 +13736,48 @@ window.BENCHMARK_DATA = {
             "value": 5002498.088856057,
             "unit": "ns",
             "range": "± 114350.1983721033"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6efbbc8082ccaf3be538ff4fe82f490861ef48fa",
+          "message": "[Compute] Add VM create network selection parameters (#1097)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n`az vm create` and `New-AzVM`\n\nRelated to #831\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nAdds the VM-create networking parameters assigned to Daniel in #831:\n\n- CLI: `--subnet`, `--nics`, and `--nic-delete-option`\n- PowerShell: `-SubnetName`, `-NetworkInterfaceId`, and\n`-NetworkInterfaceDeleteOption`\n\nThe shared VM orchestration now supports selecting a subnet by name or\nresource ID, attaching one or more existing NICs, marking the first\nattached NIC as primary, and controlling whether NICs are deleted or\ndetached with the VM. Existing-NIC mode validates incompatible\nnetwork-creation arguments before creating resources and skips VNet,\nNSG, public-IP, and NIC creation.\n\nCLI supports a shared delete option or `NAME=VALUE` assignments for\nindividual NICs. PowerShell keeps the Az-style scalar delete option and\nuses separate new-NIC and existing-NIC parameter sets. The VM model now\nserializes NIC `primary` and `deleteOption` values under the ARM\n`properties` envelope.\n\nPowerShell help and optional CLI/PowerShell live smoke cases were\nupdated.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- Passed: `dotnet test tests\\Scenario.Tests\\Scenario.Tests.csproj\n--no-restore --filter \"FullyQualifiedName~VmCreateOrchestrationTests\"` —\n63 passed\n- Passed: `dotnet test tests\\Scenario.Tests\\Scenario.Tests.csproj\n--no-restore --filter\n\"FullyQualifiedName~VmCreateScenarioTests|FullyQualifiedName~VmLifecycleScenarioTests\"`\n— 2 passed\n- Passed: `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-restore` —\n1206 passed, 8 skipped\n- Passed: `dotnet test tests\\Cmdlets.Tests\\Cmdlets.Tests.csproj\n--no-restore` — 169 passed\n- Passed: `dotnet build azclips.slnx --no-restore`\n- Passed: `bash -n tests\\Scripts\\CLI\\VMCreate.sh`\n- Passed: PowerShell parser validation for\n`tests\\Scripts\\PS\\VMCreate.ps1`\n- Not run: live Azure smoke cases because they require credentials,\nsubscription quota, and environment-specific secrets\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] `az vm create`: Add subnet selection, existing NIC attachment, and\nNIC delete options\n[PowerShell] `New-AzVM`: Add subnet selection, existing NIC attachment,\nand NIC delete options\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-10-14T13:33:53+11:00",
+          "tree_id": "5f50c3271d36c494d67f60d945b782fd1fbc2263",
+          "url": "https://github.com/Azure/azclips/commit/6efbbc8082ccaf3be538ff4fe82f490861ef48fa"
+        },
+        "date": 1791946538954,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 5009203.6688246,
+            "unit": "ns",
+            "range": "± 96986.09863880805"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 8994238.493379507,
+            "unit": "ns",
+            "range": "± 134820.3950387813"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 5029705.734561652,
+            "unit": "ns",
+            "range": "± 104298.4238087679"
           }
         ]
       }
