@@ -11,5 +11,5 @@ internal interface ITraceExportSink
     /// TracerProvider's Resource is immutable and supplies <c>service.name</c>.
     /// Returns true only when the batch flushed successfully.
     /// </summary>
-    bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries);
+    bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null);
 }

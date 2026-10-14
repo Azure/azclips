@@ -3,6 +3,9 @@
 
 namespace Core.Cli;
 
+using System.Globalization;
+using Core.Cli.Output;
+
 /// <summary>
 /// Accumulates per-extension load records during a single AzClips CLI invocation
 /// and emits an aggregated timing table on shutdown.
@@ -21,19 +24,28 @@ namespace Core.Cli;
 /// </remarks>
 public static class ExtensionLoadTracker
 {
-    // Aligned columns: extension name (30), load time ms (10), version (12), path (rest).
-    private const string HeaderFormat = "[ExtensionLoadTracker] {0,-30} {1,10} {2,-12} {3}";
-    private const string RowFormat = "[ExtensionLoadTracker] {0,-30} {1,10:F1} {2,-12} {3}";
-
     private static readonly List<Row> _rows = new();
     private static readonly Lock _lock = new();
 
-    /// <summary>Records a successful extension load.</summary>
+    /// <summary>Records a successful extension load (defaults to Bundled loader).</summary>
     public static void Record(string extensionName, double elapsedMs, string version, string path)
+        => Record(extensionName, "Bundled", elapsedMs, version, path);
+
+    /// <summary>Records a successful extension load with explicit loader/source metadata.</summary>
+    public static void Record(string extensionName, string loader, double elapsedMs, string version, string path)
     {
         lock (_lock)
         {
-            _rows.Add(new Row(extensionName, elapsedMs, version, path));
+            _rows.Add(new Row(extensionName, loader, elapsedMs, version, path));
+        }
+    }
+
+    /// <summary>Clears all accumulated rows. Primarily for testing.</summary>
+    internal static void Reset()
+    {
+        lock (_lock)
+        {
+            _rows.Clear();
         }
     }
 
@@ -45,11 +57,9 @@ public static class ExtensionLoadTracker
     /// Callback that writes one Debug line. Callers are expected to pass a delegate that
     /// applies the CLI log-level gate (e.g. <c>streams.WriteDebug</c> built by
     /// <c>Program.BuildStreams</c>), so the summary is suppressed under levels &lt; Debug.
-    /// Routing through the streams — not <see cref="ILoggingService.Debug"/> directly — is
-    /// required because <c>EmitSummary</c> is invoked in <c>Program.Main</c>'s <c>finally</c>
-    /// block, after the session's <c>UseScope</c> has been disposed, so
-    /// <see cref="ScopedLoggingService"/> would otherwise fall back to the ungated
-    /// <see cref="ConsoleLoggingService"/> and leak the table under <c>warn</c>/<c>error</c>.
+    /// Routing through the streams — not <see cref="ILoggingService.Debug"/> directly — preserves
+    /// the CLI session's resolved policy, including <c>--debug</c>, after its <c>UseScope</c> has
+    /// been disposed. The no-session fallback only knows the global configured level.
     /// </param>
     public static void EmitSummary(Action<string> writeDebug)
     {
@@ -64,15 +74,36 @@ public static class ExtensionLoadTracker
             _rows.Clear();
         }
 
-        writeDebug(string.Format(HeaderFormat, "Extension", "Time (ms)", "Version", "Path"));
+        var headers = new[] { "Extension", "Loader", "Time (ms)", "Version" };
+        var tableRows = new List<string[]>(snapshot.Count + 1);
         double totalMs = 0;
         foreach (var r in snapshot)
         {
-            writeDebug(string.Format(RowFormat, r.Name, r.ElapsedMs, string.IsNullOrEmpty(r.Version) ? "-" : r.Version, r.Path));
+            tableRows.Add(new[]
+            {
+                r.Name,
+                r.Loader,
+                r.ElapsedMs.ToString("F1", CultureInfo.InvariantCulture),
+                string.IsNullOrEmpty(r.Version) ? "-" : r.Version
+            });
             totalMs += r.ElapsedMs;
         }
-        writeDebug(string.Format(RowFormat, $"Total ({snapshot.Count})", totalMs, "-", "-"));
+
+        tableRows.Add(new[]
+        {
+            $"Total ({snapshot.Count})",
+            "-",
+            totalMs.ToString("F1", CultureInfo.InvariantCulture),
+            "-"
+        });
+
+        var table = TableFormatter.FormatRows(tableRows, headers, includeHeaderSeparator: false);
+        writeDebug("[ExtensionLoadTracker] Extension load timing for this command:");
+        foreach (var line in table.Split('\n'))
+        {
+            writeDebug($"[ExtensionLoadTracker] {line}");
+        }
     }
 
-    private readonly record struct Row(string Name, double ElapsedMs, string Version, string Path);
+    private readonly record struct Row(string Name, string Loader, double ElapsedMs, string Version, string Path);
 }

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Core.Abstractions;
 using OpenTelemetry;
 
 namespace Core.Telemetry;
@@ -29,12 +30,14 @@ internal class FileExporter : BaseExporter<Activity>
         {
             var traces = new List<object>();
 
-            // Single pass: a Batch<Activity> backed by a circular buffer dequeues as it is
-            // enumerated, so the file path is taken from the first activity on the way past.
             foreach (var activity in batch)
             {
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
 
+                // Resolved per activity by walking its own parent chain to the tagged root
+                // (see TelemetryTags.TenantId/DataBoundary/EntraObjectId) rather than from ambient async-local
+                // state: the tag is a mutation on a shared Activity object, so it stays correct
+                // even when resolved from a different async flow than the one exporting here.
                 var trace = new
                 {
                     TraceId = activity.TraceId.ToString(),
@@ -47,6 +50,9 @@ internal class FileExporter : BaseExporter<Activity>
                     Status = activity.Status.ToString(),
                     StatusDescription = activity.StatusDescription,
                     Kind = activity.Kind.ToString(),
+                    TenantId = ResolveTag(activity, TelemetryTags.TenantId),
+                    DataBoundary = ResolveTag(activity, TelemetryTags.DataBoundary),
+                    EntraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     Tags = activity.TagObjects,
                     Events = GetEvents(activity),
                     Resource = GetResource(activity)
@@ -92,6 +98,20 @@ internal class FileExporter : BaseExporter<Activity>
         }
 
         return path;
+    }
+
+    /// <summary>
+    /// Walks from <paramref name="activity"/> up through its parents looking for
+    /// <paramref name="tagName"/> \u2014 set once on the root by whichever flow resolved it.
+    /// </summary>
+    private static string? ResolveTag(Activity activity, string tagName)
+    {
+        for (var current = activity; current is not null; current = current.Parent)
+        {
+            if (current.GetTagItem(tagName) is string value && !string.IsNullOrEmpty(value))
+                return value;
+        }
+        return null;
     }
 
     private static List<object> GetEvents(Activity activity)

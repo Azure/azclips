@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
@@ -17,8 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         /// <summary>
         /// Runs the caller-prepared <see cref="ListGroupProcessor"/> child, deserialises the
         /// response envelope, and returns the single matching group's object ID. Throws a
-        /// deterministic <see cref="InvalidOperationException"/> when zero or more than one
-        /// group matches.
+        /// deterministic <c>InvalidInput</c> error when zero or more than one group matches.
         /// </summary>
         public static async Task<string> PickSingleGroupIdAsync(
             ListGroupProcessor listProcessor,
@@ -32,11 +32,11 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             if (matches.Length == 0)
             {
-                throw new InvalidOperationException($"Group '{identifier}' is not found in Graph.");
+                throw AzclipsErrorException.InvalidInput($"Group '{identifier}' is not found in Graph.");
             }
             if (matches.Length > 1)
             {
-                throw new InvalidOperationException($"More than one group matched '{identifier}'. Use the object id instead.");
+                throw AzclipsErrorException.InvalidInput($"More than one group matched '{identifier}'. Use the object id instead.");
             }
 
             string? id = matches[0].Id;

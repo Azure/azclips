@@ -67,6 +67,30 @@ describe("emitter e2e: source namespace and interface identity", () => {
     });
   });
 
+  it("carries an explicit @clientLocation beside the id, without folding it into the id", () => {
+    // The decorator is the author stating which group an operation belongs to. It is
+    // client-layer, so it rides alongside `id` — which must keep recording where the
+    // operation was *declared*, even when the two disagree.
+    const widget = ir.operations.find((op) => op.name === "fetchWidget");
+    const health = ir.operations.find((op) => op.name === "ping");
+
+    expect(widget?.clientLocation).toBe("SharedOperations");
+    expect(widget?.id.interface).toBe("Widgets");
+    // A namespace-level operation relocates too, and still declares no interface.
+    expect(health?.clientLocation).toBe("SharedOperations");
+    expect(health?.id.interface).toBeUndefined();
+  });
+
+  it("omits clientLocation for an operation that sits where it was declared", () => {
+    // Absent means "not relocated". TCGC also reports a *default* placement, but that
+    // only restates `id.interface`; carrying it would make an authored grouping
+    // indistinguishable from the default and defeat the field's purpose.
+    const created = ir.operations.find((op) => op.name === "create");
+
+    expect(created).toBeDefined();
+    expect(created?.clientLocation).toBeUndefined();
+  });
+
   it("retains operation ownership and original parameter names for every HTTP parameter location", () => {
     const widget = ir.operations.find((op) => op.name === "fetchWidget")!;
     const parameters = [

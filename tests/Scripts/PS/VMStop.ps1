@@ -72,16 +72,7 @@ try
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "azclips-vmstop-subnet-$suffix" `
         -SubnetAddressPrefixes "10.0.2.0/24" `
-        -NetworkSecurityGroupName "azclips-vmstop-nsg-$suffix" `
-        -RuleNames rdp `
-        -RuleProtocols tcp `
-        -RuleDirections Inbound `
-        -RulePriorities 1001 `
-        -RuleSourceAddressPrefixes * `
-        -RuleSourcePortRanges * `
-        -RuleDestinationPortRanges 3389 `
-        -RuleDestinationAddressPrefixes * `
-        -RuleAccesses Allow
+        -SecurityGroupName "azclips-vmstop-nsg-$suffix"
 
     Write-Host '== 1. Stop-AzVM (default: deallocate, stops compute billing) =='
     Stop-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Force

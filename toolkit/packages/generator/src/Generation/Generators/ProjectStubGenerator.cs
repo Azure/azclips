@@ -32,7 +32,9 @@ internal sealed class ProjectStubGenerator : IArtifactGenerator
     /// <summary>Emit the extension's SDK-style <c>.csproj</c>.</summary>
     private static GeneratedFile CSProjEmit(GenerationContext context)
     {
-        string ext = context.Options.RootNamespace;
+        // The project is named from the document's target, which may legitimately
+        // differ from the root namespace.
+        string ext = context.Placement.ProjectName;
         string shortName = ext.Split('.', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } parts ? parts[^1] : ext;
 
         var project = new XElement(
@@ -42,7 +44,7 @@ internal sealed class ProjectStubGenerator : IArtifactGenerator
                 "PropertyGroup",
                 new XElement("AssemblyName", ext),
                 new XElement("GenerateAssemblyInfo", "false"),
-                new XElement("RootNamespace", ext),
+                new XElement("RootNamespace", context.Placement.RootNamespace),
                 new XElement("ExtName", ext),
                 new XElement("Description", $"{shortName} Extension for Azclips CLI"),
                 new XElement("PackageLicenseExpression", "MIT"),
