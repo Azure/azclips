@@ -10,6 +10,12 @@ parameters:
 - name: build_docker_images
   type: boolean
   default: true
+- name: build_cli_docker_images
+  type: boolean
+  default: true
+- name: build_powershell_docker_images
+  type: boolean
+  default: true
 
 jobs:
 - job: Summary
@@ -124,42 +130,42 @@ jobs:
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker CLI Azure Linux 3 Lean Amd64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_cli_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_CLI_AzureLinux3_Lean_Amd64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_AzureLinux3_Lean_Amd64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker CLI Azure Linux 3 Lean Arm64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_cli_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_CLI_AzureLinux3_Lean_Arm64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_AzureLinux3_Lean_Arm64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker CLI Azure Linux 3 Full Amd64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_cli_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_CLI_AzureLinux3_Full_Amd64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_AzureLinux3_Full_Amd64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker CLI Azure Linux 3 Full Arm64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_cli_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_CLI_AzureLinux3_Full_Arm64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_AzureLinux3_Full_Arm64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker PowerShell Azure Linux 3 Amd64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_powershell_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_PowerShell_AzureLinux3_Amd64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_PowerShell_AzureLinux3_Amd64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Docker PowerShell Azure Linux 3 Arm64 Image Artifacts
-    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(${{ parameters.build_docker_images }}, true), eq(${{ parameters.build_powershell_docker_images }}, true), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       artifact: Docker_PowerShell_AzureLinux3_Arm64
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_PowerShell_AzureLinux3_Arm64

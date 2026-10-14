@@ -116,6 +116,8 @@ stages:
   jobs:
   - template: ../jobs/build-docker.yml
     parameters:
+      amd64_pool: ${{ parameters.ubuntu_pool }}
+      arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
       PackagingDockerOutRoot: $(PackagingDockerOutRoot)
@@ -211,6 +213,8 @@ stages:
   jobs:
   - template: ../jobs/validate-build-docker.yml
     parameters:
+      amd64_pool: ${{ parameters.ubuntu_pool }}
+      arm64_pool: ${{ parameters.ubuntu_arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       ${{ if and(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true)) }}:
         image_flavor: all
@@ -298,3 +302,5 @@ stages:
       final_artifact_name: ${{ parameters.final_artifact_name }}
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
       build_docker_images: ${{ and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}
+      build_cli_docker_images: ${{ parameters.build_cli_docker_images }}
+      build_powershell_docker_images: ${{ parameters.build_powershell_docker_images }}

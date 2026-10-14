@@ -50,7 +50,7 @@ variables:
 - name: DockerPowerShellRepository
   value: unlisted/azclips/powershell-dev
 - name: DockerAzureServiceConnection
-  value: 'Azure CLI release'
+  value: $(AzureSubscription)
 
 stages:
 - stage: Preflight

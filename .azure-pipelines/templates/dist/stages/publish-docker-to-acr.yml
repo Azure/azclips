@@ -15,7 +15,7 @@ parameters:
   default: azurecli.azurecr.io
 - name: cli_repository
   type: string
-  default: public/azure-cli-v3
+  default: unlisted/azclips/cli-dev
 - name: powershell_registry_name
   type: string
   default: azureps
@@ -24,7 +24,7 @@ parameters:
   default: azureps.azurecr.io
 - name: powershell_repository
   type: string
-  default: public/azure-powershell-v3
+  default: unlisted/azclips/powershell-dev
 - name: amd64_pool
   type: string
   default: pool-ubuntu-2404
@@ -81,7 +81,6 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 1
-      retryCountOnTaskFailure: 3
 
     - script: |
         set -euo pipefail
@@ -476,7 +475,6 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 1
-      retryCountOnTaskFailure: 3
 
     - script: |
         set -euo pipefail

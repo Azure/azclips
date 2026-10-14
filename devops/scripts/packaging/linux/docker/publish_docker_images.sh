@@ -5,10 +5,10 @@ ACTION="${ACTION:-publish}"
 VERSION="${VERSION:?ERROR: VERSION is required}"
 CLI_REGISTRY_NAME="${CLI_REGISTRY_NAME:?ERROR: CLI_REGISTRY_NAME is required}"
 CLI_REGISTRY_SERVER="${CLI_REGISTRY_SERVER:?ERROR: CLI_REGISTRY_SERVER is required}"
-CLI_REPOSITORY="${CLI_REPOSITORY:-public/azure-cli-v3}"
+CLI_REPOSITORY="${CLI_REPOSITORY:-unlisted/azclips/cli-dev}"
 POWERSHELL_REGISTRY_NAME="${POWERSHELL_REGISTRY_NAME:?ERROR: POWERSHELL_REGISTRY_NAME is required}"
 POWERSHELL_REGISTRY_SERVER="${POWERSHELL_REGISTRY_SERVER:?ERROR: POWERSHELL_REGISTRY_SERVER is required}"
-POWERSHELL_REPOSITORY="${POWERSHELL_REPOSITORY:-public/azure-powershell-v3}"
+POWERSHELL_REPOSITORY="${POWERSHELL_REPOSITORY:-unlisted/azclips/powershell-dev}"
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-}"
 METADATA_ROOT="${METADATA_ROOT:-}"
 
@@ -128,15 +128,17 @@ lock_new_versioned_tag() {
   echo "WARNING: Failed to remove '$REGISTRY_SERVER/$image'. Retrying the immutable lock." >&2
   lock_versioned_tag "$repository" "$tag" >/dev/null 2>&1 || true
 
-  local -a attributes=()
-  local write_enabled delete_enabled
-  mapfile -t attributes < <(az acr repository show \
+  local write_enabled="" delete_enabled="" attributes=""
+  attributes="$(az acr repository show \
     --name "$REGISTRY_NAME" \
     --image "$image" \
     --query '[writeEnabled, deleteEnabled]' \
-    --output tsv 2>/dev/null || true)
-  write_enabled="${attributes[0]:-}"
-  delete_enabled="${attributes[1]:-}"
+    --output tsv 2>/dev/null || true)"
+  IFS=$'\t' read -r write_enabled delete_enabled <<< "$attributes" || true
+  write_enabled="${write_enabled,,}"
+  delete_enabled="${delete_enabled,,}"
+  write_enabled="${write_enabled//[$'\r ']/}"
+  delete_enabled="${delete_enabled//[$'\r ']/}"
   if [[ "$write_enabled" == "false" && "$delete_enabled" == "false" ]]; then
     echo "Confirmed '$REGISTRY_SERVER/$image' is write- and delete-disabled." >&2
     return 1

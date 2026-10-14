@@ -102,7 +102,6 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
-    retryCountOnTaskFailure: 3
 
   - script: |
       set -euo pipefail
