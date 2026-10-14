@@ -91,10 +91,15 @@ if ($operation -eq 'get') {
         $global:LASTEXITCODE = 1
         return
     }
-    if ($scenario.settingValues -and $null -ne $scenario.settingValues.$key) {
-        "$key = $($scenario.settingValues.$key) [global config]"
+    $value, $source = if ($scenario.settingValues -and $null -ne $scenario.settingValues.$key) { $scenario.settingValues.$key, 'global config' }
+    elseif ($state.ContainsKey($key)) { $state[$key], 'global config' } else { "default-$key", 'default' }
+    if ($scenario.jsonConfigOutput) {
+        ConvertTo-Json -InputObject ([ordered]@{ key = $key; value = $value; source = $source })
+        if ($scenario.keyListingWarning) {
+            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        }
     }
-    elseif ($state.ContainsKey($key)) { "$key = $($state[$key]) [global config]" } else { "$key = default-$key [default]" }
+    else { "$key = $value [$source]" }
     $global:LASTEXITCODE = 0
     return
 }
@@ -533,6 +538,35 @@ test('wrapper removes credentials, queries and fragments from recorded setting U
   });
   assert.deepEqual(settings['agent.provider'], { value: 'builtin', source: 'global config' });
   assert.doesNotMatch(result.runFacts.agentSettings, /hidden/);
+});
+
+test('wrapper records the same settings when the target prints config get output as JSON', (context) => {
+  const result = runWrapper(context, {
+    jsonConfigOutput: true,
+    keyListingWarning: true,
+    recoveryMode: 'manual',
+    listedKeys: [
+      'agent.provider', 'agent.recovery', 'agent.builtin.modelId', 'agent.builtin.endpoint',
+      'agent.interactive.verbose', 'core.http.maxRetries',
+    ],
+    settingValues: {
+      'agent.builtin.endpoint': 'https://example.openai.azure.com/openai/?api-key=hidden',
+      'agent.interactive.verbose': false,
+      'core.http.maxRetries': 9,
+    },
+  });
+  assert.equal(result.status, 0, result.summary.error);
+  const settings = JSON.parse(result.runFacts.agentSettings);
+  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
+  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
+  assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
+  assert.deepEqual(settings['core.http.maxRetries'], { value: '9', source: 'global config' });
+  assert.deepEqual(settings['agent.builtin.endpoint'], {
+    value: 'https://example.openai.azure.com/openai/',
+    source: 'global config',
+    redacted: true,
+  });
+  assert.doesNotMatch(result.runFacts.agentSettings, /hidden|recoveryWarning/);
 });
 
 test('wrapper records every agent, HTTP-retry and telemetry setting the target lists', (context) => {

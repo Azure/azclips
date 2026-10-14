@@ -163,6 +163,9 @@ Every result records the facts needed to compare builds:
   `telemetry.enabled`. This covers `agent.provider`, `agent.builtin.*`, recovery,
   and any agent setting that a newer build adds, such as a reasoning effort. A
   target that cannot list its keys falls back to the provider and recovery keys.
+  Values come from `config get`. Both the older `key = value [source]` text and
+  the newer JSON object output are accepted, and both record the same value text
+  (for example `false` or `9`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
   Apart from the recovery and trace keys it sets for the run (`agent.recovery` in
