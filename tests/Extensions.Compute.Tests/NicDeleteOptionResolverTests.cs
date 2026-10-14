@@ -167,7 +167,7 @@ public class NicDeleteOptionResolverTests
     {
         var ex = Assert.Throws<UsageErrorException>(
             () => NicDeleteOptionResolver.ResolveForExistingNics(["nic1"], ["nic2=Delete"], null));
-        Assert.Contains("was not supplied through --nics", ex.Message);
+        Assert.Contains("is not among the supplied existing network interfaces", ex.Message);
     }
 
     [Fact]

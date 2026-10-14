@@ -25,7 +25,7 @@ internal static class NicDeleteOptionResolver
         if (cliValues.Count != 1 || cliValues[0].Contains('='))
         {
             throw AzclipsErrorException.UsageError(
-                "When creating a network interface, --nic-delete-option must be a single value: Delete or Detach.");
+                "When creating a network interface, the network interface delete option must be a single value: Delete or Detach.");
         }
 
         return Normalize(cliValues[0]);
@@ -54,7 +54,7 @@ internal static class NicDeleteOptionResolver
             if (cliValues.Count != 1)
             {
                 throw AzclipsErrorException.UsageError(
-                    "--nic-delete-option accepts one value for all NICs, or NAME=VALUE assignments for individual NICs.");
+                    "Specify one network interface delete option for all NICs, or NAME=VALUE assignments for individual NICs.");
             }
 
             string normalized = Normalize(cliValues[0]);
@@ -64,7 +64,7 @@ internal static class NicDeleteOptionResolver
         if (cliValues.Any(value => !value.Contains('=')))
         {
             throw AzclipsErrorException.UsageError(
-                "Do not mix a shared --nic-delete-option value with NAME=VALUE assignments.");
+                "Do not mix a shared network interface delete option with NAME=VALUE assignments.");
         }
 
         string?[] resolvedOptions = new string?[nicInputs.Count];
@@ -96,7 +96,7 @@ internal static class NicDeleteOptionResolver
             if (matchingIndices.Count == 0)
             {
                 throw AzclipsErrorException.UsageError(
-                    $"NIC delete option target '{targetKey}' was not supplied through --nics.");
+                    $"NIC delete option target '{targetKey}' is not among the supplied existing network interfaces.");
             }
 
             if (matchingIndices.Count > 1)

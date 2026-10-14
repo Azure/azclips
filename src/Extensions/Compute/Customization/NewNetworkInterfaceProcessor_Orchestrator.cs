@@ -41,7 +41,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         if (SubnetName is not null && SubnetNames.Count > 0)
         {
             throw AzclipsErrorException.UsageError(
-                "Specify either --subnet or --subnet-names (-SubnetName or -SubnetNames), not both.");
+                "Specify either a single subnet or a list of subnet names, not both.");
         }
 
         // Explicit names and ids are looked up before anything is created, as legacy CLI checks
@@ -98,8 +98,8 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         {
             throw AzclipsErrorException.UsageError(
                 SubnetName is null
-                    ? "Specify --virtual-network-name (-VirtualNetworkName) when creating a network interface."
-                    : "Specify --virtual-network-name (-VirtualNetworkName) when --subnet (-SubnetName) is a subnet name.");
+                    ? "Specify a virtual network name when creating a network interface."
+                    : "Specify a virtual network name when selecting a subnet by name.");
         }
 
         if (SubnetName is not null)

@@ -672,7 +672,7 @@ public class VmCreateOrchestrationTests
             ExistingNicCliArgs("--nics", "primary-nic", "--subnet", "default"));
 
         Assert.IsType<UsageErrorException>(error);
-        Assert.Contains("--subnet", error.Message);
+        Assert.Contains("do not specify a subnet", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/providers/"));
     }
 
@@ -787,19 +787,19 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
-    public void SubnetAndSubnetNames_Conflict_ReportsBothClientSurfaces()
+    public void SubnetAndSubnetNames_Conflict_ReportsClientNeutralError()
     {
         var (record, error) = RecordCliFailure(
             new FakeVmArmBackend(SubscriptionId),
             [.. s_cliArgs, "--subnet", "custom"]);
 
         Assert.IsType<UsageErrorException>(error);
-        Assert.Contains("Specify either --subnet or --subnet-names (-SubnetName or -SubnetNames), not both.", error.Message);
+        Assert.Contains("Specify either a single subnet or a list of subnet names, not both.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
     }
 
     [Fact]
-    public void VirtualNetworkName_MissingWhenSubnetIsName_ReportsBothClientSurfaces()
+    public void VirtualNetworkName_MissingWhenSubnetIsName_ReportsClientNeutralError()
     {
         string[] args = RemoveOption(s_cliArgs, "--subnet-names");
         string[] argsWithoutVnet = RemoveOption(args, "--virtual-network-name");
@@ -808,7 +808,7 @@ public class VmCreateOrchestrationTests
             [.. argsWithoutVnet, "--subnet", "custom"]);
 
         Assert.IsType<UsageErrorException>(error);
-        Assert.Contains("Specify --virtual-network-name (-VirtualNetworkName) when --subnet (-SubnetName) is a subnet name.", error.Message);
+        Assert.Contains("Specify a virtual network name when selecting a subnet by name.", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
     }
 
@@ -823,6 +823,37 @@ public class VmCreateOrchestrationTests
         Assert.Contains(record.Entries, e => IsRequest(e, "GET", "/virtualNetworks/scenario-vm-vnet?"));
         Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/virtualNetworks/"));
         Assert.Contains("/subnets/default", PutBody(record, "/networkInterfaces/"));
+    }
+
+    [Theory]
+    [InlineData("subnet-conflict", "Specify either a single subnet or a list of subnet names, not both.")]
+    [InlineData("missing-vnet", "Specify a virtual network name when selecting a subnet by name.")]
+    [InlineData("existing-nic-conflict", "When specifying existing NICs, do not specify a subnet.")]
+    public void PowerShell_NetworkValidation_ReportsClientNeutralErrors(string scenario, string expected)
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId),
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+        var parameters = PsParameters();
+        if (scenario == "existing-nic-conflict")
+        {
+            RemoveNewNicParameters(parameters);
+            parameters["NetworkInterfaceId"] = new List<string> { "primary-nic" };
+        }
+        else if (scenario == "missing-vnet")
+        {
+            parameters.Remove("SubnetNames");
+            parameters.Remove("VirtualNetworkName");
+        }
+        parameters["SubnetName"] = "default";
+
+        var error = Assert.Throws<UsageErrorException>(() =>
+            host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.Contains(expected, error.Message);
+        Assert.DoesNotContain("--", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/providers/"));
     }
 
     [Fact]

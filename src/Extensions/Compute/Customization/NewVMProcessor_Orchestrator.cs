@@ -200,21 +200,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 if (string.IsNullOrWhiteSpace(NetworkInterfaceName))
                 {
                     throw AzclipsErrorException.UsageError(
-                        "Specify --network-interface-name when --nics is not provided.");
+                        "Specify a name for the new network interface when existing network interfaces are not supplied.");
                 }
                 return;
             }
 
             var conflicts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("--network-interface-name");
-            if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("--virtual-network-name");
-            if (SubnetName is not null) conflicts.Add("--subnet");
-            if (SubnetNames.Count > 0) conflicts.Add("--subnet-names");
-            if (SubnetAddressPrefixes.Count > 0) conflicts.Add("--subnet-address-prefixes");
-            if (AddressPrefixes.Count > 0) conflicts.Add("--address-prefixes");
-            if (NetworkSecurityGroup is not null) conflicts.Add("--nsg");
-            if (PublicIpAddress is not null) conflicts.Add("--public-ip-address");
-            if (AcceleratedNetworking is not null) conflicts.Add("--accelerated-networking");
+            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("a new network interface name");
+            if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("a virtual network name");
+            if (SubnetName is not null) conflicts.Add("a subnet");
+            if (SubnetNames.Count > 0) conflicts.Add("subnet names");
+            if (SubnetAddressPrefixes.Count > 0) conflicts.Add("subnet address prefixes");
+            if (AddressPrefixes.Count > 0) conflicts.Add("virtual network address prefixes");
+            if (NetworkSecurityGroup is not null) conflicts.Add("a network security group");
+            if (PublicIpAddress is not null) conflicts.Add("a public IP address");
+            if (AcceleratedNetworking is not null) conflicts.Add("an accelerated networking setting");
 
             if (conflicts.Count > 0)
             {
