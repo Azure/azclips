@@ -133,13 +133,16 @@ its entrypoint and the output folder, plus the document facts and per-stage
 settings; the flags override its run inputs. See
 [Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
 `--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
-its containing directory). `--entrypoint` selects the `.tsp` file or directory to
-compile inside that copy — absolute, or relative to the copied directory — and
-defaults to `--tsp-location`. Copying a common root is what lets an entrypoint
-import siblings such as `../shared/models.tsp`. `<dir>/source` must not overlap
-the copied directory. The root namespace and the other document facts come only
-from the config file (`root-namespace: Contoso.Widgets`); without one, the
-namespace is the spec's own.
+its containing directory). It must be inside an azure-rest-api-specs checkout,
+and lands at its path in the repo, under `<dir>/source/specification/...`.
+`--entrypoint` selects the `.tsp` file or directory to compile inside that copy —
+absolute, or relative to the copied directory — and defaults to `--tsp-location`.
+A sibling the spec imports, such as `../Contoso.Widgets.Shared`, is listed in the
+config file's `additional-directories` and lands at its own path in the repo, so
+the import resolves. `<dir>/source` must not overlap any copied directory.
+`ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a checkout as is. The
+root namespace and the other document facts come only from the config file
+(`root-namespace: Contoso.Widgets`); without one, the namespace is the spec's own.
 
 > **Temporary:** the `--entrypoint` flag stays until the flag review; the config
 > file's `entrypoints` is the lasting way to choose an entrypoint.

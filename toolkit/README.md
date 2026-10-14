@@ -61,7 +61,9 @@ inputs, and passes every other key to the compiler untouched:
 schema-version: 1                   # required
 
 # Run inputs, taken by the CLI. Relative paths resolve against this file's folder.
-tsp-location: ../specs/Contoso.Widgets   # the folder to copy
+tsp-location: ../azure-rest-api-specs/specification/widget/Contoso.Widgets   # the folder to copy
+additional-directories:             # folders it imports from outside it; relative to tsp-location
+  - ../Contoso.Widgets.Shared
 entrypoints:                        # one, for now; relative to tsp-location
   - path: client.tsp
     api-version: 2024-05-01
@@ -83,10 +85,18 @@ stages:
 - **Flags** (`--tsp-location`, `--entrypoint`, `--api-version`, `--out-dir`)
   override the run inputs; no flag sets a stage or a fact. Without a file,
   `--tsp-location` and `--out-dir` are required.
+- **Staging:** `tsp-location` must be inside an azure-rest-api-specs checkout:
+  the first folder at or above it that holds `specification/`, `.github/` and
+  `.azure-pipelines/`. It is copied into `<output-dir>/source` at its path in the
+  repo, and each `additional-directories` entry at its own, so imports between
+  them keep working; a folder outside the repo lands directly under `source/`, by
+  name. `node_modules`, `.git` and `tsp-output` are never copied, and ACE reads no
+  `tspconfig.yaml`. `ACE_ALLOW_STANDALONE_SPEC=1` copies a spec from outside a
+  checkout as is, for tests and ad-hoc specs.
 - **Checks:** the CLI checks its own keys as every stage checks its stage config.
   A key it does not know inside an entrypoint is a warning; an invalid or missing
   value, or a YAML syntax error, is an error that stops the run before anything is
-  staged.
+  staged. Staging checks every folder before it touches `<output-dir>/source`.
 
 The design and its rationale:
 [`DocDumpster/Aceconfig-Generation-Time-Config.md`](DocDumpster/Aceconfig-Generation-Time-Config.md).

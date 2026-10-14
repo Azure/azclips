@@ -2,16 +2,17 @@
  * Loading `aceconfig.yaml`, the gen-time config of one generated extension.
  *
  * The CLI owns the file format. It finds the file, parses it, and takes the keys it
- * uses itself: `schema-version` and the run inputs (`tsp-location`, `output-dir`,
- * `entrypoints`). It checks them the way every stage checks its stage config: a key
- * it does not know is a warning, and an invalid or missing value is an error that
- * stops the run before anything is staged. Every other key goes to the compiler
- * untouched; the compiler takes `stages`, and the rest are document facts for
- * `seed-ir`.
+ * uses itself: `schema-version` and the run inputs (`tsp-location`,
+ * `additional-directories`, `output-dir`, `entrypoints`). It checks them the way
+ * every stage checks its stage config: a key it does not know is a warning, and an
+ * invalid or missing value is an error that stops the run before anything is
+ * staged. Every other key goes to the compiler untouched; the compiler takes
+ * `stages`, and the rest are document facts for `seed-ir`.
  *
  * Relative paths in the file resolve against the file's own folder, which is also
  * where output goes unless the file says otherwise, so the same file works from any
- * working directory.
+ * working directory. The exceptions are the entrypoint and the additional
+ * directories, which are relative to `tsp-location` and are resolved when staging.
  */
 
 import { statSync } from "node:fs";
@@ -46,11 +47,17 @@ export interface ConfigEntrypoint {
   readonly apiVersion?: string;
 }
 
-/** The run inputs the CLI takes from the file, with paths made absolute. */
+/** The run inputs the CLI takes from the file. */
 export interface ConfigInputs {
-  /** The folder, or `.tsp` file, to copy. */
+  /** The folder, or `.tsp` file, to copy; absolute. */
   readonly tspLocation?: string;
-  /** Where output goes: the file's folder unless the file says otherwise. */
+  /**
+   * Folders the compile needs that are not under `tsp-location`, as written: relative
+   * to `tsp-location` or absolute. Staging resolves them against the `tsp-location`
+   * in effect, which a flag may have overridden.
+   */
+  readonly additionalDirectories?: readonly string[];
+  /** Where output goes: the file's folder unless the file says otherwise; absolute. */
   readonly outputDir: string;
   readonly entrypoint?: ConfigEntrypoint;
 }
@@ -125,6 +132,7 @@ export async function loadAceConfig(
   const {
     "schema-version": schemaVersion,
     "tsp-location": tspLocationValue,
+    "additional-directories": additionalDirectoriesValue,
     "output-dir": outputDirValue,
     entrypoints,
     ...config
@@ -132,6 +140,7 @@ export async function loadAceConfig(
 
   checkSchemaVersion(schemaVersion, report);
   const tspLocation = readPath("tsp-location", tspLocationValue, folder, report);
+  const additionalDirectories = readAdditionalDirectories(additionalDirectoriesValue, report);
   const outputDir = readPath("output-dir", outputDirValue, folder, report) ?? folder;
   const entrypoint = readEntrypoints(entrypoints, report);
   if (failed) return undefined;
@@ -140,6 +149,7 @@ export async function loadAceConfig(
     file,
     inputs: {
       ...(tspLocation !== undefined ? { tspLocation } : {}),
+      ...(additionalDirectories !== undefined ? { additionalDirectories } : {}),
       outputDir,
       ...(entrypoint !== undefined ? { entrypoint } : {}),
     },
@@ -169,6 +179,33 @@ function readPath(key: string, value: unknown, folder: string, report: Report): 
   if (typeof value === "string" && value.length > 0) return resolve(folder, value);
   report("error", "invalid-setting", `'${key}' must be a path, not ${describeValue(value)}.`);
   return undefined;
+}
+
+/** The additional directories as written; staging resolves and checks the folders themselves. */
+function readAdditionalDirectories(value: unknown, report: Report): readonly string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    report(
+      "error",
+      "invalid-setting",
+      `'additional-directories' must be a list of folders, not ${describeValue(value)}.`,
+    );
+    return undefined;
+  }
+
+  const paths: string[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item === "string" && item.length > 0) {
+      paths.push(item);
+    } else {
+      report(
+        "error",
+        "invalid-setting",
+        `'additional-directories[${index}]' must be a path, not ${describeValue(item)}.`,
+      );
+    }
+  }
+  return paths;
 }
 
 /** The one entrypoint the file lists; several are refused until they can be compiled together. */

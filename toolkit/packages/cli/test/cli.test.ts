@@ -20,7 +20,8 @@ import { IR_SCHEMA_VERSION, idEquals, parseIR, parseTransformedIR, type IR } fro
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
-import { resolveGeneratorHost } from "../src/dotnet-generate.js";
+import { resolveGeneratorHost } from "../src/generator-host.js";
+import { STANDALONE_SPEC_VARIABLE } from "../src/staging.js";
 
 // The csharp generation e2e runs only when the .NET generator host has been
 // built (dotnet build packages/generator/host). Otherwise it is skipped, so the
@@ -90,8 +91,12 @@ function writeConfig(path: string, lines: string[]): string {
 const NO_GENERATOR = ["stages:", "  csharp:", "    disabled: true"];
 
 let dir: string;
+let standaloneBefore: string | undefined;
 
 beforeAll(() => {
+  // The fixtures live outside any specs repo, so their runs copy them as they are.
+  standaloneBefore = process.env[STANDALONE_SPEC_VARIABLE];
+  process.env[STANDALONE_SPEC_VARIABLE] = "1";
   dir = mkdtempSync(join(tmpdir(), "ace-cli-"));
   writeConfig(join(dir, "good.yaml"), ["schema-version: 1"]);
   writeConfig(join(dir, "list.yaml"), ["- 1", "- 2"]);
@@ -101,6 +106,8 @@ beforeAll(() => {
 });
 
 afterAll(() => {
+  if (standaloneBefore === undefined) delete process.env[STANDALONE_SPEC_VARIABLE];
+  else process.env[STANDALONE_SPEC_VARIABLE] = standaloneBefore;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -230,6 +237,10 @@ describe("ace compile: loading the config file", () => {
     const configPath = writeConfig(join(dir, "bad-inputs", "aceconfig.yaml"), [
       "schema-version: 2",
       "output-dir: 7",
+      "additional-directories:",
+      "  - ../shared",
+      "  - 3",
+      '  - ""',
       "entrypoints:",
       "  - path: a.tsp",
       "  - path: b.tsp",
@@ -245,8 +256,21 @@ describe("ace compile: loading the config file", () => {
     expect(code).toBe(2);
     expect(err).toContain("'schema-version' must be 1, not the number 2.");
     expect(err).toContain("'output-dir' must be a path, not the number 7.");
+    expect(err).toContain("'additional-directories[1]' must be a path, not the number 3.");
+    expect(err).toContain("'additional-directories[2]' must be a path, not an empty string.");
     expect(err).toContain("'entrypoints' lists 2 entrypoints; only one is supported");
     expect(existsSync(join(dir, "bad-inputs", "source"))).toBe(false);
+  });
+
+  it("requires 'additional-directories' to be a list", async () => {
+    const configPath = writeConfig(join(dir, "single-directory", "aceconfig.yaml"), [
+      "schema-version: 1",
+      "additional-directories: ../shared",
+    ]);
+
+    const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP, "--config", configPath]);
+    expect(code).toBe(2);
+    expect(err).toContain("'additional-directories' must be a list of folders, not '../shared'.");
   });
 
   it.runIf(generatorHostBuilt)("tolerates a leading UTF-8 BOM in the config file", async () => {
@@ -637,7 +661,87 @@ describe("ace compile: --entrypoint", () => {
       join(dir, "ep-outside"),
     ]);
     expect(code).toBe(1);
-    expect(err).toContain("--entrypoint");
+    expect(err).toContain("@azure-client-engine/cli/invalid-entrypoint");
+    expect(err).toContain("is not under the tsp-location folder");
+  });
+});
+
+describe("ace compile: specs repo", () => {
+  /** A fake specs repo whose service imports a sibling folder, as Contoso.WidgetManager does. */
+  function writeSpecsRepo(root: string): string {
+    for (const marker of ["specification", ".github", ".azure-pipelines"]) {
+      mkdirSync(join(root, marker), { recursive: true });
+    }
+    const pets = join(root, "specification", "pets");
+    mkdirSync(join(pets, "Pets.Shared"), { recursive: true });
+    copyFileSync(PETS_TSP, join(pets, "Pets.Shared", "pets.tsp"));
+    mkdirSync(join(pets, "Pets.Service"), { recursive: true });
+    writeFileSync(join(pets, "Pets.Service", "main.tsp"), 'import "../Pets.Shared/pets.tsp";\n', "utf8");
+    return join(pets, "Pets.Service");
+  }
+
+  it("refuses a tsp-location outside a specs repo unless ACE_ALLOW_STANDALONE_SPEC=1", async () => {
+    const outDir = join(dir, "standalone-refused");
+    delete process.env[STANDALONE_SPEC_VARIABLE];
+    try {
+      const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP, "--out-dir", outDir]);
+      expect(code).toBe(1);
+      expect(err).toContain("@azure-client-engine/cli/not-in-specs-repo");
+      expect(err).toContain("ACE_ALLOW_STANDALONE_SPEC=1");
+      expect(existsSync(join(outDir, "source"))).toBe(false);
+    } finally {
+      process.env[STANDALONE_SPEC_VARIABLE] = "1";
+    }
+  });
+
+  it("copies the additional directories to their places in the repo, so a sibling import resolves", async () => {
+    const service = writeSpecsRepo(join(dir, "specs-repo"));
+    const outDir = join(dir, "specs-ext");
+    const configPath = writeConfig(join(outDir, "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${yamlPath(service)}`,
+      "additional-directories:",
+      "  - ../Pets.Shared",
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, out, err } = await captureRun([
+      "compile",
+      "--config",
+      configPath,
+      "--capture-ir",
+      "--capture-source",
+    ]);
+    expect(code, err).toBe(0);
+    // The CLI takes the key itself: neither the compiler nor seed-ir sees it.
+    expect(out + err).not.toMatch(/unknown-(fact|setting|stage)/);
+
+    const staged = join(outDir, "source", "specification", "pets");
+    expect(existsSync(join(staged, "Pets.Service", "main.tsp"))).toBe(true);
+    expect(existsSync(join(staged, "Pets.Shared", "pets.tsp"))).toBe(true);
+    const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      expect(parseSnapshot(file).models.some((m) => m.name === "Pet")).toBe(true);
+    }
+  });
+
+  it("reports an additional directory that does not exist, staging nothing", async () => {
+    const service = writeSpecsRepo(join(dir, "specs-repo-missing"));
+    const outDir = join(dir, "specs-missing-ext");
+    const configPath = writeConfig(join(outDir, "aceconfig.yaml"), [
+      "schema-version: 1",
+      `tsp-location: ${yamlPath(service)}`,
+      "additional-directories:",
+      "  - ../Pets.Missing",
+      ...NO_GENERATOR,
+    ]);
+
+    const { code, err } = await captureRun(["compile", "--config", configPath]);
+    expect(code).toBe(1);
+    expect(err).toContain("@azure-client-engine/cli/invalid-additional-directory");
+    expect(err).toContain("'../Pets.Missing' does not exist");
+    expect(existsSync(join(outDir, "source"))).toBe(false);
   });
 });
 
