@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
     /// Pure transport for <c>PUT .../storageAccounts/{accountName}</c>: it serializes the
     /// already-built <see cref="StorageAccountCreateParameters"/> and waits out the long-running
     /// operation, doing no validation or argument mapping of its own. All of that (and the full
-    /// user-facing argument surface) lives in <see cref="NewStorageAccountProcessor_Customized"/>,
+    /// user-facing argument surface) lives in <see cref="NewStorageAccountProcessor_Orchestrator"/>,
     /// which builds the body and delegates here via <c>CreateExtendedProcessor</c>.
     /// </summary>
     public class NewStorageAccountProcessor : StorageProcessorBase<StorageAccountCreateParameters, StorageAccount>

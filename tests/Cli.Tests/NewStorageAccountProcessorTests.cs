@@ -13,7 +13,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="NewStorageAccountProcessor_Customized"/>. Two things are pinned here:
+/// Offline tests for <see cref="NewStorageAccountProcessor_Orchestrator"/>. Two things are pinned here:
 /// the shape of the create request body, and the cross-field rules the processor enforces
 /// before it is built.
 /// <para>
@@ -52,9 +52,9 @@ public class NewStorageAccountProcessorTests
         }
         """;
 
-    private static NewStorageAccountProcessor_Customized CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static NewStorageAccountProcessor_Orchestrator CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new NewStorageAccountProcessor_Customized();
+        var processor = new NewStorageAccountProcessor_Orchestrator();
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,
@@ -79,7 +79,7 @@ public class NewStorageAccountProcessorTests
     /// Runs the processor and returns the body of the first request, which is the create PUT.
     /// Later requests are the long-running-operation polls and carry no body.
     /// </summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewStorageAccountProcessor_Customized> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewStorageAccountProcessor_Orchestrator> configure)
     {
         string? captured = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -101,7 +101,7 @@ public class NewStorageAccountProcessorTests
     /// sent is the point: these rules exist so an invalid combination fails locally instead of
     /// reaching the service.
     /// </summary>
-    private static async Task<InvalidInputException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor_Customized> configure)
+    private static async Task<InvalidInputException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor_Orchestrator> configure)
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(SucceededAccount));
         var processor = CreateProcessor(pipeline, new FakeOutputHandler());

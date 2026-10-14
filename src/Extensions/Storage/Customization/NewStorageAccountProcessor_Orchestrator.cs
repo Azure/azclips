@@ -17,7 +17,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
     /// <c>CreateExtendedProcessor</c>.
     /// </para>
     /// </summary>
-    public class NewStorageAccountProcessor_Customized : StorageProcessorBase<StorageAccountCreateParameters, StorageAccount>
+    public class NewStorageAccountProcessor_Orchestrator : StorageProcessorBase<StorageAccountCreateParameters, StorageAccount>
     {
         public string SubscriptionId { get; set; } = string.Empty;
 

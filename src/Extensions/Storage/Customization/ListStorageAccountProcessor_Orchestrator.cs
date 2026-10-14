@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
     /// Mirrors azure-cli's <c>list_storage_accounts</c>, which branches the same way on whether a
     /// resource group was supplied.
     /// </remarks>
-    public class ListStorageAccountProcessor_Customized : ListStorageAccountProcessor
+    public class ListStorageAccountProcessor_Orchestrator : ListStorageAccountProcessor
     {
         /// <summary>Optional. Omit to list every storage account in the subscription.</summary>
         public string ResourceGroupName { get; set; } = string.Empty;

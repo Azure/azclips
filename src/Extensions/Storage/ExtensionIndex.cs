@@ -13,12 +13,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newStorageAccount_PS = new(
-            Name: "NewStorageAccountProcessor_Customized",
+            Name: "NewStorageAccountProcessor_Orchestrator",
             InvocationName: "New-AzStorageAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Customized",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Customized),
+            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -113,12 +113,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_listStorageAccount_PS = new(
-            Name: "ListStorageAccountProcessor_Customized",
+            Name: "ListStorageAccountProcessor_Orchestrator",
             InvocationName: "Get-AzStorageAccount_ResourceGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Customized",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Customized),
+            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -145,12 +145,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
 
 
         private static readonly CommandMetadata s_newStorageAccount_CLI = new(
-            Name: "NewStorageAccountProcessor_Customized",
+            Name: "NewStorageAccountProcessor_Orchestrator",
             InvocationName: "storage account create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Customized",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Customized),
+            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -245,12 +245,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         );
 
         private static readonly CommandMetadata s_listStorageAccount_CLI = new(
-            Name: "ListStorageAccountProcessor_Customized",
+            Name: "ListStorageAccountProcessor_Orchestrator",
             InvocationName: "storage account list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Customized",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Customized),
+            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),

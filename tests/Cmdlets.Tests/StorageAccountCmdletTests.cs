@@ -106,7 +106,7 @@ public class StorageAccountCmdletTests
     public void GetByResourceGroup_BindsOntoTheListCustomization()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzStorageAccount_ResourceGroup", ClientType.PowerShell);
-        var processor = new ListStorageAccountProcessor_Customized();
+        var processor = new ListStorageAccountProcessor_Orchestrator();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
@@ -126,7 +126,7 @@ public class StorageAccountCmdletTests
         // Omitting the group is what selects the subscription-wide operation, so the bound
         // processor must be left with an empty ResourceGroupName rather than a default.
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzStorageAccount_ResourceGroup", ClientType.PowerShell);
-        var processor = new ListStorageAccountProcessor_Customized();
+        var processor = new ListStorageAccountProcessor_Orchestrator();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
@@ -337,7 +337,7 @@ public class StorageAccountCmdletTests
         // Every key the cmdlet sends must be one the index declares, or the engine drops it.
         Assert.All(args.Keys, key => Assert.Contains(key, metadata.Parameters.Keys));
 
-        var processor = new NewStorageAccountProcessor_Customized();
+        var processor = new NewStorageAccountProcessor_Orchestrator();
         // SubscriptionId is left to the profile, as it is when -SubscriptionId isn't passed.
         Service().BindArgumentsToProcessor(processor, new Dictionary<string, object>(args, StringComparer.OrdinalIgnoreCase), metadata.Parameters, metadata.ParameterAliases, new Profile { SubscriptionId = "sub-1" });
 

@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
     /// <summary>
     /// Lists every storage account in the subscription (<c>StorageAccounts_List</c>). Choosing
     /// between this and <see cref="ListStorageAccountByResourceGroupProcessor"/> is the caller's
-    /// job; <see cref="ListStorageAccountProcessor_Customized"/> does it from whether a resource
+    /// job; <see cref="ListStorageAccountProcessor_Orchestrator"/> does it from whether a resource
     /// group was supplied.
     /// </summary>
     public class ListStorageAccountProcessor : StorageProcessorBase<object, StorageAccountListResult>

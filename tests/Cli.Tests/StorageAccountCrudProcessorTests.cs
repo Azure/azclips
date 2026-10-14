@@ -165,7 +165,7 @@ public class StorageAccountCrudProcessorTests
         HttpRequestMessage? captured = null;
         var pipeline = new FakeHttpPipeline((request, _) => { captured ??= request; return Json(ListPage("", "a", "b")); });
 
-        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        var processor = new ListStorageAccountProcessor_Orchestrator { SubscriptionId = TestSubscriptionId };
         processor.Init(Context(pipeline, new FakeOutputHandler()));
         await processor.ProcessAsync();
 
@@ -182,7 +182,7 @@ public class StorageAccountCrudProcessorTests
         HttpRequestMessage? captured = null;
         var pipeline = new FakeHttpPipeline((request, _) => { captured ??= request; return Json(ListPage("", "a")); });
 
-        var processor = new ListStorageAccountProcessor_Customized
+        var processor = new ListStorageAccountProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
@@ -202,7 +202,7 @@ public class StorageAccountCrudProcessorTests
         var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((_, _) => Json(ListPage("", "first", "second")));
 
-        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        var processor = new ListStorageAccountProcessor_Orchestrator { SubscriptionId = TestSubscriptionId };
         processor.Init(Context(pipeline, output));
         await processor.ProcessAsync();
 
@@ -226,7 +226,7 @@ public class StorageAccountCrudProcessorTests
         });
         var output = new FakeOutputHandler();
 
-        var processor = new ListStorageAccountProcessor_Customized
+        var processor = new ListStorageAccountProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
@@ -250,7 +250,7 @@ public class StorageAccountCrudProcessorTests
         var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "value": [] }"""));
 
-        var processor = new ListStorageAccountProcessor_Customized
+        var processor = new ListStorageAccountProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
@@ -270,7 +270,7 @@ public class StorageAccountCrudProcessorTests
         var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((_, _) => Json("{ }"));
 
-        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        var processor = new ListStorageAccountProcessor_Orchestrator { SubscriptionId = TestSubscriptionId };
         processor.Init(Context(pipeline, output));
         await processor.ProcessAsync();
 
@@ -292,7 +292,7 @@ public class StorageAccountCrudProcessorTests
         });
         var output = new FakeOutputHandler();
 
-        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        var processor = new ListStorageAccountProcessor_Orchestrator { SubscriptionId = TestSubscriptionId };
         processor.Init(Context(pipeline, output));
         await processor.ProcessAsync();
 
