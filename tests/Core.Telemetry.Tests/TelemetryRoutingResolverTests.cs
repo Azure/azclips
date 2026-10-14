@@ -72,6 +72,24 @@ public class TelemetryRoutingResolverTests
         Assert.Contains(capturingLogger.Messages, m => m.StartsWith("DEBUG: [TelemetryRoutingResolver] Failed to resolve telemetry routing for profile 'test-profile': Simulated failure", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task ResolveAsync_ReturnsFallback_WhenLoggingServiceThrows()
+    {
+        var throwingProfileService = new ThrowingProfileService();
+
+        var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            throwingProfileService,
+            new StubAuthService(),
+            profileNameOverride: "test-profile",
+            CancellationToken.None,
+            loggingService: new ThrowingLoggingService());
+
+        Assert.Null(tenantId);
+        Assert.Null(boundary);
+        Assert.Null(subscriptionId);
+        Assert.Null(authType);
+    }
+
     private sealed class ThrowingProfileService : StubProfileService
     {
         public ThrowingProfileService() : base(seedDefault: false) { }
@@ -80,6 +98,16 @@ public class TelemetryRoutingResolverTests
             => throw new InvalidOperationException("Simulated failure");
         public override Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Simulated failure");
+    }
+
+    private sealed class ThrowingLoggingService : ILoggingService
+    {
+        public void Log(string message) => throw new InvalidOperationException("Logger failure");
+        public void Info(string message) => throw new InvalidOperationException("Logger failure");
+        public void Verbose(string message) => throw new InvalidOperationException("Logger failure");
+        public void Debug(string message) => throw new InvalidOperationException("Logger failure");
+        public void Warn(string message) => throw new InvalidOperationException("Logger failure");
+        public void Error(string message) => throw new InvalidOperationException("Logger failure");
     }
 
     private sealed class CapturingLoggingService : ILoggingService

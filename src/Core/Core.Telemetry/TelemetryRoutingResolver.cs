@@ -91,7 +91,14 @@ public static class TelemetryRoutingResolver
         }
         catch (Exception ex)
         {
-            loggingService?.Debug($"[{nameof(TelemetryRoutingResolver)}] Failed to resolve telemetry routing for profile '{profileNameOverride ?? "active"}': {ex.Message}");
+            // Logging is best-effort too: a throwing logger must not replace the fallback below.
+            try
+            {
+                loggingService?.Debug($"[{nameof(TelemetryRoutingResolver)}] Failed to resolve telemetry routing for profile '{profileNameOverride ?? "active"}': {ex.Message}");
+            }
+            catch
+            {
+            }
             return (null, null, null, null);
         }
     }
