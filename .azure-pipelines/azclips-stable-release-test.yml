@@ -3,6 +3,12 @@ name: azclips-stable-release-test-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: docker_azure_service_connection
+  displayName: Azure service connection used to publish Docker images to ACR
+  type: string
+  default: 'Azure CLI release'
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -34,7 +40,7 @@ variables:
 - name: DockerPowerShellRepository
   value: unlisted/azclips/powershell-dev
 - name: DockerAzureServiceConnection
-  value: $(AzureSubscription)
+  value: ${{ parameters.docker_azure_service_connection }}
 
 stages:
 - stage: Preflight
