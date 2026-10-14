@@ -8,10 +8,13 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.Remove, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[Cmdlet(VerbsCommon.Remove, "AzVM", DefaultParameterSetName = ResourceGroupNameParameterSet, SupportsShouldProcess = true)]
 [OutputType(typeof(void))]
 public class RemoveVMCmdlet : PSCmdlet
 {
+    private const string ResourceGroupNameParameterSet = "ResourceGroupNameParameterSet";
+    private const string IdParameterSet = "IdParameterSet";
+
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
@@ -19,11 +22,21 @@ public class RemoveVMCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Alias("ResourceName", "VMName")]
+    [Parameter(Mandatory = true, ParameterSetName = ResourceGroupNameParameterSet)]
     public string Name { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, ParameterSetName = ResourceGroupNameParameterSet)]
     public string ResourceGroupName { get; set; } = "";
+
+    [Parameter(Mandatory = true, ParameterSetName = IdParameterSet)]
+    public string Id { get; set; } = "";
+
+    [Parameter(Mandatory = false, HelpMessage = "Optional parameter to force delete a VM.")]
+    public bool? ForceDeletion { get; set; }
+
+    [Parameter(Mandatory = false, HelpMessage = "To force the removal without a confirmation prompt.")]
+    public SwitchParameter Force { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -36,7 +49,16 @@ public class RemoveVMCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"VM '{Name}' in resource group '{ResourceGroupName}'", "Remove"))
+        bool byId = ParameterSetName == IdParameterSet;
+        string target = byId ? $"VM '{Id}'" : $"VM '{Name}' in resource group '{ResourceGroupName}'";
+
+        if (!ShouldProcess(target, "Remove"))
+        {
+            return;
+        }
+
+        if (!Force.IsPresent
+            && !ShouldContinue("This cmdlet will remove the specified virtual machine. Do you want to continue?", "Virtual machine removal operation"))
         {
             return;
         }
@@ -44,20 +66,27 @@ public class RemoveVMCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
 
-        var parameters = new Dictionary<string, object>
-        {
-            { "Name", Name },
-            { "ResourceGroupName", ResourceGroupName },
-        };
+        var parameters = byId
+            ? new Dictionary<string, object> { { nameof(Id), new[] { Id } } }
+            : new Dictionary<string, object>
+            {
+                { nameof(Name), Name },
+                { nameof(ResourceGroupName), ResourceGroupName },
+            };
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
-            parameters.Add("SubscriptionId", SubscriptionId);
+            parameters.Add(nameof(SubscriptionId), SubscriptionId);
+        }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ForceDeletion)))
+        {
+            parameters.Add(nameof(ForceDeletion), ForceDeletion!.Value);
         }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
-            parameters.Add("Profile", Profile!);
+            parameters.Add(nameof(Profile), Profile!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

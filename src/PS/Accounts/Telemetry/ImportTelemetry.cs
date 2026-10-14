@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
@@ -50,16 +51,27 @@ internal static class ImportTelemetry
     /// When import actually finished. Required because this runs after the fact: letting
     /// the root close on dispose would stretch its duration to emit time.
     /// </param>
+    /// <param name="tagRoot">
+    /// Optional callback invoked on the root immediately after creation, before
+    /// <paramref name="timeline"/> is replayed. MUST run before the replay (not after):
+    /// FileExporter/AriaActivityExporter export each replayed phase span synchronously as
+    /// it's disposed, so a tag applied only after Replay returns would never reach them —
+    /// see EmitInBackground, which uses this to tag TenantId/DataBoundary from the active
+    /// profile so import/startup spans route to the correct Aria endpoint instead of
+    /// silently falling back to Global.
+    /// </param>
     internal static void Emit(
         ITelemetryService telemetry,
         PerformanceTimeline timeline,
         string importKind,
-        DateTime importEnd)
+        DateTime importEnd,
+        Action<Activity?>? tagRoot = null)
     {
         // Its own trace, not a child of any cmdlet: import precedes every cmdlet, so
         // attaching backdated phases to a cmdlet root would put a child before its parent.
         using var root = telemetry.StartRootActivity(timeline.StartedAt);
         root?.SetTag(TelemetryTags.ImportKind, importKind);
+        tagRoot?.Invoke(root);
         timeline.Replay(telemetry);
         root?.SetEndTime(importEnd);
     }
@@ -71,7 +83,7 @@ internal static class ImportTelemetry
     /// </summary>
     internal static void EmitInBackground(PerformanceTimeline timeline, string importKind, DateTime importEnd)
     {
-        _ = Task.Run(() =>
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -83,7 +95,27 @@ internal static class ImportTelemetry
                     return;
                 }
 
-                Emit(AzclipsServiceProvider.GetRequiredService<ITelemetryService>(), timeline, importKind, importEnd);
+                // Best-effort: resolves the CURRENTLY ACTIVE profile (module import precedes
+                // any command, so there is no --profile override to bind against yet). Runs
+                // BEFORE Emit so the tag is on the root before Replay creates the phase spans.
+                var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+                    AzclipsServiceProvider.GetRequiredService<IProfileService>(),
+                    AzclipsServiceProvider.GetRequiredService<IAuthService>(),
+                    profileNameOverride: null,
+                    CancellationToken.None);
+
+                Emit(
+                    AzclipsServiceProvider.GetRequiredService<ITelemetryService>(),
+                    timeline,
+                    importKind,
+                    importEnd,
+                    root =>
+                    {
+                        if (tenantId is not null) root?.SetTag(TelemetryTags.TenantId, tenantId);
+                        if (boundary is not null) root?.SetTag(TelemetryTags.DataBoundary, boundary);
+                        if (subscriptionId is not null) root?.SetTag(TelemetryTags.SubscriptionId, subscriptionId);
+                        if (authType is not null) root?.SetTag(TelemetryTags.AuthType, authType);
+                    });
             }
             catch
             {

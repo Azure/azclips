@@ -11,7 +11,8 @@ namespace Extensions.MsGraph.Tests;
 /// Tests the customization layer <see cref="ListApplicationProcessor_Orchestrator"/> adds on top of
 /// the atomic <c>ListApplicationProcessor</c>: the <c>DisplayName</c> filter shortcut (translated
 /// into an OData clause), OData escaping, and combining caller-supplied Filter with the shortcut
-/// using OData <c>and</c>.
+/// using OData <c>and</c>. Driven through <c>ProcessAsync</c> (the real entry point) so the request
+/// produced by the delegated atomic is observed.
 /// </summary>
 public class ListApplicationProcessor_OrchestratorTests
 {
@@ -22,16 +23,16 @@ public class ListApplicationProcessor_OrchestratorTests
     {
         var pipeline = new FakeGraphHttpPipeline(
             _ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}"));
-        orch.WithFakeContext(pipeline, NoOpPublisher());
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
         return (orch, pipeline);
     }
 
     [Fact]
-    public async Task SendAsync_NoInputs_ShouldTargetApplicationsEndpointWithNoQuery()
+    public async Task ProcessAsync_NoInputs_ShouldTargetApplicationsEndpointWithNoQuery()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var sent = Assert.Single(pipeline.Sent);
         Assert.Equal(HttpMethod.Get, sent.Method);
@@ -39,18 +40,18 @@ public class ListApplicationProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_DisplayName_ShouldEmitEqualsFilter()
+    public async Task ProcessAsync_DisplayName_ShouldEmitEqualsFilter()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator { DisplayName = "contoso-app" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'contoso-app'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_FilterAndDisplayName_ShouldCombineWithAnd()
+    public async Task ProcessAsync_FilterAndDisplayName_ShouldCombineWithAnd()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator
         {
@@ -58,7 +59,7 @@ public class ListApplicationProcessor_OrchestratorTests
             DisplayName = "contoso-app",
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         var expected = "signInAudience eq 'AzureADMyOrg' and displayName eq 'contoso-app'";
@@ -66,32 +67,32 @@ public class ListApplicationProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_ShouldEscapeSingleQuotesInDisplayName()
+    public async Task ProcessAsync_ShouldEscapeSingleQuotesInDisplayName()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator { DisplayName = "o'brien" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'o''brien'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_SelectOnly_ShouldPassThrough()
+    public async Task ProcessAsync_SelectOnly_ShouldPassThrough()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator
         {
             Select = new[] { "displayName", "appId" },
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.ToString();
         Assert.Contains("$select=displayName%2CappId", uri);
     }
 
     [Fact]
-    public async Task SendAsync_ConsistencyLevel_ShouldFlowIntoAtomicHeader()
+    public async Task ProcessAsync_ConsistencyLevel_ShouldFlowIntoAtomicHeader()
     {
         var (orch, pipeline) = Create(new ListApplicationProcessor_Orchestrator
         {
@@ -99,7 +100,7 @@ public class ListApplicationProcessor_OrchestratorTests
             ConsistencyLevel = "eventual",
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var sent = pipeline.Sent.Single();
         Assert.True(sent.Headers.TryGetValues("ConsistencyLevel", out var values));

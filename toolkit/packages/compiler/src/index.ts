@@ -8,8 +8,9 @@
  * a single **linear sequence** — one IR flows from emit through every enabled
  * transform, and each generate stage renders it as it stands at that point. A
  * host's only orchestration verb is flipping an optional stage on or off through
- * `CompileConfig.pipeline`; it supplies *implementations* for declared ids
- * through `CompileOptions.registry`.
+ * `CompileConfig.pipeline`. The implementations behind the stage ids are
+ * compiler-owned too: transforms come from `@azure-client-engine/transformers`,
+ * and the external stages run through the host `Runtime`.
  *
  * Design contract (so a CLI *and* a web service can both consume it):
  *   - Inputs are data / an entrypoint, never assumed to be on disk.
@@ -24,7 +25,9 @@ export { compile } from "./compile.js";
 export {
   STAGE_CATALOG,
   TSP_EMIT_STAGE,
+  TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
+  CREATE_COMMAND_STAGE,
   CSHARP_STAGE,
   planStages,
   isStageEnabled,
@@ -49,20 +52,6 @@ export type {
   EmitArtifact,
   OutputDelegate,
 } from "./output.js";
-
-export {
-  createRegistry,
-  isValidStageId,
-  type CompilerRegistry,
-  type EmitProducerFactory,
-  type TransformStepFactory,
-  type GeneratorFactory,
-} from "./registry.js";
-
-export {
-  type TransformStep,
-  type TransformContext,
-} from "./transform.js";
 
 export type {
   EmitProducer,
@@ -97,8 +86,9 @@ export type {
 } from "./builtins/protocol.js";
 
 export {
-  noopGenerator,
   type Generator,
+  type GeneratorAcceptance,
+  type GeneratorInputIssue,
   type GeneratorContext,
   type GeneratedArtifact,
 } from "./generate.js";

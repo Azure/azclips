@@ -7,7 +7,6 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     { "path": "../compiler" },
-    { "path": "../transformers" },
     { "path": "../typespec-emitter" }
   ]
 }

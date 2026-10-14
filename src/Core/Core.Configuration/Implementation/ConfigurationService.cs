@@ -31,7 +31,7 @@ public sealed class ConfigurationService(
             var keyValidation = validator.ValidateKey(normalizedKey, force: true);
             if (!keyValidation.IsValid)
             {
-                throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+                throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
             }
         }
 
@@ -60,9 +60,9 @@ public sealed class ConfigurationService(
         }
         catch (Exception ex) when (IsInvalidJsonConfigurationException(ex))
         {
-            throw new InvalidOperationException(
+            throw AzclipsErrorException.InvalidInput(
                 $"Configuration file '{configFilePath}' contains invalid JSON. Fix or remove the file and try again.",
-                ex);
+                innerException: ex);
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
@@ -86,13 +86,13 @@ public sealed class ConfigurationService(
         var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
-            throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+            throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
         }
 
         var valueValidation = validator.ValidateValue(normalizedKey, value);
         if (!valueValidation.IsValid)
         {
-            throw new ArgumentException(valueValidation.ErrorMessage, nameof(value));
+            throw AzclipsErrorException.InvalidInput(valueValidation.ErrorMessage!);
         }
 
         await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
@@ -110,7 +110,7 @@ public sealed class ConfigurationService(
         var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
-            throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
+            throw AzclipsErrorException.InvalidInput(keyValidation.ErrorMessage!);
         }
 
         await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);

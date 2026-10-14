@@ -11,7 +11,12 @@ using System.Text.Json;
 
 public static class Pagination
 {
-    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    /// <summary>
+    /// Follows every <c>nextLink</c> and returns the accumulated items without writing them.
+    /// Use this when a caller needs to filter, sort or enrich the full result set before output;
+    /// use <see cref="WriteOutputWithPaginationAsync"/> when the raw set should go straight out.
+    /// </summary>
+    public static async Task<List<TItem>> CollectWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
     {
         HttpRequestMessage request = await getRequest();
         int page = 1;
@@ -39,8 +44,15 @@ public static class Pagination
                     throw;
                 }
                 string rawBody;
-                if (response.Content is null) await publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                bool sensitive = request.HasSensitiveDiagnostics() || response.RequestMessage.HasSensitiveDiagnostics();
+                if (response.Content is null)
+                    await publisher.Publish(Events.ResponseNoContent, sensitive
+                        ? "Response has no content. Sensitive details omitted."
+                        : $"response has no content for {response.RequestMessage?.RequestUri}");
+                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
+                    await publisher.Publish(Events.ResponseEmptyBody, sensitive
+                        ? "Response has empty body. Sensitive details omitted."
+                        : $"response has empty body for {response.RequestMessage?.RequestUri}");
                 else
                 {
                     try
@@ -49,16 +61,30 @@ public static class Pagination
                     }
                     catch (JsonException)
                     {
+                        if (sensitive)
+                        {
+                            await publisher.Publish(Events.ResponseInvalidJson, "Response has invalid JSON. Sensitive details omitted.");
+                            throw new InvalidOperationException("Failed to deserialize the response. Sensitive details omitted.");
+                        }
                         await publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
                         throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TBody).Name}. Raw body: {rawBody}");
                     }
                 }
             }
-            await writeOutput(batchedItems);
+            return batchedItems;
         }
         finally
         {
             request.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Follows every <c>nextLink</c> and writes the accumulated items as a single batch.
+    /// </summary>
+    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    {
+        List<TItem> batchedItems = await body.CollectWithPaginationAsync(pageItems, nextLink, getRequest, publisher, httpPipeline, jsonOptions);
+        await writeOutput(batchedItems);
     }
 }

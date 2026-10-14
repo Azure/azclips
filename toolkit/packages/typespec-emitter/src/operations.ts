@@ -11,6 +11,8 @@
  */
 
 import { NoTarget } from "@typespec/compiler";
+import type { Operation } from "@typespec/compiler";
+import { getClientLocation } from "@azure-tools/typespec-client-generator-core";
 import type {
   SdkClientType,
   SdkHttpOperation,
@@ -45,6 +47,27 @@ function clampHttpMethod(verb: string): HttpMethod | undefined {
   return VALID_HTTP_METHODS.has(up) ? (up as HttpMethod) : undefined;
 }
 
+/**
+ * The group `@clientLocation` explicitly moved this operation to, or `undefined`
+ * when it sits where it was declared.
+ *
+ * TCGC resolves the decorator for this emitter's scope, so a spec that scopes a
+ * relocation (`"!csharp"`) is honoured or ignored automatically. The target is a
+ * string, an `Interface`, or a `Namespace`; all three name a group, so all three
+ * reduce to that name.
+ *
+ * Only an *explicit* relocation is carried. TCGC also reports a default placement
+ * through the client tree, but that merely restates the declaration site, which
+ * `id.interface` already records — passing it on would make the two
+ * indistinguishable and lose exactly the authored signal this field exists for.
+ */
+function clientLocationOf(ctx: BuildContext, raw: Operation): string | undefined {
+  const location = getClientLocation(ctx.sdkContext, raw);
+  if (location === undefined) return undefined;
+  const name = typeof location === "string" ? location : location.name;
+  return name.length > 0 ? name : undefined;
+}
+
 function methodToOperation(
   ctx: BuildContext,
   method: SdkServiceMethod<SdkHttpOperation>,
@@ -67,6 +90,7 @@ function methodToOperation(
   }
 
   const id = operationIdFor(ctx, method.__raw ?? method.operation.__raw.operation);
+  const clientLocation = clientLocationOf(ctx, method.__raw ?? method.operation.__raw.operation);
   const body = bodyFrom(ctx, http, method.name);
   if (!body.ok) return undefined; // streaming-body-dropped already reported
 
@@ -100,6 +124,7 @@ function methodToOperation(
     responses,
     apiVersion,
     server,
+    ...(clientLocation !== undefined ? { clientLocation } : {}),
     ...(semantics !== undefined ? { semantics } : {}),
     ...(method.doc !== undefined ? { docs: method.doc } : {}),
     ...(method.summary !== undefined ? { summary: method.summary } : {}),

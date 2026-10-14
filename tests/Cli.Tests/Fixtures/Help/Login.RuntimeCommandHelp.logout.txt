@@ -5,10 +5,6 @@ Sign out of the active profile.
 # ARGUMENTS
 (none)
 
-# EXAMPLES
-1. Sign out
-az logout
-
 # GLOBAL ARGUMENTS
 --debug:
 Increase logging verbosity to show all debug logs.
@@ -24,3 +20,7 @@ Output format.
 
 --query:
 JMESPath query string to filter/project the command result before rendering.
+
+# EXAMPLES
+1. Sign out
+$ az logout

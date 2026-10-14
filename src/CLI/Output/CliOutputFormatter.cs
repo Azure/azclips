@@ -52,13 +52,14 @@ internal static class CliOutputFormatter
         object? value,
         OutputFormat format = OutputFormat.Json,
         bool colorPolicyAllowsColor = false,
-        string? query = null)
+        string? query = null,
+        int? terminalWidth = null)
     {
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 
         var json = ComputeJson(value, query);
-        return RenderFormattedJson(json, format, colorPolicyAllowsColor);
+        return RenderFormattedJson(json, format, colorPolicyAllowsColor, terminalWidth);
     }
 
     /// <summary>
@@ -72,13 +73,14 @@ internal static class CliOutputFormatter
         OutputFormat complexFormat,
         OutputFormat simpleFormat,
         bool colorPolicyAllowsColor,
-        string? query)
+        string? query,
+        int? terminalWidth = null)
     {
         if (TryFormatWithoutRendering(value, query, out var raw))
             return raw;
 
         var json = ComputeJson(value, query);
-        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor);
+        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor, terminalWidth);
     }
 
     /// <summary>
@@ -133,14 +135,14 @@ internal static class CliOutputFormatter
         IsScalarJsonLiteral(json) ? simpleFormat : complexFormat;
 
 
-    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor)
+    private static string RenderFormattedJson(string json, OutputFormat format, bool colorPolicyAllowsColor, int? terminalWidth)
     {
         if (format is OutputFormat.Jsonc && IsScalarJsonLiteral(json))
             return json;
 
         return format switch
         {
-            OutputFormat.Table => TableFormatter.Format(json),
+            OutputFormat.Table => TableFormatter.Format(json, terminalWidth),
             OutputFormat.Tsv => TsvFormatter.Format(json),
             OutputFormat.Yaml => YamlFormatter.Format(json),
             OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),

@@ -8,22 +8,49 @@
 # - commit-message.prefix sets the start of the commit message and PR title. The
 #   trailing space in the prefix stops Dependabot from inserting a ":" after it, so
 #   titles read like "{Packaging} bump <dep> from x to y" and satisfy the check.
-# - open-pull-requests-limit: 0 disables version updates, preserving the current
-#   behavior of security-updates-only while still applying the prefix to those PRs.
-#   Increase this value later if you also want scheduled version-update PRs.
+# - Each ecosystem checks weekly for minor and patch version updates. Routine
+#   major updates are ignored so engineers can opt in to breaking changes.
+# - open-pull-requests-limit bounds the number of concurrent version-update PRs.
+#   Security-update PRs are not subject to this limit.
+# - Routine npm and NuGet updates for the same dependency are grouped across
+#   directories. Security updates remain separate from version-update groups.
+# - TypeSpec packages move as a family to preserve peer compatibility. Packages
+#   with mixed major constraints or exact pins stay outside cross-directory groups.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directories:
       - "/toolkit"
-      - "/toolkit/packages/cli"
-      - "/toolkit/packages/compiler"
-      - "/toolkit/packages/ir"
-      - "/toolkit/packages/typespec-emitter"
+      - "/toolkit/packages/*"
       - "/wiki"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
+    groups:
+      # TypeSpec packages publish coordinated peer dependency ranges. Updating one
+      # package alone can leave npm with an incompatible mix of release lines.
+      typespec-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "@azure-tools/typespec-*"
+          - "@typespec/*"
+      npm-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        # Cross-directory grouping can normalize every manifest to one constraint.
+        # Keep mixed-major and exact-pinned dependencies as independent updates.
+        exclude-patterns:
+          - "@azure-tools/typespec-*"
+          - "@typespec/*"
+          - "@types/node"
+          - "js-yaml"
+          - "vitest"
+        group-by: "dependency-name"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{Packaging} "
 
@@ -32,7 +59,29 @@ updates:
       - "/**/*"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
+    groups:
+      nuget-dependencies:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        group-by: "dependency-name"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    commit-message:
+      prefix: "{Packaging} "
+
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{Packaging} "
 
@@ -40,6 +89,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "{DevOps} "

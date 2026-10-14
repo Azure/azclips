@@ -12,6 +12,8 @@ namespace Extensions.MsGraph.Tests;
 /// atomic <c>ListUserProcessor</c>: convenience filter shortcuts (DisplayName, Mail,
 /// DisplayNamePrefix, UserPrincipalName), the <c>AppendSelected</c> defaults merge, OData
 /// escaping, and combining caller-supplied Filter with the shortcuts using OData <c>and</c>.
+/// Driven through <c>ProcessAsync</c> (the real entry point) so the request produced by the
+/// delegated atomic is observed.
 /// </summary>
 public class ListUserProcessor_OrchestratorTests
 {
@@ -22,16 +24,16 @@ public class ListUserProcessor_OrchestratorTests
     {
         var pipeline = new FakeGraphHttpPipeline(
             _ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}"));
-        orch.WithFakeContext(pipeline, NoOpPublisher());
+        orch.WithCapturingContext(pipeline, NoOpPublisher());
         return (orch, pipeline);
     }
 
     [Fact]
-    public async Task SendAsync_NoInputs_ShouldTargetUsersEndpointWithNoQuery()
+    public async Task ProcessAsync_NoInputs_ShouldTargetUsersEndpointWithNoQuery()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator());
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var sent = Assert.Single(pipeline.Sent);
         Assert.Equal(HttpMethod.Get, sent.Method);
@@ -39,54 +41,54 @@ public class ListUserProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_DisplayName_ShouldEmitEqualsFilter()
+    public async Task ProcessAsync_DisplayName_ShouldEmitEqualsFilter()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator { DisplayName = "Ada Lovelace" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'Ada Lovelace'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_Mail_ShouldEmitEqualsFilter()
+    public async Task ProcessAsync_Mail_ShouldEmitEqualsFilter()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator { Mail = "ada@contoso.com" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("mail eq 'ada@contoso.com'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_UserPrincipalName_ShouldEmitEqualsFilter()
+    public async Task ProcessAsync_UserPrincipalName_ShouldEmitEqualsFilter()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator
         {
             UserPrincipalName = "ada@contoso.com",
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("userPrincipalName eq 'ada@contoso.com'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_DisplayNamePrefix_ShouldEmitStartswithFilter()
+    public async Task ProcessAsync_DisplayNamePrefix_ShouldEmitStartswithFilter()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator { DisplayNamePrefix = "Ad" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("startswith(displayName,'Ad')"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_FilterAndShortcuts_ShouldCombineWithAnd()
+    public async Task ProcessAsync_FilterAndShortcuts_ShouldCombineWithAnd()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator
         {
@@ -95,7 +97,7 @@ public class ListUserProcessor_OrchestratorTests
             Mail = "ada@contoso.com",
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         var expected = "accountEnabled eq true and displayName eq 'Ada' and mail eq 'ada@contoso.com'";
@@ -103,18 +105,18 @@ public class ListUserProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_ShouldEscapeSingleQuotesInFilterShortcuts()
+    public async Task ProcessAsync_ShouldEscapeSingleQuotesInFilterShortcuts()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator { DisplayName = "O'Brien" });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.OriginalString;
         Assert.Contains(Uri.EscapeDataString("displayName eq 'O''Brien'"), uri);
     }
 
     [Fact]
-    public async Task SendAsync_AppendSelected_ShouldMergeDefaultsWithCallerSelect()
+    public async Task ProcessAsync_AppendSelected_ShouldMergeDefaultsWithCallerSelect()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator
         {
@@ -122,7 +124,7 @@ public class ListUserProcessor_OrchestratorTests
             AppendSelected = true,
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.ToString();
         Assert.Contains("displayName", uri);
@@ -131,21 +133,21 @@ public class ListUserProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task SendAsync_SelectOnly_ShouldPassThrough()
+    public async Task ProcessAsync_SelectOnly_ShouldPassThrough()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator
         {
             Select = new[] { "id", "displayName" },
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var uri = pipeline.Sent.Single().RequestUri!.ToString();
         Assert.Contains("$select=id%2CdisplayName", uri);
     }
 
     [Fact]
-    public async Task SendAsync_ConsistencyLevel_ShouldFlowIntoAtomicHeader()
+    public async Task ProcessAsync_ConsistencyLevel_ShouldFlowIntoAtomicHeader()
     {
         var (orch, pipeline) = Create(new ListUserProcessor_Orchestrator
         {
@@ -153,7 +155,7 @@ public class ListUserProcessor_OrchestratorTests
             ConsistencyLevel = "eventual",
         });
 
-        using var _ = await orch.InvokeSendAsync();
+        await orch.ProcessAsync();
 
         var sent = pipeline.Sent.Single();
         Assert.True(sent.Headers.TryGetValues("ConsistencyLevel", out var values));

@@ -68,6 +68,10 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public object? UriParameters { get; set; }
 
+    /// <summary>Use the named profile for this command, overriding the active profile.</summary>
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
@@ -121,6 +125,10 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(UriParameters)) && UriParameters is not null)
         {
             parameters.Add("UriParameters", RestProcessor_Orchestrator.NormalizeKeyValue(UriParameters));
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

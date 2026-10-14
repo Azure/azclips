@@ -8,6 +8,7 @@ using Core.ArgumentParsing;
 using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
 namespace Cmdlets.Tests;
@@ -72,6 +73,58 @@ public class ConnectAccountCmdletTests
             Assert.NotNull(property);
             Assert.NotEmpty(property!.GetCustomAttributes(typeof(ParameterAttribute), inherit: true));
         }
+    }
+
+    [Fact]
+    public void Cmdlet_OutputType_ShouldUseProfileResultProjection()
+    {
+        var outputType = (OutputTypeAttribute)typeof(ConnectAccountCmdlet)
+            .GetCustomAttributes(typeof(OutputTypeAttribute), inherit: true)
+            .Single();
+
+        Assert.Contains(
+            outputType.Type,
+            typeName => string.Equals(
+                typeName.Name,
+                "Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProfileResult_ShouldOmitRuntimeMetadata()
+    {
+        var profile = new Profile
+        {
+            Name = "prod",
+            TenantId = "tenant-1",
+            SubscriptionId = ValidSubscriptionId,
+            CloudName = "AzureCloud",
+            AuthMethod = AuthMethod.Browser,
+            DefaultLocation = "westus",
+            DefaultResourceGroup = "rg",
+            UserPrincipalName = "user@microsoft.com",
+            ClientId = "client-1",
+            ManagedIdentityId = "MSIObject@22222222-2222-2222-2222-222222222222",
+            Metadata = new ProfileRuntimeMetadata
+            {
+                EntraObjectId = "33333333-3333-3333-3333-333333333333",
+            },
+        };
+
+        var output = ProfileResult.From(profile);
+
+        Assert.Equal(profile.Name, output.Name);
+        Assert.Equal(profile.TenantId, output.TenantId);
+        Assert.Equal(profile.SubscriptionId, output.SubscriptionId);
+        Assert.Equal(profile.CloudName, output.CloudName);
+        Assert.Equal(profile.AuthMethod, output.AuthMethod);
+        Assert.False(output.IsActive);
+        Assert.Equal(profile.DefaultLocation, output.DefaultLocation);
+        Assert.Equal(profile.DefaultResourceGroup, output.DefaultResourceGroup);
+        Assert.Equal(profile.UserPrincipalName, output.UserPrincipalName);
+        Assert.Equal(profile.ClientId, output.ClientId);
+        Assert.Equal(profile.ManagedIdentityId, output.ManagedIdentityId);
+        Assert.Null(typeof(ProfileResult).GetProperty("Metadata"));
     }
 
     [Fact]

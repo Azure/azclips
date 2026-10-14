@@ -31,6 +31,7 @@ Use the `linux-musl` archives on musl-based distributions such as Alpine Linux. 
 | Linux with glibc on Arm64 | `azcli-lean-<version>-linux-arm64.tar.gz` | `azcli-<version>-linux-arm64.tar.gz` |
 | Linux with musl on Intel/AMD 64-bit | `azcli-lean-<version>-linux-musl-x64.tar.gz` | `azcli-<version>-linux-musl-x64.tar.gz` |
 | Linux with musl on Arm64 | `azcli-lean-<version>-linux-musl-arm64.tar.gz` | `azcli-<version>-linux-musl-arm64.tar.gz` |
+| macOS on Intel | `azcli-lean-<version>-macos-x86_64.tar.gz` | `azcli-<version>-macos-x86_64.tar.gz` |
 | macOS on Apple Silicon | `azcli-lean-<version>-macos-arm64.tar.gz` | `azcli-<version>-macos-arm64.tar.gz` |
 
 Both packages are self-contained — you do not need the .NET SDK to run them.

@@ -1,0 +1,55 @@
+name: Refresh recordings
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: Only refresh scenario classes whose name contains this
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency: refresh-recordings
+
+jobs:
+  refresh:
+    runs-on: [self-hosted, live-recorder]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # A PR opened with the automatic token never triggers its own checks; a
+          # LIVE_REFRESH_TOKEN secret (fine-grained PAT, contents and pull requests
+          # write) makes the refresh PR run CI like any other.
+          token: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
+
+      - name: Build and sign in
+        run: |
+          dotnet build azclips.slnx
+          ./artifacts/Debug/Core.Cli/az login --identity --subscription-id "${{ vars.LIVE_TEST_SUBSCRIPTION_ID }}"
+
+      - name: Refresh stale recordings
+        run: python3 devops/scripts/live/refresh_recordings.py --filter "${{ inputs.filter }}"
+
+      - name: Open a pull request
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
+        run: |
+          if git diff --quiet -- tests; then
+            echo "No recordings were rewritten."
+            exit 0
+          fi
+          branch="live/recording-refresh-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add tests/Scenario.Tests/SessionRecords
+          git commit -m "Refresh stale scenario recordings"
+          git push origin "$branch"
+          gh pr create --title "{Tests} Refresh stale scenario recordings" --body-file refresh-summary.md --base main --head "$branch"
