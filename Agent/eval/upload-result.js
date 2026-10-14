@@ -192,7 +192,13 @@ function checkedServiceUrl(serviceUrl) {
 }
 
 async function checkedFetch(fetchImpl, url, options, operation) {
-  const response = await fetchImpl(url, options);
+  // Never follow redirects: a 307/308 would resend the token-bearing request and its body elsewhere.
+  const response = await fetchImpl(url, { ...options, redirect: 'manual' });
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(
+      `${operation} was redirected (HTTP ${response.status}); redirects are not followed, so nothing was sent to the new address.`,
+    );
+  }
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(`${operation} failed with HTTP ${response.status}: ${detail}`);

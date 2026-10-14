@@ -395,7 +395,8 @@ the wrapper preserves Promptfoo's nonzero exit code. Process failures such as a
 timeout or a missing executable are execution errors, not ordinary quality
 scores. Upload failures are reported explicitly. The upload client sends its
 token only to an HTTPS service URL (plain HTTP only for localhost), and it uploads
-the artifact only to an upload URL on the service's own origin.
+the artifact only to an upload URL on the service's own origin. Neither the
+upload client nor the Judge follows HTTP redirects.
 
 Upload metadata identifies the current checkout or CI source revision, not the
 provenance of an arbitrary executable. Verify that `-AzclipsExe` points to the

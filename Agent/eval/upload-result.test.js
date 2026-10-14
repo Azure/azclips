@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
@@ -306,6 +307,36 @@ test('does not send the artifact or credentials to an upload URL on another orig
     ['PUT', 'https://evaluation.example/api/v1/projects'],
     ['POST', 'https://evaluation.example/api/v1/runs'],
   ]);
+});
+
+test('does not follow a redirect from the evaluation service', async (context) => {
+  const listen = (handler) => new Promise((resolve) => {
+    const server = http.createServer(handler);
+    server.listen(0, '127.0.0.1', () => resolve(server));
+  });
+  let forwarded = 0;
+  const other = await listen((_request, response) => {
+    forwarded += 1;
+    response.end();
+  });
+  const service = await listen((_request, response) => {
+    response.writeHead(307, { location: `http://127.0.0.1:${other.address().port}/collect` });
+    response.end();
+  });
+  context.after(() => {
+    other.close();
+    service.close();
+  });
+  await assert.rejects(
+    registerEvaluationArtifact({
+      artifactPath: writeMinimalArtifact(context),
+      serviceUrl: `http://127.0.0.1:${service.address().port}`,
+      authorization: 'Bearer test-token',
+      env: pipelineEnvironment,
+    }),
+    /Registering project schema was redirected \(HTTP 307\)/,
+  );
+  assert.equal(forwarded, 0);
 });
 
 test('reports a run-creation response without an upload URL instead of uploading', async (context) => {

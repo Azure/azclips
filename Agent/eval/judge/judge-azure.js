@@ -208,10 +208,12 @@ class JudgeAzureProvider {
       attempts += 1;
       requestStartedAt = Date.now();
       try {
+        // Never follow redirects: a 307/308 would resend the grading evidence to another address.
         res = await fetch(url, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+          redirect: 'manual',
           signal: AbortSignal.timeout(this.timeoutMs),
         });
       } catch (error) {
@@ -225,6 +227,9 @@ class JudgeAzureProvider {
       }
       if (res.ok || !TRANSIENT_JUDGE_STATUS.has(res.status) || attempts >= MAX_JUDGE_ATTEMPTS) break;
       await this._sleep(judgeRetryDelayMs(res, attempts));
+    }
+    if (res.status >= 300 && res.status < 400) {
+      return { error: `Azure judge endpoint returned a redirect (HTTP ${res.status}); the grading request was not sent to another address. Configure the final endpoint URL.` };
     }
     if (!res.ok) {
       return { error: `Azure judge returned HTTP ${res.status} after ${attempts} attempt${attempts === 1 ? '' : 's'}. Check the deployment, API version, and Cognitive Services inference permissions.` };
