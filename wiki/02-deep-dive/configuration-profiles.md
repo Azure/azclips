@@ -318,7 +318,7 @@ require a resolved `Profile` on the context:
 
 | Command             | Processor                | Behavior                                                                                     |
 | ------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileSummary` projection                |
+| `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileResult` projection                 |
 | `az profile show`   | `ProfileShowProcessor`   | Shows one profile by name **or** the active one (`--active`); the two are mutually exclusive |
 | `az profile set`    | `ProfileSetProcessor`    | Sets the active pointer; **validates existence, no re-auth**                                 |
 | `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to default**)      |

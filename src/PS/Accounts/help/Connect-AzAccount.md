@@ -354,9 +354,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Core.Abstractions.Profile
+### Microsoft.Azure.Azclips.Extensions.Accounts.Models.ProfileResult
 
-The activated profile object (name, tenant ID, subscription ID, cloud, authentication method) after successful sign-in. Also persisted to the on-disk profile store; use `Get-AzProfile` later to enumerate saved profiles.
+The activated profile projection (name, tenant ID, subscription ID, cloud, authentication method) after successful sign-in. The underlying profile is also persisted to the on-disk profile store; use `Get-AzProfile` later to enumerate saved profiles.
 
 ## NOTES
 
