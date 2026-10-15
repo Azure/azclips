@@ -1,6 +1,6 @@
 # aceconfig.yaml: the Generation-Time Configuration File
 
-> **Status:** Proposed — layout agreed in discussion; partly implemented (see [Phasing](#phasing-non-binding)). _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition; 2026-10-15: fewer facts, positional config file)_
+> **Status:** Implemented, except multiple entrypoints (phase 5, see [Phasing](#phasing-non-binding)); the interfaces described here are current. _(2026-10-06; revised 2026-10-07: `seed-ir`; 2026-10-12: `seed-ir` order and stage config checks; 2026-10-14: source acquisition; 2026-10-15: fewer facts, positional config file, a config file required)_
 >
 > **Scope:** how a run of the Azure Client Engine (ACE) is configured: the file a
 > user writes for each generated extension, how the `ace` CLI reads it, and what
@@ -8,7 +8,7 @@
 > out of scope (see [Deferred](#deferred-recorded-not-designed-now)).
 >
 > This is a decision record of a design discussion. It captures the direction and
-> the rationale; it is **not** an implementation plan and does not change code yet.
+> the rationale; dated notes record what was implemented, and when.
 
 ## Summary
 
@@ -201,8 +201,8 @@ stages:
 | `output-dir` | folder, relative to this file | this file's folder | CLI: output root; staging under `<output-dir>/source` |
 | `tsp-location` | folder inside a specs repo, relative to this file | — (required unless `--tsp-location` is given) | CLI: the directory to copy |
 | `additional-directories[]` | folder not under `tsp-location`, relative to `tsp-location` or absolute | none | CLI: copied at its repo-relative path, or by name directly under `<output-dir>/source` when outside the specs repo |
-| `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | `tsp-location` itself, with a single entrypoint (see [Open details](#open-details-proposed-defaults-confirm-when-implementing)) | CLI (staging), `tsp-emit` |
-| `entrypoints[].api-version` | a version, `latest`, or `all` | see [Open details](#open-details-proposed-defaults-confirm-when-implementing) | `tsp-emit` |
+| `entrypoints[].path` | `.tsp` file or folder, relative to `tsp-location` | `tsp-location` itself, with a single entrypoint (see [Settled details](#settled-details)) | CLI (staging), `tsp-emit` |
+| `entrypoints[].api-version` | a version, `latest`, or `all` | see [Settled details](#settled-details) | `tsp-emit` |
 | `service-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `root-namespace` | dotted namespace | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
 | `project-name` | string | see [seed-ir](#seed-ir) | `seed-ir` → IR `target` |
@@ -419,7 +419,7 @@ from aceconfig (see [Decisions](#source-acquisition-decisions-2026-10-14)).
    entrypoint as a path: it must be under `tsp-location`, exist, and be copied.
    What it means to TypeSpec (a folder compiles its `main.tsp`) is the emit
    side's concern; the CLI and the compiler do not check it (decided
-   2026-10-14, see [Open details](#open-details-proposed-defaults-confirm-when-implementing)).
+   2026-10-14, see [Settled details](#settled-details)).
 
 **Test escape hatch.** With `ACE_ALLOW_STANDALONE_SPEC=1`, a `tsp-location`
 outside any specs repo is copied flat into `<output-dir>/source`, as staging did
@@ -503,8 +503,8 @@ In azure-rest-api-specs (at `b91dabc3`), the 32 tspconfigs that declare
 emitter's, the section AzDev reads. They list 169 `specification/...` paths with
 no `{...}` variables, 156 of them outside the tspconfig's folder, at siblings such
 as `Contoso.WidgetManager.Shared`. 3 entries in Foundry's `sdk-agents` point at
-folders that were never in git. Today's flat copy fails on such specs:
-`Contoso.WidgetManager` stops at
+folders that were never in git. The flat copy that staging made until 2026-10-14
+failed on such specs: `Contoso.WidgetManager` stopped at
 `import-not-found: "../Contoso.WidgetManager.Shared"`.
 
 ## Merging entrypoints
@@ -738,7 +738,9 @@ toolkit root.
   among them: it is decided at release (see
   [Facts removed](#facts-removed-decided-2026-10-15)).
 
-## Open details (proposed defaults; confirm when implementing)
+## Settled details
+
+Each item is decided, unless it names what will decide it.
 
 - **`entrypoints` omitted:** one entrypoint, `tsp-location` itself (today's
   `--entrypoint` default). Implemented 2026-10-13.

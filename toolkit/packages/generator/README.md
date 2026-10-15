@@ -134,11 +134,13 @@ The config file (`./aceconfig.yaml` when no path is given; a run without one
 fails) names the spec, its entrypoint and the output folder, plus the document
 facts and per-stage settings; the flags override its run inputs. See
 [Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
-`--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
-its containing directory). It must be inside an azure-rest-api-specs checkout,
-and lands at its path in the repo, under `<dir>/source/specification/...`.
-`--entrypoint` selects the `.tsp` file or directory to compile inside that copy —
-absolute, or relative to the copied directory — and defaults to `--tsp-location`.
+`tsp-location` (or `--tsp-location`) is the directory copied into `<dir>/source` (a
+`.tsp` file copies its containing directory). It must be inside an
+azure-rest-api-specs checkout, and lands at its path in the repo, under
+`<dir>/source/specification/...`. The entrypoint (`entrypoints[].path`, or
+`--entrypoint`) selects the `.tsp` file or directory to compile inside that copy —
+absolute, or relative to the copied directory — and is `tsp-location` itself when
+neither names one.
 A sibling the spec imports, such as `../Contoso.Widgets.Shared`, is listed in the
 config file's `additional-directories` and lands at its own path in the repo, so
 the import resolves. `<dir>/source` must not overlap any copied directory.
