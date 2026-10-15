@@ -127,12 +127,12 @@ job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
 
 ```bash
 ace compile [aceconfig.yaml]                              # the extension's config file, or a folder holding one
-ace compile --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>
+ace compile [aceconfig.yaml] --tsp-location <spec> [--entrypoint <path>] --out-dir <dir>   # flags override its run inputs
 ```
 
-The config file (`./aceconfig.yaml` when no path is given) names the spec,
-its entrypoint and the output folder, plus the document facts and per-stage
-settings; the flags override its run inputs. See
+The config file (`./aceconfig.yaml` when no path is given; a run without one
+fails) names the spec, its entrypoint and the output folder, plus the document
+facts and per-stage settings; the flags override its run inputs. See
 [Configuration](../../README.md#configuration-aceconfigyaml) in the toolkit README.
 `--tsp-location` is the directory copied into `<dir>/source` (a `.tsp` file copies
 its containing directory). It must be inside an azure-rest-api-specs checkout,

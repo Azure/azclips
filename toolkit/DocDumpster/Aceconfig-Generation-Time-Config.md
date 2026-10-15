@@ -154,7 +154,9 @@ unless the file disables it. The CLI keeps today's flags as overrides for now.
     identity: `--root-namespace` is removed (2026-10-12). `--generator` is
     removed. The file is named by the command's one positional argument,
     `ace compile [<config>]`, a file or a folder holding `aceconfig.yaml`;
-    `--config` is removed (2026-10-15). Whether to retire the
+    `--config` is removed (2026-10-15). A run always has a file: without the
+    argument it is the current directory's `aceconfig.yaml`, and a run without one
+    is an error (2026-10-15). Whether to retire the
     remaining run-input flags is decided later. See [CLI](#cli).
 
 ## The file
@@ -528,7 +530,7 @@ folders that were never in git. Today's flat copy fails on such specs:
 
 | Flag | Effect |
 |---|---|
-| `<config>` (positional) | the `aceconfig.yaml` to use, or a folder holding one; without it, `./aceconfig.yaml` when present. Replaced `--config` on 2026-10-15 |
+| `<config>` (positional) | the `aceconfig.yaml` to use, or a folder holding one; without it, `./aceconfig.yaml`, which must exist. Replaced `--config` on 2026-10-15 |
 | `--tsp-location <path>` | overrides `tsp-location` |
 | `--entrypoint <path>` | overrides `entrypoints` with a single entry (still temporary) |
 | `--api-version <v>` | overrides the API version; allowed only with a single entrypoint |
@@ -541,10 +543,13 @@ folders that were never in git. Today's flat copy fails on such specs:
 - **Path resolution:** relative paths in flags resolve against the current
   directory; relative paths in the file resolve against the file's folder.
   `--entrypoint` stays relative to `tsp-location`.
-- **No file:** without a config argument or `./aceconfig.yaml`, flags alone work
-  as today, except that `--out-dir` is required (2026-10-12). The CLI wipes
-  generated folders in the output directory, so it never defaults to the
-  current one.
+- **A file is required (decided 2026-10-15):** without a config argument,
+  `ace compile` reads the current directory's `aceconfig.yaml`, and fails (exit
+  code 2) when there is none. Flags only override a file's run inputs, and
+  `output-dir` always has a default, the file's folder. Until then, flags alone
+  could run without a file, with `--out-dir` required (2026-10-12): the CLI wipes
+  generated folders in the output directory, so it never defaulted to the current
+  one.
 - **The config argument (decided 2026-10-15):** `ace compile ../../aceconfig.yaml`
   needs no flag name. A relative path resolves against the current directory. A
   folder means the `aceconfig.yaml` in it, so `ace compile ../ext` works too.
@@ -595,7 +600,8 @@ Each party takes the keys it knows (decision 8).
     becomes a CLI dependency.
   - **Finding the file:** `--config <path>`, relative to the current directory;
     else `./aceconfig.yaml` when it exists; else no file. Since 2026-10-15 the
-    path is the positional argument, and may name a folder.
+    path is the positional argument, and may name a folder, and no file is an
+    error.
   - **Parsing:** YAML 1.2, so a JSON file also parses. A syntax error or a
     duplicate key stops the run and names `file:line:col`. The top level must
     be a map.
@@ -614,7 +620,7 @@ Each party takes the keys it knows (decision 8).
   - **Flags:** `--tsp-location` and `--out-dir` (relative to the current
     directory), `--entrypoint` and `--api-version` override the file; a flag
     beats the file, which beats the default. With no file, `--tsp-location` and
-    `--out-dir` are required.
+    `--out-dir` are required. (Since 2026-10-15 a run always has a file.)
   - **Hand-off:** staging receives absolute paths, and the additional
     directories as written; `compile()` receives the entrypoint, its API
     version, and every other key untouched.
