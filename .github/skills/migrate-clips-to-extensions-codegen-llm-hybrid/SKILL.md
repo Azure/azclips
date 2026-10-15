@@ -40,24 +40,24 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Ask user to provide a temporary output location `<output-path>`, otherwise fallback to: `<output-path> = <project-root>/../tsp-output/<extension-name>`
 	- ensure the output directory exists: `mkdir -p <output-path>`
 	- Create `aceconfig.yaml` under `<output-path>` following below template
-	```
-	schema-version: 1
+    ```yaml
+    schema-version: 1
 
-	# Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
-	output-dir: .                            # default: this file's folder
-	tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/compute/resource-manager/Microsoft.Compute/Compute
-	# additional-directories:                # folders the compile needs, not under tsp-location
-	#   - ../Shared                          # relative to tsp-location, or absolute
-	entrypoints:                             # relative to tsp-location
-		- path: ./Compute
-			api-version: 2026-03-01
+    # Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
+    output-dir: .                            # default: this file's folder
+    tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/compute/resource-manager/Microsoft.Compute/Compute
+    # additional-directories:                # folders the compile needs, not under tsp-location
+    #   - ../Shared                          # relative to tsp-location, or absolute
+    entrypoints:                             # relative to tsp-location
+      - path: ./Compute
+        api-version: 2026-03-01
 
-	# Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
-	service-name: Compute
-	root-namespace: Microsoft.Azure.Azclips.Extensions.Compute
-	project-name: Microsoft.Azure.Azclips.Extensions.Compute
-	description: Compute extension for AzClips
-	```
+    # Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
+    service-name: Compute
+    root-namespace: Microsoft.Azure.Azclips.Extensions.Compute
+    project-name: Microsoft.Azure.Azclips.Extensions.Compute
+    description: Compute extension for AzClips
+    ```
 
 5. **Generate extensions from selected API using raw codegen toolkit**
 	- Replace `service-name` in `aceconfig.yaml` with `<extension-name>` and update `root-namespace`, `project-name`, and `description` accordingly.
