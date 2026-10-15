@@ -55,3 +55,9 @@ stages:
       PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
       signed_artifact_name: ${{ parameters.signed_artifact_name }}
       simulation_artifact_prefix: Validate_Signed
+
+  - template: ../jobs/validate-signed-powershell.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}
