@@ -63,9 +63,9 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Replace `service-name` in `aceconfig.yaml` with `<extension-name>` and update `root-namespace`, `project-name`, and `description` accordingly.
 	- Ask user to provide spec path or detail for the API they want to generate extensions for, need to specify management plane or data plane explicitly.
 	- Locate API spec: 
-		- management plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>/resource-manager/<rp-full-name>/<service-name>`
-		- data plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>/data-plane/<service-name>`
-	- If typespec not found from `tsp-location` under `aceconfig.yaml`, search `https://github.com/Azure/azure-rest-api-specs/specification/<rp-name>` for typespec, and let user choose if found any. Once confirmed, update `tsp-location` accordingly.
+		- management plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/tree/main/specification/<rp-name>/resource-manager/<rp-full-name>/<service-name>`
+		- data plane: `<spec-path> = https://github.com/Azure/azure-rest-api-specs/tree/main/specification/<rp-name>/data-plane/<service-name>`
+	- If typespec not found from `tsp-location` under `aceconfig.yaml`, search `https://github.com/Azure/azure-rest-api-specs/tree/main/specification/<rp-name>` for typespec, and let user choose if found any. Once confirmed, update `tsp-location` accordingly.
 	- Let user decide which API version to use for the extension. Fallback to latest stable version if not specified. Update `aceconfig.yaml` accordingly.
 	- `cd <output-path>`
 	- generate raw extensions: `node <project-root>/toolkit/packages/cli/dist/src/cli.js compile`
