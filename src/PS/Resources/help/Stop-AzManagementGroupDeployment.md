@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/12/2026
+ms.date: 10/15/2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzManagementGroupDeployment
 ---
@@ -34,7 +34,7 @@ Stop-AzManagementGroupDeployment -Id <string> [-PassThru] [-Pre] [-Profile <stri
 ### StopByInputObject
 
 ```
-Stop-AzManagementGroupDeployment -InputObject <PSDeployment> [-PassThru] [-Profile <string>]
+Stop-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -135,7 +135,7 @@ A deployment object returned by `Get-AzManagementGroupDeployment`.
 The deployment object.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -289,7 +289,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 Accepts a management-group deployment object from the pipeline.
 

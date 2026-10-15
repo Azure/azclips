@@ -85,22 +85,13 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
 
     // POST whatIf. ARM polls it through Location; a template error comes back as status "Failed", which legacy
     // clients return as the result, so the failed polling response is used instead of the runtime LRO error.
-    protected async Task<HttpResponseMessage> SendWhatIfAsync(ScopedDeploymentWhatIf body)
-    {
-        try
+    protected Task<HttpResponseMessage> SendWhatIfAsync(ScopedDeploymentWhatIf body) =>
+        CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
         {
-            return await CreateExtendedProcessor<WhatIfAtManagementGroupScopeDeploymentsProcessor>(p =>
-            {
-                p.GroupId = ManagementGroupId;
-                p.DeploymentName = Name!;
-                p.Body = body;
-            }).SendAsync();
-        }
-        catch (Exception ex) when (DeploymentErrorPublisher.IsLroFailure(ex) && DeploymentErrorPublisher.LastResponse(Publisher) is { } failed)
-        {
-            return failed;
-        }
-    }
+            p.GroupId = ManagementGroupId;
+            p.DeploymentName = Name!;
+            p.Body = body;
+        }).SendAsyncPollLocation();
 
     private string DefaultDeploymentName() => IsCli ? CliDefaultDeploymentName() : PsDefaultDeploymentName();
 

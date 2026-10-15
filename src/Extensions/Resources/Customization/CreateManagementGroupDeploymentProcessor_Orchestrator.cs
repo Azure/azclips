@@ -125,12 +125,12 @@ public class CreateManagementGroupDeploymentProcessor_Orchestrator : ManagementG
     // Both legacy clients validate before creating; a validation error stops the deployment.
     private async Task ValidateAsync()
     {
-        using HttpResponseMessage response = await CreateExtendedProcessor<ValidateManagementGroupDeploymentProcessor_Orchestrator.ValidationResultProcessor>(p =>
+        using HttpResponseMessage response = await CreateExtendedProcessor<ValidateAtManagementGroupScopeDeploymentsProcessor>(p =>
         {
             p.GroupId = ManagementGroupId;
             p.DeploymentName = Name!;
             p.Body = _deployment;
-        }).SendAsync();
+        }).SendAsyncAllowBadRequest();
         string? raw = response.Content is null ? null : await response.Content.ReadAsStringAsync();
         if (!string.IsNullOrWhiteSpace(raw) && JsonSerializer.Deserialize<DeploymentValidateResult>(raw, JsonOptions)?.Error is { } error)
         {

@@ -4,38 +4,13 @@
 using System.Management.Automation;
 using System.Reflection;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Cmdlets.Tests;
 
 public class ManagementGroupDeploymentCmdletTests
 {
-    [Theory]
-    [InlineData("/providers/Microsoft.Resources/deployments/deployment", "deployment")]
-    [InlineData("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/deployment", "deployment")]
-    [InlineData("/providers/Microsoft.Resources/deployments/parent/child/nested", "parent/nested")]
-    [InlineData("/providers/Microsoft.Resources/deployments", "")]
-    [InlineData("deployment", "")]
-    public void GetDeploymentName_MatchesLegacyResourceIdUtility(string id, string expected)
-    {
-        MethodInfo method = typeof(ManagementGroupDeploymentCmdletBase).GetMethod("GetDeploymentName", BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        Assert.Equal(expected, method.Invoke(null, [id]));
-    }
-
-    [Theory]
-    [InlineData("/providers/Microsoft.Management/managementGroups/mg1/providers/Microsoft.Resources/deployments/deployment", "mg1")]
-    [InlineData("/PROVIDERS/MICROSOFT.MANAGEMENT/MANAGEMENTGROUPS/mg1", "mg1")]
-    [InlineData("/providers/Microsoft.Management/managementGroups/", null)]
-    [InlineData("/providers/Microsoft.Resources/deployments/deployment", null)]
-    [InlineData("/subscriptions/sub/providers/Microsoft.Management/managementGroups/mg1", null)]
-    public void GetManagementGroupId_MatchesLegacyResourceIdUtility(string id, string? expected)
-    {
-        MethodInfo method = typeof(ManagementGroupDeploymentCmdletBase).GetMethod("GetManagementGroupId", BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        Assert.Equal(expected, method.Invoke(null, [id]));
-    }
-
     [Theory]
     [InlineData(typeof(NewManagementGroupDeploymentCmdlet), ParameterAttribute.AllParameterSets, int.MinValue)]
     [InlineData(typeof(TestManagementGroupDeploymentCmdlet), ParameterAttribute.AllParameterSets, int.MinValue)]
@@ -54,17 +29,10 @@ public class ManagementGroupDeploymentCmdletTests
     [InlineData(typeof(TestManagementGroupDeploymentCmdlet), typeof(PSResourceManagerError))]
     [InlineData(typeof(StopManagementGroupDeploymentCmdlet), typeof(bool))]
     [InlineData(typeof(RemoveManagementGroupDeploymentCmdlet), typeof(bool))]
+    [InlineData(typeof(GetManagementGroupDeploymentCmdlet), typeof(DeploymentExtended))]
     public void Cmdlets_DeclareLegacyOutputTypes(Type cmdlet, Type expected)
     {
         Assert.Equal(expected, Assert.Single(Assert.Single(cmdlet.GetCustomAttributes<OutputTypeAttribute>()).Type).Type);
-    }
-
-    [Fact]
-    public void GetCmdlet_DeclaresPSDeploymentOutputByName()
-    {
-        Assert.Equal(
-            typeof(PSDeployment).FullName,
-            Assert.Single(Assert.Single(typeof(GetManagementGroupDeploymentCmdlet).GetCustomAttributes<OutputTypeAttribute>()).Type).Name);
     }
 
     [Theory]

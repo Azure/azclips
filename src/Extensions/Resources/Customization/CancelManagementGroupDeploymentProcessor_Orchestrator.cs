@@ -1,46 +1,20 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
-using Microsoft.Azure.Azclips.Extensions.Resources.Models;
-
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-/// <summary>
-/// <c>az deployment mg cancel</c> / <c>Stop-AzManagementGroupDeployment</c>: generated cancel with the legacy error text.
-/// PS keeps the legacy pre-check and cancels only a deployment that is not Succeeded/Failed.
-/// </summary>
+/// <summary>Adds the legacy <c>-Id</c> input (a deployment resource id) to the cancel-deployment processor.</summary>
 public class CancelManagementGroupDeploymentProcessor_Orchestrator : CancelAtManagementGroupScopeDeploymentsProcessor
 {
-    protected override void AfterInit() => Publisher = DeploymentErrorPublisher.Wrap(Publisher, powerShell: PSDeployment.ForPowerShell);
+    public string? Id { get; set; }
 
-    internal override async Task<HttpResponseMessage> SendAsync()
+    protected override async Task BeforeProcessAsync()
     {
-        if (PSDeployment.ForPowerShell)
+        if (Id is not null)
         {
-            await EnsureRunningAsync();
+            (GroupId, DeploymentName) = DeploymentIdResolver.ParseManagementGroup(Id);
         }
 
-        return await base.SendAsync();
-    }
-
-    private async Task EnsureRunningAsync()
-    {
-        if (string.IsNullOrEmpty(DeploymentName))
-        {
-            throw new ArgumentException($"There is no deployment called '{DeploymentName}' to cancel");
-        }
-
-        GetAtManagementGroupScopeDeploymentsProcessor get = CreateExtendedProcessor<GetAtManagementGroupScopeDeploymentsProcessor>(p =>
-        {
-            p.GroupId = GroupId;
-            p.DeploymentName = DeploymentName;
-        });
-        using HttpResponseMessage response = await get.SendAsync();
-        var state = JsonSerializer.Deserialize<DeploymentExtended>(await response.Content.ReadAsStringAsync(), JsonOptions)?.Properties?.ProvisioningState;
-        if (string.Equals(state, "Succeeded", StringComparison.OrdinalIgnoreCase) || string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException($"There is no running deployment called '{DeploymentName}' at management group '{GroupId}'.");
-        }
+        await base.BeforeProcessAsync();
     }
 }

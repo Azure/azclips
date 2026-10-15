@@ -135,7 +135,7 @@ public class ManagementGroupDeploymentScenarioTests
         Assert.IsType<PSDeployment>(Assert.Single(
             host.RunPowerShell("New-AzManagementGroupDeployment", createBody)));
 
-        Assert.IsType<PSDeployment>(Assert.Single(
+        Assert.IsType<DeploymentExtended>(Assert.Single(
             host.RunPowerShell(
                 "Get-AzManagementGroupDeployment_Get",
                 new Dictionary<string, object> { ["ManagementGroupId"] = ManagementGroupId, ["Name"] = DeploymentName })));

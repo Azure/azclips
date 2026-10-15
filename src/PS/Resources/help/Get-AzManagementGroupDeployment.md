@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/12/2026
+ms.date: 10/15/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzManagementGroupDeployment
 ---
@@ -195,7 +195,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 Returns one or more management-group deployment objects.
 

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10/12/2026
+ms.date: 10/15/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzManagementGroupDeployment
 ---
@@ -34,7 +34,7 @@ Remove-AzManagementGroupDeployment -Id <string> [-PassThru] [-AsJob] [-Pre] [-Pr
 ### RemoveByInputObject
 
 ```
-Remove-AzManagementGroupDeployment -InputObject <PSDeployment> [-AsJob] [-PassThru]
+Remove-AzManagementGroupDeployment -InputObject <DeploymentExtended> [-AsJob] [-PassThru]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -157,7 +157,7 @@ A deployment object returned by `Get-AzManagementGroupDeployment`.
 The deployment object.
 
 ```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -311,7 +311,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 Accepts a management-group deployment object from the pipeline.
 

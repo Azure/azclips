@@ -95,6 +95,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Equal(
             [
                 "Get-AzManagementGroupDeployment_Get",
+                "Get-AzManagementGroupDeployment_GetById",
                 "Get-AzManagementGroupDeployment_List",
                 "New-AzManagementGroupDeployment",
                 "Remove-AzManagementGroupDeployment",
@@ -124,10 +125,14 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             Assert.Equal("management-group-id", metadata.ParameterAliases["m"]);
             Assert.Equal(command == "deployment mg create", metadata.Parameters.ContainsKey("mode"));
         }
+        // -Id commands take the management group from the id instead.
+        string[] byIdCommands = ["Get-AzManagementGroupDeployment_GetById", "Stop-AzManagementGroupDeployment", "Remove-AzManagementGroupDeployment"];
         foreach (string command in index.GetCommandKeys(ClientType.PowerShell).Where(key => key.Contains("ManagementGroupDeployment", StringComparison.Ordinal)))
         {
-            Assert.True(index.GetCommandMetadata(command, ClientType.PowerShell).Parameters["ManagementGroupId"].IsRequired);
-            Assert.False(index.GetCommandMetadata(command, ClientType.PowerShell).Parameters.ContainsKey("Mode"));
+            var parameters = index.GetCommandMetadata(command, ClientType.PowerShell).Parameters;
+            Assert.Equal(!byIdCommands.Contains(command), parameters.TryGetValue("ManagementGroupId", out var mg) && mg.IsRequired);
+            Assert.Equal(byIdCommands.Contains(command), parameters.ContainsKey("Id"));
+            Assert.False(parameters.ContainsKey("Mode"));
         }
         Assert.Equal(["Incremental", "Complete"], create.Parameters["mode"].AllowedValues);
 
@@ -634,7 +639,8 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     public async Task PsTest_WritesValidationErrorsInsteadOfThrowing(HttpStatusCode status)
     {
         var output = new FakeOutputHandler();
-        var processor = new TestManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template() };
+        UseClient(ClientType.PowerShell);
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template() };
         Init(processor, Pipeline([], _ => Json(ValidationError, status)), output);
 
         await processor.ProcessAsync();
@@ -650,7 +656,8 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     public async Task PsTest_SuccessWritesNothingAndWarnsDiagnosticsUnlessSuppressed(bool suppress, int warnings)
     {
         var output = new FakeOutputHandler();
-        var processor = new TestManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template(), SuppressDiagnostics = suppress };
+        UseClient(ClientType.PowerShell);
+        var processor = new ValidateManagementGroupDeploymentProcessor_Orchestrator { ManagementGroupId = Mg, Name = "mg-test", Location = "eastus", TemplateObject = Template(), SuppressDiagnostics = suppress };
         Init(processor, Pipeline([], _ => Json("""{ "properties": { "diagnostics": [ { "level": "Warning", "code": "W1", "message": "Watch out.", "target": "r1" } ] } }""")), output);
 
         await processor.ProcessAsync();
@@ -663,11 +670,11 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     // ── cancel / Stop, delete / Remove ──
 
     [Fact]
-    public async Task CliCancel_PostsCancelWithoutPrecheck()
+    public async Task Cancel_PostsCancelWithoutPrecheck()
     {
         var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
         var output = new FakeOutputHandler();
-        var processor = new CancelManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test" };
+        var processor = new CancelAtManagementGroupScopeDeploymentsProcessor { GroupId = Mg, DeploymentName = "mg-test" };
         Init(processor, Pipeline(requests, _ => new HttpResponseMessage(HttpStatusCode.NoContent)), output);
 
         await processor.ProcessAsync();
@@ -677,34 +684,10 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
     }
 
     [Theory]
-    [InlineData("Succeeded", false)]
-    [InlineData("Failed", false)]
-    [InlineData("Running", true)]
-    public async Task PsStop_CancelsOnlyRunningDeployment(string state, bool cancels)
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        UseClient(ClientType.PowerShell);
-        var processor = new CancelManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test" };
-        Init(processor, Pipeline(requests, r => r.Method == HttpMethod.Get ? Json(Deployment(state)) : new HttpResponseMessage(HttpStatusCode.NoContent)), new FakeOutputHandler());
-
-        if (cancels)
-        {
-            await processor.ProcessAsync();
-        }
-        else
-        {
-            ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-            Assert.Equal("There is no running deployment called 'mg-test' at management group 'test-mg'.", error.Message);
-        }
-
-        Assert.Equal(cancels ? [HttpMethod.Get, HttpMethod.Post] : [HttpMethod.Get], requests.Select(r => r.Method));
-    }
-
-    [Theory]
     [InlineData("Azure-AsyncOperation")]
     [InlineData("Operation-Location")]
     [InlineData("Location")]
-    public async Task CliDelete_WaitsOnAsyncHeaderWithoutWritingOperationPayload(string headerName)
+    public async Task Delete_WaitsOnAsyncHeaderWithoutWritingOperationPayload(string headerName)
     {
         List<string> requests = [];
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -715,7 +698,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
                 : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
         var output = new FakeOutputHandler();
-        var processor = new DeleteManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test" };
+        var processor = new DeleteAtManagementGroupScopeDeploymentsProcessor { GroupId = Mg, DeploymentName = "mg-test" };
         Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
@@ -725,47 +708,7 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
         Assert.Empty(output.WrittenValues);
     }
 
-    [Theory]
-    [InlineData(HttpStatusCode.NotFound, false)]
-    [InlineData(HttpStatusCode.NoContent, true)]
-    public async Task PsRemove_ChecksExistenceBeforeDeleting(HttpStatusCode headStatus, bool deletes)
-    {
-        var requests = new List<(HttpMethod Method, string Uri, string? Body)>();
-        UseClient(ClientType.PowerShell);
-        var processor = new DeleteManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "mg-test" };
-        Init(processor, Pipeline(requests, r => new HttpResponseMessage(r.Method == HttpMethod.Head ? headStatus : HttpStatusCode.NoContent)), new FakeOutputHandler());
-
-        if (deletes)
-        {
-            await processor.ProcessAsync();
-        }
-        else
-        {
-            ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(processor.ProcessAsync);
-            Assert.Equal("Deployment 'mg-test' doesn't exist at management group 'test-mg'.", error.Message);
-        }
-
-        Assert.Equal(deletes ? [HttpMethod.Head, HttpMethod.Delete] : [HttpMethod.Head], requests.Select(r => r.Method));
-    }
-
     // ── list / show / export / wait ──
-
-    [Fact]
-    public async Task PsList_WritesEveryPageAsPSDeployment()
-    {
-        var output = new FakeOutputHandler();
-        UseClient(ClientType.PowerShell);
-        var processor = new ListManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg };
-        Init(processor, Pipeline([], r => r.RequestUri!.Query.Contains("page=2")
-            ? Json($$"""{ "value": [ {{Deployment("Failed").Replace("mg-test", "two")}} ] }""")
-            : Json($$"""{ "value": [ {{Deployment("Succeeded")}} ], "nextLink": "{{Arm}}{{ApiVersion}}&page=2" }""")), output);
-
-        await processor.ProcessAsync();
-
-        List<PSDeployment> deployments = Assert.IsType<List<PSDeployment>>(Assert.Single(output.WrittenValues));
-        Assert.Equal(["mg-test", "two"], deployments.Select(d => d.DeploymentName));
-        Assert.All(deployments, d => Assert.Equal(Mg, d.ManagementGroupId));
-    }
 
     [Fact]
     public void PSDeployment_MapsLegacyShape()
@@ -894,35 +837,6 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
 
         string nl = Environment.NewLine;
         Assert.Equal($"{nl}InvalidTemplate - The template is invalid.{nl}InvalidParameter - Bad parameter.", error.Message);
-        Assert.Empty(FailureMessages(publisher));
-    }
-
-    [Fact]
-    public async Task CliShow_RewritesHttpFailureToODataV4Text()
-    {
-        var publisher = new FakeEventPublisher();
-        var processor = new GetManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "missing" };
-        Init(processor, Pipeline([], _ => Json(NotFound, HttpStatusCode.NotFound)), new FakeOutputHandler(), publisher);
-
-        await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
-
-        Assert.Equal(
-            "(DeploymentNotFound) Deployment 'missing' could not be found.\nCode: DeploymentNotFound\nMessage: Deployment 'missing' could not be found.",
-            Assert.Single(FailureMessages(publisher)));
-    }
-
-    [Fact]
-    public async Task PsGet_ThrowsLegacyCloudExceptionTextOnce()
-    {
-        var publisher = new FakeEventPublisher();
-        UseClient(ClientType.PowerShell);
-        var processor = new GetManagementGroupDeploymentProcessor_Orchestrator { GroupId = Mg, DeploymentName = "missing" };
-        Init(processor, Pipeline([], _ => WithHeaders(Json(NotFound, HttpStatusCode.NotFound), ("x-ms-request-id", "req-1"))), new FakeOutputHandler(), publisher);
-
-        HttpRequestException error = await Assert.ThrowsAsync<HttpRequestException>(processor.ProcessAsync);
-
-        string nl = Environment.NewLine;
-        Assert.Equal($"Deployment 'missing' could not be found.{nl}StatusCode: 404{nl}ReasonPhrase: Not Found{nl}OperationID : req-1", error.Message);
         Assert.Empty(FailureMessages(publisher));
     }
 
@@ -1079,6 +993,38 @@ public sealed class ManagementGroupDeploymentTests : IDisposable
             response.Headers.TryAddWithoutValidation(name, value);
         }
         return response;
+    }
+
+    [Theory]
+    [InlineData(typeof(GetManagementGroupDeploymentProcessor_Orchestrator), "GET")]
+    [InlineData(typeof(CancelManagementGroupDeploymentProcessor_Orchestrator), "POST")]
+    [InlineData(typeof(DeleteManagementGroupDeploymentProcessor_Orchestrator), "DELETE")]
+    public async Task ById_SendsRequestForParsedManagementGroupAndName(Type type, string method)
+    {
+        var (pipeline, output, sent) = DeploymentProcessorTestKit.Fake(_ => DeploymentProcessorTestKit.Status(HttpStatusCode.NoContent));
+        var processor = (IProcessor)Activator.CreateInstance(type)!;
+        DeploymentProcessorTestKit.Configure(processor, pipeline, output, p =>
+            type.GetProperty("Id")!.SetValue(p, $"/providers/Microsoft.Management/managementGroups/{Mg}/providers/Microsoft.Resources/deployments/dep/"));
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(method, sent[0].Method.Method);
+        Assert.StartsWith($"{Arm}/dep", sent[0].Uri);
+    }
+
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("not-a-resource-id")]
+    [InlineData("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep")]
+    [InlineData("/providers/Microsoft.Resources/deployments/dep")]
+    [InlineData("/providers/Microsoft.Management/managementGroups/test-mg/providers/Microsoft.Compute/virtualMachines/vm1")]
+    public async Task ById_MalformedId_ThrowsWithoutRequest(string id)
+    {
+        var (pipeline, output, sent) = DeploymentProcessorTestKit.Fake(_ => DeploymentProcessorTestKit.Status(HttpStatusCode.NoContent));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DeploymentProcessorTestKit.Configure(new DeleteManagementGroupDeploymentProcessor_Orchestrator(), pipeline, output, p => p.Id = id).ProcessAsync());
+        Assert.Empty(sent);
     }
 
     private static JsonObject? ToCliResult(string rawBody, string[]? excludeChangeTypes) =>

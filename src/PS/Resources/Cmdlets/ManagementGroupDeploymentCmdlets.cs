@@ -178,26 +178,6 @@ public abstract class ManagementGroupDeploymentCmdletBase : PSCmdlet
     protected override void EndProcessing() => _cts.Dispose();
 
     protected override void StopProcessing() => _cts.Cancel();
-
-    // Legacy ResourceIdUtility.GetManagementGroupId: the segment after "managementGroups", only for a management group Id.
-    protected static string? GetManagementGroupId(string id)
-    {
-        if (!id.StartsWith("/providers/Microsoft.Management/managementGroups/", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-        var segments = id.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var index = Array.FindLastIndex(segments, s => s.Equals("managementGroups", StringComparison.OrdinalIgnoreCase));
-        return index + 1 < segments.Length ? segments[index + 1] : null;
-    }
-
-    // Legacy ResourceIdUtility.GetDeploymentName: resource names after the last "providers/{namespace}" segment.
-    protected static string GetDeploymentName(string id)
-    {
-        var segments = id.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var last = Array.FindLastIndex(segments, s => s.Equals("providers", StringComparison.OrdinalIgnoreCase));
-        return last < 0 ? "" : string.Join("/", segments.Skip(last + 2).Where((_, i) => i % 2 != 0));
-    }
 }
 
 /// <summary>
@@ -332,7 +312,7 @@ public abstract class ManagementGroupDeploymentTemplateCmdletBase : ManagementGr
             : this is NewManagementGroupDeploymentCmdlet && QueryString.StartsWith('?') ? TemplateUri + QueryString
             : TemplateUri + "?" + QueryString;
         foreach ((string name, string? type, bool required, int? minLength, int? maxLength) in
-            TestManagementGroupDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
+            ValidateManagementGroupDeploymentProcessor_Orchestrator.GetPowerShellTemplateParameters(
                 NormalizeJsonInput(TemplateObject), ResolvePath(TemplateFile), templateUri, TemplateSpecId, ReadTemplateSpec,
                 NormalizeJsonInput(TemplateParameterObject), ResolvePath(TemplateParameterFile), TemplateParameterUri))
         {
@@ -605,7 +585,7 @@ public class TestManagementGroupDeploymentCmdlet : ManagementGroupDeploymentTemp
 }
 
 [Cmdlet(VerbsCommon.Get, "AzManagementGroupDeployment", DefaultParameterSetName = "GetByDeploymentName")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.PSDeployment")]
+[OutputType(typeof(DeploymentExtended))]
 public class GetManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdletBase
 {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "GetByDeploymentName", HelpMessage = "The management group id.")]
@@ -626,14 +606,9 @@ public class GetManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdle
 
     protected override void ProcessRecord()
     {
-        var parameters = GetBoundParameters();
-        if (parameters.Remove(nameof(Id)))
-        {
-            Name = GetDeploymentName(Id!);
-            if (!string.IsNullOrEmpty(Name)) parameters[nameof(Name)] = Name;
-            if (GetManagementGroupId(Id!) is { } managementGroupId) parameters[nameof(ManagementGroupId)] = managementGroupId;
-        }
-        Invoke(string.IsNullOrEmpty(Name) ? "Get-AzManagementGroupDeployment_List" : "Get-AzManagementGroupDeployment_Get", parameters);
+        Invoke(Id is not null ? "Get-AzManagementGroupDeployment_GetById"
+            : string.IsNullOrEmpty(Name) ? "Get-AzManagementGroupDeployment_List"
+            : "Get-AzManagementGroupDeployment_Get", GetBoundParameters());
     }
 }
 
@@ -656,7 +631,7 @@ public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdl
     public string? Id { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
-    public PSDeployment? InputObject { get; set; }
+    public DeploymentExtended? InputObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public SwitchParameter PassThru { get; set; }
@@ -664,18 +639,9 @@ public class StopManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCmdl
     protected override void ProcessRecord()
     {
         var parameters = GetBoundParameters();
-        parameters.Remove(nameof(Id));
         parameters.Remove(nameof(InputObject));
         parameters.Remove(nameof(PassThru));
-        parameters[nameof(Name)] = !string.IsNullOrEmpty(Name) ? Name
-            : !string.IsNullOrEmpty(Id) ? GetDeploymentName(Id)
-            : InputObject?.DeploymentName ?? "";
-        if ((!string.IsNullOrEmpty(ManagementGroupId) ? ManagementGroupId
-            : !string.IsNullOrEmpty(Id) ? GetManagementGroupId(Id)
-            : InputObject?.ManagementGroupId) is { } managementGroupId)
-        {
-            parameters[nameof(ManagementGroupId)] = managementGroupId;
-        }
+        if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
 
         // Legacy ConfirmAction targets -Name only, and -PassThru writes true even when declined.
         if (ShouldProcess(Name, "Cancelling active deployment ..."))
@@ -709,7 +675,7 @@ public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCm
     public string? Id { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = "RemoveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
-    public PSDeployment? InputObject { get; set; }
+    public DeploymentExtended? InputObject { get; set; }
 
     [Parameter(Mandatory = false, HelpMessage = "Run cmdlet in the background")]
     public SwitchParameter AsJob { get; set; }
@@ -720,19 +686,10 @@ public class RemoveManagementGroupDeploymentCmdlet : ManagementGroupDeploymentCm
     protected override void ProcessRecord()
     {
         var parameters = GetBoundParameters();
-        parameters.Remove(nameof(Id));
         parameters.Remove(nameof(InputObject));
         parameters.Remove(nameof(PassThru));
         parameters.Remove(nameof(AsJob));
-        parameters[nameof(Name)] = !string.IsNullOrEmpty(Name) ? Name
-            : !string.IsNullOrEmpty(Id) ? GetDeploymentName(Id)
-            : InputObject?.DeploymentName ?? "";
-        if ((!string.IsNullOrEmpty(ManagementGroupId) ? ManagementGroupId
-            : !string.IsNullOrEmpty(Id) ? GetManagementGroupId(Id)
-            : InputObject?.ManagementGroupId) is { } managementGroupId)
-        {
-            parameters[nameof(ManagementGroupId)] = managementGroupId;
-        }
+        if (InputObject?.Id is { } inputId) parameters[nameof(Id)] = inputId;
 
         // Legacy ConfirmAction targets -Name only; -PassThru writes true only when the delete ran.
         if (ShouldProcess(Name, "Deleting the deployment ..."))

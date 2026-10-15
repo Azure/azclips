@@ -649,6 +649,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
         };
 
+        // Stop/Remove: either -Id or -ManagementGroupId and -Name.
+        private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentNameOrId_PS() => new()
+        {
+            ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+        };
+
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentName_CLI() => new()
         {
             ["management-group-id"] = new("GroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -666,18 +674,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["WhatIfResultFormat"]      = new("WhatIfResultFormat", "WhatIfResultFormat", typeof(string), "The What-If result format. Applicable when the -WhatIf or -Confirm switch is set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["WhatIfExcludeChangeType"] = new("WhatIfExcludeChangeTypes", "WhatIfExcludeChangeType", typeof(string[]), "Comma-separated resource change types to be excluded from What-If results. Applicable when the -WhatIf or -Confirm switch is set.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
-        private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.TestManagementGroupDeploymentProcessor_Orchestrator),
+        private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_PS())
             {
                 ["SuppressDiagnostics"] = new("SuppressDiagnostics", "SuppressDiagnostics", typeof(bool), "When set, validation diagnostics will not be shown for valid deployments.", IsRequired: false, Aliases: [], AllowedValues: []),
             });
         private static readonly CommandMetadata s_getManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_Get", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
+        private static readonly CommandMetadata s_getManagementGroupDeploymentById_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_GetById", typeof(Processors.GetManagementGroupDeploymentProcessor_Orchestrator), new()
+        {
+            ["Id"] = new("Id", "Id", typeof(string), "The fully qualified resource Id of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+        });
         private static readonly CommandMetadata s_listManagementGroupDeployment_PS = ManagementGroupCommand("Get-AzManagementGroupDeployment_List", typeof(Processors.ListManagementGroupDeploymentProcessor_Orchestrator), new()
         {
             ["ManagementGroupId"] = new("GroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
         });
-        private static readonly CommandMetadata s_stopManagementGroupDeployment_PS = ManagementGroupCommand("Stop-AzManagementGroupDeployment", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
-        private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = ManagementGroupCommand("Remove-AzManagementGroupDeployment", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_PS());
+        private static readonly CommandMetadata s_stopManagementGroupDeployment_PS = ManagementGroupCommand("Stop-AzManagementGroupDeployment", typeof(Processors.CancelManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentNameOrId_PS());
+        private static readonly CommandMetadata s_removeManagementGroupDeployment_PS = ManagementGroupCommand("Remove-AzManagementGroupDeployment", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentNameOrId_PS());
 
         private static readonly ParameterMetadata s_managementGroupNoPrompt_CLI = new("NoPrompt", "no-prompt", typeof(bool), "The option to disable the prompt of missing parameters for ARM template. When the value is true, the prompt requiring users to provide missing parameter will be ignored. The default value is false.", IsRequired: false, Aliases: [], AllowedValues: []);
 
@@ -870,6 +882,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["New-AzManagementGroupDeployment"] = s_newManagementGroupDeployment_PS,
             ["Test-AzManagementGroupDeployment"] = s_testManagementGroupDeployment_PS,
             ["Get-AzManagementGroupDeployment_Get"] = s_getManagementGroupDeployment_PS,
+            ["Get-AzManagementGroupDeployment_GetById"] = s_getManagementGroupDeploymentById_PS,
             ["Get-AzManagementGroupDeployment_List"] = s_listManagementGroupDeployment_PS,
             ["Stop-AzManagementGroupDeployment"] = s_stopManagementGroupDeployment_PS,
             ["Remove-AzManagementGroupDeployment"] = s_removeManagementGroupDeployment_PS,
