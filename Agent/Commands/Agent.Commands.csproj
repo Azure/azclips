@@ -1,13 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <EnableNETAnalyzers>true</EnableNETAnalyzers>
-        <AnalysisLevel>latest</AnalysisLevel>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-
         <AssemblyName>Microsoft.Azure.Azclips.Extensions.Agent</AssemblyName>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <RootNamespace>Microsoft.Azure.Azclips.Extensions.Agent</RootNamespace>

@@ -1,17 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <AssemblyName>azclips-agent</AssemblyName>
     <RootNamespace>Core.Agent</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>latest</AnalysisLevel>
-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;GHCP001</WarningsNotAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);GHCP001</WarningsNotAsErrors>
     <ExtName>Core.Agent</ExtName>
     <!-- Compile-time marker for AgentInstallLayout. Packaging scripts publish
          with /p:IsPackagedBuild=true; dev `dotnet build` / `dotnet run` / F5
