@@ -28,6 +28,7 @@ public static class TelemetryTags
     public const string Parameter = "parameter";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
+    public const string EntraObjectId = "entraObjectId";
     public const string AuthType = "authType";
     public const string CloudName = "cloudName";
     public const string Mode = "mode";
@@ -54,4 +55,14 @@ public static class TelemetryTags
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string AgentModelSource = PropertyTagPrefix + "agent.modelSource";
     public const string ProcessName = PropertyTagPrefix + "process";
+    /// <summary>ok, cancelled, error, or unknown — the terminal Agent.Session outcome.</summary>
+    public const string RecoveryOutcome = PropertyTagPrefix + "recovery.outcome";
+    /// <summary>
+    /// Why recovery ended in error; absent otherwise. A closed classification only — see
+    /// <c>RecoveryFailure</c> for the value list. Never the message, which can echo subscription
+    /// ids, resource names, or the user's own input.
+    /// </summary>
+    public const string RecoveryFailureReason = PropertyTagPrefix + "recovery.failureReason";
+    /// <summary>Why recovery did not run, on CLI.Activity.AiRecoverySkipped.</summary>
+    public const string RecoverySkipReason = PropertyTagPrefix + "recovery.skipReason";
 }

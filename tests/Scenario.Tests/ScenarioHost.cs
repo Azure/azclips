@@ -15,6 +15,11 @@ namespace Scenario.Tests;
 /// <summary>The extension a scenario drives: its short name, index assembly, and CLI leaves.</summary>
 internal sealed record ExtensionUnderTest(string Name, string PackageId, System.Reflection.Assembly Assembly, string Verb, string[] Leaves)
 {
+    public static readonly ExtensionUnderTest KeyVault = new(
+        "KeyVault", "Microsoft.Azure.Azclips.Extensions.KeyVault",
+        typeof(Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex).Assembly,
+        "keyvault", ["secret set", "secret show", "secret list", "secret list-versions", "secret set-attributes", "secret delete"]);
+
     public static readonly ExtensionUnderTest Resources = new(
         "Resources",
         "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -60,8 +65,11 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Network",
         typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
         "network",
-        ["vnet create", "vnet show", "vnet list", "vnet delete",
-         "public-ip create", "public-ip show", "public-ip list", "public-ip delete"]);
+        [
+            "vnet create", "vnet show", "vnet list", "vnet delete",
+            "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
+            "public-ip create", "public-ip show", "public-ip list", "public-ip delete"
+        ]);
 }
 
 /// <summary>
@@ -92,6 +100,11 @@ internal sealed class ScenarioHost : IDisposable
     private readonly ExtensionUnderTest[] _extensions;
     private readonly List<object> _outputs = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
+
+    private sealed class BackendHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
 
     /// <param name="useLiveAuth">
     /// Record mode needs a real token, so it keeps the host's real profile/auth/config and the
@@ -126,7 +139,7 @@ internal sealed class ScenarioHost : IDisposable
             }
             if (backendHandler is not null)
             {
-                services.AddSingleton(new HttpClient(backendHandler));
+                services.AddSingleton<IHttpClientFactory>(new BackendHttpClientFactory(backendHandler));
             }
 
             // Each surface binds arguments with its real provider; that binding difference

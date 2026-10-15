@@ -162,19 +162,19 @@ public class GroupDeleteTests
             new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent)),
             new FakeOutputHandler());
 
-        InvalidOperationException missing = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException missing = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
         Assert.Contains("exactly one", missing.Message);
 
         processor.ResourceGroupName = "test-rg";
         processor.Id = "/subscriptions/sub/resourceGroups/test-rg";
-        InvalidOperationException ambiguous = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException ambiguous = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
         Assert.Contains("exactly one", ambiguous.Message);
 
         processor.ResourceGroupName = string.Empty;
         processor.Id = "/subscriptions/sub/providers/Microsoft.Resources/resourceGroups/test-rg";
-        InvalidOperationException invalidId = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidInputException invalidId = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
         Assert.Contains("Invalid resource group id", invalidId.Message);
     }

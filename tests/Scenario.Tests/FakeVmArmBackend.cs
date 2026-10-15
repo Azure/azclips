@@ -138,6 +138,14 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 properties: new { provisioningState = "Succeeded", publicIPAllocationMethod = "Static", ipAddress = "203.0.113.10" }));
         }
 
+        if (path.Contains("/subnets/", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(TrackedResource(
+                request, path, name, "Microsoft.Network/virtualNetworks/subnets",
+                sku: null,
+                properties: new { provisioningState = "Succeeded" }));
+        }
+
         if (path.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Json(new

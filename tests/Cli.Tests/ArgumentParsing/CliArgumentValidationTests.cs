@@ -51,7 +51,7 @@ public class CliArgumentValidationTests
             ["long-flag"] = new List<List<string>>(),
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
 
         Assert.Contains("'long-flag'", ex.Message);
         Assert.DoesNotContain("LongFlagProperty", ex.Message);
@@ -72,10 +72,126 @@ public class CliArgumentValidationTests
             ["numeric-flag"] = new List<List<string>> { new() { "not-an-int" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases: null));
 
         Assert.Contains("'numeric-flag'", ex.Message);
         Assert.DoesNotContain("NumericFlagProperty", ex.Message);
+    }
+
+    public static IEnumerable<object[]> EmptyCollectionOccurrences()
+    {
+        Type[] types = [typeof(List<string>), typeof(string[]), typeof(List<List<string>>), typeof(string[][])];
+        string[][] tokenSets =
+        [
+            ["--items"],
+            ["--items", "--switch"],
+            ["--items", "first", "--items"],
+            ["--items", "--items", "second"],
+            ["--items", "first", "--items", "--items", "second"],
+        ];
+
+        foreach (Type type in types)
+        {
+            foreach (string[] tokens in tokenSets)
+            {
+                yield return [type, tokens];
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(EmptyCollectionOccurrences))]
+    public void ParseArguments_EmptyCollectionOccurrence_ThrowsBeforeBinding(Type type, string[] tokens)
+    {
+        var provider = CreateProvider();
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["items"] = new("ItemsProperty", "items", type, "Items.", false, [], []),
+            ["switch"] = new("Switch", "switch", typeof(bool), "Switch.", false, [], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, null));
+
+        Assert.Contains("Parameter 'items' requires a value.", ex.Message);
+        Assert.DoesNotContain("ItemsProperty", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(typeof(List<string>))]
+    [InlineData(typeof(string[]))]
+    [InlineData(typeof(List<List<string>>))]
+    [InlineData(typeof(string[][]))]
+    public void ParseArguments_EmptyCollectionSource_Throws(Type type)
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["items"] = new("Items", "items", type, "Items.", false, [], []),
+        };
+        var args = new Dictionary<string, object> { ["items"] = new List<List<string>>() };
+
+        Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, parameters, null));
+    }
+
+    [Fact]
+    public void ParseArguments_EmptyCollectionAlias_ErrorUsesTypedAlias()
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["items"] = new("ItemsProperty", "items", typeof(List<string>), "Items.", false, [], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-i"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(
+            args, parameters, new Dictionary<string, string> { ["i"] = "items" }));
+
+        Assert.Contains("Parameter 'i' requires a value.", ex.Message);
+        Assert.DoesNotContain("ItemsProperty", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(typeof(List<string>))]
+    [InlineData(typeof(string[]))]
+    [InlineData(typeof(List<List<string>>))]
+    [InlineData(typeof(string[][]))]
+    public void ParseArguments_CollectionValues_PreservesOccurrencesAndEmptyString(Type type)
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["items"] = new("Items", "items", type, "Items.", false, [], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(
+            ["example", "--items", "first", "", "--items", "second"]);
+
+        var parsed = CreateProvider().ParseArguments(args, parameters, null);
+
+        Assert.IsType(type, parsed["Items"]);
+        if (parsed["Items"] is IEnumerable<IEnumerable<string>> nested)
+        {
+            Assert.Collection(nested,
+                first => Assert.Equal(["first", ""], first),
+                second => Assert.Equal(["second"], second));
+        }
+        else
+        {
+            Assert.Equal(["first", "", "second"], Assert.IsAssignableFrom<IEnumerable<string>>(parsed["Items"]));
+        }
+    }
+
+    [Fact]
+    public void ParseArguments_OmittedCollectionAndBareBoolean_RemainSupported()
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["items"] = new("Items", "items", typeof(List<string>), "Items.", false, [], []),
+            ["switch"] = new("Switch", "switch", typeof(bool), "Switch.", false, [], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "--switch"]);
+
+        var parsed = CreateProvider().ParseArguments(args, parameters, null);
+
+        Assert.DoesNotContain("Items", parsed.Keys);
+        Assert.True(Assert.IsType<bool>(parsed["Switch"]));
     }
 
     [Fact]
@@ -147,7 +263,7 @@ public class CliArgumentValidationTests
             [string.Empty] = new List<List<string>> { new() { "core.output.color" }, new() { "always" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("Unrecognized positional argument", ex.Message);
     }
@@ -173,7 +289,7 @@ public class CliArgumentValidationTests
             [string.Empty] = new List<List<string>> { new() { "core.output.color" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("positionally and by flag", ex.Message);
     }
@@ -198,7 +314,7 @@ public class CliArgumentValidationTests
             ["1"] = new List<List<string>> { new() { "always" } },
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("Unable to find parameter: 1", ex.Message);
     }
@@ -220,7 +336,7 @@ public class CliArgumentValidationTests
             ["l"] = new List<List<string>>(),
         };
 
-        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+        var ex = Assert.Throws<UsageErrorException>(() => provider.ParseArguments(args, parameters, parameterAliases));
 
         Assert.Contains("'l'", ex.Message);
         Assert.DoesNotContain("'long-flag'", ex.Message);

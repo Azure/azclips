@@ -76,7 +76,7 @@ public class ScopedLoggingService : ILoggingService
         {
             return _configurationService?.GetConfiguration<CoreOptions>().Logging.Level;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidInputException or IOException or UnauthorizedAccessException)
         {
             // Logging must not mask startup failures; unreadable configuration uses the normal warn default.
             return null;

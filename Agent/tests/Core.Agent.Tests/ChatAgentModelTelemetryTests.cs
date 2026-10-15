@@ -140,6 +140,19 @@ public class ChatAgentModelTelemetryTests
         Assert.Null(Assert.Single(capture.Stopped).Model);
     }
 
+    [Fact]
+    public async Task SessionErrorAfterSendCompletes_DoesNotBecomeLastError()
+    {
+        await using var runtime = new CopilotRuntimeStub([Idle()]);
+        await using var rig = await CreateAgentAsync(runtime);
+        await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+
+        rig.Agent.RecordTurnError(new SessionErrored("rate_limit", "late", ErrorCode: null, StatusCode: 429,
+            ProviderCallId: null, At: DateTimeOffset.UtcNow));
+
+        Assert.Null(rig.Agent.LastError);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
